@@ -26,3 +26,4 @@ jobs:
         run: |
           ruby tools/planning/check_directory_manifest.rb
           ruby tools/planning/check_codeowners.rb .
+          ruby tools/planning/check_claude_md.rb

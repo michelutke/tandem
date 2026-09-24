@@ -27,11 +27,43 @@
 
 Do not copy code, assets, strings, or protocol structures from LinkMyMac (PRD › Clean-room rule).
 
-## Commands (to be wired up in E00)
+## Commands
 
-- Android: `./gradlew :app:assembleDebug test detekt ktlintCheck`
-- macOS: `xcodebuild -scheme Tandem test` ; `swiftlint`
-- Protocol: `buf lint && buf breaking --against '.git#branch=main'`
-- Conformance: `tools/conformance/run.sh`
+Run from the repo root. `tools/planning/check_claude_md.rb --run-commands` executes every line of
+this block and fails if any exits non-zero.
 
-Every PR touching `core/*` must include or update tests and pass `tools/pcap-audit` locally.
+```sh
+(cd android && ./gradlew :app:assembleDebug test detekt ktlintCheck)
+macos/test-packages.sh
+xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet
+tools/lint/swiftlint-check.sh
+ruby tools/lint/swift-package-rules.rb
+(cd protocol && buf lint && buf breaking --against '../.git#branch=main,subdir=protocol')
+tools/protocol/check_generated.sh
+```
+
+Not wired yet: conformance vectors (`tools/conformance/run.sh`, E15-01…E15-03) and `tools/pcap-audit`
+(E15-04). Once they exist, every PR touching `core/*` must include or update tests and pass
+`tools/pcap-audit` locally.
+
+## Testing
+
+Every backlog `tdd:` entry is `"<layer>: unit_condition_expectedResult"`. Layers and harnesses:
+
+- `unit` — JUnit5 + Turbine (Android) / Swift Testing (macOS), fakes from `core/testing` / `TandemTestSupport`.
+- `conformance` — `tools/conformance` runs `protocol/vectors/` against both codecs.
+- `integration` — JVM client against the real Mac server, or in-process loopback with real TLS on localhost.
+- `instrumented` — Android emulator via Gradle Managed Devices.
+- `ui` — Compose UI tests under Robolectric / XCUITest with DEBUG-only scenario seeding.
+- `manual` — physical-device gate, procedure and sign-off in `docs/testing/manual-gates.md`.
+- `security` — mitm-lab, pcap-audit, nmap, log-audit.
+- `ci` — repo and tooling checks: lint-rule fixtures, buf, schema/manifest/link checks.
+
+Seam rule: time, dispatchers, sockets and keys are injected — `Clock`, `ElapsedRealtimeSource` and
+dispatcher qualifiers (E00-18), `ByteStream` (E00-19), `IdentityKeyStore` (E10-15) on Android;
+`Clock<Duration>` + `DateProvider` (E00-24), `ByteStreamConnection` (E00-25), `KeychainStore` (E10-16)
+on macOS. No `System.currentTimeMillis()`, `Instant.now()`, `Date()`, `Date.now` or hard-coded
+`Dispatchers.IO` in `core/*`, `feature/*`, `Tandem*` or `Feature*` main sources (enforced by the
+`InjectedClockOnly` detekt rule and the `injected_clock_only` SwiftLint rule).
+
+Robolectric rule: plain JUnit5 unless an Android framework type is unavoidable; then Robolectric (E00-20).
