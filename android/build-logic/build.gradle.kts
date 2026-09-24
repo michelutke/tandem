@@ -18,6 +18,8 @@ dependencies {
     // that GradleTestKit's `withPluginClasspath()` picks up for the convention-plugin tests below.
     implementation(libs.android.gradlePlugin)
     implementation(libs.kotlin.gradlePlugin)
+    implementation(libs.ktlint.gradlePlugin)
+    implementation(libs.detekt.gradlePlugin)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(gradleTestKit())

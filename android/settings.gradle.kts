@@ -32,4 +32,5 @@ include(
     ":feature:messaging",
     ":feature:mirror",
     ":feature:notifications",
+    ":lint:detekt-rules",
 )

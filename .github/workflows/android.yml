@@ -28,3 +28,8 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
       - name: Build and unit test
         run: ./gradlew build
+      - name: ktlint and detekt
+        run: ./gradlew ktlintCheck detekt
+      - name: Lint rule fixtures
+        working-directory: .
+        run: tools/lint/test/ktlint_wildcard_import_test.sh

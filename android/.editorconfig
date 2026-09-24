@@ -1,0 +1,8 @@
+# ktlint reads its configuration from here (E00-05).
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+ktlint_code_style = ktlint_official
+ktlint_standard_no-wildcard-imports = enabled
