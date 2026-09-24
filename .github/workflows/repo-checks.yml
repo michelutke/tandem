@@ -1,0 +1,28 @@
+name: repo-checks
+
+# Planning and tooling checks that guard the whole repo; cheap, so they run on every change.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tool self-tests
+        run: for t in tools/planning/test/*_test.rb tools/ci/test/*_test.rb; do ruby "$t"; done
+      - name: Backlog and planning docs
+        run: |
+          ruby tools/planning/sync_issues.rb validate
+          ruby tools/planning/traceability.rb --check
+          ruby tools/planning/critical_path.rb --check
+          ruby tools/planning/manual_gates.rb --check
+      - name: Repo structure
+        run: |
+          ruby tools/planning/check_directory_manifest.rb
+          ruby tools/planning/check_codeowners.rb .
