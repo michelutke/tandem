@@ -1,0 +1,29 @@
+name: generated-code
+
+# E00-10: regenerate protocol code and fail on any diff, so generated files are never hand-edited.
+on:
+  push:
+    paths: &paths
+      - "protocol/**"
+      - "tools/protocol/**"
+      - "android/core/protocol/src/main/**"
+      - "macos/Packages/TandemProtocol/Sources/**"
+      - ".github/workflows/generated-code.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+        with:
+          setup_only: true
+      - name: Check generated code matches protocol/proto
+        run: tools/protocol/check_generated.sh
+      - name: Self-test the check
+        run: tools/protocol/test/check_generated_test.sh
