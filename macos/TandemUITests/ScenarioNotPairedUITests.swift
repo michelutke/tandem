@@ -8,9 +8,8 @@ final class ScenarioNotPairedUITests: XCTestCase {
         app.launchArguments = ["-UITestScenario", "notPaired"]
         app.launch()
 
-        let statusItem = app.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 10), "menu bar extra status item never appeared")
-        statusItem.click()
+        let window = app.windows["Tandem UI Test Scenario"]
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "ui test scenario window never appeared")
 
         let label = app.staticTexts["notPairedStateLabel"]
         XCTAssertTrue(label.waitForExistence(timeout: 10), "seeded notPaired label never appeared")
