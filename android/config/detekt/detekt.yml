@@ -22,3 +22,8 @@ tandem:
       - "**/src/test/**"
       - "**/src/androidTest/**"
       - "**/src/testFixtures/**"
+  SocketOnlyInTransport:
+    active: true
+    # Only core/transport may open raw sockets (PRD module rules; E00-14).
+    excludes:
+      - "**/core/transport/**"
