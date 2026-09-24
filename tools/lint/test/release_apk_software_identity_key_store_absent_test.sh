@@ -16,7 +16,8 @@ fi
 DEX_DIR="$(mktemp -d)"
 trap 'rm -rf "$DEX_DIR"' EXIT
 unzip -oq "$APK" -d "$DEX_DIR"
-mapfile -t DEX_FILES < <(find "$DEX_DIR" -name '*.dex')
+DEX_FILES=()
+while IFS= read -r dex; do DEX_FILES+=("$dex"); done < <(find "$DEX_DIR" -name '*.dex')
 if [ "${#DEX_FILES[@]}" -eq 0 ]; then
   echo "FAIL: no .dex files inside $APK" >&2
   unzip -l "$APK" >&2
