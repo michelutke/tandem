@@ -21,7 +21,7 @@ require 'open3'
 module DirectoryManifestCheck
   ROOTS = %w[
     android macos protocol
-    tools/conformance tools/pcap-audit tools/mitm-lab tools/fuzz
+    tools/audit tools/conformance tools/pcap-audit tools/mitm-lab tools/fuzz
     tools/companion-app tools/log-audit tools/vectors
     docs/testing
   ].freeze
