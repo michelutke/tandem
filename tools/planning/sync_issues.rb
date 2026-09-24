@@ -5,7 +5,8 @@
 #
 #   ruby tools/planning/sync_issues.rb validate        # schema, refs, cycles
 #   ruby tools/planning/sync_issues.rb render          # writes docs/planning/BACKLOG.md
-#   ruby tools/planning/sync_issues.rb sync [--dry-run] # labels, milestones, issues, sub-issues, deps
+#   ruby tools/planning/sync_issues.rb sync [--dry-run] [--link-deps] # labels, milestones, issues, sub-issues
+#     --link-deps also creates native blocked-by links (slow: GitHub write rate limits)
 #
 # Idempotent: every issue body carries `<!-- tandem-id: X -->`; existing issues are updated.
 # Requires `gh` authenticated with repo scope. Repo from $TANDEM_REPO or `gh repo view`.
@@ -253,12 +254,45 @@ class GitHub
     status.success? ? out : nil
   end
 
+  # GitHub caps content-creating requests (~80/min, ~500/h); pace writes and back off on 403/429.
+  WRITE_INTERVAL = Float(ENV.fetch('TANDEM_WRITE_INTERVAL', '7.5'))
+  
   def api(method, path, body = nil, allow_fail: false)
     return '{}' if @dry && method != 'GET'
-
+  
     args = ['gh', 'api', '-X', method, path, '-H', 'Accept: application/vnd.github+json']
     args += ['--input', '-'] if body
-    run(args, input: body&.to_json, allow_fail: allow_fail)
+    return run(args, input: body&.to_json, allow_fail: allow_fail) if method == 'GET'
+  
+    write(args, body, allow_fail)
+  end
+  
+  def write(args, body, allow_fail)
+    5.times do |attempt|
+      sleep [(@last_write || 0) + WRITE_INTERVAL - Time.now.to_f, 0].max
+      out, err, status = Open3.capture3(*args, stdin_data: body&.to_json)
+      @last_write = Time.now.to_f
+      return out if status.success?
+  
+      unless err.match?(/rate limit|HTTP 403|HTTP 429|HTTP 50\d/i)
+        return nil if allow_fail
+  
+        raise "#{args.join(' ')} failed: #{err}"
+      end
+      wait = 60 * (2**attempt)
+      warn "rate limited, waiting #{wait}s: #{err.lines.first&.strip}"
+      sleep wait
+    end
+    raise "#{args.join(' ')} failed after retries"
+  end
+  
+  def max_issue_number
+    JSON.parse(run(['gh', 'api', "repos/#{repo}/issues?state=all&per_page=1&sort=created&direction=desc"]))
+        .first&.fetch('number') || 0
+  end
+  
+  def sub_issue_numbers(number)
+    paginate("repos/#{repo}/issues/#{number}/sub_issues?per_page=100").map { |i| i['number'] }
   end
 
   def paginate(path) = JSON.parse(run(['gh', 'api', '--paginate', '--slurp', path])).flatten
@@ -290,7 +324,26 @@ class GitHub
   end
 end
 
-def sync(epics, issues, dry_run:)
+def render_item(id, obj, epic, issues, numbers, milestones)
+  phase = epic ? effective_phase(obj, epic['phase']) : obj['phase']
+  if epic
+    { title: "#{id} #{obj['title']}", body: issue_body(obj, epic, numbers),
+      labels: labels_for_issue(obj, epic), milestone: milestones[PHASES[phase]] }
+  else
+    { title: "#{id} · #{obj['title']}", body: epic_body(obj, issues.select { |i| i['epic'] == id }, numbers),
+      labels: labels_for_epic(obj), milestone: milestones[PHASES[phase]] }
+  end
+end
+
+def unchanged?(current, payload)
+  current['title'] == payload[:title] && current['body'].to_s.strip == payload[:body].strip &&
+    current['labels'].map { |l| l['name'] }.sort == payload[:labels].uniq.sort &&
+    current.dig('milestone', 'number') == payload[:milestone]
+end
+
+# Issue numbers are predicted (next free number, in creation order) so each issue is created
+# with its final body in one request; a mismatch falls back to a PATCH pass.
+def sync(epics, issues, dry_run:, link_deps:)
   gh = GitHub.new(dry_run: dry_run)
   puts "repo: #{gh.repo}#{' (dry run)' if dry_run}"
   epic_by_id = epics.to_h { |e| [e['id'], e] }
@@ -298,51 +351,67 @@ def sync(epics, issues, dry_run:)
                    issues.flat_map { |i| labels_for_issue(i, epic_by_id[i['epic']]) })
   milestones = gh.ensure_milestones
   existing = gh.existing_issues
-
   numbers = existing.transform_values { |i| i['number'] }
   db_ids = existing.transform_values { |i| i['id'] }
-
   items = epics.map { |e| [e['id'], e, nil] } + issues.map { |i| [i['id'], i, epic_by_id[i['epic']]] }
 
-  # Pass 1: create missing issues with a stub body so every ID has a number.
-  items.each do |id, obj, _|
-    next if numbers[id]
+  next_number = gh.max_issue_number + 1
+  missing = items.reject { |id, _, _| numbers[id] }
+  missing.each_with_index { |(id, _, _), n| numbers[id] = next_number + n }
 
-    title = obj['issues'] ? "#{id} · #{obj['title']}" : "#{id} #{obj['title']}"
-    puts "create #{title}"
-    res = JSON.parse(gh.api('POST', "repos/#{gh.repo}/issues",
-                            { title: title, body: "<!-- tandem-id: #{id} -->" }))
-    numbers[id] = res['number'] || "dry-#{id}"
+  stale = []
+  missing.each do |id, obj, epic|
+    payload = render_item(id, obj, epic, issues, numbers, milestones)
+    res = JSON.parse(gh.api('POST', "repos/#{gh.repo}/issues", payload))
+    next puts("create #{payload[:title]}") if dry_run
+
+    if res['number'] != numbers[id]
+      warn "#{id}: expected ##{numbers[id]}, got ##{res['number']}; will re-render"
+      numbers[id] = res['number']
+      stale << id
+    end
     db_ids[id] = res['id']
-    sleep 1 unless dry_run
+    puts "create ##{res['number']} #{payload[:title]}"
   end
 
-  # Pass 2: full bodies, labels, milestones.
   items.each do |id, obj, epic|
-    phase = epic ? effective_phase(obj, epic['phase']) : obj['phase']
-    body, labels, title =
-      if epic
-        [issue_body(obj, epic, numbers), labels_for_issue(obj, epic), "#{id} #{obj['title']}"]
-      else
-        [epic_body(obj, issues.select { |i| i['epic'] == id }, numbers), labels_for_epic(obj), "#{id} · #{obj['title']}"]
-      end
-    gh.api('PATCH', "repos/#{gh.repo}/issues/#{numbers[id]}",
-           { title: title, body: body, labels: labels, milestone: milestones[PHASES[phase]] })
+    next unless existing[id] || !stale.empty?
+
+    payload = render_item(id, obj, epic, issues, numbers, milestones)
+    next if existing[id] && unchanged?(existing[id], payload)
+
+    gh.api('PATCH', "repos/#{gh.repo}/issues/#{numbers[id]}", payload)
     puts "update ##{numbers[id]} #{id}"
   end
-
   return if dry_run
 
-  # Pass 3: sub-issues and blocked-by relations (best effort; skip if already linked).
+  link_sub_issues(gh, epics, issues, numbers, db_ids)
+  link_dependencies(gh, issues, numbers, db_ids) if link_deps
+end
+
+def link_sub_issues(gh, epics, issues, numbers, db_ids)
+  epics.each do |e|
+    linked = gh.sub_issue_numbers(numbers[e['id']])
+    issues.select { |i| i['epic'] == e['id'] }.each do |i|
+      next if linked.include?(numbers[i['id']])
+
+      gh.api('POST', "repos/#{gh.repo}/issues/#{numbers[e['id']]}/sub_issues",
+             { sub_issue_id: db_ids[i['id']] }, allow_fail: true)
+    end
+    puts "sub-issues linked for #{e['id']}"
+  end
+end
+
+# ~1300 edges; at the secondary rate limit this takes hours, so it is opt-in (--link-deps).
+# Issue bodies already list "Blocked by #n" for every dependency.
+def link_dependencies(gh, issues, numbers, db_ids)
   issues.each do |i|
-    gh.api('POST', "repos/#{gh.repo}/issues/#{numbers[i['epic']]}/sub_issues",
-           { sub_issue_id: db_ids[i['id']] }, allow_fail: true)
     Array(i['depends_on']).each do |d|
       gh.api('POST', "repos/#{gh.repo}/issues/#{numbers[i['id']]}/dependencies/blocked_by",
              { issue_id: db_ids[d] }, allow_fail: true)
     end
   end
-  puts 'linked sub-issues and dependencies'
+  puts 'linked blocked-by dependencies'
 end
 
 command = ARGV.first || 'validate'
@@ -358,6 +427,6 @@ puts "✓ #{epics.size} epics, #{issues.size} issues valid"
 case command
 when 'validate' then nil
 when 'render' then render_markdown(epics)
-when 'sync' then sync(epics, issues, dry_run: ARGV.include?('--dry-run'))
+when 'sync' then sync(epics, issues, dry_run: ARGV.include?('--dry-run'), link_deps: ARGV.include?('--link-deps'))
 else abort "unknown command #{command}"
 end
