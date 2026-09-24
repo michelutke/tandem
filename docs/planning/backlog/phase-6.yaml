@@ -23,8 +23,8 @@ epics:
       - Mirroring codec, capture, and rendering (E61).
       - Remote input framing and authorization (E62).
     exit_criteria:
-      - mitm-lab media-ticket scenarios (missing, reused, expired, wrong-session ticket) all
-        fail closed.
+      - mitm-lab media-ticket scenarios (missing, reused, expired, other-session, other-client-cert
+        ticket) all fail closed.
       - pcap-audit shows only TLS 1.3 records for both the control and the media connection on
         the single Tandem port during a mirror session (no second listener).
       - Saturating the control connection with a large transfer does not measurably increase
@@ -39,20 +39,26 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22, AC-08]
         invariants: [6]
-        depends_on: [E01-09, E01-12, E01-16, E02-06]
+        depends_on: [E01-09, E01-12, E01-16, E02-06, E15-01, E15-02]
         description: |
           protocol/proto/tandem/v1/media.proto: RequestMediaTicket{} sent over the control channel, answered
           by the existing `MediaTicketGrant{ticket, expiresAt}` from control.proto (E01-12, reused,
           not redefined); MediaHello{ticket} as the required first frame on the second
-          connection. Extends docs/protocol/SPEC.md's media-ticket section (E01-09) with the
-          concrete message shapes. Vectors: RequestMediaTicket/MediaTicketGrant round trip, MediaHello missing the
-          ticket field rejected by the parser before any further frame is read.
+          connection. The ticket is a 256-bit (32-byte) random value (PRD F-3.3). Extends
+          docs/protocol/SPEC.md's media-ticket section (E01-09) with the concrete message shapes.
+          Vectors run through the conformance runners (E15-01 Kotlin, E15-02 Swift).
         acceptance:
-          - buf lint passes.
-          - protocol/vectors/media/*.json pass conformance on both platforms.
+          - buf lint reports zero violations for media.proto.
+          - protocol/vectors/media/*.json (RequestMediaTicket, MediaTicketGrant, MediaHello) pass
+            conformance on both codecs with byte-identical encodings.
+          - A MediaHello with no ticket field, or a ticket that is not exactly 32 bytes, is rejected
+            by both parsers with a typed error before any further frame is read.
         tdd:
-          - mediaTicketGrantVector_roundTrip_matchesGoldenBytes
-          - mediaHello_missingTicketField_rejectedByParser
+          - "conformance: requestMediaTicketVector_roundTrip_matchesGoldenBytes"
+          - "conformance: mediaTicketGrantVector_roundTrip_matchesGoldenBytes"
+          - "conformance: mediaHelloVector_missingTicketField_rejectedByParser"
+          - "conformance: mediaHelloVector_ticketNot32Bytes_rejectedByParser"
+          - "ci: bufLint_mediaProto_zeroViolations"
         notes: ""
       - id: E60-02
         title: "[android] Media ticket request + second mTLS connection dial"
@@ -63,22 +69,31 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E60-01, E12-08, E12-11]
+        depends_on: [E60-01, E60-03, E12-08, E12-11, E00-19, E15-15]
         description: |
           On starting a mirror session, request a MediaTicketGrant over the control channel; open
           a second mTLS connection to the Mac (same pinned peer, reusing the transport
           abstraction from E12-11) and send MediaHello{ticket} as the first frame.
+          `MediaDialer` takes the control `TandemSession` (fake: `FakeTandemSession`, E12-11) and a
+          `ByteStream` factory (E00-19 `InMemoryDuplexPipe` in unit tests) so first-frame content
+          and trust decisions are asserted without a network; the real second mTLS connection is
+          exercised against the real Mac server via the E15-15 JVM harness.
         acceptance:
           - Opening a mirror session dials a second TLS connection whose first frame is
-            MediaHello carrying the just-issued ticket.
+            MediaHello carrying the just-issued ticket (no other frame precedes it).
           - The second connection is authenticated against the same pinned peer fingerprint as
-            the control connection (E13-02), never a separate or relaxed check.
+            the control connection (E13-02), never a separate or relaxed check; a server presenting
+            a different fingerprint aborts the dial before MediaHello is sent.
+          - Against the real Mac server (E15-15), the dialed media connection is bound to the
+            originating control session and stays open.
         tdd:
-          - mediaConnection_dial_sendsMediaHelloWithIssuedTicketAsFirstFrame
-          - mediaConnection_dial_reusesControlSessionPinnedFingerprint
+          - "unit: mediaDialer_mirrorStart_sendsMediaHelloWithIssuedTicketAsFirstFrame"
+          - "unit: mediaDialer_trustEvaluation_usesControlSessionPinnedFingerprint"
+          - "unit: mediaDialer_serverFingerprintDiffersFromPin_abortsBeforeMediaHello"
+          - "integration: mediaDialer_againstRealMacServer_connectionBoundAfterMediaHello"
         notes: ""
       - id: E60-03
-        title: "[macos] Media connection acceptor + ticket binding validation"
+        title: "[macos] Media connection acceptor on the single listener"
         type: task
         platforms: [macos]
         priority: P0
@@ -86,53 +101,69 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22, AC-08]
         invariants: [1, 5, 6, 2, 3]
-        depends_on: [E60-01, E12-01, E12-02, E12-12]
+        depends_on: [E60-01, E60-08, E12-01, E12-02, E12-12, E00-25]
         description: |
           The macOS NWListener accepts the second mTLS connection; the first frame must be
-          MediaHello. Validate the ticket against a per-control-session issued-tickets table:
-          correct value, not expired (30 s), not already consumed. On success, bind the media
-          connection to the originating PeerSession. On any failure, close the connection
-          immediately without processing further frames.
+          MediaHello. The ticket is checked by `MediaTicketValidator` (E60-08) together with the
+          presenting connection's peer SPKI. On success, bind the media connection to the
+          originating PeerSession. On any failure, close the connection immediately without
+          processing further frames and emit a `mediaTicketRejected(reason)` event that is distinct
+          from a handshake failure (E60-05 asserts on it). Unit tests drive the acceptor over
+          `InMemoryConnectionPair` (E00-25); the real second mTLS connection is exercised by an
+          in-process loopback test (real TLS on localhost, two real sessions).
         acceptance:
           - A valid, unexpired, unused ticket binds the connection to the originating control
-            session.
-          - A reused ticket is rejected and the connection is closed without further processing.
-          - An expired ticket is rejected and the connection is closed.
-          - A connection whose first frame is not MediaHello is rejected and closed.
-          - The media connection is accepted by the same single NWListener/port as the control connection; no second listening socket exists (PRD goals, invariant 2).
-          - A ticket issued to another peer's control session is rejected even though that media connection completed mTLS with its own valid pinned identity (ticket bound to the issuing session's peer SPKI) (AC-08).
+            session (loopback mTLS).
+          - A reused ticket over real loopback mTLS gets the connection closed with zero MediaFrames
+            dispatched.
+          - A connection whose first frame is not MediaHello is closed without reading a second
+            frame.
+          - Any validator rejection closes the connection, dispatches zero MediaFrames, and emits
+            exactly one `mediaTicketRejected` event carrying the reason (not a handshake-failure event).
+          - The media connection is accepted by the same single NWListener/port as the control connection; exactly one listening socket exists during an active mirror session (PRD goals, invariant 2).
         tdd:
-          - mediaAcceptor_validTicket_bindsToOriginatingSession
-          - mediaAcceptor_reusedTicket_rejectsAndCloses
-          - mediaAcceptor_expiredTicket_rejectsAndCloses
-          - mediaAcceptor_missingMediaHelloFirstFrame_rejectsAndCloses
-          - mediaAcceptor_sameListener_noSecondListeningSocket
-          - mediaAcceptor_ticketFromOtherPeersSession_rejectsAndCloses
-        notes: ""
+          - "integration: mediaAcceptor_validTicketOverLoopbackMtls_bindsToOriginatingSession"
+          - "integration: mediaAcceptor_reusedTicketOverLoopbackMtls_closedWithZeroFramesDispatched"
+          - "unit: mediaAcceptor_firstFrameNotMediaHello_closesWithoutReadingNextFrame"
+          - "unit: mediaAcceptor_validatorRejects_emitsTicketRejectedEventNotHandshakeFailure"
+          - "integration: mediaAcceptor_duringActiveMirror_exactlyOneListeningSocket"
+        notes: |
+          Split in review cycle 3: ticket issuance/validation logic moved to E60-08; this issue
+          keeps the acceptor wiring (E60-05, E61-06, E61-12 depend on it).
       - id: E60-04
-        title: "[cross] Media connection lifecycle tied to control session"
+        title: "[macos] Media connection lifecycle tied to control session"
         type: task
-        platforms: [android, macos]
+        platforms: [macos]
         priority: P0
         size: M
         prd: [F-3.3]
         use_cases: [UC-22]
-        invariants: [1]
-        depends_on: [E60-02, E60-03]
+        invariants: [1, 6]
+        depends_on: [E60-03, E12-09, E12-12, E00-24]
         description: |
-          The media connection is torn down when its control session ends (disconnect or
-          heartbeat timeout, F-3.4); a control-session-scoped registry limits each session to one
-          active media connection at a time. Requesting a new ticket while one is already active
-          revokes and closes the prior media connection first.
+          A control-session-scoped `MediaSessionRegistry` limits each control session to one
+          active media connection. When the control session leaves Connected (Closed or Dead in
+          the E12-09 state machine, including the heartbeat dead-peer path of F-3.4) the bound
+          media connection is closed and all outstanding tickets for that session are revoked.
+          Requesting a new ticket while a media connection is active revokes and closes the prior
+          media connection first. Tests drive state changes through the E12-12 `TandemSession` fake
+          and an injected `Clock` (E00-24 `ManualTestClock`) so the 1 s bound is checked in virtual time.
         acceptance:
-          - Killing the control connection closes the bound media connection within one
-            heartbeat interval.
-          - Requesting a new ticket while a media connection is active tears down the old one
-            before the new one is accepted.
+          - A control session transition to Closed or Dead closes the bound media connection
+            within 1 s.
+          - After the control session ends, a previously issued unused ticket for it is rejected
+            as revoked.
+          - Requesting a new ticket while a media connection is active closes the old connection
+            before the new ticket is issued; at most one media connection per control session is
+            ever open.
         tdd:
-          - mediaLifecycle_controlSessionDies_mediaConnectionClosedWithinHeartbeatInterval
-          - mediaLifecycle_secondTicketRequested_revokesPriorMediaConnection
-        notes: ""
+          - "unit: mediaRegistry_controlSessionDead_closesBoundMediaConnectionWithin1s"
+          - "unit: mediaRegistry_controlSessionClosed_revokesOutstandingTickets"
+          - "unit: mediaRegistry_newTicketRequestedWhileActive_closesPriorBeforeIssuing"
+          - "unit: mediaRegistry_perControlSession_atMostOneOpenMediaConnection"
+        notes: |
+          Split from [cross] in review cycle 3: this issue keeps the macOS half; the Android half
+          is E60-09.
       - id: E60-05
         title: "[tools] Security test: media ticket binding scenarios"
         type: test
@@ -142,22 +173,27 @@ epics:
         prd: [F-3.3]
         use_cases: [AC-08]
         invariants: [1, 5, 6]
-        depends_on: [E60-03, E15-08]
+        depends_on: [E60-03, E60-04, E15-08]
         description: |
           Extend tools/mitm-lab with media-connection scenarios per the test-strategy "session
-          binding" row: connect with no ticket, an expired ticket, a reused ticket, and a ticket
-          issued to another peer's authenticated control session (a second paired identity presenting a
-          ticket it did not receive).
+          binding" row. Every scenario completes a valid mTLS handshake first, so a rejection
+          proves the ticket check is a separate layer. Scenarios: (1) MediaHello with no ticket;
+          (2) a ticket that was already used once; (3) a ticket presented 31 s after issuance;
+          (4) a ticket issued in an earlier control session of the same peer that has since ended;
+          (5) a ticket issued to paired peer A's control session presented on a media connection
+          authenticated with paired peer B's client certificate.
         acceptance:
-          - "All four scenarios fail closed: the connection is rejected and no MediaFrame is ever
-            processed."
-          - Each rejection is confirmed by a log/metric assertion distinguishing "handshake succeeded,
-            ticket rejected" from "handshake failed", proving the ticket check is a separate layer.
+          - "All five scenarios fail closed: the connection is closed by the Mac and the Mac log
+            shows zero MediaFrames processed for it."
+          - Each rejection is confirmed by the `mediaTicketRejected(reason)` event (E60-03) with the
+            scenario's reason (missing, consumed, expired, revoked, peerMismatch), distinguishing
+            "handshake succeeded, ticket rejected" from "handshake failed".
         tdd:
-          - mitmLab_mediaNoTicket_rejected
-          - mitmLab_mediaExpiredTicket_rejected
-          - mitmLab_mediaReusedTicket_rejected
-          - mitmLab_mediaTicketForDifferentSession_rejected
+          - "security: mitmLab_mediaHelloWithoutTicket_rejectedAfterHandshake"
+          - "security: mitmLab_mediaReusedTicket_rejectedAfterHandshake"
+          - "security: mitmLab_mediaTicketAfter31s_rejectedAfterHandshake"
+          - "security: mitmLab_mediaTicketFromEndedSession_rejectedAfterHandshake"
+          - "security: mitmLab_mediaTicketOnOtherPeersClientCert_rejectedAfterHandshake"
         notes: ""
       - id: E60-06
         title: "[tools] pcap-audit coverage for the media connection"
@@ -166,17 +202,24 @@ epics:
         priority: P0
         size: S
         prd: [F-3.3]
-        use_cases: []
+        use_cases: [AC-02]
         invariants: [1, 2]
-        depends_on: [E60-04, E15-04, E15-05]
+        depends_on: [E60-04, E60-09, E15-04, E15-05]
         description: |
           Confirm the media connection independently satisfies the "no plaintext on the wire"
           requirement (test-strategy), noting the media connection terminates on the same single Tandem port (no second listener, PRD goals), so the E15-04/E15-05 capture must classify both connections on that port.
+          The flow classification is self-tested against a checked-in fixture pcap with two TLS
+          1.3 flows on one port.
         acceptance:
           - A pcap-audit run capturing an active mirror session shows only TLS 1.3 records on
-            both the control and the media connection on the single Tandem port.
+            both the control and the media connection on the single Tandem port, and reports two
+            distinct TCP flows (so the pass is not vacuous).
+          - Every Tandem TCP flow in the capture targets the single Tandem port; zero flows to any
+            other Mac port.
         tdd:
-          - pcapAudit_mirrorSession_onlyTls13ForControlAndMediaConnectionsOnSinglePort
+          - "unit: pcapAudit_fixtureTwoTlsFlowsOnOnePort_classifiesBothConnections"
+          - "security: pcapAudit_activeMirrorSession_onlyTls13RecordsOnBothConnections"
+          - "security: pcapAudit_activeMirrorSession_allTandemFlowsOnSinglePort"
         notes: ""
       - id: E60-07
         title: "[cross] Media connection isolation from control-channel congestion"
@@ -187,17 +230,85 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E60-04, E11-07, E11-08]
+        depends_on: [E60-04, E60-09, E11-07, E11-08, E15-15, E00-23]
         description: |
           Verify the entire reason for ADR-005's two-connection design: with the control
           connection saturated by a large file transfer on the FILES channel (E11-07/E11-08's flow
-          control), media-frame delivery on the separate connection is unaffected.
+          control), media-frame delivery on the separate connection is unaffected. Automated
+          on the E15-15 harness (JVM client streams timestamped synthetic MediaFrames at 30 fps
+          while pushing a 500 MB FILES transfer to the real Mac server on localhost); confirmed on
+          real 5 GHz Wi-Fi as a manual gate.
         acceptance:
-          - With the control connection saturated, measured media-frame latency in the test
-            harness stays within the mirroring latency budget (under 120 ms, PRD success metric).
+          - On the E15-15 harness, p95 synthetic MediaFrame delivery delay with the control
+            connection saturated is within 10 ms of the unsaturated baseline and under 120 ms.
+          - On physical devices over 5 GHz Wi-Fi, mirroring during a 1 GB file transfer keeps p95
+            end-to-end latency under 120 ms (E61-08 method).
         tdd:
-          - mediaConnection_controlChannelSaturatedByFileTransfer_frameLatencyUnaffected
+          - "integration: mediaIsolation_controlSaturatedByFileTransfer_p95DelayWithin10msOfBaseline"
+          - "manual: mediaIsolation_mirrorDuring1GbTransferOn5GhzWifi_p95LatencyUnder120ms"
         notes: ""
+      - id: E60-08
+        title: "[macos] MediaTicket issuer + validator (30 s expiry, single use, session binding)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.3]
+        use_cases: [AC-08]
+        invariants: [6, 3]
+        depends_on: [E60-01, E10-11, E00-24]
+        description: |
+          Pure logic behind the acceptor (E60-03). `MediaTicketIssuer` answers RequestMediaTicket
+          with a 32-byte ticket from the system CSPRNG, recorded in a per-control-session table with
+          the issuing session ID, the peer SPKI fingerprint, and `expiresAt = now + 30 s`.
+          `MediaTicketValidator.validate(ticket, presentingSpki)` returns the bound session or a
+          typed `MediaTicketError` (missing, unknown, expired, consumed, revoked, peerMismatch),
+          marks the ticket consumed on first success, and compares ticket bytes with the
+          constant-time helper (E10-11). Both take an injected `Clock<Duration>` (E00-24) so the
+          30 s expiry is tested in virtual time with `ManualTestClock`.
+        acceptance:
+          - Issued tickets are 32 bytes and expire 30 s after issuance.
+          - A valid unused ticket presented by the issuing peer within 30 s returns the issuing
+            control session; a second presentation returns `consumed`.
+          - At 30 s after issuance (virtual time) the ticket returns `expired`.
+          - A ticket presented with a different peer SPKI than its issuing session returns
+            `peerMismatch`; a ticket whose issuing session has ended returns `revoked`.
+          - Ticket comparison goes through the constant-time helper.
+        tdd:
+          - "unit: mediaTicketIssuer_issue_returns32ByteTicketExpiringIn30s"
+          - "unit: mediaTicketValidator_validUnusedTicketWithin30s_returnsIssuingSession"
+          - "unit: mediaTicketValidator_clockAdvanced30s_returnsExpired"
+          - "unit: mediaTicketValidator_secondPresentation_returnsConsumed"
+          - "unit: mediaTicketValidator_presentingSpkiDiffersFromIssuer_returnsPeerMismatch"
+          - "unit: mediaTicketValidator_ticketComparison_usesConstantTimeHelper"
+        notes: "Split from E60-03 in review cycle 3."
+      - id: E60-09
+        title: "[android] Media connection lifecycle tied to control session"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-3.3]
+        use_cases: [UC-22]
+        invariants: [1]
+        depends_on: [E60-02, E12-08, E12-11, E00-18, E15-15]
+        description: |
+          Android half of the media lifecycle: when the control `TandemSession` (E12-11) leaves
+          Connected (Closed or Dead per E12-08, including dead-peer detection), `MediaDialer`
+          closes the media connection and reports the mirror session as stopped; starting a new
+          mirror session while one is active closes the prior media connection before dialing.
+          Uses the injected `Clock`/`TestClock` (E00-18) for the 1 s bound.
+        acceptance:
+          - A control session transition to Closed or Dead closes the media connection within 1 s.
+          - Starting a new mirror session while one is active closes the prior media connection
+            before the new dial begins.
+          - Against the real Mac server (E15-15), dropping the control connection closes the Android
+            media connection within 1 s.
+        tdd:
+          - "unit: androidMediaLifecycle_controlSessionDead_mediaConnectionClosedWithin1s"
+          - "unit: androidMediaLifecycle_newMirrorStartWhileActive_closesPriorBeforeDial"
+          - "integration: androidMediaLifecycle_macDropsControlConnection_mediaClosedWithin1s"
+        notes: "Split from E60-04 in review cycle 3."
 
   - id: E61
     title: Screen mirroring (capture, encode, decode, render)
@@ -239,19 +350,25 @@ epics:
         prd: [F-9.1, F-9.2]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E60-01]
+        depends_on: [E60-01, E15-01, E15-02]
         description: |
           media.proto additions: MediaFrame{pts, flags, data}, MediaFormat{codec, width, height,
           fps}, KeyframeRequest{}, RotationChanged{orientation}. Extends docs/protocol/SPEC.md's
-          media section with frame semantics. Vectors: MediaFrame round trip, KeyframeRequest
-          round trip, an oversized MediaFrame rejected per the 1 MiB max-frame rule (E01-03).
+          media section with frame semantics (flags include keyframe and codec-config). Vectors run
+          through the conformance runners (E15-01, E15-02).
         acceptance:
-          - buf lint passes.
-          - protocol/vectors/media/*.json (frame subset) pass conformance on both platforms.
+          - buf lint reports zero violations.
+          - protocol/vectors/media/*.json (frame subset) pass conformance on both codecs with
+            byte-identical encodings.
+          - A MediaFrame whose encoded frame exceeds the 1 MiB max-frame rule (E01-03) is rejected
+            by the framing layer on both codecs.
         tdd:
-          - mediaFrameVector_roundTrip_matchesGoldenBytes
-          - keyframeRequestVector_encodeDecodeSymmetric
-          - mediaFrame_overMaxFrameSize_rejectedByFraming
+          - "conformance: mediaFrameVector_roundTrip_matchesGoldenBytes"
+          - "conformance: mediaFormatVector_roundTrip_matchesGoldenBytes"
+          - "conformance: keyframeRequestVector_roundTrip_matchesGoldenBytes"
+          - "conformance: rotationChangedVector_roundTrip_matchesGoldenBytes"
+          - "conformance: mediaFrame_overMaxFrameSize_rejectedByFraming"
+          - "ci: bufLint_mediaFrameMessages_zeroViolations"
         notes: ""
       - id: E61-02
         title: "[android] MediaProjection consent flow per session"
@@ -262,45 +379,68 @@ epics:
         prd: [F-9.1]
         use_cases: [UC-22]
         invariants: [8]
-        depends_on: [E20-02]
+        depends_on: [E20-02, E00-20, E00-21]
         description: |
           Request MediaProjection permission for every mirror-session start (Android 14+ does not
           allow silently reusing a prior grant across restarts); the capturing service declares
           foreground service type mediaProjection. The consent dialog is only reachable from a
           phone-side "start mirroring" action, which is the local user action invariant 8's
-          on-phone indicator ultimately protects.
+          on-phone indicator ultimately protects. `MirrorSessionStarter` launches the consent
+          through a `ProjectionConsentLauncher` seam (wrapping
+          `MediaProjectionManager.createScreenCaptureIntent`, recording fake in tests, Robolectric
+          E00-20); the real system dialog is driven with UiAutomator on the emulator (E00-21).
         acceptance:
-          - Starting a mirror session shows the system consent dialog on every session, never a
-            cached grant.
+          - Each of two consecutive mirror-session starts launches the consent intent; a cached
+            grant is never reused.
+          - Without a phone-side start action, the consent intent is never launched.
           - The capturing foreground service's manifest declares the mediaProjection foreground
             service type.
+          - On the emulator, tapping "Start now" yields a MediaProjection; tapping "Cancel" leaves the
+            mirror session in state NotStarted with no VirtualDisplay created.
         tdd:
-          - mirrorSession_start_requestsMediaProjectionConsentEverySession
-          - mirrorService_manifest_declaresMediaProjectionForegroundServiceType
+          - "unit: mirrorSessionStarter_secondStart_launchesConsentIntentAgain"
+          - "unit: mirrorSessionStarter_noLocalStartAction_neverLaunchesConsent"
+          - "ci: mirrorServiceManifest_foregroundServiceType_includesMediaProjection"
+          - "instrumented: projectionConsent_uiAutomatorTapsStartNow_projectionGranted"
+          - "instrumented: projectionConsent_uiAutomatorTapsCancel_noVirtualDisplayCreated"
         notes: ""
       - id: E61-03
-        title: "[android] VirtualDisplay + MediaCodec H.264 low-latency CBR encode"
+        title: "[android] VirtualDisplay + MediaCodec encode pipeline to MediaFrame"
         type: task
         platforms: [android]
         priority: P0
-        size: L
+        size: M
         prd: [F-9.1]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E61-01, E61-02, E60-02]
+        depends_on: [E61-01, E61-02, E61-13, E60-02, E00-21]
         description: |
-          Create a VirtualDisplay from the MediaProjection surface; configure a MediaCodec H.264
-          encoder in CBR, low-latency mode (zero-latency / realtime priority) with a fixed
-          keyframe interval; emit MediaFrame over the media connection (E60-02) on every output
-          buffer.
+          Create a VirtualDisplay from the MediaProjection surface; configure a MediaCodec encoder
+          from the `EncoderConfig` built by E61-13; emit MediaFrame over the media connection
+          (E60-02) on every output buffer, sending the codec-config buffer (SPS/PPS) as a
+          config-flagged frame before the first picture. On KeyframeRequest, request a sync frame
+          (`PARAMETER_KEY_REQUEST_SYNC_FRAME`). MediaCodec sits behind an `EncoderFactory` seam and
+          MediaProjection/VirtualDisplay behind a `CaptureSource` seam (interfaces in
+          feature/mirror, recording fakes in test fixtures) so pipeline logic is JVM-unit-tested;
+          the real encode runs on the emulator's software AVC encoder (E00-21).
         acceptance:
-          - A KeyframeRequest produces an IDR frame within one frame interval of receipt.
-          - The encoder's measured output bitrate stays within the configured CBR tolerance
-            under a synthetic load test.
+          - A KeyframeRequest causes exactly one sync-frame request on the encoder (unit), and on
+            the emulator software encoder an IDR arrives within the next 2 output frames.
+          - Every encoder output buffer becomes one MediaFrame with the buffer's pts and keyframe
+            flag; the codec-config buffer is sent first, flagged as config.
+          - On the emulator, the software AVC encoder produces an IDR within 1 s of pipeline start.
+          - On the emulator at a configured 4 Mbps CBR, measured output bitrate over 10 s is within
+            ±20 % of the target.
         tdd:
-          - encoder_keyframeRequestReceived_nextFrameIsIdr
-          - encoder_configuredCbrBitrate_outputWithinTolerance
-        notes: ""
+          - "unit: encodePipeline_keyframeRequestReceived_requestsSyncFrameOnce"
+          - "unit: encodePipeline_encoderOutputBuffer_emitsMediaFrameWithPtsAndKeyFlag"
+          - "unit: encodePipeline_codecConfigBuffer_sentFirstAsConfigFlaggedFrame"
+          - "instrumented: encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s"
+          - "instrumented: encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames"
+          - "instrumented: encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent"
+        notes: |
+          Split in review cycle 3: encoder configuration (CBR, low-latency keys, profile/level,
+          keyframe interval) moved to E61-13; size L -> M.
       - id: E61-04
         title: "[android] HEVC capability negotiation with H.264 fallback"
         type: task
@@ -310,18 +450,23 @@ epics:
         prd: [F-9.1]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-03]
+        depends_on: [E61-03, E61-13, E61-14]
         description: |
           Exchange MediaFormat capability info at session start; both sides advertise supported
           codecs. Negotiate HEVC only when both a hardware-accelerated HEVC encoder (Android) and
-          decoder (macOS) are available; otherwise fall back to H.264 without surfacing an error.
+          decoder (macOS, advertised by E61-14) are available; otherwise fall back to H.264 without
+          surfacing an error. Android capabilities come from a `CodecCapabilitySource` seam over
+          `MediaCodecList` (fake codec list in unit tests); `CodecNegotiator` is a pure function.
         acceptance:
-          - When both sides report HEVC support, the session negotiates and streams HEVC.
-          - When the Mac reports H.264-only support, the session falls back to H.264 without
-            error or user-visible failure.
+          - When both sides report hardware HEVC support, the negotiator selects HEVC and the
+            encoder config uses the HEVC MIME type.
+          - When the Mac reports H.264-only support, the negotiator selects H.264 and no error is
+            surfaced.
+          - When the only HEVC encoder in the codec list is software-only, H.264 is selected.
         tdd:
-          - codecNegotiation_bothSidesSupportHevc_selectsHevc
-          - codecNegotiation_macH264Only_fallsBackToH264WithoutError
+          - "unit: codecNegotiator_bothAdvertiseHardwareHevc_selectsHevc"
+          - "unit: codecNegotiator_macAdvertisesH264Only_selectsH264WithoutError"
+          - "unit: codecNegotiator_androidHevcSoftwareOnly_selectsH264"
         notes: ""
       - id: E61-05
         title: "[android] Rotation and resolution change handling"
@@ -332,42 +477,58 @@ epics:
         prd: [F-9.1]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-03]
+        depends_on: [E61-03, E00-21]
         description: |
           On device rotation or a foldable resolution change, recreate the VirtualDisplay and
           encoder surface at the new dimensions and emit RotationChanged before the next
-          MediaFrame, avoiding a stream stall.
+          MediaFrame, avoiding a stream stall. New encoder dimensions come from a pure
+          `RotationPlanner` (swap on rotation, scale down to fit the 1920-pixel long-edge bound
+          preserving aspect, round down to even values); the pipeline change is unit-tested
+          through the E61-03 `EncoderFactory`/`CaptureSource` fakes.
         acceptance:
-          - Rotating the device mid-session emits RotationChanged before the next frame, and
-            subsequent frames match the new dimensions.
-          - The reconfiguration completes within one encoder-reconfig cycle without a visible
-            frame gap in the test harness.
+          - Rotating 1080x1920 portrait to landscape plans a 1920x1080 encoder; a 2208x1840 foldable
+            display plans 1920x1600 (long edge ≤ 1920, even dimensions, aspect preserved).
+          - A rotation event emits RotationChanged before the next MediaFrame and recreates both
+            encoder and VirtualDisplay at the planned size.
+          - On the emulator (`adb emu rotate`), the first post-rotation frame has the new dimensions
+            and arrives within 500 ms of the last pre-rotation frame, without restarting the session.
         tdd:
-          - rotation_deviceRotatesMidSession_emitsRotationChangedBeforeNextFrame
-          - rotation_change_encoderReconfiguresWithoutFrameGap
+          - "unit: rotationPlanner_portraitToLandscape_swapsWidthAndHeight"
+          - "unit: rotationPlanner_foldable2208x1840_scaledTo1920x1600"
+          - "unit: encodePipeline_rotationEvent_emitsRotationChangedBeforeNextFrame"
+          - "unit: encodePipeline_rotationEvent_recreatesEncoderAndDisplayAtPlannedSize"
+          - "instrumented: encodePipeline_emulatorRotation_newDimensionsWithin500ms"
         notes: ""
       - id: E61-06
         title: "[macos] VTDecompressionSession decode pipeline"
         type: task
         platforms: [macos]
         priority: P0
-        size: L
+        size: M
         prd: [F-9.2]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E61-01, E60-03]
+        depends_on: [E61-01, E61-14, E60-03, E00-08]
         description: |
-          Feed MediaFrame data into a VTDecompressionSession configured for the negotiated codec
-          (H.264/HEVC), producing CMSampleBuffers for AVSampleBufferDisplayLayer. A decoder error
-          sends a KeyframeRequest back to the Android side.
+          Feed MediaFrame data (converted by E61-14) into a VTDecompressionSession configured for
+          the negotiated codec (H.264/HEVC), producing CMSampleBuffers delivered to a
+          `SampleBufferSink` seam over AVSampleBufferDisplayLayer (recording fake in tests). A
+          decoder error sends a KeyframeRequest back to the Android side. Tests run the real
+          VTDecompressionSession on the macOS runner against checked-in fixture streams
+          (`Fixtures/media/h264-720p-30f.annexb`, `hevc-720p-30f.annexb`, and a copy with one
+          corrupted NAL unit), generated once by a documented ffmpeg command.
         acceptance:
-          - A malformed or undecodable frame in the test harness triggers a KeyframeRequest
-            rather than crashing the decode pipeline.
-          - A valid captured frame sequence decodes every frame in order with no dropped frame.
+          - The H.264 fixture decodes all 30 frames, delivered to the sink in pts order.
+          - The HEVC fixture decodes all 30 frames in pts order.
+          - The corrupted fixture triggers exactly one KeyframeRequest and the pipeline keeps
+            decoding subsequent frames (no crash).
         tdd:
-          - decoder_malformedFrame_sendsKeyframeRequestWithoutCrashing
-          - decoder_validFrameSequence_decodesAllFramesInOrder
-        notes: ""
+          - "unit: decodePipeline_h264Fixture_delivers30FramesInPtsOrder"
+          - "unit: decodePipeline_hevcFixture_delivers30FramesInPtsOrder"
+          - "unit: decodePipeline_corruptedNalFixture_sendsOneKeyframeRequestWithoutCrash"
+        notes: |
+          Split in review cycle 3: Annex-B parsing, format-description construction and decoder
+          capability advertisement moved to E61-14; size L -> M.
       - id: E61-07
         title: "[macos] Resizable mirror window + rotation handling"
         type: task
@@ -377,18 +538,22 @@ epics:
         prd: [F-9.2]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-06]
+        depends_on: [E61-06, E00-08]
         description: |
           NSWindow hosting the AVSampleBufferDisplayLayer, resizable by the user; handles
           RotationChanged by adjusting the displayed orientation without artifacting; letterboxes
-          when the window aspect ratio does not match the stream's.
+          when the window aspect ratio does not match the stream's. The content rect is computed
+          by a pure `LetterboxLayout.contentRect(stream, window)` function (also the geometry E62-07
+          and E62-03 rely on); the window view model reacts to RotationChanged.
         acceptance:
-          - Receiving RotationChanged updates the displayed orientation to match the new stream
-            dimensions.
-          - Resizing the window preserves the stream's aspect ratio (letterboxed, not stretched).
+          - A 1080x2400 stream in a 1000x1000 window yields content rect x=275, y=0, 450x1000.
+          - A 2400x1080 stream in a 1000x1000 window yields content rect x=0, y=275, 1000x450.
+          - Receiving RotationChanged updates the view model's stream dimensions and recomputes the
+            content rect for the swapped aspect without recreating the window.
         tdd:
-          - mirrorWindow_rotationChanged_updatesDisplayOrientation
-          - mirrorWindow_resize_preservesAspectRatioWithLetterboxing
+          - "unit: letterboxLayout_portraitStreamInSquareWindow_contentRect450x1000AtX275"
+          - "unit: letterboxLayout_landscapeStreamInSquareWindow_contentRect1000x450AtY275"
+          - "unit: mirrorWindowModel_rotationChanged_recomputesContentRectForSwappedAspect"
         notes: ""
       - id: E61-08
         title: "[cross] Mirroring performance harness: fps + end-to-end latency"
@@ -399,20 +564,30 @@ epics:
         prd: [F-9.1, F-9.2]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-03, E61-06]
+        depends_on: [E61-03, E61-06, E61-07, E00-23]
         description: |
           Measurement harness for the PRD success metric: 1080p ≥30 fps, end-to-end latency
           under 120 ms. Method: a timestamp overlay burned into each captured frame (frame index
           + phone-side wall clock) is decoded back out on the Mac side and compared against the
           Mac's receive timestamp using a clock-sync offset established at session start. This is
-          the manual device-level gate for the roadmap Phase 6 exit criterion.
+          the manual device-level gate for the roadmap Phase 6 exit criterion. The overlay
+          encoder (Android), overlay decoder (macOS), clock-offset estimator and report
+          aggregation are pure functions unit-tested against a checked-in fixture frame.
         acceptance:
-          - The timestamp overlay's frame index and clock value are decodable on the Mac side
-            for every frame in a test capture.
-          - A harness run at 1080p over 5 GHz Wi-Fi reports sustained ≥30 fps and p95
-            end-to-end latency under 120 ms (manual device gate).
+          - The Mac overlay decoder recovers frame index and clock value from the checked-in
+            fixture frame produced by the Android overlay encoder, exactly.
+          - The clock-offset estimator on fixture round trips returns an offset within half the
+            minimum RTT of the true offset.
+          - The report computes sustained fps and p95 latency from a sample set; fixture values
+            match expected numbers exactly.
+          - A 60 s harness run at 1080p over 5 GHz Wi-Fi on the device matrix (E00-23) reports
+            sustained ≥30 fps and p95 end-to-end latency under 120 ms (manual device gate).
         tdd:
-          - timestampOverlay_encodedFrameIndexAndClock_decodableOnMacSide
+          - "unit: timestampOverlayEncoder_frameIndexAndClock_matchFixtureFramePixels"
+          - "unit: timestampOverlayDecoder_fixtureFrame_recoversFrameIndexAndClock"
+          - "unit: clockOffsetEstimator_fixtureRoundTrips_withinHalfMinimumRtt"
+          - "unit: latencyReport_fixtureSamples_computesFpsAndP95"
+          - "manual: mirroring1080pOn5GhzWifi_sixtySecondRun_atLeast30FpsAndP95Under120ms"
         notes: ""
       - id: E61-09
         title: "[tools] pcap-audit with on-screen canary during mirroring"
@@ -421,18 +596,21 @@ epics:
         priority: P0
         size: S
         prd: []
-        use_cases: [AC-01, AC-02]
+        use_cases: [UC-22, AC-02]
         invariants: [1, 2]
-        depends_on: [E61-08, E15-07]
+        depends_on: [E61-08, E15-06, E15-07]
         description: |
           Extend the canary procedure script (E15-07; test-strategy) to display TANDEM-CANARY-<random> on the
           mirrored screen during a capture window, verifying it never appears in the packet
-          capture.
+          capture (E15-06 scan).
         acceptance:
           - A pcap-audit run with the canary displayed during active mirroring shows zero
             plaintext occurrences of the canary string anywhere in the capture.
+          - The same capture contains media-connection traffic of at least 1 MB during the canary
+            window, so the pass is not vacuous.
         tdd:
-          - pcapAudit_mirroringOnScreenCanary_zeroPlaintextOccurrences
+          - "security: pcapAudit_canaryOnMirroredScreen_zeroPlaintextOccurrences"
+          - "security: canaryProcedure_mirrorStep_captureContainsMediaTraffic"
         notes: ""
       - id: E61-10
         title: "[docs] Finalize ADR-006: mirroring path decision"
@@ -466,49 +644,166 @@ epics:
         prd: [F-9.1]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-02, E61-03]
+        depends_on: [E61-02, E61-03, E60-09, E00-21]
         description: |
           Stopping mirroring (user action, MediaProjection.Callback.onStop system revocation, or
           session end) releases the VirtualDisplay, MediaCodec, and MediaProjection fully so no
-          encoder thread or surface leaks across repeated sessions.
+          encoder thread or surface leaks across repeated sessions. Unit tests assert release
+          calls on the E61-03 `EncoderFactory`/`CaptureSource` recording fakes; the leak check runs
+          on the emulator (E00-21).
         acceptance:
-          - MediaProjection.Callback.onStop triggers full teardown even without an explicit
-            user-initiated stop.
-          - Ten repeated start/stop cycles in an instrumented test show no encoder or surface
-            resource leak.
+          - MediaProjection.Callback.onStop triggers release of VirtualDisplay, codec and projection
+            even without an explicit user-initiated stop.
+          - Control-session end (E60-09) releases the same three resources.
+          - Calling stop twice releases each resource exactly once.
+          - Ten repeated start/stop cycles on the emulator leave the codec instance count and
+            display count unchanged from before the first cycle.
         tdd:
-          - mirrorSession_projectionOnStopCallback_triggersFullTeardown
-          - mirrorSession_repeatedStartStopCycles_noEncoderOrSurfaceLeak
+          - "unit: mirrorSession_projectionOnStopCallback_releasesDisplayCodecAndProjection"
+          - "unit: mirrorSession_controlSessionEnded_releasesAllMirrorResources"
+          - "unit: mirrorSession_stopCalledTwice_releasesEachResourceOnce"
+          - "instrumented: mirrorSession_tenStartStopCycles_codecAndDisplayCountsUnchanged"
         notes: ""
       - id: E61-12
-        title: "[cross] Mirror quick action: Mac request posts an on-phone start prompt"
+        title: "[macos] Mirror quick action: Mac request + declined state"
         type: story
-        platforms: [android, macos]
+        platforms: [macos]
         priority: P0
-        size: M
+        size: S
         prd: [F-4.2, F-9.1, F-3.3]
-        use_cases: [UC-22, UC-23, AC-06]
+        use_cases: [UC-22, AC-06]
         invariants: [8]
-        depends_on: [E22-02, E61-02, E60-02, E60-03]
+        depends_on: [E22-02, E61-15, E60-03, E60-08, E12-12, E00-26]
         description: |
           Wires the F-4.2 Mirror quick action while keeping invariant 8's "user started it on the
-          phone" property. Adds MirrorRequest{} and MirrorDeclined{} (media.proto, CONTROL channel;
-          vectors added). The Mac sends MirrorRequest; the phone posts a high-priority notification
-          "Mirror to <Mac>?" (BAL-compliant); only a tap on the phone opens the MediaProjection
-          consent (E61-02). Decline, dismiss, or 30 s timeout sends MirrorDeclined and the Mac shows
-          "Mirroring declined on phone". A MirrorRequest alone never starts capture, requests a
-          ticket, or enables input.
+          phone" property. The Mac sends MirrorRequest (E61-15) and nothing else; it never issues a
+          media ticket until the phone sends RequestMediaTicket after the user accepted on the
+          phone. On MirrorDeclined the menu status shows "Mirroring declined on phone". Tested with
+          the E12-12 `TandemSession` fake; the declined state is seeded for XCUITest (E00-26).
         acceptance:
-          - MirrorRequest posts the phone prompt and nothing else (no capture, no ticket request)
-          - Accepting on the phone shows the MediaProjection consent; granting it starts the E60/E61 session
-          - Decline, dismiss, or 30 s timeout sends MirrorDeclined and the Mac shows the declined message
-          - Repeated MirrorRequests while a prompt is pending do not stack prompts
+          - Clicking Mirror sends exactly one MirrorRequest and issues no media ticket.
+          - No media ticket is issued for the session until the phone sends RequestMediaTicket.
+          - Receiving MirrorDeclined shows "Mirroring declined on phone".
         tdd:
-          - mirrorRequest_received_postsPhonePromptWithoutCaptureOrTicket
-          - mirrorRequest_userAcceptsAndGrantsConsent_ticketRequestedAndSessionStarts
-          - mirrorRequest_declinedOrTimedOut_macShowsDeclined
-          - mirrorRequest_repeatedWhilePending_singlePrompt
-          - conformance_mirrorRequestAndDeclinedVectors_encodeDecode
+          - "unit: mirrorQuickAction_clicked_sendsOneMirrorRequestAndNoTicket"
+          - "unit: mirrorQuickAction_requestPending_noTicketUntilPhoneRequestsOne"
+          - "unit: mirrorQuickAction_mirrorDeclinedReceived_statusShowsDeclinedOnPhone"
+          - "ui: mirrorQuickAction_seededDeclinedScenario_showsMirroringDeclinedOnPhoneText"
+        notes: |
+          Split from [cross] in review cycle 3: this issue keeps the macOS half (E22-02 points here
+          as the Mirror quick-action owner); messages/vectors are E61-15, the phone prompt is E61-16.
+      - id: E61-13
+        title: "[android] Encoder configuration builder (CBR, low latency, profile/level, keyframe interval)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-9.1]
+        use_cases: [UC-22]
+        invariants: []
+        depends_on: [E61-01]
+        description: |
+          Pure `EncoderConfigBuilder` producing an `EncoderConfig` value (MIME type, size, bitrate,
+          bitrate mode, profile/level, I-frame interval, low-latency and priority keys, API-level
+          gated) that a thin adapter in E61-03 applies to `android.media.MediaFormat`. Defaults for
+          1080p30 H.264: CBR 8 Mbps, `KEY_PRIORITY` 0 (realtime), `KEY_LOW_LATENCY` 1 on API 30+ only,
+          AVC Constrained Baseline level 4.1 (no B-frames), I-frame interval 2 s (keyframes otherwise
+          on request).
+        acceptance:
+          - The default 1080p H.264 config has bitrate mode CBR at 8 Mbps.
+          - Realtime priority is always set; `KEY_LOW_LATENCY` is set on API 30+ and omitted on API 29.
+          - Profile is AVC Constrained Baseline, level 4.1; I-frame interval is 2 s.
+        tdd:
+          - "unit: encoderConfig_default1080pH264_cbrAt8Mbps"
+          - "unit: encoderConfig_api30Device_setsLowLatencyAndRealtimePriority"
+          - "unit: encoderConfig_api29Device_omitsLowLatencyKey"
+          - "unit: encoderConfig_h264_constrainedBaselineLevel41"
+          - "unit: encoderConfig_default_iFrameInterval2s"
+        notes: "Split from E61-03 in review cycle 3."
+      - id: E61-14
+        title: "[macos] Annex-B parsing, format description + decoder capability advertisement"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-9.2]
+        use_cases: [UC-22]
+        invariants: []
+        depends_on: [E61-01, E00-08]
+        description: |
+          Pure pieces of the decode path: `AnnexBParser` splits MediaFrame data at 3- and 4-byte
+          start codes; `AvccConverter` rewrites NAL units with 4-byte big-endian length prefixes;
+          `FormatDescriptionBuilder` builds a CMVideoFormatDescription from SPS/PPS (VPS for HEVC).
+          Codec support advertised in MediaFormat comes from a `DecoderCapabilityProbe` seam over
+          `VTIsHardwareDecodeSupported` (fake in tests). Tests use the checked-in fixture streams
+          shared with E61-06.
+        acceptance:
+          - The H.264 fixture splits into the expected NAL unit count and types (SPS, PPS, IDR, then
+            non-IDR slices); 3- and 4-byte start codes are both recognized.
+          - AVCC output prefixes each NAL unit with its big-endian 4-byte length.
+          - SPS/PPS from the fixture produce a format description of 1280x720.
+          - With hardware HEVC decode unavailable, the advertised codec list is H.264 only.
+        tdd:
+          - "unit: annexBParser_h264Fixture_splitsExpectedNalUnits"
+          - "unit: annexBParser_threeAndFourByteStartCodes_bothRecognized"
+          - "unit: avccConverter_nalUnits_prefixedWithBigEndianLength"
+          - "unit: formatDescriptionBuilder_fixtureSpsPps_dimensions1280x720"
+          - "unit: decoderCapabilities_hevcHardwareUnavailable_advertisesH264Only"
+        notes: "Split from E61-06 in review cycle 3."
+      - id: E61-15
+        title: "[protocol] MirrorRequest/MirrorDeclined messages + vectors"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: S
+        prd: [F-4.2, F-9.1]
+        use_cases: [UC-22]
+        invariants: [8]
+        depends_on: [E61-01, E15-01, E15-02]
+        description: |
+          MirrorRequest{} and MirrorDeclined{} in media.proto on the CONTROL channel, with SPEC.md
+          text stating that MirrorRequest never starts capture, requests a ticket, or enables input.
+        acceptance:
+          - buf lint reports zero violations.
+          - MirrorRequest and MirrorDeclined vectors pass conformance on both codecs.
+        tdd:
+          - "conformance: mirrorRequestVector_roundTrip_matchesGoldenBytes"
+          - "conformance: mirrorDeclinedVector_roundTrip_matchesGoldenBytes"
+          - "ci: bufLint_mirrorRequestMessages_zeroViolations"
+        notes: "Split from E61-12 in review cycle 3."
+      - id: E61-16
+        title: "[android] MirrorRequest on-phone start prompt"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-4.2, F-9.1]
+        use_cases: [UC-22, UC-23, AC-06]
+        invariants: [8]
+        depends_on: [E61-15, E61-02, E60-02, E12-11, E00-18, E00-20, E00-21]
+        description: |
+          On MirrorRequest the phone posts a high-priority notification "Mirror to <Mac>?"
+          (BAL-compliant); only a tap on the phone opens the MediaProjection consent (E61-02).
+          Decline, dismiss, or 30 s timeout sends MirrorDeclined. A MirrorRequest alone never starts
+          capture, requests a ticket, or enables input. The prompt uses a `NotificationPresenter`
+          seam (Robolectric, E00-20), the `FakeTandemSession` (E12-11) and the injected `Clock`/
+          `TestClock` (E00-18) for the 30 s timeout.
+        acceptance:
+          - MirrorRequest posts exactly one prompt and sends nothing (no RequestMediaTicket, no
+            capture started).
+          - Repeated MirrorRequests while a prompt is pending leave exactly one prompt posted.
+          - Decline, dismiss, or 30 s without a tap sends MirrorDeclined and removes the prompt.
+          - Tapping accept launches the MediaProjection consent; RequestMediaTicket is sent only
+            after consent is granted.
+          - On the emulator, tapping the prompt notification brings up the system consent dialog.
+        tdd:
+          - "unit: mirrorPrompt_mirrorRequestReceived_postsOnePromptAndSendsNothing"
+          - "unit: mirrorPrompt_repeatedRequestWhilePending_stillOnePrompt"
+          - "unit: mirrorPrompt_noTapWithin30s_sendsMirrorDeclinedAndRemovesPrompt"
+          - "unit: mirrorPrompt_userDeclinesOrDismisses_sendsMirrorDeclined"
+          - "unit: mirrorPrompt_consentGranted_sendsRequestMediaTicket"
+          - "instrumented: mirrorPrompt_tapNotificationOnEmulator_consentDialogShown"
+        notes: "Split from E61-12 in review cycle 3."
 
   - id: E62
     title: Remote input
@@ -548,19 +843,22 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23, AC-06]
         invariants: [8]
-        depends_on: [E60-01]
+        depends_on: [E60-01, E15-01, E15-02]
         description: |
           protocol/proto/tandem/v1/input.proto: InputEvent oneof {Tap{x,y}, Swipe{x1,y1,x2,y2,
           durationMs}, Scroll{x,y,dx,dy}, GlobalAction{action}, SetText{text}}, each carrying the
-          bound session/ticket reference required by invariant 8. Write docs/protocol/SPEC.md
-          input section. Vectors: InputEvent round trip, a coordinate outside the reported
-          display bounds rejected by the parser.
+          bound mirror-session reference required by invariant 8. Write docs/protocol/SPEC.md
+          input section. Bounds checking against the display is semantic and done by the
+          coordinate mapper (E62-03), not the parser. Vectors run through E15-01/E15-02.
         acceptance:
-          - buf lint passes.
-          - protocol/vectors/input/*.json pass conformance on both platforms.
+          - buf lint reports zero violations.
+          - protocol/vectors/input/*.json cover all five InputEvent variants and pass conformance
+            on both codecs with byte-identical encodings.
+          - An InputEvent without the mirror-session reference is rejected by both parsers.
         tdd:
-          - inputEventVector_roundTrip_matchesGoldenBytes
-          - inputEvent_coordinateOutOfDisplayBounds_rejectedByParser
+          - "conformance: inputEventVectors_allFiveVariants_roundTripGoldenBytes"
+          - "conformance: inputEventVector_missingSessionReference_rejectedByParser"
+          - "ci: bufLint_inputProto_zeroViolations"
         notes: ""
       - id: E62-02
         title: "[android] AccessibilityService opt-in with explanation"
@@ -571,20 +869,26 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23]
         invariants: [8]
-        depends_on: [E62-01]
+        depends_on: [E62-01, E00-20, E00-21]
         description: |
           Settings screen explaining why Accessibility is requested (remote input injection for
           mirroring), deep-linking to the system Accessibility settings; the service's
           accessibility-service-config declares only the capabilities actually used (no
-          unrelated event types); disabled by default.
+          unrelated event types); disabled by default. Enabled state is read through an
+          `AccessibilityStateSource` seam (fake in Robolectric tests, E00-20).
         acceptance:
-          - The service reports disabled until the user explicitly enables it through the
-            explained settings flow.
-          - The declared accessibility-service-config capabilities match the minimal set
-            actually used by E62-04/E62-05.
+          - With the service not enabled, the settings screen shows the explanation text and an
+            "Open Accessibility settings" action that launches `Settings.ACTION_ACCESSIBILITY_SETTINGS`.
+          - The declared accessibility-service-config capabilities equal the checked-in allowlist
+            (gesture dispatch and window content for focused-node lookup; no key-event filtering,
+            no unrelated event types) required by E62-04/E62-05.
+          - On a fresh emulator install the service is absent from
+            `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`.
         tdd:
-          - accessibilitySettings_beforeUserEnables_serviceReportsDisabled
-          - accessibilityConfig_declaredCapabilities_matchMinimalRequiredSet
+          - "ui: remoteInputSettings_serviceNotEnabled_showsExplanationAndOpenSettingsAction"
+          - "unit: remoteInputSettings_openSettingsTapped_launchesAccessibilitySettingsIntent"
+          - "ci: accessibilityServiceConfig_declaredCapabilities_equalAllowlist"
+          - "instrumented: accessibilityService_freshInstall_notInEnabledServices"
         notes: ""
       - id: E62-03
         title: "[android] Coordinate mapping (rotation, letterboxing) pure function"
@@ -598,18 +902,30 @@ epics:
         depends_on: [E62-01]
         description: |
           A pure function mapping a Mac mirror-window coordinate plus window size, reported
-          device display size, rotation, and letterbox offsets to a device screen coordinate.
+          device display size, rotation, and letterbox offsets to a device screen coordinate,
+          returning `Mapped(x, y)` or `Dropped(reason)`. The letterbox geometry matches E61-07's
+          `LetterboxLayout`. A rotation delta (stream orientation from the last RotationChanged vs.
+          current display rotation, e.g. during an in-flight rotation) is applied on a natural
+          1080x2400 display as: 90 → (y, W - x), 180 → (W - x, H - y), 270 → (H - y, x).
           Unit-testable without Accessibility or a real device.
         acceptance:
-          - Mapping is correct for portrait, landscape, and letterboxed (aspect-mismatched)
-            window sizes.
-          - Out-of-bounds Mac coordinates are clamped or rejected rather than mapped to a
-            garbage on-screen location.
+          - Portrait 1080x2400 device in a 540x1200 window maps (270, 600) to (540, 1200).
+          - Pillarboxed 1000x1000 window (content x 275..725) maps (275, 0) to (0, 0) and
+            (500, 500) to (540, 1200).
+          - Letterboxed landscape 2400x1080 stream in a 1000x1000 window (content y 275..725)
+            maps (500, 275) to (1200, 0).
+          - Points inside a letterbox bar or outside the window return Dropped; they are never
+            clamped onto the screen.
+          - Rotation delta 90/180/270 maps (100, 200) to (200, 980), (980, 2200), (2200, 100).
         tdd:
-          - coordinateMapper_portraitWindow_mapsToDeviceCoordinates
-          - coordinateMapper_letterboxedWindow_excludesBarsFromMapping
-          - coordinateMapper_outOfBoundsInput_clampedOrRejected
-          - coordinateMapper_rotatedDisplay_appliesRotationTransform
+          - "unit: coordinateMapper_portraitWindowMatchingAspect_scalesToDevicePixels"
+          - "unit: coordinateMapper_pillarboxedWindow_subtractsHorizontalOffset"
+          - "unit: coordinateMapper_letterboxedLandscapeStream_subtractsVerticalOffset"
+          - "unit: coordinateMapper_pointInLetterboxBar_returnsDropped"
+          - "unit: coordinateMapper_pointOutsideWindow_returnsDropped"
+          - "unit: coordinateMapper_rotationDelta90_mapsPoint100x200To200x980"
+          - "unit: coordinateMapper_rotationDelta180_mapsPoint100x200To980x2200"
+          - "unit: coordinateMapper_rotationDelta270_mapsPoint100x200To2200x100"
         notes: ""
       - id: E62-04
         title: "[android] dispatchGesture for taps, swipes, scroll"
@@ -620,16 +936,26 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23]
         invariants: []
-        depends_on: [E62-02, E62-03]
+        depends_on: [E62-02, E62-03, E00-20, E00-21]
         description: |
           Translate InputEvent Tap/Swipe/Scroll, after coordinate mapping (E62-03), into
-          AccessibilityService.dispatchGesture GestureDescriptions.
+          GestureDescriptions and hand them to a `GestureDispatcher` seam (interface over
+          `AccessibilityService.dispatchGesture`; recording fake in test fixtures). Translation is
+          unit-tested under Robolectric (E00-20); a real dispatch is checked on the emulator with
+          the service enabled via `adb shell settings` (E00-21).
         acceptance:
-          - A Tap dispatches a single-point, short-duration gesture at the mapped coordinate.
-          - A Swipe/Scroll dispatches a path gesture over the given duration.
+          - A Tap dispatches one single-point stroke of 50 ms at the mapped coordinate.
+          - A Swipe dispatches one stroke from the mapped start to the mapped end over durationMs.
+          - A Scroll with positive dy dispatches a stroke from the anchor moving upward by the
+            mapped delta.
+          - A Dropped mapping dispatches no gesture.
+          - On the emulator, a remote Tap on a test activity's button registers exactly one click.
         tdd:
-          - gestureDispatcher_tap_dispatchesSinglePointGesture
-          - gestureDispatcher_swipe_dispatchesPathOverGivenDuration
+          - "unit: gestureTranslator_tap_singlePointStrokeOf50ms"
+          - "unit: gestureTranslator_swipe_strokeFromStartToEndOverDuration"
+          - "unit: gestureTranslator_scrollPositiveDy_strokeMovesUpwardFromAnchor"
+          - "unit: gestureTranslator_droppedMapping_noGestureDispatched"
+          - "instrumented: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered"
         notes: ""
       - id: E62-05
         title: "[android] performGlobalAction + ACTION_SET_TEXT"
@@ -640,19 +966,25 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23]
         invariants: []
-        depends_on: [E62-02]
+        depends_on: [E62-02, E00-20, E00-21]
         description: |
           GlobalAction (BACK/HOME/RECENTS) maps to performGlobalAction; SetText finds the
           currently focused editable AccessibilityNodeInfo and applies ACTION_SET_TEXT with the
-          text argument bundle.
+          text argument bundle. Both go through an `AccessibilityActions` seam (performGlobalAction,
+          findFocus(FOCUS_INPUT)); recording fake in Robolectric tests, real service on the emulator.
         acceptance:
-          - BACK/HOME/RECENTS map to the corresponding performGlobalAction constants.
-          - SetText on a focused EditText updates its content via the accessibility action.
-          - SetText with no focused editable node is a no-op and does not crash.
+          - BACK/HOME/RECENTS invoke GLOBAL_ACTION_BACK/HOME/RECENTS respectively.
+          - SetText on a focused editable node performs ACTION_SET_TEXT with the text in
+            ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE.
+          - SetText with no focused editable node returns NoOp without throwing.
+          - On the emulator, SetText replaces a focused EditText's content with the given text, and
+            HOME brings the launcher to the foreground.
         tdd:
-          - globalAction_back_invokesPerformGlobalActionBack
-          - setText_focusedEditableNode_updatesTextViaAccessibilityAction
-          - setText_noFocusedEditableNode_noOpWithoutCrash
+          - "unit: globalActionHandler_eachOfBackHomeRecents_invokesMatchingConstant"
+          - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
+          - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
+          - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
+          - "instrumented: globalActionHome_onEmulator_launcherInForeground"
         notes: ""
       - id: E62-06
         title: "[android] Input authorization gate + persistent on-phone indicator"
@@ -663,23 +995,35 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23, AC-06]
         invariants: [8]
-        depends_on: [E62-04, E62-05, E60-04]
+        depends_on: [E62-04, E62-05, E60-09, E61-02, E12-11, E00-20, E00-21]
         description: |
           INPUT frames are only processed while a user-started mirror session (E61) is active and
           bound to the current connection; otherwise they are dropped and a log entry is recorded
           without the event's content, per the test-strategy "input authorization" row and AC-06.
           A persistent, non-dismissable-by-remote-input on-phone overlay/notification indicates
-          active remote input for the session's duration (invariant 8).
+          active remote input for the session's duration (invariant 8). `InputGate` reads a
+          `MirrorSessionState` source (started locally via E61-02 consent, bound to the current
+          `TandemSession`, indicator shown) and forwards to the E62-04 `GestureDispatcher` /
+          E62-05 `AccessibilityActions` recording fakes in tests; the indicator uses a
+          `NotificationPresenter` seam under Robolectric (E00-20).
         acceptance:
-          - An InputEvent arriving with no active mirror session is dropped, logged, and never
-            injected.
-          - An InputEvent arriving during an active, bound session is processed normally.
-          - The on-phone indicator is visible for the entire session and cannot be dismissed via
-            a remote input event.
+          - An InputEvent arriving with no active mirror session is dropped, never reaches the
+            dispatcher, and logs one entry with reason and event type only (no coordinates, no
+            text).
+          - An InputEvent whose session reference does not match the active mirror session, or
+            arriving after the session stopped, or while the indicator is not showing, is dropped.
+          - An InputEvent during an active, bound session with the indicator showing reaches the
+            dispatcher unchanged.
+          - The indicator is an ongoing (non-swipeable) notification posted at session start and
+            removed within 1 s of session end; on the emulator a remote swipe over it leaves it posted.
         tdd:
-          - inputHandler_noActiveMirrorSession_dropsEventAndLogsWithoutContent
-          - inputHandler_activeBoundSession_processesEvent
-          - onPhoneIndicator_duringActiveSession_visibleAndNotRemotelyDismissable
+          - "unit: inputGate_noActiveMirrorSession_droppedAndDispatcherNeverCalled"
+          - "unit: inputGate_droppedSetTextFrame_logEntryOmitsTextAndCoordinates"
+          - "unit: inputGate_sessionReferenceMismatch_frameDropped"
+          - "unit: inputGate_indicatorNotShowing_frameDropped"
+          - "unit: inputGate_activeBoundSession_forwardsEventToDispatcher"
+          - "unit: remoteInputIndicator_sessionActive_ongoingNotificationPosted"
+          - "instrumented: remoteInputIndicator_remoteSwipeOverNotification_indicatorStillPosted"
         notes: ""
       - id: E62-07
         title: "[macos] Mouse/keyboard/scroll capture in mirror window"
@@ -690,17 +1034,25 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23]
         invariants: []
-        depends_on: [E62-01, E61-07]
+        depends_on: [E62-01, E61-07, E00-08]
         description: |
           Capture local mouse click/drag/move, keyboard, and scroll events while the mirror
           window is focused; translate to window-local coordinates plus a key-mapping table
-          (US/ISO layout) before sending as InputEvent.
+          (US/ISO layout) before sending as InputEvent. NSEvent handling is a thin shim over a pure
+          `MirrorInputMapper` (event value types in, InputEvent out) and a pure `KeyMapper`.
         acceptance:
-          - Clicking within the mirror window emits an InputEvent with window-local coordinates.
-          - Common keys (letters, backspace, enter) map to the expected Android key codes.
+          - A click within the mirror window emits one Tap with window-local coordinates.
+          - A 300 ms drag emits one Swipe with durationMs 300 and window-local endpoints.
+          - A scroll-wheel event emits one Scroll with the event's deltas.
+          - With the mirror window not key, no InputEvent is emitted.
+          - Letters, backspace and enter map to Android KEYCODE_A..Z (29..54), KEYCODE_DEL (67) and
+            KEYCODE_ENTER (66).
         tdd:
-          - mirrorWindowInput_click_emitsWindowLocalCoordinateEvent
-          - keyMapper_commonKeys_mapToExpectedAndroidKeyCodes
+          - "unit: mirrorInputMapper_clickInWindow_emitsTapWithWindowLocalCoordinates"
+          - "unit: mirrorInputMapper_drag300ms_emitsSwipeWithDuration300"
+          - "unit: mirrorInputMapper_scrollWheel_emitsScrollWithEventDeltas"
+          - "unit: mirrorInputMapper_windowNotKey_emitsNoEvent"
+          - "unit: keyMapper_lettersBackspaceEnter_mapToAndroidKeyCodes"
         notes: ""
       - id: E62-08
         title: "[tools] Security test: input authorization (AC-06)"
@@ -711,17 +1063,28 @@ epics:
         prd: [F-9.3]
         use_cases: [AC-06]
         invariants: [8]
-        depends_on: [E62-06, E15-08]
+        depends_on: [E62-06, E15-08, E15-15, E15-17]
         description: |
           mitm-lab / integration scenarios sending INPUT frames with no active mirror session,
           and from a connection lacking a valid session binding, per the test-strategy "input
-          authorization" row.
+          authorization" row. The integration variant runs Android core input handling (E62-06
+          gate with a recording `GestureDispatcher`) against the real Mac server on the E15-15
+          harness; the mitm-lab variant targets the real phone app with a counting test activity
+          in the foreground. SetText payloads carry a canary so log-audit (E15-17) proves drop logs
+          omit content.
         acceptance:
-          - Both unauthorized-INPUT scenarios result in the frame being ignored and logged,
-            never injected.
+          - INPUT frames with no active mirror session, with a stale session reference, and after
+            the mirror session stopped each produce zero injected gestures/actions and exactly one
+            drop log entry with the matching reason.
+          - On the E15-15 harness, an InputEvent sent by the real Mac server with no mirror session
+            yields zero dispatcher calls and one drop record.
+          - log-audit over logcat from the run finds zero occurrences of the SetText canary.
         tdd:
-          - mitmLab_inputWithoutActiveSession_ignoredAndLogged
-          - mitmLab_inputFromUnboundConnection_ignoredAndLogged
+          - "security: mitmLab_inputWithNoActiveMirrorSession_notInjectedAndLogged"
+          - "security: mitmLab_inputWithStaleSessionReference_notInjectedAndLogged"
+          - "security: mitmLab_inputAfterMirrorStopped_notInjectedAndLogged"
+          - "integration: inputGate_realMacSendsInputWithoutSession_zeroDispatchOneDropRecord"
+          - "security: logAudit_droppedSetTextCanary_absentFromLogs"
         notes: ""
       - id: E62-09
         title: "[cross] End-to-end remote input device test"
@@ -730,19 +1093,31 @@ epics:
         priority: P0
         size: M
         prd: [F-9.3]
-        use_cases: [UC-23]
+        use_cases: [UC-23, AC-06]
         invariants: [8]
-        depends_on: [E62-04, E62-05, E62-06, E62-07]
+        depends_on: [E62-04, E62-05, E62-06, E62-07, E00-23]
         description: |
           Manual device gate: from the Mac mirror window, tap, swipe, enter text, and trigger
           back/home/recents on physical hardware; matches the roadmap Phase 6 exit criterion
-          alongside a negative control (input rejected once the session is stopped).
+          alongside a negative control (input rejected once the session is stopped). Procedure
+          per docs/testing/manual-gates.md (E00-23) on the device-matrix phones, using a test app
+          with a 5x4 target grid, a scrollable list, and an EditText.
         acceptance:
-          - A scripted sequence of taps, swipes, text entry, and global actions all succeed on
-            the physical device.
-          - After stopping the mirror session, a subsequently sent InputEvent is rejected rather
-            than injected.
-        tdd: []
+          - 20 of 20 taps on the grid targets register on the intended target, each within 10 px of
+            the target center, portrait and landscape.
+          - 10 of 10 swipes scroll the list in the dragged direction.
+          - Entering a 50-character string leaves the EditText containing exactly that string.
+          - BACK, HOME and RECENTS each take effect within 1 s of the Mac action (5 of 5 each).
+          - The on-phone indicator is visible for the entire session and gone within 1 s of stop.
+          - "Negative control: after stopping the mirror session, 10 sent InputEvents produce zero
+            injections and 10 drop log entries."
+        tdd:
+          - "manual: remoteTap_twentyGridTargets_allHitWithin10px"
+          - "manual: remoteSwipe_tenSwipesOnList_allScrollInDragDirection"
+          - "manual: remoteTextEntry_fiftyCharString_fieldContainsExactText"
+          - "manual: remoteGlobalActions_backHomeRecents_eachEffectiveWithin1s"
+          - "manual: remoteInputIndicator_wholeSession_visibleUntilStop"
+          - "manual: remoteInputNegativeControl_afterSessionStop_zeroInjectionsTenDropLogs"
         notes: ""
       - id: E62-10
         title: "[android] Alternative input path via scrcpy (P2, gated on ADR-006)"
@@ -751,9 +1126,9 @@ epics:
         priority: P2
         size: L
         prd: [F-9.4]
-        use_cases: [UC-23]
+        use_cases: [UC-23, AC-06]
         invariants: [8]
-        depends_on: [E61-10]
+        depends_on: [E61-10, E15-08, E00-23]
         description: |
           Only proceeds if E61-10's finalized ADR-006 authorizes the ADB-wireless-debugging +
           bundled scrcpy-server (Apache 2.0) path as an alternative to AccessibilityService, for
@@ -762,12 +1137,14 @@ epics:
           accessibility session indicator for free); reuses input.proto framing where possible.
         acceptance:
           - Not started unless ADR-006 explicitly authorizes it.
-          - "If implemented: reaches gesture-set parity with E62-04/E62-05 and passes an
-            equivalent of E62-08's authorization test for its own input path."
+          - "If implemented: the scrcpy path refuses injection with no active user-started mirror
+            session or with the on-phone indicator hidden, passes an equivalent of E62-08's
+            mitm-lab scenarios, and reaches parity with E62-09's manual thresholds."
         tdd:
-          - "`scrcpyInputPath_noActiveMirrorSession_injectionRefused`"
-          - "`scrcpyInputPath_onPhoneIndicatorHidden_injectionRefused`"
-          - "`scrcpyInputPath_gestureSet_parityWithAccessibilityPath`"
+          - "unit: scrcpyInputPath_noActiveMirrorSession_injectionRefused"
+          - "unit: scrcpyInputPath_onPhoneIndicatorHidden_injectionRefused"
+          - "security: mitmLab_scrcpyInputWithoutMirrorSession_notInjected"
+          - "manual: scrcpyInputPath_e62DeviceSequence_meetsSameThresholds"
         notes: |
           Gated placeholder per PRD F-9.4; do not begin implementation before E61-10 records an
           explicit "authorized" decision.

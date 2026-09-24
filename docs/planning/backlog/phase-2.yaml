@@ -13,24 +13,25 @@ epics:
       connection state.
     scope:
       - Android foreground service (connectedDevice type) hosting the control connection
-      - CompanionDeviceManager association and presence-observation-triggered restarts
+      - CompanionDeviceManager feasibility spike (E20-03) and conditional association/presence (E20-16)
       - Unrestricted battery onboarding and OEM-specific guidance
-      - Heartbeat and dead-peer detection on both platforms
+      - "Heartbeat per E01-07: Mac drives liveness (E20-05), phone answers and detects a dead peer on elapsedRealtime (E20-15)"
       - Reconnect address strategy and exponential backoff, network-change triggered
       - BOOT_COMPLETED restart
       - macOS sleep/wake and network-change listener handling
-      - Reconnect latency measurement harness
+      - Reconnect latency measurement harness and overnight Doze gate
       - Onboarding flow with skip paths (E20-14); ADR for a Mac-initiated reconnect hint (E20-13, Appendix C.3)
     out_of_scope:
       - Bonjour advertise/browse mechanics (E21)
       - Menu bar UI presentation of connection state (E22)
       - STATUS channel payloads (E23)
+      - CDM presence as a phase-exit requirement (restart after kill is covered by FGS + BOOT_COMPLETED + reconnect; E20-16 is conditional on the E20-03 spike)
     exit_criteria:
-      - Phone reconnects to Mac within 5 s p95 after a Wi-Fi switch (E20-12 harness)
-      - Phone reconnects within 5 s p95 after Mac wake from sleep (E20-12 harness)
-      - Connection survives an overnight Doze cycle with no unexpected disconnect beyond
-        normal dead-peer detection
-      - Foreground service restarts automatically after process death and after reboot
+      - Phone reconnects to Mac within 5 s p95 over >= 20 Wi-Fi switch trials (E20-12 manual gate reconnectWifiSwitch_twentyTrials_p95Under5s)
+      - Phone reconnects within 5 s p95 over >= 20 Mac sleep/wake trials (E20-12 manual gate reconnectMacWake_twentyTrials_p95Under5s)
+      - Over >= 8 h of Doze with the foreground service running, battery unrestricted and zero user interaction, every Mac-declared-dead episode is followed by a reconnect within 5 s of the next Doze maintenance window or screen-on (E20-12 manual gate overnightDoze8h_fgsUnrestrictedBattery_reconnectWithin5sOfWake)
+      - Mac sends Heartbeat after 15 s without sending and marks the connection Dead after 45 s without receiving (E20-05); the phone answers every Heartbeat within 1 s, including under adb-forced idle (E20-15)
+      - Foreground service is restarted by the system after process death (E20-02) and starts after reboot (E20-08), without relying on CompanionDeviceManager
     issues:
       - id: E20-01
         title: "[protocol] Heartbeat conformance vectors"
@@ -41,19 +42,21 @@ epics:
         prd: [F-3.4]
         use_cases: []
         invariants: []
-        depends_on: [E01-12, E01-16]
+        depends_on: [E01-12, E01-16, E15-01, E15-02]
         description: |
-          The heartbeat timing contract (15 s interval, dead after 3 consecutive misses) is owned by
-          the SPEC.md heartbeat section (E01-07) and the `Heartbeat` message by control.proto
-          (E01-12); this issue does not redefine either. It adds encode/decode and malformed-input
-          vectors for the heartbeat message under protocol/vectors/ so tools/conformance exercises
-          it on both platforms before the lifecycle work (E20-05) depends on it.
+          The heartbeat timing contract (Mac drives liveness: Mac sends after 15 s without sending,
+          dead after 45 s without receiving; phone replies within 1 s) is owned by the SPEC.md
+          heartbeat section (E01-07) and the `Heartbeat` message by control.proto (E01-12); this
+          issue does not redefine either. It adds encode/decode and malformed-input vectors for the
+          heartbeat message under protocol/vectors/ so tools/conformance (E15-01 Kotlin, E15-02
+          Swift) exercises it on both codecs before the lifecycle work (E20-05, E20-15) depends on it.
         acceptance:
           - No new message or SPEC timing text is introduced (E01-07/E01-12 remain the owners)
-          - protocol/vectors/ includes heartbeat encode/decode vectors
+          - protocol/vectors/ includes at least one Heartbeat encode/decode vector and one truncated-frame vector
+          - Both codecs produce byte-identical encodings for the encode vector and both reject the truncated vector with a decode error
         tdd:
-          - conformance_heartbeatVector_encodesAndDecodesOnBothPlatforms
-          - conformance_malformedHeartbeat_rejected
+          - "conformance: heartbeatVector_roundTrip_byteIdenticalOnBothCodecs"
+          - "conformance: heartbeatVector_truncatedFrame_rejectedOnBothCodecs"
       - id: E20-02
         title: "[android] Foreground service (connectedDevice type)"
         type: task
@@ -61,46 +64,64 @@ epics:
         priority: P0
         size: M
         prd: [F-4.1]
-        use_cases: [UC-02]
-        invariants: []
-        depends_on: [E12-08, E12-11]
+        use_cases: [UC-02, UC-04]
+        invariants: [4]
+        depends_on: [E12-08, E12-11, E13-02, E00-20, E00-21, E00-23]
         description: |
           Implement a foreground service with type `connectedDevice` (Android 14+ requirement),
-          declaring `FOREGROUND_SERVICE_CONNECTED_DEVICE` in the manifest. The service owns the
-          control-connection lifecycle (E12-08 state machine, E12-11 session) start/stop, survives
-          configuration changes, and starts only when a paired Mac exists.
+          declaring `FOREGROUND_SERVICE_CONNECTED_DEVICE` and `CHANGE_NETWORK_STATE` (the Android 14
+          runtime prerequisite for connectedDevice that does not require a CDM association) in the
+          manifest. The service owns the control-connection lifecycle (E12-08 state machine, E12-11
+          session) start/stop, returns START_STICKY, shows the mandatory ongoing notification, and
+          starts only when a paired Mac exists (trust store, E13-02).
+          Seams: the start/stop decision lives in a `ServiceStarter` that reads a paired-peer
+          repository (E13-02 fake) so it is plain unit-tested; `onStartCommand` and the merged
+          manifest are checked under Robolectric (E00-20); restart after process death runs on the
+          emulator (E00-21); aggressive-OEM survival is a manual gate (E00-23).
         acceptance:
-          - Manifest declares foregroundServiceType="connectedDevice" and the
-            FOREGROUND_SERVICE_CONNECTED_DEVICE permission
-          - Service starts on app launch when a paired Mac exists and stops on unpair
-          - Killing the app process (adb shell am kill) results in service restart within the
-            observation window
+          - Merged manifest declares the service with foregroundServiceType="connectedDevice" and the FOREGROUND_SERVICE_CONNECTED_DEVICE and CHANGE_NETWORK_STATE permissions
+          - With a paired Mac, app launch starts the service in the foreground with its ongoing notification; with no paired Mac the service is not started
+          - Unpairing the last Mac stops the service and removes its notification
+          - onStartCommand returns START_STICKY
+          - After the app process is killed on the emulator (adb shell am kill after moving to background, or kill -9 under adb root), the system restarts the service within 15 s
+          - "Manual gate: on the aggressive-battery OEM device from the device matrix with battery unrestricted, the service is still running and connected after 60 min screen-off"
         tdd:
-          - foregroundService_start_declaresConnectedDeviceType
-          - foregroundService_processDeath_restartsAndReconnects
-          - foregroundService_unpaired_doesNotStart
+          - "ci: mergedManifest_tandemService_declaresConnectedDeviceTypeAndPermissions"
+          - "unit: serviceStarter_pairedMacExists_startsForegroundService"
+          - "unit: serviceStarter_noPairedMac_doesNotStartService"
+          - "unit: tandemService_lastMacUnpaired_stopsAndRemovesNotification"
+          - "unit: tandemService_onStartCommand_returnsStartSticky"
+          - "instrumented: tandemService_processKilled_restartedWithin15s"
+          - "manual: oemBatteryKiller_screenOff60minUnrestricted_serviceStillConnected"
       - id: E20-03
-        title: "[android] CompanionDeviceManager association and presence restart"
-        type: task
+        title: "Spike: CompanionDeviceManager association/presence feasibility for a Wi-Fi-only Mac peer"
+        type: spike
         platforms: [android]
         priority: P0
         size: M
         prd: [F-4.1]
-        use_cases: [UC-02, UC-03]
-        invariants: []
-        depends_on: [E20-02, E14-05, E14-12]
+        use_cases: [UC-02, UC-04]
+        invariants: [3, 4]
+        depends_on: []
         description: |
-          Associate with the paired Mac via CompanionDeviceManager right after pairing completes
-          (E14-05), and use presence observation (`startObservingDevicePresence`) so an OS
-          callback restarts the foreground service if it was killed.
+          PRD F-4.1 assumes CDM presence observation can restart the service after a kill. That is
+          not known to work for Tandem: presence observation (`startObservingDevicePresence`)
+          targets BLE / associated devices in radio range, and self-managed associations (API 33+)
+          require the app itself to report presence, so they cannot restart a killed app. The Mac
+          is a Wi-Fi-only peer. This spike uses a throwaway prototype (not production code) on
+          physical devices to decide whether CDM is worth building (E20-16).
         acceptance:
-          - Successful pairing triggers a CDM association request for the Mac
-          - onDevicePresence callback restarts the service if it is not already running
-          - Unpairing removes the CDM association
-        tdd:
-          - companionDeviceManager_pairingComplete_associates
-          - companionDeviceManager_presenceCallback_restartsServiceIfDead
-          - companionDeviceManager_unpair_disassociates
+          - Findings doc docs/spikes/cdm-presence.md exists and answers each question below with evidence (device, API level, logs)
+          - (a) Can presence observation restart the killed foreground service without the Mac advertising BLE, on API 31, 33, 34, 35 and 36?
+          - (b) Does a (self-managed) association on its own grant useful exemptions (FGS start from background, REQUEST_COMPANION_RUN_IN_BACKGROUND / USE_DATA_IN_BACKGROUND, Doze allowlisting), and are they needed given unrestricted battery?
+          - (c) Cost and privacy of Mac BLE advertising (new radio surface, trackability, battery) — flagged for the threat model (E02-01)
+          - (d) Confirms a CDM association id/MAC address is never used as a trust input (invariant 3) and adds no phone-side listener (invariant 4)
+          - Explicit go/no-go for E20-16 recorded at the top of the doc; no-go closes E20-16 as won't-do
+        tdd: []
+        notes: |
+          Converted from a task to a spike in review cycle 3; the original implementation work
+          (association, presence restart, disassociate on unpair) moved to E20-16. Phase exit does
+          not require CDM presence.
       - id: E20-04
         title: "[android] Unrestricted battery onboarding and OEM guidance"
         type: story
@@ -110,42 +131,74 @@ epics:
         prd: [F-4.1]
         use_cases: [UC-02]
         invariants: []
-        depends_on: [E20-02]
+        depends_on: [E20-02, E00-20, E00-23]
         description: |
-          Onboarding screen requesting the user exempt Tandem from battery optimization
+          Onboarding screen asking the user to exempt Tandem from battery optimization
           (`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`) with a static OEM guidance table
-          (Samsung, Xiaomi, OnePlus, Huawei, ...) shown once and re-accessible from settings.
+          (Samsung, Xiaomi, OnePlus, Huawei, generic fallback) shown once and re-accessible from
+          settings.
+          Seams: a `BatteryOptimizationSource` over `PowerManager.isIgnoringBatteryOptimizations`
+          and a `DeviceManufacturerSource` over `Build.MANUFACTURER`, defined in the onboarding
+          module with fakes in test fixtures; the view model is plain `unit:`, rendered screens
+          are Compose `ui:` tests under Robolectric (E00-20). Whether the OEM steps actually work is
+          a manual gate (E00-23).
+          UI strings (exact): title "Keep Tandem connected"; body "Android may stop Tandem in the
+          background. Allow unrestricted battery use so your Mac stays connected."; buttons
+          "Allow" and "Skip"; OEM section heading "Extra steps for <Manufacturer>"; settings row
+          "Battery optimization".
         acceptance:
-          - Onboarding requests the unrestricted-battery exemption before the service starts
-          - OEM guidance table covers at least Samsung, Xiaomi, OnePlus, Huawei
-          - Setting is re-accessible from app settings at any time
+          - If the app is already ignoring battery optimizations, the battery screen is skipped
+          - Tapping "Allow" launches ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS; tapping "Skip" advances without launching any intent
+          - OEM guidance returns a dedicated entry for Samsung, Xiaomi, OnePlus and Huawei and the generic entry for any other manufacturer
+          - The settings row "Battery optimization" reopens the same screen including the OEM section
+          - "Manual gate: following the Samsung and Xiaomi guidance on the matrix devices results in Tandem listed as Unrestricted in system battery settings"
         tdd:
-          - batteryOnboarding_firstRun_requestsUnrestricted
-          - batteryOnboarding_oemDetected_showsMatchingGuidance
-          - batteryOnboarding_alreadyUnrestricted_skipsPrompt
+          - "unit: batteryOnboardingViewModel_alreadyIgnoringOptimizations_skipsScreen"
+          - "unit: oemGuidance_manufacturerXiaomi_returnsXiaomiEntry"
+          - "unit: oemGuidance_unknownManufacturer_returnsGenericEntry"
+          - "ui: batteryOnboardingScreen_rendered_showsExactTitleBodyAndButtons"
+          - "ui: batteryOnboardingScreen_allowTapped_launchesIgnoreBatteryOptimizationSettings"
+          - "ui: settingsScreen_batteryOptimizationRowTapped_showsOemGuidanceSection"
+          - "manual: oemGuidanceSamsungXiaomi_stepsFollowed_appListedUnrestricted"
       - id: E20-05
-        title: "[cross] Heartbeat timer and dead-peer detection"
+        title: "[macos] Heartbeat sender and dead-peer detection (Mac drives liveness)"
         type: task
-        platforms: [android, macos]
+        platforms: [macos]
         priority: P0
         size: M
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E20-01, E12-08, E12-09]
+        depends_on: [E20-01, E12-09, E00-24, E00-25]
         description: |
-          Both sides send Heartbeat every 15 s on the control channel while idle; the receiver
-          tracks the last-heartbeat timestamp. Three consecutive misses (45 s of silence)
-          transitions the connection state machines (E12-08 Android, E12-09 macOS) to Dead and triggers teardown. Any
-          received frame, not just a heartbeat, resets the miss counter.
+          Mac half of the E01-07 liveness contract. Per connection: after 15 s without sending any
+          frame on CONTROL, send one `Heartbeat`; after 45 s without receiving any frame, move the
+          E12-09 state machine to Dead and cancel the connection. Any received frame (not only
+          Heartbeat) resets the receive timer; any sent frame resets the send timer. The Mac never
+          replies to a received Heartbeat (no ping-pong loop).
+          Seams: timers take an injected `Clock<Duration>` (E00-24) so 15 s / 45 s are tested with
+          `ManualTestClock`; frames flow over `InMemoryConnectionPair` (E00-25).
         acceptance:
-          - Heartbeat is sent every 15 s (+/- jitter) while no other CONTROL traffic is present
-          - Three missed heartbeats (45 s of silence) marks the connection Dead on both platforms
-          - Any received frame resets the miss counter
+          - After 15 s without sending any frame, exactly one Heartbeat is sent; a frame sent at t=10 s delays the next Heartbeat to t=25 s
+          - A received Heartbeat never causes a Heartbeat to be sent in reply
+          - 45 s without receiving any frame sets the E12-09 state to Dead and cancels the connection
+          - A non-Heartbeat frame received at t=44 s keeps the connection up past t=45 s
+          - Timers are per connection; one connection going Dead does not affect another
         tdd:
-          - heartbeat_noOtherTraffic_sentEvery15s
-          - heartbeat_threeMissed_connectionMarkedDead
-          - heartbeat_anyFrameReceived_resetsMissCounter
+          - "unit: macHeartbeat_idle15sWithoutSend_sendsHeartbeat"
+          - "unit: macHeartbeat_frameSentAt10s_noHeartbeatBefore25s"
+          - "unit: macHeartbeat_heartbeatReceived_noReplySent"
+          - "unit: macDeadPeer_silent45sWithoutReceive_stateDead"
+          - "unit: macDeadPeer_nonHeartbeatFrameAt44s_staysConnected"
+          - "unit: macDeadPeer_oneConnectionDead_otherConnectionUnaffected"
+        notes: |
+          Split from E20-05 ([cross]) in review cycle 3; Android half is E20-15.
+          Decision (E01-07, review cycle 3): the Mac drives liveness. Mac sends Heartbeat after 15 s
+          without sending and declares dead after 45 s without receiving; the phone replies to
+          every Heartbeat within 1 s; the Mac never replies. The phone's unsolicited timer is
+          suspended in Doze (no wake locks / alarms) and it measures silence on elapsedRealtime
+          (sleep-inclusive), treating > 45 s as dead on timer, Doze exit and screen-on, then
+          reconnecting (E20-06). Overnight behaviour is gated by E20-12.
       - id: E20-06
         title: "[android] Reconnect address strategy and exponential backoff"
         type: task
@@ -155,23 +208,30 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: [3, 1]
-        depends_on: [E20-05, E21-05]
+        depends_on: [E20-15, E21-05, E12-08, E00-18, E15-15]
         description: |
-          Reconnect address-selection state machine: try the last-working address first, then
-          Bonjour-resolved addresses of recognized paired Macs (E21-05), then addresses recorded
-          at pairing time. Exponential backoff from 1 s, doubling, capped at 30 s between full
-          cycles. Every candidate still goes through the full mTLS handshake and pin check;
+          Reconnect address-selection state machine, started when E20-15 (or the E12-08 state
+          machine) reports the peer dead or disconnected: try the last-working address first, then
+          Bonjour-resolved addresses of recognized paired Macs (E21-05), then addresses recorded at
+          pairing time. Exponential backoff from 1 s, doubling, capped at 30 s between full cycles.
+          Every candidate still goes through the full mTLS handshake and pin check;
           discovery/pairing addresses are hints only (invariant 3).
+          Seams: backoff waits use `delay` in the injected scope with `TestClock` (E00-18) so the
+          1-2-4-...-30 s sequence runs in virtual time; dialing goes through a `Connector` interface
+          with a recording fake returning success / PinMismatch / unreachable per address. The
+          impostor case also runs as an integration test against a second server identity on the
+          E15-15 harness.
         acceptance:
-          - Address order is last-working, then Bonjour, then pairing-time addresses
-          - Backoff starts at 1 s, doubles, and caps at 30 s
-          - A successful connection resets backoff to 1 s and records the working address
-          - A host now answering on the last-working address with a different key fails the pin check, receives no application data, and the strategy moves to the next candidate (UC-04).
+          - Address order within a cycle is last-working, then Bonjour-resolved, then pairing-time addresses, with duplicates tried once
+          - Waits between failed full cycles are 1, 2, 4, 8, 16, 30, 30 s
+          - A successful connection resets backoff to 1 s and records that address as last-working
+          - A host now answering on the last-working address with a different key fails the pin check, receives zero application bytes, and the strategy moves to the next candidate (UC-04)
         tdd:
-          - reconnect_addressOrder_lastWorkingThenBonjourThenPairing
-          - reconnect_backoff_doublesUpToCap
-          - reconnect_success_resetsBackoffAndRecordsAddress
-          - reconnect_lastWorkingAddressNowDifferentKey_failsClosedAndTriesNextCandidate
+          - "unit: reconnectStrategy_allCandidateKinds_triesLastWorkingThenBonjourThenPairing"
+          - "unit: reconnectBackoff_consecutiveFailedCycles_waits1s2s4s8s16s30s30s"
+          - "unit: reconnectStrategy_success_resetsBackoffTo1sAndRecordsAddress"
+          - "unit: reconnectStrategy_lastWorkingAddressPinMismatch_triesNextCandidate"
+          - "integration: reconnect_impostorOnLastWorkingAddress_zeroApplicationBytesSent"
       - id: E20-07
         title: "[android] Reconnect on ConnectivityManager network callback"
         type: task
@@ -181,18 +241,26 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E20-06]
+        depends_on: [E20-06, E00-18, E00-20]
         description: |
-          Register a ConnectivityManager.NetworkCallback; on network available/changed, cancel
-          any pending backoff wait and trigger an immediate reconnect attempt, falling back to
-          normal backoff if it fails.
+          Register a ConnectivityManager.NetworkCallback; on network available/changed, cancel any
+          pending backoff wait, reset backoff to 1 s and trigger an immediate reconnect attempt,
+          falling back to normal backoff if it fails.
+          Seam: a `NetworkMonitor` interface (Flow of network-available/lost events) in core/transport
+          with a fake in test fixtures; the ConnectivityManager adapter is tested under Robolectric
+          (E00-20). Debounce uses the injected scope and `TestClock` (E00-18). E23-02 reuses
+          `NetworkMonitor` for network type.
         acceptance:
-          - Network-available callback triggers an immediate reconnect attempt regardless of
-            the pending backoff timer
-          - Repeated flapping does not trigger more than one immediate attempt per network event
+          - A network-available event while a backoff wait is pending starts a reconnect attempt immediately (0 s virtual time) and resets backoff to 1 s (UC-04)
+          - Network events arriving within a 500 ms window collapse into one immediate attempt
+          - If the immediate attempt fails, the next wait is 1 s
+          - No attempt is triggered while the connection is already Connected
         tdd:
-          - networkCallback_available_triggersImmediateReconnect
-          - networkCallback_flapping_debouncedToOneAttempt
+          - "unit: networkReconnectTrigger_networkAvailable_connectsImmediatelyAndResetsBackoff"
+          - "unit: networkReconnectTrigger_fiveEventsWithin500ms_oneImmediateAttempt"
+          - "unit: networkReconnectTrigger_immediateAttemptFails_nextWaitIs1s"
+          - "unit: networkReconnectTrigger_alreadyConnected_noAttempt"
+          - "unit: connectivityNetworkMonitor_onAvailableCallback_emitsNetworkAvailable"
       - id: E20-08
         title: "[android] BOOT_COMPLETED restart"
         type: task
@@ -202,16 +270,23 @@ epics:
         prd: [F-4.1]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E20-02]
+        depends_on: [E20-02, E00-20, E00-23]
         description: |
           Register a BOOT_COMPLETED broadcast receiver (RECEIVE_BOOT_COMPLETED) that starts the
-          foreground service when a paired Mac exists.
+          foreground service via `ServiceStarter` (E20-02) when a paired Mac exists. BOOT_COMPLETED
+          is delivered after first unlock (the app is not direct-boot aware); connectedDevice is not
+          among the FGS types Android 15 forbids from BOOT_COMPLETED.
+          Seam: the receiver is tested under Robolectric (E00-20) with the paired-peer fake; a real
+          reboot is a manual gate (E00-23) because GMD cannot reboot a device mid-test.
         acceptance:
-          - After reboot, the service starts automatically without opening the app
-          - No service start occurs when no paired Mac exists
+          - Merged manifest declares RECEIVE_BOOT_COMPLETED and the receiver for android.intent.action.BOOT_COMPLETED
+          - BOOT_COMPLETED with a paired Mac starts the foreground service; with no paired Mac nothing is started
+          - "Manual gate: after a physical reboot and unlock, the service is running and connected to the Mac within 60 s without opening the app"
         tdd:
-          - bootCompleted_pairedDevice_startsService
-          - bootCompleted_noPairedDevice_doesNotStartService
+          - "ci: mergedManifest_bootReceiver_declaresReceiveBootCompleted"
+          - "unit: bootReceiver_bootCompletedWithPairedMac_startsForegroundService"
+          - "unit: bootReceiver_bootCompletedNoPairedMac_startsNothing"
+          - "manual: phoneReboot_pairedMac_connectedWithin60sOfUnlock"
       - id: E20-09
         title: "[android] Connection state UI on phone"
         type: story
@@ -220,20 +295,29 @@ epics:
         size: S
         prd: [F-4.1]
         use_cases: [UC-05]
-        invariants: []
-        depends_on: [E20-05, E20-06, E12-10]
+        invariants: [5]
+        depends_on: [E20-15, E20-06, E12-16, E00-18, E00-20]
         description: |
-          Phone UI surfaces connection state (Connected / Connecting / Reconnecting /
-          Disconnected / Error) sourced from the E12-08 state machine, with error text from E12-10, updated live.
+          Phone UI surfaces connection state sourced from the E12-08 state machine, with error text
+          from E12-16 (Android fail-closed error mapping), updated live.
+          Seams: a `ConnectionStatusViewModel` consuming the state Flow (fake state machine) and
+          backoff-cycle count from E20-06, tested with Turbine and `TestClock` (E00-18); rendering
+          checked by Compose `ui:` tests under Robolectric (E00-20).
+          UI strings (exact): "Connected to <Mac name>", "Connecting…", "Reconnecting…",
+          "Disconnected", "Error: <reason from E12-16>"; network-isolation hint "Can't reach your
+          Mac. Make sure both devices are on the same Wi-Fi. Guest networks and hotspots often
+          block devices from reaching each other."
         acceptance:
-          - UI reflects Connected, Connecting, Reconnecting, Disconnected, Error with distinct
-            visuals
-          - State updates within 1 s of an underlying state-machine transition
-          - After three full backoff cycles with every address unreachable, the UI shows the network-isolation hint (client isolation / different Wi-Fi / hotspot) instead of a bare "Disconnected" (PRD risk).
+          - Each of Connected, Connecting, Reconnecting, Disconnected, Error renders its exact label above
+          - UI state updates within 1 s of an underlying state-machine transition
+          - An E12-16 pin-mismatch error renders "Error:" followed by its reason text
+          - After three full backoff cycles with every address unreachable, the UI shows the network-isolation hint instead of a bare "Disconnected" (PRD risk)
         tdd:
-          - connectionStateUi_stateMachineTransition_reflectedWithin1s
-          - connectionStateUi_errorState_showsVisibleMessage
-          - connectionStateUi_unreachableForThreeBackoffCycles_showsNetworkIsolationHint
+          - "unit: connectionStatusViewModel_stateMachineTransition_uiStateUpdatedWithin1s"
+          - "unit: connectionStatusViewModel_pinMismatchError_mapsToErrorWithReasonText"
+          - "unit: connectionStatusViewModel_threeUnreachableBackoffCycles_showsNetworkIsolationHint"
+          - "ui: connectionStatusScreen_eachState_rendersExactLabel"
+          - "ui: connectionStatusScreen_isolationHintState_rendersExactHintText"
       - id: E20-10
         title: "[macos] Sleep/wake handling via NSWorkspace"
         type: task
@@ -243,18 +327,25 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E12-01, E12-09]
+        depends_on: [E12-01, E12-09, E00-08, E00-24]
         description: |
-          Observe NSWorkspace.willSleepNotification / didWakeNotification. On sleep, pause the
-          listener without crashing pending connections; on wake, restart the listener promptly
-          and expect the phone to reconnect.
+          Observe NSWorkspace.willSleepNotification / didWakeNotification. On sleep, stop accepting
+          on the listener and cancel open connections cleanly (E12-09 state Disconnected, no crash);
+          on wake, restart the listener promptly and expect the phone to reconnect.
+          Seams: a `SystemPowerEvents` protocol (AsyncStream of willSleep/didWake) with the
+          production adapter over an injected `NSWorkspace.shared.notificationCenter` and a
+          recording fake; a `ListenerControl` protocol over the E12-01 listener; the 1 s bound is
+          measured with `ManualTestClock` (E00-24). E22-08 reuses `SystemPowerEvents`.
         acceptance:
-          - willSleepNotification pauses the listener cleanly without crashing pending
-            connections
-          - didWakeNotification restarts the listener within 1 s
+          - willSleep stops the listener and moves every open connection to Disconnected without a crash or leaked connection
+          - didWake restarts the listener, reaching ready within 1 s
+          - didWake without a prior willSleep does not create a second listener
+          - The NSWorkspace adapter emits didWake when didWakeNotification is posted on the injected notification center
         tdd:
-          - macSleepWake_willSleep_pausesListenerCleanly
-          - macSleepWake_didWake_restartsListenerWithin1s
+          - "unit: sleepWakeController_willSleep_listenerStoppedAndConnectionsDisconnected"
+          - "unit: sleepWakeController_didWake_listenerReadyWithin1s"
+          - "unit: sleepWakeController_didWakeWithoutSleep_noDuplicateListener"
+          - "unit: workspacePowerEvents_didWakeNotificationPosted_emitsDidWake"
       - id: E20-11
         title: "[macos] Listener restart on network path change"
         type: task
@@ -264,19 +355,23 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E12-01]
+        depends_on: [E12-01, E00-08]
         description: |
           Use NWPathMonitor to detect interface changes (Wi-Fi switch, VPN toggle) and rebind the
-          NWListener to the new local addresses without dropping sessions unaffected by the
-          change.
+          NWListener to the new local addresses without dropping sessions unaffected by the change.
+          Seam: a `NetworkPathSource` protocol (AsyncStream of path snapshots: status + interface
+          list) with the NWPathMonitor adapter in TandemTransport and a scripted fake; the listener
+          is driven through the `ListenerControl` protocol shared with E20-10.
         acceptance:
-          - An interface change rebinds the listener to the new local addresses
-          - Existing authenticated sessions unaffected by the change are not dropped
+          - A path update whose interface set changed rebinds the listener exactly once
+          - A path update with an unchanged interface set does not rebind
+          - A session whose local interface is still present is not cancelled by the rebind
         tdd:
-          - pathMonitor_interfaceChange_rebindsListener
-          - pathMonitor_rebind_doesNotDropUnaffectedSessions
+          - "unit: pathChangeController_interfaceSetChanged_listenerReboundOnce"
+          - "unit: pathChangeController_interfaceSetUnchanged_noRebind"
+          - "unit: pathChangeController_sessionInterfaceStillPresent_sessionNotCancelled"
       - id: E20-12
-        title: "[tools] Reconnect latency measurement harness"
+        title: "[tools] Reconnect latency measurement harness and overnight Doze gate"
         type: test
         platforms: [tools]
         priority: P0
@@ -284,20 +379,28 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: []
-        depends_on: [E20-06, E20-07, E20-10, E20-11]
+        depends_on: [E20-05, E20-15, E20-06, E20-07, E20-10, E20-11, E15-15, E00-23]
         description: |
-          Automated harness measuring phone-to-Mac reconnect latency p95 across three scenarios:
-          Wi-Fi network switch, Mac sleep/wake, and simulated Doze; plus a manual overnight Doze
-          soak as a device-level gate.
+          tools/reconnect-harness: drives scenarios on real hardware (Wi-Fi switch via
+          `adb shell cmd wifi connect-network`, Mac sleep via `pmset sleepnow` + scheduled wake) and
+          computes reconnect latency (disconnect/dead event to session Ready) from timestamped
+          logcat and macOS unified-log markers, reporting p95 and exiting non-zero above 5 s.
+          Emulator CI cannot reach a Mac, so the scenario runs are `manual:` gates (E00-23); the
+          harness's own log parsing is unit-tested against fixture logs. A JVM↔Mac integration
+          test (E15-15) proves the E20-05 sender and E20-15 responder interoperate.
         acceptance:
-          - Harness reports p95 reconnect latency under 5 s for the Wi-Fi switch and Mac wake
-            scenarios
-          - Manual overnight Doze gate shows the connection recovers without user interaction
-            after a full Doze cycle
+          - Harness self-test on fixture logs reports the correct p95 and exits non-zero when p95 > 5 s
+          - Wi-Fi switch and Mac wake scenarios each report p95 < 5 s over >= 20 trials (PRD Phase 2 exit)
+          - Over >= 8 h of Doze with the FGS running and battery unrestricted, zero user interaction, every Mac-declared-dead episode is followed by a reconnect within 5 s of the next Doze maintenance window or screen-on; the number of episodes and per-episode latency are recorded
+          - Quick gate with `adb shell dumpsys deviceidle force-idle` for 10 min, then `unforce` and screen-on, ends Connected within 5 s
+          - JVM client idle for 120 s against the real Mac server stays connected, with every Mac Heartbeat answered
         tdd:
-          - reconnectHarness_wifiSwitch_p95Under5s
-          - reconnectHarness_macWake_p95Under5s
-          - reconnectHarness_overnightDoze_manualGate (device test)
+          - "unit: reconnectHarness_fixtureLogs_computesP95AndExitsNonZeroAbove5s"
+          - "integration: heartbeatInterop_jvmClientIdle120s_connectionStaysUp"
+          - "manual: reconnectWifiSwitch_twentyTrials_p95Under5s"
+          - "manual: reconnectMacWake_twentyTrials_p95Under5s"
+          - "manual: overnightDoze8h_fgsUnrestrictedBattery_reconnectWithin5sOfWake"
+          - "manual: adbForceIdle10min_unforceAndScreenOn_connectedWithin5s"
       - id: E20-13
         title: "[docs] ADR: Mac-initiated reconnect hint (PRD Appendix C.3)"
         type: adr
@@ -310,16 +413,18 @@ epics:
         depends_on: [E20-12, E02-03, E20-03]
         description: |
           Resolves Appendix C.3: should the Mac be able to trigger a reconnect (e.g. via Bluetooth LE)?
-          Options: (a) no, rely on CDM presence (E20-03), network callbacks (E20-07), and backoff;
-          (b) the Mac emits a BLE advertisement (rotating, unlinkable across days like F-3.5) that
-          the phone observes via CDM/BLE scan and answers by dialing the Mac itself — the phone stays
-          the only dialer; (c) any phone-side GATT server or other inbound channel — rejected up front
-          as equivalent to a phone listener (invariant 4). BLE never carries application data or keys
-          (invariant 1). Decision is data-driven: if E20-12 meets reconnect < 5 s p95 after Mac wake,
-          v1 ships (a) and (b) is recorded as a v2 option.
+          Options: (a) no, rely on the FGS, network callbacks (E20-07), Mac-driven heartbeats and
+          backoff (plus CDM presence only if the E20-03 spike is go); (b) the Mac emits a BLE
+          advertisement (rotating, unlinkable across days like F-3.5) that the phone observes via
+          CDM/BLE scan and answers by dialing the Mac itself — the phone stays the only dialer;
+          (c) any phone-side GATT server or other inbound channel — rejected up front as equivalent
+          to a phone listener (invariant 4). BLE never carries application data or keys
+          (invariant 1). Decision is data-driven: if E20-12 meets reconnect < 5 s p95 after Mac wake
+          and the overnight Doze gate passes, v1 ships (a) and (b) is recorded as a v2 option. The
+          E20-03 findings on BLE cost/privacy feed option (b).
         acceptance:
           - ADR in docs/adr/ records options (a)-(c), rejects (c) citing invariant 4, and states that BLE carries no application data or stable identifiers
-          - The decision cites E20-12's measured Mac-wake reconnect p95
+          - The decision cites E20-12's measured Mac-wake reconnect p95 and overnight Doze result, and the E20-03 go/no-go
           - If (b) is accepted, follow-up issues are filed in E72 before Phase 7 starts
         tdd: []
       - id: E20-14
@@ -331,25 +436,125 @@ epics:
         prd: [F-4.1, F-1.1]
         use_cases: [UC-02]
         invariants: [4]
-        depends_on: [E20-04, E14-10, E10-04]
+        depends_on: [E20-04, E14-10, E10-04, E00-20]
         description: |
           UC-02 onboarding had no owner beyond the battery screen (E20-04). Sequence: identity
-          bootstrap (E10-04), notification-listener access, POST_NOTIFICATIONS (API 33+), unrestricted
-          battery (E20-04), then "Scan Mac QR" (camera requested only when scanning, E14-10). Each
-          screen explains why; every screen except camera-during-scan has a skip. Later features
-          (SMS, contacts, phone, media, accessibility, notification policy) ask lazily from their own
-          epics, never in onboarding. A skipped or denied permission leaves its feature showing
-          "disabled, tap to enable", which deep-links to the right system screen.
+          bootstrap (E10-04), notification-listener access, POST_NOTIFICATIONS (API 33+ only),
+          unrestricted battery (E20-04), then "Scan Mac QR" (camera requested only when scanning,
+          E14-10). Each screen explains why; every screen except camera-during-scan has a skip.
+          Later features (SMS, contacts, phone, media, accessibility, notification policy) ask
+          lazily from their own epics, never in onboarding. A skipped or denied permission leaves
+          its feature row showing "Disabled, tap to enable", which deep-links to the matching
+          system settings screen.
+          Seams: an `OnboardingViewModel` over a `PermissionRequester` interface (recording fake
+          logs every permission requested) and an SDK-level provider, plain `unit:`; screens are
+          Compose `ui:` tests under Robolectric (E00-20).
+          UI strings (exact): screen titles "Mirror notifications", "Allow notifications",
+          "Keep Tandem connected", "Scan Mac QR"; skip button "Skip"; disabled feature row
+          "Disabled, tap to enable".
         acceptance:
-          - Every optional permission screen has a working skip path; camera is requested only on the scan screen
-          - With all optional permissions denied, QR pairing still completes
-          - A denied feature shows "disabled, tap to enable" and the tap opens the matching system settings screen
-          - No lazily-requested permission (SMS, contacts, phone, media, accessibility) is requested during onboarding
+          - Screen order is identity, notification listener, POST_NOTIFICATIONS, battery, Scan Mac QR; POST_NOTIFICATIONS is omitted on API < 33
+          - Every screen before "Scan Mac QR" shows a "Skip" button that advances to the next screen; the scan screen has no skip and is the only place CAMERA is requested
+          - With all optional permissions denied, the flow reaches "Scan Mac QR" and pairing is not gated on any optional permission
+          - A denied feature shows "Disabled, tap to enable" and the tap launches the matching system settings intent
+          - A full onboarding run requests none of SMS, contacts, phone, media, accessibility or notification-policy permissions
         tdd:
-          - onboarding_everyOptionalPermissionScreen_hasSkipPath
-          - onboarding_allOptionalPermissionsDenied_pairingStillCompletes
-          - onboarding_deniedFeature_showsDisabledTapToEnableDeepLink
-          - onboarding_lazyPermissions_neverRequestedDuringOnboarding
+          - "unit: onboardingViewModel_api33_ordersIdentityListenerPostNotificationsBatteryScan"
+          - "unit: onboardingViewModel_api32_omitsPostNotificationsScreen"
+          - "unit: onboardingViewModel_fullRunAllSkipped_requestedPermissionsExcludeLazyOnes"
+          - "unit: pairingPreconditions_allOptionalPermissionsDenied_pairingAllowed"
+          - "ui: onboardingOptionalScreens_skipTapped_advancesToNextScreen"
+          - "ui: scanScreen_rendered_noSkipButtonAndCameraRequestedOnScanTap"
+          - "ui: deniedFeatureRow_tapped_launchesMatchingSettingsIntent"
+      - id: E20-15
+        title: "[android] Heartbeat responder, Doze-aware unsolicited timer, sleep-inclusive dead-peer detection"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: L
+        prd: [F-3.4]
+        use_cases: [UC-04]
+        invariants: []
+        depends_on: [E20-01, E12-08, E12-11, E00-18, E00-19, E00-20, E00-23]
+        description: |
+          Android half of the E01-07 liveness contract.
+          - Responder: reply with one `Heartbeat` to every received `Heartbeat` within 1 s.
+          - Unsolicited timer: while the device is interactive and not in Doze, send a Heartbeat
+            after 15 s without sending; while `isDeviceIdleMode` is true, schedule nothing (no wake
+            locks, no AlarmManager alarms) — incoming Mac heartbeats wake the phone.
+          - Dead-peer detector: silence is measured on `ElapsedRealtimeSource` (sleep-inclusive,
+            E00-18), never on wall clock; > 45 s without any received frame emits PeerDead to the
+            E12-08 state machine, which starts the E20-06 reconnect. Evaluated on the detector
+            timer, on Doze exit and on screen-on. Any received frame resets silence.
+          Seams: `ElapsedRealtimeSource` + `TestClock` + injected scope (E00-18); frames over
+          `InMemoryDuplexPipe` (E00-19); a `DeviceIdleSource` interface (StateFlow idle mode +
+          screen-on events) defined in core/transport, production adapter over
+          `PowerManager.isDeviceIdleMode` + `ACTION_DEVICE_IDLE_MODE_CHANGED` + `ACTION_SCREEN_ON`,
+          tested under Robolectric (E00-20). Real Doze is a manual gate (E00-23) and E20-12.
+        acceptance:
+          - Every received Heartbeat is answered with exactly one Heartbeat within 1 s; non-Heartbeat frames get no reply
+          - While interactive and not idle, a Heartbeat is sent after 15 s without sending; while idle, no Heartbeat, wake lock or alarm is scheduled
+          - 46 s of elapsedRealtime silence (including device sleep, with wall clock unchanged) emits PeerDead
+          - A Doze-exit or screen-on event after > 45 s of silence emits PeerDead immediately, before the detector timer fires
+          - A 1 h forward wall-clock jump with frames still arriving does not emit PeerDead
+          - The DeviceIdleSource adapter emits the new idle state on ACTION_DEVICE_IDLE_MODE_CHANGED
+          - "Manual gate: under adb force-idle for 30 min, every Mac Heartbeat is answered within 1 s (Mac-side log)"
+        tdd:
+          - "unit: heartbeatResponder_macHeartbeatReceived_repliesWithin1s"
+          - "unit: heartbeatResponder_nonHeartbeatFrame_noReplySent"
+          - "unit: unsolicitedTimer_interactive15sWithoutSend_sendsHeartbeat"
+          - "unit: unsolicitedTimer_deviceIdleMode_noHeartbeatScheduled"
+          - "unit: deadPeerDetector_silence46sIncludingSleep_marksDead"
+          - "unit: deadPeerDetector_dozeExitAfterLongSilence_triggersReconnect"
+          - "unit: deadPeerDetector_screenOnAfterLongSilence_triggersReconnect"
+          - "unit: deadPeerDetector_wallClockJumpForward1h_staysConnected"
+          - "unit: deviceIdleSource_idleModeChangedBroadcast_emitsNewIdleState"
+          - "manual: forceIdle30min_macHeartbeats_everyHeartbeatAnsweredWithin1s"
+        notes: |
+          Split from E20-05 in review cycle 3 (Mac half stays E20-05).
+          Decision (E01-07, review cycle 3): the Mac drives liveness. Mac sends Heartbeat after 15 s
+          without sending and declares dead after 45 s without receiving; the phone replies to
+          every Heartbeat within 1 s; the Mac never replies. The phone's unsolicited timer is
+          suspended in Doze (no wake locks / alarms) and it measures silence on elapsedRealtime
+          (sleep-inclusive), treating > 45 s as dead on timer, Doze exit and screen-on, then
+          reconnecting (E20-06). If E20-12 shows incoming packets do not wake some OEM devices,
+          revisit per E01-07 notes.
+      - id: E20-16
+        title: "[android] CompanionDeviceManager association (+ presence restart if E20-03 = go)"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: M
+        prd: [F-4.1]
+        use_cases: [UC-02, UC-03]
+        invariants: [3]
+        depends_on: [E20-03, E20-02, E14-05, E14-12, E00-20, E00-23]
+        description: |
+          Conditional on the E20-03 spike. Associate with the paired Mac via CompanionDeviceManager
+          right after pairing completes (E14-05) and remove the association on unpair (E14-12).
+          Only if E20-03 found presence observation viable: call `startObservingDevicePresence` so
+          an OS presence callback starts the foreground service (via E20-02 `ServiceStarter`) when
+          it is not running. The association id is stored separately from the trust store and is
+          never a trust input (invariant 3).
+          Seam: a `CompanionAssociationGateway` interface over CompanionDeviceManager with a
+          recording fake; the adapter and presence service are tested under Robolectric (E00-20);
+          real presence restart is a manual gate (E00-23).
+        acceptance:
+          - PairingCompleted requests exactly one CDM association for the paired Mac
+          - Unpairing removes the matching association id
+          - Creating or removing an association leaves the trust-store record unchanged
+          - (If E20-03 = go) a presence callback while the service is stopped starts the foreground service; while running it starts nothing
+          - "(If E20-03 = go) Manual gate: after the app is killed, a presence event restarts the service within 60 s on the matrix devices"
+        tdd:
+          - "unit: cdmAssociator_pairingCompleted_requestsOneAssociation"
+          - "unit: cdmAssociator_unpairCompleted_disassociatesMatchingId"
+          - "unit: cdmAssociator_associationCreated_trustStoreRecordUnchanged"
+          - "unit: presenceService_devicePresentServiceStopped_startsForegroundService"
+          - "manual: cdmPresence_appKilledMacPresent_serviceRestartedWithin60s"
+        notes: |
+          Split from E20-03 in review cycle 3 (E20-03 became the feasibility spike).
+          Conditional: close as won't-do if the E20-03 spike is no-go. If the spike is go but only
+          association (no presence restart) is useful, drop the presence acceptance and tdd entries.
 
   - id: E21
     title: Bonjour discovery with rotating ID
@@ -372,11 +577,9 @@ epics:
       - Reconnect address ordering / backoff (E20)
       - Pairing address delivery via QR (earlier phase, E14)
     exit_criteria:
-      - A stranger's capture of two days of mDNS traffic cannot link the rotating id to the
-        same Mac
-      - Android recognizes a paired Mac's rotating id and only ever offers it as a reconnect
-        hint, never as a trust decision
-      - macOS shows the Local Network permission prompt and advertises correctly once granted
+      - Both codecs match every E01-20 rotating-id vector, and the advertised TXT id and instance name change at the UTC day boundary (E21-02, E21-05)
+      - Android recognizes a paired Mac's rotating id for dayIndex-1..+1 only, and a spoofed advertisement with the right id but wrong key fails the pin check with zero application bytes (E21-06)
+      - macOS shows the Local Network permission prompt and advertises once granted; denial shows the in-app explanation (E21-03)
     issues:
       - id: E21-02
         title: "[macos] Advertise _tandem._tcp with rotating TXT id"
@@ -386,20 +589,34 @@ epics:
         size: M
         prd: [F-3.5]
         use_cases: [UC-03, AC-05]
-        invariants: []
-        depends_on: [E01-08, E01-20, E12-01]
+        invariants: [3]
+        depends_on: [E01-08, E01-20, E12-01, E00-24, E15-02, E00-23, E20-10]
         description: |
-          Advertise the control-connection port with TXT record `v=1` plus the rotating id
-          computed per SPEC E01-08 (vectors E01-20), recomputed and re-advertised at each UTC day boundary without
-          disrupting existing connections.
+          Advertise the control-connection port with TXT record `v=1` plus the rotating id computed
+          per SPEC E01-08 (vectors E01-20), recomputed and re-advertised at each UTC day boundary
+          without disrupting existing connections. The service instance name is derived from the
+          rotating id. After Mac wake (E20-10) the advertisement is re-published with the id for the
+          current UTC day (a Mac asleep across midnight must not advertise yesterday's id).
+          Seams: the rotating-id function is checked against the E01-20 vectors by the Swift
+          conformance runner (E15-02); the advertiser takes a `DateProvider` + `Clock<Duration>`
+          (E00-24) so the 23:59:59 → 00:00:00 UTC boundary and non-UTC time zones are tested in
+          virtual time; publication goes through a `BonjourPublisher` protocol (recording fake)
+          over the NWListener service.
         acceptance:
-          - Service advertises _tandem._tcp with TXT v=1 and the correct rotating id
-          - The TXT record refreshes at the day boundary without dropping existing connections
-          - The Bonjour service instance name contains no Mac name, user name, or stable identifier (derived from the rotating id) (AC-05).
+          - The Swift rotating-id implementation matches every E01-20 vector
+          - TXT contains exactly the keys v (value 1) and the rotating id, nothing else (AC-05)
+          - Crossing 00:00:00 UTC republishes the new id within 1 s, and no open connection is cancelled by the refresh
+          - dayIndex is computed in UTC regardless of the Mac's time zone
+          - The instance name is derived from the rotating id and contains no Mac name, user name or other stable identifier (AC-05)
+          - "Manual gate: dns-sd -B/-L before and after UTC midnight shows a changed TXT id and instance name"
         tdd:
-          - bonjourAdvertise_txtRecord_containsVAndCurrentId
-          - bonjourAdvertise_dayBoundary_refreshesIdWithoutDisruption
-          - bonjourAdvertise_instanceName_containsNoMacNameOrStableId
+          - "conformance: rotatingIdVectors_swiftCodec_matchesExpectedIds"
+          - "unit: bonjourAdvertiser_start_txtHasOnlyVersionAndIdKeys"
+          - "unit: bonjourAdvertiser_utcMidnightCrossed_republishesNewIdWithin1s"
+          - "unit: bonjourAdvertiser_dayRefresh_existingConnectionsNotCancelled"
+          - "unit: bonjourAdvertiser_timeZoneUtcPlus14_usesUtcDayIndex"
+          - "unit: bonjourAdvertiser_instanceName_derivedFromRotatingIdOnly"
+          - "manual: dnsSdBrowse_acrossUtcMidnight_txtIdAndInstanceNameChanged"
         notes: |
           Residual risk: the mDNS SRV/A records carry the Mac's OS hostname, which Tandem does not
           control. Record it in the threat model (E02-01) with the mitigation "rename the Mac's local
@@ -413,17 +630,27 @@ epics:
         prd: [F-3.5]
         use_cases: []
         invariants: []
-        depends_on: [E21-02]
+        depends_on: [E21-02, E00-26, E00-23]
         description: |
           Add `NSLocalNetworkUsageDescription` and `NSBonjourServices` (`_tandem._tcp`) to
           Info.plist; handle the permission prompt and show an explanation with a link to System
-          Settings when denied.
+          Settings when denied (advertise/listener fails with a policy-denied DNS-SD error).
+          Seams: a `LocalNetworkPermissionViewModel` fed by the `BonjourPublisher` error stream
+          (E21-02 fake) and a `URLOpener` recording fake; the rendered banner is an XCUITest via a
+          `localNetworkDenied` scenario added to the E00-26 hook. The OS prompt itself is manual.
+          UI strings (exact): "Tandem needs Local Network access so your phone can find this Mac."
+          and button "Open System Settings".
         acceptance:
-          - The app triggers the Local Network permission prompt on first advertise
-          - A denied permission shows an in-app explanation and a link to System Settings
+          - Info.plist contains NSLocalNetworkUsageDescription and NSBonjourServices containing _tandem._tcp
+          - A policy-denied advertise error shows the exact explanation text and button
+          - The button opens the Privacy & Security > Local Network settings URL
+          - "Manual gate: on a fresh macOS user, first advertise shows the Local Network prompt once"
         tdd:
-          - localNetworkPermission_firstAdvertise_promptsUser
-          - localNetworkPermission_denied_showsExplanationUi
+          - "ci: infoPlist_localNetworkKeys_containUsageDescriptionAndTandemService"
+          - "unit: localNetworkPermissionViewModel_policyDeniedError_showsExplanation"
+          - "unit: localNetworkPermissionViewModel_openSettingsTapped_opensLocalNetworkUrl"
+          - "ui: menuBarExtra_localNetworkDeniedScenario_showsExactExplanationText"
+          - "manual: freshMacUser_firstAdvertise_localNetworkPromptShownOnce"
       - id: E21-04
         title: "[android] NsdManager browse and resolve"
         type: task
@@ -432,19 +659,28 @@ epics:
         size: M
         prd: [F-3.5]
         use_cases: [UC-04]
-        invariants: []
-        depends_on: [E01-08]
+        invariants: [4]
+        depends_on: [E01-08, E00-18, E00-21, E00-23]
         description: |
-          Browse for `_tandem._tcp` via NsdManager and resolve service instances to
-          host/port/TXT records, retrying transient resolve failures with backoff.
+          Browse for `_tandem._tcp` via NsdManager and resolve service instances to host/port/TXT
+          records, retrying transient resolve failures with backoff (API < 34 resolves one service
+          at a time; FAILURE_ALREADY_ACTIVE is treated as transient). Browsing opens no listening
+          socket in the app (invariant 4; mDNS runs in the system daemon).
+          Seams: a `ServiceDiscovery` interface (Flow of found/resolved/lost) with a scripted fake;
+          retry backoff in virtual time via `TestClock` (E00-18); the NsdManager adapter runs on
+          the emulator (E00-21) against a service the test registers itself; a real Mac on Wi-Fi is
+          a manual gate (E00-23).
         acceptance:
-          - Browsing surfaces every _tandem._tcp instance on the LAN with a resolved
-            address/port/TXT
-          - Transient resolve failures are retried with backoff and never crash the browse
-            session
+          - A found service is resolved to host, port and TXT and emitted as a candidate
+          - Two transient resolve failures followed by success emit the resolved service after the backoff waits; exhausting retries leaves the browse session active
+          - A lost service is removed from the candidate set
+          - "Manual gate: a real Mac on the same Wi-Fi is resolved within 3 s of browse start"
         tdd:
-          - nsdBrowse_serviceAdvertised_discoveredAndResolved
-          - nsdResolve_transientFailure_retriedWithoutCrashingBrowse
+          - "unit: nsdBrowser_resolveFailsTwiceThenSucceeds_emitsResolvedAfterBackoff"
+          - "unit: nsdBrowser_resolveRetriesExhausted_browseSessionStaysActive"
+          - "unit: nsdBrowser_serviceLost_removedFromCandidates"
+          - "instrumented: nsdManager_selfRegisteredTandemService_resolvedWithTxt"
+          - "manual: nsdBrowse_realMacSameWifi_resolvedWithin3s"
       - id: E21-05
         title: "[android] Recognize paired Macs from rotating id"
         type: task
@@ -454,38 +690,61 @@ epics:
         prd: [F-3.5]
         use_cases: [UC-04, AC-05]
         invariants: [3]
-        depends_on: [E21-04, E13-02, E01-20]
+        depends_on: [E21-04, E13-02, E01-20, E00-18, E15-01]
         description: |
           For each resolved service, compute the expected rotating id (dayIndex-1..+1) for every
-          paired Mac's stored SPKI fingerprint and match against the advertised id. Unmatched
-          services are ignored.
+          paired Mac's stored SPKI fingerprint and match against the advertised id. Unmatched or
+          malformed services are ignored. A match only yields a candidate address for E20-06; an
+          attacker replaying a paired Mac's current id does match, which is why E21-06 relies on the
+          pin check, not on recognition.
+          Seams: the Kotlin rotating-id function is checked against the E01-20 vectors by the
+          Kotlin conformance runner (E15-01); the matcher takes an injected `java.time.Clock`
+          (E00-18) so UTC day boundary, device time zone and +/-1 day skew are tested with
+          `TestClock`.
         acceptance:
-          - A paired Mac's advertisement is recognized regardless of +/-1 day clock skew
-          - An unpaired Mac's advertisement, or a spoofed TXT record, is never treated as a match
+          - The Kotlin rotating-id implementation matches every E01-20 vector
+          - Ids for dayIndex-1, dayIndex and dayIndex+1 match; dayIndex+/-2 do not
+          - An unpaired Mac's id or a random id never matches; a malformed id (wrong length, non-hex) is ignored without an exception
+          - dayIndex is computed in UTC regardless of device time zone
         tdd:
-          - recognizePairedMac_withinSkewWindow_matched
-          - recognizePairedMac_unpairedOrSpoofedId_neverMatched
+          - "conformance: rotatingIdVectors_kotlinCodec_matchesExpectedIds"
+          - "unit: pairedMacMatcher_idForDayMinus1_matched"
+          - "unit: pairedMacMatcher_idForDayPlus2_notMatched"
+          - "unit: pairedMacMatcher_unpairedMacId_notMatched"
+          - "unit: pairedMacMatcher_malformedId_ignoredWithoutException"
+          - "unit: pairedMacMatcher_timeZoneUtcPlus14_usesUtcDayIndex"
       - id: E21-06
         title: "[cross] Discovery is a hint, never a trust decision"
         type: test
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: S
         prd: [F-3.1, F-3.5]
-        use_cases: [AC-04]
+        use_cases: [AC-04, UC-04]
         invariants: [1, 3]
-        depends_on: [E21-05, E20-06]
+        depends_on: [E21-05, E20-06, E15-08, E15-10, E15-15]
         description: |
           Enforce and test that a discovery match only supplies a candidate address to the
           reconnect strategy (E20-06); the mTLS handshake and fingerprint pin check always run
           independently, and discovery data can never mark a peer trusted or skip verification.
+          Harnesses: mitm-lab (E15-08/E15-10) runs an impostor that replays the paired Mac's
+          current TXT id with a different certificate; the E15-15 harness runs the JVM client
+          against a localhost server with a wrong key at a resolved address; a lint rule forbids
+          the discovery module from calling trust-store write or verifier APIs. Only the Android
+          side consumes discovery, so the Mac has no work here (title kept for external references).
         acceptance:
-          - A crafted discovery match pointing at a wrong/unknown certificate still fails the
-            handshake
-          - No code path accepts a discovery record as a substitute for pin verification
+          - A spoofed advertisement carrying the paired Mac's valid rotating id but a different key fails the pin check, and pcap shows zero application bytes sent to it
+          - A discovery candidate pointing at a server with an unknown certificate fails the handshake with PinMismatch
+          - A lint fixture in which the discovery module calls a trust-store write or verifier-bypass API is reported as a violation
         tdd:
-          - discoveryHint_wrongCertAtResolvedAddress_handshakeFails
-          - discoveryHint_neverBypassesPinCheck_staticAudit
+          - "security: spoofedAdvertisement_validIdWrongKey_pinCheckFailsNoAppData"
+          - "integration: discoveryCandidate_serverWithUnknownCert_handshakeFailsPinMismatch"
+          - "ci: discoveryTrustBoundaryLint_fixtureCallingTrustStoreWrite_reportsViolation"
+        notes: |
+          Review cycle 3: platforms narrowed to [android] (the Mac only advertises). The old
+          acceptance "spoofed TXT never treated as a match" was not achievable for a replayed
+          current id; E21-05 now states that such a replay matches and this issue proves the pin
+          check still fails closed.
       - id: E21-07
         title: "[cross] Rotating id recognition across day boundary and skew"
         type: test
@@ -495,23 +754,29 @@ epics:
         prd: [F-3.5]
         use_cases: [AC-05]
         invariants: [3]
-        depends_on: [E01-20, E21-02, E21-05]
+        depends_on: [E01-20, E21-02, E21-05, E15-03, E15-15]
         description: |
           Cross-platform test asserting a Mac advertising near midnight UTC and a phone with a
           clock a few minutes off in either direction still recognize each other, and that
-          recognition stops once outside the +/-1 day window.
+          recognition stops outside the +/-1 day window. Vectors run on both codecs via
+          tools/conformance (E15-03); the cross-platform case runs on the E15-15 harness with the
+          Mac server's `DateProvider` pinned (DEBUG harness hook) and the JVM matcher on a
+          `TestClock`.
         acceptance:
-          - Recognition succeeds for clock skew up to +/-1 day
-          - Recognition fails outside the +/-1 day window
+          - Skew vectors for dayIndex+/-1 are recognized and dayIndex+/-2 rejected on both codecs
+          - Mac at 23:59:59 UTC and phone at 00:05:00 UTC the next day recognize each other
+          - Phone clock 2 days ahead of the Mac does not recognize it
         tdd:
-          - rotatingIdSkew_withinOneDay_recognized
-          - rotatingIdSkew_beyondOneDay_notRecognized
+          - "conformance: rotatingIdSkewVectors_plusMinusOneDay_recognizedOnBothCodecs"
+          - "conformance: rotatingIdSkewVectors_plusMinusTwoDays_rejectedOnBothCodecs"
+          - "integration: rotatingIdCrossPlatform_macAt235959PhonePlus5min_recognized"
+          - "integration: rotatingIdCrossPlatform_phoneClockPlus2Days_notRecognized"
 
   - id: E22
     title: macOS menu bar agent and connection UI
     labels: [area:ui]
     prd: [F-4.2]
-    use_cases: [UC-05, UC-07]
+    use_cases: [UC-01, UC-05, UC-07]
     summary: |
       The always-available Mac surface: a menu bar item showing connection state and battery,
       quick actions for the core features, launch at login, and the paired-devices management
@@ -529,9 +794,9 @@ epics:
         E23, mirror E60+)
       - STATUS payload parsing (E23)
     exit_criteria:
-      - Menu bar always reflects the live connection state within 1 s of a transition
-      - Launch at login works after a full reboot
-      - A pin-mismatch or version-mismatch error is visible in the UI, not only logged
+      - Menu bar view model reflects the live connection state within 1 s of a transition (E22-01)
+      - Launch at login brings the menu bar icon back within 60 s of login after a full reboot (E22-03 manual gate)
+      - A pin-mismatch or version-mismatch error is shown as a persistent banner until acknowledged, not only logged (E22-07)
     issues:
       - id: E22-01
         title: "[macos] MenuBarExtra scaffold with connection state and battery"
@@ -540,19 +805,29 @@ epics:
         priority: P0
         size: M
         prd: [F-4.2]
-        use_cases: [UC-05]
+        use_cases: [UC-01, UC-05]
         invariants: []
-        depends_on: [E12-09]
+        depends_on: [E12-09, E12-12, E00-24, E00-26]
         description: |
-          SwiftUI MenuBarExtra showing an icon reflecting connection state (E12-09) and
-          last-known battery level (populated later by E23), with a dropdown listing the paired
-          Mac's current peer.
+          SwiftUI MenuBarExtra showing an icon reflecting connection state (E12-09) and last-known
+          battery level (populated later by E23), with a dropdown showing the current peer.
+          Seams: a `MenuBarViewModel` over the E12-12 session fake and an injected
+          `Clock<Duration>` (E00-24), unit-tested; rendered menu via XCUITest scenarios
+          `notPaired` and `pairedConnected` (E00-26).
+          UI strings (exact): "Not paired", "Connected to <peer name>", "Connecting…",
+          "Reconnecting…", "Disconnected", "Error"; battery placeholder "Battery: —"; menu item
+          "Pair phone…" when not paired.
         acceptance:
-          - Menu bar icon changes for Connected/Connecting/Disconnected/Error states
-          - Dropdown shows the peer name and a battery placeholder
+          - Each state (Not paired, Connected, Connecting, Reconnecting, Disconnected, Error) maps to a distinct icon and its exact label
+          - The view model publishes a new state within 1 s of an E12-09 transition
+          - With no paired peer the label is "Not paired" and the dropdown shows "Pair phone…" (UC-01)
+          - When connected, the dropdown shows the peer name and "Battery: —"
         tdd:
-          - menuBarExtra_stateMachineTransition_iconUpdatesWithin1s
-          - menuBarExtra_noPeer_showsUnpairedState
+          - "unit: menuBarViewModel_sessionStateTransition_publishesWithin1s"
+          - "unit: menuBarViewModel_eachConnectionState_distinctIconAndExactLabel"
+          - "unit: menuBarViewModel_noPairedPeer_labelNotPaired"
+          - "ui: menuBarExtra_pairedConnectedScenario_showsPeerNameAndBatteryPlaceholder"
+          - "ui: menuBarExtra_notPairedScenario_showsNotPairedAndPairPhoneItem"
       - id: E22-02
         title: "[macos] Quick actions menu"
         type: task
@@ -562,18 +837,22 @@ epics:
         prd: [F-4.2]
         use_cases: [UC-05]
         invariants: []
-        depends_on: [E22-01]
+        depends_on: [E22-01, E00-26]
         description: |
-          Add menu items for Send File, Push Clipboard, Find Phone, and Mirror; wire them to
-          stub handlers until the owning issues land (Send File E40-10, Push Clipboard E31-11, Find Phone E23-07, Mirror E61-12), each disabled when no
-          device is connected.
+          Add menu items for Send File, Push Clipboard, Find Phone, and Mirror; wire them to stub
+          handlers until the owning issues land (Send File E40-10, Push Clipboard E31-11, Find
+          Phone E23-07, Mirror E61-12), each disabled when no device is connected.
+          Seams: a `QuickActionsViewModel` with injected handler closures (recording fakes);
+          rendered state via XCUITest scenarios `pairedConnected` / `pairedDisconnected` (E00-26).
+          UI strings (exact): "Send File…", "Push Clipboard", "Find Phone", "Mirror Phone".
         acceptance:
-          - All four quick actions are present, disabled when disconnected, enabled when
-            connected
-          - Selecting an action invokes its designated (possibly stub) handler
+          - All four actions are present with the exact labels; disabled when disconnected, enabled when connected
+          - Selecting an enabled action invokes its handler exactly once
         tdd:
-          - quickActions_disconnected_allDisabled
-          - quickActions_connected_invokesHandler
+          - "unit: quickActionsViewModel_disconnected_allFourActionsDisabled"
+          - "unit: quickActionsViewModel_connectedActionSelected_invokesMatchingHandlerOnce"
+          - "ui: menuBarExtra_pairedConnectedScenario_showsFourEnabledQuickActions"
+          - "ui: menuBarExtra_pairedDisconnectedScenario_quickActionsDisabled"
       - id: E22-03
         title: "[macos] Launch at login via SMAppService"
         type: task
@@ -583,19 +862,28 @@ epics:
         prd: [F-4.2]
         use_cases: [UC-01]
         invariants: []
-        depends_on: [E22-01]
+        depends_on: [E22-01, E00-08, E00-23]
         description: |
-          Register/unregister a login item using SMAppService, toggled from Settings, default on
-          after first successful pairing.
+          Register/unregister a login item using SMAppService.mainApp, toggled from Settings,
+          default on after first successful pairing. SMAppService has no change notification, so
+          status is re-read whenever the Settings window appears or the app becomes active.
+          Seam: a `LoginItemService` protocol (register, unregister, status) over SMAppService with
+          a scriptable fake; a real reboot is a manual gate (E00-23).
+          UI string (exact) for `.requiresApproval`: "Approve Tandem in System Settings > General >
+          Login Items."
         acceptance:
-          - Toggling the setting registers/unregisters the login item, verified via
-            SMAppService status
-          - The app auto-launches after a reboot when enabled
-          - The toggle reflects SMAppService status even when the login item is changed outside the app (System Settings) (UC-01).
+          - Toggling on calls register once; toggling off calls unregister once
+          - First successful pairing registers the login item when the user has never set the toggle
+          - The toggle reflects SMAppService status after it is changed outside the app, on the next Settings appear / app activation (UC-01)
+          - Status requiresApproval shows the exact approval hint
+          - "Manual gate: with the toggle on, after a full reboot and login the menu bar icon appears within 60 s"
         tdd:
-          - launchAtLogin_toggleOn_registersViaSmAppService
-          - launchAtLogin_toggleOff_unregisters
-          - launchAtLogin_changedInSystemSettings_toggleReflectsSmAppServiceStatus
+          - "unit: launchAtLoginViewModel_toggleOn_callsRegisterOnce"
+          - "unit: launchAtLoginViewModel_toggleOff_callsUnregisterOnce"
+          - "unit: launchAtLoginViewModel_firstPairingNeverToggled_registersByDefault"
+          - "unit: launchAtLoginViewModel_statusChangedExternally_toggleReflectsStatusOnActivate"
+          - "unit: launchAtLoginViewModel_statusRequiresApproval_showsApprovalHint"
+          - "manual: macReboot_launchAtLoginOn_menuBarIconWithin60sOfLogin"
       - id: E22-04
         title: "[macos] App Sandbox entitlements for network client/server"
         type: task
@@ -605,18 +893,22 @@ epics:
         prd: [F-4.2]
         use_cases: []
         invariants: [2, 4]
-        depends_on: [E12-01]
+        depends_on: [E12-01, E00-23]
         description: |
           Enable App Sandbox with `com.apple.security.network.server` and
           `com.apple.security.network.client` entitlements; verify the mTLS listener and outbound
           connections still function sandboxed and that no unrelated entitlement is added.
+          Checks: a CI step dumps the Release entitlements with codesign and launches the sandboxed
+          build on the macOS runner (identity generated in a CI keychain) to confirm the listener
+          binds; a paired physical phone connecting to the sandboxed Release build is a manual gate.
         acceptance:
-          - The app runs sandboxed and the listener accepts connections
-          - codesign --display --entitlements shows only network.server/network.client at this
-            stage
+          - codesign --display --entitlements on the Release build shows exactly app-sandbox, network.server and network.client at this stage
+          - The sandboxed build launched on the macOS CI runner has its single listening port bound within 10 s (lsof)
+          - "Manual gate: a paired phone reaches session Ready with the sandboxed Release build within 5 s"
         tdd:
-          - sandboxedApp_listener_acceptsConnection
-          - sandboxEntitlements_onlyNetworkServerAndClientPresent
+          - "ci: releaseEntitlements_codesignDisplay_exactlySandboxNetworkServerClient"
+          - "ci: sandboxedAppLaunch_macRunner_listenerBoundWithin10s"
+          - "manual: sandboxedReleaseBuild_pairedPhoneConnects_sessionReadyWithin5s"
       - id: E22-05
         title: "[macos] Settings window shell"
         type: task
@@ -626,19 +918,22 @@ epics:
         prd: [F-4.2]
         use_cases: [UC-07]
         invariants: []
-        depends_on: [E22-01, E14-14]
+        depends_on: [E22-01, E14-14, E00-26]
         description: |
-          A SwiftUI Settings scene with General (launch at login, notification prefs
-          placeholder) and Paired Devices tabs. The Paired Devices tab hosts the paired-devices list
-          and revoke flow owned by E14-14 (no second implementation).
+          A SwiftUI Settings scene with General (launch at login, notification prefs placeholder)
+          and Paired Devices tabs. The Paired Devices tab hosts the paired-devices list and revoke
+          flow owned by E14-14 (no second implementation).
+          Tests: XCUITest (E00-26) with the `pairedConnected` scenario; the menu bar item is
+          "Settings…".
         acceptance:
-          - Settings opens from the menu bar item and from Cmd-,
-          - Switching tabs preserves state
-          - The Paired Devices tab embeds the E14-14 list view and its revoke action
+          - '"Settings…" in the menu bar dropdown opens Settings with the General tab selected; Cmd-, opens it while a Tandem window is key'
+          - A toggle changed on General keeps its value after switching to Paired Devices and back
+          - The Paired Devices tab shows the E14-14 row for the seeded phone with its Revoke button
         tdd:
-          - settingsWindow_opensFromMenuBar_showsGeneralTabByDefault
-          - settingsWindow_tabSwitch_preservesState
-          - settingsWindow_pairedDevicesTab_embedsPairedDevicesListView
+          - "ui: settingsWindow_openedFromMenuBarItem_generalTabSelected"
+          - "ui: settingsWindow_cmdCommaWhileKey_opensSettings"
+          - "ui: settingsWindow_toggleChangedThenTabSwitchedBack_valueRetained"
+          - "ui: settingsWindow_pairedDevicesTab_showsSeededRowWithRevokeButton"
       - id: E22-07
         title: "[macos] Visible error surfacing for fail-closed events"
         type: story
@@ -646,21 +941,29 @@ epics:
         priority: P0
         size: M
         prd: []
-        use_cases: [AC-01, AC-04]
+        use_cases: [AC-01, AC-04, UC-05]
         invariants: [5]
-        depends_on: [E22-01, E12-10]
+        depends_on: [E22-01, E12-10, E12-12, E00-24, E00-26]
         description: |
-          Per invariant 5, a pin mismatch, unknown peer, or protocol version mismatch must
-          produce a visible, persistent UI error (banner or alert) in addition to any log entry,
-          naming the peer and reason without exposing secrets.
+          Per invariant 5, a pin mismatch, unknown peer, or protocol version mismatch must produce
+          a visible, persistent UI error (banner) in addition to any log entry, naming the peer and
+          reason without exposing certificate bytes or secrets.
+          Seams: an `ErrorBannerViewModel` fed by E12-10 fail-closed events from the E12-12 session
+          fake, with `ManualTestClock` (E00-24) to prove persistence; rendered banner via the
+          `failClosedError` XCUITest scenario (E00-26).
+          UI strings (exact): pin mismatch "<peer> presented an unexpected key. Connection refused.";
+          unknown peer "An unpaired device tried to connect and was refused."; version mismatch
+          "<peer> runs an incompatible Tandem version. Update both apps."; dismiss button "OK".
         acceptance:
-          - A pin-mismatch handshake failure shows a persistent UI banner naming the offending
-            peer attempt
-          - A protocol version mismatch shows a distinct, actionable message
-          - Errors persist until acknowledged, not a transient toast
+          - Each of pin mismatch, unknown peer and version mismatch shows its exact, distinct message naming the peer where known
+          - The banner is still shown after 1 h of virtual time and disappears only after "OK"
+          - Banner text contains no certificate bytes or key material
         tdd:
-          - errorSurfacing_pinMismatch_showsPersistentBanner
-          - errorSurfacing_versionMismatch_showsDistinctMessage
+          - "unit: errorBannerViewModel_pinMismatchEvent_showsExactMessageWithPeerName"
+          - "unit: errorBannerViewModel_unknownPeerEvent_showsExactRefusedMessage"
+          - "unit: errorBannerViewModel_versionMismatchEvent_showsExactUpdateMessage"
+          - "unit: errorBannerViewModel_after1hWithoutAck_bannerStillShown"
+          - "ui: menuBarExtra_failClosedErrorScenario_bannerPersistsUntilOkTapped"
       - id: E22-08
         title: "[macos] Bind menu bar state to sleep/wake and network restarts"
         type: task
@@ -670,18 +973,18 @@ epics:
         prd: [F-4.2]
         use_cases: [UC-05]
         invariants: []
-        depends_on: [E22-01, E20-10, E20-11]
+        depends_on: [E22-01, E20-10, E20-11, E00-24]
         description: |
-          Ensure the menu bar reflects Connecting/Reconnecting during the windows opened by
-          E20-10 (sleep/wake) and E20-11 (network path change), instead of freezing on the last
-          known state.
+          Ensure the menu bar reflects Reconnecting during the windows opened by E20-10 (sleep/wake)
+          and E20-11 (network path change), instead of freezing on the last known state.
+          Seams: `MenuBarViewModel` driven by the `SystemPowerEvents` (E20-10) and
+          `NetworkPathSource` (E20-11) fakes plus the session fake, with `ManualTestClock` (E00-24).
         acceptance:
-          - Menu bar shows Reconnecting during a sleep/wake cycle and returns to Connected on
-            success
-          - Menu bar shows Reconnecting during a network path change
+          - After willSleep then didWake the label is "Reconnecting…" and becomes "Connected to <peer name>" when the session is Ready
+          - An interface change shows "Reconnecting…" within 1 s
         tdd:
-          - menuBarState_sleepWakeCycle_showsReconnectingThenConnected
-          - menuBarState_pathChange_showsReconnecting
+          - "unit: menuBarViewModel_willSleepThenDidWake_reconnectingThenConnected"
+          - "unit: menuBarViewModel_pathInterfaceChanged_reconnectingWithin1s"
 
   - id: E23
     title: Device status and find my phone
@@ -701,8 +1004,8 @@ epics:
       - Menu bar scaffold itself (E22)
       - Reconnect/lifecycle mechanics (E20)
     exit_criteria:
-      - Mac status display updates within one publish cycle of a battery/network change
-      - Ring plays at max volume even when DND is enabled, and stops from either side
+      - A battery/network change outside the 60 s throttle window is shown on the Mac within 2 s (E23-08)
+      - Ring is audible at max volume on a physical phone in silent mode with DND on, and stops within 1 s of Stop from the Mac or dismissal on the phone (E23-05, E23-08 manual gates)
     issues:
       - id: E23-01
         title: "[protocol] status.proto extension: RingStop, STATUS SPEC section, vectors"
@@ -713,18 +1016,22 @@ epics:
         prd: [F-4.3, F-4.4]
         use_cases: [UC-05, UC-06]
         invariants: []
-        depends_on: [E01-13, E01-16]
+        depends_on: [E01-13, E01-16, E15-01, E15-02]
         description: |
           `DeviceStatus` and `Ring` already exist (E01-13); do not redefine them. Add
-          `RingStop{origin}` on the STATUS channel. Document publish-on-change plus 60 s max
-          interval semantics in SPEC.md. Provide encode/decode vectors.
+          `RingStop{origin}` (origin = mac | phone) on the STATUS channel. Document in SPEC.md:
+          publish on change, at most one DeviceStatus per 60 s (leading send, latest values
+          coalesced into one trailing send), no periodic send, one immediate DeviceStatus on
+          session Ready. Provide encode/decode vectors run by the conformance runners
+          (E15-01/E15-02).
         acceptance:
-          - status.proto compiles on both codegens
-          - SPEC.md documents STATUS channel semantics and the Ring/RingStop flow
-          - Vectors cover a full DeviceStatus and a Ring/RingStop pair
+          - buf lint and buf breaking pass on status.proto (RingStop is additive)
+          - SPEC.md documents the STATUS publish/throttle rule above and the Ring/RingStop flow in both directions
+          - Vectors cover a full DeviceStatus and a Ring/RingStop pair; both codecs produce byte-identical encodings
         tdd:
-          - conformance_deviceStatusVector_encodesAndDecodes
-          - conformance_ringRingStopVector_encodesAndDecodes
+          - "ci: statusProto_bufLintAndBreaking_exitZero"
+          - "conformance: deviceStatusVector_roundTrip_byteIdenticalOnBothCodecs"
+          - "conformance: ringStopVector_roundTrip_byteIdenticalOnBothCodecs"
       - id: E23-02
         title: "[android] Battery/network/signal observers"
         type: task
@@ -734,18 +1041,25 @@ epics:
         prd: [F-4.3]
         use_cases: [UC-05]
         invariants: []
-        depends_on: [E23-01, E20-02]
+        depends_on: [E23-01, E20-02, E20-07, E00-04, E00-20]
         description: |
-          Register BatteryManager, ConnectivityManager, and TelephonyManager listeners producing
-          DeviceStatus updates on relevant change events.
+          Produce DeviceStatus updates from battery (ACTION_BATTERY_CHANGED), network type
+          (ConnectivityManager capabilities: Wi-Fi / cellular / none) and signal level
+          (TelephonyManager callback, no READ_PHONE_STATE; field unset when unavailable).
+          Seams: a `StatusAggregator` combining `BatteryStatusSource`, the E20-07 `NetworkMonitor`
+          and a `SignalStrengthSource` (feature-local interfaces with fakes), tested with Turbine
+          (E00-04); the BatteryManager adapter is tested under Robolectric (E00-20).
         acceptance:
-          - A battery level/charging change produces a DeviceStatus update
-          - A network type change (Wi-Fi/cellular) produces a DeviceStatus update
-          - A signal level change produces a DeviceStatus update
+          - A battery level or charging change emits a DeviceStatus with the new values
+          - A Wi-Fi to cellular change emits a DeviceStatus with network type cellular
+          - A signal level change emits a DeviceStatus with the new level
+          - Identical consecutive values emit nothing
         tdd:
-          - statusObservers_batteryChange_emitsDeviceStatus
-          - statusObservers_networkTypeChange_emitsDeviceStatus
-          - statusObservers_signalChange_emitsDeviceStatus
+          - "unit: statusAggregator_batteryLevelChanged_emitsDeviceStatusWithNewLevel"
+          - "unit: statusAggregator_wifiToCellular_emitsNetworkTypeCellular"
+          - "unit: statusAggregator_signalLevelChanged_emitsDeviceStatusWithNewLevel"
+          - "unit: statusAggregator_identicalValues_noEmission"
+          - "unit: batteryStatusSource_batteryChangedIntent_emitsLevelAndCharging"
       - id: E23-03
         title: "[android] Publish-on-change with 60 s throttle"
         type: task
@@ -753,19 +1067,28 @@ epics:
         priority: P0
         size: S
         prd: [F-4.3]
-        use_cases: []
+        use_cases: [UC-05]
         invariants: []
-        depends_on: [E23-02]
+        depends_on: [E23-02, E12-11, E00-18]
         description: |
-          Coalesce rapid observer emissions: send immediately on change, but never more often
-          than once per 60 s unless the previous send already happened more than 60 s ago.
+          Throttle per the E23-01 SPEC rule: a change is sent immediately if no DeviceStatus was
+          sent in the last 60 s; otherwise changes are coalesced and the latest values are sent
+          at last-send + 60 s. No periodic send without a change. On session Ready the current
+          status is sent immediately.
+          Seam: runs in the injected scope with `TestClock` (E00-18) so the 60 s window is tested
+          in virtual time; sends go to the E12-11 `FakeTandemSession`.
         acceptance:
-          - Two changes within 60 s produce at most one send inside that window, carrying the
-            latest values
-          - No change for over 60 s does not trigger a periodic send
+          - The first change is sent at t=0
+          - A second change at t=10 s is sent once at t=60 s with the latest values; nothing is sent between
+          - No change for 10 min produces zero sends
+          - A change 61 s after the last send is sent immediately
+          - Session Ready sends the current status immediately
         tdd:
-          - statusThrottle_rapidChanges_coalescedToOneSendPerWindow
-          - statusThrottle_noChange_neverSendsPeriodically
+          - "unit: statusThrottle_firstChange_sentImmediately"
+          - "unit: statusThrottle_secondChangeAt10s_sentAt60sWithLatestValues"
+          - "unit: statusThrottle_noChangeFor10min_zeroSends"
+          - "unit: statusThrottle_changeAt61sAfterLastSend_sentImmediately"
+          - "unit: statusThrottle_sessionReady_currentStatusSentImmediately"
       - id: E23-04
         title: "[macos] STATUS channel display"
         type: story
@@ -775,16 +1098,22 @@ epics:
         prd: [F-4.3]
         use_cases: [UC-05]
         invariants: []
-        depends_on: [E23-01, E22-01]
+        depends_on: [E23-01, E22-01, E12-12, E00-26]
         description: |
-          Receive DeviceStatus and render battery/charging/network/signal in the menu bar
-          dropdown and paired-devices list.
+          Receive DeviceStatus and render battery/charging/network/signal in the menu bar dropdown
+          and paired-devices list.
+          Seams: a `DeviceStatusViewModel` fed by the E12-12 session fake; rendered values via an
+          XCUITest `pairedConnected` scenario seeded with a DeviceStatus (E00-26).
+          UI strings (exact): "Battery 82%" plus " · Charging" when charging; network "Wi-Fi",
+          "Cellular" or "No network"; signal as 0–4 bars (accessibility value "<n> of 4 bars").
         acceptance:
-          - Menu bar dropdown shows current battery %, charging indicator, network type, and
-            signal bars
-          - Display updates on receipt of a new DeviceStatus without a UI restart
+          - A received DeviceStatus sets battery %, charging suffix, network label and signal bars to the exact formats above
+          - A second DeviceStatus replaces the displayed values without a UI restart
+          - The paired-devices row shows the same battery %
         tdd:
-          - statusDisplay_deviceStatusReceived_updatesUiFields
+          - "unit: deviceStatusViewModel_statusReceived_formatsBatteryChargingNetworkSignal"
+          - "unit: deviceStatusViewModel_secondStatus_replacesDisplayedValues"
+          - "ui: menuBarExtra_seededDeviceStatus_showsBatteryPercentAndNetworkLabel"
       - id: E23-05
         title: "[android] Ring handler: max volume overriding DND"
         type: story
@@ -794,19 +1123,34 @@ epics:
         prd: [F-4.4]
         use_cases: [UC-06]
         invariants: []
-        depends_on: [E23-01]
+        depends_on: [E23-01, E20-02, E00-20, E00-21, E00-23]
         description: |
-          On receiving Ring, play an alarm-stream sound at max volume. Request Notification
-          Policy Access (`ACCESS_NOTIFICATION_POLICY`) if not already granted so the alarm
-          stream is not muted by DND, with an explanation before first use.
+          On receiving Ring, play a looping alarm-usage sound with STREAM_ALARM at max volume,
+          restoring the previous volume on stop. Request Notification Policy Access
+          (`ACCESS_NOTIFICATION_POLICY`) with an explanation before first use; with access, if the
+          interruption filter is NONE (total silence), switch to ALARMS for the ring and restore it
+          on stop.
+          Seams: an `AlarmPlayer` (MediaPlayer/AudioManager) and `NotificationPolicyAccess`
+          (NotificationManager) interface pair with recording fakes for `unit:`; the explanation
+          screen is a Compose `ui:` test (E00-20); real alarm-stream playback under DND runs on the
+          emulator (E00-21, DND via `cmd notification set_dnd`, access via
+          `cmd notification allow_dnd`); a physical phone in silent + DND is a manual gate (E00-23).
+          UI string (exact): "To ring even when Do Not Disturb is on, Tandem needs Do Not Disturb
+          access. It is only used while your Mac is ringing this phone." with button "Open settings".
         acceptance:
-          - Ring plays at max volume on the alarm stream even when DND is active and policy
-            access is granted
-          - If policy access is missing, the app prompts for it with an explanation before the
-            first Ring use
+          - Ring sets STREAM_ALARM to its max and starts looping playback; stop restores the previous alarm volume
+          - With policy access and filter NONE, the filter becomes ALARMS during the ring and is restored after
+          - Without policy access, the exact explanation is shown before the policy settings screen is opened
+          - On the emulator with DND priority mode and policy access, the alarm stream is active at max volume within 1 s of Ring
+          - "Manual gate: a physical phone in silent mode with DND on rings audibly at max volume (UC-06)"
         tdd:
-          - ringHandler_dndActiveWithPolicyAccess_playsAtMaxVolume
-          - ringHandler_policyAccessMissing_promptsWithExplanation
+          - "unit: ringHandler_ringReceived_alarmStreamMaxAndPlaybackStarted"
+          - "unit: ringHandler_ringStopped_restoresPreviousAlarmVolume"
+          - "unit: ringHandler_totalSilenceFilter_switchesToAlarmsAndRestoresOnStop"
+          - "unit: ringHandler_policyAccessMissing_showsExplanationBeforeSettings"
+          - "ui: ringPolicyExplanationScreen_rendered_showsExactExplanationText"
+          - "instrumented: ringHandler_dndPriorityWithPolicyAccess_alarmActiveAtMaxWithin1s"
+          - "manual: ringPhysicalPhone_silentAndDnd_audibleAtMaxVolume"
       - id: E23-06
         title: "[android] Ring dismiss/stop from phone and Mac"
         type: task
@@ -816,15 +1160,22 @@ epics:
         prd: [F-4.4]
         use_cases: [UC-06]
         invariants: []
-        depends_on: [E23-05]
+        depends_on: [E23-05, E12-11, E00-21]
         description: |
-          Stop the ring on phone-side user dismissal and on receiving RingStop from the Mac.
+          Stop the ring on phone-side user dismissal (ongoing ring notification with a "Stop"
+          action) and on receiving RingStop from the Mac. A phone-side dismissal sends
+          RingStop{origin=phone} so the Mac can revert its menu item (E23-07); a Mac-originated
+          RingStop is not echoed back.
+          Seams: `RingController` over the E23-05 `AlarmPlayer` fake and E12-11
+          `FakeTandemSession`; the notification action runs on the emulator (E00-21).
         acceptance:
-          - Dismissing on the phone stops the alarm immediately
-          - Receiving RingStop from the Mac stops the alarm immediately
+          - Phone dismissal stops playback and sends exactly one RingStop with origin phone
+          - A received RingStop from the Mac stops playback and sends no RingStop
+          - Tapping "Stop" on the ring notification on the emulator makes the alarm stream inactive within 1 s
         tdd:
-          - ringStop_phoneDismiss_stopsAlarmImmediately
-          - ringStop_macRingStopReceived_stopsAlarmImmediately
+          - "unit: ringController_phoneDismiss_stopsPlaybackAndSendsRingStopFromPhone"
+          - "unit: ringController_macRingStopReceived_stopsPlaybackWithoutEcho"
+          - "instrumented: ringNotification_stopActionTapped_alarmInactiveWithin1s"
       - id: E23-07
         title: "[macos] Find my phone quick action wired to Ring/RingStop"
         type: story
@@ -834,16 +1185,22 @@ epics:
         prd: [F-4.4]
         use_cases: [UC-06]
         invariants: []
-        depends_on: [E23-01, E22-02]
+        depends_on: [E23-01, E22-02, E12-12, E00-26]
         description: |
           Wire the menu bar "Find Phone" quick action (E22-02) to send Ring, and change it to a
-          "Stop Ringing" action (sending RingStop) while a ring is believed active.
+          "Stop Ringing" action (sending RingStop{origin=mac}) while a ring is believed active. A
+          RingStop from the phone reverts the item.
+          Seams: `FindPhoneViewModel` over the E12-12 session fake; rendered toggle via XCUITest
+          `pairedConnected` scenario (E00-26).
         acceptance:
-          - Selecting Find Phone sends Ring and the menu item becomes Stop Ringing
-          - Selecting Stop Ringing sends RingStop and the menu item reverts
+          - Selecting "Find Phone" sends one Ring and the item label becomes "Stop Ringing"
+          - Selecting "Stop Ringing" sends one RingStop with origin mac and the label reverts to "Find Phone"
+          - A RingStop with origin phone reverts the label to "Find Phone"
         tdd:
-          - findMyPhoneAction_selected_sendsRingAndTogglesLabel
-          - stopRingingAction_selected_sendsRingStopAndReverts
+          - "unit: findPhoneViewModel_findPhoneSelected_sendsRingAndLabelStopRinging"
+          - "unit: findPhoneViewModel_stopRingingSelected_sendsRingStopAndLabelReverts"
+          - "unit: findPhoneViewModel_ringStopFromPhone_labelRevertsToFindPhone"
+          - "ui: menuBarExtra_findPhoneSelected_itemShowsStopRinging"
       - id: E23-08
         title: "[cross] Status throttle and ring round-trip tests"
         type: test
@@ -853,16 +1210,19 @@ epics:
         prd: [F-4.3, F-4.4]
         use_cases: [UC-05, UC-06]
         invariants: []
-        depends_on: [E23-03, E23-04, E23-06, E23-07]
+        depends_on: [E23-03, E23-04, E23-06, E23-07, E15-15, E00-23]
         description: |
-          Integration test asserting throttle correctness under a burst of simulated sensor
-          changes and a full Ring -> alarm -> RingStop -> silence round trip end to end.
+          End-to-end checks on the E15-15 harness (JVM Android core against the real Mac server):
+          throttle under a burst of simulated sensor changes, and a full Ring -> alarm -> RingStop
+          -> silence round trip with a fake `AlarmPlayer` on the JVM side. The physical-phone round
+          trip from the Mac menu is a manual gate (E00-23).
         acceptance:
-          - A burst of 20 changes in 5 s results in a bounded number of sends consistent with
-            the 60 s rule
-          - The end-to-end Ring round trip silences the phone within 1 s of RingStop receipt
-          - A battery or network change outside the throttle window is displayed on the Mac within 2 s (UC-05).
+          - A burst of 20 changes in 5 s results in at most 2 DeviceStatus frames received by the Mac within 65 s (leading + one trailing)
+          - The Ring round trip stops the phone-side alarm within 1 s of the Mac sending RingStop (UC-06)
+          - A battery or network change outside the throttle window is reflected in the Mac view model within 2 s (UC-05)
+          - "Manual gate: Find Phone from the Mac menu rings a physical phone in silent + DND, and Stop Ringing silences it within 1 s"
         tdd:
-          - statusThrottleIntegration_burstOfChanges_boundedSendCount
-          - ringRoundTripIntegration_ringStopReceived_silencedWithin1s
-          - statusIntegration_changeOutsideThrottleWindow_visibleOnMacWithin2s
+          - "integration: statusBurst20ChangesIn5s_macServer_atMostTwoFramesIn65s"
+          - "integration: ringRoundTrip_ringStopFromMac_phoneAlarmStoppedWithin1s"
+          - "integration: statusChangeOutsideThrottleWindow_macViewModel_updatedWithin2s"
+          - "manual: findPhoneFromMacMenu_silentDndPhone_stopSilencesWithin1s"

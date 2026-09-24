@@ -19,44 +19,44 @@ Scope column is judgment; the issue list is generated from each issue's `prd:` f
 <!-- BEGIN GENERATED: features -->
 | Feature | Scope | Issues citing it (`prd:`) |
 |---|---|---|
-| F-1.1 | v1 | E01-17, E03-02, E03-03, E10-01, E10-02, E10-03, E10-04, E10-05, E10-06, E10-07, E10-08, E10-09, E10-14, E14-18, E20-14 |
-| F-1.2 | v1 | E12-14, E13-01, E13-02, E13-03, E13-04, E13-05, E13-06, E13-07, E13-08, E13-09, E13-10 |
-| F-1.3 | v1 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08, E70-09 |
+| F-1.1 | v1 | E01-17, E03-02, E03-03, E10-01, E10-02, E10-03, E10-04, E10-05, E10-06, E10-07, E10-08, E10-09, E10-14, E10-15, E10-16, E14-18, E20-14 |
+| F-1.2 | v1 | E10-16, E12-14, E12-17, E13-01, E13-02, E13-03, E13-04, E13-05, E13-06, E13-07, E13-08, E13-09, E13-10, E13-11 |
+| F-1.3 | v1 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08, E70-09, E70-10, E70-11, E70-12, E70-13 |
 | F-2.1 | v1 | E01-02, E01-11, E01-18, E01-21, E15-09, E10-10, E10-11, E10-12, E10-13, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-09, E14-10, E14-11, E14-16, E14-17, E14-18, E71-03 |
 | F-2.2 | deferred (v2+): ADR E73-01; implementation P2, gated (E73-02..E73-05) | E73-01, E73-02, E73-03, E73-04, E73-05 |
-| F-2.3 | v1 | E01-11, E12-14, E13-05, E13-09, E14-12, E14-13, E14-14, E14-15 |
-| F-3.1 | v1 | E01-01, E01-06, E01-12, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-08, E12-09, E12-10, E12-11, E12-12, E12-13, E14-18, E21-06 |
-| F-3.2 | v1 | E01-03, E01-04, E01-05, E01-10, E01-19, E15-13, E15-14, E15-18, E11-01, E11-02, E11-03, E11-04, E11-05, E11-06, E11-07, E11-08, E11-09, E11-10, E11-11, E11-12, E40-15, E71-01, E71-02 |
-| F-3.3 | v1 | E01-09, E01-12, E60-01, E60-02, E60-03, E60-04, E60-05, E60-06, E60-07, E61-12 |
-| F-3.4 | v1 | E01-07, E01-12, E20-01, E20-05, E20-06, E20-07, E20-10, E20-11, E20-12, E20-13 |
+| F-2.3 | v1 | E01-11, E12-14, E12-17, E13-05, E13-09, E14-12, E14-13, E14-14, E14-15, E14-19, E14-20, E50-09, E51-04 |
+| F-3.1 | v1 | E01-01, E01-06, E01-12, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E15-19, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E12-11, E12-12, E12-13, E14-18, E21-06 |
+| F-3.2 | v1 | E01-03, E01-04, E01-05, E01-10, E01-19, E15-13, E15-14, E15-18, E15-19, E11-01, E11-02, E11-03, E11-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E11-09, E11-10, E11-11, E11-12, E40-15, E71-01, E71-02 |
+| F-3.3 | v1 | E01-09, E01-12, E60-01, E60-02, E60-03, E60-04, E60-05, E60-06, E60-07, E60-08, E60-09, E61-12 |
+| F-3.4 | v1 | E01-07, E01-12, E20-01, E20-05, E20-06, E20-07, E20-10, E20-11, E20-12, E20-13, E20-15 |
 | F-3.5 | v1 | E01-08, E01-20, E21-02, E21-03, E21-04, E21-05, E21-06, E21-07 |
-| F-4.1 | v1 | E20-02, E20-03, E20-04, E20-08, E20-09, E20-13, E20-14 |
-| F-4.2 | v1 | E22-01, E22-02, E22-03, E22-04, E22-05, E22-08, E31-11, E40-10, E61-12 |
+| F-4.1 | v1 | E20-02, E20-03, E20-04, E20-08, E20-09, E20-13, E20-14, E20-16 |
+| F-4.2 | v1 | E22-01, E22-02, E22-03, E22-04, E22-05, E22-08, E31-11, E40-10, E61-12, E61-15, E61-16 |
 | F-4.3 | v1 | E01-13, E23-01, E23-02, E23-03, E23-04, E23-08 |
 | F-4.4 | v1 | E01-13, E23-01, E23-05, E23-06, E23-07, E23-08 |
-| F-5.1 | v1 | E01-14, E30-01, E30-02, E30-03, E30-04, E30-05, E30-06, E30-07, E30-12, E30-13, E30-14 |
-| F-5.2 | v1 | E30-01, E30-07, E30-08, E30-09, E30-13 |
-| F-5.3 | v1 | E30-01, E30-10, E30-13 |
+| F-5.1 | v1 | E00-22, E01-14, E30-01, E30-02, E30-03, E30-04, E30-05, E30-06, E30-07, E30-12, E30-13, E30-14, E30-16 |
+| F-5.2 | v1 | E00-22, E30-01, E30-07, E30-08, E30-09, E30-13, E30-17 |
+| F-5.3 | v1 | E30-01, E30-10, E30-13, E30-17, E30-18 |
 | F-5.4 | v1 | E30-01, E30-11, E30-13, E30-15 |
 | F-6.1 | v1 | E01-14, E31-01, E31-02, E31-03, E31-04, E31-05, E31-10, E31-11 |
-| F-6.2 | v1; accessibility auto-capture is ADR-only, off by default (E31-09) | E31-01, E31-06, E31-07, E31-09 |
-| F-6.3 | v1 | E31-01, E31-04, E31-08, E31-10, E31-11 |
-| F-7.1 | v1 | E01-14, E40-01, E40-02, E40-03, E40-04, E40-07, E40-08, E40-09, E40-12, E40-14 |
-| F-7.2 | v1 | E40-06, E40-10, E40-13 |
+| F-6.2 | v1; accessibility auto-capture is ADR-only, off by default (E31-09) | E31-01, E31-06, E31-07, E31-09, E31-12, E31-13 |
+| F-6.3 | v1 | E31-01, E31-04, E31-06, E31-08, E31-10, E31-11, E31-14 |
+| F-7.1 | v1 | E01-14, E40-01, E40-02, E40-03, E40-04, E40-07, E40-08, E40-09, E40-12, E40-14, E40-16, E40-17, E40-18, E40-19, E40-20, E40-23 |
+| F-7.2 | v1 | E40-06, E40-10, E40-21, E40-22, E40-24 |
 | F-7.3 | v1 | E40-05, E40-11, E40-13 |
-| F-7.4 | v1 | E41-01, E41-02, E41-03, E41-04, E41-05, E41-06, E41-07, E41-08, E41-09 |
+| F-7.4 | v1 | E41-01, E41-02, E41-03, E41-04, E41-05, E41-06, E41-07, E41-08, E41-09, E41-10, E41-11 |
 | F-7.5 | out of scope v1 (PRD marks v2); recorded in E40 out_of_scope, no issue | — |
-| F-8.1 | v1 text SMS; MMS deferred to v2, scope spike E50-12 (Appendix C.4) | E01-14, E50-01, E50-02, E50-03, E50-07, E50-08, E50-09, E50-10, E50-11, E50-12 |
-| F-8.2 | v1 | E50-01, E50-04, E50-05, E50-06, E50-08, E50-10, E50-11 |
-| F-8.3 | v1 | E51-01, E51-02, E51-03, E51-04, E51-05, E51-06, E51-07, E51-08 |
+| F-8.1 | v1 text SMS; MMS deferred to v2, scope spike E50-12 (Appendix C.4) | E01-14, E50-01, E50-02, E50-03, E50-07, E50-08, E50-09, E50-10, E50-11, E50-12, E50-13, E50-14 |
+| F-8.2 | v1 | E50-01, E50-04, E50-05, E50-06, E50-08, E50-10, E50-11, E50-14 |
+| F-8.3 | v1 | E51-01, E51-02, E51-03, E51-04, E51-05, E51-06, E51-07, E51-08, E51-09 |
 | F-8.4 | v1; call log view deferred to v2 (E52 out_of_scope) | E52-01, E52-02, E52-03, E52-04, E52-05, E52-06, E52-07, E52-08, E52-09 |
-| F-9.1 | v1 | E01-14, E61-01, E61-02, E61-03, E61-04, E61-05, E61-08, E61-11, E61-12 |
-| F-9.2 | v1 | E61-01, E61-06, E61-07, E61-08 |
+| F-9.1 | v1 | E01-14, E61-01, E61-02, E61-03, E61-04, E61-05, E61-08, E61-11, E61-12, E61-13, E61-15, E61-16 |
+| F-9.2 | v1 | E61-01, E61-06, E61-07, E61-08, E61-14 |
 | F-9.3 | v1 | E62-01, E62-02, E62-03, E62-04, E62-05, E62-06, E62-07, E62-08, E62-09 |
 | F-9.4 | ADR-decided: options E02-07, decision E61-10; implementation P2, gated (E62-10) | E61-10, E62-10 |
-| F-10.1 | v2+/P2: design note E72-01 gates E72-02 | E72-01, E72-02 |
-| F-10.2 | v2+/P2: design note E72-03 gates E72-04 | E72-03, E72-04 |
-| F-10.3 | v2+/P2: design spike E72-05 gates E72-06 | E72-05, E72-06 |
+| F-10.1 | v2+/P2: design note E72-01 gates E72-02 | E72-01, E72-02, E72-08 |
+| F-10.2 | v2+/P2: design note E72-03 gates E72-04 | E72-03, E72-04, E72-09 |
+| F-10.3 | v2+/P2: design spike E72-05 gates E72-06 | E72-05, E72-06, E72-10 |
 | F-10.4 | out of scope v1: ADR only (E72-07, Appendix C.2); implementation is a future epic | E72-07 |
 <!-- END GENERATED: features -->
 
@@ -64,16 +64,20 @@ Owner notes for items the review lead flagged:
 
 | Item | Owner(s) |
 |---|---|
-| F-1.2 `capabilities` / `lastSeen` fields actually written | E12-14 (on Ready), read by E14-14 |
+| F-1.2 `capabilities` / `lastSeen` fields actually written | E12-14 (macOS) / E12-17 (Android) on Ready, read by E14-14 |
 | F-3.2 channel set (no PHOTOS channel) | E01-04 decision; E01-14 domain→channel map; E41-01 rides FILES |
 | F-3.5 rotating id | spec E01-08, vectors E01-20, advertise E21-02, recognise E21-05, skew E21-07 |
-| F-4.2 quick actions | menu E22-02 → Send File E40-10, Push Clipboard E31-11, Find Phone E23-07, Mirror E61-12 |
+| F-4.2 quick actions | menu E22-02 → Send File E40-10, Push Clipboard E31-11, Find Phone E23-07, Mirror E61-12 (+ E61-15 messages, E61-16 phone prompt) |
 | F-5.1 "system noise" list | E30-03 (explicit rule set, `SYSTEM_NOISE.md`), documented in SPEC via E30-01 |
 | F-5.4 two different toggles | phone VISIBILITY_SECRET opt-in E30-11; Mac lock-screen hiding E30-15 |
-| F-7.2 Finder Services / Share ext / drag-drop | E40-10 |
+| F-7.2 Finder Services / Share ext / drag-drop | E40-21 / E40-22 / E40-10 |
 | F-7.3 share target / SAF picker | E40-11 |
 | F-9.2 rotation handling | E61-05 (encoder side), E61-07 (window side) |
-| Invariant 5 version-mismatch visible error | E12-07, E12-10, E22-07 (Mac), E20-09 (phone); mitm-lab E15-11 |
+| Invariant 5 version-mismatch visible error | E12-07 / E12-15 (Hello), E12-10, E22-07 (Mac), E12-16, E20-09 (phone); mitm-lab E15-11 |
+| F-3.4 heartbeat vs. overnight Doze (decided cycle 3: Mac drives liveness, phone replies, phone timer suspended in Doze, elapsedRealtime silence check) | SPEC E01-07; Mac E20-05; Android E20-15; gate E20-12 |
+| F-4.1 CompanionDeviceManager presence over Wi-Fi (feasibility unclear) | spike E20-03 → conditional E20-16 (P1); phase exit does not require CDM |
+| F-8.1 / F-8.3 Mac at-rest store for SMS + contacts (decided cycle 3: GRDB SQLite, 0600, excluded from backup; not Keychain) | E50-09, E51-04; unpair purge hook E14-13 |
+| Close-code naming (one `MALFORMED_FRAME` wire code + local reason) | E01-05, E01-19, E11-02, E11-04 |
 
 ---
 
@@ -90,13 +94,14 @@ Owner notes for items the review lead flagged:
 | Vectors (fingerprint, HMAC, frames, Bonjour id, QR) reviewed | E01-16 (format + review gate), E01-17, E01-18, E01-19, E01-20, E01-21 |
 | Threat model + ADR-001…006 accepted | E02-01, E02-02 … E02-07 (ADR-006 "deferred" by design; finalised E61-10) |
 | Spikes answered | E03-01, E03-02, E03-03, E03-04 (fallback E03-05, E03-06) |
+| Test infrastructure and seams ready (added cycle 3) | E00-18, E00-19, E00-20, E00-21, E00-22, E00-23, E00-24, E00-25, E00-26; release-log lint E00-17 / E00-27 |
 
 ### Phase 1
 
 | Criterion | Verify |
 |---|---|
 | Pair via QR, reconnect after restarting both apps (UC-03) | E14-16 (on E15-15 harness); device timing E14-18 *(device)* |
-| `pcap-audit`: only TLS 1.3, no canary (AC-02) | E15-05, E15-06, E15-07 (Phase 1 injection via PairRequest display name), run by E15-18 |
+| `pcap-audit`: only TLS 1.3, no canary (AC-02) | E15-05, E15-06, E15-07 (Phase 1 injection via PairRequest display name), run by E15-18 (CI subset E15-19) |
 | mitm-lab: unknown client cert | E15-10 |
 | mitm-lab: wrong server cert | E15-10 |
 | mitm-lab: replayed `PairRequest` | E15-09 |
@@ -107,13 +112,15 @@ Owner notes for items the review lead flagged:
 | Conformance vectors green on both platforms in CI | E15-01, E15-02, E15-03 |
 | Fuzz smoke in CI | E15-13, E15-14 |
 | Keystore client-auth device matrix (PRD risk, added cycle 2) | E14-18 *(device)* |
-| One-command audit report, CI subset on `core/*` PRs (UC-25, added cycle 2) | E15-18 |
+| One-command audit report, CI subset on `core/*` PRs (UC-25, added cycle 2) | E15-18, E15-19 |
+| Unpair / revoke both sides (UC-07) | E14-12, E14-13, E14-15 (macOS), E14-19 (Android), E14-20 (JVM harness) |
+| Key-material test seams (JVM fake keystore, Keychain abstraction; added cycle 3) | E10-15, E10-16 |
 
 ### Phase 2
 
 | Criterion | Verify |
 |---|---|
-| Survives Mac sleep/wake, Wi-Fi switch, overnight Doze (UC-04) | E20-12 (Doze *(device)*); mechanisms E20-07, E20-10, E20-11 |
+| Survives Mac sleep/wake, Wi-Fi switch, overnight Doze (UC-04) | E20-12 (Doze *(device)*); mechanisms E20-05 / E20-15 (heartbeat, Mac drives liveness), E20-07, E20-10, E20-11 |
 | Reconnect < 5 s p95 | E20-12 |
 | Rotating id recognised by paired phone only (AC-05) | E21-05, E21-07, E21-02 (no name in instance), E01-20 |
 | Menu bar shows state, battery, errors; launch at login (UC-05) | E22-01, E23-04, E22-07, E22-03, E23-08 |
@@ -123,24 +130,24 @@ Owner notes for items the review lead flagged:
 
 | Criterion | Verify |
 |---|---|
-| Reply to WhatsApp and Signal from the Mac (UC-09) | E30-13 *(device)* |
-| Dismiss sync both ways (UC-10) | E30-10, E30-13 |
+| Reply to WhatsApp and Signal from the Mac (UC-09) | E30-13 *(device)*; categories/reply E30-17 |
+| Dismiss sync both ways (UC-10) | E30-10 (Android), E30-18 (macOS), E30-13 |
 | Notification p95 < 500 ms (UC-08) | E30-14 *(device)* (added cycle 2) |
-| No clipboard echo loops; concealed never leaves the Mac (UC-12) | E31-10 (rewritten cycle 2), E31-08, E31-03 |
+| No clipboard echo loops; concealed never leaves the Mac (UC-12) | E31-10 (rewritten cycle 2), E31-08 / E31-14, E31-03, E31-13 |
 
 ### Phase 4
 
 | Criterion | Verify |
 |---|---|
-| 4 GB both ways, forced disconnect, SHA-256 matches (UC-16) | E40-14 *(device)* |
+| 4 GB both ways, forced disconnect, SHA-256 matches (UC-16) | E40-14 *(device)*; resume E40-08 / E40-19 |
 | Transfer does not delay notifications | E40-15 (uses E30-14 harness), E11-09, E11-10 |
-| Photo browser pages 10k library with bounded cache (UC-17) | E41-09 (added cycle 2), E41-06 |
+| Photo browser pages 10k library with bounded cache (UC-17) | E41-09 (added cycle 2), E41-11, E41-06 |
 
 ### Phase 5
 
 | Criterion | Verify |
 |---|---|
-| Send and receive SMS from the Mac (UC-18, UC-19) | E50-10 |
+| Send and receive SMS from the Mac (UC-18, UC-19) | E50-10; sync E50-13 / E50-14 |
 | Incoming call on the Mac < 1 s; answer and hang up (UC-20) | E52-08 *(device)* |
 
 ### Phase 6
@@ -150,18 +157,18 @@ Owner notes for items the review lead flagged:
 | ADR-006 decided | E61-10 |
 | 1080p ≥ 30 fps, < 120 ms (UC-22) | E61-08 *(device)*; congestion isolation E60-07 |
 | `pcap-audit` during mirroring with on-screen canary | E61-09, E60-06 |
-| Media connection without / with reused ticket rejected (AC-08) | E60-05 |
+| Media connection without / with reused ticket rejected (AC-08) | E60-05; validator E60-08 |
 | Input rejected without user-started session (AC-06) | E62-08; negative control E62-09 *(device)* |
 
 ### Phase 7
 
 | Criterion | Verify |
 |---|---|
-| Key rotation (UC-24) | E70-04, E70-05, E70-08, E70-09 |
-| 24 h fuzz per target, no crashes (AC-07) | E71-01, E71-02, E71-03, E71-04 (+ triage E71-05) |
+| Key rotation (UC-24) | E70-04, E70-05, E70-08, E70-13, E70-09, E70-10 |
+| 24 h fuzz per target, no crashes (AC-07) | E71-01, E71-02, E71-03, E71-04, E71-13 (+ triage E71-05) |
 | External review of `SPEC.md` | E71-06 |
 | Release security audit signed off (UC-25) | E71-12 (evidence E71-07 … E71-11, E15-18) |
-| F-10.x as prioritised; F-2.2 ADR | E72-01 … E72-07; E73-01 |
+| F-10.x as prioritised; F-2.2 ADR | E72-01 … E72-10; E73-01 |
 
 ---
 
@@ -174,8 +181,8 @@ Owner notes for items the review lead flagged:
 | Wrong or swapped certs | E15-10 | E12-02, E12-05 | E71-08 |
 | Pairing replay and brute force | E15-09 | E14-02, E14-07, E14-09 | E71-08 |
 | Downgrade attempts (TLS 1.2, resumption, 0-RTT, version) | E15-11 | E12-01, E12-03, E12-04, E12-07 | E71-08 |
-| Parser robustness | smoke E15-13, E15-14 | E11-02, E11-04 | E71-01 … E71-04 |
-| Session binding (media ticket) | E60-05 | E60-03 | E71-08 |
+| Parser robustness | smoke E15-13, E15-14 | E11-02, E11-04 | E71-01 … E71-04, E71-13 |
+| Session binding (media ticket) | E60-05 | E60-03, E60-08 | E71-08 |
 | Input authorization | E62-08 | E62-06 | E71-08 |
 
 | Canary procedure step | Owner |
@@ -184,7 +191,7 @@ Owner notes for items the review lead flagged:
 | Phase 1 injection (no feature channels yet) | E15-07: phone display name in `PairRequest.deviceInfo`; no test-only wire path (E01-04, AC-11) |
 | Clipboard text | E15-07 step via E31-06 share target; concealed variant E31-10 |
 | File containing the canary | E15-07 step via E40-11 share target |
-| Notification containing the canary | E15-07 step via companion test APK (Tandem filters its own, E30-03) |
+| Notification containing the canary | E15-07 step via companion app `canary` kind, E00-22 (Tandem filters its own, E30-03) |
 | Canary on the mirrored screen | E61-09 |
 | All steps in one capture | E71-07 |
 | Same canaries absent from app logs | E15-17; per domain E30-13, E31-10, E50-11, E51-08, E52-09 |
@@ -196,13 +203,13 @@ Owner notes for items the review lead flagged:
 
 | # | Invariant (short) | impl | verify |
 |---|---|---|---|
-| 1 | No app data before mTLS with pinned peer | E12-01, E12-02, E12-04, E12-05, E12-07 (no channel before Hello), E14-04, E60-02, E60-03, E72-06 | E15-10, E15-11, E12-13, E20-06, E21-06, E60-05, E70-09, E71-07, E71-08 |
-| 2 | No plaintext/HTTP/WebDAV/legacy/fallback | E12-01 (single listener), E60-03 (same port), E00-14, E00-15 (server-library denylist), E22-04, E01-04 (no debug path) | E15-05, E15-07 (schema scan), E60-06, E71-07, E71-09 |
-| 3 | Trust = SPKI fingerprint only | E13-02, E13-06, E12-02, E12-05, E12-14, E20-06, E21-05, E60-03 | E13-10, E15-10, E21-06, E14-15 |
+| 1 | No app data before mTLS with pinned peer | E12-01, E12-02, E12-04, E12-05, E12-07 / E12-15 (no channel before Hello), E60-08, E60-09, E14-04, E60-02, E60-03, E72-06 | E15-10, E15-11, E12-13, E20-06, E21-06, E60-05, E70-09, E71-07, E71-08 |
+| 2 | No plaintext/HTTP/WebDAV/legacy/fallback | E12-01 (single listener), E60-03 (same port), E00-14, E00-15 (server-library denylist), E22-04, E01-04 (no debug path), E00-26 (UI-test hook DEBUG-only) | E15-05, E15-07 (schema scan), E60-06, E71-07, E71-09 |
+| 3 | Trust = SPKI fingerprint only | E13-02, E13-06, E12-02, E12-05, E12-14, E12-17, E20-06, E21-05, E60-03, E10-15, E10-16 | E13-10, E13-11, E15-10, E21-06, E14-15, E14-19, E14-20 |
 | 4 | Android opens no listening sockets | E12-04, E00-14, E02-03 (ADR-002), E20-13 (rejects phone-side BLE server) | E15-12, E71-08, E71-09 |
-| 5 | Pin/unknown/version mismatch fails closed, visible | E11-02, E11-04, E12-07, E12-08, E12-09, E12-10, E22-07, E20-09, E14-09, E14-17, E10-09 | E15-10, E15-11 (version-mismatch scenario), E12-07 tdd `hello_incompatibleMajorVersion_failsClosedWithVisibleError` |
+| 5 | Pin/unknown/version mismatch fails closed, visible | E11-02, E11-04, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E22-07, E20-09, E14-09, E14-17, E10-09 | E15-10, E15-11 (version-mismatch scenario), E12-07 tdd `hello_incompatibleMajorVersion_failsClosedWithVisibleError` |
 | 6 | Constant-time compare; secrets single-use, expiring | E10-10, E10-11, E14-01, E14-02, E14-07, E60-03 | E15-09, E14-07 (`verifyProof_comparison_usesConstantTimeHelper`), E60-05 |
-| 7 | No secrets/content in release logs | E00-17, E12-10, E30-02, E31-03, E50-04, E50-09 | E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
+| 7 | No secrets/content in release logs | E00-17, E00-27, E12-10, E12-16, E30-02, E30-16, E31-03, E50-04, E50-09 | E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
 | 8 | Input only in user-started session with indicator | E61-02, E61-12, E62-02, E62-06, E62-10 (only if ADR-006 authorises) | E62-08, E62-09 |
 
 ---
@@ -211,10 +218,10 @@ Owner notes for items the review lead flagged:
 
 | Risk | Mitigation issues |
 |---|---|
-| Android kills the background service | E20-02, E20-03, E20-04, E20-07, E20-08, E20-14; measured by E20-12 |
+| Android kills the background service | E20-02, E20-03 (CDM spike) → E20-16 (conditional), E20-04, E20-07, E20-08, E20-14, E20-15 (Doze-aware heartbeat); measured by E20-12 |
 | Keystore + `SSLSocket` client auth differ across OEMs | E03-03 (spike), E10-01 (TEE fallback, never exportable), E14-18 (Phase 1 device matrix) |
 | Network.framework client-cert / verify-block edge cases | E03-01, E03-05 (swift-nio-ssl), E03-06 (revisit triggers), E02-04 |
-| Android background clipboard restrictions | E31-06, E31-07, E31-09 (accessibility opt-in ADR) |
+| Android background clipboard restrictions | E31-06, E31-07, E31-12 (QS tile capture activity), E31-09 (accessibility opt-in ADR) |
 | MediaProjection consent per session | E61-02, E61-12 (phone prompt flow), E61-10 (ADR-006 / scrcpy) |
 | Accessibility is a high-privilege surface | E62-02 (minimal config), E62-06, E62-08, E31-09 (off by default) |
 | Wi-Fi client isolation | E14-17 (pairing hint), E20-09 (reconnect hint), E72-05 / E72-06 (USB) |
@@ -268,100 +275,100 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | UC-03 | Survives restart of both apps | E14-16 |
 | UC-03 alt | Rejected / expired QR / unreachable → distinct phone messages | E14-08, E14-17 |
 | UC-04 | Reconnect < 5 s p95 | E20-12 |
-| UC-04 | Survives overnight Doze | E20-12 *(device)* |
+| UC-04 | Survives overnight Doze | E20-12 *(device)*; E20-15 (Doze-aware heartbeat), E01-07 |
 | UC-04 | Host on reused IP with other key gets no app data | E20-06, E21-06 |
 | UC-05 | Status change visible within 2 s | E23-08, E22-01 |
-| UC-05 | Pin/version errors visible in menu | E22-07, E12-10 |
+| UC-05 | Pin/version errors visible in menu | E22-07, E12-10 (phone: E12-16) |
 | UC-06 | Rings in silent + DND | E23-05 |
 | UC-06 | Stop from Mac within 1 s | E23-08 |
-| UC-07 | Removed peer's handshake fails | E14-15, E15-10 (revoked-while-offline) |
-| UC-07 | Mac list shows last-seen | E14-14, E12-14 |
-| UC-07 alt | "This device is no longer paired" | E12-10 |
+| UC-07 | Removed peer's handshake fails | E14-15, E14-19, E14-20, E15-10 (revoked-while-offline) |
+| UC-07 | Mac list shows last-seen | E14-14, E12-14, E12-17 |
+| UC-07 alt | "This device is no longer paired" | E12-16 |
 | UC-08 | p95 < 500 ms | E30-14 |
 | UC-08 | Icon once per package+version | E30-05, E30-06 |
 | UC-08 | Own and system-noise never forwarded | E30-03 |
-| UC-08 alt | Bounded offline buffer | E30-01, E30-02 |
-| UC-09 | Reply to WhatsApp and Signal | E30-13 |
+| UC-08 alt | Bounded offline buffer | E30-01, E30-16 |
+| UC-09 | Reply to WhatsApp and Signal | E30-13, E30-17 |
 | UC-09 alt | "No longer available" | E30-08, E30-09 |
-| UC-10 | Dismiss < 1 s both ways | E30-10 |
+| UC-10 | Dismiss < 1 s both ways | E30-10, E30-18 |
 | UC-11 | Filter change applies without reconnect | E30-04, E30-15 |
 | UC-12 | Concealed never on phone / in logs | E31-03, E31-10 |
-| UC-12 | No echo loop | E31-08, E31-10 |
+| UC-12 | No echo loop | E31-08, E31-14, E31-10 |
 | UC-12 alt | > 1 MiB not sent, hint shown | E31-04 |
-| UC-13 | All four entry points without accessibility | E31-06, E31-07 |
-| UC-14 | Filenames sanitised (traversal, hidden, reserved) | E40-02 |
-| UC-14 | Partial files never visible | E40-05, E40-06 |
-| UC-15 | Same as UC-14, mirrored | E40-02, E40-05, E40-06, E40-11 |
-| UC-16 | 4 GB both ways with forced disconnect | E40-14 |
+| UC-13 | All four entry points without accessibility | E31-06, E31-07, E31-12 |
+| UC-14 | Filenames sanitised (traversal, hidden, reserved) | E40-02 (vectors), E40-16, E40-17 |
+| UC-14 | Partial files never visible | E40-05, E40-06, E40-09, E40-20 |
+| UC-15 | Same as UC-14, mirrored | E40-02, E40-16, E40-17, E40-05, E40-06, E40-11, E40-21, E40-22 |
+| UC-16 | 4 GB both ways with forced disconnect | E40-14, E40-08, E40-19 |
 | UC-16 | Notifications < 500 ms p95 during transfer | E40-15 |
-| UC-17 | 10k library without loading all thumbnails | E41-09, E41-05 |
+| UC-17 | 10k library without loading all thumbnails | E41-09, E41-11, E41-05 |
 | UC-17 | Cache respects size cap | E41-06, E41-09 |
-| UC-18 | New SMS visible on Mac < 2 s | E50-10 |
+| UC-18 | New SMS visible on Mac < 2 s | E50-10, E50-14 |
 | UC-19 | Failure (no signal) reported | E50-04, E50-08 |
 | UC-20 | Answer and hang up from Mac | E52-04, E52-08 |
 | UC-21 | Works locked/backgrounded or explains | E52-05 |
 | UC-22 | 1080p ≥ 30 fps, < 120 ms | E61-08 |
 | UC-22 | pcap-audit with on-screen canary | E61-09 |
 | UC-22 | Rotation without restart | E61-05, E61-07 |
-| UC-22 | Mac request alone never starts capture / ticket | E61-12 |
+| UC-22 | Mac request alone never starts capture / ticket | E61-12, E61-15, E61-16 |
 | UC-23 | Input without session ignored and logged | E62-06, E62-08 |
 | UC-23 | Coordinates correct portrait / landscape / letterboxed | E62-03 |
 | UC-24 | Rotation on unauthenticated connection rejected | E70-02, E70-03, E70-09 |
-| UC-24 | Old key stops after grace session | E70-04, E70-05 |
-| UC-25 | One command per tool; CI subset on `core/*` PRs | E15-18 |
+| UC-24 | Old key stops after grace session | E70-04, E70-05, E70-10 |
+| UC-25 | One command per tool; CI subset on `core/*` PRs | E15-18, E15-19 |
 | AC-01 | MITM wrong/swapped cert | E15-10 |
 | AC-02 | Passive eavesdropping | E15-05, E15-06, E15-07 |
 | AC-03 | Replay, brute force, expired, other key | E15-09 |
 | AC-04 | Unpaired probe; TLS 1.2 / resumption / 0-RTT | E15-10, E15-11 |
 | AC-05 | TXT only `v=1` + rotating id; no name | E01-20, E21-02, E21-05, E21-07 |
 | AC-06 | Input without session | E62-08 |
-| AC-07 | Malformed frames; 24 h fuzz | E11-02, E11-04, E15-13, E15-14, E71-01 … E71-04 |
-| AC-08 | Missing / reused / expired / other session's ticket | E60-05, E60-03 |
-| AC-09 | Lost phone revoked on Mac; next handshake fails | E15-10, E14-15 |
-| AC-10 | No secrets/content in logs | E00-17, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
-| AC-11 | No debug/test-only protocol path in release (added cycle 2) | E01-04, E15-07, E71-09 |
+| AC-07 | Malformed frames; 24 h fuzz | E11-02, E11-04, E15-13, E15-14, E71-01 … E71-04, E71-13 |
+| AC-08 | Missing / reused / expired / other session's ticket | E60-05, E60-03, E60-08 |
+| AC-09 | Lost phone revoked on Mac; next handshake fails | E15-10, E14-15, E14-20 |
+| AC-10 | No secrets/content in logs | E00-17, E00-27, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
+| AC-11 | No debug/test-only protocol path in release (added cycle 2) | E01-04, E15-07, E71-09, E00-26 (UI-test hook absent from Release) |
 
 ### ID index (generated)
 
 <!-- BEGIN GENERATED: use-cases -->
 | ID | Count | Issues citing it (`use_cases:`) |
 |---|---|---|
-| AC-01 | 17 | E01-01, E01-17, E02-01, E02-04, E03-01, E03-02, E03-03, E03-05, E15-08, E15-10, E15-18, E12-03, E12-10, E22-07, E61-09, E71-07, E71-08 |
-| AC-02 | 9 | E02-01, E02-04, E15-04, E15-05, E15-06, E15-07, E15-18, E61-09, E71-07 |
+| AC-01 | 19 | E01-01, E01-17, E02-01, E02-04, E03-01, E03-02, E03-03, E03-05, E15-08, E15-10, E15-18, E12-03, E12-05, E12-10, E12-16, E14-04, E22-07, E71-07, E71-08 |
+| AC-02 | 12 | E02-01, E02-04, E15-04, E15-05, E15-06, E15-07, E15-18, E30-13, E31-10, E60-06, E61-09, E71-07 |
 | AC-03 | 14 | E01-02, E01-11, E01-18, E01-21, E02-01, E02-05, E15-08, E15-09, E14-02, E14-07, E14-09, E71-03, E71-08, E73-05 |
-| AC-04 | 19 | E01-01, E01-05, E01-06, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E12-02, E12-05, E12-10, E13-10, E21-06, E22-07, E71-08 |
+| AC-04 | 25 | E01-01, E01-05, E01-06, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E12-01, E12-02, E12-03, E12-05, E12-07, E12-15, E12-10, E12-13, E13-10, E13-11, E21-06, E22-07, E71-08 |
 | AC-05 | 6 | E01-08, E01-20, E02-01, E21-02, E21-05, E21-07 |
-| AC-06 | 7 | E02-01, E02-07, E61-10, E61-12, E62-01, E62-06, E62-08 |
-| AC-07 | 14 | E01-03, E01-05, E01-10, E01-19, E02-01, E15-01, E15-02, E15-13, E15-14, E11-02, E11-04, E71-01, E71-02, E71-04 |
-| AC-08 | 5 | E01-09, E02-01, E60-01, E60-03, E60-05 |
-| AC-09 | 8 | E02-01, E15-10, E13-05, E13-09, E13-10, E14-12, E14-13, E14-15 |
-| AC-10 | 8 | E00-17, E02-01, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
+| AC-06 | 10 | E02-01, E02-07, E61-10, E61-12, E61-16, E62-01, E62-06, E62-08, E62-09, E62-10 |
+| AC-07 | 17 | E01-03, E01-05, E01-10, E01-19, E02-01, E15-01, E15-02, E15-13, E15-14, E11-02, E11-04, E11-11, E11-12, E71-01, E71-02, E71-04, E71-13 |
+| AC-08 | 6 | E01-09, E02-01, E60-01, E60-03, E60-05, E60-08 |
+| AC-09 | 11 | E02-01, E15-10, E13-05, E13-09, E13-10, E13-11, E14-12, E14-13, E14-15, E14-19, E14-20 |
+| AC-10 | 9 | E00-17, E00-27, E02-01, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
 | AC-11 | 4 | E01-04, E15-07, E71-09, E71-12 |
-| UC-01 | 10 | E10-01, E10-02, E10-04, E10-05, E10-06, E10-07, E10-09, E12-01, E12-04, E22-03 |
-| UC-02 | 6 | E10-04, E14-18, E20-02, E20-03, E20-04, E20-14 |
-| UC-03 | 39 | E01-02, E01-08, E01-11, E01-21, E02-05, E03-04, E15-15, E10-03, E10-08, E10-12, E10-13, E12-02, E12-04, E12-05, E12-06, E12-07, E12-13, E13-02, E13-06, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-10, E14-11, E14-16, E14-17, E14-18, E20-03, E21-02, E73-01, E73-02, E73-03, E73-04, E73-05 |
-| UC-04 | 22 | E01-07, E01-12, E03-04, E15-15, E12-02, E12-04, E12-05, E12-07, E12-08, E12-09, E12-13, E14-16, E20-05, E20-06, E20-07, E20-08, E20-10, E20-11, E20-12, E20-13, E21-04, E21-05 |
-| UC-05 | 20 | E01-13, E15-12, E10-03, E10-08, E12-01, E12-08, E12-09, E12-10, E12-14, E13-02, E13-06, E14-14, E20-09, E22-01, E22-02, E22-08, E23-01, E23-02, E23-04, E23-08 |
+| UC-01 | 12 | E10-01, E10-02, E10-04, E10-05, E10-06, E10-07, E10-09, E10-16, E12-01, E12-04, E22-01, E22-03 |
+| UC-02 | 11 | E10-01, E10-04, E10-15, E12-04, E14-10, E14-18, E20-02, E20-03, E20-04, E20-14, E20-16 |
+| UC-03 | 40 | E01-02, E01-08, E01-11, E01-21, E02-05, E03-04, E15-15, E10-03, E10-08, E10-12, E10-13, E12-02, E12-04, E12-05, E12-06, E12-07, E12-15, E12-13, E13-02, E13-06, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-10, E14-11, E14-16, E14-17, E14-18, E20-16, E21-02, E73-01, E73-02, E73-03, E73-04, E73-05 |
+| UC-04 | 27 | E01-07, E01-12, E03-04, E15-15, E12-02, E12-04, E12-05, E12-07, E12-15, E12-08, E12-09, E12-13, E14-16, E20-02, E20-03, E20-05, E20-06, E20-07, E20-08, E20-10, E20-11, E20-12, E20-13, E20-15, E21-04, E21-05, E21-06 |
+| UC-05 | 25 | E01-13, E15-11, E15-12, E10-03, E10-08, E12-01, E12-08, E12-09, E12-10, E12-16, E12-14, E12-17, E13-02, E13-06, E14-14, E20-09, E22-01, E22-02, E22-07, E22-08, E23-01, E23-02, E23-03, E23-04, E23-08 |
 | UC-06 | 6 | E01-13, E23-01, E23-05, E23-06, E23-07, E23-08 |
-| UC-07 | 13 | E01-11, E15-10, E12-10, E12-14, E13-02, E13-05, E13-06, E13-09, E14-12, E14-13, E14-14, E14-15, E22-05 |
-| UC-08 | 18 | E01-04, E11-01, E11-03, E11-05, E11-06, E11-09, E11-10, E12-11, E12-12, E30-01, E30-02, E30-03, E30-05, E30-06, E30-07, E30-12, E30-13, E30-14 |
-| UC-09 | 6 | E01-04, E30-01, E30-07, E30-08, E30-09, E30-13 |
-| UC-10 | 3 | E30-01, E30-10, E30-13 |
+| UC-07 | 18 | E01-11, E15-10, E12-16, E12-14, E12-17, E13-02, E13-05, E13-06, E13-09, E14-12, E14-13, E14-14, E14-15, E14-19, E14-20, E22-05, E50-09, E51-04 |
+| UC-08 | 21 | E00-22, E01-04, E11-01, E11-03, E11-05, E11-06, E11-09, E11-10, E12-11, E12-12, E30-01, E30-02, E30-03, E30-05, E30-06, E30-07, E30-11, E30-12, E30-13, E30-14, E30-16 |
+| UC-09 | 8 | E00-22, E01-04, E30-01, E30-07, E30-08, E30-09, E30-13, E30-17 |
+| UC-10 | 5 | E30-01, E30-10, E30-13, E30-17, E30-18 |
 | UC-11 | 3 | E30-04, E30-11, E30-15 |
-| UC-12 | 12 | E11-05, E11-06, E12-11, E12-12, E31-01, E31-02, E31-03, E31-04, E31-05, E31-08, E31-10, E31-11 |
-| UC-13 | 11 | E11-01, E11-03, E11-05, E11-06, E12-11, E12-12, E31-01, E31-06, E31-07, E31-08, E31-09 |
-| UC-14 | 20 | E01-04, E11-05, E11-06, E11-07, E11-08, E12-11, E12-12, E40-01, E40-02, E40-03, E40-04, E40-05, E40-06, E40-07, E40-09, E40-11, E40-12, E40-13, E40-14, E40-15 |
-| UC-15 | 22 | E01-04, E11-05, E11-06, E11-07, E11-08, E11-09, E11-10, E12-11, E12-12, E40-01, E40-02, E40-03, E40-04, E40-05, E40-06, E40-07, E40-09, E40-10, E40-12, E40-13, E40-14, E40-15 |
-| UC-16 | 3 | E40-08, E40-14, E40-15 |
-| UC-17 | 10 | E01-04, E41-01, E41-02, E41-03, E41-04, E41-05, E41-06, E41-07, E41-08, E41-09 |
-| UC-18 | 14 | E50-01, E50-02, E50-03, E50-07, E50-08, E50-09, E50-10, E50-12, E51-01, E51-02, E51-03, E51-04, E51-05, E51-07 |
-| UC-19 | 12 | E50-01, E50-04, E50-05, E50-06, E50-08, E50-10, E51-01, E51-02, E51-03, E51-04, E51-05, E51-07 |
+| UC-12 | 13 | E11-05, E11-06, E12-11, E12-12, E31-01, E31-02, E31-03, E31-04, E31-05, E31-08, E31-10, E31-11, E31-14 |
+| UC-13 | 14 | E11-01, E11-03, E11-05, E11-06, E12-11, E12-12, E31-01, E31-06, E31-07, E31-08, E31-09, E31-12, E31-13, E31-14 |
+| UC-14 | 24 | E01-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E12-11, E12-12, E40-01, E40-02, E40-04, E40-05, E40-07, E40-09, E40-10, E40-13, E40-14, E40-15, E40-16, E40-20, E40-21, E40-22, E40-23 |
+| UC-15 | 24 | E01-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E11-09, E11-10, E12-11, E12-12, E40-01, E40-02, E40-03, E40-06, E40-09, E40-11, E40-12, E40-14, E40-15, E40-17, E40-18, E40-20, E40-24 |
+| UC-16 | 5 | E40-01, E40-08, E40-14, E40-15, E40-19 |
+| UC-17 | 12 | E01-04, E41-01, E41-02, E41-03, E41-04, E41-05, E41-06, E41-07, E41-08, E41-09, E41-10, E41-11 |
+| UC-18 | 17 | E50-01, E50-02, E50-03, E50-07, E50-08, E50-09, E50-10, E50-12, E50-13, E50-14, E51-01, E51-02, E51-03, E51-04, E51-05, E51-07, E51-09 |
+| UC-19 | 13 | E50-01, E50-04, E50-05, E50-06, E50-08, E50-10, E50-14, E51-01, E51-02, E51-03, E51-04, E51-05, E51-07 |
 | UC-20 | 12 | E51-01, E51-02, E51-03, E51-04, E51-05, E51-07, E52-01, E52-02, E52-03, E52-04, E52-06, E52-08 |
 | UC-21 | 11 | E51-01, E51-02, E51-03, E51-04, E51-05, E51-07, E52-01, E52-02, E52-05, E52-07, E52-08 |
-| UC-22 | 20 | E01-09, E01-12, E02-06, E02-07, E60-01, E60-02, E60-03, E60-04, E60-07, E61-01, E61-02, E61-03, E61-04, E61-05, E61-06, E61-07, E61-08, E61-10, E61-11, E61-12 |
-| UC-23 | 12 | E02-07, E61-10, E61-12, E62-01, E62-02, E62-03, E62-04, E62-05, E62-06, E62-07, E62-09, E62-10 |
-| UC-24 | 8 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08 |
-| UC-25 | 2 | E15-18, E71-12 |
+| UC-22 | 26 | E01-09, E01-12, E02-06, E02-07, E60-01, E60-02, E60-03, E60-04, E60-07, E60-09, E61-01, E61-02, E61-03, E61-04, E61-05, E61-06, E61-07, E61-08, E61-09, E61-10, E61-11, E61-12, E61-13, E61-14, E61-15, E61-16 |
+| UC-23 | 12 | E02-07, E61-10, E61-16, E62-01, E62-02, E62-03, E62-04, E62-05, E62-06, E62-07, E62-09, E62-10 |
+| UC-24 | 13 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08, E70-09, E70-10, E70-11, E70-12, E70-13 |
+| UC-25 | 3 | E15-18, E15-19, E71-12 |
 <!-- END GENERATED: use-cases -->
 
 ---
@@ -419,3 +426,25 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 
 Not gaps (checked): F-7.5 has no issue by design (v2, recorded in E40 out_of_scope); AC-08 and
 F-3.3 are carried by E60-05 after the cycle-1 merge (E15 scope points there).
+
+## Review cycle 3 (TDD readiness)
+
+- Every `tdd:` entry is `"<layer>: unit_condition_expectedResult"` (layers in `README.md` →
+  Test layers); `sync_issues.rb validate` enforces format, spike/adr `tdd: []`, doc `ci:`-only,
+  and ≥ 1 entry for story/task/test.
+- Test infrastructure / seams added: E00-18 … E00-26 (Android core/testing clock + pipe,
+  Robolectric/Compose, emulator CI, companion notification app, device matrix + manual gates,
+  macOS TandemTestSupport clock + connection pair, XCUITest), E10-15 (`IdentityKeyStore` fake),
+  E10-16 (`KeychainStore`).
+- Splits (original ID kept for one half): E00-17→E00-27, E11-07→E11-13, E11-08→E11-14,
+  E12-07→E12-15, E12-10→E12-16, E12-14→E12-17, E13-10→E13-11, E14-15→E14-19 (+ E14-20),
+  E15-18→E15-19, E20-05→E20-15, E20-03→E20-16, E30-02→E30-16, E30-07→E30-17, E30-10→E30-18,
+  E31-06→E31-12, E31-08→E31-14 (+ E31-13), E40-02→E40-16/E40-17, E40-07→E40-18, E40-08→E40-19,
+  E40-09→E40-20, E40-10→E40-21/E40-22, E40-12→E40-23, E40-13→E40-24, E41-07→E41-10,
+  E41-09→E41-11, E50-02→E50-13 (+ E50-14), E51-02→E51-09, E60-03→E60-08, E60-04→E60-09,
+  E61-03→E61-13, E61-06→E61-14, E61-12→E61-15/E61-16, E70-06→E70-11, E70-07→E70-12,
+  E70-08→E70-13 (+ E70-10), E71-04→E71-13, E72-02→E72-08, E72-04→E72-09, E72-06→E72-10.
+- Decisions: heartbeat vs. Doze (E01-07, E20-05, E20-15); CDM presence → spike E20-03 +
+  conditional E20-16; Mac SMS/contacts store = GRDB SQLite (E50-09, E51-04) with unpair purge
+  hook (E14-13); single `MALFORMED_FRAME` close code + local reason (E01-05, E01-19);
+  `PairRejected` defined in E01-11.

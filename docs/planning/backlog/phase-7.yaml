@@ -17,6 +17,7 @@ epics:
       - "Android and macOS: initiate rotation (generate + sign), receive + verify + pin with
         grace period."
       - User-initiated rotation UI, scheduled rotation, failure/rollback handling.
+      - End-to-end rotation over the E15-15 JVM client to real Mac server harness.
       - mitm-lab coverage for rotation over an unauthenticated channel.
     out_of_scope:
       - Initial device identity generation and the first pairing (E10, E14).
@@ -38,20 +39,37 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1, 3, 6]
-        depends_on: [E01-10, E01-14, E01-16]
+        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02]
         description: |
           protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpki, nonce,
           sigOldKey(newSpki||nonce)}, RotationAck{}, RotationReject{reason}. Write
-          docs/protocol/SPEC.md rotation section covering the grace-session semantics. Vectors: a
-          valid rotation signature verifies, a tampered newSpki fails signature verification, a
-          replay of an already-applied rotation is rejected.
+          docs/protocol/SPEC.md rotation section covering the grace-session semantics: the old
+          SPKI stays accepted for at most one subsequent session and is purged as soon as either
+          that session closes or a session authenticated with the new SPKI completes Hello; a
+          re-sent KeyRotation for an already-pinned newSpki is acknowledged idempotently; only
+          the peer's current primary pin may authorize a rotation. SPEC also fixes the
+          initiator's ack timeout (30 s) and the scheduled-rotation interval setting.
+          Rotation vectors under protocol/vectors/rotation/ (run by the E15-01/E15-02 conformance
+          runners): an ECDSA P-256 signature by the old key over newSpki||nonce that verifies, a
+          tampered newSpki that fails, a signature by the new key instead of the old one that
+          fails, and a truncated DER signature that fails. Replay/idempotency is receiver state,
+          tested in E70-04/E70-05.
         acceptance:
-          - buf lint passes.
-          - protocol/vectors/rotation/*.json pass conformance on both platforms.
+          - buf lint exits 0 on rotation.proto.
+          - RotationReject.reason enumerates at least INVALID_SIGNATURE, UNAUTHENTICATED_SESSION
+            and NOT_PRIMARY_PIN.
+          - protocol/vectors/rotation/*.json contains the four signature vectors above (old-key
+            signature over new SPKI, tampered newSpki, new-key signature, truncated signature)
+            and all pass conformance on both codecs.
+          - SPEC.md rotation section states the grace-session purge triggers, idempotent re-send
+            rule and 30 s ack timeout.
         tdd:
-          - keyRotationVector_validSignature_verifies
-          - keyRotationVector_tamperedNewSpki_signatureVerificationFails
-          - keyRotation_replayedAfterAlreadyApplied_rejected
+          - "ci: rotationProto_bufLint_exitsZero"
+          - "conformance: keyRotationVector_oldKeySignatureOverNewSpki_verifies"
+          - "conformance: keyRotationVector_tamperedNewSpki_signatureVerificationFails"
+          - "conformance: keyRotationVector_signedByNewKeyInsteadOfOld_verificationFails"
+          - "conformance: keyRotationVector_truncatedDerSignature_verificationFails"
+          - "conformance: keyRotationVector_roundTrip_matchesGoldenBytes"
         notes: ""
       - id: E70-02
         title: "[android] Initiate rotation: generate new key + sign with old key"
@@ -62,20 +80,36 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1, 3]
-        depends_on: [E70-01, E10-01, E10-02, E10-03, E12-11]
+        depends_on: [E70-01, E10-01, E10-02, E10-03, E10-15, E12-11, E00-21]
         description: |
-          Generate a new P-256 keypair in AndroidKeyStore under the same StrongBox/TEE policy as
-          the original identity (F-1.1); compute the signature over newSpki||nonce with the
-          current private key; send KeyRotation only over an authenticated control session,
-          refusing to send otherwise.
+          Generate a new P-256 keypair under a new alias with the same StrongBox/TEE preference as
+          the original identity (F-1.1); compute the signature over newSpki||nonce (fresh 32-byte
+          SecureRandom nonce) with the current private key; send KeyRotation only over an
+          authenticated control session (mTLS with pinned peer and Hello completed, not a
+          pairing-in-progress session), refusing to send otherwise. On RotationAck the new alias
+          becomes the active identity (new self-signed cert via E10-02) and the old key is
+          deleted.
+          Key generation goes through `IdentityKeyStore` (E10-15) so JVM unit tests use
+          `SoftwareIdentityKeyStore`; the initiator lives in core/crypto so the E15-15 harness
+          links it. Session state comes from `TandemSession` (E12-11, `FakeTandemSession` in
+          tests). Real AndroidKeyStore properties are asserted only in the instrumented test.
         acceptance:
-          - Rotation refuses to send when the control session is not a fully authenticated mTLS
-            session.
-          - A rotation attempt over an authenticated session sends a correctly signed newSpki and
-            leaves the old key fully usable until an ack is received.
+          - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
+            or pairing in progress) no KeyRotation frame is written.
+          - Over an authenticated session the sent signature verifies with the old public key
+            over newSpki||nonce.
+          - The old key remains in the IdentityKeyStore and is the active identity until
+            RotationAck arrives.
+          - After RotationAck the next handshake's certificate carries newSpki and the old alias
+            is absent from the store.
+          - On the emulator the new key is non-exportable and stored under the new alias.
         tdd:
-          - androidRotationInitiator_unauthenticatedSession_refusesToSend
-          - androidRotationInitiator_authenticatedSession_sendsSignedNewSpkiKeepsOldKeyUsable
+          - "unit: androidRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
+          - "unit: androidRotationInitiator_pairingInProgressSession_noKeyRotationFrameSent"
+          - "unit: androidRotationInitiator_authenticatedSession_signatureVerifiesWithOldPublicKey"
+          - "unit: androidRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
+          - "unit: androidRotationInitiator_ackReceived_newKeyActiveAndOldAliasDeleted"
+          - "instrumented: androidRotationInitiator_realKeyStore_newKeyNonExportableUnderNewAlias"
         notes: ""
       - id: E70-03
         title: "[macos] Initiate rotation: generate new key + sign with old key"
@@ -86,19 +120,33 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1, 3]
-        depends_on: [E70-01, E10-05, E10-06, E10-08, E12-12]
+        depends_on: [E70-01, E10-05, E10-06, E10-08, E10-16, E12-12]
         description: |
           Mirrors E70-02 for macOS: generate a new Keychain-backed P-256 keypair per F-1.1's
-          storage policy, sign newSpki||nonce with the current private key, and send only over
-          an authenticated control session.
+          storage policy, sign newSpki||nonce with the current private key, send only over an
+          authenticated control session, switch the active identity and delete the old key only
+          after RotationAck.
+          Key storage goes through `KeychainStore` (E10-16) so unit tests use
+          `InMemoryKeychainStore`; session state comes from `TandemSession` (E12-12 fake). Real
+          Keychain behaviour is covered by one hosted integration test on the macOS runner.
         acceptance:
-          - Rotation refuses to send when the control session is not a fully authenticated mTLS
-            session.
-          - A rotation attempt over an authenticated session sends a correctly signed newSpki and
-            leaves the old key fully usable until an ack is received.
+          - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
+            or pairing window session) no KeyRotation frame is written.
+          - Over an authenticated session the sent signature verifies with the old public key
+            over newSpki||nonce.
+          - The old key remains in the Keychain and is the active identity until RotationAck
+            arrives.
+          - After RotationAck the listener's identity carries newSpki and the old key item is
+            deleted.
+          - The new key item is stored with the same accessibility class as the original
+            identity.
         tdd:
-          - macRotationInitiator_unauthenticatedSession_refusesToSend
-          - macRotationInitiator_authenticatedSession_sendsSignedNewSpkiKeepsOldKeyUsable
+          - "unit: macRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
+          - "unit: macRotationInitiator_pairingWindowSession_noKeyRotationFrameSent"
+          - "unit: macRotationInitiator_authenticatedSession_signatureVerifiesWithOldPublicKey"
+          - "unit: macRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
+          - "unit: macRotationInitiator_ackReceived_newKeyActiveAndOldItemDeleted"
+          - "integration: macRotationInitiator_hostedKeychain_newKeyStoredWithOriginalAccessibility"
         notes: ""
       - id: E70-04
         title: "[android] Receive + verify KeyRotation, pin new key with grace period"
@@ -111,18 +159,36 @@ epics:
         invariants: [1, 3, 6]
         depends_on: [E70-01, E13-02, E12-11]
         description: |
-          Verify the signature against the currently pinned old SPKI; on success, pin newSpki in
-          the trust store while retaining the old SPKI flagged grace-only for exactly one
-          subsequent session, then purge it. An invalid signature leaves the trust store
-          unchanged and returns RotationReject.
+          Verify the signature against the SPKI of the peer authenticated in this session (its
+          current primary pin), never against a key named in the message. On success, pin newSpki
+          in the trust store while retaining the old SPKI flagged grace-only per SPEC's
+          grace-session rule (E70-01), then purge it. An invalid signature, an unauthenticated
+          session or a non-primary signing key leaves the trust store unchanged, returns
+          RotationReject with the matching reason, and logs a redacted `rotation_rejected` event
+          (reason only, no key material). A re-sent KeyRotation for the already-pinned newSpki
+          returns RotationAck without a trust-store change. Lives in core/crypto (JVM-testable,
+          linked by the E15-15 harness); tests use `FakeTandemSession` (E12-11).
         acceptance:
-          - A valid rotation pins the new key and retains the old key flagged as grace-only.
-          - After one full session completes using either key, the old pin is purged.
-          - An invalid signature leaves the trust store completely unchanged.
+          - A valid rotation pins newSpki as primary and retains the old SPKI flagged grace-only.
+          - The old pin is purged when the grace session closes or when a session authenticated
+            with newSpki completes Hello, whichever comes first.
+          - An invalid signature returns RotationReject(INVALID_SIGNATURE) and the trust store
+            is byte-identical to before.
+          - KeyRotation on an unauthenticated or pairing-in-progress session returns
+            RotationReject(UNAUTHENTICATED_SESSION) with no trust-store change.
+          - A KeyRotation signed by a grace-only key for a different newSpki returns
+            RotationReject(NOT_PRIMARY_PIN).
+          - Every rejection emits exactly one `rotation_rejected` log event containing the reason
+            and no SPKI or signature bytes.
         tdd:
-          - androidRotationReceiver_validSignature_pinsNewKeyKeepsOldAsGrace
-          - androidRotationReceiver_afterGraceSessionElapsed_oldPinPurged
-          - androidRotationReceiver_invalidSignature_trustStoreUnchanged
+          - "unit: androidRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
+          - "unit: androidRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
+          - "unit: androidRotationReceiver_graceSessionClosed_oldPinPurged"
+          - "unit: androidRotationReceiver_invalidSignature_rejectInvalidSignatureTrustStoreUnchanged"
+          - "unit: androidRotationReceiver_unauthenticatedSession_rejectUnauthenticatedTrustStoreUnchanged"
+          - "unit: androidRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
+          - "unit: androidRotationReceiver_resendSameNewSpki_acksWithoutTrustStoreChange"
+          - "unit: androidRotationReceiver_rejection_logsReasonWithoutKeyBytes"
         notes: ""
       - id: E70-05
         title: "[macos] Receive + verify KeyRotation, pin new key with grace period"
@@ -135,81 +201,123 @@ epics:
         invariants: [1, 3, 6]
         depends_on: [E70-01, E13-06, E12-12]
         description: |
-          Mirrors E70-04 for macOS against TandemStore's trust store (E13-06).
+          Mirrors E70-04 for macOS against TandemStore's trust store (E13-06). The Mac may hold
+          several paired phones: a rotation only ever modifies the record of the peer
+          authenticated in the current session. Tests use the `TandemSession` fake (E12-12).
         acceptance:
-          - A valid rotation pins the new key and retains the old key flagged as grace-only.
-          - After one full session completes using either key, the old pin is purged.
-          - An invalid signature leaves the trust store completely unchanged.
+          - A valid rotation pins newSpki as primary and retains the old SPKI flagged grace-only.
+          - The old pin is purged when the grace session closes or when a session authenticated
+            with newSpki completes Hello, whichever comes first.
+          - An invalid signature returns RotationReject(INVALID_SIGNATURE) and the trust store
+            is unchanged.
+          - KeyRotation on an unauthenticated or pairing-window session returns
+            RotationReject(UNAUTHENTICATED_SESSION) with no trust-store change.
+          - A KeyRotation signed by a grace-only key for a different newSpki returns
+            RotationReject(NOT_PRIMARY_PIN).
+          - A rotation from phone A leaves every other paired phone's record unchanged.
+          - Every rejection emits exactly one `rotation_rejected` log event containing the reason
+            and no SPKI or signature bytes.
         tdd:
-          - macRotationReceiver_validSignature_pinsNewKeyKeepsOldAsGrace
-          - macRotationReceiver_afterGraceSessionElapsed_oldPinPurged
-          - macRotationReceiver_invalidSignature_trustStoreUnchanged
+          - "unit: macRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
+          - "unit: macRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
+          - "unit: macRotationReceiver_graceSessionClosed_oldPinPurged"
+          - "unit: macRotationReceiver_invalidSignature_rejectInvalidSignatureTrustStoreUnchanged"
+          - "unit: macRotationReceiver_pairingWindowSession_rejectUnauthenticatedTrustStoreUnchanged"
+          - "unit: macRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
+          - "unit: macRotationReceiver_rotationFromPhoneA_otherPeerRecordsUnchanged"
+          - "unit: macRotationReceiver_rejection_logsReasonWithoutKeyBytes"
         notes: ""
       - id: E70-06
-        title: "[cross] User-initiated rotation UI"
+        title: "[android] User-initiated rotation UI"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
-        size: M
+        size: S
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: []
-        depends_on: [E70-02, E70-03]
+        depends_on: [E70-02, E00-20]
         description: |
-          A "rotate this device's key" settings action on both platforms with confirmation,
-          progress, and success/failure feedback.
+          A "Rotate this device's key" settings action with confirmation, progress, and
+          success/failure feedback. View-model states: Idle, Confirming, InProgress,
+          Success(newFingerprint), Failed(reason). The action is disabled while no authenticated
+          session exists. View-model tests use a fake initiator; rendering is tested with Compose
+          under Robolectric (E00-20). Cross-peer pin verification is E70-10.
         acceptance:
-          - Confirming the action completes a rotation; both peers show the new fingerprint as
-            pinned.
+          - With no authenticated session the action is disabled and shows "Connect to your Mac
+            to rotate the key".
+          - Confirming moves the state Confirming -> InProgress -> Success and Success shows the
+            new fingerprint.
+          - An initiator failure (reject or ack timeout) shows Failed with the reason and the old
+            fingerprint remains displayed as current.
+          - Cancelling the confirmation starts no rotation.
         tdd:
-          - rotationSettingsViewModel_userConfirms_triggersRotationAndShowsResult
-        notes: ""
+          - "unit: rotationSettingsViewModel_noAuthenticatedSession_actionDisabled"
+          - "unit: rotationSettingsViewModel_userConfirms_reachesSuccessWithNewFingerprint"
+          - "unit: rotationSettingsViewModel_initiatorRejected_showsFailedAndOldFingerprint"
+          - "unit: rotationSettingsViewModel_userCancels_initiatorNeverCalled"
+          - "ui: rotationSettingsScreen_successState_rendersNewFingerprint"
+        notes: "Split from E70-06 in review cycle 3 (macOS half is E70-11)."
       - id: E70-07
-        title: "[cross] Scheduled rotation"
+        title: "[android] Scheduled rotation"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
         size: M
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1]
-        depends_on: [E70-02, E70-03]
+        depends_on: [E70-02, E00-18]
         description: |
-          Periodic rotation on a configurable interval, triggered only while an authenticated
-          session is active; deferred when offline past the due date and retried on next
-          connect.
+          Periodic rotation on a configurable interval (SPEC, E70-01), triggered only while an
+          authenticated session is active; deferred when offline past the due date and started on
+          the next authenticated session. The next-due instant is persisted so it survives
+          process death. The scheduler takes an injected `Clock` and dispatcher (E00-18) so due
+          dates are tested in virtual time with `TestClock`.
         acceptance:
-          - A rotation due while offline is deferred and fires automatically on the next
-            authenticated session.
-          - A rotation due while connected fires automatically without user action.
+          - One day before the due instant no rotation starts.
+          - A rotation due while connected starts exactly once without user action.
+          - A rotation due while offline starts on the next authenticated session and not before.
+          - After a successful rotation the next due instant is now + interval.
+          - A persisted due instant is honoured after process restart.
         tdd:
-          - scheduledRotation_dueWhileOffline_deferredUntilNextAuthenticatedSession
-          - scheduledRotation_dueWhileConnected_firesAutomatically
-        notes: ""
+          - "unit: androidScheduledRotation_oneDayBeforeDue_noRotationStarted"
+          - "unit: androidScheduledRotation_dueWhileConnected_rotationStartedOnce"
+          - "unit: androidScheduledRotation_dueWhileOffline_startedOnNextAuthenticatedSession"
+          - "unit: androidScheduledRotation_afterSuccess_nextDueIsNowPlusInterval"
+          - "unit: androidScheduledRotation_processRestart_persistedDueHonoured"
+        notes: "Split from E70-07 in review cycle 3 (macOS half is E70-12)."
       - id: E70-08
-        title: "[cross] Rotation failure and rollback handling"
+        title: "[android] Rotation failure and rollback handling"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: M
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1, 3]
-        depends_on: [E70-04, E70-05]
+        depends_on: [E70-02, E00-18, E12-11]
         description: |
           The initiator must not delete its old key until it receives an explicit RotationAck.
-          On ack timeout, retry on the next session using the still-valid old key rather than
-          assuming success. An explicit RotationReject aborts the rotation and keeps the old key
-          as the sole pin.
+          On ack timeout (30 s, SPEC E70-01) or a session drop before ack, retry on the next
+          authenticated session using the still-valid old key with the same pending newSpki
+          rather than assuming success. An explicit RotationReject aborts the rotation, deletes
+          the pending new key, and keeps the old key as the sole identity. The pending rotation
+          is persisted so it survives process death. The timeout uses the injected `Clock` and
+          dispatcher (E00-18); tests use `FakeTandemSession` (E12-11).
         acceptance:
-          - A simulated ack timeout leaves the old key fully usable and the rotation is retried
-            on the next session.
-          - An explicit RotationReject aborts the rotation attempt and keeps the old key as the
-            sole pin.
+          - No ack within 30 s (virtual time) leaves the old key as the active identity.
+          - The next authenticated session re-sends KeyRotation with the same pending newSpki.
+          - RotationReject deletes the pending new key and keeps the old key as sole identity.
+          - A session dropped before ack leaves the old key active and the rotation pending.
+          - A pending rotation survives process restart and is re-sent on the next session.
         tdd:
-          - rotation_ackTimeout_oldKeyRemainsSolePinAndRetriedNextSession
-          - rotation_explicitReject_abortsAndKeepsOldKeyAsSolePin
-        notes: ""
+          - "unit: androidRotationRollback_noAckWithin30s_oldKeyRemainsActiveIdentity"
+          - "unit: androidRotationRollback_nextSessionAfterTimeout_resendsSamePendingNewSpki"
+          - "unit: androidRotationRollback_rotationRejectReceived_pendingKeyDeletedOldKeySole"
+          - "unit: androidRotationRollback_sessionDropBeforeAck_rotationStaysPending"
+          - "unit: androidRotationRollback_processRestart_pendingRotationResent"
+        notes: "Split from E70-08 in review cycle 3 (macOS half is E70-13)."
       - id: E70-09
         title: "[tools] mitm-lab: rotation over unauthenticated channel rejected"
         type: test
@@ -217,19 +325,132 @@ epics:
         priority: P0
         size: S
         prd: [F-1.3]
-        use_cases: []
+        use_cases: [UC-24]
         invariants: [1, 3]
         depends_on: [E70-04, E70-05, E15-08]
         description: |
-          Per PRD F-1.3 ("no rotation over unauthenticated channels"), a mitm-lab scenario sends
-          KeyRotation before the handshake/pairing completes, or on a connection with no valid
-          peer pin.
+          Per PRD F-1.3 ("no rotation over unauthenticated channels"), mitm-lab scenarios (E15-08
+          runner) against both the real Mac listener and the phone client send KeyRotation before
+          the handshake/Hello completes, inside a pairing-window session, and on a connection
+          from a peer with no valid pin.
         acceptance:
-          - The scenario confirms a rotation attempted outside an authenticated session is
-            rejected and leaves the trust store unchanged.
+          - Each scenario observes the connection closed or RotationReject, and the target's
+            trust store is unchanged afterwards (record count and fingerprints compared).
         tdd:
-          - mitmLab_rotationOverUnauthenticatedChannel_rejectedNoTrustStoreChange
+          - "security: mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged"
+          - "security: mitmLabRotation_keyRotationInPairingWindow_rejectedTrustStoreUnchanged"
+          - "security: mitmLabRotation_unpinnedPeerSendsKeyRotation_handshakeFailsNoPinAdded"
         notes: ""
+      - id: E70-10
+        title: "[cross] End-to-end rotation: JVM client and real Mac server (E15-15)"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E15-15, E70-02, E70-03, E70-04, E70-05, E70-08, E70-13]
+        description: |
+          Scenarios on the E15-15 harness (real Android core/* modules with
+          `SoftwareIdentityKeyStore` against the real Mac server app): phone-initiated rotation,
+          Mac-initiated rotation, and the grace-session boundary, restarting processes between
+          sessions to prove persistence.
+        acceptance:
+          - After a phone-initiated rotation both trust stores hold the new phone fingerprint and
+            the next handshake authenticates with newSpki.
+          - After a Mac-initiated rotation the JVM client pins the new Mac fingerprint.
+          - After the grace session a handshake using the old phone key fails with no app data
+            exchanged (UC-24 "old key stops working after the grace session").
+        tdd:
+          - "integration: rotationE2e_phoneInitiated_nextHandshakeUsesNewSpki"
+          - "integration: rotationE2e_macInitiated_jvmClientPinsNewMacFingerprint"
+          - "integration: rotationE2e_oldPhoneKeyAfterGraceSession_handshakeFails"
+          - "integration: rotationE2e_bothProcessesRestartedDuringGrace_oldKeyAcceptedOnce"
+        notes: "Added in review cycle 3 to own UC-24 end-to-end acceptance."
+      - id: E70-11
+        title: "[macos] User-initiated rotation UI"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: []
+        depends_on: [E70-03, E00-26]
+        description: |
+          Mirrors E70-06 for the macOS Settings window: same view-model states, action disabled
+          without an authenticated session. View-model tests use a fake initiator; rendering is
+          tested in XCUITest with DEBUG scenario seeding (E00-26).
+        acceptance:
+          - With no authenticated session the action is disabled and shows "Connect your phone
+            to rotate the key".
+          - Confirming moves the state Confirming -> InProgress -> Success and Success shows the
+            new fingerprint.
+          - An initiator failure shows Failed with the reason and the old fingerprint remains
+            displayed as current.
+          - Cancelling the confirmation starts no rotation.
+        tdd:
+          - "unit: macRotationSettingsViewModel_noAuthenticatedSession_actionDisabled"
+          - "unit: macRotationSettingsViewModel_userConfirms_reachesSuccessWithNewFingerprint"
+          - "unit: macRotationSettingsViewModel_initiatorRejected_showsFailedAndOldFingerprint"
+          - "unit: macRotationSettingsViewModel_userCancels_initiatorNeverCalled"
+          - "ui: macRotationSettings_seededSuccessScenario_rendersNewFingerprint"
+        notes: "Split from E70-06 in review cycle 3."
+      - id: E70-12
+        title: "[macos] Scheduled rotation"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1]
+        depends_on: [E70-03, E00-24]
+        description: |
+          Mirrors E70-07 for macOS. The scheduler takes an injected `Clock<Duration>` and
+          `DateProvider` (E00-24) so due dates are tested in virtual time with
+          `ManualTestClock`.
+        acceptance:
+          - One day before the due instant no rotation starts.
+          - A rotation due while connected starts exactly once without user action.
+          - A rotation due while offline starts on the next authenticated session and not before.
+          - After a successful rotation the next due instant is now + interval.
+          - A persisted due instant is honoured after app relaunch.
+        tdd:
+          - "unit: macScheduledRotation_oneDayBeforeDue_noRotationStarted"
+          - "unit: macScheduledRotation_dueWhileConnected_rotationStartedOnce"
+          - "unit: macScheduledRotation_dueWhileOffline_startedOnNextAuthenticatedSession"
+          - "unit: macScheduledRotation_afterSuccess_nextDueIsNowPlusInterval"
+          - "unit: macScheduledRotation_appRelaunch_persistedDueHonoured"
+        notes: "Split from E70-07 in review cycle 3."
+      - id: E70-13
+        title: "[macos] Rotation failure and rollback handling"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E70-03, E00-24, E12-12]
+        description: |
+          Mirrors E70-08 for macOS. The 30 s ack timeout uses the injected `Clock<Duration>`
+          (E00-24, `ManualTestClock` in tests); session state comes from the `TandemSession`
+          fake (E12-12).
+        acceptance:
+          - No ack within 30 s (virtual time) leaves the old key as the active identity.
+          - The next authenticated session re-sends KeyRotation with the same pending newSpki.
+          - RotationReject deletes the pending new key and keeps the old key as sole identity.
+          - A session dropped before ack leaves the old key active and the rotation pending.
+          - A pending rotation survives app relaunch and is re-sent on the next session.
+        tdd:
+          - "unit: macRotationRollback_noAckWithin30s_oldKeyRemainsActiveIdentity"
+          - "unit: macRotationRollback_nextSessionAfterTimeout_resendsSamePendingNewSpki"
+          - "unit: macRotationRollback_rotationRejectReceived_pendingKeyDeletedOldKeySole"
+          - "unit: macRotationRollback_sessionDropBeforeAck_rotationStaysPending"
+          - "unit: macRotationRollback_appRelaunch_pendingRotationResent"
+        notes: "Split from E70-08 in review cycle 3."
 
   - id: E71
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
@@ -270,11 +491,15 @@ epics:
         description: |
           Run Jazzer (Kotlin) and libFuzzer (Swift) continuously for 24 hours against the
           length-prefix framing decoder, seeded from protocol/vectors' valid and invalid frame
-          cases.
+          cases, using the E15-13/E15-14 targets in long-campaign mode.
         acceptance:
-          - A 24-hour run completes with zero uncaught crashes or hangs.
+          - Each fuzzer runs >= 86 400 s wall clock with zero crashes, sanitizer findings, or
+            hangs (a single input exceeding 10 s counts as a hang).
+          - The run log (duration, total execs, final corpus size, crash count) is archived as
+            E71-12 evidence.
         tdd:
-          - fuzzFrameParser_seedCorpus_harnessRunsCleanly
+          - "security: frameParserFuzz24h_jazzerCampaign_zeroCrashesOrHangs"
+          - "security: frameParserFuzz24h_libFuzzerCampaign_zeroCrashesOrHangs"
         notes: ""
       - id: E71-02
         title: "[tools] Fuzz target: Envelope protobuf decoder (24 h campaign)"
@@ -288,11 +513,15 @@ epics:
         depends_on: [E15-13, E15-14]
         description: |
           24-hour Jazzer/libFuzzer campaign against the Envelope decoder, seeded from
-          protocol/vectors.
+          protocol/vectors, using the E15-13/E15-14 targets in long-campaign mode.
         acceptance:
-          - A 24-hour run completes with zero uncaught crashes or hangs.
+          - Each fuzzer runs >= 86 400 s wall clock with zero crashes, sanitizer findings, or
+            hangs (a single input exceeding 10 s counts as a hang).
+          - The run log (duration, total execs, final corpus size, crash count) is archived as
+            E71-12 evidence.
         tdd:
-          - fuzzEnvelopeDecoder_seedCorpus_harnessRunsCleanly
+          - "security: envelopeDecoderFuzz24h_jazzerCampaign_zeroCrashesOrHangs"
+          - "security: envelopeDecoderFuzz24h_libFuzzerCampaign_zeroCrashesOrHangs"
         notes: ""
       - id: E71-03
         title: "[tools] Fuzz target: QR pairing payload parser (24 h campaign)"
@@ -305,34 +534,43 @@ epics:
         invariants: [3, 6]
         depends_on: [E15-13, E14-03]
         description: |
-          24-hour Jazzer campaign against the Android QR payload parser (E14-03; macOS never parses QR)
-          (tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...), seeded from the base64url QR
-          payload vectors.
+          New Jazzer target and 24-hour campaign against the Android QR payload parser (E14-03;
+          macOS never parses QR) (tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...), seeded from
+          the base64url QR payload vectors.
         acceptance:
-          - A 24-hour run completes with zero uncaught crashes or hangs.
+          - The QR target runs in the E15-13 CI smoke run on PRs touching the parser.
+          - The campaign runs >= 86 400 s wall clock with zero crashes or hangs (single input
+            > 10 s), and its run log is archived as E71-12 evidence.
         tdd:
-          - fuzzQrPayloadParser_seedCorpus_harnessRunsCleanly
+          - "ci: qrPayloadFuzzSmokeRun_seedCorpus_exitsZeroWithinBudget"
+          - "security: qrPayloadParserFuzz24h_jazzerCampaign_zeroCrashesOrHangs"
         notes: ""
       - id: E71-04
-        title: "[tools] Fuzz targets: per-domain message decoders (24 h each)"
+        title: "[tools] Fuzz targets: per-domain message decoders, Android Jazzer (24 h each)"
         type: test
         platforms: [tools]
         priority: P0
-        size: L
+        size: M
         prd: []
         use_cases: [AC-07]
         invariants: []
-        depends_on: [E15-13, E15-14, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01]
+        depends_on: [E15-13, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01]
         description: |
-          24-hour Jazzer/libFuzzer campaigns against each domain message decoder introduced after
-          Phase 0: status.proto extension, notify.proto, clipboard.proto, files.proto, photos.proto,
-          sms.proto, contacts.proto, calls.proto, media.proto, input.proto, and rotation.proto, each seeded from its own protocol/vectors set.
+          Jazzer targets (one generic target parametrized by message type) and 24-hour campaigns
+          against each Kotlin domain message decoder introduced after Phase 0: status.proto
+          extension, notify.proto, clipboard.proto, files.proto, photos.proto, sms.proto,
+          contacts.proto, calls.proto, media.proto, input.proto, and rotation.proto, each seeded
+          from its own protocol/vectors set. A target registry lists one entry per proto file; a
+          CI check fails when a proto file under protocol/proto/tandem/v1/ has no registry entry.
         acceptance:
-          - Each domain decoder completes an independent 24-hour run with zero uncaught crashes
-            or hangs.
+          - Every listed proto file has a Jazzer registry entry; a proto file without one fails
+            CI naming the file.
+          - Each domain decoder runs an independent >= 86 400 s campaign with zero crashes or
+            hangs, run logs archived as E71-12 evidence.
         tdd:
-          - fuzzDomainDecoders_allDomainTargets_seedCorporaRunCleanly
-        notes: ""
+          - "ci: jazzerTargetRegistry_protoFileWithoutTarget_exitsNonZeroNamingFile"
+          - "security: domainDecoderFuzz24h_everyJazzerTarget_zeroCrashesOrHangs"
+        notes: "Split in review cycle 3: macOS libFuzzer half is E71-13."
       - id: E71-05
         title: "[docs] Fix-found-crashes triage process"
         type: doc
@@ -342,17 +580,19 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: [E71-01, E71-02, E71-03, E71-04]
+        depends_on: [E71-01, E71-02, E71-03, E71-04, E71-13]
         description: |
           Define and apply the process: any crash or hang found during a campaign becomes a P0
-          bug, its minimized reproducer is added to the corpus as a permanent regression case,
-          and the affected target is re-run for a full clean 24 hours after the fix before
-          sign-off.
+          bug, its minimized reproducer is added to tools/fuzz/regression/<target>/ as a
+          permanent regression case replayed by the E15-13/E15-14 CI smoke runs, and the affected
+          target is re-run for a full clean 24 hours after the fix before sign-off.
         acceptance:
-          - The process is documented in CLAUDE.md or SPEC.md.
+          - The process is documented in docs/security/fuzzing.md.
+          - The CI smoke runs replay every file under tools/fuzz/regression/.
           - At least one full clean 24-hour run is recorded per target after the process has been
             applied.
-        tdd: []
+        tdd:
+          - "ci: fuzzSmokeRun_regressionCorpusDir_replaysEveryReproducer"
         notes: ""
       - id: E71-06
         title: "[docs] External review of SPEC.md"
@@ -369,7 +609,8 @@ epics:
           ambiguity, downgrade paths, and coverage of the eight security invariants. Log findings
           and their resolution.
         acceptance:
-          - Findings are documented with a resolution status for each.
+          - Findings are documented with a resolution status (accepted, rejected with rationale,
+            deferred with issue link) for each.
           - SPEC.md is updated for every accepted finding.
         tdd: []
         notes: ""
@@ -382,16 +623,22 @@ epics:
         prd: []
         use_cases: [AC-01, AC-02]
         invariants: [1, 2, 7]
-        depends_on: [E15-07, E60-06, E61-09, E50-11, E51-08, E52-09]
+        depends_on: [E15-07, E15-17, E60-06, E61-09, E50-11, E51-08, E52-09]
         description: |
           A single full-feature session exercising notifications, clipboard, files, SMS,
           contacts, calls, and mirroring simultaneously, following the canary procedure
-          (test-strategy) across every channel at once.
+          (test-strategy) across every channel at once. The same session's logcat and macOS
+          unified log are scanned with log-audit (E15-17) so the canary run also yields AC-10
+          evidence for E71-12.
         acceptance:
-          - The full-session pcap-audit run shows only TLS 1.3 records on the single Tandem port (control and media connections).
-          - The canary bytes are absent from the entire capture.
+          - The full-session pcap-audit run shows only TLS 1.3 records on the single Tandem port
+            (control and media connections).
+          - The canary bytes occur 0 times in the entire capture.
+          - The canary bytes occur 0 times in the captured release-build logs.
         tdd:
-          - pcapAudit_fullFeatureCanarySession_zeroPlaintextOccurrences
+          - "security: pcapAudit_fullFeatureCanarySession_onlyTls13RecordsOnTandemPort"
+          - "security: pcapAudit_fullFeatureCanarySession_zeroCanaryOccurrences"
+          - "security: logAudit_fullFeatureCanarySession_zeroCanaryOccurrences"
         notes: ""
       - id: E71-08
         title: "[tools] Release security audit: nmap + full mitm-lab suite"
@@ -404,34 +651,62 @@ epics:
         invariants: [1, 2, 3, 4, 5, 6]
         depends_on: [E15-09, E15-10, E15-11, E15-12, E60-05, E62-08, E70-09]
         description: |
-          Run nmap against the phone across every feature phase, and the complete accumulated
-          mitm-lab scenario suite from Phases 1 through 7 in one pass.
+          Run nmap against the phone with every feature active (mirroring, file transfer,
+          notification sync), the complete accumulated mitm-lab scenario suite from Phases 1
+          through 7 in one pass, and the `openssl s_client` downgrade checks against the Mac
+          listener.
         acceptance:
           - "nmap -p- against the phone shows zero open ports."
-          - Every mitm-lab scenario across all phases passes.
+          - Every mitm-lab scenario across all phases passes (zero unexpected acceptances).
+          - "openssl s_client -tls1_2 against the Mac listener fails the handshake."
         tdd:
-          - nmap_phoneFullPortScan_noOpenPorts
+          - "security: nmapPhoneFullPortScan_everyFeatureActive_zeroOpenPorts"
+          - "security: mitmLabFullSuite_allPhaseScenarios_zeroUnexpectedAcceptances"
+          - "security: opensslSClientTls12_againstMacListener_handshakeFails"
         notes: ""
       - id: E71-09
         title: "[tools] Release security audit: entitlement + manifest review"
         type: test
         platforms: [tools]
         priority: P0
-        size: S
+        size: M
         prd: []
         use_cases: [AC-11]
         invariants: [2, 4]
-        depends_on: []
+        depends_on: [E22-04, E15-07, E00-11]
         description: |
-          Review AndroidManifest.xml (no cleartextTrafficPermitted, no exported component without
-          a permission) and the macOS entitlements/Info.plist (no NSAllowsLocalNetworking,
-          minimal sandbox entitlements) per invariant 2 and invariant 4.
+          Automate the review as CI checks over the release artifacts, per invariant 2 and
+          invariant 4. Android (merged release manifest + network security config):
+          declared permissions must equal `tools/release-audit/android-permissions.allowlist`
+          (each line carries the issue ID that justifies it); every exported component must be in
+          `android-exported.allowlist` and guarded by a permission unless it is the launcher or
+          share-target activity; cleartext traffic is not permitted. macOS (`codesign -d
+          --entitlements` on the release .app + Info.plist): entitlements must equal
+          `mac-entitlements.allowlist` (app-sandbox, network.server, network.client, plus
+          entries later phases justify); Info.plist has no NSAllowsLocalNetworking /
+          NSAllowsArbitraryLoads. Each check has a failing fixture. AC-11: debug and release
+          builds embed byte-identical generated protocol descriptors, and the proto schema scan
+          (E15-07) finds no debug/echo/test message or channel.
         acceptance:
-          - The checklist completes with zero findings, or all findings are fixed and
-            re-checked.
-          - Release and debug builds ship identical generated protocol descriptors, and no debug/echo/test message or channel exists (AC-11).
-        tdd: []
-        notes: ""
+          - A fixture manifest declaring one permission not in the allowlist fails CI naming the
+            permission.
+          - A fixture manifest with an exported component that is neither allowlisted nor
+            permission-guarded fails CI naming the component.
+          - A fixture with cleartextTrafficPermitted="true" or usesCleartextTraffic="true" fails
+            CI.
+          - The set difference between the release app's entitlements and the allowlist is empty
+            in both directions; a fixture with an extra entitlement fails CI.
+          - A fixture Info.plist containing NSAllowsLocalNetworking fails CI.
+          - Release and debug builds ship identical generated protocol descriptors, and no
+            debug/echo/test message or channel exists (AC-11).
+        tdd:
+          - "ci: releaseManifest_declaredPermissions_matchAllowlist"
+          - "ci: releaseManifest_exportedComponents_matchAllowlistAndPermissionGuarded"
+          - "ci: releaseManifest_cleartextTrafficFixture_exitsNonZero"
+          - "ci: macReleaseEntitlements_setDiffAgainstAllowlist_empty"
+          - "ci: macReleaseInfoPlist_nsAllowsLocalNetworkingFixture_exitsNonZero"
+          - "ci: protoDescriptors_debugVersusRelease_byteIdentical"
+        notes: "Size S -> M in review cycle 3 (six automated checks with fixtures)."
       - id: E71-10
         title: "[tools] Dependency / SBOM scan"
         type: task
@@ -441,16 +716,22 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: []
+        depends_on: [E00-11]
         description: |
-          Generate an SBOM for the Android (Gradle) and macOS (SwiftPM) dependency trees; run a
-          vulnerability scan against both; address any high/critical findings.
+          Generate an SBOM (CycloneDX) for the Android (Gradle) and macOS (SwiftPM) dependency
+          trees; run a vulnerability scan against both in CI; address any high/critical findings.
+          Waivers live in a checked-in file with a reason and expiry date.
         acceptance:
-          - An SBOM is committed under tools/ or docs/.
-          - The vulnerability scan completes with zero unaddressed high or critical findings.
+          - An SBOM is committed under tools/sbom/ and lists every resolved Gradle and SwiftPM
+            dependency.
+          - CI fails when a dependency changes without the committed SBOM being regenerated.
+          - A fixture dependency with a known critical CVE fails the scan (exit code non-zero)
+            unless waived.
+          - The release scan completes with zero unwaived high or critical findings.
         tdd:
-          - "`sbomGeneration_gradleAndSwiftPm_bothDependencyTreesIncluded`"
-          - "`vulnScan_fixtureWithKnownCriticalCve_ciFails`"
+          - "ci: sbomGeneration_gradleAndSwiftPm_bothDependencyTreesListed"
+          - "ci: sbomCheck_dependencyChangedWithoutRegeneration_exitsNonZero"
+          - "ci: vulnScan_fixtureWithKnownCriticalCve_exitsNonZero"
         notes: ""
       - id: E71-11
         title: "[ci] Release build signing"
@@ -461,17 +742,25 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: []
+        depends_on: [E00-11]
         description: |
-          Android: sideload keystore signing config for release builds, no debug keys. macOS:
-          local Developer ID (or ad hoc) signing; notarization is optional per the PRD's no-store-
-          distribution non-goal. The signing decision and its rationale are documented.
+          Android: sideload keystore signing config for release builds, no debug keys; keystore
+          and passwords come from CI secrets. macOS: local Developer ID (or ad hoc) signing;
+          notarization is optional per the PRD's no-store-distribution non-goal. The signing
+          decision and its rationale are documented. A CI verification step runs `apksigner
+          verify --print-certs` and `codesign --verify --deep --strict` (plus `xcrun stapler
+          validate` when notarization is enabled) on every release artifact.
         acceptance:
           - CI produces a signed release artifact for both platforms from the same pipeline used
             for every other build.
+          - An unsigned or debug-key-signed APK fails the verification step.
+          - An unsigned or tampered .app fails `codesign --verify --deep --strict`.
+          - When notarization is enabled, an artifact without a stapled ticket fails the step.
         tdd:
-          - "`releaseSigningCheck_apkSignedWithDebugKey_ciFails`"
-          - "`releaseSigningCheck_macArtifact_codesignVerifyPasses`"
+          - "ci: releaseSigningCheck_unsignedApk_apksignerVerifyFails"
+          - "ci: releaseSigningCheck_apkSignedWithDebugKey_exitsNonZero"
+          - "ci: releaseSigningCheck_tamperedMacApp_codesignVerifyFails"
+          - "ci: releaseSigningCheck_notarizationEnabledWithoutTicket_staplerValidateFails"
         notes: ""
       - id: E71-12
         title: "[docs] Release security audit checklist and sign-off"
@@ -489,9 +778,37 @@ epics:
           each of the eight invariants, and AC-01..AC-11, each linked to its evidence (E15-18 report,
           E71-07..E71-10 outputs, fuzz logs). Sign-off = PR approval before the v1 tag.
         acceptance:
-          - Every PRD security-test row, invariant 1-8, and AC-01..AC-11 has a checklist row with linked evidence
-          - The checklist is approved in a PR before the v1 release tag
-        tdd: []
+          - Every PRD security-test row, invariant 1-8, and AC-01..AC-11 has a checklist row with
+            linked evidence; a CI check fails on any row without a link.
+          - Every evidence link resolves.
+          - The checklist is approved in a PR before the v1 release tag.
+        tdd:
+          - "ci: releaseAuditChecklist_rowWithoutEvidenceLink_exitsNonZero"
+          - "ci: releaseAuditLinkCheck_allEvidenceLinks_resolve"
+        notes: ""
+      - id: E71-13
+        title: "[tools] Fuzz targets: per-domain message decoders, macOS libFuzzer (24 h each)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E15-14, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01]
+        description: |
+          Mirrors E71-04 for the Swift codec: libFuzzer targets (one generic target parametrized
+          by message type) and 24-hour campaigns against each Swift domain message decoder,
+          with the same one-entry-per-proto-file registry check.
+        acceptance:
+          - Every listed proto file has a libFuzzer registry entry; a proto file without one
+            fails CI naming the file.
+          - Each domain decoder runs an independent >= 86 400 s campaign with zero crashes or
+            hangs, run logs archived as E71-12 evidence.
+        tdd:
+          - "ci: libFuzzerTargetRegistry_protoFileWithoutTarget_exitsNonZeroNamingFile"
+          - "security: domainDecoderFuzz24h_everyLibFuzzerTarget_zeroCrashesOrHangs"
+        notes: "Split from E71-04 in review cycle 3."
 
   - id: E72
     title: "Extras (F-10.x: media control, DND sync, USB, multi-Mac)"
@@ -535,25 +852,37 @@ epics:
         tdd: []
         notes: ""
       - id: E72-02
-        title: "[cross] Implement media control (F-10.1, P2)"
+        title: "[android] Media control: MediaSession bridge + media-control proto (F-10.1, P2)"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P2
         size: M
         prd: [F-10.1]
         use_cases: []
         invariants: []
-        depends_on: [E72-01]
+        depends_on: [E72-01, E12-11]
         description: |
-          Now-playing metadata push plus play/pause/skip transport controls, per E72-01's design
-          doc.
+          Per E72-01's design doc: add the media-control messages (now-playing metadata push,
+          play/pause/next/previous commands) to the proto with vectors, and an Android bridge that
+          reads the active media session and dispatches transport controls. The bridge talks to a
+          feature-local `MediaSessionGateway` seam over MediaSessionManager/MediaController
+          (recording fake in test fixtures) and to `TandemSession` (E12-11 fake).
         acceptance:
-          - Play/pause/skip from the Mac controls the phone's active media session.
-          - Now-playing metadata is displayed on the Mac.
+          - Media-control vectors round-trip on both codecs.
+          - A received PlayPause command calls pause() on the active session's transport
+            controls when playing and play() when paused.
+          - An active-session metadata change sends one NowPlaying message with title, artist and
+            playback state.
+          - Without notification-listener access no NowPlaying message is sent and the Mac is
+            told the capability is unavailable.
+          - On a physical phone, pausing real media playback from the Mac takes effect within 1 s.
         tdd:
-          - mediaControl_playPauseFromMac_reflectsOnPhoneSession
-          - mediaControl_nowPlayingMetadata_displayedOnMac
-        notes: ""
+          - "conformance: mediaControlVector_roundTrip_matchesGoldenBytes"
+          - "unit: mediaControlBridge_playPauseWhilePlaying_callsTransportPause"
+          - "unit: mediaControlBridge_metadataChanged_sendsNowPlayingWithTitleArtist"
+          - "unit: mediaControlBridge_listenerAccessRevoked_sendsCapabilityUnavailable"
+          - "manual: mediaControl_realPlaybackPauseFromMac_takesEffectWithin1s"
+        notes: "Split in review cycle 3: macOS half is E72-08 (depends on this issue's proto)."
       - id: E72-03
         title: "[docs] Design note: Focus/DND sync (F-10.2)"
         type: spike
@@ -569,28 +898,36 @@ epics:
           confirms the direction is Mac-to-phone only per the PRD, and chooses the carrying
           channel.
         acceptance:
-          - A design doc is approved before E72-04 starts.
+          - A design doc is approved before E72-04 starts, stating the Focus-state source API on
+            macOS and whether it is feasible inside the App Sandbox (go/no-go).
         tdd: []
         notes: ""
       - id: E72-04
-        title: "[cross] Implement Focus/DND sync (F-10.2, P2)"
+        title: "[android] Focus/DND sync: apply interruption filter + focus proto (F-10.2, P2)"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P2
         size: S
         prd: [F-10.2]
         use_cases: []
         invariants: []
-        depends_on: [E72-03]
+        depends_on: [E72-03, E12-11]
         description: |
-          Mac Focus-state changes toggle the phone's notification interruption filter, per
-          E72-03's design doc.
+          Per E72-03's design doc: add the FocusState message to the proto with vectors, and on
+          the phone apply it via a feature-local `InterruptionFilterGateway` seam over
+          NotificationManager (recording fake in tests). Requires notification-policy access.
         acceptance:
-          - Toggling Focus on the Mac updates the phone's interruption filter within the test
-            harness's bound.
+          - FocusState vectors round-trip on both codecs.
+          - FocusState(on) sets INTERRUPTION_FILTER_PRIORITY; FocusState(off) restores the filter
+            that was active before sync applied it.
+          - Without notification-policy access the filter is not touched and the Mac is told the
+            capability is unavailable.
         tdd:
-          - focusSync_macFocusEnabled_phoneInterruptionFilterUpdates
-        notes: ""
+          - "conformance: focusStateVector_roundTrip_matchesGoldenBytes"
+          - "unit: focusSyncReceiver_focusOnMessage_setsInterruptionFilterPriority"
+          - "unit: focusSyncReceiver_focusOffMessage_restoresPreviousFilter"
+          - "unit: focusSyncReceiver_policyAccessMissing_filterUntouchedCapabilityUnavailable"
+        notes: "Split in review cycle 3: macOS half is E72-09 (depends on this issue's proto)."
       - id: E72-05
         title: "[docs] Design spike: USB transport (F-10.3, AOA vs. adb forward)"
         type: spike
@@ -599,36 +936,46 @@ epics:
         size: M
         prd: [F-10.3]
         use_cases: []
-        invariants: []
+        invariants: [4]
         depends_on: [E12-11, E12-12]
         description: |
           Evaluate Android Open Accessory (AOA) versus adb forward/reverse for carrying the same
           framed mTLS protocol over USB, reusing the transport abstraction interfaces (E12-11 Android, E12-12 macOS).
           Output: the chosen approach with feasibility notes.
         acceptance:
-          - A decision is documented with feasibility notes, approved before E72-06 starts.
+          - A decision is documented with feasibility notes, approved before E72-06 and E72-10
+            start.
+          - The chosen approach opens no listening socket on the phone (invariant 4), which rules
+            out `adb forward` to a phone-side listener; `adb reverse` or AOA only.
         tdd: []
         notes: ""
       - id: E72-06
-        title: "[cross] Implement USB transport (F-10.3, P2)"
+        title: "[android] USB transport (F-10.3, P2)"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P2
-        size: L
+        size: M
         prd: [F-10.3]
         use_cases: []
-        invariants: [1, 2]
-        depends_on: [E72-05]
+        invariants: [1, 2, 4]
+        depends_on: [E72-05, E12-11, E00-19]
         description: |
           Implement the chosen USB transport (E72-05) as an alternate Transport implementation
-          behind the E12-11/E12-12 abstractions, using the same mTLS identity and pinning as the Wi-Fi
-          path; no relaxed authentication for the USB link.
+          behind the E12-11 abstraction, exposing a `ByteStream` (E00-19) so the same mTLS
+          identity, pinning and framing stack run on top unchanged; no relaxed authentication for
+          the USB link. Tests wire the real TLS stack over `InMemoryDuplexPipe`.
         acceptance:
-          - A control session established over USB passes the same conformance vectors as over
-            Wi-Fi.
+          - The E12-13 handshake + Hello + frame round-trip scenario passes over the USB
+            ByteStream with real TLS.
+          - A peer whose SPKI is not pinned fails the handshake and no application frame is sent.
+          - The USB transport opens no listening socket (E00-14 rule stays green).
+          - On a physical phone and Mac over a cable, a control session reaches Hello within 5 s
+            of attach.
         tdd:
-          - usbTransport_controlSession_passesConformanceVectorsIdenticalToWifi
-        notes: ""
+          - "integration: usbTransport_realTlsOverDuplexPipe_helloRoundTripCompletes"
+          - "unit: usbTransport_unpinnedPeer_handshakeFailsNoAppFrameSent"
+          - "manual: usbTransport_realCableAttach_helloWithin5s"
+        notes: "Split in review cycle 3 (size L -> M): macOS half is E72-10."
       - id: E72-07
         title: "[docs] ADR: multi-Mac support (F-10.4, resolves Appendix C.2)"
         type: adr
@@ -648,6 +995,76 @@ epics:
             issue is opened.
         tdd: []
         notes: ""
+      - id: E72-08
+        title: "[macos] Media control: now-playing display + transport controls (F-10.1, P2)"
+        type: task
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-10.1]
+        use_cases: []
+        invariants: []
+        depends_on: [E72-02, E12-12, E00-26]
+        description: |
+          Mac side of E72-02: show NowPlaying metadata and send play/pause/next/previous commands.
+          View-model tests use the `TandemSession` fake (E12-12); rendering via XCUITest with a
+          seeded NowPlaying scenario (E00-26).
+        acceptance:
+          - A received NowPlaying shows title and artist within one UI update.
+          - Tapping play/pause sends exactly one PlayPause command.
+          - A capability-unavailable message hides the controls.
+        tdd:
+          - "unit: nowPlayingViewModel_nowPlayingReceived_showsTitleAndArtist"
+          - "unit: nowPlayingViewModel_playPauseTapped_sendsOnePlayPauseCommand"
+          - "unit: nowPlayingViewModel_capabilityUnavailable_controlsHidden"
+          - "ui: nowPlayingView_seededNowPlaying_rendersTitleAndControls"
+        notes: "Split from E72-02 in review cycle 3."
+      - id: E72-09
+        title: "[macos] Focus/DND sync: Focus-state sender (F-10.2, P2)"
+        type: task
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-10.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E72-04, E12-12]
+        description: |
+          Mac side of E72-04: observe Focus state through a feature-local `FocusStateSource` seam
+          (API chosen in E72-03, recording fake in tests) and send FocusState over the
+          `TandemSession` (E12-12 fake) on change.
+        acceptance:
+          - A Focus change sends exactly one FocusState message with the new state.
+          - An unchanged Focus state sends nothing.
+          - On a physical Mac and phone, toggling Focus updates the phone's DND within 2 s.
+        tdd:
+          - "unit: focusSyncSender_focusTurnedOn_sendsOneFocusStateOn"
+          - "unit: focusSyncSender_focusUnchanged_sendsNothing"
+          - "manual: focusSync_realMacFocusToggle_phoneDndWithin2s"
+        notes: "Split from E72-04 in review cycle 3."
+      - id: E72-10
+        title: "[macos] USB transport (F-10.3, P2)"
+        type: task
+        platforms: [macos]
+        priority: P2
+        size: M
+        prd: [F-10.3]
+        use_cases: []
+        invariants: [1, 2]
+        depends_on: [E72-05, E12-12, E00-25]
+        description: |
+          Mac side of E72-06: the chosen USB transport as an alternate Transport behind the E12-12
+          abstraction, exposing a `ByteStreamConnection` (E00-25) so the existing mTLS/pinning
+          stack runs unchanged. Tests wire the real TLS stack over `InMemoryConnectionPair`.
+        acceptance:
+          - Handshake + Hello + frame round trip completes over the USB ByteStreamConnection with
+            real TLS.
+          - An unpinned phone certificate fails the handshake and no application frame is
+            accepted.
+        tdd:
+          - "integration: macUsbTransport_realTlsOverConnectionPair_helloRoundTripCompletes"
+          - "unit: macUsbTransport_unpinnedPhoneCert_handshakeFailsNoAppFrameAccepted"
+        notes: "Split from E72-06 in review cycle 3."
 
   - id: E73
     title: Manual pairing ADR (F-2.2)
@@ -695,6 +1112,8 @@ epics:
           - The ADR is accepted, specifying an SAS length of at least 6 digits, commit-then-
             reveal ordering, and explicit rejection of fingerprint-prefix comparison as a
             substitute.
+          - The ADR states that the commitment context binds both handshake SPKIs, and that
+            manual pairing reuses the UC-03 pairing window (120 s, 3 attempts).
         tdd: []
         notes: ""
       - id: E73-02
@@ -706,17 +1125,22 @@ epics:
         prd: [F-2.2]
         use_cases: [UC-03]
         invariants: [3, 6]
-        depends_on: [E73-01]
+        depends_on: [E73-01, E15-01, E15-02]
         description: |
           Commitment{hash}, Reveal{nonce}, ManualPairResult{accepted} messages, implemented only
-          if E73-01 is accepted. Vectors: a Reveal sent before both sides' Commitment are
-          received is rejected; round trip for all three messages.
+          if E73-01 is accepted. Vectors: round trip for all three messages; a known nonce pair
+          plus SPKIs derives a fixed 6-digit SAS; a Reveal whose nonce does not match its
+          Commitment fails verification. Ordering (Reveal before both Commitments) is state
+          machine behaviour tested in E73-03/E73-04.
         acceptance:
           - Not started unless E73-01 is accepted.
-          - protocol/vectors/manual-pairing/*.json pass conformance on both platforms.
+          - buf lint exits 0 on manual-pairing.proto.
+          - protocol/vectors/manual-pairing/*.json pass conformance on both codecs.
         tdd:
-          - manualPairingVector_roundTrip_matchesGoldenBytes
-          - manualPairing_revealBeforeBothCommitmentsReceived_rejected
+          - "ci: manualPairingProto_bufLint_exitsZero"
+          - "conformance: manualPairingVector_roundTrip_matchesGoldenBytes"
+          - "conformance: manualPairingSasVector_knownNoncesAndSpkis_derivesExpectedSixDigits"
+          - "conformance: manualPairingCommitmentVector_revealNotMatchingCommitment_verificationFails"
         notes: ""
       - id: E73-03
         title: "[android] Manual pairing implementation (P2, gated on E73-01)"
@@ -727,17 +1151,28 @@ epics:
         prd: [F-2.2]
         use_cases: [UC-03]
         invariants: [3, 5, 6]
-        depends_on: [E73-02]
+        depends_on: [E73-02, E13-02, E12-11]
         description: |
           UI and state machine implementing commit, reveal, SAS compare, and confirm, reusing the
           pairing state-machine patterns from F-2.1 (E14). Not started unless E73-01 is accepted.
+          The state machine is tested against `FakeTandemSession` (E12-11); it has no code path
+          that compares fingerprints or fingerprint prefixes as a substitute for the SAS.
         acceptance:
           - Pairing completes and pins the peer only after the user confirms the SAS matches on
             both screens.
           - The user reporting a mismatch aborts the pairing without pinning anything.
+          - A Reveal received before the peer's Commitment aborts without pinning.
+          - A peer Reveal that does not match its Commitment aborts without pinning.
+          - A peer offering only a matching fingerprint prefix (no completed commit/reveal) is
+            rejected without pinning.
+          - Trust store holds exactly one new record with the peer's full SPKI fingerprint after
+            success (UC-03).
         tdd:
-          - manualPairing_userConfirmsMatchingSas_pinsPeer
-          - manualPairing_userReportsMismatch_abortsWithoutPinning
+          - "unit: manualPairing_userConfirmsMatchingSas_pinsExactlyOnePeerRecord"
+          - "unit: manualPairing_userReportsMismatch_abortsWithoutPinning"
+          - "unit: manualPairing_revealBeforePeerCommitment_abortsWithoutPinning"
+          - "unit: manualPairing_revealMismatchesCommitment_abortsWithoutPinning"
+          - "unit: manualPairingVerifier_fingerprintPrefixMatchOnly_rejected"
         notes: ""
       - id: E73-04
         title: "[macos] Manual pairing implementation (P2, gated on E73-01)"
@@ -748,16 +1183,26 @@ epics:
         prd: [F-2.2]
         use_cases: [UC-03]
         invariants: [3, 5, 6]
-        depends_on: [E73-02]
+        depends_on: [E73-02, E13-06, E12-12, E14-02]
         description: |
-          Mirrors E73-03 for macOS. Not started unless E73-01 is accepted.
+          Mirrors E73-03 for macOS, running inside the E14-02 pairing window (120 s, 3 attempts).
+          Not started unless E73-01 is accepted. Tested against the `TandemSession` fake (E12-12).
         acceptance:
           - Pairing completes and pins the peer only after the user confirms the SAS matches on
             both screens.
-          - The user reporting a mismatch aborts the pairing without pinning anything.
+          - The user reporting a mismatch aborts the pairing without pinning anything and burns
+            one window attempt.
+          - A Reveal received before the peer's Commitment aborts without pinning.
+          - A peer Reveal that does not match its Commitment aborts without pinning.
+          - A peer offering only a matching fingerprint prefix is rejected without pinning.
+          - Trust store holds exactly one new record with the peer's full SPKI fingerprint after
+            success (UC-03).
         tdd:
-          - manualPairing_userConfirmsMatchingSas_pinsPeer
-          - manualPairing_userReportsMismatch_abortsWithoutPinning
+          - "unit: manualPairing_userConfirmsMatchingSas_pinsExactlyOnePeerRecord"
+          - "unit: manualPairing_userReportsMismatch_abortsAndBurnsOneAttempt"
+          - "unit: manualPairing_revealBeforePeerCommitment_abortsWithoutPinning"
+          - "unit: manualPairing_revealMismatchesCommitment_abortsWithoutPinning"
+          - "unit: manualPairingVerifier_fingerprintPrefixMatchOnly_rejected"
         notes: ""
       - id: E73-05
         title: "[tools] mitm-lab: manual pairing brute-force + downgrade scenarios (P2, gated)"
@@ -770,14 +1215,18 @@ epics:
         invariants: [3, 5, 6]
         depends_on: [E73-03, E73-04, E15-08]
         description: |
-          Verifies a 6-digit SAS resists brute force within the pairing window's attempt limit,
-          and that no code path accepts a manual pairing using only a fingerprint prefix (the
-          LinkMyMac weakness this ADR exists to avoid).
+          mitm-lab scenarios (E15-08 runner) against the real Mac listener: a 6-digit SAS resists
+          brute force within the pairing window's 3-attempt limit; a peer that skips the commit
+          phase or offers only a fingerprint prefix (the LinkMyMac weakness this ADR exists to
+          avoid) is rejected; a QR pairing attempt cannot be downgraded into manual pairing.
         acceptance:
-          - The brute-force scenario fails closed once the attempt limit is reached.
-          - A code-level check confirms no path accepts a manual pairing on fingerprint-prefix
-            comparison alone.
+          - After 3 failed attempts the window closes and a 4th attempt is rejected (AC-03).
+          - A peer sending Reveal without a prior Commitment is rejected with no pin added.
+          - A peer presenting only a matching fingerprint prefix is rejected with no pin added.
+          - A manual-pairing message injected into a QR pairing session closes the connection.
         tdd:
-          - mitmLab_manualPairingBruteForce_failsClosedAfterAttemptLimit
-          - codeReview_manualPairing_neverAcceptsFingerprintPrefixOnly
+          - "security: mitmLabManualPairingBruteForce_fourthAttempt_rejected"
+          - "security: mitmLabManualPairing_commitPhaseSkipped_rejectedNoPin"
+          - "security: mitmLabManualPairing_fingerprintPrefixOnly_rejectedNoPin"
+          - "security: mitmLabManualPairing_messageInQrPairingSession_connectionClosed"
         notes: ""

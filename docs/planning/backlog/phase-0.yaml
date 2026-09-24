@@ -33,6 +33,12 @@ epics:
       - A feature module depending on another feature module fails the build.
       - A non-transport module opening a raw socket fails the build.
       - "`CLAUDE.md` exists at repo root and contains the eight security invariants verbatim."
+      - "`CLAUDE.md` has a testing section listing the eight tdd layer prefixes and the seam rule (inject Clock/dispatchers/ByteStream/KeyStore/Keychain; no `System.currentTimeMillis()`/`Date()` in core)."
+      - "`android/core/testing` (TestClock, FakeElapsedRealtime, InMemoryDuplexPipe) and `macos/Packages/TandemTestSupport` (ManualTestClock, InMemoryConnectionPair) exist; neither is on a release classpath/link map."
+      - "Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 29 + 35) is a required check on `android/**` PRs."
+      - "`tools/companion-app` builds in CI and is installed on the managed devices before instrumented tests run."
+      - "`TandemUITests` XCUITest target runs on the macOS runner; Release binary contains no `UITestScenario` string."
+      - "`docs/testing/device-matrix.md` and `docs/testing/manual-gates.md` exist; the CI check that every `manual:` tdd entry has a matching manual-gates heading passes."
     issues:
       - id: E00-01
         title: "[docs] Create monorepo directory skeleton per PRD structural decomposition"
@@ -49,17 +55,20 @@ epics:
           `android/core/{protocol,crypto,transport,pairing,storage}`, `android/feature/*`,
           `macos/Tandem.xcodeproj` placeholder, `macos/TandemApp`, `macos/TandemShare`,
           `macos/Packages/{TandemProtocol,TandemCrypto,TandemTransport,TandemPairing,TandemStore,Feature*}`,
-          `protocol/{proto/tandem/v1,vectors}`, `tools/{conformance,pcap-audit,mitm-lab,fuzz}`).
+          `protocol/{proto/tandem/v1,vectors}`, `tools/{conformance,pcap-audit,mitm-lab,fuzz}`),
+          plus the test-support additions not in the PRD tree: `android/core/testing` (E00-18/19),
+          `macos/Packages/TandemTestSupport` (E00-24/25), `macos/TandemUITests` (E00-26),
+          `tools/companion-app` (E00-22), `tools/log-audit`, `tools/vectors` and `docs/testing` (E00-23).
           Each empty module directory gets a placeholder `README.md` naming the PRD capability it
           will own so the tree is self-documenting before code lands.
         acceptance:
-          - Directory tree matches the PRD tree exactly, verified by a script that diffs `find`
+          - Directory tree matches the PRD tree plus the listed test-support additions exactly, verified by a script that diffs `find`
             output against a checked-in manifest.
           - Every leaf module directory contains a one-line README naming its owning capability IDs.
         tdd:
-          - "`directoryManifestCheck_treeMatchesManifest_passes`"
-          - "`directoryManifestCheck_missingModuleDirectory_failsWithPathListed`"
-          - "`directoryManifestCheck_leafReadmeMissingCapabilityIds_fails`"
+          - "ci: directoryManifestCheck_treeMatchesManifest_exitsZero"
+          - "ci: directoryManifestCheck_missingModuleDirectory_failsListingMissingPath"
+          - "ci: directoryManifestCheck_leafReadmeWithoutCapabilityIds_exitsNonZero"
         notes: ""
       - id: E00-02
         title: "[android] Gradle multi-module skeleton, convention plugins, version catalog"
@@ -81,8 +90,9 @@ epics:
           - "`./gradlew help` succeeds on a clean checkout with no manual SDK configuration beyond `local.properties`."
           - Adding a new `feature/*` module requires only applying `tandem.android.feature` and one line in `settings.gradle.kts`.
         tdd:
-          - convention plugin test `androidFeaturePlugin_appliedToNewModule_configuresCompileSdkAndLint`
-          - settings test `gradleSettings_allPrdModulesDeclared_projectsListMatchesManifest`
+          - "unit: androidFeaturePlugin_appliedViaGradleTestKit_setsCompileSdkAndLint"
+          - "ci: gradleProjects_cleanCheckout_listMatchesDirectoryManifest"
+          - "ci: gradlewHelp_cleanCheckoutOnUbuntu_exitsZero"
         notes: ""
       - id: E00-03
         title: "[android] Hilt DI wiring skeleton across modules"
@@ -93,17 +103,21 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: [E00-02]
+        depends_on: [E00-02, E00-04, E00-21]
         description: |
           Root `@HiltAndroidApp` application in `android/app`, empty `@Module @InstallIn` shells in
           each `core/*` module so downstream epics bind real implementations instead of wiring DI
           from scratch. No production bindings yet.
+          Launch smoke runs as `instrumented:` on the E00-21 emulator job rather than Robolectric:
+          Robolectric Hilt tests substitute `HiltTestApplication`, so they would not catch a broken
+          real `@HiltAndroidApp` / generated component in the shipped APK.
         acceptance:
-          - App module builds and launches to a blank screen with Hilt initialized (instrumented smoke test).
-          - Each `core/*` module exposes exactly one empty Hilt module ready for bindings.
+          - App module builds and launches `MainActivity` to a blank screen with the real `TandemApplication` Hilt component initialized, on API 29 and API 35 managed devices, with no crash in logcat.
+          - Each of the five `core/*` modules (`protocol`, `crypto`, `transport`, `pairing`, `storage`) contains exactly one `@Module @InstallIn(SingletonComponent::class)` class with zero bindings.
         tdd:
-          - "`hiltApplication_onCreate_noExceptionThrown`"
-          - "`coreCryptoHiltModule_isInstalledInSingletonComponent`"
+          - "instrumented: tandemApplication_launchMainActivity_activityReachesResumedState"
+          - "instrumented: tandemApplication_onCreate_isHiltComponentManager"
+          - "unit: coreHiltModules_classpathScan_exactlyOneEmptyModulePerCoreModule"
         notes: ""
       - id: E00-04
         title: "[android] JUnit5 + Turbine test infrastructure baseline"
@@ -119,11 +133,15 @@ epics:
           JUnit5 test runner wired through the Android Gradle Plugin (via `de.mannodermaus.android-junit5`
           or equivalent), Turbine on the test classpath for Flow assertions, a shared `test-fixtures`
           convention plugin so every module gets the same test dependencies without repetition.
+          This is the base the other Android test seams build on: `core/testing` clocks,
+          dispatcher extension and duplex pipe (E00-18/E00-19) and the Robolectric + Compose
+          harness (E00-20) all run on this JUnit5 runner.
         acceptance:
           - A sample JUnit5 test with a `@Test` and a Turbine `flow.test { }` block runs via `./gradlew test`.
-          - Test reports are produced in the standard Gradle location for CI to pick up.
+          - Test reports are produced as JUnit XML under each module's `build/test-results/` for CI to pick up.
         tdd:
-          - "`sampleFlowEmitter_collectedWithTurbine_emitsExpectedSequence`"
+          - "unit: sampleFlowEmitter_collectedWithTurbine_emitsOneTwoThreeThenCompletes"
+          - "ci: gradleTest_sampleModule_junitXmlWrittenToBuildTestResults"
         notes: ""
       - id: E00-05
         title: "[android] ktlint + detekt baseline configuration"
@@ -142,8 +160,8 @@ epics:
           - "`./gradlew ktlintCheck` and `./gradlew detekt` both run clean on the empty skeleton."
           - Introducing a ktlint violation (e.g. wildcard import) fails `ktlintCheck`.
         tdd:
-          - "`ktlintCheck_wildcardImportIntroduced_buildFails`"
-          - "`detekt_defaultRuleset_runsWithoutConfigErrors`"
+          - "ci: ktlintCheck_wildcardImportFixture_exitsNonZero"
+          - "ci: ktlintAndDetekt_emptySkeleton_exitZero"
         notes: ""
       - id: E00-06
         title: "[android] Kover/Jacoco coverage reporting setup"
@@ -162,7 +180,7 @@ epics:
         acceptance:
           - "`./gradlew koverHtmlReport` (or jacoco equivalent) produces an aggregate report covering all modules."
         tdd:
-          - "`coverageReport_sampleTestFromE00-04_appearsInAggregateReport`"
+          - "ci: coverageAggregateReport_allModules_includesE00SampleTestClass"
         notes: ""
       - id: E00-07
         title: "[macos] Xcode project + local SwiftPM package skeleton (Swift 6 strict concurrency)"
@@ -184,8 +202,9 @@ epics:
           - Every local package compiles under `-strict-concurrency=complete`.
           - Introducing a data race (unsynchronized mutable state shared across a `Task`) fails the build.
         tdd:
-          - "`tandemTransportPackage_sharedMutableStateAcrossTask_strictConcurrencyBuildFails`"
-          - "`xcodeprojScheme_tandem_buildsCleanOnFreshCheckout`"
+          - "ci: strictConcurrencyBuild_sharedMutableStateFixture_buildFails"
+          - "ci: xcodebuildTandemScheme_freshCheckout_exitsZero"
+          - "ci: localPackages_strictConcurrencyComplete_allCompileWithoutWarnings"
         notes: ""
       - id: E00-08
         title: "[macos] Swift Testing baseline + SwiftLint configuration"
@@ -205,8 +224,9 @@ epics:
             per the configured rule."
           - "`swift test` runs the sample Swift Testing case in every package."
         tdd:
-          - "`swiftlintForceUnwrapRule_introducedForceUnwrap_lintFails`"
-          - "`tandemCryptoPackage_sampleSwiftTestingCase_passes`"
+          - "ci: swiftlintForceUnwrapRule_forceUnwrapFixture_lintExitsNonZero"
+          - "ci: swiftlint_cleanSkeleton_exitsZero"
+          - "ci: swiftTest_everyLocalPackage_reportsOneSampleTestRun"
         notes: ""
       - id: E00-09
         title: "[protocol] buf setup + codegen for protobuf-kotlin-lite and swift-protobuf"
@@ -228,8 +248,8 @@ epics:
           - "`buf generate` produces compiling Kotlin and Swift output from a placeholder message."
           - Regenerating twice in a row produces byte-identical output (deterministic codegen).
         tdd:
-          - "`bufGenerate_placeholderMessage_producesCompilingKotlinAndSwift`"
-          - "`bufGenerate_runTwice_outputIsByteIdentical`"
+          - "ci: bufGenerate_placeholderMessage_kotlinAndSwiftOutputCompiles"
+          - "ci: bufGenerate_runTwice_outputByteIdentical"
         notes: ""
       - id: E00-10
         title: "[ci] CI check: generated protocol code is never hand-edited"
@@ -248,8 +268,9 @@ epics:
           - A PR that hand-edits a generated file fails this CI job with a diff shown in the log.
           - A PR that only edits `.proto` and regenerates correctly passes.
         tdd:
-          - "`generatedCodeCheck_handEditedPbKtFile_ciFails`"
-          - "`generatedCodeCheck_protoChangedAndRegenerated_ciPasses`"
+          - "ci: generatedCodeCheck_handEditedPbKtFile_jobFailsShowingDiff"
+          - "ci: generatedCodeCheck_handEditedPbSwiftFile_jobFailsShowingDiff"
+          - "ci: generatedCodeCheck_protoChangedAndRegenerated_jobPasses"
         notes: ""
       - id: E00-11
         title: "[ci] GitHub Actions workflows with path filters (android/macos/protocol/conformance)"
@@ -267,13 +288,20 @@ epics:
           `protocol.yml` (buf lint/breaking, triggered on `protocol/**`), `conformance.yml` (runs
           `tools/conformance`, triggered on `protocol/**`, `android/core/protocol/**`,
           `macos/Packages/TandemProtocol/**`). All required as branch protection checks.
+          The emulator job is a separate fifth workflow, `android-instrumented.yml` (E00-21,
+          triggered on `android/**` plus nightly), so the fast `android.yml` JVM job stays free of
+          KVM/emulator setup. Path filters are verified by a script that evaluates each workflow's
+          `on.pull_request.paths` against fixture changed-file lists.
         acceptance:
           - A PR touching only `android/**` runs the android workflow and not the macos workflow.
           - A PR touching only `macos/**` runs the macos workflow and not the android workflow.
           - A PR touching `protocol/**` runs all four workflows.
+          - A PR touching only `docs/**` triggers none of the four workflows.
         tdd:
-          - "`pathFilterAndroidOnly_prTouchesAndroidOnly_macosWorkflowSkipped`"
-          - "`pathFilterProtocolChange_prTouchesProto_allFourWorkflowsRun`"
+          - "ci: pathFilter_prTouchesAndroidOnly_macosWorkflowSkipped"
+          - "ci: pathFilter_prTouchesMacosOnly_androidWorkflowSkipped"
+          - "ci: pathFilter_prTouchesProto_allFourWorkflowsRun"
+          - "ci: pathFilter_prTouchesDocsOnly_noWorkflowRuns"
         notes: ""
       - id: E00-12
         title: "[docs] CLAUDE.md per PRD Appendix D including security invariants"
@@ -284,17 +312,27 @@ epics:
         prd: []
         use_cases: []
         invariants: [1, 2, 3, 4, 5, 6, 7, 8]
-        depends_on: [E00-01]
+        depends_on: [E00-01, E00-02, E00-07, E00-08, E00-09]
         description: |
           Root `CLAUDE.md` following the PRD Appendix D skeleton verbatim: pointers to
           `docs/PRD.md` and `docs/protocol/SPEC.md`, the eight security invariants copied from
           the architecture section, the "never edit generated code" rule, and the build/test/lint
-          commands for both platforms plus `buf` and conformance.
+          commands for both platforms plus `buf` and conformance. Adds a "Testing" section: the
+          tdd layer prefixes and their harnesses (from `docs/planning/README.md` → Test layers)
+          and the seam rule. A `tools/planning/check_claude_md.rb` script (run in CI) compares the
+          invariants against PRD `<architecture>` and the prefix list against the validator's
+          `TDD_LAYERS`.
         acceptance:
           - "`CLAUDE.md` contains all eight invariants, each matching the PRD wording."
           - Every command listed in `CLAUDE.md` (gradlew, xcodebuild, swiftlint, buf, conformance
             run script) exists and exits 0 on the current skeleton.
-        tdd: []
+          - "`CLAUDE.md` has a `## Testing` section listing all eight tdd layer prefixes (`unit`, `conformance`, `integration`, `instrumented`, `ui`, `manual`, `security`, `ci`) with one line each naming the harness."
+          - "The Testing section states the seam rule: time, dispatchers, sockets and keys are injected (`Clock`/`ElapsedRealtimeSource`/dispatcher qualifiers E00-18, `ByteStream` E00-19, `IdentityKeyStore`, `Clock<Duration>`/`DateProvider` E00-24, `ByteStreamConnection` E00-25, `KeychainStore`); no `System.currentTimeMillis()`, `Instant.now()`, `Date()`, `Date.now` or hard-coded `Dispatchers.IO` in `core/*`, `feature/*`, `Tandem*` or `Feature*` main sources."
+          - The Testing section states the Robolectric rule from E00-20 (plain JUnit5 unless a framework type is unavoidable).
+        tdd:
+          - "ci: claudeMdCheck_invariantWordingDiffersFromPrd_exitsNonZero"
+          - "ci: claudeMdCheck_layerPrefixMissingFromTestingSection_exitsNonZero"
+          - "ci: claudeMdCommands_eachListedCommand_exitsZero"
         notes: ""
       - id: E00-13
         title: "[docs] PR template, CODEOWNERS-lite, issue templates"
@@ -314,7 +352,8 @@ epics:
         acceptance:
           - Opening a PR pre-fills the DoD checklist from the template.
           - "`CODEOWNERS` syntax validates (`git ls-files` + GitHub's own linter, no path left unowned)."
-        tdd: []
+        tdd:
+          - "ci: codeownersCheck_trackedPathWithoutOwner_exitsNonZero"
         notes: ""
       - id: E00-14
         title: "[android] Module dependency rule enforcement (features never depend on each other; only core/transport touches sockets)"
@@ -337,10 +376,11 @@ epics:
           - The same check passing is required for CI green (wired into E00-11's android workflow).
           - A dependency on an HTTP/WebDAV server library (e.g. NanoHTTPD, Ktor server, any artifact on the shared denylist) fails the build (invariant 2).
         tdd:
-          - "`moduleDependencyRule_featureDependsOnFeature_buildFails`"
-          - "`moduleDependencyRule_socketUsageOutsideTransport_buildFails`"
-          - "`moduleDependencyRule_transportUsesSocket_buildPasses`"
-          - dependencyDenylist_httpServerLibraryAdded_buildFails
+          - "ci: moduleDependencyRule_featureDependsOnFeatureFixture_buildFails"
+          - "ci: socketUsageRule_socketInFeatureNotifications_buildFails"
+          - "ci: socketUsageRule_sslSocketInCoreTransport_buildPasses"
+          - "ci: dependencyDenylist_nanoHttpdAdded_buildFails"
+          - "ci: androidWorkflow_moduleRuleViolation_workflowFails"
         notes: ""
       - id: E00-15
         title: "[macos] Swift package graph dependency rule check"
@@ -362,9 +402,10 @@ epics:
           - A deliberately introduced `import Network` in `FeatureNotifications` fails the check.
           - A package dependency on an HTTP/WebDAV server library (e.g. Swifter, Vapor, GCDWebServer, any artifact on the shared denylist) fails the check (invariant 2).
         tdd:
-          - "`packageGraphCheck_featureDependsOnFeature_checkFails`"
-          - "`packageGraphCheck_networkImportOutsideTransport_checkFails`"
-          - dependencyDenylist_httpServerPackageAdded_checkFails
+          - "ci: packageGraphCheck_featureDependsOnFeatureFixture_exitsNonZero"
+          - "ci: packageGraphCheck_networkImportInFeatureNotifications_exitsNonZero"
+          - "ci: packageGraphCheck_networkImportInTandemTransport_exitsZero"
+          - "ci: dependencyDenylist_swifterPackageAdded_exitsNonZero"
         notes: ""
       - id: E00-16
         title: "[ci] Secret scanning setup"
@@ -384,38 +425,359 @@ epics:
           - A PR introducing a plausible private key or API token string fails the scan.
           - The scan runs against the full diff, not just changed-file heads, to catch secrets added
             then "removed" in the same PR.
+          - A fake secret in a path listed in the allowlist file (e.g. `protocol/vectors/**`) is not reported.
         tdd:
-          - "`secretScan_introducedPrivateKeyPem_ciFails`"
-          - "`secretScan_addedThenRemovedInSamePr_stillDetected`"
+          - "ci: secretScan_privateKeyPemFixture_jobFails"
+          - "ci: secretScan_addedThenRemovedInSamePr_stillDetected"
+          - "ci: secretScan_allowlistedVectorFixture_notFlagged"
         notes: ""
       - id: E00-17
-        title: "[cross] Release-log lint rule: no content logging in release builds"
+        title: "[android] Release-log lint rule + shared sensitive-symbol list: no content logging in release builds"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: M
         prd: []
         use_cases: [AC-10]
         invariants: [7]
-        depends_on: [E00-05, E00-08]
+        depends_on: [E00-05]
         description: |
-          Android: detekt custom rule failing on `Log.*`/`Timber.*` calls that reference known
-          sensitive types (notification text, clipboard content, message bodies, secrets) in
-          non-debug source sets. macOS: SwiftLint custom rule (or a `grep`-based CI check) failing
-          on `os_log`/`print` calls referencing the equivalent Swift types, scoped to Release
-          configuration. Both checks read a shared list of "sensitive symbol names" so the rule
-          stays in sync across platforms.
+          Shared list `tools/lint/sensitive-symbols.txt` (notification text, clipboard content,
+          message bodies, secrets; one symbol name per line) consumed by both platforms' checks
+          so the rule stays in sync (macOS half: E00-27). Android: detekt custom rule
+          `NoSensitiveReleaseLog` failing on `Log.*`/`Timber.*` calls whose arguments reference a
+          listed symbol in non-debug source sets. Rule fixtures live in the detekt rule module's
+          test sources (detekt `lint()` test API).
         acceptance:
-          - A `Log.d("clip", clipboardText)` call in a release-visible path fails the Android check.
-          - A `os_log("%@", notification.body)` call fails the macOS check.
-          - The same log call using a redacted/length-only representation passes both checks.
+          - A `Log.d("clip", clipboardText)` call in a release-visible source set fails `./gradlew detekt` with rule id `NoSensitiveReleaseLog`.
+          - The same call in `src/debug` passes.
+          - The same log call using a redacted/length-only representation (`clipboardText.length`) passes.
+          - Adding a symbol name to `sensitive-symbols.txt` makes a log call referencing it fail without changing rule code.
         tdd:
-          - "`releaseLogLint_clipboardContentLoggedInReleaseSourceSet_buildFails`"
-          - "`releaseLogLint_notificationBodyLoggedViaOsLog_checkFails`"
-          - "`releaseLogLint_redactedLengthOnlyLog_checkPasses`"
+          - "ci: releaseLogLint_clipboardTextInReleaseSourceSet_detektFails"
+          - "ci: releaseLogLint_clipboardTextInDebugSourceSet_detektPasses"
+          - "ci: releaseLogLint_redactedLengthOnlyLog_detektPasses"
+          - "ci: releaseLogLint_symbolAddedToSharedList_newCallFlagged"
         notes: |
           This is a static best-effort check (symbol-name based), not a runtime guarantee; the
-          real guarantee comes from `tools/pcap-audit` canaries (E15) and code review.
+          real guarantee comes from `tools/pcap-audit` canaries (E15) and `tools/log-audit`
+          (E15-17). Split in review cycle 3: macOS half is E00-27.
+
+      - id: E00-27
+        title: "[macos] Release-log lint rule: no content logging in release builds"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [AC-10]
+        invariants: [7]
+        depends_on: [E00-08, E00-17]
+        description: |
+          SwiftLint custom rule (or a `grep`-based CI check, `tools/lint/release-log-check.sh`)
+          failing on `os_log`/`Logger`/`print` calls whose interpolations reference a symbol from
+          the shared `tools/lint/sensitive-symbols.txt` (E00-17), scoped to code not wrapped in
+          `#if DEBUG`. Fixtures under `tools/lint/fixtures/swift/`.
+        acceptance:
+          - A `os_log("%@", notification.body)` call outside `#if DEBUG` fails the check with a file:line message.
+          - The same call inside `#if DEBUG` passes.
+          - The same log call using a redacted/length-only representation passes.
+        tdd:
+          - "ci: releaseLogLint_notificationBodyViaOsLog_checkFails"
+          - "ci: releaseLogLint_notificationBodyInsideIfDebug_checkPasses"
+          - "ci: releaseLogLint_redactedLengthOnlyLog_checkPasses"
+        notes: "Split from E00-17 in review cycle 3."
+
+      - id: E00-18
+        title: "[android] core/testing fixtures: injectable Clock, TestClock, dispatcher rules"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-04, E00-05]
+        description: |
+          Time seam for every Android state machine, timer, expiry, throttle and backoff.
+          Production rule: time-dependent classes take `java.time.Clock` (wall time: expiries,
+          lastSeen, UTC day index), an `ElapsedRealtimeSource` (sleep-inclusive monotonic time,
+          backed by `SystemClock.elapsedRealtime()`; needed for dead-peer detection across Doze,
+          see E20-15) and a `CoroutineScope`/`CoroutineDispatcher` injected via Hilt qualifiers
+          (`@IoDispatcher`, `@DefaultDispatcher`); timers use `delay` in that scope — never
+          `System.currentTimeMillis()`, `Instant.now()`, `Handler.postDelayed` or a hard-coded
+          `Dispatchers.IO`.
+          New `android/core/testing` module (consumed only via `testImplementation` /
+          `testFixtures`): `TestClock` and `FakeElapsedRealtime` whose readings follow
+          `TestCoroutineScheduler.currentTime`, so `advanceTimeBy(15.seconds)` moves wall clock,
+          elapsed time and pending `delay`s together; a JUnit5 `MainDispatcherExtension`.
+          A detekt rule forbids the banned time/dispatcher calls outside DI modules and core/testing.
+        acceptance:
+          - "`advanceTimeBy(120.seconds)` in a `runTest` block expires a 120 s timer with < 1 s of real wall time."
+          - Adding `System.currentTimeMillis()` to any `core/*` or `feature/*` main source set fails `./gradlew detekt` with rule id `InjectedClockOnly`.
+          - "`core/testing` never appears on a release runtime classpath (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath` does not list it)."
+        tdd:
+          - "unit: testClock_advanceTimeBy15s_instantAdvancesBy15s"
+          - "unit: fakeElapsedRealtime_advanceTimeBy45s_readingAdvancesBy45000ms"
+          - "unit: delayInTestScope_advanceTimeBy120s_completesWithoutRealWait"
+          - "unit: mainDispatcherExtension_afterEach_resetsMainDispatcher"
+          - "ci: injectedClockOnlyRule_currentTimeMillisInCoreModule_detektFails"
+        notes: |
+          Added in review cycle 3 (TDD readiness). Consumers name this seam in their description
+          (e.g. "pairing state machine takes a Clock").
+
+      - id: E00-19
+        title: "[android] In-memory duplex byte pipe for codec/transport tests"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: [1]
+        depends_on: [E00-18]
+        description: |
+          Transport seam so codec, multiplexer, flow-control, connection-state, heartbeat and
+          transfer tests never open a socket (module rule: only core/transport touches sockets,
+          and unit tests should not either). `InMemoryDuplexPipe` in `core/testing`: two
+          connected endpoints, each exposing `InputStream`/`OutputStream` and a coroutine
+          `ByteReadChannel`/`ByteWriteChannel` view; configurable per-direction capacity to
+          exercise backpressure; `closeAbruptly()` (RST-like: peer read throws `IOException`),
+          `closeGracefully()` (peer read returns -1); `inject(bytes)` for malformed-frame tests;
+          per-direction byte capture for "no application bytes before Ready" assertions.
+          `core/transport` exposes a `ByteStream` abstraction that the SSLSocket session (E12-04)
+          and this pipe both implement.
+        acceptance:
+          - A 1 MiB write through a pipe with 64 KiB capacity completes only while the reader drains (writer suspends, no OOM, no dropped bytes).
+          - "`closeAbruptly()` makes the peer's pending read fail within 10 ms of virtual time."
+        tdd:
+          - "unit: duplexPipe_writeOnA_sameBytesReadableOnB"
+          - "unit: duplexPipe_capacityFull_writerSuspendsUntilPeerReads"
+          - "unit: duplexPipe_closeAbruptly_peerReadThrowsIoException"
+          - "unit: duplexPipe_closeGracefully_peerReadReturnsEndOfStream"
+          - "unit: duplexPipe_capture_recordsBytesPerDirection"
+        notes: |
+          Added in review cycle 3 (TDD readiness).
+
+      - id: E00-20
+        title: "[android] Robolectric + Compose UI test setup on the JVM"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-04]
+        description: |
+          JVM harness for units that cannot avoid Android framework types (Context,
+          PackageManager, StatusBarNotification construction, NotificationManager,
+          ContentResolver with a fake ContentProvider, ClipboardManager, ConnectivityManager,
+          PowerManager idle state) and for Compose `ui:` tests. Robolectric runs on the JUnit
+          Vintage engine side by side with JUnit5 Jupiter in the same `test` task; Compose
+          `createComposeRule()` runs under Robolectric so `ui:` tests need no emulator.
+          Convention plugin `tandem.android.robolectric` applies it per module.
+          Rule (documented in CLAUDE.md testing section): framework-free logic stays plain JUnit5
+          `unit:`; Robolectric only where a framework type is unavoidable; anything Robolectric
+          cannot model faithfully (Keystore hardware, real NotificationListenerService binding,
+          MediaCodec, MediaProjection, AccessibilityService dispatch) is `instrumented:` (E00-21)
+          or `manual:` (E00-23).
+        acceptance:
+          - One `./gradlew :app:testDebugUnitTest` run reports both a Jupiter test and a Robolectric test in the same JUnit XML report.
+          - A Compose `ui:` sample test runs on ubuntu-latest CI with no emulator.
+        tdd:
+          - "unit: robolectricSample_applicationContext_resolvesPackageName"
+          - "unit: robolectricClipboard_setPrimaryClip_readBackSameText"
+          - "ui: composeRuleSample_buttonClicked_labelChangesToClicked"
+          - "ci: androidUnitTestTask_jupiterAndVintageTests_bothInSameReport"
+        notes: |
+          Added in review cycle 3 (TDD readiness).
+
+      - id: E00-21
+        title: "[ci] Android emulator instrumented-test job (Gradle Managed Devices)"
+        type: task
+        platforms: [ci, android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-04, E00-11]
+        description: |
+          Runner for every `instrumented:` tdd entry. Gradle Managed Devices `api29` (aosp-atd)
+          and `api35` (google_apis) on ubuntu-latest with KVM, workflow `android-instrumented.yml`:
+          required check on PRs touching `android/**`, plus nightly on `main`. Emulator limits are
+          documented next to the workflow: no StrongBox, TEE is emulated (no hardware-backed
+          attestation), no camera QR scan, telephony via `adb emu` only (SMS inject works, real
+          carrier delivery does not), MediaProjection consent needs UiAutomator. Anything outside
+          those limits is a `manual:` entry tracked by E00-23.
+        acceptance:
+          - A failing instrumented test on either API level fails the workflow and blocks merge.
+          - Job wall time for the sample suite is under 15 min (cached AVD snapshots).
+        tdd:
+          - "ci: managedDeviceJob_sampleInstrumentedTest_passesOnApi29AndApi35"
+          - "ci: managedDeviceJob_failingInstrumentedTest_workflowFails"
+          - "instrumented: sampleKeystoreTest_androidKeyStoreProvider_generatesP256Key"
+        notes: |
+          Added in review cycle 3 (TDD readiness). If KVM runners are unavailable, fall back to a
+          self-hosted Mac mini with emulators and keep the same workflow name.
+
+      - id: E00-22
+        title: "[tools] Companion test app (tools/companion-app): scripted notification poster"
+        type: task
+        platforms: [tools, android]
+        priority: P0
+        size: M
+        prd: [F-5.1, F-5.2]
+        use_cases: [UC-08, UC-09]
+        invariants: []
+        depends_on: [E00-02, E00-21]
+        description: |
+          Separate debug-only Android app (`tools/companion-app`, applicationId
+          `dev.tandem.companion`, never published, not a dependency of `android/app`) that posts
+          notifications on command so notification tests do not depend on real third-party apps.
+          Driven by `adb shell am broadcast -a dev.tandem.companion.POST --es kind <kind> ...` and
+          by an instrumented-test client library. Kinds: `plain`, `bigText`, `messagingGroup`
+          (N senders), `actions` (2 actions + RemoteInput reply), `secret` (VISIBILITY_SECRET),
+          `private`, `ongoing`, `burst` (N updates in T ms on one key), `canary` (text
+          `TANDEM-CANARY-<nonce>`), `cancel` (by key). Records every action fired and every
+          RemoteInput reply text it receives; tests read them back via a debug ContentProvider.
+          Consumers: E30 instrumented/integration tests, E30-14 latency harness, E15-07 canary
+          procedure, the Phase 3 reply gate.
+        acceptance:
+          - Each kind above produces exactly one visible notification (or N for `burst`) as observed by `NotificationManager.getActiveNotifications()` in the companion app.
+          - A RemoteInput reply sent by another app is readable back through the ContentProvider within 1 s.
+          - The companion app is built by CI (android-instrumented workflow) and installed on the managed devices before instrumented tests run.
+        tdd:
+          - "instrumented: companionApp_postMessagingGroupThreeSenders_notificationHasThreeMessages"
+          - "instrumented: companionApp_remoteInputReplyReceived_replyTextReadableViaProvider"
+          - "instrumented: companionApp_burst50In1000ms_postsExactly50Updates"
+          - "instrumented: companionApp_canaryKind_notificationTextContainsNonce"
+        notes: |
+          Added in review cycle 3 (cycle 2 flagged tools/companion-app missing from the E00-01
+          manifest).
+
+      - id: E00-23
+        title: "[docs] Physical device matrix and manual-gate procedure"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01]
+        description: |
+          `docs/testing/device-matrix.md`: the physical devices every `manual:` gate runs on
+          (minimum: one StrongBox Pixel on current Android, one TEE-only device, one API 29
+          device, one Samsung One UI, one aggressive-battery OEM such as Xiaomi/OnePlus; Mac:
+          Apple silicon on macOS 15 and on the latest macOS). `docs/testing/manual-gates.md`: one
+          section per `manual:` tdd entry in the backlog (heading = the entry's test name) with
+          preconditions, steps, numeric pass threshold, required evidence (log excerpt, screen
+          recording, pcap path), and a sign-off row (date, build SHA, device, result).
+          A phase exits only when every P0 `manual:` row for that phase is signed.
+        acceptance:
+          - Both docs exist and every device in the matrix has model, Android/macOS version, security level (StrongBox/TEE) and OEM skin recorded.
+          - "`manual-gates.md` is scaffolded from the backlog, not hand-listed: `ruby tools/planning/manual_gates.rb` appends a heading plus an empty procedure/threshold/evidence/sign-off template for every `manual:` tdd entry in `docs/planning/backlog/*.yaml` that lacks one (it never deletes filled sections). At review cycle 3 that is 66 entries across 42 issues; each heading also names its issue ID and phase."
+          - A CI check (`ruby tools/planning/manual_gates.rb --check`, run in the protocol/docs workflow on every PR touching `docs/planning/backlog/**` or `docs/testing/**`) exits 1 listing any `manual:` entry without a matching heading, and any heading whose entry no longer exists.
+        tdd:
+          - "ci: manualGatesDoc_everyManualTddEntry_hasMatchingHeading"
+          - "ci: manualGatesDoc_headingWithoutBacklogEntry_checkFails"
+        notes: |
+          Added in review cycle 3. E14-18 writes its results into device-matrix.md.
+
+      - id: E00-24
+        title: "[macos] TandemTestSupport package: injectable Clock and ManualTestClock"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-07, E00-08]
+        description: |
+          Time seam for every macOS state machine, timer, expiry and throttle. Production rule:
+          time-dependent types take `any Clock<Duration>` (sleeps/timers) and a `DateProvider`
+          (wall time, `@Sendable () -> Date`) via init — never `Date()`, `Date.now`, or
+          `Task.sleep` on an implicit clock. New local package `TandemTestSupport` (test-target
+          dependency only) provides `ManualTestClock` (`advance(by:)` deterministically resumes
+          every sleeper whose deadline has passed, in deadline order) and `FixedDateProvider`
+          tied to it. Hand-rolled (≈100 lines) to avoid a third-party dependency; revisit
+          swift-clocks only if it grows. A SwiftLint custom rule forbids `Date()`/`Date.now`/
+          `Task.sleep(` outside `TandemTestSupport` and the composition root.
+        acceptance:
+          - A 120 s pairing-window-style timer test completes in < 1 s of real time using `ManualTestClock`.
+          - "`Date()` added to any `Tandem*`/`Feature*` source file fails `swiftlint` with rule `injected_clock_only`."
+          - "`TandemTestSupport` is not linked into the TandemApp Release product (checked from the build's link map). Sole exception: the Debug configuration of TandemApp may link it for E00-26 UI-test scenario seeding, only from code under `#if DEBUG`."
+        tdd:
+          - "unit: manualTestClock_advanceBy15s_resumesSleeperDueAt15s"
+          - "unit: manualTestClock_advanceBy14s_sleeperDueAt15sStillSuspended"
+          - "unit: manualTestClock_twoSleepers_resumedInDeadlineOrder"
+          - "ci: injectedClockOnlyRule_dateInitInTandemTransport_swiftlintFails"
+        notes: |
+          Added in review cycle 3 (TDD readiness).
+
+      - id: E00-25
+        title: "[macos] ByteStreamConnection seam + InMemoryConnectionPair"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: [1]
+        depends_on: [E00-24]
+        description: |
+          Swift counterpart of E00-19. `ByteStreamConnection` protocol in TandemTransport
+          (`send(Data) async throws`, `receive() -> AsyncThrowingStream<Data, Error>`,
+          `state: AsyncStream<ConnectionState>`, `cancel()`); the NWConnection adapter
+          implements it in E12. `InMemoryConnectionPair` in TandemTestSupport: two connected ends
+          with bounded per-direction buffers (backpressure), abrupt cancel (peer sees `.failed`),
+          graceful close, byte injection and per-direction capture. Lets codec, multiplexer,
+          flow-control, state-machine, heartbeat and transfer tests run without NWListener.
+          The pair does not import Network (keeps E00-15 green).
+        acceptance:
+          - With a 64 KiB buffer, a 1 MiB send completes only while the peer drains; no bytes dropped or reordered.
+          - Cancelling one end delivers `.failed` to the peer's state stream within one `ManualTestClock` tick.
+        tdd:
+          - "unit: inMemoryPair_sendOnA_sameBytesReceivedOnB"
+          - "unit: inMemoryPair_bufferFull_sendSuspendsUntilPeerReceives"
+          - "unit: inMemoryPair_cancelA_peerStateBecomesFailed"
+          - "unit: inMemoryPair_capture_recordsBytesPerDirection"
+        notes: |
+          Added in review cycle 3 (TDD readiness).
+
+      - id: E00-26
+        title: "[macos] XCUITest target with DEBUG-only scenario seeding"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: []
+        use_cases: []
+        invariants: [2]
+        depends_on: [E00-07, E00-08, E00-24]
+        description: |
+          Runner for macOS `ui:` tdd entries. `TandemUITests` XCUITest target; the app reads
+          `-UITestScenario <name>` only under `#if DEBUG` and seeds in-memory stores plus a fake
+          TandemSession (E12-12) so UI tests need no phone (scenarios: `notPaired`,
+          `pairedConnected`, `pairedDisconnected`, `pairingWindowOpen`, `failClosedError`).
+          Menu bar extra is driven via its accessibility identifier. Prefer view-model `unit:`
+          tests; reserve XCUITest for flows that need the real window/menu hierarchy.
+          The scenario hook must not exist in Release (invariant 2: no test or fallback mode ships).
+          The Debug configuration of TandemApp links TandemTestSupport for this seeding only (the
+          one documented exception to E00-24's "test-only package" rule). Phase 0 ships only the
+          `notPaired` scenario; scenarios needing a fake session are added once E12-12 lands.
+        acceptance:
+          - "`xcodebuild test -scheme TandemUITests` runs on the macOS CI runner and the sample scenario test passes."
+          - The Release binary contains no `UITestScenario` string or symbol (`strings`/`nm` check in CI).
+        tdd:
+          - "ui: uiTestScenarioNotPaired_launch_menuShowsNotPaired"
+          - "ci: releaseBinary_uiTestScenarioHook_stringAbsent"
+        notes: |
+          Added in review cycle 3 (TDD readiness). Cycle 4: confirm the DEBUG-only hook cannot be
+          reached in Release builds.
 
   - id: E01
     title: "Wire protocol: SPEC.md, .proto schema, test vectors"
@@ -466,10 +828,10 @@ epics:
           open pairing window per F-2.1), and the exact failure behavior (fail closed, visible
           error, invariant 5). Cite PRD F-3.1 verbatim behavior list as the normative baseline.
         acceptance:
-          - Section states, in RFC 2119 terms, that TLS 1.2 and session resumption/0-RTT MUST be rejected.
-          - Section states the verify-callback pin-check algorithm precisely enough that both an
-            Android and a macOS implementer would produce interoperable behavior without further
-            questions.
+          - "Section contains these MUST statements: both sides MUST negotiate TLS 1.3 only and MUST reject a TLS 1.2 or lower ClientHello/ServerHello; the server MUST NOT issue usable session tickets and both sides MUST NOT resume a session or send/accept 0-RTT early data; the Mac server MUST require a client certificate (no cert = handshake failure)."
+          - "Section states the verify-callback algorithm as numbered steps: extract the peer leaf certificate, compute SHA-256 over its DER SubjectPublicKeyInfo, compare (constant time) against the trust store; on no match the handshake MUST fail inside the callback before any application data, except that the Mac MAY accept an unknown client key only while a pairing window (E01-02) is open, and then only for the pairing exchange."
+          - "Section states the phone MUST pin the Mac SPKI (from the trust store, or from the QR `fp` during pairing) and MUST NOT accept any other server key, even inside a pairing window."
+          - "Section states that every handshake failure MUST close the connection with no plaintext or reduced-security retry and MUST surface a visible error mapped to a close code from E01-05 (invariant 5)."
         tdd: []
         notes: ""
       - id: E01-02
@@ -488,10 +850,9 @@ epics:
           computation (`HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki)`), constant-time
           comparison requirement, and PairAccepted/failure semantics per PRD F-2.1.
         acceptance:
-          - Section fully specifies the QR payload grammar including character encoding (base64url,
-            no padding) and field order.
-          - Section states the proof formula byte-for-byte, including the exact bytes hashed
-            (delimiter handling, encoding of SPKI values).
+          - "Section specifies the QR payload grammar in ABNF: fields `v`, `fp`, `s`, `a`, `p`, `n` in that order, base64url without padding for `fp` (32 bytes) and `s` (16 bytes), `p` a decimal port 1..65535, `a` a non-empty comma-separated address list; a parser MUST reject a payload with any field missing, duplicated, mis-encoded or out of range, and MUST reject `v` other than `1`."
+          - "Section states the proof formula byte-for-byte: `HMAC-SHA256(secret, ASCII(\"tandem-pair-v1\") || macSpkiDer || phoneSpkiDer)` stating explicitly whether the two SPKI DER values are raw-concatenated or length-prefixed (and the prefix width/byte order if so), where `phoneSpkiDer` is taken from the certificate seen in the TLS handshake, never from the PairRequest body."
+          - "Section contains these MUST statements: the window MUST expire 120 s after opening; the Mac MUST reject the 4th attempt without evaluating its proof; a successful pairing MUST close the window and destroy the secret (single use); proof comparison MUST be constant time; each failed attempt MUST burn one of the 3 attempts; the Mac MUST NOT send `PairAccepted` before the owner confirms on the Mac."
         tdd: []
         notes: ""
       - id: E01-03
@@ -510,10 +871,9 @@ epics:
           malformed-length frames. Defines the `Envelope` fields (`channel`, `seq`, `ack`, `oneof`
           payload) at the wire-contract level (message shape lives in E01-10's `.proto`).
         acceptance:
-          - Section states the exact byte order and width of the length prefix and the max-frame
-            enforcement point (before or after allocation) to prevent memory-exhaustion attacks.
-          - Section enumerates every required rejection case (oversize, truncated, bad length,
-            unknown channel) and states the connection MUST close on each.
+          - "Section states the length prefix is an unsigned 32-bit big-endian count of Envelope bytes that follow (excluding the 4 prefix bytes), max 1 048 576, and that a receiver MUST check the length against the max before allocating any buffer for the payload."
+          - "Section contains a MUST-close statement, with the single E01-05 close code `MALFORMED_FRAME` (sub-case = local reason only), for each rejection case: length > 1 MiB (oversize), length 0 (bad length), stream ends before `length` bytes arrive (truncated), payload fails protobuf decode (malformed), unknown `channel` value, unknown `oneof` payload type (AC-11)."
+          - "Section defines `seq` as monotonically increasing per channel per direction and `ack` as the highest contiguous `seq` received on that channel (the E11 multiplexer contract), and states the required receiver behavior on a repeated or regressing `seq` as a MUST."
         tdd: []
         notes: ""
       - id: E01-04
@@ -532,10 +892,9 @@ epics:
           file transfer cannot starve notifications: initial credit grant, credit replenishment
           trigger, and behavior when a sender exceeds its credit.
         acceptance:
-          - Section defines credit units (frames or bytes), initial grant per channel, and the
-            replenishment message/trigger.
-          - Section states the required behavior when a peer sends past its granted credit
-            (connection error vs. silent drop) unambiguously.
+          - "Section defines the credit unit (frames or bytes), the numeric initial grant per channel, the replenishment message name and the trigger (e.g. receiver consumed >= half the grant), and states a sender MUST NOT send on a channel with zero remaining credit."
+          - "Section states as a MUST that a peer sending past its granted credit causes a connection close with the E01-05 `CREDIT_VIOLATION` close code (no silent drop)."
+          - "Section states CONTROL is exempt from or has a reserved credit so heartbeats and credit updates cannot be starved (a MUST, with the chosen mechanism)."
           - "Section states the channel set is closed and exactly the nine F-3.2 channels; there is no PHOTOS channel: photo-browser messages (E41-01) ride FILES (decision recorded here and in E41-01)."
           - Section states, as a MUST NOT, that no debug, echo, loopback, or test-only message type or channel exists; debug and release builds speak an identical protocol, and an unknown payload type closes the connection (AC-11).
         tdd: []
@@ -556,14 +915,20 @@ epics:
         invariants: [5]
         depends_on: []
         description: |
-          Normative enumeration of protocol-level error/close codes (version mismatch, pin
-          mismatch, malformed frame, credit violation, pairing failure, ticket rejected) with the
-          required close behavior for each (invariant 5: fail closed with a visible error).
+          Normative enumeration of protocol-level error/close codes with the required close
+          behavior for each (invariant 5: fail closed with a visible error). Canonical names used
+          by every issue, vector and test (review cycle 3): `VERSION_MISMATCH`, `PIN_MISMATCH`,
+          `MALFORMED_FRAME`, `CREDIT_VIOLATION`, `PAIRING_FAILED`, `TICKET_REJECTED`, `REVOKED`.
+          All malformed-frame sub-cases share the ONE wire code `MALFORMED_FRAME`; the sub-case is
+          a local diagnostic reason only (`TOO_LARGE`, `BAD_LENGTH`, `TRUNCATED`, `DECODE_FAILED`,
+          `UNKNOWN_CHANNEL`, `UNKNOWN_PAYLOAD_TYPE`), never sent on the wire and never a separate
+          close code. Pairing sub-cases likewise share `PAIRING_FAILED` (local reasons `EXPIRED`,
+          `ATTEMPTS_EXHAUSTED`, `BAD_PROOF`, `REJECTED_BY_OWNER`), and ticket sub-cases share
+          `TICKET_REJECTED`.
         acceptance:
-          - Every close code has a stable numeric ID, a name, and a one-line required client-visible
-            behavior.
-          - No close code implies a plaintext or reduced-security fallback path (checked against
-            invariant 2 explicitly in the section's intro).
+          - "Section has a table with, per close code, a stable numeric ID, a name and the required user-visible behavior, covering at least: version mismatch, pin mismatch, malformed frame (oversize/truncated/bad length/decode failure/unknown channel/unknown payload type), credit violation, pairing failure (expired, attempts exhausted, bad proof, rejected by owner), media ticket rejected (missing/reused/expired/other session), revoked peer."
+          - "Section contains these MUST statements: a close code MUST NOT trigger a plaintext, reduced-security or unauthenticated retry (invariant 2, stated in the section intro); an implementation receiving an unknown close code MUST treat it as fatal and show a generic error; security-relevant closes (pin mismatch, version mismatch, revoked) MUST be shown in UI, not only logged (UC-05)."
+          - "Numeric IDs are frozen: the section states IDs MUST NOT be reused or renumbered once released."
         tdd: []
         notes: ""
       - id: E01-06
@@ -582,8 +947,8 @@ epics:
           invariant 5) versus capability mismatch (feature-level degrade, never a security
           downgrade).
         acceptance:
-          - Section states exactly which fields are compared for "version mismatch" versus
-            "capability mismatch" and confirms only the latter may result in a reduced feature set.
+          - "Section states exactly which `VersionHello` fields are compared for \"version mismatch\" (protocol major version) versus \"capability mismatch\" (capability set), that the first `VersionHello` MUST be the first CONTROL frame from each side, and that no application frame MAY be sent before both hellos are exchanged."
+          - "Section contains these MUST statements: on version mismatch both sides MUST close with the `VERSION_MISMATCH` close code and show a visible error; on capability mismatch a feature MAY be disabled but no capability MAY weaken TLS, pinning, pairing or ticket rules; an unknown capability bit MUST be ignored."
         tdd: []
         notes: ""
       - id: E01-07
@@ -597,15 +962,34 @@ epics:
         invariants: []
         depends_on: []
         description: |
-          Normative section: heartbeat every 15 s on the control channel, connection considered
-          dead after 3 consecutive misses, and the reconnect trigger this feeds (detailed reconnect
-          strategy itself belongs to F-3.4's lifecycle epic, E20, but the wire-level heartbeat
-          message and timing contract is specified here).
+          Normative section for the wire-level liveness contract (reconnect strategy itself is
+          E20). Decision (review cycle 3, resolves "15 s heartbeat vs. phone Doze overnight"):
+          the Mac drives liveness, the phone answers.
+          - The Mac (server) MUST send `Heartbeat` on CONTROL after 15 s without sending any
+            frame, and MUST treat the connection as dead after 45 s (3 intervals) without
+            receiving any frame.
+          - The phone (client) MUST reply with one `Heartbeat` to every `Heartbeat` it receives,
+            within 1 s of receipt. The Mac MUST NOT reply to heartbeats (no ping-pong loop).
+          - The phone MAY send unsolicited heartbeats after 15 s idle while the device is
+            interactive; it MUST NOT hold wake locks or schedule alarms to do so while the
+            device is in Doze (incoming Mac heartbeats wake it: foreground service + unrestricted
+            battery keeps network access in Doze).
+          - The phone MUST measure silence on a sleep-inclusive monotonic clock
+            (`elapsedRealtime`) and treat > 45 s without any received frame as dead, evaluated on
+            its timer, on Doze exit and on screen-on; it then reconnects per E20-06.
+          - Any received frame, not only `Heartbeat`, resets the silence timer on both sides.
+          No proto change: `Heartbeat` carries no role field; direction is implied by ADR-002
+          (phone = client). Tested by E20-05 (Mac), E20-15 (Android), E20-12 (overnight gate).
         acceptance:
-          - Section states the exact interval, miss threshold, and the message shape reference
-            (control.proto heartbeat message, E01-12).
+          - Section states interval (15 s), dead threshold (45 s of silence), reply deadline (1 s), who sends, who replies, and that the Mac never replies, in RFC 2119 terms.
+          - Section references the `Heartbeat` message in control.proto (E01-12) and the elapsedRealtime requirement for the phone.
+          - "Section states the Doze expectation used by the E20-12 overnight gate: while the phone is in Doze with the foreground service running and battery unrestricted, the connection either stays up or, if the Mac declared it dead, the phone reconnects within 5 s of the next Doze maintenance window or screen-on."
         tdd: []
-        notes: ""
+        notes: |
+          Decision recorded here and mirrored in E20-05/E20-15 notes. If device testing (E20-12)
+          shows incoming packets do not wake the phone on some OEMs, revisit with cloud-free
+          options only and record the outcome as an ADR.
+
       - id: E01-08
         title: "[docs] SPEC.md section: discovery TXT record"
         type: doc
@@ -621,8 +1005,8 @@ epics:
           8-byte identifier `HMAC(macSpki, dayIndex)`. States explicitly that discovery data is a
           hint only and MUST NOT be used to establish trust or bypass the handshake verify step.
         acceptance:
-          - Section states the exact `dayIndex` definition (UTC day boundary) so both platforms
-            compute the same rotating ID independent of local timezone.
+          - "Section states the exact `dayIndex` definition (`floor(unixSeconds / 86400)` in UTC, encoded as the exact byte width and order used as HMAC input), the HMAC key (`macSpkiDer` or its SHA-256, stated explicitly) and truncation to the first 8 bytes, so both platforms compute the same rotating ID independent of local timezone."
+          - Section states the TXT record MUST contain only `v=1` and the rotating ID, and MUST NOT contain the Mac name, fingerprint or any stable identifier (AC-05).
           - Section states, as a MUST NOT, that discovery data never supplies keys or bypasses
             verification.
           - Section states that a receiver MUST accept the IDs for dayIndex-1, dayIndex, and
@@ -647,10 +1031,8 @@ epics:
           the media connection is still full mTLS; the ticket only binds it to a session and never
           substitutes for authentication.
         acceptance:
-          - Section states ticket generation source (CSPRNG), length, expiry, and single-use
-            enforcement point (server-side, checked before any media data is accepted).
-          - Section states the required rejection behavior for each of missing ticket, reused
-            ticket, and expired ticket.
+          - "Section contains these MUST statements: the ticket MUST be 32 bytes from a CSPRNG; it MUST expire 30 s after issuance; the server MUST mark it consumed on first presentation (single use) and MUST validate it before accepting any media data."
+          - "Section states, per case, that a missing ticket, a reused ticket and an expired ticket MUST each close the media connection with the E01-05 `TICKET_REJECTED` close code, and that rejection MUST NOT affect the control session."
           - Section states the ticket is bound to the issuing control session's peer SPKI, and a ticket presented on a media connection authenticated as any other peer MUST be rejected (AC-08 "other session's ticket").
         tdd: []
         notes: ""
@@ -671,12 +1053,16 @@ epics:
         acceptance:
           - "`buf lint` passes on the new file with the repo's configured ruleset."
           - Generated Kotlin and Swift types compile (via E00-09's codegen pipeline) with no manual edits.
+          - "`Channel` has exactly the nine F-3.2 values plus `CHANNEL_UNSPECIFIED = 0`, with numbers frozen as documented in the file."
+          - "Every message and enum in the file has a leading comment naming its SPEC.md section anchor, and each anchor resolves."
         tdd:
-          - "`envelopeProto_bufLint_passes`"
-          - "`envelopeProto_codegen_producesCompilingKotlinAndSwiftTypes`"
+          - "ci: envelopeProto_bufLint_exitsZero"
+          - "ci: envelopeProto_codegen_kotlinAndSwiftTypesCompile"
+          - "ci: channelEnumCheck_valueAddedOrMissing_exitsNonZero"
+          - "ci: protoSpecAnchorCheck_envelopeProtoAnchors_allResolveInSpec"
         notes: ""
       - id: E01-11
-        title: "[protocol] pairing.proto: PairRequest / PairAccepted / Revoke"
+        title: "[protocol] pairing.proto: PairRequest / PairAccepted / PairRejected / Revoke"
         type: task
         platforms: [protocol]
         priority: P0
@@ -687,15 +1073,24 @@ epics:
         depends_on: [E01-02]
         description: |
           `protocol/proto/tandem/v1/pairing.proto` defining `PairRequest { deviceInfo, proof }`,
-          `PairAccepted`, and `Revoke` messages matching F-2.1/F-2.3 field-for-field. `KeyRotation`
+          `PairAccepted`, `PairRejected { reason }` (UC-03 alternate: owner declines on the Mac;
+          reason enum `REJECTED_BY_OWNER`, `EXPIRED`, `ATTEMPTS_EXHAUSTED`, `BAD_PROOF`, mirroring
+          the `PAIRING_FAILED` local reasons of E01-05; sent immediately before the
+          `PAIRING_FAILED` close) and `Revoke` messages matching F-2.1/F-2.3 field-for-field. `KeyRotation`
           (F-1.3) is deliberately not defined here: it lives in `rotation.proto`, owned by E70-01.
         acceptance:
           - "`buf lint` passes."
           - Message field names and types match the SPEC.md pairing section (E01-02) exactly;
             reviewed side by side in the PR description.
+          - "`PairRequest` carries no public key or fingerprint field (the phone key comes only from the TLS handshake, per E01-02)."
+          - Generated Kotlin and Swift types compile with no manual edits.
+          - "`PairRejected.reason` is an enum whose values match the E01-05 `PAIRING_FAILED` local reasons one-to-one, with `0 = UNSPECIFIED` treated as fatal by receivers."
         tdd:
-          - "`pairingProto_bufLint_passes`"
-          - "`pairingProto_fieldsMatchSpecSection_reviewChecklistComplete`"
+          - "ci: pairingProto_bufLint_exitsZero"
+          - "ci: pairingProtoScan_pairRejectedReasonEnum_matchesSpecPairingFailedReasons"
+          - "ci: pairingProto_codegen_kotlinAndSwiftTypesCompile"
+          - "ci: protoSpecAnchorCheck_pairingProtoAnchors_allResolveInSpec"
+          - "ci: pairingProtoScan_pairRequestFields_containNoKeyOrFingerprint"
         notes: ""
       - id: E01-12
         title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance"
@@ -713,10 +1108,13 @@ epics:
           E01-07, and E01-09.
         acceptance:
           - "`buf lint` passes."
-          - Message field names and types match their respective SPEC.md sections exactly.
+          - Message field names and types match their respective SPEC.md sections exactly (reviewed side by side in the PR description).
+          - "`MediaTicketGrant.ticket` is `bytes` documented as exactly 32 bytes; `Heartbeat` has no fields."
+          - Generated Kotlin and Swift types compile with no manual edits.
         tdd:
-          - "`controlProto_bufLint_passes`"
-          - "`controlProto_fieldsMatchSpecSections_reviewChecklistComplete`"
+          - "ci: controlProto_bufLint_exitsZero"
+          - "ci: controlProto_codegen_kotlinAndSwiftTypesCompile"
+          - "ci: protoSpecAnchorCheck_controlProtoAnchors_allResolveInSpec"
         notes: |
           Owner of the heartbeat and media-ticket grant message shapes. Heartbeat vectors are added
           by E20-01; E60-01's media.proto reuses `MediaTicketGrant` rather than redefining it.
@@ -739,8 +1137,10 @@ epics:
           - "`buf lint` passes."
           - Message shape supports F-4.3's "on change and at most every 60 s" semantics without
             requiring a wrapper message.
+          - Generated Kotlin and Swift types compile with no manual edits.
         tdd:
-          - "`statusProto_bufLint_passes`"
+          - "ci: statusProto_bufLint_exitsZero"
+          - "ci: statusProto_codegen_kotlinAndSwiftTypesCompile"
         notes: |
           Owner of `DeviceStatus` and `Ring`. E23-01 extends this file with `RingStop`, the STATUS
           SPEC.md section, and vectors; it must not redefine these messages.
@@ -785,12 +1185,19 @@ epics:
           `buf breaking` configured `--against '.git#branch=main'` so any incompatible change to
           committed proto files fails CI once merged to main. This is the config; the CI job that
           runs it is E00-11's `protocol.yml` workflow.
+          `tools/protocol/proto-schema-scan.sh` (run in the same workflow) fails if any message,
+          enum value or channel name matches `(?i)debug|echo|loopback|test|canary` (AC-11: no
+          debug-only protocol path), with an explicit allowlist file that starts empty.
         acceptance:
           - "`buf lint` passes on all four phase-0 proto files."
           - A deliberately introduced breaking change (renumbering a field) fails `buf breaking`.
+          - Deleting a field without `reserved` fails `buf breaking`.
+          - A fixture `.proto` declaring `message DebugEcho {}` fails the schema scan (AC-11).
         tdd:
-          - "`bufBreaking_fieldRenumbered_checkFails`"
-          - "`bufLint_allPhase0ProtoFiles_passes`"
+          - "ci: bufBreaking_fieldRenumbered_exitsNonZero"
+          - "ci: bufBreaking_fieldDeletedWithoutReserved_exitsNonZero"
+          - "ci: bufLint_allPhase0ProtoFiles_exitsZero"
+          - "ci: protoSchemaScan_debugEchoMessageFixture_exitsNonZero"
         notes: ""
       - id: E01-16
         title: "[tools] Test vector file format + Python reference generator"
@@ -809,15 +1216,23 @@ epics:
           fixtures deterministically (fixed seeds/inputs checked into the manifest). PR requires
           review sign-off before vectors are treated as authoritative (both platform teams must be
           able to reproduce the same expected outputs independently).
+          Every vector entry has `id`, `description`, `input`, and exactly one of `expected`
+          (positive) or `expectedError` (negative: a stable error name, plus `closeCode` from
+          E01-05 where the case closes a connection). Generator tests are pytest under
+          `tools/vectors/tests/`; CI (protocol workflow) runs pytest, regenerates and diffs, and
+          validates every manifest against `protocol/vectors/schema.json`.
         acceptance:
           - "`python tools/vectors/generate.py` run twice produces byte-identical output."
-          - Vector manifest schema documented (JSON Schema or equivalent) in
-            `protocol/vectors/README.md`.
+          - Vector manifest schema is `protocol/vectors/schema.json` (JSON Schema 2020-12), documented in `protocol/vectors/README.md`.
+          - A manifest entry with both or neither of `expected`/`expectedError` fails schema validation.
+          - CI fails if committed vectors differ from a fresh `generate.py` run.
           - PR reviewed and approved before any downstream vector category (E01-17..E01-21) is
             marked done.
         tdd:
-          - "`vectorGenerator_runTwice_producesIdenticalOutput`"
-          - "`vectorManifest_validatesAgainstJsonSchema`"
+          - "unit: vectorGenerator_runTwice_outputByteIdentical"
+          - "ci: vectorManifests_allCategories_validateAgainstSchema"
+          - "ci: vectorSchema_entryWithBothExpectedAndExpectedError_rejected"
+          - "ci: vectorRegenerationCheck_committedVectorEdited_jobFailsShowingDiff"
         notes: ""
       - id: E01-17
         title: "[tools] Test vectors: SPKI fingerprint computation"
@@ -832,12 +1247,18 @@ epics:
         description: |
           Vectors covering SHA-256 over DER-encoded SubjectPublicKeyInfo for a handful of known
           P-256 test keys, including edge cases (compressed vs. uncompressed point encoding
-          rejected/normalized consistently).
+          rejected/normalized consistently). Negative cases: SPKI with compressed point
+          (`expectedError: unsupportedPointEncoding`), non-P-256 curve (P-384) and RSA key
+          (`unsupportedKeyType`), truncated DER (`malformedSpki`).
         acceptance:
-          - At least 5 fixture keys with precomputed expected fingerprints, reviewed against an
-            independent OpenSSL computation.
+          - At least 5 positive fixture keys with precomputed expected fingerprints, cross-checked in the pytest suite against `openssl pkey -pubin -outform DER | openssl dgst -sha256`.
+          - At least 4 negative vectors (compressed point, P-384, RSA-2048, truncated DER), each with its `expectedError`.
         tdd:
-          - "`spkiFingerprintVector_knownP256Key_matchesOpensslReference`"
+          - "unit: spkiFingerprintVector_knownP256Key_matchesOpensslReference"
+          - "unit: spkiFingerprintVector_compressedPoint_expectedErrorUnsupportedPointEncoding"
+          - "unit: spkiFingerprintVector_p384Key_expectedErrorUnsupportedKeyType"
+          - "unit: spkiFingerprintVector_truncatedDer_expectedErrorMalformedSpki"
+          - "ci: spkiVectorManifest_committedFile_validatesAgainstSchema"
         notes: ""
       - id: E01-18
         title: "[tools] Test vectors: pairing proof HMAC"
@@ -854,11 +1275,15 @@ epics:
           several secret/fingerprint combinations, plus a negative vector (proof computed for a
           different phone key) for use by `mitm-lab` (E15-09).
         acceptance:
-          - At least 5 positive vectors and 2 negative vectors (wrong phone key, wrong secret),
-            each with the exact input byte sequence recorded.
+          - "At least 5 positive vectors and 4 negative vectors (wrong phone key, wrong secret, swapped macSpki/phoneSpki order, missing `tandem-pair-v1` label), each with the exact input byte sequence recorded and `expectedError` = `proofMismatch`."
+          - "One malformed vector: proof of 31 bytes (`expectedError` = `malformedProof`)."
         tdd:
-          - "`pairingProofVector_correctInputs_matchesExpectedHmac`"
-          - "`pairingProofVector_wrongPhoneKey_doesNotMatchExpectedHmac`"
+          - "unit: pairingProofVector_correctInputs_matchesExpectedHmac"
+          - "unit: pairingProofVector_wrongPhoneKey_expectedErrorProofMismatch"
+          - "unit: pairingProofVector_wrongSecret_expectedErrorProofMismatch"
+          - "unit: pairingProofVector_swappedSpkiOrder_expectedErrorProofMismatch"
+          - "unit: pairingProofVector_proof31Bytes_expectedErrorMalformedProof"
+          - "ci: pairingProofVectorManifest_committedFile_validatesAgainstSchema"
         notes: ""
       - id: E01-19
         title: "[tools] Test vectors: frame encoding valid + invalid cases"
@@ -878,13 +1303,20 @@ epics:
         acceptance:
           - At least one valid vector at exactly the 1 MiB boundary (accepted) and one at 1 MiB + 1
             byte (rejected), proving the boundary is exact.
-          - One vector per invalid category (oversize, truncated, bad length, unknown channel),
-            each tagged with the expected close code from E01-05.
+          - One vector per invalid category (oversize, truncated, bad length = 0, bad length =
+            0xFFFFFFFF, protobuf decode failure, unknown channel, unknown payload type), each
+            tagged with closeCode `MALFORMED_FRAME` (E01-05) plus the expected local reason
+            (`TOO_LARGE`, `TRUNCATED`, `BAD_LENGTH`, `DECODE_FAILED`, `UNKNOWN_CHANNEL`,
+            `UNKNOWN_PAYLOAD_TYPE`).
+          - The oversize vector supplies only the 4-byte prefix (no payload), so a decoder that allocates before checking would be caught by E15 conformance.
         tdd:
-          - "`frameVector_exactlyMaxSize_acceptedByReferenceDecoder`"
-          - "`frameVector_oneByteOverMaxSize_rejectedWithExpectedCloseCode`"
-          - "`frameVector_truncatedPayload_rejectedWithExpectedCloseCode`"
-          - "`frameVector_unknownChannelEnum_rejectedWithExpectedCloseCode`"
+          - "unit: frameVector_exactlyMaxSize_acceptedByReferenceDecoder"
+          - "unit: frameVector_oneByteOverMaxSize_rejectedWithMalformedFrameCloseCode"
+          - "unit: frameVector_truncatedPayload_rejectedWithMalformedFrameCloseCode"
+          - "unit: frameVector_zeroLength_rejectedWithMalformedFrameCloseCode"
+          - "unit: frameVector_unknownChannelEnum_rejectedWithMalformedFrameCloseCode"
+          - "unit: frameVector_unknownPayloadType_rejectedWithMalformedFrameCloseCode"
+          - "ci: frameVectorManifest_committedFile_validatesAgainstSchema"
         notes: ""
       - id: E01-20
         title: "[tools] Test vectors: Bonjour rotating ID"
@@ -900,13 +1332,20 @@ epics:
           Vectors covering `HMAC(macSpki, dayIndex)` for several `(spki, dayIndex)` pairs, including
           a UTC day-boundary edge case (23:59:59 vs 00:00:00) to catch timezone bugs early, plus
           skew-window cases (dayIndex+/-1 recognized, dayIndex+/-2 not recognized) per E01-08.
+          Negative/malformed cases: ID computed with another Mac's SPKI (`notRecognized`), TXT
+          record with an extra key or a 7-/9-byte ID (`malformedTxtRecord`), `v=2`
+          (`unsupportedVersion`).
         acceptance:
-          - At least 4 vectors including one explicit day-boundary pair.
+          - At least 4 positive vectors including one explicit day-boundary pair (23:59:59 UTC and 00:00:00 UTC map to consecutive dayIndex values and different IDs).
           - Skew-window vectors cover +/-1 day (recognized) and +/-2 days (not recognized).
+          - At least 3 negative/malformed vectors (other Mac's SPKI, wrong-length ID or extra TXT key, `v=2`), each with its `expectedError`.
         tdd:
-          - "`bonjourRotatingIdVector_knownSpkiAndDayIndex_matchesExpectedId`"
-          - "`bonjourRotatingIdVector_utcDayBoundary_rolloverProducesNewId`"
-          - "`bonjourRotatingIdVector_skewBeyondOneDay_notRecognized`"
+          - "unit: bonjourRotatingIdVector_knownSpkiAndDayIndex_matchesExpectedId"
+          - "unit: bonjourRotatingIdVector_utcDayBoundary_consecutiveDayIndicesDifferentIds"
+          - "unit: bonjourRotatingIdVector_skewOfTwoDays_expectedNotRecognized"
+          - "unit: bonjourRotatingIdVector_otherMacSpki_expectedNotRecognized"
+          - "unit: bonjourTxtVector_extraKeyOrWrongIdLength_expectedErrorMalformedTxtRecord"
+          - "ci: bonjourVectorManifest_committedFile_validatesAgainstSchema"
         notes: ""
       - id: E01-21
         title: "[tools] Test vectors: base64url QR payload parsing (valid + malformed)"
@@ -923,12 +1362,19 @@ epics:
           with varying address-list lengths. Malformed vectors: missing required field, invalid
           base64url padding, out-of-range port, empty address list, unsupported `v=` value.
         acceptance:
-          - At least 3 valid vectors and 5 malformed vectors, each malformed one tagged with the
-            single field that makes it invalid.
+          - At least 3 valid vectors and 9 malformed vectors, each malformed one tagged with the
+            single field that makes it invalid and an `expectedError` (cases are missing required field,
+            duplicated field, base64url with padding, `fp` decoding to != 32 bytes, `s` decoding to
+            != 16 bytes, port 0 or 65536, empty address list, `v=2`, wrong scheme/host
+            (`https://pair` or `tandem://other`)).
         tdd:
-          - "`qrPayloadVector_wellFormedPayload_parsesToExpectedFields`"
-          - "`qrPayloadVector_missingRequiredField_parseFails`"
-          - "`qrPayloadVector_unsupportedVersion_parseFails`"
+          - "unit: qrPayloadVector_wellFormedPayload_parsesToExpectedFields"
+          - "unit: qrPayloadVector_missingRequiredField_expectedErrorNamesField"
+          - "unit: qrPayloadVector_paddedBase64url_expectedErrorInvalidEncoding"
+          - "unit: qrPayloadVector_fingerprintNot32Bytes_expectedErrorInvalidFingerprint"
+          - "unit: qrPayloadVector_portOutOfRange_expectedErrorInvalidPort"
+          - "unit: qrPayloadVector_unsupportedVersion_expectedErrorUnsupportedVersion"
+          - "ci: qrPayloadVectorManifest_committedFile_validatesAgainstSchema"
         notes: ""
 
   - id: E02
@@ -978,6 +1424,7 @@ epics:
           - Every AC-01..AC-10 abuse case is referenced from at least one threat-model row.
           - Any threat with no existing mitigation is flagged as an open risk and cross-referenced
             into PRD `<risks>` or a new backlog issue.
+          - Every mitigation reference is an invariant number (1-8), a backlog issue ID or a tdd test name that exists in `docs/planning/backlog/*.yaml`.
         tdd: []
         notes: ""
       - id: E02-02
@@ -1000,9 +1447,9 @@ epics:
           Protobuf, not KMP). PRD records the answer as (a); this ADR documents why with the
           criteria above.
         acceptance:
-          - ADR states all three options, the criteria used, and the decision, in the standard ADR
-            format (Context/Decision/Consequences).
-          - Consequences section names what this rules out (no shared KMP `core/*` modules).
+          - "Deliverable: `docs/adr/ADR-001-native-swift-kotlin.md`, status Accepted, stating all three options, the criteria used and the decision (a) in Context/Decision/Consequences format."
+          - Consequences section names what this rules out (no shared KMP `core/*` modules) and that cross-platform agreement is enforced by `protocol/vectors` + E15 conformance instead of shared code.
+          - "Revisit trigger recorded with a number: reopen only if hand-duplicated non-generated logic that must stay byte-identical across platforms (outside vectors-covered codecs) exceeds 2 modules, or a conformance mismatch between codecs recurs in 3 consecutive releases."
         tdd: []
         notes: ""
       - id: E02-03
@@ -1023,9 +1470,8 @@ epics:
           firewall, audit (`nmap`), and reason about for invariant 4 (Android opens no listening
           sockets). PRD records (a).
         acceptance:
-          - ADR states the option set, criteria, and decision; explicitly ties the decision to
-            invariant 4 and to Appendix C open question 3 (Mac-initiated reconnect must not require
-            a phone listener).
+          - "Deliverable: `docs/adr/ADR-002-phone-client-mac-server.md`, status Accepted, stating the option set, criteria and decision (a); explicitly ties the decision to invariant 4 and to Appendix C open question 3 (Mac-initiated reconnect must not require a phone listener)."
+          - "Go/no-go numbers the decision relies on: phone-dialled reconnect < 5 s p95 after network change or Mac wake (UC-04) and `nmap -p-` against the phone shows 0 open TCP ports (E15-12); the ADR states it is revisited if the E20-12 overnight Doze gate fails those numbers."
         tdd: []
         notes: ""
       - id: E02-04
@@ -1037,7 +1483,7 @@ epics:
         prd: []
         use_cases: [AC-01, AC-02]
         invariants: [1, 2, 3, 6]
-        depends_on: []
+        depends_on: [E03-01, E03-03, E03-04]
         description: |
           Options: (a) mTLS 1.3 with self-signed certs and SPKI pinning on both native TLS stacks;
           (b) a Noise protocol handshake (e.g. Noise_XX) over raw TCP. Decision criteria:
@@ -1048,8 +1494,9 @@ epics:
           on Network.framework client-cert behavior are the primary empirical input to this
           decision; if a spike fails outright, this ADR must be revisited before Phase 1 exit.
         acceptance:
-          - ADR states both options, the platform-support criterion, and the decision; explicitly
-            notes the E03 spike dependency and the revisit condition.
+          - "Deliverable: `docs/adr/ADR-003-mtls-vs-noise.md`, stating both options, the platform-support criterion and the decision; status Accepted only after E03-01, E03-03 and E03-04 findings docs exist."
+          - "Go criterion: E03-01 passes all its checks, E03-03 reports client-cert auth success on every device in `docs/testing/device-matrix.md`, and E03-04 completes 20/20 mutual-pin handshakes. Any failure is a no-go that triggers E03-05 and holds the ADR at Proposed."
+          - Revisit condition references the trigger list in `docs/spikes/tls-stack-decision-criteria.md` (E03-06).
         tdd: []
         notes: ""
       - id: E02-05
@@ -1071,8 +1518,8 @@ epics:
           alternative that doesn't reintroduce that class of bug, and it is not needed for the v1
           target user (single owner, has a phone camera).
         acceptance:
-          - ADR states both options and explicitly rules out any fingerprint-prefix manual pairing
-            design, citing the LinkMyMac finding as the negative example.
+          - "Deliverable: `docs/adr/ADR-004-qr-only-pairing.md`, status Accepted, stating both options and explicitly ruling out any fingerprint-prefix manual pairing design, citing the LinkMyMac 32-bit prefix finding as the negative example."
+          - "States the numeric floor for any future manual pairing: hash-commitment SAS of >= 6 decimal digits (online guess probability <= 3 in 10^6 with the 3-attempt window), never a fingerprint prefix."
         tdd: []
         notes: ""
       - id: E02-06
@@ -1093,8 +1540,8 @@ epics:
           when a large H.264 frame is in flight versus the added complexity of a second listener
           and ticket-issuance protocol. PRD records (a).
         acceptance:
-          - ADR states both options, the head-of-line-blocking criterion, and the decision;
-            references F-3.2 flow control as the reason (a) is still needed even with credits.
+          - "Deliverable: `docs/adr/ADR-005-two-connections.md`, status Accepted, stating both options, the head-of-line-blocking criterion and the decision (a); references F-3.2 flow control as the reason (a) is still needed even with credits."
+          - "Records the numbers that would justify revisiting in Phase 6: if a single multiplexed connection kept control-message p95 latency < 100 ms while streaming 1080p30 on 5 GHz Wi-Fi, and mirroring still met < 120 ms end-to-end, option (b) is reconsidered."
         tdd: []
         notes: ""
       - id: E02-07
@@ -1117,8 +1564,8 @@ epics:
           requirement, invariant-8 compatibility, licensing); the final decision is explicitly
           deferred to Phase 6 (see PRD Phase 6 tasks) once mirroring performance is measurable.
         acceptance:
-          - ADR records both options and criteria without forcing a decision; status field reads
-            "deferred to Phase 6" rather than "accepted" or "rejected".
+          - "Deliverable: `docs/adr/ADR-006-mirroring-transport.md` recording both options and criteria without forcing a decision; status field reads \"deferred to Phase 6\" rather than \"accepted\" or \"rejected\"."
+          - "Criteria have numeric thresholds for the Phase 6 decision: 1080p >= 30 fps and < 120 ms end-to-end latency on 5 GHz Wi-Fi (PRD targets), input-injection success rate on the device matrix, developer mode required yes/no, licence compatible yes/no."
           - ADR explicitly notes that whichever option is chosen must satisfy invariant 8
             independently (a scrcpy-based path does not inherit the accessibility session
             indicator for free).
@@ -1176,7 +1623,8 @@ epics:
             rejection, unpinned client cert rejection, no-resumption confirmation, plus any
             surprising API behavior (timing of verify-block invocation relative to full handshake
             completion).
-          - Explicit go/no-go recommendation for ADR-003.
+          - "Go criteria (all required, each over 10 runs): `openssl s_client -tls1_2` fails 10/10; a client presenting an unpinned cert is rejected inside the verify block 10/10 with 0 application bytes delivered to the listener; `openssl s_client -sess_out`/`-sess_in` reconnect shows `Reused` 0/10 (full handshake every time); a client with no cert is rejected 10/10; the verify block runs before the connection reaches `.ready` in 10/10."
+          - Explicit go/no-go recommendation for ADR-003 (E02-04); any failed criterion is a no-go that triggers E03-05.
         tdd: []
         notes: ""
       - id: E03-02
@@ -1199,6 +1647,7 @@ epics:
             key worked as a `sec_identity`, any API limitations found (e.g. certificate export
             restrictions), and a recommendation of Secure Enclave vs. Keychain-only key (the PRD
             default) for v1.
+          - "Go criteria for Secure Enclave: 20/20 mTLS handshakes complete with the SE-backed identity against an `openssl s_client` peer, and SE handshake p95 is <= 50 ms slower than the Keychain-only key over the same 20 runs. Otherwise no-go: v1 keeps the Keychain-only key (PRD default)."
         tdd: []
         notes: ""
       - id: E03-03
@@ -1210,19 +1659,22 @@ epics:
         prd: [F-1.1, F-3.1]
         use_cases: [AC-01, AC-04]
         invariants: [1, 4]
-        depends_on: []
+        depends_on: [E00-23]
         description: |
           Build a throwaway Android client using platform `SSLSocket` (Conscrypt) with a custom
           `X509KeyManager` backed by an AndroidKeyStore P-256 key (StrongBox if available, else
           TEE, never exportable) and a custom `X509TrustManager` doing an SPKI pin check. Run
-          against a small device matrix (at minimum: one StrongBox-capable device, one TEE-only
-          device, one older API 29 device) to confirm client-cert presentation actually works
-          end-to-end on real hardware, not just an emulator.
+          on the physical devices listed in `docs/testing/device-matrix.md` (E00-23; at minimum
+          one StrongBox-capable device, one TEE-only device, one API 29 device) to confirm
+          client-cert presentation actually works end-to-end on real hardware, not just an
+          emulator. Peer for the spike is `openssl s_server -Verify 1 -tls1_3` (E03-04 covers the
+          real Mac listener).
         acceptance:
-          - Findings doc `docs/spikes/android-sslsocket-keystore.md` records, per device, StrongBox
-            vs. TEE availability, whether client-cert auth succeeded, and any OEM-specific quirks.
-          - Explicit go/no-go recommendation feeding the risk in PRD `<risks>` ("Keystore-backed
-            keys with SSLSocket client auth behave differently across OEMs").
+          - Findings doc `docs/spikes/android-sslsocket-keystore.md` records, per device (identified by its `device-matrix.md` row), StrongBox
+            vs. TEE availability (`KeyInfo.getSecurityLevel()`), whether client-cert auth succeeded, and any OEM-specific quirks.
+          - "Go criteria per device: 10/10 TLS 1.3 handshakes with client-cert auth succeed; `KeyInfo` reports the key inside secure hardware and non-exportable; a server cert with a different SPKI is rejected by the pinning TrustManager 10/10; handshake p95 <= 1000 ms on StrongBox and <= 300 ms on TEE devices. A device failing any criterion is recorded as a no-go with the failure mode."
+          - Explicit overall go/no-go recommendation feeding ADR-003 (E02-04) and the risk in PRD `<risks>` ("Keystore-backed keys with SSLSocket client auth behave differently across OEMs"); go requires every matrix device to pass.
+          - The spike results column for each tested device is filled in `docs/testing/device-matrix.md`.
         tdd: []
         notes: ""
       - id: E03-04
@@ -1245,6 +1697,8 @@ epics:
           - Findings doc `docs/spikes/e2e-handshake-hello-world.md` records a successful handshake
             capture (or the specific interop failure found, with enough detail to file a follow-up
             issue) plus measured handshake latency on the same Wi-Fi network.
+          - "Go criteria: 20/20 handshakes from a StrongBox device and 20/20 from a TEE device complete with mutual pin verification and a round-tripped hello payload; handshake p95 <= 1000 ms (StrongBox) / <= 300 ms (TEE) on the same 5 GHz AP; the pcap shows only TLS 1.3 records after ClientHello and the hello payload never in cleartext; swapping either side's key makes 20/20 handshakes fail with 0 application bytes exchanged."
+          - Explicit go/no-go recommendation for ADR-003 (E02-04).
         tdd: []
         notes: ""
       - id: E03-05
@@ -1266,6 +1720,7 @@ epics:
           - If executed, findings doc `docs/spikes/swift-nio-ssl-fallback.md` records the same
             pass/fail matrix as E03-01 for swift-nio-ssl, plus an assessment of Secure Enclave key
             usability (E03-02) with a non-Network.framework stack.
+          - "If executed, go criteria are E03-01's criteria verbatim (same 10-run counts); go means ADR-003 (E02-04) records swift-nio-ssl as the macOS stack, no-go means ADR-003 is reopened toward option (b) Noise."
           - If not executed (E03-01 was a go), a one-line note in the same file recording "not
             executed, E03-01 passed" so the decision trail is complete.
         tdd: []
@@ -1289,8 +1744,8 @@ epics:
           implementation, Phase 1) checks against if production code hits unexpected
           Network.framework behavior.
         acceptance:
-          - Doc lists at least 3 concrete trigger conditions, each phrased as an observable
-            symptom, not a vague concern.
+          - "Deliverable: `docs/spikes/tls-stack-decision-criteria.md` listing at least 3 concrete trigger conditions, each phrased as an observable symptom with a reproduction command or test name, not a vague concern."
           - Doc references ADR-003 and states who owns the revisit decision.
+          - Each trigger states its threshold (e.g. "verify block not invoked before `.ready` in >= 1 of 10 handshakes").
         tdd: []
         notes: ""

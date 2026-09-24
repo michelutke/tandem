@@ -93,9 +93,10 @@ def validate(epics)
     errors << "#{id}: bad size" unless SIZES.include?(i['size'])
     Array(i['platforms']).each { |p| errors << "#{id}: bad platform #{p}" unless PLATFORMS.include?(p) }
     Array(i['invariants']).each { |n| errors << "#{id}: bad invariant #{n}" unless (1..8).cover?(n) }
-    if %w[story task].include?(i['type']) && blank?(i['tdd'])
-      errors << "#{id}: story/task needs tdd entries"
+    if %w[story task test].include?(i['type']) && blank?(i['tdd'])
+      errors << "#{id}: story/task/test needs tdd entries"
     end
+    check_tdd(errors, id, i)
     Array(i['depends_on']).each { |d| errors << "#{id}: unknown dependency #{d}" unless issue_ids.include?(d) }
     check_refs(errors, id, i, uc_ids, prd_ids)
   end
@@ -115,6 +116,22 @@ def validate(epics)
     errors << "dependency cycle: #{e.message}"
   end
   [errors, issues]
+end
+
+# `layer: unit_condition_expectedResult` — see backlog/SCHEMA.md for the layer list.
+TDD_LAYERS = %w[unit conformance integration instrumented ui manual security ci].freeze
+TDD_FORMAT = /\A(#{TDD_LAYERS.join('|')}): [a-z][A-Za-z0-9]*_[a-z][A-Za-z0-9]*_[a-z][A-Za-z0-9]*\z/
+
+def check_tdd(errors, id, issue)
+  tdd = Array(issue['tdd'])
+  tdd.each { |t| errors << "#{id}: tdd entry not `layer: unit_condition_expected`: #{t}" unless TDD_FORMAT.match?(t.to_s) }
+  tdd.tally.each { |t, n| errors << "#{id}: duplicate tdd entry #{t}" if n > 1 }
+  case issue['type']
+  when 'spike', 'adr'
+    errors << "#{id}: #{issue['type']} must have tdd: [] (put deliverable in acceptance)" unless tdd.empty?
+  when 'doc'
+    tdd.each { |t| errors << "#{id}: doc tdd entries must be automated ci: checks: #{t}" unless t.to_s.start_with?('ci: ') }
+  end
 end
 
 def check_refs(errors, id, obj, uc_ids, prd_ids)

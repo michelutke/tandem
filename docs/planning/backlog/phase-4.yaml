@@ -35,48 +35,77 @@ epics:
         priority: P0
         size: M
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-14, UC-15, UC-16]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02, E15-03]
         description: |
           Define `FileOffer{id, name, size, mime, sha256}`, `FileAccept{id}`,
           `FileReject{id, reason}`, `FileChunk{id, seq, offset, data}` (max 256 KiB payload),
           `FileComplete{id}`, `FileCancel{id, reason}`, `FileResumeRequest{id, fromOffset}` on
-          FILES. Document the handshake and resume flow in SPEC.md. Provide vectors including a
-          malformed/oversized chunk.
+          FILES. `reason` is a shared `TransferReason` enum: DECLINED, TIMEOUT,
+          INSUFFICIENT_SPACE, INVALID_NAME, HASH_MISMATCH, PROTOCOL_VIOLATION, USER_CANCELLED,
+          UNKNOWN_TRANSFER, SOURCE_UNAVAILABLE, IO_ERROR. `sha256` in the offer is the digest of
+          the whole source file (the sender hashes before offering). Document in SPEC.md: the
+          handshake, chunk size, the rule `offset == seq * 262144`, that a chunk whose offset is
+          not the receiver's current length or that would exceed `size` is a PROTOCOL_VIOLATION,
+          the unanswered-offer timeout (300 s, receiver rejects with TIMEOUT), and resume semantics
+          (receiver reports `fromOffset` = retained temp length rounded down to a 256 KiB
+          boundary; retained temp files expire 24 h after the last write). Provide vectors
+          including a malformed/oversized chunk.
         acceptance:
           - files.proto covers the full offer/accept/chunk/complete/cancel/resume set and
             compiles on both codegens
-          - SPEC.md documents the handshake, chunk size, and resume semantics
-          - Vectors include a valid chunk and an oversized/malformed chunk rejection case
+          - SPEC.md documents the handshake, chunk size, offset/seq rule, 300 s offer timeout,
+            24 h resume retention and every TransferReason value
+          - Vectors include a valid offer, accept, chunk, resume request, a reject per
+            TransferReason value, and a chunk with a 262145-byte payload that both codecs reject
         tdd:
-          - conformance_fileOfferAcceptVector_encodesAndDecodes
-          - conformance_oversizedChunk_rejectedByBothCodecs
+          - "conformance: fileOfferAcceptVector_bothCodecs_decodeToIdenticalFields"
+          - "conformance: fileResumeRequestVector_bothCodecs_decodeFromOffsetExactly"
+          - "conformance: fileRejectVectors_everyTransferReason_roundTripOnBothCodecs"
+          - "conformance: fileChunk262145BytePayload_bothCodecs_rejectedAsOversized"
+
       - id: E40-02
-        title: "[cross] Filename sanitization"
+        title: "[protocol] Filename sanitization rule and shared vectors"
         type: task
-        platforms: [android, macos]
+        platforms: [protocol]
         priority: P0
         size: S
         prd: [F-7.1]
         use_cases: [UC-14, UC-15]
         invariants: []
-        depends_on: [E40-01]
+        depends_on: [E40-01, E15-01, E15-02, E15-03]
         description: |
-          Shared rule, documented in SPEC.md, for sanitizing an incoming FileOffer.name before
-          use as a destination filename: reject or strip path separators, `..` segments, null
-          bytes, and reserved device names; enforce independently on both platforms, never
-          trusting the sender.
+          Normative rule in SPEC.md for sanitizing an incoming FileOffer.name before use as a
+          destination filename, enforced independently by each receiver (E40-16 Android, E40-17
+          macOS), never trusting the sender. Order: reject if the name contains U+0000 (reason
+          INVALID_NAME); take the last component after splitting on `/` and `\`; normalize to NFC;
+          remove bidi controls U+202A–U+202E and U+2066–U+2069; replace other C0 controls, U+007F
+          and `:` with `_`; strip leading dots; if the result is empty, all dots, `.` or `..`,
+          use `file-<first 8 hex chars of transfer id>`; prefix `_` to a Windows-reserved stem
+          (CON, PRN, AUX, NUL, COM1–COM9, LPT1–LPT9, case-insensitive); truncate the stem on a
+          code-point boundary, keeping the extension, so the UTF-8 length is at most 255 bytes.
+          Vectors live in `protocol/vectors/filenames.json` (input, transfer id, expected output
+          or INVALID_NAME) and run on both platforms via the conformance runners (E15-01/E15-02).
+          Required cases, transfer id `1a2b3c4d…`: `../../etc/passwd` → `passwd`;
+          `/Users/x/secret.txt` → `secret.txt`; `C:\Windows\evil.exe` → `evil.exe`;
+          `a<U+0000>b.txt` → INVALID_NAME; `.bashrc` → `bashrc`; `..` → `file-1a2b3c4d`;
+          empty → `file-1a2b3c4d`; `CON` → `_CON`; `nul.txt` → `_nul.txt`;
+          `e<U+0301>.txt` (NFD) → `é.txt` (NFC, U+00E9); `invoice<U+202E>fdp.exe` →
+          `invoicefdp.exe`; 300 × `a` + `.pdf` → 251 × `a` + `.pdf`; 200 × `é` + `.jpg` →
+          125 × `é` + `.jpg` (254 bytes).
         acceptance:
-          - A name containing a path-traversal segment or an absolute path is sanitized to a
-            safe base name on both platforms
-          - A name with an embedded null byte is rejected
-          - A leading-dot (hidden) name is made visible and a reserved name (e.g. CON, NUL, .., empty) is replaced with a safe generated name (UC-14).
+          - SPEC.md states the ordered rule above and marks it MUST for every receiver
+          - filenames.json contains every required case with its expected output and validates
+            against its JSON schema in CI
+          - The conformance runners on both platforms execute every filenames.json case and fail
+            on any mismatch
         tdd:
-          - filenameSanitization_pathTraversalAttempt_sanitizedToSafeName
-          - filenameSanitization_nullByteInName_rejected
-          - filenameSanitization_leadingDotHiddenName_madeVisible
-          - filenameSanitization_reservedOrEmptyName_replacedWithSafeName
+          - "ci: filenameVectors_schemaValidation_everyCaseHasInputAndExpected"
+          - "conformance: filenameVectors_allCases_bothPlatformsProduceExpectedName"
+          - "conformance: filenameVectors_nulByteCase_bothPlatformsReturnInvalidName"
+        notes: "Split from E40-02 in review cycle 3: platform implementations moved to E40-16 (Android) and E40-17 (macOS)."
+
       - id: E40-03
         title: "[android] Sender: chunked read, hashing, flow control"
         type: task
@@ -84,22 +113,39 @@ epics:
         priority: P0
         size: L
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-15]
         invariants: []
-        depends_on: [E40-01, E40-02, E11-07]
+        depends_on: [E40-01, E40-02, E11-07, E12-11, E00-18, E00-19]
         description: |
-          Stream the source file in 256 KiB chunks with sequential seq numbers, compute SHA-256
-          incrementally, and gate sending on available flow-control credits (E11-07) for the
-          FILES channel.
+          Hash the source (`ContentResolver` stream behind a feature-local `SourceFileReader`
+          seam) in one streaming SHA-256 pass with a fixed 256 KiB buffer, send FileOffer with
+          that digest, then on FileAccept stream 256 KiB chunks with seq 0..n-1 and
+          `offset = seq * 262144`, gated on FILES credits (E11-07), then FileComplete. The FILES
+          sender interleaves per stream (round-robin between active transfers and E41 page/thumb
+          responses) so an in-flight transfer never delays a ThumbResult by more than one chunk.
+          Message-level tests use `FakeTandemSession` (E12-11) and JUnit `@TempDir` fixture
+          files; the credit test runs the real E11-07 multiplexer over an `InMemoryDuplexPipe`
+          (E00-19); timing uses `TestClock` and test dispatchers (E00-18).
         acceptance:
-          - A sent file's chunks arrive with contiguous seq numbers and correct offsets
-          - The computed SHA-256 matches the source file
-          - Sending pauses when FILES channel credits are exhausted and resumes when credits are
-            granted
+          - A 10 MiB + 1 byte file is sent as exactly 41 chunks, seq 0..40 contiguous, offsets
+            seq × 262144, last chunk 1 byte, followed by one FileComplete
+          - The FileOffer for a fixture containing `abc` carries SHA-256
+            ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+          - A 0-byte file sends FileOffer size 0, no FileChunk, then FileComplete
+          - With zero FILES credits no FileChunk leaves the sender; one credit grant releases
+            exactly the granted number of chunks
+          - FileReject from the receiver results in zero chunks sent and sender state Rejected(reason)
+          - A source read failing mid-transfer sends FileCancel IO_ERROR and no further chunks
+          - With a transfer in flight, a queued ThumbResult is sent after at most one FileChunk
         tdd:
-          - androidSender_chunking_seqAndOffsetsContiguous
-          - androidSender_streamingHash_matchesSourceSha256
-          - androidSender_creditsExhausted_pausesUntilGranted
+          - "unit: androidSender_tenMiBPlusOneByteFile_sends41ContiguousChunksThenComplete"
+          - "unit: androidSender_abcFixture_offerCarriesKnownSha256"
+          - "unit: androidSender_zeroByteFile_offerThenCompleteWithNoChunks"
+          - "unit: androidSender_zeroFilesCredits_noChunkUntilGrant"
+          - "unit: androidSender_fileRejectReceived_zeroChunksSentAndStateRejected"
+          - "unit: androidSender_sourceReadFailsMidTransfer_sendsFileCancelIoError"
+          - "unit: androidFilesScheduler_transferInFlight_thumbResultSentWithinOneChunk"
+
       - id: E40-04
         title: "[macos] Sender: chunked read, hashing, flow control"
         type: task
@@ -107,21 +153,36 @@ epics:
         priority: P0
         size: L
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-14]
         invariants: []
-        depends_on: [E40-01, E40-02, E11-08]
+        depends_on: [E40-01, E40-02, E11-08, E12-12, E00-24, E00-25]
         description: |
-          Mirror of E40-03 on macOS: 256 KiB chunks, sequential seq numbers, incremental SHA-256,
-          flow-control gating on the FILES channel.
+          Mirror of E40-03 on macOS: streaming SHA-256 pass (CryptoKit, 256 KiB buffer) before
+          FileOffer, 256 KiB chunks with `offset = seq * 262144`, FILES credit gating (E11-08),
+          FileComplete, and per-stream round-robin between transfers and E41 page/thumb
+          responses. Message-level tests use the `TandemSession` fake (E12-12) and per-test
+          temporary directories; the credit test runs the real E11-08 multiplexer over an
+          `InMemoryConnectionPair` (E00-25); timing uses `ManualTestClock` (E00-24).
         acceptance:
-          - A sent file's chunks arrive with contiguous seq numbers and correct offsets
-          - The computed SHA-256 matches the source file
-          - Sending pauses when FILES channel credits are exhausted and resumes when credits are
-            granted
+          - A 10 MiB + 1 byte file is sent as exactly 41 chunks, seq 0..40 contiguous, offsets
+            seq × 262144, last chunk 1 byte, followed by one FileComplete
+          - The FileOffer for a fixture containing `abc` carries SHA-256
+            ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+          - A 0-byte file sends FileOffer size 0, no FileChunk, then FileComplete
+          - With zero FILES credits no FileChunk leaves the sender; one credit grant releases
+            exactly the granted number of chunks
+          - FileReject from the receiver results in zero chunks sent and sender state rejected(reason)
+          - A source read failing mid-transfer sends FileCancel IO_ERROR and no further chunks
+          - With a transfer in flight, a queued ThumbResult is sent after at most one FileChunk
         tdd:
-          - macosSender_chunking_seqAndOffsetsContiguous
-          - macosSender_streamingHash_matchesSourceSha256
-          - macosSender_creditsExhausted_pausesUntilGranted
+          - "unit: macosSender_tenMiBPlusOneByteFile_sends41ContiguousChunksThenComplete"
+          - "unit: macosSender_abcFixture_offerCarriesKnownSha256"
+          - "unit: macosSender_zeroByteFile_offerThenCompleteWithNoChunks"
+          - "unit: macosSender_zeroFilesCredits_noChunkUntilGrant"
+          - "unit: macosSender_fileRejectReceived_zeroChunksSentAndStateRejected"
+          - "unit: macosSender_sourceReadFailsMidTransfer_sendsFileCancelIoError"
+          - "unit: macosFilesScheduler_transferInFlight_thumbResultSentWithinOneChunk"
+
       - id: E40-05
         title: "[android] Receiver: temp file, verify, atomic move to MediaStore"
         type: task
@@ -129,20 +190,43 @@ epics:
         priority: P0
         size: L
         prd: [F-7.3]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-14]
         invariants: []
-        depends_on: [E40-01, E40-02]
+        depends_on: [E40-01, E40-16, E12-11, E00-18, E00-20, E00-21]
         description: |
-          Write incoming chunks to a temp file by offset, verify the whole-file SHA-256 against
-          FileOffer on FileComplete, then move atomically into `Download/Tandem/` via MediaStore;
-          on hash mismatch, discard and send FileReject.
+          Write incoming chunks to `<transferDir>/<id>.part` (app-private `noBackupFilesDir`,
+          injected so tests use `@TempDir`) behind a feature-local `TransferStore` seam, validate
+          each chunk (offset equals current length, never beyond `size`), hash incrementally, and
+          on FileComplete compare against FileOffer.sha256. On match, publish through a
+          feature-local `DownloadsPublisher` seam whose MediaStore implementation inserts into
+          `Download/Tandem/` with `IS_PENDING=1`, copies, then clears `IS_PENDING`, so no partial
+          entry is ever visible; MediaStore resolves name collisions (never overwrites). On
+          mismatch, delete the temp file and send FileReject HASH_MISMATCH. Unit tests use
+          `FakeTandemSession` (E12-11), a recording `DownloadsPublisher` fake and a
+          `TransferStore` fake that can throw ENOSPC at a given offset; the MediaStore publisher is
+          `instrumented:` (E00-21).
         acceptance:
-          - A completed transfer with a matching hash appears in Download/Tandem/ via MediaStore
-          - A completed transfer with a mismatched hash is discarded, never exposed to the user,
-            and FileReject is sent
+          - A matching-hash transfer is published exactly once to Download/Tandem/ under the
+            E40-16 sanitized name and the `.part` file is deleted
+          - A mismatched-hash transfer is never published, the `.part` file is deleted, and
+            FileReject HASH_MISMATCH is sent
+          - ENOSPC while writing deletes the `.part` file, publishes nothing, and sends FileCancel
+            INSUFFICIENT_SPACE
+          - A chunk whose offset differs from the current length, or whose end exceeds the offered
+            size, aborts with FileCancel PROTOCOL_VIOLATION and deletes the `.part` file
+          - On the emulator, a MediaStore query of Download/Tandem/ during an in-progress publish
+            returns no row for the file (UC-14 partial files never visible)
+          - On the emulator, publishing `report.pdf` when one exists leaves the original bytes
+            unchanged and creates a second, suffixed entry
         tdd:
-          - androidReceiver_matchingHash_movedToDownloadTandemAtomically
-          - androidReceiver_mismatchedHash_discardedAndRejected
+          - "unit: androidReceiver_matchingHash_publishedOnceAndPartFileDeleted"
+          - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndRejectSent"
+          - "unit: androidReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
+          - "unit: androidReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
+          - "unit: androidReceiver_chunkOffsetGap_protocolViolationCancelAndPartDeleted"
+          - "instrumented: mediaStorePublisher_pendingPublish_invisibleToDownloadTandemQuery"
+          - "instrumented: mediaStorePublisher_existingSameName_originalUntouchedAndSuffixedEntryAdded"
+
       - id: E40-06
         title: "[macos] Receiver: temp file, verify, atomic move to Downloads/Tandem"
         type: task
@@ -150,109 +234,166 @@ epics:
         priority: P0
         size: L
         prd: [F-7.2]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-15]
         invariants: []
-        depends_on: [E40-01, E40-02]
+        depends_on: [E40-01, E40-17, E12-12, E00-24]
         description: |
-          Mirror of E40-05 on macOS: temp file by offset, whole-file SHA-256 verification, atomic
-          move to `~/Downloads/Tandem/`.
+          Mirror of E40-05 on macOS. Stage `<id>.part` in the directory returned by
+          `FileManager.url(for: .itemReplacementDirectory, in: .userDomainMask,
+          appropriateFor: destination)` (same volume, outside `~/Downloads/Tandem/`), validate
+          each chunk, hash incrementally, and on a matching digest `rename` into
+          `~/Downloads/Tandem/` under the E40-17 sanitized name, appending ` (1)`, ` (2)`, …
+          before the extension on collision (never overwrite). Destination and staging roots are
+          injected via a feature-local `TransferDirectories` value and writes go through a
+          `FileSink` seam that can throw ENOSPC, so tests use per-test temporary directories with
+          the `TandemSession` fake (E12-12).
         acceptance:
-          - A completed transfer with a matching hash appears in ~/Downloads/Tandem/
-          - A completed transfer with a mismatched hash is discarded and FileReject is sent
+          - A matching-hash transfer appears in the destination under the sanitized name and the
+            staging `.part` file no longer exists
+          - While a transfer is in progress the destination directory contains no entry for it
+            (UC-15 partial files never visible)
+          - A mismatched-hash transfer leaves nothing in the destination, deletes the `.part`
+            file, and sends FileReject HASH_MISMATCH
+          - ENOSPC while writing deletes the `.part` file, leaves nothing in the destination, and
+            sends FileCancel INSUFFICIENT_SPACE
+          - An existing `report.pdf` is left byte-identical and the new file is saved as
+            `report (1).pdf`
+          - A chunk whose end exceeds the offered size aborts with FileCancel PROTOCOL_VIOLATION
+            and deletes the `.part` file
         tdd:
-          - macosReceiver_matchingHash_movedToDownloadsTandemAtomically
-          - macosReceiver_mismatchedHash_discardedAndRejected
+          - "unit: macosReceiver_matchingHash_fileInDestinationAndPartDeleted"
+          - "unit: macosReceiver_midTransfer_destinationHasNoEntry"
+          - "unit: macosReceiver_hashMismatch_destinationEmptyPartDeletedAndRejectSent"
+          - "unit: macosReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
+          - "unit: macosReceiver_existingSameName_savedWithOneSuffixOriginalUntouched"
+          - "unit: macosReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
+
       - id: E40-07
-        title: "[cross] Accept, auto-accept, and disk-space pre-check"
+        title: "[android] Accept, auto-accept, and disk-space pre-check"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: M
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-14]
         invariants: []
-        depends_on: [E40-01]
+        depends_on: [E40-01, E12-11, E00-18, E00-20]
         description: |
-          On FileOffer receipt, check free disk space against the file size before prompting;
-          auto-accept without a prompt when the sender is the trusted paired peer and a user
-          setting enables auto-accept, otherwise show an accept/reject prompt.
+          On FileOffer, check free space (feature-local `FreeSpaceProvider` over `StatFs`) against
+          `size + 64 MiB` before prompting; if short, send FileReject INSUFFICIENT_SPACE with no
+          prompt. If the auto-accept setting is on, send FileAccept immediately; otherwise post an
+          accept/reject prompt (heads-up notification with Accept and Decline actions, behind a
+          feature-local `TransferPrompter` seam). An offer unanswered for 300 s is rejected with
+          TIMEOUT and the prompt removed. Tests use `FakeTandemSession` (E12-11), fakes for both
+          seams, and `TestClock` (E00-18) for the 300 s timeout; the notification rendering is a
+          Robolectric `unit:` (E00-20).
         acceptance:
-          - Insufficient disk space rejects the offer immediately with a clear reason and no
-            prompt shown
-          - Auto-accept enabled with a trusted peer results in no prompt and an immediate
-            FileAccept
-          - Auto-accept disabled always prompts the user
+          - Free space below size + 64 MiB sends FileReject INSUFFICIENT_SPACE and shows no prompt
+          - Auto-accept on sends FileAccept with no prompt
+          - Auto-accept off shows the prompt; Accept sends FileAccept, Decline sends FileReject DECLINED
+          - No answer after 300 s of virtual time sends FileReject TIMEOUT and cancels the prompt
+          - The prompt notification shows the sanitized name and size and has exactly two actions
         tdd:
-          - acceptFlow_insufficientDiskSpace_rejectedWithoutPrompt
-          - acceptFlow_autoAcceptEnabledTrustedPeer_acceptsWithoutPrompt
-          - acceptFlow_autoAcceptDisabled_alwaysPrompts
+          - "unit: androidAcceptFlow_freeSpaceBelowSizePlusReserve_insufficientSpaceRejectNoPrompt"
+          - "unit: androidAcceptFlow_autoAcceptOn_fileAcceptSentWithoutPrompt"
+          - "unit: androidAcceptFlow_declineTapped_fileRejectDeclinedSent"
+          - "unit: androidAcceptFlow_noAnswerFor300s_timeoutRejectAndPromptCancelled"
+          - "unit: androidAcceptPrompt_offerPosted_notificationHasAcceptAndDeclineActions"
+        notes: "Split from E40-07 in review cycle 3: macOS half is E40-18."
+
       - id: E40-08
-        title: "[cross] Resume by offset after disconnect"
+        title: "[android] Resume by offset after disconnect"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: L
         prd: [F-7.1]
         use_cases: [UC-16]
         invariants: []
-        depends_on: [E40-03, E40-04, E40-05, E40-06]
+        depends_on: [E40-03, E40-05, E12-11, E00-18, E00-19]
         description: |
-          On reconnect, the receiver checks for a matching in-progress temp file by transfer id
-          and sends FileResumeRequest{id, fromOffset=bytesWritten}; the sender seeks to that
-          offset and continues chunk seq numbering from the corresponding point.
+          Receiver role: on reconnect, for each retained `.part` file not older than 24 h,
+          truncate to a 256 KiB boundary, re-hash the retained prefix, and send
+          FileResumeRequest{id, fromOffset}. Sender role: on FileResumeRequest for a known id,
+          seek the source to fromOffset and continue with `seq = fromOffset / 262144`; unknown id
+          or an unreadable source replies FileCancel UNKNOWN_TRANSFER / SOURCE_UNAVAILABLE.
+          Retained `.part` files older than 24 h are deleted on the next sweep. Tests wire a real
+          Android sender and receiver over an `InMemoryDuplexPipe` (E00-19), sever it with
+          `closeAbruptly()` mid-transfer, reconnect a new pipe, and use `TestClock` (E00-18) for
+          the 24 h expiry; message-level cases use `FakeTandemSession` (E12-11).
         acceptance:
-          - A transfer interrupted midway resumes from the last written offset rather than from
-            zero
-          - The resumed transfer's final SHA-256 matches the original source file
-          - A resume request for an unknown or expired transfer id is rejected cleanly
+          - A 64 MiB transfer severed after 40 MiB resumes with fromOffset = 40 MiB (rounded down
+            to 256 KiB) and the sender's first resumed chunk has seq fromOffset / 262144
+          - After resume the published file's SHA-256 equals the source digest
+          - Bytes re-sent after resume are at most the credit window plus 256 KiB
+          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
         tdd:
-          - resumeTransfer_interruptedMidway_resumesFromLastOffset
-          - resumeTransfer_completedAfterResume_shaMatchesSource
-          - resumeTransfer_unknownTransferId_rejectedCleanly
+          - "unit: androidResume_severedAt40MiB_resumeRequestFromOffset40MiB"
+          - "unit: androidResume_resumedTransfer_publishedSha256MatchesSource"
+          - "unit: androidResume_afterResume_resentBytesAtMostCreditWindowPlusOneChunk"
+          - "unit: androidResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: androidResume_partOlderThan24h_deletedAndNoResumeRequest"
+        notes: "Split from E40-08 in review cycle 3: macOS half is E40-19."
+
       - id: E40-09
-        title: "[cross] Cancel transfer cleanup"
+        title: "[android] Cancel transfer cleanup"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
         size: S
         prd: [F-7.1]
         use_cases: [UC-14, UC-15]
         invariants: []
-        depends_on: [E40-03, E40-04]
+        depends_on: [E40-03, E40-05, E00-19]
         description: |
-          A user-initiated cancel sends FileCancel; both sides stop sending or writing and
-          delete the temp file.
+          A user-initiated cancel sends FileCancel USER_CANCELLED; as sender, stop reading and
+          sending; as receiver, delete the `.part` file and publish nothing. A later
+          FileResumeRequest for a cancelled id gets UNKNOWN_TRANSFER. Tests run sender and
+          receiver over an `InMemoryDuplexPipe` (E00-19) with per-direction capture.
         acceptance:
-          - Cancelling on the sender stops further chunk sends and the receiver deletes its temp
-            file
-          - Cancelling on the receiver stops the sender and both temp/partial artifacts are
-            removed
+          - After a sender-side cancel, the pipe capture shows no FileChunk after the FileCancel
+            and the receiver's `.part` file is gone
+          - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
+            (at most the credit window) and the transfer state is Cancelled
+          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
         tdd:
-          - cancelTransfer_senderInitiated_receiverDeletesTempFile
-          - cancelTransfer_receiverInitiated_senderStopsAndCleansUp
+          - "unit: androidCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
+          - "unit: androidCancel_receiverInitiated_senderStopsWithinCreditWindow"
+          - "unit: androidCancel_resumeForCancelledId_unknownTransferCancel"
+        notes: "Split from E40-09 in review cycle 3: macOS half is E40-20."
+
       - id: E40-10
-        title: "[macos] Drag-drop, Finder Services, Share extension entry points"
+        title: "[macos] Drag-drop and Send File quick action entry points"
         type: story
         platforms: [macos]
         priority: P1
         size: M
         prd: [F-7.2, F-4.2]
-        use_cases: [UC-15]
+        use_cases: [UC-14]
         invariants: []
-        depends_on: [E40-04, E22-01, E22-02]
+        depends_on: [E40-04, E22-01, E22-02, E00-26]
         description: |
-          Accept files dropped onto the menu bar window, add a Finder Services item "Send to
-          phone", and a Share extension target, each starting a FileOffer.
+          Accept files dropped onto the menu bar window and wire the menu bar Send File quick
+          action (E22-02) to an open panel behind a feature-local `FilePicker` seam; each file
+          starts one FileOffer via the transfer service. A dropped folder starts no offer
+          (result `unsupportedFolder`); when no phone is connected nothing starts (result
+          `notConnected`). View-model tests use a recording transfer-service fake; the menu item
+          state is an XCUITest with DEBUG scenario seeding (E00-26).
         acceptance:
-          - Dropping a file onto the menu bar window starts a FileOffer to the connected phone
-          - The Finder Services menu offers "Send to phone" for a selected file
-          - The Share extension appears as a target from other apps' share sheets
-          - The menu bar Send File quick action (E22-02) opens a file picker and starts a FileOffer (F-4.2).
+          - Dropping two files onto the menu bar window starts exactly two FileOffers
+          - Dropping a folder starts no FileOffer and yields unsupportedFolder
+          - Dropping while disconnected starts no FileOffer and yields notConnected
+          - The Send File quick action opens the picker; a chosen file starts one FileOffer and a
+            cancelled picker starts none (F-4.2)
         tdd:
-          - macEntryPoints_dragDrop_startsFileOffer
-          - macEntryPoints_finderServices_visibleAndStartsOffer
-          - macEntryPoints_shareExtension_visibleAndStartsOffer
-          - macEntryPoints_sendFileQuickAction_opensPickerAndStartsOffer
+          - "unit: dropHandler_twoFileUrls_startsTwoOffers"
+          - "unit: dropHandler_folderUrl_noOfferAndUnsupportedFolder"
+          - "unit: dropHandler_disconnected_noOfferAndNotConnected"
+          - "unit: sendFileQuickAction_pickerCancelled_noOfferStarted"
+          - "ui: menuBarSendFile_connectedScenario_menuItemEnabledAndOpensPicker"
+        notes: "Split in review cycle 3: Finder Services moved to E40-21, Share extension to E40-22."
+
       - id: E40-11
         title: "[android] Share target and SAF picker entry points"
         type: story
@@ -260,81 +401,116 @@ epics:
         priority: P1
         size: M
         prd: [F-7.3]
-        use_cases: [UC-14]
+        use_cases: [UC-15]
         invariants: []
-        depends_on: [E40-03]
+        depends_on: [E40-03, E00-20]
         description: |
-          Add a share-sheet target for sending a file to the Mac, and an in-app Storage Access
-          Framework picker to choose a file to send.
+          Add a share-sheet target (ACTION_SEND / ACTION_SEND_MULTIPLE, `*/*`) for sending files
+          to the Mac, and an in-app Storage Access Framework picker (OpenMultipleDocuments). Only
+          `content://` URIs are accepted; `file://` URIs are rejected so another app cannot make
+          Tandem send its own private files. Robolectric tests (E00-20) drive the activity with
+          crafted intents and a test `ActivityResultRegistry`, with a recording transfer-service
+          fake.
         acceptance:
-          - Sharing a file from another app to Tandem starts a FileOffer
-          - The in-app SAF picker lets the user choose a file and starts a FileOffer
+          - ACTION_SEND with one `content://` EXTRA_STREAM starts one FileOffer; ACTION_SEND_MULTIPLE
+            with three starts three
+          - A `file://` URI (including one pointing into the app's data directory) starts no
+            FileOffer
+          - The SAF picker returning a URI starts one FileOffer; a cancelled picker starts none
+          - The merged manifest exports the share activity with SEND and SEND_MULTIPLE filters
         tdd:
-          - androidEntryPoints_shareTarget_startsFileOffer
-          - androidEntryPoints_safPicker_startsFileOffer
+          - "unit: shareTarget_sendMultipleThreeContentUris_startsThreeOffers"
+          - "unit: shareTarget_fileSchemeUriIntoAppDataDir_rejectedNoOffer"
+          - "unit: safPicker_uriReturned_startsOneOffer"
+          - "unit: safPicker_cancelled_noOfferStarted"
+          - "ci: mergedManifest_shareActivity_exportsSendAndSendMultipleFilters"
+
       - id: E40-12
-        title: "[cross] Progress UI both sides"
+        title: "[android] Transfer progress UI"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
         size: M
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-15]
         invariants: []
-        depends_on: [E40-03, E40-04]
+        depends_on: [E40-03, E40-05, E40-09, E00-18, E00-20]
         description: |
-          Show percent complete, transfer speed, and a cancel button on both platforms for
-          in-flight offers and transfers.
+          Show percent complete, transfer speed, and a Cancel button for in-flight transfers in
+          the app and in the ongoing transfer notification. A view model maps transfer events to
+          `TransferProgress{percent, bytesPerSecond}`, emitting at most every 250 ms and at least
+          every 1 s while bytes flow; speed is averaged over the trailing 3 s. The view model uses
+          `TestClock` (E00-18); rendering is Compose UI under Robolectric (E00-20).
         acceptance:
-          - Progress percent and speed update at least every second during an active transfer
-          - The cancel button triggers the E40-09 cancel flow
+          - 3 MiB delivered evenly over 3 s of virtual time yields bytesPerSecond 1048576 ± 1%
+          - While bytes flow, consecutive progress emissions are ≥ 250 ms and ≤ 1 s apart
+          - The row shows the integer percent text (e.g. "42%") and Cancel invokes the E40-09 flow
+          - The ongoing notification's progress bar reflects the same percent
         tdd:
-          - progressUi_activeTransfer_updatesAtLeastEverySecond
-          - progressUi_cancelButton_triggersCancelFlow
+          - "unit: androidProgressVm_threeMiBInThreeSeconds_reportsOneMiBPerSecond"
+          - "unit: androidProgressVm_bytesFlowing_emitsBetween250msAnd1s"
+          - "ui: androidProgressRow_cancelTapped_cancelFlowInvoked"
+          - "unit: androidProgressNotification_fortyTwoPercent_progressBarAt42"
+        notes: "Split from E40-12 in review cycle 3: macOS half is E40-23."
+
       - id: E40-13
-        title: "[cross] Received-file notification"
+        title: "[android] Received-file notification"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
         size: S
-        prd: [F-7.2, F-7.3]
-        use_cases: [UC-14, UC-15]
-        invariants: []
-        depends_on: [E40-05, E40-06]
+        prd: [F-7.3]
+        use_cases: [UC-14]
+        invariants: [7]
+        depends_on: [E40-05, E00-20]
         description: |
-          On successful receipt, show a notification or UI affordance: Android posts a
-          notification that opens the file; macOS shows a notification/UI that reveals it in
-          Finder.
+          On successful publish, post a notification whose tap opens the file (ACTION_VIEW on the
+          MediaStore URI with FLAG_GRANT_READ_URI_PERMISSION). Verified with Robolectric shadows
+          (E00-20). The file name appears in the notification only, never in logs.
         acceptance:
-          - Android shows a notification after a successful receive that opens the file when
-            tapped
-          - macOS shows a notification or UI after a successful receive that reveals the file in
-            Finder when clicked
+          - After a successful receive, one notification is posted with the sanitized name in its
+            title
+          - Its content intent is ACTION_VIEW on the published MediaStore URI with read-grant flag
+          - No notification is posted for a hash-mismatch or cancelled transfer
         tdd:
-          - receivedFileNotification_android_tapOpensFile
-          - receivedFileNotification_macos_clickRevealsInFinder
+          - "unit: androidReceivedNotification_publishSucceeded_postedWithSanitizedName"
+          - "unit: androidReceivedNotification_contentIntent_viewsMediaStoreUriWithReadGrant"
+          - "unit: androidReceivedNotification_hashMismatch_noNotificationPosted"
+        notes: "Split from E40-13 in review cycle 3: macOS half is E40-24."
+
       - id: E40-14
         title: "[tools] 4 GB transfer with forced disconnect"
         type: test
         platforms: [tools]
         priority: P0
-        size: M
+        size: L
         prd: [F-7.1]
         use_cases: [UC-14, UC-15, UC-16]
         invariants: []
-        depends_on: [E40-08]
+        depends_on: [E40-08, E40-19, E15-15, E00-23]
         description: |
-          Device/integration test transferring a 4 GB file in each direction, forcing a network
-          disconnect partway (for example disabling Wi-Fi), then reconnecting and confirming the
-          transfer resumes and completes with a matching SHA-256.
+          Two layers. Integration (every PR, macOS runner): via the E15-15 harness, the JVM client
+          (linking the pure-Kotlin transfer engine with a temp-directory publisher in place of
+          MediaStore) sends and receives a 256 MiB random file to/from the real Mac server; the
+          harness closes the socket abruptly at 50 %, reconnects, and checks resume. Manual gate
+          (phase exit, docs/testing/manual-gates.md via E00-23): a 4 GB file each direction on the
+          same real Wi-Fi, Wi-Fi disabled on the phone at ~2 GB for 30 s, then re-enabled.
         acceptance:
-          - A phone-to-Mac 4 GB transfer with a mid-transfer forced disconnect completes with a
-            matching SHA-256 after resume
-          - A Mac-to-phone 4 GB transfer with a mid-transfer forced disconnect completes with a
-            matching SHA-256 after resume
+          - Integration, both directions, 256 MiB, abrupt close at 50 %; the resume request's
+            fromOffset is > 0, re-sent bytes are ≤ 4 MiB, and the received SHA-256 equals the source
+          - Manual, phone → Mac and Mac → phone, 4 GB; the transfer resumes without user action
+            within 60 s of Wi-Fi returning, from an offset ≥ the bytes acknowledged before the
+            disconnect minus 4 MiB, and `shasum -a 256` on both ends matches
+          - Manual; peak memory during the transfer stays ≤ 64 MiB above the pre-transfer idle
+            value (Android `dumpsys meminfo` total PSS; Mac `footprint` of the agent)
+          - Manual; no `.part` file remains in either staging directory after completion
         tdd:
-          - fourGbTransferTest_phoneToMacForcedDisconnect_resumesAndMatchesSha (device test)
-          - fourGbTransferTest_macToPhoneForcedDisconnect_resumesAndMatchesSha (device test)
+          - "integration: transferHarness_phoneToMac256MiBAbruptCloseAtHalf_resumesAndShaMatches"
+          - "integration: transferHarness_macToPhone256MiBAbruptCloseAtHalf_resumesAndShaMatches"
+          - "integration: transferHarness_resumeAfterAbruptClose_resentBytesAtMostFourMiB"
+          - "manual: fourGbTransfer_phoneToMacWifiDropAtHalf_resumesShaMatchesMemoryUnder64MiB"
+          - "manual: fourGbTransfer_macToPhoneWifiDropAtHalf_resumesShaMatchesMemoryUnder64MiB"
+
       - id: E40-15
         title: "[tools] Flow-control no-starvation test"
         type: test
@@ -344,21 +520,271 @@ epics:
         prd: [F-3.2]
         use_cases: [UC-14, UC-15, UC-16]
         invariants: []
-        depends_on: [E40-03, E40-04, E11-09, E11-10, E30-14]
+        depends_on: [E40-03, E40-04, E11-09, E11-10, E30-14, E15-15, E00-23]
         description: |
           With a large file transfer saturating the FILES channel, concurrently send
-          NOTIFY-channel traffic and assert its delivery latency stays within the normal
-          non-saturated budget, proving per-channel credit-based flow control (E11-07/E11-08) prevents
-          starvation.
+          NOTIFY-channel traffic and assert its delivery latency stays within budget, proving
+          per-channel credit-based flow control (E11-07/E11-08) prevents starvation.
+          Integration: via the E15-15 harness, the JVM client sends a 1 GiB file to the real Mac
+          server while sending NOTIFY frames at 20 Hz (≥ 200 samples); latency is measured on
+          the loopback link against one clock. Manual: the E30-14 harness on real Wi-Fi during a
+          4 GB transfer.
         acceptance:
-          - NOTIFY message delivery latency during a saturating file transfer stays within its
-            normal p95 budget
-          - FILES channel throughput remains non-zero throughout, so NOTIFY traffic does not
-            starve it either
-          - "Measured with the E30-14 harness: NOTIFY p95 stays < 500 ms during a saturating 4 GB transfer (UC-16)."
+          - Integration; NOTIFY p95 < 100 ms and max < 500 ms over ≥ 200 frames while the FILES
+            transfer is in progress
+          - Integration; FILES throughput is > 0 in every 1 s window during NOTIFY bursts
+          - "Manual, E30-14 harness on the same Wi-Fi: NOTIFY p95 < 500 ms during a saturating 4 GB transfer (UC-16)."
         tdd:
-          - flowControlTest_notifyDuringSaturatingFileTransfer_latencyWithinBudget
-          - flowControlTest_filesChannel_stillMakesProgressDuringNotifyBursts
+          - "integration: noStarvation_notifyDuringSaturatingFilesTransfer_p95Under100ms"
+          - "integration: noStarvation_notifyBurstsAt20Hz_filesThroughputNonZeroEverySecond"
+          - "manual: noStarvation_realWifiFourGbTransfer_notifyP95Under500ms"
+
+      - id: E40-16
+        title: "[android] FilenameSanitizer"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-7.1]
+        use_cases: [UC-14]
+        invariants: []
+        depends_on: [E40-02, E15-01]
+        description: |
+          Pure-Kotlin implementation of the E40-02 rule in `feature/files`, used by the Android
+          receiver (E40-05) before any filesystem or MediaStore call. The Android conformance
+          runner (E15-01) executes `protocol/vectors/filenames.json` against it; JUnit covers
+          the rule's security-relevant cases directly.
+        acceptance:
+          - Every filenames.json case passes on the Android runner
+          - Sanitizes `../../etc/passwd` → `passwd`, `a<U+0000>b.txt` → INVALID_NAME, `..` →
+            `file-<id8>`, 300 × `a` + `.pdf` → 255-byte name ending `.pdf`
+        tdd:
+          - "unit: androidFilenameSanitizer_pathTraversal_lastComponentOnly"
+          - "unit: androidFilenameSanitizer_nulByte_invalidName"
+          - "unit: androidFilenameSanitizer_dotDot_generatedNameFromTransferId"
+          - "unit: androidFilenameSanitizer_stemOver255Bytes_truncatedTo255BytesKeepingExtension"
+          - "conformance: filenameVectors_androidRunner_allCasesMatch"
+        notes: "Split from E40-02 in review cycle 3."
+
+      - id: E40-17
+        title: "[macos] FilenameSanitizer"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-7.1]
+        use_cases: [UC-15]
+        invariants: []
+        depends_on: [E40-02, E15-02]
+        description: |
+          Swift implementation of the E40-02 rule in the Files feature package, used by the macOS
+          receiver (E40-06) before any filesystem call. The Swift conformance runner (E15-02)
+          executes `protocol/vectors/filenames.json` against it; Swift Testing covers the
+          security-relevant cases directly. NFC via `precomposedStringWithCanonicalMapping`.
+        acceptance:
+          - Every filenames.json case passes on the Swift runner
+          - Sanitizes `../../etc/passwd` → `passwd`, `a<U+0000>b.txt` → INVALID_NAME, `e<U+0301>.txt` →
+            `é.txt` (U+00E9), `invoice<U+202E>fdp.exe` → `invoicefdp.exe`
+        tdd:
+          - "unit: macosFilenameSanitizer_pathTraversal_lastComponentOnly"
+          - "unit: macosFilenameSanitizer_nulByte_invalidName"
+          - "unit: macosFilenameSanitizer_nfdInput_nfcOutput"
+          - "unit: macosFilenameSanitizer_bidiOverride_removed"
+          - "conformance: filenameVectors_swiftRunner_allCasesMatch"
+        notes: "Split from E40-02 in review cycle 3."
+
+      - id: E40-18
+        title: "[macos] Accept, auto-accept, and disk-space pre-check"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-7.1]
+        use_cases: [UC-15]
+        invariants: []
+        depends_on: [E40-01, E12-12, E00-24]
+        description: |
+          Mirror of E40-07 on macOS. Free space via a feature-local `FreeSpaceProvider` over
+          `volumeAvailableCapacityForImportantUsageKey` of the destination volume, compared with
+          `size + 64 MiB`; auto-accept setting; otherwise an accept/decline prompt through a
+          `NotificationPresenter` seam over UNUserNotificationCenter (actions Accept, Decline);
+          300 s unanswered → FileReject TIMEOUT. Tests use the `TandemSession` fake (E12-12),
+          seam fakes, and `ManualTestClock` (E00-24).
+        acceptance:
+          - Free space below size + 64 MiB sends FileReject INSUFFICIENT_SPACE and shows no prompt
+          - Auto-accept on sends FileAccept with no prompt
+          - Auto-accept off presents a prompt with Accept and Decline; Decline sends FileReject DECLINED
+          - No answer after 300 s of virtual time sends FileReject TIMEOUT and removes the prompt
+        tdd:
+          - "unit: macosAcceptFlow_freeSpaceBelowSizePlusReserve_insufficientSpaceRejectNoPrompt"
+          - "unit: macosAcceptFlow_autoAcceptOn_fileAcceptSentWithoutPrompt"
+          - "unit: macosAcceptFlow_declineAction_fileRejectDeclinedSent"
+          - "unit: macosAcceptFlow_noAnswerFor300s_timeoutRejectAndPromptRemoved"
+        notes: "Split from E40-07 in review cycle 3."
+
+      - id: E40-19
+        title: "[macos] Resume by offset after disconnect"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: L
+        prd: [F-7.1]
+        use_cases: [UC-16]
+        invariants: []
+        depends_on: [E40-04, E40-06, E12-12, E00-24, E00-25]
+        description: |
+          Mirror of E40-08 on macOS: receiver truncates retained `.part` files (≤ 24 h old) to a
+          256 KiB boundary, re-hashes the prefix and sends FileResumeRequest; sender seeks and
+          continues with `seq = fromOffset / 262144`; unknown id / unreadable source replies
+          UNKNOWN_TRANSFER / SOURCE_UNAVAILABLE. Tests wire a real macOS sender and receiver over
+          an `InMemoryConnectionPair` (E00-25), cancel one end mid-transfer, reconnect a new pair,
+          and use `ManualTestClock` (E00-24) for the 24 h expiry.
+        acceptance:
+          - A 64 MiB transfer severed after 40 MiB resumes with fromOffset = 40 MiB (rounded down
+            to 256 KiB) and the first resumed chunk has seq fromOffset / 262144
+          - After resume the destination file's SHA-256 equals the source digest
+          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - A source deleted before resume is answered with FileCancel SOURCE_UNAVAILABLE and the
+            receiver deletes its `.part` file
+          - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
+        tdd:
+          - "unit: macosResume_severedAt40MiB_resumeRequestFromOffset40MiB"
+          - "unit: macosResume_resumedTransfer_destinationSha256MatchesSource"
+          - "unit: macosResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: macosResume_sourceDeletedBeforeResume_sourceUnavailableAndPartDeleted"
+          - "unit: macosResume_partOlderThan24h_deletedAndNoResumeRequest"
+        notes: "Split from E40-08 in review cycle 3."
+
+      - id: E40-20
+        title: "[macos] Cancel transfer cleanup"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-7.1]
+        use_cases: [UC-14, UC-15]
+        invariants: []
+        depends_on: [E40-04, E40-06, E00-25]
+        description: |
+          Mirror of E40-09 on macOS. Tests run sender and receiver over an
+          `InMemoryConnectionPair` (E00-25) with per-direction capture.
+        acceptance:
+          - After a sender-side cancel, the capture shows no FileChunk after the FileCancel and
+            the receiver's `.part` file is gone
+          - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
+            (at most the credit window) and the transfer state is cancelled
+          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+        tdd:
+          - "unit: macosCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
+          - "unit: macosCancel_receiverInitiated_senderStopsWithinCreditWindow"
+          - "unit: macosCancel_resumeForCancelledId_unknownTransferCancel"
+        notes: "Split from E40-09 in review cycle 3."
+
+      - id: E40-21
+        title: "[macos] Finder Services \"Send to phone\" entry point"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-7.2]
+        use_cases: [UC-14]
+        invariants: []
+        depends_on: [E40-04]
+        description: |
+          Declare an NSServices item "Send to phone" (NSSendFileTypes `public.item`) whose
+          provider reads file URLs from the service pasteboard and starts one FileOffer per
+          file. The provider takes an `NSPasteboard` and a recording transfer-service fake in
+          tests.
+        acceptance:
+          - The app Info.plist declares the "Send to phone" service with send type `public.item`
+          - A pasteboard holding two file URLs starts two FileOffers
+          - A pasteboard with no file URL starts no FileOffer and returns an error string
+          - In Finder, right-click → Services lists "Send to phone" and choosing it starts an
+            offer within 5 s (manual)
+        tdd:
+          - "ci: appInfoPlist_nsServices_declaresSendToPhoneForPublicItem"
+          - "unit: servicesProvider_twoFileUrls_startsTwoOffers"
+          - "unit: servicesProvider_noFileUrl_noOfferAndErrorReturned"
+          - "manual: finderServices_sendToPhoneChosen_offerStartsWithinFiveSeconds"
+        notes: "Split from E40-10 in review cycle 3."
+
+      - id: E40-22
+        title: "[macos] Share extension target \"Send to phone\""
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: [F-7.2]
+        use_cases: [UC-14]
+        invariants: [1]
+        depends_on: [E40-04]
+        description: |
+          Separate Share extension target. The extension never opens a network connection (the
+          agent owns the only session): it copies each shared file into the shared App Group
+          container, appends a request to a feature-local `SendRequestQueue` there, and wakes the
+          agent, which dequeues and starts one FileOffer per file, deleting the copy after the
+          transfer ends. Queue tests use a temporary directory as the App Group root.
+        acceptance:
+          - The extension Info.plist activation rule accepts 1..20 files
+          - The extension binary links neither Network.framework nor the transport package
+          - Two files enqueued by the extension are dequeued by the agent in order, starting two
+            FileOffers, and their App Group copies are deleted after completion or cancel
+          - From Preview's Share menu, "Send to phone" starts an offer within 5 s (manual)
+        tdd:
+          - "ci: shareExtensionPlist_activationRule_acceptsOneToTwentyFiles"
+          - "ci: shareExtensionBinary_linkedLibraries_excludeNetworkAndTransport"
+          - "unit: sendRequestQueue_twoFilesEnqueued_agentStartsTwoOffersInOrder"
+          - "unit: sendRequestQueue_transferEnded_appGroupCopyDeleted"
+          - "manual: shareExtension_previewShareMenu_offerStartsWithinFiveSeconds"
+        notes: "Split from E40-10 in review cycle 3."
+
+      - id: E40-23
+        title: "[macos] Transfer progress UI"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: [F-7.1]
+        use_cases: [UC-14]
+        invariants: []
+        depends_on: [E40-04, E40-06, E40-20, E00-24, E00-26]
+        description: |
+          Mirror of E40-12 in the menu bar window: per-transfer row with percent, speed (trailing
+          3 s average) and Cancel. View model uses `ManualTestClock` (E00-24); rendering is an
+          XCUITest with a DEBUG seeded in-flight transfer (E00-26).
+        acceptance:
+          - 3 MiB delivered evenly over 3 s of virtual time yields bytesPerSecond 1048576 ± 1%
+          - While bytes flow, consecutive progress emissions are ≥ 250 ms and ≤ 1 s apart
+          - The seeded row shows "42%" and clicking Cancel invokes the E40-20 flow
+        tdd:
+          - "unit: macosProgressVm_threeMiBInThreeSeconds_reportsOneMiBPerSecond"
+          - "unit: macosProgressVm_bytesFlowing_emitsBetween250msAnd1s"
+          - "ui: macosProgressRow_seededFortyTwoPercent_showsPercentAndCancelInvokesFlow"
+        notes: "Split from E40-12 in review cycle 3."
+
+      - id: E40-24
+        title: "[macos] Received-file notification"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-7.2]
+        use_cases: [UC-15]
+        invariants: [7]
+        depends_on: [E40-06]
+        description: |
+          On successful receipt, present a notification through a `NotificationPresenter` seam
+          over UNUserNotificationCenter; clicking it reveals the file via a `FileRevealer` seam
+          over `NSWorkspace.activateFileViewerSelecting`. Both seams have recording fakes.
+        acceptance:
+          - After a successful receive, one notification is presented with the saved file name
+          - Activating it calls the revealer with the exact destination URL
+          - No notification is presented for a hash-mismatch or cancelled transfer
+        tdd:
+          - "unit: macosReceivedNotification_receiveSucceeded_presentedWithSavedName"
+          - "unit: macosReceivedNotification_activated_revealsDestinationUrl"
+          - "unit: macosReceivedNotification_hashMismatch_nothingPresented"
+        notes: "Split from E40-13 in review cycle 3."
 
   - id: E41
     title: Photo browser
@@ -394,21 +820,31 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16, E01-04]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E01-04, E15-01, E15-02, E15-03]
         description: |
           Define `PhotoPage{cursor, limit}`, `PhotoPageResult{items: PhotoMeta{id, takenAt,
-          width, height}, nextCursor}`, `ThumbRequest{id, maxPx}`, `ThumbResult{id, pngBytes}` on
-          FILES (no PHOTOS channel; decision recorded in E01-04). Document paging semantics (stable cursor, page-size bounds) in SPEC.md. Provide
-          vectors for a page response and a thumb response.
+          width, height}, nextCursor, access: FULL|PARTIAL|NONE}`, `ThumbRequest{id, maxPx}`,
+          `ThumbResult{id, pngBytes}`, `OriginalRequest{id, transferId}` (the phone answers with
+          a FileOffer using `transferId`) and `PhotoError{kind: PAGE|THUMB|ORIGINAL, ref,
+          reason: NOT_FOUND|ACCESS_DENIED|INVALID_CURSOR}` on FILES (no PHOTOS channel; decision
+          recorded in E01-04). Document in SPEC.md: opaque stable cursor, `limit` clamped to
+          1..200 (default 100), `maxPx` clamped to 32..384 so a worst-case RGB PNG fits one
+          1 MiB frame, and that the FILES sender interleaves per stream (implemented in
+          E40-03/E40-04). Provide vectors for a page response, a thumb response, an original
+          request and each PhotoError reason.
         acceptance:
           - photos.proto compiles on both codegens
-          - SPEC.md documents cursor paging semantics and bounds
-          - Vectors cover a PhotoPageResult and a ThumbResult
+          - SPEC.md documents cursor paging semantics, the 1..200 limit and 32..384 maxPx clamps,
+            and the OriginalRequest → FileOffer(transferId) flow
+          - Vectors cover a PhotoPageResult with access PARTIAL, a ThumbResult, an OriginalRequest
+            and every PhotoError reason
           - SPEC.md states photo messages ride FILES and that the FILES sender interleaves per stream (round-robin between active transfers and thumbnail/page responses) so an in-flight transfer never blocks a ThumbResult for more than one chunk.
         tdd:
-          - conformance_photoPageResultVector_encodesAndDecodes
-          - conformance_thumbResultVector_encodesAndDecodes
-          - filesChannelScheduler_transferInFlight_thumbResultInterleavedWithinOneChunk
+          - "conformance: photoPageResultVector_partialAccess_bothCodecsDecodeAccessPartial"
+          - "conformance: thumbResultVector_bothCodecs_decodeIdenticalPngBytes"
+          - "conformance: originalRequestVector_bothCodecs_decodeTransferId"
+          - "conformance: photoErrorVectors_everyReason_roundTripOnBothCodecs"
+
       - id: E41-02
         title: "[android] Media permission handling (full and partial access)"
         type: story
@@ -418,19 +854,32 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E20-02]
+        depends_on: [E20-02, E41-01, E00-20, E00-21]
         description: |
-          Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` (API 33+) or the legacy storage
-          permission below it; handle Android 14's partial-access grant by exposing a "manage
-          accessible photos" entry point when the Mac requests more than currently granted.
+          Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` (API 33+, plus
+          `READ_MEDIA_VISUAL_USER_SELECTED` on API 34+) or `READ_EXTERNAL_STORAGE` below 33.
+          A feature-local `MediaPermissionChecker` over `checkSelfPermission` and SDK_INT maps the
+          grant state to FULL, PARTIAL (API 34+: only USER_SELECTED granted) or NONE, reported in
+          every PhotoPageResult.access. When access is PARTIAL and the Mac asks for more, the
+          phone posts a "Select more photos" notification that relaunches the permission request
+          (system re-selection picker). Robolectric tests (E00-20) with `@Config(sdk = …)` cover
+          the mapping; the partial-grant state on a real permission controller is
+          `instrumented:` (E00-21, API 35 device, grants via `pm grant` / `pm revoke`).
         acceptance:
-          - On API 33+, the permission request asks for READ_MEDIA_IMAGES and READ_MEDIA_VIDEO
-          - A partial-access grant is detected and surfaces a re-selection entry point
-          - Below API 33, the legacy storage permission path is used
+          - On API 33 the request contains READ_MEDIA_IMAGES and READ_MEDIA_VIDEO; on API 34+ it
+            also contains READ_MEDIA_VISUAL_USER_SELECTED; on API 32 only READ_EXTERNAL_STORAGE
+          - Only USER_SELECTED granted maps to PARTIAL; IMAGES granted maps to FULL; nothing
+            granted maps to NONE and PhotoPage returns zero items with access NONE
+          - With PARTIAL access, a Mac request for more posts exactly one "Select more photos"
+            notification whose tap launches the permission request
         tdd:
-          - mediaPermission_api33Plus_requestsGranularImageVideoPermissions
-          - mediaPermission_partialAccessGranted_surfacesReselectionEntryPoint
-          - mediaPermission_belowApi33_usesLegacyStoragePermission
+          - "unit: mediaPermission_api34_requestIncludesVisualUserSelected"
+          - "unit: mediaPermission_api32_requestsOnlyReadExternalStorage"
+          - "unit: mediaPermission_onlyUserSelectedGranted_mapsToPartial"
+          - "unit: mediaPermission_nothingGranted_pageReturnsZeroItemsAccessNone"
+          - "unit: mediaPermission_partialAndMoreRequested_postsOneSelectMoreNotification"
+          - "instrumented: mediaPermission_pmGrantUserSelectedOnlyApi35_reportsPartial"
+
       - id: E41-03
         title: "[android] MediaStore cursor-paged query"
         type: task
@@ -440,40 +889,58 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-01, E41-02]
+        depends_on: [E41-01, E41-02, E00-20, E00-21]
         description: |
-          Implement PhotoPage handling via a MediaStore query ordered by date, using a stable
-          cursor (last-seen date+id) to page results without re-scanning from the start each
-          time.
+          Implement PhotoPage handling via a feature-local `MediaStoreSource` seam (keyset query
+          ordered by `DATE_TAKEN DESC, _ID DESC`, cursor = last-seen (dateTaken, id), bound via
+          selectionArgs only) so paging never re-scans from the start. JVM tests use an in-memory
+          `MediaStoreSource` fake that counts rows read; the real ContentResolver implementation
+          is `instrumented:` against a MediaStore seeded with 250 generated images (E00-21).
+          The cursor comes from the Mac and is untrusted: anything that does not decode to
+          (long, long) returns PhotoError INVALID_CURSOR.
         acceptance:
-          - Consecutive PhotoPage requests using the returned nextCursor yield the next page with
-            no duplicates or gaps
-          - A page request with limit N returns at most N items plus a nextCursor when more
-            remain, or none when exhausted
+          - 250 items with limit 100 yield pages of 100, 100, 50; the last page has no nextCursor
+          - Items sharing one dateTaken are split across pages without duplicates or gaps (id tie-break)
+          - A photo inserted newer than the first page does not shift or duplicate later pages
+          - limit 0 is served as 1 and limit 500 as 200
+          - A cursor containing `') OR 1=1 --` returns PhotoError INVALID_CURSOR and no items
+          - On the emulator with 250 seeded images, paging returns exactly 250 unique ids
         tdd:
-          - photoPaging_consecutivePages_noDuplicatesOrGaps
-          - photoPaging_lastPage_returnsNoNextCursor
+          - "unit: photoPaging_items250Limit100_pagesOf100And100And50ThenNoCursor"
+          - "unit: photoPaging_sameDateTakenAcrossBoundary_noDuplicatesOrGaps"
+          - "unit: photoPaging_newerPhotoInsertedBetweenPages_laterPagesUnchanged"
+          - "unit: photoPaging_limit500_clampedTo200"
+          - "unit: photoPaging_sqlFragmentCursor_invalidCursorErrorNoItems"
+          - "instrumented: mediaStoreSource_seeded250Images_pagesReturn250UniqueIds"
+
       - id: E41-04
         title: "[android] Thumbnail generation via ThumbRequest"
         type: task
         platforms: [android]
         priority: P0
-        size: S
+        size: M
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-01, E41-02]
+        depends_on: [E41-01, E41-02, E00-21]
         description: |
-          On ThumbRequest{id, maxPx}, generate a thumbnail bounded by maxPx using
-          `ContentResolver.loadThumbnail` (or MediaStore.Images.Thumbnails on older APIs), encode
-          PNG, and return ThumbResult.
+          On ThumbRequest{id, maxPx}, clamp maxPx to 32..384, generate a thumbnail with
+          `ContentResolver.loadThumbnail` behind a feature-local `ThumbnailLoader` seam, encode
+          PNG (RGB, no alpha) and return ThumbResult; a missing or inaccessible id returns
+          PhotoError NOT_FOUND / ACCESS_DENIED. JVM tests use a fake loader returning a known
+          bitmap; the real loader is `instrumented:` on seeded MediaStore images (E00-21).
         acceptance:
-          - A ThumbRequest returns a PNG no larger than maxPx on its longest edge
-          - A request for an id the app no longer has access to (revoked partial access) returns
-            a clear error rather than crashing
+          - A request with maxPx 256 for a 4000×3000 image returns a PNG whose longest edge is ≤ 256
+          - maxPx 4096 is served as 384; maxPx 8 as 32
+          - An id outside the current grant returns PhotoError ACCESS_DENIED and the handler keeps
+            serving later requests
+          - On the emulator, a seeded 4000×3000 JPEG yields a decodable PNG ≤ 384 px and ≤ 450 KiB
         tdd:
-          - thumbGeneration_maxPxBound_respectedInResult
-          - thumbGeneration_revokedAccessId_errorsCleanlyNoCrash
+          - "unit: thumbGeneration_maxPx256_longestEdgeAtMost256"
+          - "unit: thumbGeneration_maxPx4096_clampedTo384"
+          - "unit: thumbGeneration_idOutsideGrant_accessDeniedErrorAndNextRequestServed"
+          - "instrumented: thumbnailLoader_seeded4000x3000Jpeg_pngAtMost384pxAnd450KiB"
+
       - id: E41-05
         title: "[macos] Photo grid UI with paging"
         type: story
@@ -483,19 +950,26 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-01, E22-01]
+        depends_on: [E41-01, E22-01, E12-12, E00-26]
         description: |
-          A grid view that requests successive PhotoPage pages as the user scrolls near the end
-          of the loaded set, rendering thumbnails as they arrive.
+          A grid view that requests successive PhotoPage pages (limit 100) when the last visible
+          index is within 50 of the loaded count, and ThumbRequests (maxPx 256) only for visible
+          cells plus one viewport of prefetch above and below. The view model talks to a
+          feature-local `PhotoService` over `TandemSession` (E12-12) and is tested with a fake
+          service; rendered states are XCUITest with DEBUG scenario seeding (E00-26).
         acceptance:
-          - Scrolling near the end of the currently loaded items triggers the next PhotoPage
-            request
-          - The grid never issues a duplicate request for a page already in flight
-          - Thumbnails are requested only for visible cells plus a bounded prefetch window (UC-17).
+          - With 100 items loaded, making index 50 visible issues one PhotoPage with the last
+            nextCursor; index 49 issues none
+          - While a page request is in flight, further scrolling issues no second request
+          - ThumbRequests are issued only for visible cells plus one viewport each side
+          - Access PARTIAL shows the limited-access banner with a "Select more on phone" button
+            that sends the more-photos request (UC-17)
         tdd:
-          - photoGridUi_scrollNearEnd_requestsNextPage
-          - photoGridUi_pageAlreadyInFlight_neverDuplicateRequested
-          - photoGridUi_offscreenCells_neverRequestThumbnails
+          - "unit: photoGridVm_lastVisibleIndexWithin50OfLoaded_requestsNextPage"
+          - "unit: photoGridVm_pageInFlight_noDuplicateRequest"
+          - "unit: photoGridVm_visibleRange_thumbRequestsOnlyVisiblePlusOneViewport"
+          - "ui: photoGrid_seededPartialAccess_showsLimitedBannerWithSelectMoreButton"
+
       - id: E41-06
         title: "[macos] LRU disk thumbnail cache with size cap"
         type: task
@@ -507,36 +981,49 @@ epics:
         invariants: []
         depends_on: [E41-05]
         description: |
-          Cache ThumbResult PNGs on disk keyed by (id, maxPx) with an LRU eviction policy and a
-          configurable total size cap.
+          Cache ThumbResult PNGs on disk keyed by (device, id, maxPx) with LRU eviction and a
+          byte cap (default 256 MiB, configurable). The cache root is injected so tests use a
+          temporary directory and a 1 MiB cap.
         acceptance:
-          - A cached thumbnail is served without a network round trip on a repeat request
-          - Inserting beyond the size cap evicts the least-recently-used entries until back
-            under the cap
+          - A cached thumbnail is served with zero PhotoService calls on a repeat request
+          - With a 1 MiB cap, inserting four 300 KiB entries evicts the oldest; total on-disk
+            bytes are ≤ 1 MiB after every insert
+          - Reading entry A before inserting a new entry evicts B instead of A
+          - Re-opening the cache from the same directory serves previous entries as hits
+          - A truncated/corrupt cached file is treated as a miss and deleted
         tdd:
-          - thumbnailCache_cachedEntry_servedWithoutRoundTrip
-          - thumbnailCache_overCap_evictsLeastRecentlyUsedUntilUnderCap
+          - "unit: thumbnailCache_repeatRequest_zeroServiceCalls"
+          - "unit: thumbnailCache_fourEntriesOver1MiBCap_oldestEvictedTotalUnderCap"
+          - "unit: thumbnailCache_readBeforeInsert_leastRecentlyUsedEvictedInstead"
+          - "unit: thumbnailCache_reopenedFromSameDirectory_previousEntriesHit"
+          - "unit: thumbnailCache_corruptFile_missAndFileDeleted"
+
       - id: E41-07
-        title: "[cross] Original download via file transfer"
+        title: "[android] Serve original download via file transfer"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
         size: S
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-01, E40-05, E40-06]
+        depends_on: [E41-01, E41-02, E40-03, E12-11]
         description: |
-          Requesting an original from the grid starts a FileOffer/transfer through the E40
-          pipeline for the source photo, rather than a separate download path; the Mac
-          saves/opens the result once E40 verifies its hash.
+          On OriginalRequest{id, transferId}, open the MediaStore item through `MediaStoreSource`
+          and start the standard E40-03 send with FileOffer.id = transferId, rather than a
+          separate download path. Tests use `FakeTandemSession` (E12-11) and a fake
+          `MediaStoreSource` returning fixture bytes.
         acceptance:
-          - Requesting an original triggers the standard E40 file-transfer flow and completes
-            with a verified hash
-          - The downloaded original is byte-identical to the source photo
+          - An OriginalRequest for a known id produces one FileOffer with id = transferId, the
+            item's display name, and the fixture's SHA-256
+          - An OriginalRequest for an unknown id sends PhotoError NOT_FOUND and no FileOffer
+          - An OriginalRequest for an id outside a partial grant sends PhotoError ACCESS_DENIED
         tdd:
-          - originalDownload_requestedViaFileTransfer_completesWithVerifiedHash
-          - originalDownload_result_byteIdenticalToSource
+          - "unit: originalRequest_knownId_fileOfferWithTransferIdAndFixtureSha256"
+          - "unit: originalRequest_unknownId_notFoundErrorAndNoOffer"
+          - "unit: originalRequest_idOutsidePartialGrant_accessDeniedErrorAndNoOffer"
+        notes: "Split from E41-07 in review cycle 3: macOS half is E41-10."
+
       - id: E41-08
         title: "[android] Partial-access and paging correctness test"
         type: test
@@ -546,38 +1033,107 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-02, E41-03]
+        depends_on: [E41-02, E41-03, E00-21, E00-23]
         description: |
-          Instrumented test covering the Android 14 partial-access re-selection prompt path and a
-          paging-correctness check across a library larger than one page.
+          Emulator test (API 35 Gradle Managed Device, E00-21) with a MediaStore seeded with 500
+          generated images, plus a physical-device gate (E00-23) for the system re-selection
+          picker, which is not reliably automatable.
         acceptance:
-          - Requesting a photo outside the current partial-access grant surfaces the
-            re-selection prompt, and once granted, becomes retrievable
-          - Paging through a simulated 500-photo library yields exactly 500 unique items with no
-            duplicates or gaps
+          - Emulator with only READ_MEDIA_VISUAL_USER_SELECTED granted; PhotoPageResult.access is
+            PARTIAL and a thumb request for a seeded, unselected id returns ACCESS_DENIED
+          - Emulator with full access; paging the 500 seeded images at limit 100 yields exactly
+            500 unique ids in 5 pages
+          - Manual, Android 14+ device, partial access with 3 photos selected; the Mac's "Select
+            more on phone" posts the notification, selecting 2 more makes exactly 5 items listed
+            on the Mac's next refresh
         tdd:
-          - partialAccessTest_photoOutsideGrant_promptsAndBecomesRetrievable (device test)
-          - pagingCorrectnessTest_largeLibrary_noDuplicatesOrGaps
+          - "instrumented: partialAccess_unselectedSeededId_thumbAccessDenied"
+          - "instrumented: pagingCorrectness_seeded500Images_exactly500UniqueIdsInFivePages"
+          - "manual: partialAccess_selectTwoMoreOnPhone_macListsExactlyFiveItems"
+
       - id: E41-09
-        title: "[cross] 10k-library scroll test: thumbnails only for visible cells, bounded cache and memory"
+        title: "[macos] 10k-library scroll test: thumbnails only for visible cells, bounded cache and memory"
         type: test
-        platforms: [android, macos]
+        platforms: [macos]
         priority: P0
         size: M
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E41-03, E41-04, E41-05, E41-06]
+        depends_on: [E41-05, E41-06, E00-26]
         description: |
           Phase 4 checklist "photo browser pages a 10k library with bounded cache" and UC-17's
-          acceptance had no verifying test (E41-08 uses 500 items). Drive a 10 000-item fake MediaStore
-          through the real paging/thumbnail code into the Mac grid over a fake TandemSession; scroll
-          top to bottom and back.
+          acceptance. The grid view model and disk cache run against a fake `PhotoService`
+          serving 10 000 items (page 100) with synthetic 256 px thumbnails; a scripted scroll goes
+          top to bottom and back in viewport steps. The memory bound is an XCUITest with
+          `XCTMemoryMetric` over a DEBUG-seeded 10 000-item scenario (E00-26). The Android side
+          of the 10k run is E41-11.
         acceptance:
-          - ThumbRequests are issued only for visible cells plus the configured prefetch window, never for the whole library
-          - The disk thumbnail cache never exceeds its size cap during the scroll
-          - Mac resident memory for the grid stays under a documented ceiling independent of library size
+          - At every scroll step, outstanding ThumbRequests ≤ visible cells + one viewport each side
+          - Decoded in-memory thumbnails never exceed 300 during the scroll
+          - With a 4 MiB disk cap, on-disk cache bytes never exceed 4 MiB during the scroll
+          - Top-to-bottom issues exactly 100 PhotoPage requests; scrolling back up issues none
+          - Peak physical memory growth during the XCUITest scroll is < 150 MiB above the
+            grid-open baseline
         tdd:
-          - photoGrid10k_scrollFullLibrary_thumbRequestsOnlyVisiblePlusPrefetch
-          - photoGrid10k_scrollFullLibrary_diskCacheNeverExceedsCap
-          - photoGrid10k_scrollFullLibrary_residentMemoryBounded
+          - "unit: photoGrid10kScroll_everyStep_thumbRequestsAtMostVisiblePlusPrefetch"
+          - "unit: photoGrid10kScroll_decodedThumbnails_neverExceed300"
+          - "unit: photoGrid10kScroll_diskCache_neverExceedsFourMiBCap"
+          - "unit: photoGrid10kScroll_downAndBackUp_exactly100PageRequests"
+          - "ui: photoGrid10kScroll_xctMemoryMetric_peakGrowthUnder150MiB"
+        notes: "Split in review cycle 3: Android 10k paging moved to E41-11; now macOS only."
+
+      - id: E41-10
+        title: "[macos] Download original from the photo grid"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-7.4]
+        use_cases: [UC-17]
+        invariants: []
+        depends_on: [E41-05, E40-06, E40-18, E15-15]
+        description: |
+          "Download" on a grid item sends OriginalRequest with a fresh transferId and records it
+          as pending; a FileOffer whose id matches a pending OriginalRequest is accepted without
+          a prompt (bypassing E40-18's prompt, still subject to its disk-space check) and saved
+          via E40-06; unsolicited offers keep the normal prompt. Unit tests use the fake
+          `PhotoService` and a recording accept-flow fake; the byte-identity check runs over the
+          E15-15 harness with a JVM phone side serving a fixture photo.
+        acceptance:
+          - A FileOffer matching a pending transferId is accepted with no prompt
+          - A FileOffer with an unknown id still prompts
+          - A PhotoError for the transferId clears the pending entry and shows the item's
+            download state as failed
+          - Over the E15-15 harness, a 12 MiB fixture photo lands in the destination
+            byte-identical to the source
+        tdd:
+          - "unit: originalDownload_offerMatchesPendingTransferId_acceptedWithoutPrompt"
+          - "unit: originalDownload_unsolicitedOffer_stillPrompts"
+          - "unit: originalDownload_photoErrorForTransferId_itemStateFailed"
+          - "integration: originalDownload_jvmPhoneFixturePhoto_savedByteIdenticalOnMac"
+        notes: "Split from E41-07 in review cycle 3."
+
+      - id: E41-11
+        title: "[android] 10k-library paging and thumbnail load test"
+        type: test
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-7.4]
+        use_cases: [UC-17]
+        invariants: []
+        depends_on: [E41-03, E41-04]
+        description: |
+          Android side of the 10k run: the real PhotoPage and ThumbRequest handlers against a
+          10 000-row in-memory `MediaStoreSource` fake (row-read counting) and fake
+          `ThumbnailLoader`, paging the full library at limit 100.
+        acceptance:
+          - Paging returns exactly 10 000 unique ids in 100 pages and the last page has no nextCursor
+          - Each page query reads at most limit + 1 rows from the source (keyset, no offset scan)
+          - The handler retains no rows from previous pages after responding
+        tdd:
+          - "unit: photoPaging10k_fullLibrary_exactly10000UniqueIdsIn100Pages"
+          - "unit: photoPaging10k_eachPage_readsAtMostLimitPlusOneRows"
+          - "unit: photoPaging10k_afterResponse_noRowsRetained"
+        notes: "Split from E41-09 in review cycle 3."

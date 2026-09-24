@@ -54,14 +54,37 @@ are generated from it by `tools/planning/sync_issues.rb`. Edit YAML here, then r
 - **Types:** `story` (user-visible behaviour), `task` (technical), `spike` (time-boxed research, output = findings doc), `adr`, `test` (security/integration harness or scenario), `doc`.
 - **Priority:** `P0` must for phase exit, `P1` should, `P2` could.
 - **Size:** `S` ≤ ½ day, `M` 1–2 days, `L` 3–5 days. Anything bigger is split.
-- **TDD:** every `story`/`task` lists the failing tests to write first (`tdd:`). Tests name the behaviour: `methodOrUnit_condition_expectedResult`.
+- **TDD:** every `story`/`task`/`test` lists the failing tests to write first (`tdd:`), each as
+  `"<layer>: unit_condition_expectedResult"` (format enforced by `sync_issues.rb validate`).
+  Layers are listed below.
 - **Security invariants:** list the PRD invariant numbers (1–8) an issue touches; reviewers must check them.
+
+## Test layers
+
+Prefix on every `tdd:` entry; tells the implementer which harness to use.
+
+| Prefix | Harness | Infrastructure issue | Runs |
+|---|---|---|---|
+| `unit:` | JUnit5 + Turbine (Robolectric only for unavoidable framework types) / Swift Testing | E00-04, E00-18, E00-19, E00-20, E10-15 / E00-08, E00-24, E00-25, E10-16 | every PR |
+| `conformance:` | `tools/conformance` over `protocol/vectors/` on both codecs | E15-01, E15-02, E15-03 | every PR |
+| `integration:` | JVM client ↔ real Mac server on the macOS runner, or in-process loopback (two real sessions, localhost TLS) | E15-15 | every PR (macOS runner) |
+| `instrumented:` | Android emulator, Gradle Managed Devices (API 29 + 35) | E00-21, E00-22 | PRs touching `android/**`, nightly |
+| `ui:` | Compose UI tests under Robolectric / XCUITest with DEBUG-only scenario seeding | E00-20 / E00-26 | every PR |
+| `manual:` | Physical-device gate, procedure + sign-off in `docs/testing/manual-gates.md` | E00-23 | phase exit |
+| `security:` | mitm-lab, pcap-audit, nmap, log-audit | E15-04…E15-18 | core/* PRs (subset), phase exit |
+| `ci:` | Lint-rule fixtures, buf lint/breaking, schema/manifest/link checks | E00-05, E00-10, E00-11, E01-15 | every PR |
+
+Test seams (production code must accept these so tests can inject fakes): Android `Clock` +
+`ElapsedRealtimeSource` + injected dispatchers (E00-18), `ByteStream` (E00-19),
+`IdentityKeyStore` (E10-15), `TandemSession` (E12-11); macOS `Clock<Duration>` + `DateProvider`
+(E00-24), `ByteStreamConnection` (E00-25), `KeychainStore` (E10-16), `TandemSession` (E12-12).
 
 ## Definition of Ready
 
 - [ ] PRD refs, use cases, and dependencies listed
 - [ ] Acceptance criteria testable
-- [ ] TDD list names concrete tests
+- [ ] TDD list names concrete, layer-prefixed tests that fail before implementation
+- [ ] Seams/fakes the tests need exist or are in `depends_on`
 - [ ] Size ≤ L
 
 ## Definition of Done (rendered into every issue)

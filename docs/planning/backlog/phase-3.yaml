@@ -38,28 +38,33 @@ epics:
         prd: [F-5.1, F-5.2, F-5.3, F-5.4]
         use_cases: [UC-08, UC-09, UC-10]
         invariants: [7]
-        depends_on: [E01-05, E01-10, E01-14, E01-16]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02]
         description: |
           Define `NotificationPosted{key, packageName, appVersionCode, title, text,
           messagingStyleSenders, visibility, hasIcon}`, `IconData{packageName, versionCode,
           pngBytes}`, `NotificationAction{key, actionIndex, replyText}`,
           `NotificationDismiss{key, origin}` on the NOTIFY channel. Document in SPEC.md,
           including the default filter list and VISIBILITY_SECRET handling. Provide vectors for
-          a MessagingStyle-bearing post and an action with a reply.
+          a MessagingStyle-bearing post and an action with a reply. Vectors run through the
+          Kotlin and Swift conformance runners (E15-01, E15-02).
         acceptance:
-          - notify.proto covers posted/icon/action/dismiss messages and compiles on both
-            codegens
-          - SPEC.md documents NOTIFY channel semantics, the default filter list, and
-            secret-visibility handling
-          - Vectors cover a MessagingStyle post and a reply action
+          - notify.proto covers posted/icon/action/dismiss/actionResult messages and `buf lint`
+            reports zero findings
+          - SPEC.md documents NOTIFY channel semantics, the default filter list (E30-03), and
+            secret-visibility handling (title = app name, text empty, senders empty; E30-11)
+          - Vectors cover a MessagingStyle post with 3 senders, a reply action, a dismiss with
+            origin macos, an IconData, and a NotificationActionResult with status GONE
           - "notify.proto also defines NotificationActionResult{key, status: OK|GONE|FAILED} so the Mac can report \"no longer available\" (UC-09 alternate)."
-          - SPEC.md states the disconnected-phone buffer policy (bounded count and max age; oldest dropped first; nothing persisted to disk) (UC-08 alternate).
+          - "SPEC.md states the disconnected-phone buffer policy: at most 50 notifications, max age 60 s, oldest dropped first, nothing persisted to disk (UC-08 alternate; implemented in E30-16)."
         tdd:
-          - conformance_notificationPostedVector_encodesAndDecodes
-          - conformance_notificationActionWithReplyVector_encodesAndDecodes
-          - conformance_notificationActionResultVector_encodesAndDecodes
+          - "ci: notifyProto_bufLint_zeroFindings"
+          - "conformance: notificationPostedVector_messagingStyleThreeSenders_roundTripsOnBothCodecs"
+          - "conformance: notificationActionVector_withReplyText_roundTripsOnBothCodecs"
+          - "conformance: notificationDismissVector_originMacos_roundTripsOnBothCodecs"
+          - "conformance: iconDataVector_pngBytes_roundTripsOnBothCodecs"
+          - "conformance: notificationActionResultVector_statusGone_roundTripsOnBothCodecs"
       - id: E30-02
-        title: "[android] NotificationListenerService capture"
+        title: "[android] NotificationListenerService capture and mapping"
         type: task
         platforms: [android]
         priority: P0
@@ -67,22 +72,35 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: [7]
-        depends_on: [E30-01]
+        depends_on: [E30-01, E00-20, E00-21, E00-22]
         description: |
           Implement NotificationListenerService; on onNotificationPosted/Removed, extract app
           name, package, version, title, text, and MessagingStyle sender names when present, and
-          forward as NotificationPosted/NotificationDismiss. Raw notification text must never be
-          written to logcat in release builds.
+          emit NotificationPosted/NotificationDismiss to a `NotificationSink` (session-facing
+          sink with disconnected buffering is E30-16). Raw notification text must never be
+          written to logcat in release builds (E00-17 lint rule applies to this module).
+          The StatusBarNotification → NotificationPosted mapper is a plain function tested under
+          Robolectric (E00-20); the real listener binding is tested on the emulator (E00-21)
+          against notifications posted by the companion app `dev.tandem.companion` (E00-22,
+          kinds `plain` and `messagingGroup`).
         acceptance:
-          - A plain notification and a MessagingStyle group notification both produce correct
-            NotificationPosted payloads with sender names preserved for the latter
-          - Release build logs never contain notification title or text
-          - While disconnected, posted notifications are held only up to the SPEC buffer limits (count and age), in memory, and flushed oldest-first on reconnect.
+          - A plain notification maps to NotificationPosted with packageName, appVersionCode,
+            title, and text equal to the source notification
+          - A MessagingStyle notification with 3 senders maps with messagingStyleSenders equal
+            to the 3 sender names in message order
+          - 'onNotificationRemoved emits NotificationDismiss{key, origin: android} for the same key'
+          - With notification access granted on the emulator, a companion-app post is captured
+            within 2 s
+          - Release build logs never contain notification title or text (static E00-17 lint;
+            runtime log-audit in E30-13)
         tdd:
-          - notificationListener_plainNotification_mapsToPostedMessage
-          - notificationListener_messagingStyleGroup_preservesSenderNames
-          - notificationListener_releaseLogging_neverContainsNotificationText
-          - notificationListener_disconnected_buffersWithinSpecLimitsDropsOldest
+          - "unit: notificationMapper_plainStatusBarNotification_mapsPackageVersionTitleText"
+          - "unit: notificationMapper_messagingStyleThreeSenders_preservesSenderNamesInOrder"
+          - "unit: notificationMapper_removedCallback_emitsDismissWithOriginAndroid"
+          - "instrumented: listenerService_companionPlainPost_capturedWithCompanionPackageWithin2s"
+          - "instrumented: listenerService_companionMessagingGroupThreeSenders_capturedWithThreeSenders"
+        notes: |
+          Buffer-while-disconnected moved to E30-16 in review cycle 3.
       - id: E30-03
         title: "[android] Default notification filter"
         type: task
@@ -92,23 +110,25 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: []
-        depends_on: [E30-02]
+        depends_on: [E30-02, E00-20]
         description: |
           Apply a default filter before forwarding: exclude Tandem's own notifications and a
           documented system-noise package list (system UI media/volume/USB/foreground-service
-          notifications). Filter is evaluated per posted notification.
+          notifications). Filter is evaluated per posted notification. Tests build
+          StatusBarNotification instances under Robolectric (E00-20).
         acceptance:
           - Tandem's own notifications are never forwarded
           - Each package on the documented system-noise list is never forwarded by default
           - A notification from any other app is forwarded by default
           - "The system-noise rule set is exactly: (1) Tandem's own package; (2) packages `android` and `com.android.systemui`; (3) notifications with FLAG_FOREGROUND_SERVICE from any app; (4) group-summary notifications (children still forwarded); (5) MediaStyle notifications (media control is F-10.1). The list is checked in as android/feature/notifications/SYSTEM_NOISE.md and referenced from the SPEC NOTIFY section (E30-01)."
         tdd:
-          - defaultFilter_ownPackage_neverForwarded
-          - defaultFilter_systemNoisePackage_neverForwarded
-          - defaultFilter_ordinaryApp_forwardedByDefault
-          - defaultFilter_foregroundServiceFlag_neverForwarded
-          - defaultFilter_groupSummary_notForwardedChildrenForwarded
-          - defaultFilter_mediaStyle_neverForwarded
+          - "unit: defaultFilter_ownPackage_dropped"
+          - "unit: defaultFilter_packageComAndroidSystemui_dropped"
+          - "unit: defaultFilter_packageAndroid_dropped"
+          - "unit: defaultFilter_ordinaryAppPlainPost_forwarded"
+          - "unit: defaultFilter_foregroundServiceFlag_dropped"
+          - "unit: defaultFilter_groupSummaryWithTwoChildren_summaryDroppedChildrenForwarded"
+          - "unit: defaultFilter_mediaStyleTemplate_dropped"
       - id: E30-04
         title: "[android] Per-app allow/deny settings"
         type: story
@@ -118,20 +138,26 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-11]
         invariants: []
-        depends_on: [E30-03]
+        depends_on: [E30-03, E00-20, E12-11]
         description: |
           Settings screen listing installed apps with a per-app Allow/Deny toggle, persisted in
-          DataStore, overriding the default filter.
+          DataStore, overriding the default filter. Installed apps come from an
+          `InstalledAppsSource` over PackageManager (fake in test fixtures); the reconnect-free
+          check uses `FakeTandemSession` (E12-11); the screen is a Compose `ui:` test under
+          Robolectric (E00-20).
         acceptance:
-          - Toggling an app to Deny stops forwarding new notifications from it
+          - Toggling an app to Deny drops the next notification from it
           - Toggling to Allow overrides a default-deny (for example re-enabling a system-noise
             package)
           - The setting persists across an app restart
+          - A toggle applies to the next notification without a session reconnect (UC-11)
+          - The screen lists every app returned by InstalledAppsSource with its current state
         tdd:
-          - perAppFilterUi_toggleDeny_stopsForwarding
-          - perAppFilterUi_toggleAllowOnDefaultDenied_forwards
-          - perAppFilterUi_restart_settingPersists
-          - perAppFilterUi_toggleDeny_appliesToNextNotificationWithoutReconnect
+          - "unit: perAppFilter_denyToggled_nextNotificationDropped"
+          - "unit: perAppFilter_allowOnSystemNoisePackage_nextNotificationForwarded"
+          - "unit: perAppFilter_newInstanceOverSameDataStore_denyPersisted"
+          - "unit: perAppFilter_denyToggledWhileConnected_appliesWithZeroReconnects"
+          - "ui: perAppFilterScreen_threeInstalledApps_rendersThreeRowsWithToggleState"
         notes: |
           Decision: the allow/deny list is managed on the phone only. Android owns the
           notification-access permission and the authoritative installed-app list; the Mac
@@ -146,19 +172,24 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: []
-        depends_on: [E30-02]
+        depends_on: [E30-02, E00-20]
         description: |
           Extract the app icon bitmap on the first notification from a package+versionCode not
           yet recorded as sent, encode as PNG, send IconData, and record it locally so later
-          notifications from the same package+version omit the icon.
+          notifications from the same package+version omit the icon. PackageManager/Drawable
+          access runs under Robolectric (E00-20).
         acceptance:
           - The first notification from a new package+version sends IconData exactly once
           - Subsequent notifications from the same package+version never resend the icon
           - An app update (new versionCode) triggers a fresh icon send
+          - The sent-record survives an app restart (no resend after restart)
+          - IconData.pngBytes starts with the 8-byte PNG signature
         tdd:
-          - iconSend_firstNotificationForVersion_sendsIconOnce
-          - iconSend_repeatedNotificationsSameVersion_neverResent
-          - iconSend_appUpdated_resendsIconForNewVersion
+          - "unit: iconSender_firstNotificationForPackageVersion_sendsOneIconData"
+          - "unit: iconSender_fiveNotificationsSameVersion_iconDataSentOnce"
+          - "unit: iconSender_versionCodeIncremented_sendsNewIconData"
+          - "unit: iconSender_recordReloadedAfterRestart_iconNotResent"
+          - "unit: iconEncoder_adaptiveIconDrawable_bytesStartWithPngSignature"
       - id: E30-06
         title: "[macos] Icon cache keyed by package and version"
         type: task
@@ -168,38 +199,56 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: []
-        depends_on: [E30-01, E22-01]
+        depends_on: [E30-01, E30-07, E22-01, E00-08]
         description: |
           Disk cache storing received IconData keyed by packageName+versionCode, served to the
-          notification presentation layer (E30-07) and the paired-devices/app-list UI.
+          notification presentation layer (E30-07) and the paired-devices/app-list UI. Tests use
+          a temporary cache directory and the `RecordingNotificationPresenter` (E30-07).
         acceptance:
           - Received IconData is retrievable by packageName+versionCode after an app restart
           - A missing icon falls back to a generic app placeholder
+          - A presented notification whose package+version is cached carries the icon as its
+            single attachment
         tdd:
-          - iconCache_receivedIcon_retrievableAfterRestart
-          - iconCache_missingIcon_fallsBackToPlaceholder
+          - "unit: iconCache_storedIconNewCacheInstance_returnsSameBytes"
+          - "unit: iconCache_unknownPackageVersion_returnsPlaceholder"
+          - "unit: notificationPresentation_iconCached_requestHasOneIconAttachment"
       - id: E30-07
-        title: "[macos] UNUserNotificationCenter presentation"
+        title: "[macos] UNUserNotificationCenter presentation via NotificationPresenter seam"
         type: story
         platforms: [macos]
         priority: P0
-        size: L
+        size: M
         prd: [F-5.1, F-5.2]
         use_cases: [UC-08, UC-09]
         invariants: []
-        depends_on: [E30-01, E22-01]
+        depends_on: [E30-01, E22-01, E00-08, E12-12, E00-23]
         description: |
-          Present NotificationPosted as a UNNotificationRequest with a category defining the
-          phone's available actions plus a UNTextInputNotificationAction for reply, using the
-          cached icon and MessagingStyle sender names in the body.
+          Present NotificationPosted as a UNNotificationRequest using MessagingStyle sender names
+          in the body. Seam: `NotificationPresenter` protocol in the notifications module
+          (`add(request)`, `removeDelivered(identifiers)`, `setCategories`, response stream of
+          `NotificationResponseEvent{requestIdentifier, actionIdentifier, userText}` because
+          UNNotificationResponse has no public init); `UNNotificationPresenter` is the only type
+          touching UNUserNotificationCenter; `RecordingNotificationPresenter` in test fixtures
+          records requests so tests need no notification authorization. Incoming posts come from
+          the fake TandemSession (E12-12). Category/action registration is E30-17. Real banner
+          rendering is a manual gate (E00-23).
         acceptance:
-          - A plain notification is presented with app name, title, text, and icon
-          - A MessagingStyle notification shows sender names in the presented body
-          - A reply-capable notification presents a text-input action
+          - A plain notification produces a request with title = notification title, subtitle =
+            app name, body = text
+          - 'A MessagingStyle notification body lists one line per message as "Sender: text"'
+          - The request identifier equals the NotificationPosted key, so an update to the same
+            key replaces rather than stacks the delivered notification
+          - On a physical Mac with notifications allowed, a posted notification appears as a
+            banner with title, app name, and body within 1 s of receipt
         tdd:
-          - macNotificationPresentation_plainPosted_showsExpectedFields
-          - macNotificationPresentation_messagingStyle_showsSenderNames
-          - macNotificationPresentation_replyCapable_showsTextInputAction
+          - "unit: notificationPresentation_plainPosted_titleSubtitleBodyMapped"
+          - "unit: notificationPresentation_messagingStyleTwoSenders_bodyHasSenderPrefixedLines"
+          - "unit: notificationPresentation_sameKeyPostedTwice_requestIdentifierReused"
+          - "manual: macNotificationBanner_physicalMac_showsTitleAppNameBodyWithin1s"
+        notes: |
+          Split from E30-07 in review cycle 3: category/action/text-input registration moved to
+          E30-17; size L → M.
       - id: E30-08
         title: "[macos] Forward action/reply as NotificationAction"
         type: task
@@ -209,19 +258,22 @@ epics:
         prd: [F-5.2]
         use_cases: [UC-09]
         invariants: []
-        depends_on: [E30-07]
+        depends_on: [E30-07, E30-17, E12-12]
         description: |
-          On a UNNotificationResponse (action tap or text-input reply), send
-          NotificationAction{key, actionIndex, replyText} over NOTIFY.
+          On a `NotificationResponseEvent` from the NotificationPresenter (E30-07) — action tap
+          or text-input reply — send NotificationAction{key, actionIndex, replyText} over
+          NOTIFY via the fake TandemSession (E12-12) in tests.
         acceptance:
           - A plain action tap sends NotificationAction with the correct actionIndex and no
             replyText
-          - A text-input reply sends NotificationAction with the typed replyText
-          - A NotificationActionResult with status GONE shows "no longer available" on the Mac and removes the stale Mac notification (UC-09 alternate).
+          - A text-input reply sends NotificationAction with the typed replyText unchanged
+          - A NotificationActionResult with status GONE removes the stale Mac notification and
+            presents a replacement whose body is "Notification no longer available on phone"
+            (UC-09 alternate)
         tdd:
-          - macActionForwarding_actionTap_sendsActionIndex
-          - macActionForwarding_textInputReply_sendsReplyText
-          - macActionForwarding_resultGone_showsNoLongerAvailableAndRemoves
+          - "unit: actionResponseHandler_actionTapIndexOne_sendsActionIndexOneWithoutReplyText"
+          - "unit: actionResponseHandler_textInputReply_sendsReplyTextVerbatim"
+          - "unit: actionResultHandler_statusGone_removesDeliveredAndShowsNoLongerAvailable"
       - id: E30-09
         title: "[android] Fire PendingIntent from received NotificationAction"
         type: story
@@ -231,48 +283,57 @@ epics:
         prd: [F-5.2]
         use_cases: [UC-09]
         invariants: []
-        depends_on: [E30-01, E20-02]
+        depends_on: [E30-01, E30-02, E20-02, E12-11, E00-20, E00-21, E00-22]
         description: |
           On receiving NotificationAction, look up the original notification's action/
           PendingIntent by key and actionIndex and fire it, attaching a RemoteInput bundle with
-          replyText when present.
+          replyText when present. Unit tests run under Robolectric (E00-20; shadowed
+          PendingIntent records the fill-in intent) with `FakeTandemSession` (E12-11); the
+          emulator test (E00-21) replies to the companion app's `actions` kind (E00-22) and
+          reads the recorded reply text back through its ContentProvider.
         acceptance:
-          - A received action fires the corresponding PendingIntent with the correct extras
-          - A received reply fires the PendingIntent with the RemoteInput bundle populated so
-            the target app processes it as a normal reply
-          - An action referencing an already-dismissed or expired notification key is ignored,
-            not crashed
-          - Every received NotificationAction is answered with NotificationActionResult (OK, GONE for an unknown/expired key, FAILED if the PendingIntent throws).
+          - A received action fires the corresponding PendingIntent
+          - A received reply fires the PendingIntent with a fill-in intent whose RemoteInput
+            results contain replyText under the action's result key
+          - An action referencing an already-dismissed or expired notification key does not
+            throw and fires nothing
+          - Every received NotificationAction is answered with NotificationActionResult (OK, GONE for an unknown/expired key, FAILED if the PendingIntent throws CanceledException).
         tdd:
-          - actionForwarding_plainAction_firesPendingIntent
-          - actionForwarding_replyAction_firesPendingIntentWithRemoteInput
-          - actionForwarding_unknownOrExpiredKey_ignoredSafely
-          - actionForwarding_unknownKey_repliesResultGone
+          - "unit: actionExecutor_plainActionIndexZero_sendsPendingIntentOfActionZero"
+          - "unit: actionExecutor_replyText_fillInIntentCarriesRemoteInputResult"
+          - "unit: actionExecutor_validAction_repliesResultOk"
+          - "unit: actionExecutor_unknownKey_repliesResultGoneWithoutThrowing"
+          - "unit: actionExecutor_pendingIntentCanceled_repliesResultFailed"
+          - "instrumented: actionExecutor_companionActionsKindReply_companionRecordsReplyText"
       - id: E30-10
-        title: "[cross] Dismiss sync both ways"
+        title: "[android] Dismiss sync: forward phone dismissals, apply Mac dismissals"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
-        size: M
+        size: S
         prd: [F-5.3]
         use_cases: [UC-10]
         invariants: []
-        depends_on: [E30-02, E30-07]
+        depends_on: [E30-02, E12-11, E00-20, E00-21, E00-22]
         description: |
-          Dismissing on Android forwards NotificationDismiss{origin: android} and the Mac removes
-          the delivered notification. Dismissing on the Mac sends NotificationDismiss{origin:
-          macos} and Android cancels the local notification via
-          NotificationListenerService.cancelNotification. Origin tagging prevents dismiss echo
-          loops.
+          Dismissing on Android forwards NotificationDismiss{origin: android}. A received
+          NotificationDismiss{origin: macos} cancels the local notification via
+          NotificationListenerService.cancelNotification. The resulting onNotificationRemoved
+          with reason REASON_LISTENER_CANCEL is not forwarded, preventing an echo loop. Tests use
+          Robolectric (E00-20) with `FakeTandemSession` (E12-11); the emulator test cancels a
+          companion-app notification (E00-22, kind `cancel`). The Mac half is E30-18; the
+          end-to-end < 1 s check is the manual gate in E30-13.
         acceptance:
-          - Dismissing on Android removes the corresponding Mac notification within 1 s
-          - Dismissing on the Mac cancels the corresponding Android notification within 1 s
-          - A dismiss forwarded from one side never bounces back and re-dismisses on the origin
-            side
+          - 'A user dismissal on Android sends NotificationDismiss{key, origin: android} with no added delay (no timer between callback and send)'
+          - A received macos-origin dismiss calls cancelNotification with the same key
+          - A removal with reason REASON_LISTENER_CANCEL sends no NotificationDismiss
         tdd:
-          - dismissSync_androidDismiss_removesMacNotificationWithin1s
-          - dismissSync_macDismiss_cancelsAndroidNotificationWithin1s
-          - dismissSync_originTag_neverLoopsBack
+          - "unit: androidDismissSync_removedReasonCancel_sendsDismissOriginAndroid"
+          - "unit: androidDismissSync_macOriginDismissReceived_callsCancelNotificationWithKey"
+          - "unit: androidDismissSync_removedReasonListenerCancel_sendsNoDismiss"
+          - "instrumented: androidDismissSync_companionCancelKind_emitsDismissForCompanionKey"
+        notes: |
+          Split from E30-10 ([cross]) in review cycle 3; the macOS half is E30-18. Size M → S.
       - id: E30-11
         title: "[android] VISIBILITY_SECRET content handling (phone-side opt-in)"
         type: story
@@ -280,44 +341,61 @@ epics:
         priority: P0
         size: M
         prd: [F-5.4]
-        use_cases: [UC-11]
+        use_cases: [UC-08, UC-11]
         invariants: []
-        depends_on: [E30-02, E30-04]
+        depends_on: [E30-02, E30-04, E00-20, E00-21, E00-22]
         description: |
-          Notifications marked VISIBILITY_SECRET forward only the app name (no title, text, or
-          sender) unless the user opts in to "show content of secret notifications on Mac" in
-          phone settings; add the opt-in toggle. The Mac-side "hide content on Mac lock screen"
-          option is E30-15.
+          Notifications marked VISIBILITY_SECRET forward only the app name unless the user opts
+          in to "Show content of secret notifications on Mac" in phone settings (default off);
+          add the opt-in toggle. Redacted form: title replaced by the app name, text empty,
+          messagingStyleSenders empty, visibility = SECRET. The Mac-side "hide content on Mac
+          lock screen" option is E30-15. Tests run under Robolectric (E00-20); the emulator test
+          captures the companion app's `secret` kind (E00-22).
         acceptance:
-          - A VISIBILITY_SECRET notification without opt-in forwards app-name only
-          - With opt-in enabled, the same notification forwards full content
-          - Toggling opt-in off immediately stops full-content forwarding for subsequent
-            notifications
+          - Without opt-in, a VISIBILITY_SECRET notification forwards title = app name, text =
+            "", messagingStyleSenders = [] (UC-08 alternate)
+          - With opt-in enabled, the same notification forwards original title and text
+          - Toggling opt-in off redacts the very next notification (no reconnect)
+          - The toggle is off by default and labelled "Show content of secret notifications on Mac"
         tdd:
-          - secretVisibility_defaultOptOut_forwardsAppNameOnly
-          - secretVisibility_optedIn_forwardsFullContent
-          - secretVisibility_optOutToggled_stopsFullContentImmediately
+          - "unit: secretVisibility_defaultOptOut_titleIsAppNameAndTextEmpty"
+          - "unit: secretVisibility_defaultOptOutMessagingStyle_sendersListEmpty"
+          - "unit: secretVisibility_optedIn_forwardsOriginalTitleAndText"
+          - "unit: secretVisibility_optInToggledOff_nextPostRedacted"
+          - "ui: secretVisibilitySetting_freshInstall_toggleOffWithExactLabel"
+          - "instrumented: secretVisibility_companionSecretKind_capturedPayloadHasEmptyText"
       - id: E30-12
-        title: "[cross] Rate limiting and coalescing of rapid updates"
+        title: "[android] Rate limiting and coalescing of rapid updates"
         type: task
-        platforms: [android, macos]
+        platforms: [android]
         priority: P1
-        size: M
+        size: S
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: []
-        depends_on: [E30-02, E30-07]
+        depends_on: [E30-02, E00-18, E00-21, E00-22]
         description: |
           When the same notification key updates rapidly (for example progress notifications),
           coalesce forwarded updates to a bounded rate (at most one per 500 ms per key) on the
-          sending side, always delivering the final state.
+          sending side, always delivering the final state. The coalescer takes an injected
+          `Clock`/dispatcher (E00-18) so the 500 ms window is tested in virtual time; the Mac
+          already replaces same-key updates (E30-07). The emulator test uses the companion
+          app's `burst` kind (E00-22).
         acceptance:
-          - 10 rapid updates to the same key within 1 s result in a bounded number of forwarded
-            messages, ending with the latest content
-          - A single, non-rapid update is forwarded immediately without added latency
+          - 10 updates to the same key within 1 s forward at most 3 messages, the last carrying
+            update 10's content
+          - A single, non-rapid update is forwarded at virtual time 0 (no added latency)
+          - Two keys updating concurrently are rate limited independently
+          - A pending coalesced update for a key removed before the window elapses is never sent
         tdd:
-          - updateCoalescing_rapidUpdatesSameKey_boundedAndEndsWithLatest
-          - updateCoalescing_singleUpdate_forwardedImmediately
+          - "unit: updateCoalescer_tenUpdatesIn1sSameKey_atMostThreeForwardedEndingWithTenth"
+          - "unit: updateCoalescer_singleUpdate_forwardedAtVirtualTimeZero"
+          - "unit: updateCoalescer_twoKeysInterleaved_eachKeyLimitedIndependently"
+          - "unit: updateCoalescer_pendingUpdateThenRemoved_pendingNeverSent"
+          - "instrumented: updateCoalescer_companionBurst50In1000ms_atMostFourForwardedLastIsFinal"
+        notes: |
+          Review cycle 3: was [cross]; coalescing is sender-side only (Android), so platforms
+          reduced to android, E30-07 dependency dropped, size M → S.
       - id: E30-13
         title: "[cross] Phase 3 notification exit test"
         type: test
@@ -325,23 +403,29 @@ epics:
         priority: P0
         size: M
         prd: [F-5.1, F-5.2, F-5.3, F-5.4]
-        use_cases: [UC-08, UC-09, UC-10, AC-10]
+        use_cases: [UC-08, UC-09, UC-10, AC-02, AC-10]
         invariants: [7]
-        depends_on: [E30-08, E30-09, E30-10, E30-11, E15-17]
+        depends_on: [E30-08, E30-09, E30-10, E30-18, E30-11, E15-17, E15-07, E00-22, E00-23]
         description: |
-          Device-level gate: receive a message in WhatsApp and in Signal, reply to each from the
-          Mac, confirm delivery in the origin app; dismiss from each side and confirm sync;
-          capture logs during the run and grep for notification text or secrets (invariant 7,
-          AC-10).
+          Device-level gate (procedure in docs/testing/manual-gates.md, E00-23): receive a
+          message in WhatsApp and in Signal, reply to each from the Mac, confirm delivery in the
+          origin app; dismiss from each side and confirm sync. Security run: the companion app
+          (E00-22) posts a `canary` kind notification (`TANDEM-CANARY-<nonce>`) during the E15-07
+          canary procedure; the capture must not contain it (E15-06) and log-audit (E15-17) over
+          logcat and the macOS unified log must find zero hits (invariant 7, AC-10).
         acceptance:
-          - Replying to a WhatsApp notification from the Mac is received by the WhatsApp contact
-          - Replying to a Signal notification from the Mac is received by the Signal contact
-          - Dismiss sync is verified in both directions during the same run
-          - The log capture from the run contains no notification title, text, or reply content
+          - 5 of 5 WhatsApp replies sent from the Mac arrive at the WhatsApp contact within 10 s
+          - 5 of 5 Signal replies sent from the Mac arrive at the Signal contact within 10 s
+          - 10 of 10 dismissals in each direction remove the peer notification within 1 s
+          - pcap-audit canary scan of the run finds zero occurrences of the notification canary
+          - log-audit over both apps' logs for the run finds zero occurrences of the canary or
+            any reply text
         tdd:
-          - phase3ExitTest_whatsAppReplyFromMac_deliveredToContact (device test)
-          - phase3ExitTest_signalReplyFromMac_deliveredToContact (device test)
-          - phase3ExitTest_logCapture_noNotificationContentPresent
+          - "manual: whatsAppReplyFromMac_physicalPhone_fiveOfFiveDeliveredWithin10s"
+          - "manual: signalReplyFromMac_physicalPhone_fiveOfFiveDeliveredWithin10s"
+          - "manual: dismissSyncBothWays_physicalDevices_tenOfTenUnder1s"
+          - "security: pcapCanary_companionCanaryNotification_absentFromCapture"
+          - "security: logAudit_companionCanaryNotificationSession_zeroHitsInBothLogs"
       - id: E30-14
         title: "[tools] Notification latency harness: Android to Mac p95 < 500 ms"
         type: test
@@ -351,21 +435,31 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: [7]
-        depends_on: [E30-02, E30-07, E20-02]
+        depends_on: [E30-02, E30-07, E20-02, E00-22, E00-23, E15-15]
         description: |
           PRD success metric and Phase 3 checklist item "notification p95 latency < 500 ms" had no
-          measuring issue. A separate companion test APK (not Tandem, whose own notifications are
+          measuring issue. The companion app (E00-22, not Tandem, whose own notifications are
           filtered) posts 200 notifications; latency = Mac presentation time minus
           StatusBarNotification.postTime, corrected by a clock offset measured at session start (same
           method as E61-08). Notification text carries only a sequence number. Manual device gate on
-          same Wi-Fi; report committed per run. E40-15 reuses this harness under a saturating transfer.
+          same Wi-Fi (E00-23); report committed per run. An `integration:` loopback variant uses the
+          E15-15 JVM client to send 200 NotificationPosted frames to the real Mac server built with
+          the DEBUG `RecordingNotificationPresenter` (E30-07), timestamping each `add` call.
+          Clock-offset estimation and p95 computation are pure functions (`unit:`). E40-15 reuses
+          this harness under a saturating transfer.
         acceptance:
           - Over 200 notifications on the same Wi-Fi, p95 Android-post to Mac-presentation latency is < 500 ms
-          - The clock-offset correction is applied and recorded in the report
+          - Loopback (E15-15) p95 receive-to-presenter latency is < 100 ms over 200 frames
+          - The clock-offset correction is applied and recorded in the report; a known 250 ms skew
+            is corrected to within 5 ms
+          - p95 uses the nearest-rank method over all samples
           - The harness logs only sequence numbers and timings, never notification content (invariant 7)
         tdd:
-          - notificationLatencyHarness_200Posts_p95Under500ms (device test)
-          - notificationLatencyHarness_clockOffset_appliedFromSessionStart
+          - "manual: notificationLatency_twoHundredCompanionPostsSameWifi_p95Under500ms"
+          - "integration: notificationLatencyLoopback_twoHundredFrames_p95PresenterCallUnder100ms"
+          - "unit: clockOffsetEstimator_known250msSkew_correctedWithin5ms"
+          - "unit: latencyReport_twoHundredSamples_p95ByNearestRank"
+          - "unit: latencyReportWriter_anyRun_containsOnlySequenceNumbersAndTimings"
       - id: E30-15
         title: "[macos] Hide notification content while the Mac is locked"
         type: story
@@ -375,21 +469,126 @@ epics:
         prd: [F-5.4]
         use_cases: [UC-11]
         invariants: [7]
-        depends_on: [E30-07, E13-08]
+        depends_on: [E30-07, E30-17, E13-08, E00-08, E00-23]
         description: |
           F-5.4's optional "hide content on Mac lock screen" is Mac-side and distinct from the phone's
-          VISIBILITY_SECRET opt-in (E30-11). Mac setting, off by default: while the screen is locked
-          (observed via com.apple.screenIsLocked / screenIsUnlocked distributed notifications, behind
-          an injectable lock-state provider), NotificationPosted is presented with the app name only;
-          the category also sets hiddenPreviewsBodyPlaceholder. Content is not re-posted on unlock.
+          VISIBILITY_SECRET opt-in (E30-11). Mac setting, off by default. Seam: `ScreenLockState`
+          protocol (`isLocked`, change stream) whose production impl observes the
+          `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked` distributed notifications on an
+          injected NotificationCenter; tests use a fake state and the
+          `RecordingNotificationPresenter` (E30-07). While locked, NotificationPosted is presented
+          with title = app name, subtitle and body empty, no sender names; the category also sets
+          hiddenPreviewsBodyPlaceholder (E30-17). Content is not re-posted on unlock.
         acceptance:
-          - With the option on and the screen locked, a presented notification contains the app name only
-          - With the option on and the screen unlocked, or the option off, full content is presented
+          - With the option on and the screen locked, the presented request has title = app name,
+            subtitle = "", body = ""
+          - With the option on and the screen unlocked, or the option off, full title and body are
+            presented
+          - Unlocking does not re-post notifications presented while locked
           - Toggling the option applies to the next notification without reconnecting (UC-11)
+          - The production ScreenLockState reports locked after a `com.apple.screenIsLocked`
+            notification and unlocked after `com.apple.screenIsUnlocked`
+          - On a physical Mac with the option on, a notification arriving while locked shows only
+            the app name on the lock screen
         tdd:
-          - lockScreenHiding_enabledAndLocked_presentsAppNameOnly
-          - lockScreenHiding_enabledAndUnlocked_presentsFullContent
-          - lockScreenHiding_toggle_appliesToNextNotificationWithoutReconnect
+          - "unit: lockScreenHiding_enabledAndLocked_titleAppNameBodyEmpty"
+          - "unit: lockScreenHiding_enabledAndUnlocked_fullTitleAndBody"
+          - "unit: lockScreenHiding_disabledAndLocked_fullTitleAndBody"
+          - "unit: lockScreenHiding_lockedThenUnlocked_noRepost"
+          - "unit: lockScreenHiding_toggledOn_nextPostHiddenWithZeroReconnects"
+          - "unit: screenLockState_screenIsLockedNotification_reportsLocked"
+          - "manual: lockScreenHiding_physicalLockedMac_lockScreenShowsAppNameOnly"
+      - id: E30-16
+        title: "[android] Disconnected notification buffer: bounded, drop-oldest, memory only"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-5.1]
+        use_cases: [UC-08]
+        invariants: [7]
+        depends_on: [E30-01, E30-02, E00-18, E12-11]
+        description: |
+          Session-facing `NotificationSink` between the listener (E30-02) and TandemSession.
+          While the session is not Connected, hold NotificationPosted in memory only, per the
+          SPEC policy (E30-01): at most 50 entries, entries older than 60 s evicted, oldest
+          dropped first; flush oldest-first on Connected. A dismiss for a buffered key removes it
+          (neither post nor dismiss is sent). Age uses the injected `ElapsedRealtimeSource` and
+          `TestClock` (E00-18); connection state comes from `FakeTandemSession` (E12-11).
+        acceptance:
+          - 51 posts while disconnected leave the newest 50 buffered
+          - An entry older than 60 s is evicted before flush
+          - On reconnect, buffered posts are sent oldest-first and the buffer is empty afterwards
+          - A buffered key that is dismissed while disconnected is sent neither as post nor dismiss
+          - While connected, posts are sent immediately without buffering
+          - The buffer has no disk persistence; a new instance starts empty
+        tdd:
+          - "unit: notificationBuffer_disconnected51Posts_holdsNewest50"
+          - "unit: notificationBuffer_entryOlderThan60s_evictedBeforeFlush"
+          - "unit: notificationBuffer_reconnected_flushesOldestFirstThenEmpty"
+          - "unit: notificationBuffer_bufferedKeyDismissed_neitherPostNorDismissSent"
+          - "unit: notificationBuffer_connected_sendsImmediately"
+          - "unit: notificationBuffer_newInstanceAfterBuffering_startsEmpty"
+        notes: "Split from E30-02 in review cycle 3."
+      - id: E30-17
+        title: "[macos] Notification categories: phone actions, text-input reply, custom dismiss"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-5.2, F-5.3]
+        use_cases: [UC-09, UC-10]
+        invariants: []
+        depends_on: [E30-01, E30-07, E00-08, E00-23]
+        description: |
+          Register UNNotificationCategory sets through the NotificationPresenter seam (E30-07):
+          one UNNotificationAction per phone action in order, a UNTextInputNotificationAction for
+          RemoteInput-capable actions, and the `.customDismissAction` option on every category
+          (including a dismiss-only category for notifications without actions) so Mac
+          dismissals reach the response stream (E30-18). Category identifiers derive from the
+          action set so identical sets reuse one category. Tests use
+          `RecordingNotificationPresenter`; the real reply field is a manual gate (E00-23).
+        acceptance:
+          - A post with 2 actions is assigned a category whose actions match the titles in order
+          - A RemoteInput-capable action registers a UNTextInputNotificationAction
+          - A post without actions is assigned the dismiss-only category
+          - Every registered category includes the customDismissAction option
+          - Two posts with identical action sets share one category identifier
+          - On a physical Mac, the reply action on a companion `actions` notification shows a text field
+        tdd:
+          - "unit: categoryRegistry_postedWithTwoActions_categoryActionsMatchTitlesInOrder"
+          - "unit: categoryRegistry_remoteInputAction_registersTextInputAction"
+          - "unit: categoryRegistry_postedWithoutActions_assignsDismissOnlyCategory"
+          - "unit: categoryRegistry_anyCategory_includesCustomDismissActionOption"
+          - "unit: categoryRegistry_identicalActionSets_shareCategoryIdentifier"
+          - "manual: macNotificationReply_physicalMac_replyActionShowsTextField"
+        notes: "Split from E30-07 in review cycle 3."
+      - id: E30-18
+        title: "[macos] Dismiss sync: remove on phone dismissal, forward Mac dismissals"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-5.3]
+        use_cases: [UC-10]
+        invariants: []
+        depends_on: [E30-07, E30-17, E12-12]
+        description: |
+          A received NotificationDismiss{origin: android} removes the delivered notification via
+          NotificationPresenter.removeDelivered (E30-07). A user dismissal on the Mac (response
+          action `UNNotificationDismissActionIdentifier`, enabled by the custom-dismiss category
+          option in E30-17) sends NotificationDismiss{origin: macos}. Programmatic removal never
+          produces a dismiss send, preventing echo. Tests use `RecordingNotificationPresenter` and
+          the fake TandemSession (E12-12).
+        acceptance:
+          - A received android-origin dismiss removes the delivered request with identifier = key
+          - A received android-origin dismiss sends nothing back
+          - 'A Mac user dismissal sends NotificationDismiss{key, origin: macos} with no added delay'
+        tdd:
+          - "unit: macDismissSync_androidOriginDismiss_removesDeliveredWithKeyIdentifier"
+          - "unit: macDismissSync_androidOriginDismiss_sendsNoDismissBack"
+          - "unit: macDismissSync_userDismissAction_sendsDismissOriginMacos"
+        notes: "Split from E30-10 in review cycle 3."
 
   - id: E31
     title: Clipboard sync
@@ -405,6 +604,7 @@ epics:
       - macOS pasteboard polling and concealed/transient skip
       - Android write with sensitive flag
       - Android entry points (share target, QS tile, PROCESS_TEXT, foreground app)
+      - macOS write of received text to NSPasteboard
       - Loop prevention and size limit
       - ADR for accessibility-based auto-capture
     out_of_scope:
@@ -424,20 +624,26 @@ epics:
         prd: [F-6.1, F-6.2, F-6.3]
         use_cases: [UC-12, UC-13]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02]
         description: |
           Define `ClipboardText{originTag, contentHash, text, sensitive}` on CLIPBOARD. Document
-          the 1 MiB limit, the origin-tag/hash loop-prevention rule, and sensitive-flag semantics
-          in SPEC.md. Provide vectors including an oversized-text rejection case.
+          the 1 MiB limit (1,048,576 bytes of UTF-8 text), the contentHash definition, the
+          origin-tag/hash loop-prevention rule, and sensitive-flag semantics in SPEC.md. Provide
+          vectors including an oversized-text rejection case, run by the Kotlin and Swift
+          conformance runners (E15-01, E15-02).
         acceptance:
-          - clipboard.proto compiles on both codegens
-          - SPEC.md documents the 1 MiB limit, loop prevention, and the sensitive flag
-          - Vectors include a valid ClipboardText and an over-limit rejection case
+          - clipboard.proto passes `buf lint` with zero findings
+          - SPEC.md documents the 1 MiB limit, the contentHash algorithm, loop prevention, and the
+            sensitive flag
+          - Vectors include a valid sensitive ClipboardText, a text of exactly 1,048,576 bytes
+            (accepted), and one of 1,048,577 bytes (rejected)
         tdd:
-          - conformance_clipboardTextVector_encodesAndDecodes
-          - conformance_clipboardTextOverLimit_rejectedByBothCodecs
+          - "ci: clipboardProto_bufLint_zeroFindings"
+          - "conformance: clipboardTextVector_sensitiveTrue_roundTripsOnBothCodecs"
+          - "conformance: clipboardTextVector_exactly1MiB_acceptedByBothCodecs"
+          - "conformance: clipboardTextVector_oneByteOver1MiB_rejectedByBothCodecs"
       - id: E31-02
-        title: "[macos] NSPasteboard changeCount polling"
+        title: "[macos] NSPasteboard changeCount polling via PasteboardSource seam"
         type: task
         platforms: [macos]
         priority: P0
@@ -445,16 +651,22 @@ epics:
         prd: [F-6.1]
         use_cases: [UC-12]
         invariants: []
-        depends_on: [E31-01]
+        depends_on: [E31-01, E00-08, E00-24]
         description: |
-          Poll `NSPasteboard.general.changeCount` every 250 ms on a background timer; on change,
-          read the available types for the current item.
+          Poll `changeCount` every 250 ms on a background timer; on change, read the available
+          types for the current item. Seam: `PasteboardSource` protocol (`changeCount`,
+          `types()`, `string(forType:)`, `setString(_:forType:)`) with the NSPasteboard adapter
+          as the only type touching `NSPasteboard.general`; `FakePasteboardSource` in test
+          fixtures exposes a settable changeCount and types. The poller takes an injected
+          `Clock<Duration>` (E00-24) so the 250 ms interval is tested with `ManualTestClock`.
         acceptance:
-          - A clipboard change is detected within one polling interval after the change
-          - No detection fires when changeCount is unchanged
+          - A changeCount increment is detected after the clock advances 250 ms
+          - No detection fires when changeCount is unchanged for 10 s of virtual time
+          - Two changes within one interval yield a single detection of the latest item
         tdd:
-          - pasteboardPolling_changeCount_detectedWithin250ms
-          - pasteboardPolling_unchangedCount_noDetectionFires
+          - "unit: pasteboardPoller_changeCountIncremented_detectedAfterAdvance250ms"
+          - "unit: pasteboardPoller_changeCountUnchanged_noDetectionAfterAdvance10s"
+          - "unit: pasteboardPoller_twoChangesWithinInterval_singleDetectionOfLatest"
       - id: E31-03
         title: "[macos] Concealed/transient pasteboard type skip"
         type: task
@@ -469,14 +681,18 @@ epics:
           Before sending, check the current pasteboard item for
           `org.nspasteboard.ConcealedType`, `org.nspasteboard.TransientType`, or
           `org.nspasteboard.AutoGeneratedType`; if any is present, skip the item entirely, with
-          no send and no logging of its content.
+          no send and no logging of its content. Tests use `FakePasteboardSource` (E31-02).
         acceptance:
-          - An item flagged ConcealedType is never sent
-          - An item flagged TransientType or AutoGeneratedType is never sent
-          - Skipped items are never logged with their content
+          - An item whose types include `org.nspasteboard.ConcealedType` is never sent
+          - An item whose types include `org.nspasteboard.TransientType` is never sent
+          - An item whose types include `org.nspasteboard.AutoGeneratedType` is never sent
+          - An item with only `public.utf8-plain-text` passes the filter
+          - Skipped items are never logged with their content (runtime log-audit in E31-10)
         tdd:
-          - concealedTypeSkip_concealedFlag_neverSent
-          - concealedTypeSkip_transientOrAutoGeneratedFlag_neverSent
+          - "unit: concealedTypeFilter_orgNspasteboardConcealedType_skipped"
+          - "unit: concealedTypeFilter_orgNspasteboardTransientType_skipped"
+          - "unit: concealedTypeFilter_orgNspasteboardAutoGeneratedType_skipped"
+          - "unit: concealedTypeFilter_plainUtf8TextOnly_passed"
       - id: E31-04
         title: "[macos] Send ClipboardText on qualifying change"
         type: task
@@ -486,21 +702,24 @@ epics:
         prd: [F-6.1, F-6.3]
         use_cases: [UC-12]
         invariants: []
-        depends_on: [E31-03]
+        depends_on: [E31-03, E12-12]
         description: |
           For a non-skipped text change, compute contentHash, set originTag=macos, enforce the
           1 MiB limit by rejecting rather than truncating an oversized item, and send
-          ClipboardText.
+          ClipboardText. Tests use `FakePasteboardSource` (E31-02) and the fake TandemSession
+          (E12-12).
         acceptance:
-          - A qualifying text change under 1 MiB is sent with the correct originTag and
-            contentHash
-          - A qualifying text change over 1 MiB is not sent, and no partial or truncated send
-            occurs
-          - An over-limit item shows a one-time Mac hint ("Clipboard too large to send, use file transfer") (UC-12 alternate).
+          - A qualifying text change of at most 1,048,576 bytes is sent with originTag = macos
+            and contentHash per SPEC
+          - A qualifying text change of 1,048,577 bytes or more is not sent, and no partial or
+            truncated send occurs
+          - An over-limit item shows the Mac hint "Clipboard too large to send, use file transfer" exactly once per item (UC-12 alternate).
+          - An item without a `public.utf8-plain-text` representation is not sent
         tdd:
-          - sendClipboardText_underLimit_sentWithOriginAndHash
-          - sendClipboardText_overLimit_notSent
-          - sendClipboardText_overLimit_showsSizeHint
+          - "unit: clipboardSender_textExactly1MiB_sentWithOriginMacosAndSpecHash"
+          - "unit: clipboardSender_oneByteOver1MiB_noFrameSent"
+          - "unit: clipboardSender_overLimitItemPolledTwice_sizeHintShownOnce"
+          - "unit: clipboardSender_imageOnlyItem_noFrameSent"
       - id: E31-05
         title: "[android] Receive and write clipboard with sensitive flag"
         type: task
@@ -510,82 +729,106 @@ epics:
         prd: [F-6.1]
         use_cases: [UC-12]
         invariants: []
-        depends_on: [E31-01, E20-02]
+        depends_on: [E31-01, E20-02, E12-11, E00-20, E00-23]
         description: |
           On receiving ClipboardText, write it to the system ClipboardManager; when `sensitive`
           is set, add `ClipDescription.EXTRA_IS_SENSITIVE` (Android 13+) so the system clipboard
-          preview is suppressed.
+          preview is suppressed. Tests run ClipboardManager under Robolectric (E00-20,
+          `@Config(sdk = [29, 33])`) with `FakeTandemSession` (E12-11); the visual preview
+          suppression is a manual gate (E00-23).
         acceptance:
-          - A received ClipboardText is written and readable by the foreground app
-          - A sensitive ClipboardText sets EXTRA_IS_SENSITIVE on API 33+ and the system preview
-            is suppressed
+          - A received ClipboardText becomes the primary clip with identical text
+          - On API 33+, a sensitive ClipboardText's ClipDescription extras contain
+            EXTRA_IS_SENSITIVE = true
+          - On API 33+, a non-sensitive ClipboardText has no EXTRA_IS_SENSITIVE extra
+          - On API 29, a sensitive ClipboardText is written without the extra and without error
+          - On a physical Android 13+ device, a sensitive clip shows no clipboard preview overlay
         tdd:
-          - receiveClipboard_qualifyingText_writtenToSystemClipboard
-          - receiveClipboard_sensitiveFlagOnApi33_setsExtraIsSensitive
+          - "unit: clipboardWriter_receivedText_primaryClipEqualsText"
+          - "unit: clipboardWriter_sensitiveOnApi33_extraIsSensitiveTrue"
+          - "unit: clipboardWriter_notSensitiveOnApi33_extraIsSensitiveAbsent"
+          - "unit: clipboardWriter_sensitiveOnApi29_writtenWithoutExtra"
+          - "manual: sensitiveClip_android13Device_noPreviewOverlayThreeOfThree"
       - id: E31-06
-        title: "[android] Share target, QS tile, PROCESS_TEXT entry points"
+        title: "[android] Share target and PROCESS_TEXT entry points"
         type: story
         platforms: [android]
         priority: P0
         size: M
-        prd: [F-6.2]
+        prd: [F-6.2, F-6.3]
         use_cases: [UC-13]
         invariants: []
-        depends_on: [E31-01]
+        depends_on: [E31-01, E12-11, E00-20]
         description: |
-          Add a share-sheet target ("Send to Mac"), a Quick Settings tile that sends the current
-          clipboard, and a `PROCESS_TEXT` activity for selected text, each producing a
-          ClipboardText send.
+          Add a share-sheet target ("Send to Mac") and a `PROCESS_TEXT` activity for selected
+          text, each producing a ClipboardText send through a shared Android `ClipboardSender`
+          (originTag = android, contentHash per SPEC, 1 MiB limit enforced by rejection with the
+          toast "Text too large to send (max 1 MiB)"). ClipboardSender is reused by E31-07 and
+          E31-12. Activities and intent resolution run under Robolectric (E00-20) with
+          `FakeTandemSession` (E12-11).
         acceptance:
-          - Sharing text via the share sheet to Tandem sends it as ClipboardText
-          - The QS tile sends the current system clipboard contents on tap
-          - Selecting text and choosing the Tandem PROCESS_TEXT entry sends it
+          - Sharing text/plain via ACTION_SEND to Tandem sends it as ClipboardText with
+            originTag = android
+          - Choosing the Tandem PROCESS_TEXT entry sends EXTRA_PROCESS_TEXT as ClipboardText
+          - ACTION_SEND text/plain and ACTION_PROCESS_TEXT queries both resolve to Tandem activities
+          - Text over 1,048,576 bytes is not sent and the toast above is shown
         tdd:
-          - shareTargetEntryPoint_sharedText_sentAsClipboardText
-          - qsTileEntryPoint_tap_sendsCurrentClipboard
-          - processTextEntryPoint_selectedText_sentAsClipboardText
+          - "unit: shareTargetActivity_actionSendTextPlain_sendsClipboardTextOriginAndroid"
+          - "unit: processTextActivity_extraProcessText_sendsSelectedText"
+          - "unit: intentResolution_actionSendAndProcessText_resolveToTandemActivities"
+          - "unit: clipboardSender_oneByteOver1MiB_noFrameAndTooLargeToast"
+        notes: "QS tile moved to E31-12 in review cycle 3."
       - id: E31-07
-        title: "[android] Foreground-app clipboard capture entry point"
+        title: "[android] Foreground capture and in-app Send clipboard button"
         type: task
         platforms: [android]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-6.2]
         use_cases: [UC-13]
         invariants: []
-        depends_on: [E31-01]
+        depends_on: [E31-01, E31-06, E00-20]
         description: |
-          Where Tandem itself is the foreground app (for example immediately after Tandem
-          regains focus, which Android permits), read and send the current clipboard as
-          ClipboardText; never attempt a background read outside that window.
+          Where Tandem itself is the foreground app (window focus gained, which Android 10+
+          permits), read and send the current clipboard as ClipboardText via ClipboardSender
+          (E31-06); also an in-app "Send clipboard to Mac" button (UC-13 in-app entry point).
+          Never attempt a background read outside that window. Clipboard reads go through a
+          `ClipboardReader` seam over ClipboardManager with a recording fake; Robolectric (E00-20).
         acceptance:
-          - Copying text while Tandem is the foreground app results in a ClipboardText send
-          - No background clipboard read is attempted outside the permitted foreground window
+          - Gaining window focus with a text clip sends it as ClipboardText
+          - Tapping "Send clipboard to Mac" sends the current text clip
+          - No ClipboardReader read occurs while Tandem has no window focus
         tdd:
-          - foregroundCaptureEntryPoint_copyWhileForeground_sentAsClipboardText
-          - foregroundCaptureEntryPoint_backgrounded_neverReadsClipboard
+          - "unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText"
+          - "unit: foregroundCapture_sendClipboardButtonTapped_sendsClipboardText"
+          - "unit: foregroundCapture_noWindowFocus_clipboardReaderNeverCalled"
       - id: E31-08
-        title: "[cross] Origin tag and content-hash loop prevention"
+        title: "[android] Origin tag and content-hash loop prevention"
         type: story
-        platforms: [android, macos]
+        platforms: [android]
         priority: P0
-        size: M
+        size: S
         prd: [F-6.3]
         use_cases: [UC-12, UC-13]
         invariants: []
-        depends_on: [E31-04, E31-05, E31-06, E31-07]
+        depends_on: [E31-05, E31-06, E31-07]
         description: |
           Before writing a received ClipboardText locally, record its (originTag, contentHash);
           before sending a locally detected change, skip it if it matches the most recently
-          received pair, preventing an infinite Mac to phone to Mac echo.
+          received pair, preventing an infinite Mac to phone to Mac echo. The recorded pair is
+          cleared once a different local change is sent. Pure-Kotlin `ClipboardLoopGuard`, plain
+          JUnit5. The macOS half is E31-14.
         acceptance:
-          - Writing a received clip does not trigger a resend of the same content back to its
-            origin
-          - A genuinely new local change with different content is still sent immediately after
-            a receive
+          - Re-detecting a just-received clip sends nothing back to its origin
+          - A genuinely new local change with different content is sent immediately after a
+            receive
+          - 'Received A, then local B sent, then local A again: A is sent'
         tdd:
-          - loopPrevention_receivedThenUnchanged_neverEchoedBack
-          - loopPrevention_receivedThenGenuinelyNewChange_stillSent
+          - "unit: androidLoopGuard_receivedClipRedetected_notSent"
+          - "unit: androidLoopGuard_newContentAfterReceive_sentImmediately"
+          - "unit: androidLoopGuard_receivedAThenLocalBThenLocalA_aSent"
+        notes: |
+          Split from E31-08 ([cross]) in review cycle 3; the macOS half is E31-14. Size M → S.
       - id: E31-09
         title: "[docs] ADR: accessibility-based clipboard auto-capture"
         type: adr
@@ -598,7 +841,7 @@ epics:
         depends_on: []
         description: |
           Evaluate using an AccessibilityService to auto-capture Android clipboard changes in
-          the background versus the explicit entry points in E31-06/E31-07. Decision:
+          the background versus the explicit entry points in E31-06/E31-07/E31-12. Decision:
           accessibility auto-capture ships off by default, as a documented opt-in only, given
           the accessibility-service risk noted in the PRD risk table.
         acceptance:
@@ -612,25 +855,32 @@ epics:
         priority: P0
         size: M
         prd: [F-6.1, F-6.3]
-        use_cases: [UC-12, AC-10]
+        use_cases: [UC-12, AC-02, AC-10]
         invariants: [7]
-        depends_on: [E31-08, E31-03, E31-05, E15-17]
+        depends_on: [E31-08, E31-14, E31-03, E31-05, E15-17, E15-07, E15-06, E00-25, E00-23]
         description: |
           End-to-end test: sync a canary string Mac to phone, have it copied again, and assert
           no infinite loop occurs; separately, place a ConcealedType-flagged item on the Mac
           pasteboard and assert it never reaches the phone and never appears in either app's
           logs (E15-17). A pcap check alone proves nothing for the concealed case, because the
-          payload would be encrypted anyway; the pcap-audit canary run still covers AC-02.
+          payload would be encrypted anyway; the E15-07 clipboard canary step still covers AC-02.
+          The automated concealed check is an in-process loopback on macOS: the real clipboard
+          feature with `FakePasteboardSource` and a real TandemSession over
+          `InMemoryConnectionPair` (E00-25) to a test peer that counts CLIPBOARD frames.
         acceptance:
-          - The round-trip canary test completes with a bounded number of sync events and no
-            loop
-          - During the concealed-item test the phone clipboard never contains the concealed canary
-            and the phone's CLIPBOARD receive counter does not change
+          - On physical devices, the round-trip canary produces exactly one CLIPBOARD frame per
+            direction within 30 s and no further frames
+          - 'Loopback: after a ConcealedType item is placed, the peer receives 0 CLIPBOARD frames within 5 s of virtual time'
+          - During the physical concealed-item test the phone clipboard never contains the concealed
+            canary and the phone's CLIPBOARD receive counter does not change
+          - pcap-audit canary scan (E15-06) of the E15-07 clipboard step finds zero occurrences
           - log-audit (E15-17) over both apps' logs for the session finds zero occurrences of either canary
         tdd:
-          - clipboardExitTest_roundTripCanary_noInfiniteLoop
-          - clipboardExitTest_concealedCanary_neverReachesPhone
-          - clipboardExitTest_logAudit_noCanaryInEitherAppLog
+          - "manual: clipboardRoundTripCanary_physicalDevices_oneFramePerDirectionIn30s"
+          - "manual: concealedCanaryOnMac_physicalPhone_receiveCounterUnchanged"
+          - "integration: concealedPasteboardItemLoopback_peerConnected_zeroClipboardFramesIn5s"
+          - "security: pcapCanary_clipboardCanaryMacToPhone_absentFromCapture"
+          - "security: logAudit_clipboardAndConcealedCanaries_zeroHitsInBothLogs"
       - id: E31-11
         title: "[macos] Push Clipboard quick action"
         type: story
@@ -640,16 +890,99 @@ epics:
         prd: [F-4.2, F-6.1, F-6.3]
         use_cases: [UC-12]
         invariants: [7]
-        depends_on: [E22-02, E31-03, E31-04]
+        depends_on: [E22-02, E31-03, E31-04, E12-12]
         description: |
           Wire the F-4.2 "clipboard push" quick action (stub in E22-02): send the current pasteboard
           text now, through the same path as E31-04, so the concealed/transient skip (E31-03) and the
           1 MiB limit apply identically. Useful when polling missed a change or the phone cleared its clip.
+          Tested on the menu view model with `FakePasteboardSource` (E31-02) and the fake
+          TandemSession (E12-12).
         acceptance:
           - Selecting Push Clipboard sends the current plain-text item as ClipboardText
-          - A concealed/transient item is not sent and the menu shows "Not sent: protected item"
+          - 'A concealed/transient item is not sent and the menu shows "Not sent: protected item"'
           - An item over 1 MiB is not sent and the menu shows the size hint
         tdd:
-          - pushClipboardAction_plainText_sendsClipboardText
-          - pushClipboardAction_concealedItem_notSentAndExplains
-          - pushClipboardAction_overLimit_notSentShowsSizeHint
+          - "unit: pushClipboardAction_plainTextItem_sendsClipboardText"
+          - "unit: pushClipboardAction_concealedItem_noFrameAndStatusNotSentProtectedItem"
+          - "unit: pushClipboardAction_overLimitItem_noFrameAndStatusShowsSizeHint"
+      - id: E31-12
+        title: "[android] Quick Settings tile entry point"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-6.2]
+        use_cases: [UC-13]
+        invariants: []
+        depends_on: [E31-06, E31-07, E00-20, E00-21]
+        description: |
+          A Quick Settings TileService that sends the current clipboard. Android 10+ blocks
+          background clipboard reads, so a tile click starts a transparent capture activity
+          (`startActivityAndCollapse`) that reads on window focus via E31-07's foreground
+          capture and finishes. TileService/activity tests run under Robolectric (E00-20); the
+          emulator test (E00-21, api29 and api35) proves all four UC-13 entry points send without
+          an AccessibilityService, using a Hilt test module that binds `FakeTandemSession`.
+        acceptance:
+          - Tile click starts the transparent capture activity
+          - The capture activity sends the current text clip and finishes; an empty clipboard
+            sends nothing
+          - On api29 and api35 emulators with no AccessibilityService enabled, share target,
+            PROCESS_TEXT, QS tile capture activity, and in-app button each produce one
+            ClipboardText send (UC-13)
+        tdd:
+          - "unit: clipboardTile_click_startsTransparentCaptureActivity"
+          - "unit: clipboardCaptureActivity_windowFocusWithTextClip_sendsClipAndFinishes"
+          - "unit: clipboardCaptureActivity_emptyClipboard_sendsNothing"
+          - "instrumented: clipboardEntryPoints_api29And35NoAccessibility_eachSendsOneClip"
+        notes: "Split from E31-06 in review cycle 3."
+      - id: E31-13
+        title: "[macos] Receive ClipboardText and write NSPasteboard"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-6.2]
+        use_cases: [UC-13]
+        invariants: []
+        depends_on: [E31-01, E31-02, E12-12]
+        description: |
+          UC-13 main flow had no owner: on receiving ClipboardText from the phone, write the text
+          to the pasteboard as `public.utf8-plain-text` via `PasteboardSource.setString`
+          (E31-02) and hand the resulting changeCount to the loop guard (E31-14). Received text
+          over 1,048,576 bytes is rejected, not written. Tests use `FakePasteboardSource` and the
+          fake TandemSession (E12-12).
+        acceptance:
+          - A received ClipboardText becomes the pasteboard string for `public.utf8-plain-text`
+          - A received text over 1,048,576 bytes is not written and the pasteboard is unchanged
+        tdd:
+          - "unit: pasteboardWriter_receivedText_pasteboardStringEqualsText"
+          - "unit: pasteboardWriter_textOver1MiB_pasteboardUnchanged"
+        notes: "Added in review cycle 3 (UC-13 coverage gap)."
+      - id: E31-14
+        title: "[macos] Origin tag and content-hash loop prevention"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-6.3]
+        use_cases: [UC-12, UC-13]
+        invariants: []
+        depends_on: [E31-04, E31-13, E00-24, E00-25, E12-12]
+        description: |
+          Swift counterpart of E31-08: record (originTag, contentHash) and the changeCount of each
+          write from a received clip (E31-13); the poller (E31-02) skips a detected change that
+          matches it. Cleared once a different local change is sent. Unit tests use
+          `FakePasteboardSource` and `ManualTestClock` (E00-24); the loopback no-echo test wires
+          the real clipboard feature and a real TandemSession over `InMemoryConnectionPair`
+          (E00-25) to a test peer.
+        acceptance:
+          - Re-detecting a just-written received clip sends nothing back
+          - A different local change after a receive is sent at the next poll
+          - 'Received A, then local B sent, then local A again: A is sent'
+          - 'Loopback: a peer that sends one ClipboardText receives 0 CLIPBOARD frames back within 5 s of virtual time'
+        tdd:
+          - "unit: macLoopGuard_receivedClipRedetected_notSent"
+          - "unit: macLoopGuard_newContentAfterReceive_sentAtNextPoll"
+          - "unit: macLoopGuard_receivedAThenLocalBThenLocalA_aSent"
+          - "integration: clipboardLoopback_peerSendsOneClip_zeroClipboardFramesEchoedIn5s"
+        notes: "Split from E31-08 in review cycle 3."
