@@ -51,9 +51,33 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
 
+  # E00-26: runner for macOS `ui:` tdd entries. Drives TandemApp through its accessibility
+  # identifiers; the app under test reads `-UITestScenario <name>` only under `#if DEBUG`.
+  TandemUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - TandemUITests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.tandem.app.UITests
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TandemApp
+
 schemes:
   Tandem:
     build:
       targets:
         TandemApp: all
         TandemShare: all
+
+  TandemUITests:
+    build:
+      targets:
+        TandemApp: all
+        TandemUITests: all
+    test:
+      targets:
+        - TandemUITests
