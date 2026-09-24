@@ -1,0 +1,59 @@
+name: Tandem
+options:
+  bundleIdPrefix: dev.tandem
+  deploymentTarget:
+    macOS: "15.0"
+
+targets:
+  TandemApp:
+    type: application
+    platform: macOS
+    sources:
+      - TandemApp
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.tandem.app
+    info:
+      path: TandemApp/Info.plist
+      properties:
+        LSUIElement: true
+    entitlements:
+      path: TandemApp/TandemApp.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.server: true
+        com.apple.security.network.client: true
+    dependencies:
+      - target: TandemShare
+        embed: true
+        codeSign: true
+
+  TandemShare:
+    type: app-extension
+    platform: macOS
+    sources:
+      - TandemShare
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.tandem.app.Share
+    info:
+      path: TandemShare/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule: TRUEPREDICATE
+    entitlements:
+      path: TandemShare/TandemShare.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+
+schemes:
+  Tandem:
+    build:
+      targets:
+        TandemApp: all
+        TandemShare: all
