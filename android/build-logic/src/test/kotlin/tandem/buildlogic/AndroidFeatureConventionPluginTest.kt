@@ -40,6 +40,11 @@ class AndroidFeatureConventionPluginTest {
                     google()
                     mavenCentral()
                 }
+                versionCatalogs {
+                    create("libs") {
+                        from(files("${realLibsVersionCatalog()}"))
+                    }
+                }
             }
             rootProject.name = "feature-fixture"
             """.trimIndent(),
@@ -63,15 +68,5 @@ class AndroidFeatureConventionPluginTest {
         )
         File(projectDir, "local.properties").writeText("sdk.dir=${androidSdkDir()}\n")
         return projectDir
-    }
-
-    private fun androidSdkDir(): String {
-        System.getenv("ANDROID_SDK_ROOT")?.let { return it }
-        System.getenv("ANDROID_HOME")?.let { return it }
-        val androidProjectDir = File(System.getProperty("tandem.androidProjectDir"))
-        return File(androidProjectDir, "local.properties")
-            .readLines()
-            .first { it.startsWith("sdk.dir=") }
-            .substringAfter("sdk.dir=")
     }
 }

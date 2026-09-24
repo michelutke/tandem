@@ -5,6 +5,7 @@ import com.android.build.api.dsl.LibraryExtension
 // below (see https://kotl.in/gradle/agp-built-in-kotlin).
 plugins {
     id("com.android.library")
+    id("tandem.android.test-fixtures")
 }
 
 extensions.configure<LibraryExtension> {
