@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option java_package = "dev.tandem.spike.trust.datastore.proto";
+option java_outer_classname = "TrustStoreProto";
+option java_multiple_files = true;
+
+message PeerRecordProto {
+  string device_id = 1;
+  string display_name = 2;
+  string spki_sha256_hex = 3;
+  int64 paired_at_epoch_ms = 4;
+  int64 last_seen_epoch_ms = 5;
+  repeated string capabilities = 6;
+  // Added after v1 to prototype the E13-03 "v1-to-v2, field added, default applies" migration
+  // story for proto schema evolution (see docs/spikes/trust-store-persistence.md).
+  bool pending_rotation = 7;
+}
+
+message TrustStore {
+  repeated PeerRecordProto records = 1;
+}
