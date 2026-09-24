@@ -1,0 +1,39 @@
+openssl: /opt/homebrew/bin/openssl (OpenSSL 3.6.4 25 Aug 2026 (Library: OpenSSL 3.6.4 25 Aug 2026))
+hardware: Apple M1 Max
+software-key listener (temp keychain): openssl s_client handshakes established: 20/20
+server_elapsed_ms=8.901417
+server_elapsed_ms=11.165584
+server_elapsed_ms=8.196166
+server_elapsed_ms=17.925
+server_elapsed_ms=9.013167
+server_elapsed_ms=9.267083
+server_elapsed_ms=7.913833
+server_elapsed_ms=12.6345
+server_elapsed_ms=9.637334
+server_elapsed_ms=9.887791
+server_elapsed_ms=8.832708
+server_elapsed_ms=8.975542
+server_elapsed_ms=8.746625
+server_elapsed_ms=9.051375
+server_elapsed_ms=8.131583
+server_elapsed_ms=8.1525
+server_elapsed_ms=8.791167
+server_elapsed_ms=8.830833
+server_elapsed_ms=10.159666
+server_elapsed_ms=8.623833
+server ready count: 20/20
+== 1. SE keygen, unsigned ad-hoc binary, data-protection keychain ==
+ERROR: SecKeyCreateRandomKey failed: OSStatus=-34018 (A required entitlement isn't present.) cferror=Optional(Error Domain=NSOSStatusErrorDomain Code=-34018 "failed to add key to keychain: <SecKeyRef:('com.apple.setoken') 0x71d003d20>" UserInfo={numberOfErrorsDeep=0, NSDescription=failed to add key to keychain: <SecKeyRef:('com.apple.setoken') 0x71d003d20>})
+== 2. SW keygen, unsigned ad-hoc binary, data-protection keychain ==
+ERROR: SecKeyCreateRandomKey failed: OSStatus=-34018 (A required entitlement isn't present.) cferror=Optional(Error Domain=NSOSStatusErrorDomain Code=-34018 "failed to add key to keychain: <SecKeyRef curve type: kSecECCurveSecp256r1, algorithm id: 3, key type: ECPrivateKey, version: 4, block size: 256 bits, addr: 0x104cf1a40>" UserInfo={numberOfErrorsDeep=0, NSDescription=failed to add key to keychain: <SecKeyRef curve type: kSecECCurveSecp256r1, algorithm id: 3, key type: ECPrivateKey, version: 4, block size: 256 bits, addr: 0x104cf1a40>})
+== 3. SE keygen, unsigned ad-hoc binary, temporary (throwaway) keychain ==
+ERROR: SecKeyCreateRandomKey failed: OSStatus=-50 (One or more parameters passed to a function were not valid.) cferror=Optional(Error Domain=NSOSStatusErrorDomain Code=-50 "inconsistent private key parameters for key generation" (paramErr: error in user parameter list) UserInfo={numberOfErrorsDeep=0, NSDescription=inconsistent private key parameters for key generation})
+== 4. SW keygen, unsigned ad-hoc binary, temporary (throwaway) keychain ==
+keygen: label=irrelevant backing=software persistent=true data_protection_keychain=false spki_sha256=4692f82a5518b75ab0ee647201273bf2f5eb8dfe993d094aa33e2507a180f398
+== 5. export-test SW key (temporary keychain) -- expect export to SUCCEED (contrast case) ==
+export-test: backing=software EXPORT SUCCEEDED bytes=97 (unexpected for secureEnclave)
+== 6. relaunch-check: SW identity survives a fresh process reopening the SAME temp keychain ==
+keygen: label=relaunch-label backing=software persistent=true data_protection_keychain=false spki_sha256=4d7d75aacd69ede32ac4183371844b738a0905aaa29247558a61175039712bee
+keygen: temp keychain KEPT at path=/tmp/se-spike-relaunch-test/spike.keychain-db -- caller must delete it (e.g. via relaunch-check's paired run, then `rm -rf`)
+relaunch-check: label=relaunch-label backing=software spki_sha256=4d7d75aacd69ede32ac4183371844b738a0905aaa29247558a61175039712bee (reopened temporary keychain at /tmp/se-spike-relaunch-test)
+-- cleanup temp keychain used for relaunch test --

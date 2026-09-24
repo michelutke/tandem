@@ -1,1 +1,1 @@
-android/app — F-4.1, F-4.3, F-4.4: Compose UI, onboarding, settings, Hilt DI wiring (Android background service entry point).
+android/app — F-4.1, F-4.3, F-4.4: Compose UI, onboarding, settings, Hilt DI wiring (Android background service entry point). Release build type runs R8 (proguard-rules.pro strips `android.util.Log` v/d/i call sites, E00-17).

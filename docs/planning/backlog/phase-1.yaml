@@ -62,6 +62,7 @@ epics:
           no StrongBox, so the fallback path runs for real) and `manual:` on physical devices
           (E00-23) for StrongBox and `KeyInfo.isInsideSecureHardware`.
         acceptance:
+          - "Key spec declares `setDigests(DIGEST_SHA256, DIGEST_NONE)`: Conscrypt signs TLS 1.3 CertificateVerify via NONEwithECDSA, and without DIGEST_NONE every client-cert handshake fails (spike E03-03, docs/spikes/android-sslsocket-keystore.md)."
           - With `failNextGenerate(StrongBoxUnavailable)`, the provider issues exactly one retry with preferStrongBox=false and returns that key.
           - If both the StrongBox and the TEE request fail, the provider throws `IdentityKeyError.GenerationFailed` and no key from any other source (software/exportable) is created.
           - The StrongBox fallback writes one log line naming the resulting security level and containing no key bytes, alias-independent handle or certificate bytes (UC-02 alternate).
@@ -199,6 +200,11 @@ epics:
           - "integration: identityKey_hostedKeychain_accessibilityReadsAfterFirstUnlockThisDeviceOnly"
           - "integration: identityKey_hostedKeychainExportPrivateKey_copyExternalRepresentationFails"
           - "unit: getOrCreateIdentityKey_addRequest_usesDataProtectionKeychainOwnGroup"
+        notes: |
+          Spike E03-02 (docs/spikes/secure-enclave-identity.md): the data-protection keychain
+          (and any Secure Enclave key) needs the `keychain-access-groups` entitlement, which AMFI only
+          allows in a provisioning-profile-signed app. Unit tests use the E10-16 in-memory KeychainStore;
+          the real-keychain path needs a signed build (manual gate / E71-11 signing).
 
       - id: E10-06
         title: "[macos] Self-signed certificate via swift-certificates"
@@ -733,6 +739,7 @@ epics:
           - A NOTIFY collector that stops collecting does not delay FILES frames beyond that channel's own credit window
           - Consuming frames past the E01-04 trigger causes exactly one credit grant to be sent to the peer
           - A peer frame sent beyond granted credit closes the connection with the `CREDIT_VIOLATION` close code
+          - A peer `CreditGrant` naming an amount that would exceed the receiver's configured cap for that channel closes the connection with the `CREDIT_VIOLATION` close code (E11-13 reports the overflow; this issue's multiplexer performs the close, per E01-04 D-64: an over-cap grant closes rather than clamps)
           - CONTROL sends never suspend on credit
         tdd:
           - "unit: flowControl_zeroCredit_sendSuspendedUntilGrantDelivered"
@@ -740,6 +747,7 @@ epics:
           - "unit: flowControl_stalledNotifyCollector_filesFramesStillDelivered"
           - "unit: flowControl_consumedPastTrigger_sendsExactlyOneCreditGrant"
           - "unit: flowControl_peerSendsBeyondGrant_closesWithCreditViolation"
+          - "unit: flowControl_peerGrantAboveCap_closesWithCreditViolation"
           - "unit: flowControl_controlChannel_neverSuspendsOnCredit"
         notes: "Split from E11-07 in review cycle 3: credit accounting moved to E11-13; size L -> M."
 
@@ -755,18 +763,20 @@ epics:
         depends_on: [E01-04, E00-04]
         description: |
           Pure Kotlin `CreditLedger` per channel in core/protocol: initial grant, consume, apply
-          grant, clamp to the configured max, in the E01-04 credit unit. No coroutines, no I/O;
-          E11-07 builds the suspending API on top of it.
+          grant, report overflow beyond the configured max, in the E01-04 credit unit. The ledger
+          never clamps an over-max grant silently (D-64): it reports the overflow and leaves the
+          balance unchanged, so E11-07 (which builds the suspending API on top of it) can close the
+          connection with `CREDIT_VIOLATION`. No coroutines, no I/O.
         acceptance:
           - A new ledger's balance equals the E01-04 initial grant for that channel
           - Consuming more than the balance returns `Insufficient` and leaves the balance unchanged
           - Consuming exactly the balance leaves 0; the balance is never negative
-          - Applying a grant that would exceed the configured max clamps to the max
+          - Applying a grant that would exceed the configured max returns an overflow result and leaves the balance unchanged (never clamps)
         tdd:
           - "unit: creditLedger_newLedger_balanceEqualsSpecInitialGrant"
           - "unit: creditLedger_consumeBeyondBalance_returnsInsufficientBalanceUnchanged"
           - "unit: creditLedger_consumeExactBalance_balanceZeroNeverNegative"
-          - "unit: creditLedger_grantAboveMax_clampsToConfiguredMax"
+          - "unit: creditLedger_grantAboveMax_reportsOverflow"
         notes: "Split from E11-07 in review cycle 3."
 
       - id: E11-08
@@ -790,6 +800,7 @@ epics:
           - A NOTIFY consumer that stops consuming does not delay FILES frames beyond that channel's own credit window
           - Consuming frames past the E01-04 trigger causes exactly one credit grant to be sent to the peer
           - A peer frame sent beyond granted credit closes the connection with the `CREDIT_VIOLATION` close code
+          - A peer `CreditGrant` naming an amount that would exceed the receiver's configured cap for that channel closes the connection with the `CREDIT_VIOLATION` close code (E11-14 reports the overflow; this issue's multiplexer performs the close, per E01-04 D-64: an over-cap grant closes rather than clamps)
           - CONTROL sends never suspend on credit
         tdd:
           - "unit: flowControl_zeroCredit_sendSuspendedUntilGrantDelivered"
@@ -797,6 +808,7 @@ epics:
           - "unit: flowControl_stalledNotifyConsumer_filesFramesStillDelivered"
           - "unit: flowControl_consumedPastTrigger_sendsExactlyOneCreditGrant"
           - "unit: flowControl_peerSendsBeyondGrant_closesWithCreditViolation"
+          - "unit: flowControl_peerGrantAboveCap_closesWithCreditViolation"
           - "unit: flowControl_controlChannel_neverSuspendsOnCredit"
         notes: "Split from E11-08 in review cycle 3: credit accounting moved to E11-14; size L -> M."
 
@@ -812,17 +824,19 @@ epics:
         depends_on: [E01-04, E00-08]
         description: |
           Swift equivalent of E11-13: a value-type `CreditLedger` in TandemProtocol with no
-          concurrency or I/O; E11-08 builds the suspending API on top of it.
+          concurrency or I/O; reports overflow beyond the configured max rather than clamping (D-64),
+          so E11-08 (which builds the suspending API on top of it) can close the connection with
+          `CREDIT_VIOLATION`.
         acceptance:
           - A new ledger's balance equals the E01-04 initial grant for that channel
           - Consuming more than the balance returns `.insufficient` and leaves the balance unchanged
           - Consuming exactly the balance leaves 0; the balance is never negative
-          - Applying a grant that would exceed the configured max clamps to the max
+          - Applying a grant that would exceed the configured max returns an overflow result and leaves the balance unchanged (never clamps)
         tdd:
           - "unit: creditLedger_newLedger_balanceEqualsSpecInitialGrant"
           - "unit: creditLedger_consumeBeyondBalance_returnsInsufficientBalanceUnchanged"
           - "unit: creditLedger_consumeExactBalance_balanceZeroNeverNegative"
-          - "unit: creditLedger_grantAboveMax_clampsToConfiguredMax"
+          - "unit: creditLedger_grantAboveMax_reportsOverflow"
         notes: "Split from E11-08 in review cycle 3."
 
       - id: E11-09
@@ -1179,12 +1193,13 @@ epics:
         depends_on: [E12-01, E11-06, E01-06, E00-25, E01-22, E00-24]
         description: |
           Mac side of E01-06: the first CONTROL frame each side sends after TLS is VersionHello
-          {protocolVersion, capabilities}; no other channel sends before both hellos are
+          {major, minor, capabilities}; no other channel sends before both hellos are
           exchanged. A mismatched major version closes with the E01-05 version-mismatch code and
-          raises a visible error event (mapped to text by E12-10); an unknown capability bit is
-          ignored. Tests drive a real Mac session against a scripted peer over
-          `InMemoryConnectionPair` (E00-25). Android side is E12-15; cross-stack compatibility is
-          proven by E12-13.
+          raises a visible error event (mapped to text by E12-10); a differing minor version with a
+          matching major is compatible, not a mismatch; an unknown capability bit is ignored (the
+          raw capabilities value MAY still be recorded, E12-14). Tests drive a real Mac session
+          against a scripted peer over `InMemoryConnectionPair` (E00-25). Android side is E12-15;
+          cross-stack compatibility is proven by E12-13.
         acceptance:
           - Peer hello with the same major and a higher minor version moves the connection to Ready
           - Peer hello with a different major version closes with version-mismatch and emits `Failed(.versionMismatch)`

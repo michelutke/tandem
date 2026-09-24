@@ -8,12 +8,13 @@ let package = Package(
         .library(name: "TandemTestSupport", targets: ["TandemTestSupport"])
     ],
     dependencies: [
-        .package(path: "../TandemTransport")
+        .package(path: "../TandemTransport"),
+        .package(path: "../TandemCrypto")
     ],
     targets: [
         .target(
             name: "TandemTestSupport",
-            dependencies: ["TandemTransport"],
+            dependencies: ["TandemTransport", "TandemCrypto"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
