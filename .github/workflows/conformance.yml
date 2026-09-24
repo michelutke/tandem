@@ -1,0 +1,30 @@
+name: conformance
+
+# E00-11: runs the cross-platform conformance vectors against both codecs (runner: E15-01..E15-03).
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "protocol/**"
+      - "android/core/protocol/**"
+      - "macos/Packages/TandemProtocol/**"
+      - "tools/conformance/**"
+      - ".github/workflows/conformance.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  vectors:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Conformance vectors
+        run: |
+          if [[ -x tools/conformance/run.sh ]]; then
+            tools/conformance/run.sh
+          else
+            echo "::notice::tools/conformance/run.sh not implemented yet (E15-01..E15-03); nothing to run."
+          fi

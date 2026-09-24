@@ -1,0 +1,28 @@
+name: protocol
+
+# E00-11: buf lint on every protocol change; breaking-change check against main on PRs.
+on:
+  push:
+    branches: [main]
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+  pull_request:
+    paths: ["protocol/**", ".github/workflows/protocol.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  buf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+        with:
+          setup_only: true
+      - name: buf lint
+        run: buf lint protocol
+      - name: buf breaking
+        if: github.event_name == 'pull_request'
+        run: buf breaking protocol --against ".git#ref=refs/remotes/origin/main,subdir=protocol"
