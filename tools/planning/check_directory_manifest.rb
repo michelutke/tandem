@@ -16,6 +16,7 @@
 
 require 'set'
 require 'shellwords'
+require 'open3'
 
 module DirectoryManifestCheck
   ROOTS = %w[
@@ -56,11 +57,17 @@ module DirectoryManifestCheck
       abs = File.join(repo_root, root)
       next unless Dir.exist?(abs)
 
-      `find #{Shellwords.escape(abs)} -type d`.each_line do |line|
-        path = line.strip
-        set << path.delete_prefix("#{repo_root}/")
-      end
+      dirs = `find #{Shellwords.escape(abs)} -type d`.lines.map { |l| l.strip.delete_prefix("#{repo_root}/") }
+      (dirs - git_ignored(repo_root, dirs)).each { |d| set << d }
     end
+  end
+
+  # Build outputs and caches (.gradle/, build/, .build/, …) are gitignored and not part of the tree.
+  def git_ignored(repo_root, dirs)
+    return [] if dirs.empty? || !system('git', '-C', repo_root, 'rev-parse', '--git-dir', out: File::NULL, err: File::NULL)
+
+    out, = Open3.capture2('git', '-C', repo_root, 'check-ignore', '--stdin', stdin_data: dirs.map { |d| "#{d}/" }.join("\n"))
+    out.lines.map { |l| l.strip.chomp('/') }
   end
 
   def leaf?(dir, all_dirs)
