@@ -1737,6 +1737,14 @@ epics:
           - 1 control session per peer SPKI (a newer Ready session replaces the older one); 1 media connection
             per control session (E60-04); per-channel credit cap (E01-04); frames <= 1 MiB (E01-03); media access
             units <= 8 fragments and <= 8 MiB reassembled (E61-01).
+          - "CONTROL channel is exempt from the per-channel credit cap above (control/heartbeat traffic must never
+            be backpressured) and instead has its own caps (cycle 5, D-60/D-61): the phone answers at most 1
+            Heartbeat per second, replying to faster Heartbeats is skipped silently (no reply, no error, no close);
+            non-Heartbeat CONTROL frames from a peer are capped at 60/s per session, exceeding the cap closes
+            LIMIT_EXCEEDED (E20-05 / E20-15 / E20-20)."
+          - "Ring/RingStop (cycle 5, D-62): Ring is idempotent while an alarm is already ringing (a second Ring is a
+            no-op, not a second alarm); the alarm starts at most twice per rolling 10 s window (cooldown) regardless
+            of how many Ring frames arrive (E23-06 / E23-08)."
           Feature caps (the owning issue implements; its SPEC section restates the number):
           - Notifications: title <= 256 and text <= 4096 characters, <= 25 sender names of <= 64 characters,
             icon PNG <= 64 KiB and <= 256 x 256 px, the Mac keeps <= 50 delivered Tandem notifications
@@ -1756,9 +1764,12 @@ epics:
           - "Section lists every number above as an RFC 2119 MUST with the close code (`PROTOCOL_TIMEOUT`, `LIMIT_EXCEEDED`) or typed error returned on violation, and names the implementing issue for each row."
           - "Section states that limits are enforced before allocation or side effect, never relax TLS, pinning, pairing or ticket checks, and that a source IP is used only as a throttling key, never for trust (invariant 3)."
           - "Section records the pairing-window DoS trade-off: an attacker in range can burn the 3 attempts; this is visible on the Mac and recovered by regenerating the QR (E14-11)."
+          - "Section states the CONTROL-channel row (cycle 5, D-60/D-61): the channel is exempt from the per-channel credit cap because control/heartbeat traffic must never be backpressured; Heartbeat replies are capped at 1/s (excess dropped silently, no close) and non-Heartbeat CONTROL frames are capped at 60/s per session (LIMIT_EXCEEDED beyond that), naming E20-05/E20-15/E20-20 as implementing issues."
+          - "Section states the Ring/RingStop cooldown row (cycle 5, D-62): Ring is idempotent while already ringing and the alarm starts at most twice per rolling 10 s window regardless of Ring frame volume, naming E23-06/E23-08 as implementing issues."
         tdd: []
         notes: |
           Added in review cycle 4. Consumers: E12-07, E12-08, E12-09, E12-15, E12-18, E14-02, E30-*, E40-01, E41-01, E50-01, E52-01, E60-03, E61-01, E62-01, E62-06.
+          Cycle 5: CONTROL-channel cap and Ring cooldown consumers add E20-05, E20-15, E20-20, E23-06, E23-08.
 
       - id: E01-23
         title: "[docs] SPEC.md section: untrusted peer strings (display sanitization)"
