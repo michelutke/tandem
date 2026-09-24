@@ -1,0 +1,4 @@
+client: using identity=good-client spki_sha256=10692ffad74b2f5e9af2ef4b9db1a7376147535510e860881fbb526cc804abd6
+EVENT type=state role=client state=preparing elapsed_ms=1.199708
+EVENT type=waiting role=client error="-9838: internal error" elapsed_ms=2.507917
+EVENT type=timeout role=client after_s=5.0

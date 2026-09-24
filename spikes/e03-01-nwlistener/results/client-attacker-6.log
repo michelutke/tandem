@@ -1,0 +1,6 @@
+client: using identity=attacker-client spki_sha256=63aa78687944009b1cecba4f20eda23e525f77b815cc17a7d96e26fe45c898ec
+EVENT type=state role=client state=preparing elapsed_ms=0.747166
+LOG[client] verify_block: peer_spki=f72e81490c5742c5... match=true elapsed_us=1672.084
+EVENT type=ready role=client tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=e519db370950c5709538cac51c685b1a0b3ba19f1eb789e1da8bded0ee12d2c7 elapsed_ms=18.638166
+EVENT type=recv-error role=client error="Optional(-9825: misc. bad certificate)"
+EVENT type=failed role=client error="-9825: misc. bad certificate" elapsed_ms=19.523666

@@ -1,0 +1,8 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4508 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56739
+EVENT type=handshake-deadline-cancel remote=127.0.0.1:56739 deadline_s=3.0
+EVENT type=cancelled role=server remote=127.0.0.1:56739 elapsed_ms=3148.207584
+EVENT type=exit-after-reached count=1
+EVENT type=listener-state state=cancelled
