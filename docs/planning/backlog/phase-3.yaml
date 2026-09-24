@@ -36,9 +36,9 @@ epics:
         priority: P0
         size: M
         prd: [F-5.1, F-5.2, F-5.3, F-5.4]
-        use_cases: [UC-08, UC-09, UC-10]
+        use_cases: [UC-08, UC-09, UC-10, AC-14, AC-19]
         invariants: [7]
-        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02, E01-22, E01-23]
         description: |
           Define `NotificationPosted{key, packageName, appVersionCode, title, text,
           messagingStyleSenders, visibility, hasIcon}`, `IconData{packageName, versionCode,
@@ -47,6 +47,7 @@ epics:
           including the default filter list and VISIBILITY_SECRET handling. Provide vectors for
           a MessagingStyle-bearing post and an action with a reply. Vectors run through the
           Kotlin and Swift conformance runners (E15-01, E15-02).
+          Cycle 4: SPEC.md NOTIFY section restates the E01-22 caps (title <= 256, text <= 4096 characters, <= 25 senders of <= 64 characters, icon PNG <= 64 KiB and <= 256 x 256 px, replyText <= 4096) and the E01-23 display sanitization of every string field.
         acceptance:
           - notify.proto covers posted/icon/action/dismiss/actionResult messages and `buf lint`
             reports zero findings
@@ -56,6 +57,7 @@ epics:
             origin macos, an IconData, and a NotificationActionResult with status GONE
           - "notify.proto also defines NotificationActionResult{key, status: OK|GONE|FAILED} so the Mac can report \"no longer available\" (UC-09 alternate)."
           - "SPEC.md states the disconnected-phone buffer policy: at most 50 notifications, max age 60 s, oldest dropped first, nothing persisted to disk (UC-08 alternate; implemented in E30-16)."
+          - "SPEC.md NOTIFY section states the E01-22 caps and E01-23 sanitization for every string field."
         tdd:
           - "ci: notifyProto_bufLint_zeroFindings"
           - "conformance: notificationPostedVector_messagingStyleThreeSenders_roundTripsOnBothCodecs"
@@ -72,7 +74,7 @@ epics:
         prd: [F-5.1]
         use_cases: [UC-08]
         invariants: [7]
-        depends_on: [E30-01, E00-20, E00-21, E00-22]
+        depends_on: [E30-01, E00-20, E00-21, E00-22, E00-28]
         description: |
           Implement NotificationListenerService; on onNotificationPosted/Removed, extract app
           name, package, version, title, text, and MessagingStyle sender names when present, and
@@ -93,12 +95,14 @@ epics:
             within 2 s
           - Release build logs never contain notification title or text (static E00-17 lint;
             runtime log-audit in E30-13)
+          - "The merged manifest declares the listener service with `android:permission=\"android.permission.BIND_NOTIFICATION_LISTENER_SERVICE\"` (E00-28 allowlist)."
         tdd:
           - "unit: notificationMapper_plainStatusBarNotification_mapsPackageVersionTitleText"
           - "unit: notificationMapper_messagingStyleThreeSenders_preservesSenderNamesInOrder"
           - "unit: notificationMapper_removedCallback_emitsDismissWithOriginAndroid"
           - "instrumented: listenerService_companionPlainPost_capturedWithCompanionPackageWithin2s"
           - "instrumented: listenerService_companionMessagingGroupThreeSenders_capturedWithThreeSenders"
+          - "ci: mergedManifest_notificationListener_requiresBindNotificationListenerPermission"
         notes: |
           Buffer-while-disconnected moved to E30-16 in review cycle 3.
       - id: E30-03
@@ -197,9 +201,9 @@ epics:
         priority: P1
         size: S
         prd: [F-5.1]
-        use_cases: [UC-08]
+        use_cases: [UC-08, AC-12, AC-19]
         invariants: []
-        depends_on: [E30-01, E30-07, E22-01, E00-08]
+        depends_on: [E30-01, E30-07, E22-01, E00-08, E14-13]
         description: |
           Disk cache storing received IconData keyed by packageName+versionCode, served to the
           notification presentation layer (E30-07) and the paired-devices/app-list UI. Tests use
@@ -209,10 +213,13 @@ epics:
           - A missing icon falls back to a generic app placeholder
           - A presented notification whose package+version is cached carries the icon as its
             single attachment
+          - "The icon cache registers with `PeerDataPurgeRegistry` (E14-13): unpairing a phone deletes its cached icons; a received IconData over 64 KiB or 256 x 256 px is discarded and the placeholder used (E01-22)."
         tdd:
           - "unit: iconCache_storedIconNewCacheInstance_returnsSameBytes"
           - "unit: iconCache_unknownPackageVersion_returnsPlaceholder"
           - "unit: notificationPresentation_iconCached_requestHasOneIconAttachment"
+          - "unit: iconCache_peerUnpaired_iconsForPeerDeleted"
+          - "unit: iconCache_iconOver64KiB_discardedPlaceholderUsed"
       - id: E30-07
         title: "[macos] UNUserNotificationCenter presentation via NotificationPresenter seam"
         type: story
@@ -220,9 +227,9 @@ epics:
         priority: P0
         size: M
         prd: [F-5.1, F-5.2]
-        use_cases: [UC-08, UC-09]
+        use_cases: [UC-08, UC-09, AC-14, AC-12]
         invariants: []
-        depends_on: [E30-01, E22-01, E00-08, E12-12, E00-23]
+        depends_on: [E30-01, E22-01, E00-08, E12-12, E00-23, E14-22, E14-13]
         description: |
           Present NotificationPosted as a UNNotificationRequest using MessagingStyle sender names
           in the body. Seam: `NotificationPresenter` protocol in the notifications module
@@ -241,11 +248,14 @@ epics:
             key replaces rather than stacks the delivered notification
           - On a physical Mac with notifications allowed, a posted notification appears as a
             banner with title, app name, and body within 1 s of receipt
+          - "Every presented string passes the E14-22 sanitizer and the E01-22 caps (title <= 256, body <= 4096 characters, <= 25 senders); on unpair (PeerDataPurgeRegistry, E14-13) all delivered notifications from that phone are removed."
         tdd:
           - "unit: notificationPresentation_plainPosted_titleSubtitleBodyMapped"
           - "unit: notificationPresentation_messagingStyleTwoSenders_bodyHasSenderPrefixedLines"
           - "unit: notificationPresentation_sameKeyPostedTwice_requestIdentifierReused"
           - "manual: macNotificationBanner_physicalMac_showsTitleAppNameBodyWithin1s"
+          - "unit: notificationPresentation_titleWithBidiOverrideOverCap_sanitizedAndTruncated"
+          - "unit: notificationPresentation_peerUnpaired_deliveredNotificationsRemoved"
         notes: |
           Split from E30-07 in review cycle 3: category/action/text-input registration moved to
           E30-17; size L → M.
@@ -281,7 +291,7 @@ epics:
         priority: P0
         size: M
         prd: [F-5.2]
-        use_cases: [UC-09]
+        use_cases: [UC-09, AC-19]
         invariants: []
         depends_on: [E30-01, E30-02, E20-02, E12-11, E00-20, E00-21, E00-22]
         description: |
@@ -298,6 +308,7 @@ epics:
           - An action referencing an already-dismissed or expired notification key does not
             throw and fires nothing
           - Every received NotificationAction is answered with NotificationActionResult (OK, GONE for an unknown/expired key, FAILED if the PendingIntent throws CanceledException).
+          - "The fill-in intent carries only the RemoteInput results for the action result keys (no other extras from the Mac); replyText over 4096 characters is answered FAILED without sending the PendingIntent."
         tdd:
           - "unit: actionExecutor_plainActionIndexZero_sendsPendingIntentOfActionZero"
           - "unit: actionExecutor_replyText_fillInIntentCarriesRemoteInputResult"
@@ -305,6 +316,8 @@ epics:
           - "unit: actionExecutor_unknownKey_repliesResultGoneWithoutThrowing"
           - "unit: actionExecutor_pendingIntentCanceled_repliesResultFailed"
           - "instrumented: actionExecutor_companionActionsKindReply_companionRecordsReplyText"
+          - "unit: actionExecutor_replyOver4096Chars_repliesFailedWithoutSending"
+          - "unit: actionExecutor_fillInIntent_containsOnlyRemoteInputResults"
       - id: E30-10
         title: "[android] Dismiss sync: forward phone dismissals, apply Mac dismissals"
         type: story
@@ -756,9 +769,9 @@ epics:
         priority: P0
         size: M
         prd: [F-6.2, F-6.3]
-        use_cases: [UC-13]
+        use_cases: [UC-13, AC-16]
         invariants: []
-        depends_on: [E31-01, E12-11, E00-20]
+        depends_on: [E31-01, E12-11, E00-20, E00-28]
         description: |
           Add a share-sheet target ("Send to Mac") and a `PROCESS_TEXT` activity for selected
           text, each producing a ClipboardText send through a shared Android `ClipboardSender`
@@ -772,11 +785,13 @@ epics:
           - Choosing the Tandem PROCESS_TEXT entry sends EXTRA_PROCESS_TEXT as ClipboardText
           - ACTION_SEND text/plain and ACTION_PROCESS_TEXT queries both resolve to Tandem activities
           - Text over 1,048,576 bytes is not sent and the toast above is shown
+          - "PROCESS_TEXT accepts only a CharSequence EXTRA_PROCESS_TEXT and ignores EXTRA_PROCESS_TEXT_READONLY; a missing or non-text extra sends nothing. ACTION_SEND text requires EXTRA_TEXT (streams are E40-11)."
         tdd:
           - "unit: shareTargetActivity_actionSendTextPlain_sendsClipboardTextOriginAndroid"
           - "unit: processTextActivity_extraProcessText_sendsSelectedText"
           - "unit: intentResolution_actionSendAndProcessText_resolveToTandemActivities"
           - "unit: clipboardSender_oneByteOver1MiB_noFrameAndTooLargeToast"
+          - "unit: processTextActivity_nonCharSequenceExtra_sendsNothing"
         notes: "QS tile moved to E31-12 in review cycle 3."
       - id: E31-07
         title: "[android] Foreground capture and in-app Send clipboard button"
@@ -798,10 +813,13 @@ epics:
           - Gaining window focus with a text clip sends it as ClipboardText
           - Tapping "Send clipboard to Mac" sends the current text clip
           - No ClipboardReader read occurs while Tandem has no window focus
+          - "A clip whose ClipDescription carries EXTRA_IS_SENSITIVE is never sent on window focus; the in-app button sends it with `sensitive = true`."
         tdd:
           - "unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText"
           - "unit: foregroundCapture_sendClipboardButtonTapped_sendsClipboardText"
           - "unit: foregroundCapture_noWindowFocus_clipboardReaderNeverCalled"
+          - "unit: foregroundCapture_sensitiveClipOnWindowFocus_notSent"
+          - "unit: foregroundCapture_sensitiveClipViaButton_sentWithSensitiveFlag"
       - id: E31-08
         title: "[android] Origin tag and content-hash loop prevention"
         type: story
@@ -912,9 +930,9 @@ epics:
         priority: P0
         size: S
         prd: [F-6.2]
-        use_cases: [UC-13]
+        use_cases: [UC-13, AC-16]
         invariants: []
-        depends_on: [E31-06, E31-07, E00-20, E00-21]
+        depends_on: [E31-06, E31-07, E00-20, E00-21, E00-28]
         description: |
           A Quick Settings TileService that sends the current clipboard. Android 10+ blocks
           background clipboard reads, so a tile click starts a transparent capture activity
@@ -929,11 +947,13 @@ epics:
           - On api29 and api35 emulators with no AccessibilityService enabled, share target,
             PROCESS_TEXT, QS tile capture activity, and in-app button each produce one
             ClipboardText send (UC-13)
+          - "The capture activity is not exported and the TileService requires BIND_QUICK_SETTINGS_TILE (merged manifest, E00-28 allowlist)."
         tdd:
           - "unit: clipboardTile_click_startsTransparentCaptureActivity"
           - "unit: clipboardCaptureActivity_windowFocusWithTextClip_sendsClipAndFinishes"
           - "unit: clipboardCaptureActivity_emptyClipboard_sendsNothing"
           - "instrumented: clipboardEntryPoints_api29And35NoAccessibility_eachSendsOneClip"
+          - "ci: mergedManifest_captureActivityAndTile_notExportedAndBindPermissionRequired"
         notes: "Split from E31-06 in review cycle 3."
       - id: E31-13
         title: "[macos] Receive ClipboardText and write NSPasteboard"
@@ -954,9 +974,11 @@ epics:
         acceptance:
           - A received ClipboardText becomes the pasteboard string for `public.utf8-plain-text`
           - A received text over 1,048,576 bytes is not written and the pasteboard is unchanged
+          - "A ClipboardText with `sensitive = true` is written with the `org.nspasteboard.ConcealedType` and `org.nspasteboard.TransientType` markers so clipboard managers and the E31-02 poller skip it."
         tdd:
           - "unit: pasteboardWriter_receivedText_pasteboardStringEqualsText"
           - "unit: pasteboardWriter_textOver1MiB_pasteboardUnchanged"
+          - "unit: pasteboardWriter_sensitiveText_writtenWithConcealedAndTransientTypes"
         notes: "Added in review cycle 3 (UC-13 coverage gap)."
       - id: E31-14
         title: "[macos] Origin tag and content-hash loop prevention"

@@ -44,9 +44,9 @@ epics:
         priority: P0
         size: M
         prd: [F-8.1, F-8.2]
-        use_cases: [UC-18, UC-19]
+        use_cases: [UC-18, UC-19, AC-19]
         invariants: [7]
-        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02]
+        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-22]
         description: |
           protocol/proto/tandem/v1/sms.proto: SmsThread{threadId, address, snippet,
           lastMessageAtMs, unreadCount}, SmsMessage{id, threadId, address, body, timestampMs,
@@ -64,6 +64,7 @@ epics:
           Envelope (F-3.2). Write docs/protocol/SPEC.md SMS section. Vectors: message round
           trip, all SendSmsStatus states, sync response with cursors, oversized-body frame
           rejected before allocation (mirrors E01-03's max-frame rule).
+          Cycle 4: SendSmsStatus.errorCode gains TOO_LONG (body > 1600 characters) and RATE_LIMITED (> 10 sends per 60 s); SPEC states at most one SmsSyncRequest in flight (a new one supersedes) per E01-22.
         acceptance:
           - buf lint reports zero violations on sms.proto.
           - docs/protocol/SPEC.md documents the fresh / forward / backfill cursor rules above,
@@ -77,6 +78,7 @@ epics:
           - "conformance: sendSmsStatusVector_everyState_decodesToSameEnumBothCodecs"
           - "conformance: smsSyncResponseVector_withBackfillCursor_roundTripsBothCodecs"
           - "conformance: smsEnvelope_bodyOverMaxFrame_rejectedBeforeAllocation"
+          - "conformance: sendSmsStatusVector_tooLongAndRateLimited_decodeBothCodecs"
         notes: "Cycle 3: added sync cursors, clientMessageId, providerMessageId, SimList and SmsSyncResponse.status."
       - id: E50-02
         title: "[android] SMS provider read via SmsSource: paged query + row mapping"
@@ -167,7 +169,7 @@ epics:
         priority: P0
         size: L
         prd: [F-8.2]
-        use_cases: [UC-19]
+        use_cases: [UC-19, AC-19]
         invariants: [7]
         depends_on: [E50-01, E50-02, E12-11, E00-20, E00-23]
         description: |
@@ -198,6 +200,7 @@ epics:
           - Log lines emitted on failure contain the result code and clientMessageId only.
           - "Physical phone with SIM: a 2-part message to a second phone reaches DELIVERED within
             30 s, and the provider gains exactly one type SENT row written by the system."
+          - "A body over 1600 characters yields FAILED/TOO_LONG, and an 11th send within 60 s yields FAILED/RATE_LIMITED, both without calling SmsSender."
         tdd:
           - "unit: smsSender_twoHundredCharGsm7Body_dividedIntoTwoParts"
           - "unit: smsSender_hundredCharUcs2Body_dividedIntoTwoParts"
@@ -210,6 +213,8 @@ epics:
           - "unit: sendFailureLogging_radioOffResult_logLinesOmitBodyAndAddress"
           - "manual: smsSender_realCarrierTwoPartSend_deliveredWithin30s"
           - "manual: smsSender_nonDefaultAppSend_systemWritesOneSentProviderRow"
+          - "unit: sendSmsHandler_bodyOver1600Chars_failsTooLongWithoutSending"
+          - "unit: sendSmsHandler_eleventhSendWithin60s_failsRateLimited"
         notes: "Cycle 3: size M -> L (send + status aggregation + provider-row reconciliation + permission path)."
       - id: E50-05
         title: "[android] Multi-SIM subscription chooser for send + SimList"
@@ -283,9 +288,9 @@ epics:
         priority: P0
         size: M
         prd: [F-8.1]
-        use_cases: [UC-18]
+        use_cases: [UC-18, AC-14]
         invariants: []
-        depends_on: [E50-01, E50-09, E51-04, E22-01, E00-08]
+        depends_on: [E50-01, E50-09, E51-04, E22-01, E00-08, E14-22]
         description: |
           SwiftUI list of SmsThread sorted by lastMessageAtMs descending, backed by
           `ThreadListViewModel` reading the `SmsStore` protocol (E50-09; `InMemorySmsStore` in
@@ -301,6 +306,7 @@ epics:
           - unreadCount 3 shows badge "3"; unreadCount 0 shows no badge.
           - An empty store with sync in progress is `.loading`; with sync complete is `.empty`;
             a PERMISSION_REQUIRED sync status is `.permissionRequired`.
+          - "Thread titles, snippets and alphanumeric sender IDs pass the E14-22 sanitizer (bidi overrides and control characters stripped)."
         tdd:
           - "unit: threadListViewModel_threeThreads_sortedByLastMessageDescending"
           - "unit: threadListViewModel_unresolvedE164Address_displaysInternationalFormat"
@@ -308,6 +314,7 @@ epics:
           - "unit: threadListViewModel_unreadCountThree_badgeShowsThree"
           - "unit: threadListViewModel_emptyStoreSyncComplete_stateIsEmpty"
           - "unit: threadListViewModel_permissionRequiredStatus_stateIsPermissionRequired"
+          - "unit: threadListViewModel_senderIdWithBidiOverride_displayedSanitized"
         notes: ""
       - id: E50-08
         title: "[macos] Message view + compose"
@@ -511,6 +518,7 @@ epics:
             backfill page.
           - READ_SMS revoked yields one PERMISSION_REQUIRED response with no rows.
           - A recording logger captures no body or address during a full sync.
+          - "A second SmsSyncRequest while one is in flight supersedes it: the first stops after its current page."
         tdd:
           - "unit: smsSyncSession_freshRequestOnFiveThousandRows_sends25PagesNewestFirst"
           - "unit: smsSyncSession_reconnectWithMacCursors_unionEqualsFixtureWithoutGaps"
@@ -518,6 +526,7 @@ epics:
           - "unit: smsSyncSession_sinceIdBelowMax_sendsForwardRowsBeforeBackfill"
           - "unit: smsSyncSession_readSmsRevoked_respondsPermissionRequiredWithoutRows"
           - "unit: smsSyncSession_fullSync_logLinesContainNoBodyOrAddress"
+          - "unit: smsSyncSession_secondRequestWhileInFlight_firstStopsAfterCurrentPage"
         notes: "Split from E50-02 in review cycle 3."
       - id: E50-14
         title: "[macos] SMS sync client: request on connect, apply batches, reconcile sends"
@@ -881,9 +890,9 @@ epics:
         priority: P0
         size: M
         prd: [F-8.4]
-        use_cases: [UC-20, UC-21]
+        use_cases: [UC-20, UC-21, AC-19]
         invariants: [7]
-        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02]
+        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-22]
         description: |
           protocol/proto/tandem/v1/calls.proto: CallEvent{callId, direction, state (RINGING |
           DIALING | ACTIVE | ENDED), address, normalizedE164, timestampMs},
@@ -894,14 +903,17 @@ epics:
           the phone per RINGING/DIALING-to-ENDED cycle. Caller name is resolved on the Mac
           (E51-04), not sent. Write docs/protocol/SPEC.md Calls section. Vectors: event round
           trip, call-state transition sequence, UNKNOWN_CALL result.
+          Cycle 4: errorCode gains INVALID_NUMBER and RATE_LIMITED; SPEC Calls section states PlaceCallRequest.address MUST match `^\+?[0-9]{3,20}$` after removing spaces and dashes (no MMI/USSD `*` / `#`, no pause/wait `,` / `;`) and at most one request per 5 s (E01-22).
         acceptance:
           - buf lint reports zero violations on calls.proto.
           - protocol/vectors/calls/*.json pass conformance on both codecs.
+          - "SPEC.md Calls section states the PlaceCallRequest address rule and rate limit, and errorCode includes INVALID_NUMBER and RATE_LIMITED."
         tdd:
           - "ci: callsProto_bufLint_zeroViolations"
           - "conformance: callEventVector_ringingIncoming_roundTripsToGoldenBytes"
           - "conformance: callStateSequenceVector_ringingActiveEnded_decodesIdenticallyBothCodecs"
           - "conformance: callActionResultVector_unknownCall_decodesSameErrorBothCodecs"
+          - "conformance: callActionResultVector_invalidNumber_decodesSameErrorBothCodecs"
         notes: "Cycle 3: added requestId, error codes; unknown-callId rejection moved to E52-04 (receiver behaviour)."
       - id: E52-02
         title: "[android] Spike: choose call-detection and control APIs"
@@ -1014,7 +1026,7 @@ epics:
         priority: P0
         size: M
         prd: [F-8.4]
-        use_cases: [UC-21]
+        use_cases: [UC-21, AC-19]
         invariants: [7]
         depends_on: [E52-01, E52-02, E52-03, E50-05, E12-11]
         description: |
@@ -1035,6 +1047,7 @@ epics:
           - An unknown subscriptionId returns INVALID_SUBSCRIPTION without placing a call.
           - CALL_PHONE denied returns PERMISSION_DENIED without placing a call.
           - A recording logger captures the path name and no number.
+          - "An address containing `*`, `#`, `,` or `;` (e.g. the call-forwarding MMI code `**21*123#`) returns INVALID_NUMBER without placing a call; a second PlaceCallRequest within 5 s returns RATE_LIMITED."
         tdd:
           - "unit: placeCallHandler_appForegrounded_placesCallDirectly"
           - "unit: placeCallHandler_backgroundStartBlocked_postsTapToCallAndReturnsNeedsPhoneTap"
@@ -1042,6 +1055,8 @@ epics:
           - "unit: placeCallHandler_unknownSubscriptionId_returnsInvalidSubscription"
           - "unit: placeCallHandler_callPhoneDenied_returnsPermissionDenied"
           - "unit: placeCallHandler_backgroundPath_logLinesOmitNumber"
+          - "unit: placeCallHandler_mmiCodeAddress_returnsInvalidNumberWithoutCall"
+          - "unit: placeCallHandler_secondRequestWithin5s_returnsRateLimited"
         notes: ""
       - id: E52-06
         title: "[macos] Incoming call alert UI"
@@ -1050,9 +1065,9 @@ epics:
         priority: P0
         size: M
         prd: [F-8.4]
-        use_cases: [UC-20]
+        use_cases: [UC-20, AC-14]
         invariants: []
-        depends_on: [E52-01, E51-04, E22-01, E30-07, E12-12, E00-08]
+        depends_on: [E52-01, E51-04, E22-01, E30-07, E12-12, E00-08, E14-22]
         description: |
           `CallAlertViewModel` reuses the `NotificationPresenter` seam from E30-07
           (UNUserNotificationCenter; recording fake in tests) for a RINGING CallEvent, with the
@@ -1066,6 +1081,7 @@ epics:
           - Answer sends CallAction{ANSWER, callId}; Decline sends CallAction{DECLINE, callId}.
           - An ACTIVE event shows the menu-bar Hang Up item; tapping it sends HANGUP.
           - An ENDED event removes the alert and hides Hang Up.
+          - "Caller names and unresolved numbers pass the E14-22 sanitizer before presentation."
         tdd:
           - "unit: callAlertViewModel_ringingCachedNumber_presentsContactName"
           - "unit: callAlertViewModel_ringingUnresolvedNumber_presentsFormattedNumber"
@@ -1073,6 +1089,7 @@ epics:
           - "unit: callAlertViewModel_declineTapped_sendsDeclineAction"
           - "unit: callAlertViewModel_activeEvent_showsHangUpThatSendsHangup"
           - "unit: callAlertViewModel_endedEvent_removesAlertAndHangUp"
+          - "unit: callAlertViewModel_contactNameWithBidiOverride_presentedSanitized"
         notes: ""
       - id: E52-07
         title: "[macos] Place call UI"

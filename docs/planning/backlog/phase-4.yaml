@@ -35,9 +35,9 @@ epics:
         priority: P0
         size: M
         prd: [F-7.1]
-        use_cases: [UC-14, UC-15, UC-16]
+        use_cases: [UC-14, UC-15, UC-16, AC-19]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02, E15-03]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E15-01, E15-02, E15-03, E01-22]
         description: |
           Define `FileOffer{id, name, size, mime, sha256}`, `FileAccept{id}`,
           `FileReject{id, reason}`, `FileChunk{id, seq, offset, data}` (max 256 KiB payload),
@@ -52,6 +52,10 @@ epics:
           (receiver reports `fromOffset` = retained temp length rounded down to a 256 KiB
           boundary; retained temp files expire 24 h after the last write). Provide vectors
           including a malformed/oversized chunk.
+          Cycle 4 caps (E01-22), restated in the SPEC FILES section: FileOffer.size <= 64 GiB (else FileReject
+          TOO_LARGE), raw name <= 1024 UTF-8 bytes (INVALID_NAME), mime <= 255 bytes, at most 4 unanswered offers
+          and 2 active transfers per direction (excess FileReject BUSY without prompting), auto-accept only for
+          offers <= 1 GiB. `TransferReason` gains BUSY and TOO_LARGE.
         acceptance:
           - files.proto covers the full offer/accept/chunk/complete/cancel/resume set and
             compiles on both codegens
@@ -59,11 +63,13 @@ epics:
             24 h resume retention and every TransferReason value
           - Vectors include a valid offer, accept, chunk, resume request, a reject per
             TransferReason value, and a chunk with a 262145-byte payload that both codecs reject
+          - "TransferReason includes BUSY and TOO_LARGE, and SPEC.md states the E01-22 file caps."
         tdd:
           - "conformance: fileOfferAcceptVector_bothCodecs_decodeToIdenticalFields"
           - "conformance: fileResumeRequestVector_bothCodecs_decodeFromOffsetExactly"
           - "conformance: fileRejectVectors_everyTransferReason_roundTripOnBothCodecs"
           - "conformance: fileChunk262145BytePayload_bothCodecs_rejectedAsOversized"
+          - "conformance: fileRejectVectors_busyAndTooLarge_roundTripOnBothCodecs"
 
       - id: E40-02
         title: "[protocol] Filename sanitization rule and shared vectors"
@@ -190,9 +196,9 @@ epics:
         priority: P0
         size: L
         prd: [F-7.3]
-        use_cases: [UC-14]
+        use_cases: [UC-14, AC-12]
         invariants: []
-        depends_on: [E40-01, E40-16, E12-11, E00-18, E00-20, E00-21]
+        depends_on: [E40-01, E40-16, E12-11, E00-18, E00-20, E00-21, E14-12]
         description: |
           Write incoming chunks to `<transferDir>/<id>.part` (app-private `noBackupFilesDir`,
           injected so tests use `@TempDir`) behind a feature-local `TransferStore` seam, validate
@@ -218,6 +224,7 @@ epics:
             returns no row for the file (UC-14 partial files never visible)
           - On the emulator, publishing `report.pdf` when one exists leaves the original bytes
             unchanged and creates a second, suffixed entry
+          - "The receiver registers with the Android PeerDataPurging registry (E14-12): unpairing the Mac deletes its retained `.part` files."
         tdd:
           - "unit: androidReceiver_matchingHash_publishedOnceAndPartFileDeleted"
           - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndRejectSent"
@@ -226,6 +233,7 @@ epics:
           - "unit: androidReceiver_chunkOffsetGap_protocolViolationCancelAndPartDeleted"
           - "instrumented: mediaStorePublisher_pendingPublish_invisibleToDownloadTandemQuery"
           - "instrumented: mediaStorePublisher_existingSameName_originalUntouchedAndSuffixedEntryAdded"
+          - "unit: androidReceiver_macUnpaired_retainedPartFilesDeleted"
 
       - id: E40-06
         title: "[macos] Receiver: temp file, verify, atomic move to Downloads/Tandem"
@@ -275,9 +283,9 @@ epics:
         priority: P0
         size: M
         prd: [F-7.1]
-        use_cases: [UC-14]
+        use_cases: [UC-14, AC-19]
         invariants: []
-        depends_on: [E40-01, E12-11, E00-18, E00-20]
+        depends_on: [E40-01, E12-11, E00-18, E00-20, E14-21]
         description: |
           On FileOffer, check free space (feature-local `FreeSpaceProvider` over `StatFs`) against
           `size + 64 MiB` before prompting; if short, send FileReject INSUFFICIENT_SPACE with no
@@ -293,12 +301,18 @@ epics:
           - Auto-accept off shows the prompt; Accept sends FileAccept, Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and cancels the prompt
           - The prompt notification shows the sanitized name and size and has exactly two actions
+          - "Auto-accept applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
+          - "The prompt shows the E14-21-sanitized name."
         tdd:
           - "unit: androidAcceptFlow_freeSpaceBelowSizePlusReserve_insufficientSpaceRejectNoPrompt"
           - "unit: androidAcceptFlow_autoAcceptOn_fileAcceptSentWithoutPrompt"
           - "unit: androidAcceptFlow_declineTapped_fileRejectDeclinedSent"
           - "unit: androidAcceptFlow_noAnswerFor300s_timeoutRejectAndPromptCancelled"
           - "unit: androidAcceptPrompt_offerPosted_notificationHasAcceptAndDeclineActions"
+          - "unit: androidAcceptFlow_autoAcceptOnOfferOver1GiB_promptShown"
+          - "unit: androidAcceptFlow_fifthPendingOffer_busyRejectNoPrompt"
+          - "unit: androidAcceptFlow_offerOver64GiB_tooLargeReject"
         notes: "Split from E40-07 in review cycle 3: macOS half is E40-18."
 
       - id: E40-08
@@ -401,9 +415,9 @@ epics:
         priority: P1
         size: M
         prd: [F-7.3]
-        use_cases: [UC-15]
+        use_cases: [UC-15, AC-16]
         invariants: []
-        depends_on: [E40-03, E00-20]
+        depends_on: [E40-03, E00-20, E00-28]
         description: |
           Add a share-sheet target (ACTION_SEND / ACTION_SEND_MULTIPLE, `*/*`) for sending files
           to the Mac, and an in-app Storage Access Framework picker (OpenMultipleDocuments). Only
@@ -418,12 +432,15 @@ epics:
             FileOffer
           - The SAF picker returning a URI starts one FileOffer; a cancelled picker starts none
           - The merged manifest exports the share activity with SEND and SEND_MULTIPLE filters
+          - "A `content://` URI whose authority belongs to Tandem's own package (e.g. its FileProvider) is rejected (confused deputy), as is a share of more than 20 streams; nothing is sent."
         tdd:
           - "unit: shareTarget_sendMultipleThreeContentUris_startsThreeOffers"
           - "unit: shareTarget_fileSchemeUriIntoAppDataDir_rejectedNoOffer"
           - "unit: safPicker_uriReturned_startsOneOffer"
           - "unit: safPicker_cancelled_noOfferStarted"
           - "ci: mergedManifest_shareActivity_exportsSendAndSendMultipleFilters"
+          - "unit: shareTarget_ownFileProviderAuthorityUri_rejectedNoOffer"
+          - "unit: shareTarget_twentyOneStreams_rejectedNoOffer"
 
       - id: E40-12
         title: "[android] Transfer progress UI"
@@ -600,9 +617,9 @@ epics:
         priority: P0
         size: M
         prd: [F-7.1]
-        use_cases: [UC-15]
+        use_cases: [UC-15, AC-19]
         invariants: []
-        depends_on: [E40-01, E12-12, E00-24]
+        depends_on: [E40-01, E12-12, E00-24, E14-22]
         description: |
           Mirror of E40-07 on macOS. Free space via a feature-local `FreeSpaceProvider` over
           `volumeAvailableCapacityForImportantUsageKey` of the destination volume, compared with
@@ -615,11 +632,17 @@ epics:
           - Auto-accept on sends FileAccept with no prompt
           - Auto-accept off presents a prompt with Accept and Decline; Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and removes the prompt
+          - "Auto-accept applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
+          - "The prompt shows the E14-22-sanitized name."
         tdd:
           - "unit: macosAcceptFlow_freeSpaceBelowSizePlusReserve_insufficientSpaceRejectNoPrompt"
           - "unit: macosAcceptFlow_autoAcceptOn_fileAcceptSentWithoutPrompt"
           - "unit: macosAcceptFlow_declineAction_fileRejectDeclinedSent"
           - "unit: macosAcceptFlow_noAnswerFor300s_timeoutRejectAndPromptRemoved"
+          - "unit: macosAcceptFlow_autoAcceptOnOfferOver1GiB_promptShown"
+          - "unit: macosAcceptFlow_fifthPendingOffer_busyRejectNoPrompt"
+          - "unit: macosAcceptFlow_offerOver64GiB_tooLargeReject"
         notes: "Split from E40-07 in review cycle 3."
 
       - id: E40-19
@@ -715,7 +738,7 @@ epics:
         priority: P1
         size: M
         prd: [F-7.2]
-        use_cases: [UC-14]
+        use_cases: [UC-14, AC-17]
         invariants: [1]
         depends_on: [E40-04]
         description: |
@@ -724,18 +747,28 @@ epics:
           container, appends a request to a feature-local `SendRequestQueue` there, and wakes the
           agent, which dequeues and starts one FileOffer per file, deleting the copy after the
           transfer ends. Queue tests use a temporary directory as the App Group root.
+          Cycle 4 (local attacker on the Mac, AC-17): there is no XPC service. The wake signal is a payload-free
+          Darwin notification, and every queue entry is untrusted input: the agent accepts only regular files
+          (no symlinks) that resolve inside the queue directory, at most 20 per request and each within the
+          E01-22 64 GiB cap. The extension entitlements are exactly app-sandbox and application-groups (no
+          network.client / network.server, no keychain access group).
         acceptance:
           - The extension Info.plist activation rule accepts 1..20 files
           - The extension binary links neither Network.framework nor the transport package
           - Two files enqueued by the extension are dequeued by the agent in order, starting two
             FileOffers, and their App Group copies are deleted after completion or cancel
           - From Preview's Share menu, "Send to phone" starts an offer within 5 s (manual)
+          - "The extension entitlements are exactly app-sandbox and application-groups."
+          - "The agent rejects a queue entry that is a symlink, resolves outside the queue directory, is not a regular file, or exceeds 20 files per request; the wake notification carries no payload."
         tdd:
           - "ci: shareExtensionPlist_activationRule_acceptsOneToTwentyFiles"
           - "ci: shareExtensionBinary_linkedLibraries_excludeNetworkAndTransport"
           - "unit: sendRequestQueue_twoFilesEnqueued_agentStartsTwoOffersInOrder"
           - "unit: sendRequestQueue_transferEnded_appGroupCopyDeleted"
           - "manual: shareExtension_previewShareMenu_offerStartsWithinFiveSeconds"
+          - "ci: shareExtensionEntitlements_releaseBuild_exactlySandboxAndAppGroup"
+          - "unit: sendRequestQueue_symlinkEntry_rejectedNoOffer"
+          - "unit: sendRequestQueue_entryResolvingOutsideQueueDir_rejectedNoOffer"
         notes: "Split from E40-10 in review cycle 3."
 
       - id: E40-23
@@ -818,9 +851,9 @@ epics:
         priority: P0
         size: S
         prd: [F-7.4]
-        use_cases: [UC-17]
+        use_cases: [UC-17, AC-19]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16, E01-04, E15-01, E15-02, E15-03]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E01-04, E15-01, E15-02, E15-03, E01-22]
         description: |
           Define `PhotoPage{cursor, limit}`, `PhotoPageResult{items: PhotoMeta{id, takenAt,
           width, height}, nextCursor, access: FULL|PARTIAL|NONE}`, `ThumbRequest{id, maxPx}`,
@@ -832,6 +865,7 @@ epics:
           1 MiB frame, and that the FILES sender interleaves per stream (implemented in
           E40-03/E40-04). Provide vectors for a page response, a thumb response, an original
           request and each PhotoError reason.
+          Cycle 4: PhotoError.reason gains BUSY (more than 8 outstanding ThumbRequests or more than 1 outstanding PhotoPage per peer, E01-22).
         acceptance:
           - photos.proto compiles on both codegens
           - SPEC.md documents cursor paging semantics, the 1..200 limit and 32..384 maxPx clamps,
@@ -839,6 +873,7 @@ epics:
           - Vectors cover a PhotoPageResult with access PARTIAL, a ThumbResult, an OriginalRequest
             and every PhotoError reason
           - SPEC.md states photo messages ride FILES and that the FILES sender interleaves per stream (round-robin between active transfers and thumbnail/page responses) so an in-flight transfer never blocks a ThumbResult for more than one chunk.
+          - "PhotoError.reason includes BUSY and SPEC.md states the outstanding-request caps."
         tdd:
           - "conformance: photoPageResultVector_partialAccess_bothCodecsDecodeAccessPartial"
           - "conformance: thumbResultVector_bothCodecs_decodeIdenticalPngBytes"
@@ -920,7 +955,7 @@ epics:
         priority: P0
         size: M
         prd: [F-7.4]
-        use_cases: [UC-17]
+        use_cases: [UC-17, AC-19]
         invariants: []
         depends_on: [E41-01, E41-02, E00-21]
         description: |
@@ -935,11 +970,13 @@ epics:
           - An id outside the current grant returns PhotoError ACCESS_DENIED and the handler keeps
             serving later requests
           - On the emulator, a seeded 4000×3000 JPEG yields a decodable PNG ≤ 384 px and ≤ 450 KiB
+          - "A 9th outstanding ThumbRequest is answered with PhotoError BUSY without loading a thumbnail."
         tdd:
           - "unit: thumbGeneration_maxPx256_longestEdgeAtMost256"
           - "unit: thumbGeneration_maxPx4096_clampedTo384"
           - "unit: thumbGeneration_idOutsideGrant_accessDeniedErrorAndNextRequestServed"
           - "instrumented: thumbnailLoader_seeded4000x3000Jpeg_pngAtMost384pxAnd450KiB"
+          - "unit: thumbGeneration_ninthOutstandingRequest_busyErrorNoLoad"
 
       - id: E41-05
         title: "[macos] Photo grid UI with paging"
@@ -977,9 +1014,9 @@ epics:
         priority: P1
         size: M
         prd: [F-7.4]
-        use_cases: [UC-17]
+        use_cases: [UC-17, AC-12]
         invariants: []
-        depends_on: [E41-05]
+        depends_on: [E41-05, E14-13]
         description: |
           Cache ThumbResult PNGs on disk keyed by (device, id, maxPx) with LRU eviction and a
           byte cap (default 256 MiB, configurable). The cache root is injected so tests use a
@@ -991,12 +1028,14 @@ epics:
           - Reading entry A before inserting a new entry evicts B instead of A
           - Re-opening the cache from the same directory serves previous entries as hits
           - A truncated/corrupt cached file is treated as a miss and deleted
+          - "The cache registers with `PeerDataPurgeRegistry` (E14-13): unpairing a phone deletes all of its cached thumbnails."
         tdd:
           - "unit: thumbnailCache_repeatRequest_zeroServiceCalls"
           - "unit: thumbnailCache_fourEntriesOver1MiBCap_oldestEvictedTotalUnderCap"
           - "unit: thumbnailCache_readBeforeInsert_leastRecentlyUsedEvictedInstead"
           - "unit: thumbnailCache_reopenedFromSameDirectory_previousEntriesHit"
           - "unit: thumbnailCache_corruptFile_missAndFileDeleted"
+          - "unit: thumbnailCache_peerUnpaired_entriesForPeerDeleted"
 
       - id: E41-07
         title: "[android] Serve original download via file transfer"

@@ -99,9 +99,9 @@ epics:
         priority: P0
         size: M
         prd: [F-3.3]
-        use_cases: [UC-22, AC-08]
+        use_cases: [UC-22, AC-08, AC-13]
         invariants: [1, 5, 6, 2, 3]
-        depends_on: [E60-01, E60-08, E12-01, E12-02, E12-12, E00-25]
+        depends_on: [E60-01, E60-08, E12-01, E12-02, E12-12, E00-25, E00-24, E01-22]
         description: |
           The macOS NWListener accepts the second mTLS connection; the first frame must be
           MediaHello. The ticket is checked by `MediaTicketValidator` (E60-08) together with the
@@ -121,12 +121,16 @@ epics:
           - Any validator rejection closes the connection, dispatches zero MediaFrames, and emits
             exactly one `mediaTicketRejected` event carrying the reason (not a handshake-failure event).
           - The media connection is accepted by the same single NWListener/port as the control connection; exactly one listening socket exists during an active mirror session (PRD goals, invariant 2).
+          - "A pairing-candidate connection that sends MediaHello is closed without consulting the validator."
+          - "No MediaHello within 5 s of TLS completion closes the connection with PROTOCOL_TIMEOUT (E01-22)."
         tdd:
           - "integration: mediaAcceptor_validTicketOverLoopbackMtls_bindsToOriginatingSession"
           - "integration: mediaAcceptor_reusedTicketOverLoopbackMtls_closedWithZeroFramesDispatched"
           - "unit: mediaAcceptor_firstFrameNotMediaHello_closesWithoutReadingNextFrame"
           - "unit: mediaAcceptor_validatorRejects_emitsTicketRejectedEventNotHandshakeFailure"
           - "integration: mediaAcceptor_duringActiveMirror_exactlyOneListeningSocket"
+          - "unit: mediaAcceptor_pairingCandidateSendsMediaHello_closedWithoutValidatorCall"
+          - "unit: mediaAcceptor_noMediaHelloWithin5s_closesProtocolTimeout"
         notes: |
           Split in review cycle 3: ticket issuance/validation logic moved to E60-08; this issue
           keeps the acceptor wiring (E60-05, E61-06, E61-12 depend on it).
@@ -188,12 +192,14 @@ epics:
           - Each rejection is confirmed by the `mediaTicketRejected(reason)` event (E60-03) with the
             scenario's reason (missing, consumed, expired, revoked, peerMismatch), distinguishing
             "handshake succeeded, ticket rejected" from "handshake failed".
+          - "A media connection that completes mTLS but sends no MediaHello for 6 s is closed with PROTOCOL_TIMEOUT."
         tdd:
           - "security: mitmLab_mediaHelloWithoutTicket_rejectedAfterHandshake"
           - "security: mitmLab_mediaReusedTicket_rejectedAfterHandshake"
           - "security: mitmLab_mediaTicketAfter31s_rejectedAfterHandshake"
           - "security: mitmLab_mediaTicketFromEndedSession_rejectedAfterHandshake"
           - "security: mitmLab_mediaTicketOnOtherPeersClientCert_rejectedAfterHandshake"
+          - "security: mitmLab_mediaConnectionNoHelloFor6s_closedProtocolTimeout"
         notes: ""
       - id: E60-06
         title: "[tools] pcap-audit coverage for the media connection"
@@ -274,6 +280,7 @@ epics:
           - A ticket presented with a different peer SPKI than its issuing session returns
             `peerMismatch`; a ticket whose issuing session has ended returns `revoked`.
           - Ticket comparison goes through the constant-time helper.
+          - "Ticket bytes never appear in log output (logger fake) and are never persisted; tickets live only in the in-memory table."
         tdd:
           - "unit: mediaTicketIssuer_issue_returns32ByteTicketExpiringIn30s"
           - "unit: mediaTicketValidator_validUnusedTicketWithin30s_returnsIssuingSession"
@@ -281,6 +288,7 @@ epics:
           - "unit: mediaTicketValidator_secondPresentation_returnsConsumed"
           - "unit: mediaTicketValidator_presentingSpkiDiffersFromIssuer_returnsPeerMismatch"
           - "unit: mediaTicketValidator_ticketComparison_usesConstantTimeHelper"
+          - "unit: mediaTicketIssuer_issueAndValidate_ticketBytesNeverLogged"
         notes: "Split from E60-03 in review cycle 3."
       - id: E60-09
         title: "[android] Media connection lifecycle tied to control session"
@@ -348,20 +356,27 @@ epics:
         priority: P0
         size: M
         prd: [F-9.1, F-9.2]
-        use_cases: [UC-22]
+        use_cases: [UC-22, AC-07, AC-19]
         invariants: [1]
-        depends_on: [E60-01, E15-01, E15-02]
+        depends_on: [E60-01, E15-01, E15-02, E01-22]
         description: |
           media.proto additions: MediaFrame{pts, flags, data}, MediaFormat{codec, width, height,
           fps}, KeyframeRequest{}, RotationChanged{orientation}. Extends docs/protocol/SPEC.md's
           media section with frame semantics (flags include keyframe and codec-config). Vectors run
           through the conformance runners (E15-01, E15-02).
+          Cycle 4 (1 MiB frame cap vs. large IDR frames; parser-relevant): MediaFrame gains `fragmentIndex` and
+          `fragmentCount`. An encoded access unit larger than 960 KiB is split into fragments of <= 960 KiB sharing
+          one pts, `fragmentCount` 1..8 (so a reassembled access unit is <= 7.5 MiB, under the 8 MiB E01-22 cap).
+          Fragments of one access unit are contiguous and in index order; a count change, index gap or reorder, a
+          count over 8, interleaving with another pts, or a reassembled size over 8 MiB closes the media
+          connection with MALFORMED_FRAME. This is the only fragmentation mechanism in the protocol (E01-03).
         acceptance:
           - buf lint reports zero violations.
           - protocol/vectors/media/*.json (frame subset) pass conformance on both codecs with
             byte-identical encodings.
           - A MediaFrame whose encoded frame exceeds the 1 MiB max-frame rule (E01-03) is rejected
             by the framing layer on both codecs.
+          - "SPEC.md media section states the fragmentation rule; vectors cover a 3-fragment access unit (accepted) and each rejection case (index gap, count change, count 9, interleaved pts)."
         tdd:
           - "conformance: mediaFrameVector_roundTrip_matchesGoldenBytes"
           - "conformance: mediaFormatVector_roundTrip_matchesGoldenBytes"
@@ -369,6 +384,9 @@ epics:
           - "conformance: rotationChangedVector_roundTrip_matchesGoldenBytes"
           - "conformance: mediaFrame_overMaxFrameSize_rejectedByFraming"
           - "ci: bufLint_mediaFrameMessages_zeroViolations"
+          - "conformance: mediaFrameFragmentVectors_threeFragmentAccessUnit_reassembledIdentically"
+          - "conformance: mediaFrameFragmentVectors_indexGapOrCountChange_rejectedMalformedFrame"
+          - "conformance: mediaFrameFragmentVectors_countNine_rejectedMalformedFrame"
         notes: ""
       - id: E61-02
         title: "[android] MediaProjection consent flow per session"
@@ -431,6 +449,7 @@ epics:
           - On the emulator, the software AVC encoder produces an IDR within 1 s of pipeline start.
           - On the emulator at a configured 4 Mbps CBR, measured output bitrate over 10 s is within
             ±20 % of the target.
+          - "An access unit larger than 960 KiB is sent as ceil(size / 960 KiB) fragments (<= 8) with the same pts; an access unit that would need more than 8 fragments is not sent, the bitrate is lowered and a new IDR requested."
         tdd:
           - "unit: encodePipeline_keyframeRequestReceived_requestsSyncFrameOnce"
           - "unit: encodePipeline_encoderOutputBuffer_emitsMediaFrameWithPtsAndKeyFlag"
@@ -438,9 +457,12 @@ epics:
           - "instrumented: encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s"
           - "instrumented: encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames"
           - "instrumented: encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent"
+          - "unit: encodePipeline_accessUnit2500KiB_sentAsThreeFragmentsSamePts"
+          - "unit: encodePipeline_accessUnitNeedingNineFragments_notSentBitrateLoweredIdrRequested"
         notes: |
           Split in review cycle 3: encoder configuration (CBR, low-latency keys, profile/level,
           keyframe interval) moved to E61-13; size L -> M.
+          Cycle 4: FLAG_SECURE windows render black in the capture (expected; documented in user help). Remote input still reaches them during a session (E02-08 residual).
       - id: E61-04
         title: "[android] HEVC capability negotiation with H.264 fallback"
         type: task
@@ -737,18 +759,24 @@ epics:
           Codec support advertised in MediaFormat comes from a `DecoderCapabilityProbe` seam over
           `VTIsHardwareDecodeSupported` (fake in tests). Tests use the checked-in fixture streams
           shared with E61-06.
+          Cycle 4: adds a pure `FragmentReassembler` enforcing the E61-01 rule (allocation grows per fragment, never from a declared total; hard cap 8 MiB).
         acceptance:
           - The H.264 fixture splits into the expected NAL unit count and types (SPS, PPS, IDR, then
             non-IDR slices); 3- and 4-byte start codes are both recognized.
           - AVCC output prefixes each NAL unit with its big-endian 4-byte length.
           - SPS/PPS from the fixture produce a format description of 1280x720.
           - With hardware HEVC decode unavailable, the advertised codec list is H.264 only.
+          - "FragmentReassembler reassembles a 3-fragment access unit byte-identically and rejects an index gap, a count change, a count over 8, an interleaved pts and a reassembled size over 8 MiB with MALFORMED_FRAME."
         tdd:
           - "unit: annexBParser_h264Fixture_splitsExpectedNalUnits"
           - "unit: annexBParser_threeAndFourByteStartCodes_bothRecognized"
           - "unit: avccConverter_nalUnits_prefixedWithBigEndianLength"
           - "unit: formatDescriptionBuilder_fixtureSpsPps_dimensions1280x720"
           - "unit: decoderCapabilities_hevcHardwareUnavailable_advertisesH264Only"
+          - "unit: fragmentReassembler_threeFragments_reassembledByteIdentical"
+          - "unit: fragmentReassembler_indexGap_rejectedMalformedFrame"
+          - "unit: fragmentReassembler_interleavedPts_rejectedMalformedFrame"
+          - "unit: fragmentReassembler_totalOver8MiB_rejectedBeforeAllocation"
         notes: "Split from E61-06 in review cycle 3."
       - id: E61-15
         title: "[protocol] MirrorRequest/MirrorDeclined messages + vectors"
@@ -841,24 +869,33 @@ epics:
         priority: P0
         size: M
         prd: [F-9.3]
-        use_cases: [UC-23, AC-06]
+        use_cases: [UC-23, AC-06, AC-19]
         invariants: [8]
-        depends_on: [E60-01, E15-01, E15-02]
+        depends_on: [E60-01, E15-01, E15-02, E01-22]
         description: |
           protocol/proto/tandem/v1/input.proto: InputEvent oneof {Tap{x,y}, Swipe{x1,y1,x2,y2,
           durationMs}, Scroll{x,y,dx,dy}, GlobalAction{action}, SetText{text}}, each carrying the
           bound mirror-session reference required by invariant 8. Write docs/protocol/SPEC.md
           input section. Bounds checking against the display is semantic and done by the
           coordinate mapper (E62-03), not the parser. Vectors run through E15-01/E15-02.
+          Cycle 4 decisions: no raw key-event message (an AccessibilityService cannot inject arbitrary KeyEvents,
+          and raw key codes would widen the surface); keyboard input is `TextEdit { oneof insert(text),
+          deleteBackward(count 1..64), imeEnter }` next to `SetText`. Coordinates are uint32 window-local values
+          that must lie inside the reported window size; Swipe durationMs 1..5000; SetText / insert <= 4096
+          characters; unknown GlobalAction values are dropped; the sender MUST NOT exceed 120 InputEvents/s
+          (E01-22).
         acceptance:
           - buf lint reports zero violations.
-          - protocol/vectors/input/*.json cover all five InputEvent variants and pass conformance
+          - protocol/vectors/input/*.json cover all six InputEvent variants (incl. TextEdit) and pass conformance
             on both codecs with byte-identical encodings.
           - An InputEvent without the mirror-session reference is rejected by both parsers.
+          - "input.proto has no raw key-code message; TextEdit covers insert, deleteBackward and imeEnter; the SPEC input section states the field ranges and the 120 events/s rate."
         tdd:
-          - "conformance: inputEventVectors_allFiveVariants_roundTripGoldenBytes"
+          - "conformance: inputEventVectors_allSixVariants_roundTripGoldenBytes"
           - "conformance: inputEventVector_missingSessionReference_rejectedByParser"
           - "ci: bufLint_inputProto_zeroViolations"
+          - "conformance: textEditVectors_insertDeleteImeEnter_roundTripGoldenBytes"
+          - "ci: inputProtoScan_rawKeyCodeMessage_absent"
         notes: ""
       - id: E62-02
         title: "[android] AccessibilityService opt-in with explanation"
@@ -869,7 +906,7 @@ epics:
         prd: [F-9.3]
         use_cases: [UC-23]
         invariants: [8]
-        depends_on: [E62-01, E00-20, E00-21]
+        depends_on: [E62-01, E00-20, E00-21, E00-28]
         description: |
           Settings screen explaining why Accessibility is requested (remote input injection for
           mirroring), deep-linking to the system Accessibility settings; the service's
@@ -884,11 +921,13 @@ epics:
             no unrelated event types) required by E62-04/E62-05.
           - On a fresh emulator install the service is absent from
             `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`.
+          - "The service declares `android:permission=\"android.permission.BIND_ACCESSIBILITY_SERVICE\"` and its config omits flagRequestFilterKeyEvents and flagInputMethodEditor (cycle 4: no key-event injection)."
         tdd:
           - "ui: remoteInputSettings_serviceNotEnabled_showsExplanationAndOpenSettingsAction"
           - "unit: remoteInputSettings_openSettingsTapped_launchesAccessibilitySettingsIntent"
           - "ci: accessibilityServiceConfig_declaredCapabilities_equalAllowlist"
           - "instrumented: accessibilityService_freshInstall_notInEnabledServices"
+          - "ci: mergedManifest_accessibilityService_requiresBindAccessibilityPermission"
         notes: ""
       - id: E62-03
         title: "[android] Coordinate mapping (rotation, letterboxing) pure function"
@@ -917,6 +956,7 @@ epics:
           - Points inside a letterbox bar or outside the window return Dropped; they are never
             clamped onto the screen.
           - Rotation delta 90/180/270 maps (100, 200) to (200, 980), (980, 2200), (2200, 100).
+          - "Coordinates outside the reported window size, and window or display sizes of 0, return Dropped (no division by zero, no clamping)."
         tdd:
           - "unit: coordinateMapper_portraitWindowMatchingAspect_scalesToDevicePixels"
           - "unit: coordinateMapper_pillarboxedWindow_subtractsHorizontalOffset"
@@ -926,6 +966,7 @@ epics:
           - "unit: coordinateMapper_rotationDelta90_mapsPoint100x200To200x980"
           - "unit: coordinateMapper_rotationDelta180_mapsPoint100x200To980x2200"
           - "unit: coordinateMapper_rotationDelta270_mapsPoint100x200To2200x100"
+          - "unit: coordinateMapper_zeroWindowSize_returnsDropped"
         notes: ""
       - id: E62-04
         title: "[android] dispatchGesture for taps, swipes, scroll"
@@ -972,6 +1013,10 @@ epics:
           currently focused editable AccessibilityNodeInfo and applies ACTION_SET_TEXT with the
           text argument bundle. Both go through an `AccessibilityActions` seam (performGlobalAction,
           findFocus(FOCUS_INPUT)); recording fake in Robolectric tests, real service on the emulator.
+          Cycle 4: TextEdit (E62-01) is applied to the focused editable node: insert and deleteBackward compute
+          the new text from the node's current text and selection and apply ACTION_SET_TEXT (then restore the
+          cursor via ACTION_SET_SELECTION); imeEnter uses ACTION_IME_ENTER on API 30+ and is a NoOp on API 29.
+          Text of password nodes (`isPassword`) is never read into logs.
         acceptance:
           - BACK/HOME/RECENTS invoke GLOBAL_ACTION_BACK/HOME/RECENTS respectively.
           - SetText on a focused editable node performs ACTION_SET_TEXT with the text in
@@ -979,12 +1024,16 @@ epics:
           - SetText with no focused editable node returns NoOp without throwing.
           - On the emulator, SetText replaces a focused EditText's content with the given text, and
             HOME brings the launcher to the foreground.
+          - "insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter on API 29 returns NoOp."
         tdd:
           - "unit: globalActionHandler_eachOfBackHomeRecents_invokesMatchingConstant"
           - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
           - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
           - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
           - "instrumented: globalActionHome_onEmulator_launcherInForeground"
+          - "unit: textEditHandler_insertAtSelection_setsTextWithInsertion"
+          - "unit: textEditHandler_deleteBackwardTwo_removesTwoCharsBeforeCursor"
+          - "unit: textEditHandler_imeEnterOnApi29_returnsNoOp"
         notes: ""
       - id: E62-06
         title: "[android] Input authorization gate + persistent on-phone indicator"
@@ -993,7 +1042,7 @@ epics:
         priority: P0
         size: M
         prd: [F-9.3]
-        use_cases: [UC-23, AC-06]
+        use_cases: [UC-23, AC-06, AC-19]
         invariants: [8]
         depends_on: [E62-04, E62-05, E60-09, E61-02, E12-11, E00-20, E00-21]
         description: |
@@ -1006,6 +1055,11 @@ epics:
           `TandemSession`, indicator shown) and forwards to the E62-04 `GestureDispatcher` /
           E62-05 `AccessibilityActions` recording fakes in tests; the indicator uses a
           `NotificationPresenter` seam under Robolectric (E00-20).
+          Cycle 4: before dispatch the gate enforces a token bucket of 120 events/s (burst 240; excess dropped
+          and counted, one aggregated log line per second with counts only) and the E62-01 field ranges. The
+          indicator is the ongoing notification plus a small badge drawn by the AccessibilityService as a
+          TYPE_ACCESSIBILITY_OVERLAY, which sits above every app overlay (TYPE_APPLICATION_OVERLAY), so another
+          app cannot hide it; input is dropped whenever the overlay is not attached.
         acceptance:
           - An InputEvent arriving with no active mirror session is dropped, never reaches the
             dispatcher, and logs one entry with reason and event type only (no coordinates, no
@@ -1016,6 +1070,8 @@ epics:
             dispatcher unchanged.
           - The indicator is an ongoing (non-swipeable) notification posted at session start and
             removed within 1 s of session end; on the emulator a remote swipe over it leaves it posted.
+          - "A burst of 1000 events in 1 s dispatches at most 240 and counts the rest as dropped; SetText over 4096 characters and Swipe durationMs outside 1..5000 are dropped."
+          - "With the indicator overlay detached, frames are dropped; on the emulator the accessibility overlay stays above another app's SYSTEM_ALERT_WINDOW overlay."
         tdd:
           - "unit: inputGate_noActiveMirrorSession_droppedAndDispatcherNeverCalled"
           - "unit: inputGate_droppedSetTextFrame_logEntryOmitsTextAndCoordinates"
@@ -1024,6 +1080,10 @@ epics:
           - "unit: inputGate_activeBoundSession_forwardsEventToDispatcher"
           - "unit: remoteInputIndicator_sessionActive_ongoingNotificationPosted"
           - "instrumented: remoteInputIndicator_remoteSwipeOverNotification_indicatorStillPosted"
+          - "unit: inputGate_burstOf1000Events_atMost240Dispatched"
+          - "unit: inputGate_setTextOver4096Chars_dropped"
+          - "unit: inputGate_indicatorOverlayDetached_frameDropped"
+          - "instrumented: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost"
         notes: ""
       - id: E62-07
         title: "[macos] Mouse/keyboard/scroll capture in mirror window"
@@ -1037,7 +1097,7 @@ epics:
         depends_on: [E62-01, E61-07, E00-08]
         description: |
           Capture local mouse click/drag/move, keyboard, and scroll events while the mirror
-          window is focused; translate to window-local coordinates plus a key-mapping table
+          window is focused; translate to window-local coordinates plus a keystroke-to-TextEdit mapping
           (US/ISO layout) before sending as InputEvent. NSEvent handling is a thin shim over a pure
           `MirrorInputMapper` (event value types in, InputEvent out) and a pure `KeyMapper`.
         acceptance:
@@ -1045,14 +1105,16 @@ epics:
           - A 300 ms drag emits one Swipe with durationMs 300 and window-local endpoints.
           - A scroll-wheel event emits one Scroll with the event's deltas.
           - With the mirror window not key, no InputEvent is emitted.
-          - Letters, backspace and enter map to Android KEYCODE_A..Z (29..54), KEYCODE_DEL (67) and
-            KEYCODE_ENTER (66).
+          - Letters, backspace and enter map to TextEdit.insert, TextEdit.deleteBackward(1) and TextEdit.imeEnter
+            respectively; no raw Android key codes are sent (cycle 4).
+          - "Pointer-move events are coalesced so at most 120 InputEvents/s are sent."
         tdd:
           - "unit: mirrorInputMapper_clickInWindow_emitsTapWithWindowLocalCoordinates"
           - "unit: mirrorInputMapper_drag300ms_emitsSwipeWithDuration300"
           - "unit: mirrorInputMapper_scrollWheel_emitsScrollWithEventDeltas"
           - "unit: mirrorInputMapper_windowNotKey_emitsNoEvent"
-          - "unit: keyMapper_lettersBackspaceEnter_mapToAndroidKeyCodes"
+          - "unit: keyMapper_lettersBackspaceEnter_mapToTextEditOps"
+          - "unit: mirrorInputMapper_rapidDrag_coalescedToAtMost120EventsPerSecond"
         notes: ""
       - id: E62-08
         title: "[tools] Security test: input authorization (AC-06)"
@@ -1061,7 +1123,7 @@ epics:
         priority: P0
         size: M
         prd: [F-9.3]
-        use_cases: [AC-06]
+        use_cases: [AC-06, AC-19]
         invariants: [8]
         depends_on: [E62-06, E15-08, E15-15, E15-17]
         description: |
@@ -1072,6 +1134,7 @@ epics:
           harness; the mitm-lab variant targets the real phone app with a counting test activity
           in the foreground. SetText payloads carry a canary so log-audit (E15-17) proves drop logs
           omit content.
+          Cycle 4 adds an input flood (1000 events/s) and out-of-range coordinates against the real phone app.
         acceptance:
           - INPUT frames with no active mirror session, with a stale session reference, and after
             the mirror session stopped each produce zero injected gestures/actions and exactly one
@@ -1079,12 +1142,15 @@ epics:
           - On the E15-15 harness, an InputEvent sent by the real Mac server with no mirror session
             yields zero dispatcher calls and one drop record.
           - log-audit over logcat from the run finds zero occurrences of the SetText canary.
+          - "A 1000 events/s flood results in at most 240 injected gestures in any second; out-of-range coordinates are dropped, never clamped onto the screen."
         tdd:
           - "security: mitmLab_inputWithNoActiveMirrorSession_notInjectedAndLogged"
           - "security: mitmLab_inputWithStaleSessionReference_notInjectedAndLogged"
           - "security: mitmLab_inputAfterMirrorStopped_notInjectedAndLogged"
           - "integration: inputGate_realMacSendsInputWithoutSession_zeroDispatchOneDropRecord"
           - "security: logAudit_droppedSetTextCanary_absentFromLogs"
+          - "security: mitmLab_inputFlood1000PerSecond_atMost240Injected"
+          - "security: mitmLab_inputOutOfRangeCoordinates_droppedNotClamped"
         notes: ""
       - id: E62-09
         title: "[cross] End-to-end remote input device test"

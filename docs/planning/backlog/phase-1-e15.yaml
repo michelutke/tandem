@@ -53,7 +53,7 @@ epics:
         prd: []
         use_cases: [AC-07]
         invariants: []
-        depends_on: [E01-16, E10-03, E10-12, E11-11, E14-03]
+        depends_on: [E01-16, E10-03, E10-12, E11-11, E14-03, E14-21]
         description: |
           `tools/conformance` gains an Android/JVM entry point that loads every fixture under
           `protocol/vectors/` (SPKI fingerprint, pairing HMAC, frame encoding, Bonjour rotating ID,
@@ -63,6 +63,7 @@ epics:
           crypto (E10-03, E10-12) and QR parser (E14-03) categories into one runner.
           The runner keeps an explicit category table (category -> handler, or `deferred: <issue>`);
           a category on disk that is not in the table is an error, never skipped.
+          Cycle 4: adds the display-string category (E01-24, run against E14-21) and the pairing confirmation-code vectors (E01-18).
         acceptance:
           - Every vector category from `protocol/vectors/` has a corresponding JVM test case; the
             run summary prints executed-vector count, which equals the number of vector entries on
@@ -79,6 +80,7 @@ epics:
           - "conformance: kotlinQrParser_qrPayloadVectors_parseOrRejectAsExpected"
           - "unit: kotlinConformanceRunner_corruptedExpectedValue_failsWithHexDiff"
           - "unit: kotlinConformanceRunner_unknownVectorCategory_failsNamingCategory"
+          - "conformance: kotlinSanitizer_displayStringVectors_matchExpected"
         notes: |
           The Bonjour rotating-ID category can only run against the Kotlin implementation once
           E21-05 (Phase 2) lands; until then it is listed as `deferred: E21-05` and validated
@@ -92,11 +94,12 @@ epics:
         prd: []
         use_cases: [AC-07]
         invariants: []
-        depends_on: [E01-16, E10-08, E10-13, E11-12]
+        depends_on: [E01-16, E10-08, E10-13, E11-12, E14-22]
         description: |
           Same as E15-01 but for the Swift codec/crypto implementations (`TandemProtocol`,
           `TandemCrypto`), invoked via `swift test` or a standalone executable under
           `tools/conformance`. Same explicit category table rule (unknown category = error).
+          Cycle 4: adds the display-string category (E01-24, run against E14-22) and the pairing confirmation-code vectors (E01-18).
         acceptance:
           - Every vector category from `protocol/vectors/` has a corresponding Swift Testing case; the
             run summary prints executed-vector count, which equals the on-disk count minus explicitly
@@ -111,6 +114,7 @@ epics:
           - "conformance: swiftCodec_invalidFrameVectors_rejectedWithExpectedCloseCode"
           - "unit: swiftConformanceRunner_corruptedExpectedValue_failsWithHexDiff"
           - "unit: swiftConformanceRunner_unknownVectorCategory_failsNamingCategory"
+          - "conformance: swiftSanitizer_displayStringVectors_matchExpected"
         notes: |
           macOS never parses QR payloads, so that category is Android-only. The rotating-ID
           category runs against the Swift implementation once E21-02 (Phase 2) lands.
@@ -323,9 +327,9 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [AC-03]
+        use_cases: [AC-03, AC-13]
         invariants: [6]
-        depends_on: [E15-08, E15-15, E14-07, E14-09, E01-18, E01-21]
+        depends_on: [E15-08, E15-15, E14-07, E14-09, E01-18, E01-21, E14-15, E14-02]
         description: |
           Four scenarios on the E15-08 scaffold against the real Mac app launched by the E15-15
           harness, using vectors from E01-18/E01-21 where applicable: (1) replay a previously valid
@@ -334,17 +338,26 @@ epics:
           (3) a 4th pairing attempt after 3 failures within the same window, followed by a correct
           proof; (4) a `PairRequest` whose proof was computed for a different phone's key than the
           one presented in the TLS handshake.
+          Cycle 4 adds four scenarios: (5) Revoke sent on a pairing-candidate connection before PairAccepted;
+          (6) a PairRequest valid on a completed earlier session replayed on a new TLS session with the same
+          phone key (channel binding); (7) a second concurrent pairing candidate; (8) a bad proof, asserting the
+          wire reason is PAIRING_UNAVAILABLE only.
         acceptance:
           - All four scenarios end without a `PairAccepted` and with the Mac trust-store record count
             unchanged.
           - Scenario (3) confirms the window is exhausted after the 4th attempt — a subsequent correct
             proof in the same window is also rejected.
+          - "Scenario (5) leaves the trust store unchanged; (6) gets no PairAccepted; (7) fails in the handshake without burning an attempt; (8) observes PairRejected(PAIRING_UNAVAILABLE) and no other reason value."
         tdd:
           - "security: mitmLab_replayedPairRequestAfterCompletion_noPairAccepted"
           - "security: mitmLab_pairRequestAfterSecretExpiry_noPairAccepted"
           - "security: mitmLab_fourthAttemptAfterThreeFailures_rejected"
           - "security: mitmLab_correctProofAfterWindowExhausted_rejected"
           - "security: mitmLab_proofForDifferentPhoneKey_noPairAccepted"
+          - "security: mitmLab_revokeOnPairingCandidateConnection_trustStoreUnchanged"
+          - "security: mitmLab_pairRequestReplayedOnNewTlsSession_noPairAccepted"
+          - "security: mitmLab_secondConcurrentPairingCandidate_rejectedInHandshake"
+          - "security: mitmLab_badProofRejection_wireReasonPairingUnavailableOnly"
         notes: ""
       - id: E15-10
         title: "[tools] mitm-lab: certificate-abuse scenarios (unknown client cert, wrong server cert, swapped cert)"
@@ -366,15 +379,19 @@ epics:
           "No application data" is observed at the peer under test: zero decrypted application
           bytes delivered to its session layer (harness byte counter) and the TCP connection closed
           within 5 s of the ClientHello.
+          Cycle 4 adds: (5) a client presenting the paired phone's genuine certificate while signing CertificateVerify with another key; (6) an impostor server presenting the Mac's genuine certificate without its key, against the JVM client.
         acceptance:
           - All four scenarios fail the handshake; the peer under test receives 0 decrypted
             application bytes and the connection is closed within 5 s.
           - Scenario (4) covers AC-09 (revoked while offline).
+          - "Scenarios (5) and (6) fail the handshake with 0 application bytes delivered (pin alone never authenticates)."
         tdd:
           - "security: mitmLab_unknownClientCertOutsidePairingWindow_zeroAppBytesDelivered"
           - "security: mitmLab_wrongServerCertFingerprint_zeroAppBytesDelivered"
           - "security: mitmLab_swappedCertsBetweenPairedDevices_zeroAppBytesDelivered"
           - "security: mitmLab_phoneRevokedWhileOffline_zeroAppBytesDelivered"
+          - "security: mitmLab_pairedPhoneCertWithoutPrivateKey_handshakeFails"
+          - "security: mitmLab_macCertWithoutPrivateKey_phoneHandshakeFails"
         notes: |
           Cycle 3: replaced "zero bytes past the TLS handshake in a pcap" — in TLS 1.3 encrypted
           handshake messages are also application_data (0x17) records, so a pcap cannot distinguish
@@ -396,6 +413,7 @@ epics:
           client sending 0-RTT early data; (4) a peer completing mTLS but sending a Hello with an
           unsupported major version. The user-visible error for (4) is read from the real app's
           menu-bar status item via the accessibility tree (no debug API).
+          Cycle 4 adds: (5) a scripted server that issues a NewSessionTicket to the JVM (Android core) client, then inspects its next ClientHello; (6) a client offering no ALPN or an ALPN other than `tandem/1`.
         acceptance:
           - (1) fails the handshake with a `protocol_version` alert.
           - (2) the first full handshake issues 0 NewSessionTicket messages, and the resumption attempt
@@ -403,6 +421,7 @@ epics:
           - (3) 0 early-data bytes reach the application layer.
           - (4) the connection closes with the `VERSION_MISMATCH` close code and the Mac menu shows a
             version-mismatch error within 2 s (invariant 5, UC-05).
+          - "(5) the next ClientHello carries no pre_shared_key or early_data extension; (6) the handshake fails with a no_application_protocol alert."
         tdd:
           - "security: mitmLab_tls12OnlyClientHello_protocolVersionAlert"
           - "security: mitmLab_fullHandshake_zeroSessionTicketsIssued"
@@ -410,6 +429,8 @@ epics:
           - "security: mitmLab_zeroRttEarlyData_zeroEarlyBytesDelivered"
           - "security: mitmLab_helloUnsupportedMajorVersion_closedWithVersionMismatch"
           - "security: mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError"
+          - "security: mitmLab_androidClientAfterTicketIssued_nextHelloOffersNoPsk"
+          - "security: mitmLab_clientWithoutTandemAlpn_handshakeFails"
         notes: "Size S -> M in cycle 3 (four scenarios plus accessibility-tree check)."
       - id: E15-12
         title: "[tools] nmap phone-listener check script"
@@ -514,7 +535,7 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-03, UC-04]
         invariants: [1, 3, 5]
-        depends_on: [E12-01, E12-02, E12-04, E12-05, E12-06, E10-15, E13-06]
+        depends_on: [E12-01, E12-02, E12-04, E12-05, E12-06, E10-15, E13-06, E00-30]
         description: |
           Reusable harness (owner of the JVM-client infrastructure): a JVM test client that links the
           real Android `core/protocol`, `core/crypto`, `core/transport`, and `core/pairing` modules
@@ -546,6 +567,7 @@ epics:
           - The harness job runs in the macos workflow with no physical device or emulator and
             completes in < 15 min wall time.
           - A sample `feature/*` module applying the `jvmIntegrationTest` convention compiles into the harness classpath with no Android framework classes on it.
+          - "The trust-record seeding helper is a separate executable target that is never part of the TandemApp product; the E00-30 bundle and symbol scans of the Release .app find neither the helper nor its symbols."
         tdd:
           - "integration: jvmHarness_seededTrustRecord_clientCompletesHandshake"
           - "integration: jvmHarness_clearedTrustStore_handshakeRejected"
@@ -573,16 +595,25 @@ epics:
           body, phone number, contact name, notification text, clipboard text) appears. Reuses the
           canary generation of E15-06/E15-07. Per-domain sessions are owned by the feature epics
           (E50-11, E51-08, E52-09); this issue provides the tool only, self-tested on fixture logs.
+          Cycle 4: the canary manifest names each canary's kind (notificationText, clipboardText, fileName,
+          fileContent, smsBody, smsAddress, contactName, callerNumber, inputText, inputCoordinates with sentinel
+          values 31337 / 27182, displayName, pairingSecret, mediaTicket). The tool searches every canary raw and in
+          hex, base64 and base64url form (binary secrets are only ever loggable in encoded form), and fails when
+          the manifest lacks a kind required by an enabled feature.
         acceptance:
           - Any single occurrence of any supplied canary in any line exits 1 and prints source
             (logcat / unified) and line number.
           - A log containing only redacted/length-only representations exits 0.
           - An empty log capture (collection failed) exits non-zero, never passes.
+          - "A canary present only in base64url form in a log line is detected."
+          - "A manifest missing a kind required by an enabled feature exits non-zero naming the kind."
         tdd:
           - "unit: logAudit_canaryInLogcatFixture_exitsOneWithSourceAndLine"
           - "unit: logAudit_canaryInUnifiedLogFixture_exitsOneWithSourceAndLine"
           - "unit: logAudit_redactedLengthOnlyFixture_exitsZero"
           - "unit: logAudit_emptyLogCapture_exitsNonZero"
+          - "unit: logAudit_base64urlEncodedCanary_detected"
+          - "unit: logAudit_manifestMissingRequiredKindForEnabledFeature_exitsNonZero"
         notes: ""
       - id: E15-18
         title: "[tools] Security audit suite runner: one command, one report"
@@ -593,7 +624,7 @@ epics:
         prd: [F-3.1, F-3.2]
         use_cases: [UC-25, AC-01, AC-02, AC-04]
         invariants: [1, 2, 4, 7]
-        depends_on: [E15-03, E15-05, E15-06, E15-07, E15-08, E15-12, E15-13, E15-14, E15-15, E15-17]
+        depends_on: [E15-03, E15-05, E15-06, E15-07, E15-08, E15-12, E15-13, E15-14, E15-15, E15-17, E15-20]
         description: |
           UC-25 had no owner. `tools/audit/run.sh` runs conformance, pcap-audit (+ canary), mitm-lab,
           nmap, downgrade checks, fuzz smoke, and log-audit, each also invocable alone
@@ -602,6 +633,7 @@ epics:
           "manual gate: pending" and are required at every phase exit from Phase 1 (PRD "required
           per phase"). Runner self-tests use stub tools that exit 0/1. CI wiring of the automatable
           subset is E15-19.
+          Cycle 4: the mitm-lab step includes the E15-20 DoS scenarios.
         acceptance:
           - With one stub tool exiting 1, `run.sh` exits non-zero and both reports mark overall FAIL
             naming that tool.
@@ -642,3 +674,34 @@ epics:
           - "ci: auditSubsetJob_macosRunner_completesUnderThirtyMinutes"
           - "security: auditSubset_jvmHarnessLoopbackSession_allToolsExitZero"
         notes: "Split from E15-18 in review cycle 3."
+
+      - id: E15-20
+        title: "[tools] mitm-lab: pre-auth DoS and timeout scenarios (slowloris, floods, stalled hellos, idle pairing candidates)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-3.1, F-2.1]
+        use_cases: [AC-13, AC-17, AC-04]
+        invariants: [1, 5]
+        depends_on: [E15-08, E15-15, E12-18, E12-07, E14-02]
+        description: |
+          Added in review cycle 4. Scenarios on the E15-08 scaffold against the real Mac app (E15-15 harness),
+          using loopback aliases 127.0.0.2..127.0.0.9 on the runner as distinct sources: (1) TCP connect then
+          silence; (2) TLS completed but no VersionHello; (3) 20 idle connections from one source while a paired
+          JVM client connects from another; (4) 10 failed handshakes in 60 s from one source, then a paired
+          client from another source; (5) three idle pairing candidates in an open window, then a correct
+          PairRequest. Each scenario asserts the E01-22 numbers and that legitimate peers are unaffected.
+        acceptance:
+          - "(1) is closed within 11 s of connect; (2) is closed with PROTOCOL_TIMEOUT within 6 s of TLS completion."
+          - "(3) all connections beyond the caps are closed on accept, and the paired client still reaches Ready within 5 s."
+          - "(4) the flooding source is refused for 60 s while the paired client from the other source reaches Ready."
+          - "(5) the window reports exhausted after the three idle candidates and the later correct PairRequest gets no PairAccepted."
+        tdd:
+          - "security: mitmLabDos_stalledTcpNoClientHello_closedWithin11s"
+          - "security: mitmLabDos_tlsDoneNoVersionHello_closedProtocolTimeoutWithin6s"
+          - "security: mitmLabDos_connectionFloodFromOneSource_pairedPeerStillReady"
+          - "security: mitmLabDos_failedHandshakeBurst_sourceThrottledOtherSourceReady"
+          - "security: mitmLabDos_threeIdlePairingCandidates_windowExhaustedNoPairAccepted"
+        notes: |
+          Added in review cycle 4. Included in the full-suite release run (E71-08) and the E15-18 runner.

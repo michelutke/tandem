@@ -268,9 +268,9 @@ epics:
         priority: P1
         size: S
         prd: [F-4.1]
-        use_cases: [UC-04]
+        use_cases: [UC-04, AC-16]
         invariants: []
-        depends_on: [E20-02, E00-20, E00-23]
+        depends_on: [E20-02, E00-20, E00-23, E00-28]
         description: |
           Register a BOOT_COMPLETED broadcast receiver (RECEIVE_BOOT_COMPLETED) that starts the
           foreground service via `ServiceStarter` (E20-02) when a paired Mac exists. BOOT_COMPLETED
@@ -282,11 +282,13 @@ epics:
           - Merged manifest declares RECEIVE_BOOT_COMPLETED and the receiver for android.intent.action.BOOT_COMPLETED
           - BOOT_COMPLETED with a paired Mac starts the foreground service; with no paired Mac nothing is started
           - "Manual gate: after a physical reboot and unlock, the service is running and connected to the Mac within 60 s without opening the app"
+          - "The receiver ignores any intent whose action is not BOOT_COMPLETED: an explicit intent from another app with another action starts nothing (the receiver must be exported, E00-28 allowlist)."
         tdd:
           - "ci: mergedManifest_bootReceiver_declaresReceiveBootCompleted"
           - "unit: bootReceiver_bootCompletedWithPairedMac_startsForegroundService"
           - "unit: bootReceiver_bootCompletedNoPairedMac_startsNothing"
           - "manual: phoneReboot_pairedMac_connectedWithin60sOfUnlock"
+          - "unit: bootReceiver_explicitIntentOtherAction_startsNothing"
       - id: E20-09
         title: "[android] Connection state UI on phone"
         type: story
@@ -426,6 +428,7 @@ epics:
           - ADR in docs/adr/ records options (a)-(c), rejects (c) citing invariant 4, and states that BLE carries no application data or stable identifiers
           - The decision cites E20-12's measured Mac-wake reconnect p95 and overnight Doze result, and the E20-03 go/no-go
           - If (b) is accepted, follow-up issues are filed in E72 before Phase 7 starts
+          - "If (b) is accepted, the ADR specifies a daily rotating advertisement identifier derived like F-3.5, a random (resolvable or non-resolvable) BLE address, no device name or service data beyond the rotating id, and a STRIDE row is added to E02-01 before any follow-up issue starts (cycle 4)."
         tdd: []
       - id: E20-14
         title: "[android] Onboarding flow: per-permission explanations with skip paths"
@@ -891,7 +894,7 @@ epics:
         priority: P0
         size: S
         prd: [F-4.2]
-        use_cases: []
+        use_cases: [AC-17]
         invariants: [2, 4]
         depends_on: [E12-01, E00-23]
         description: |
@@ -901,14 +904,22 @@ epics:
           Checks: a CI step dumps the Release entitlements with codesign and launches the sandboxed
           build on the macOS runner (identity generated in a CI keychain) to confirm the listener
           binds; a paired physical phone connecting to the sandboxed Release build is a manual gate.
+          Cycle 4: the Release app is signed with the hardened runtime (`--options runtime`) and carries no
+          `com.apple.security.cs.*` exception (allow-jit, allow-unsigned-executable-memory,
+          disable-library-validation, allow-dyld-environment-variables, disable-executable-page-protection) and no
+          `get-task-allow`; keychain access is limited to the app's own group (E10-05); `application-groups`
+          appears only once E40-22 lands; Info.plist has no ATS exception keys (Tandem makes no URL-loading
+          connections).
         acceptance:
           - codesign --display --entitlements on the Release build shows exactly app-sandbox, network.server and network.client at this stage
           - The sandboxed build launched on the macOS CI runner has its single listening port bound within 10 s (lsof)
           - "Manual gate: a paired phone reaches session Ready with the sandboxed Release build within 5 s"
+          - "`codesign -d --verbose` shows the runtime flag on the Release app and no com.apple.security.cs.* or get-task-allow entitlement."
         tdd:
           - "ci: releaseEntitlements_codesignDisplay_exactlySandboxNetworkServerClient"
           - "ci: sandboxedAppLaunch_macRunner_listenerBoundWithin10s"
           - "manual: sandboxedReleaseBuild_pairedPhoneConnects_sessionReadyWithin5s"
+          - "ci: releaseSignature_hardenedRuntimeFlag_presentAndNoCsExceptions"
       - id: E22-05
         title: "[macos] Settings window shell"
         type: task

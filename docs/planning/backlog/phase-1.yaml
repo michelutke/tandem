@@ -101,12 +101,14 @@ epics:
           - The cert's public key equals the KeyHandle's public key (fake on JVM, AndroidKeyStore on the emulator).
           - The cert subject equals `IDENTITY_CERT_SUBJECT` exactly and contains no Build.MODEL, device name, serial number or account name.
           - After a fresh `KeyStore.getInstance("AndroidKeyStore").load(null)` (process-restart proxy), the cert is returned for the alias with an identical encoding.
+          - "The certificate has notBefore = generation time minus 1 day, notAfter = 9999-12-31T23:59:59Z (RFC 5280 no-expiry value), a random positive 16-byte serial, basicConstraints CA:false and keyUsage digitalSignature; peers never check these fields (E01-01)."
         tdd:
           - "unit: identityCertSpec_subject_equalsFixedConstantOnly"
           - "unit: selfSignedCert_softwareKeyStore_publicKeyEqualsKeyHandlePublicKey"
           - "unit: selfSignedCert_signature_verifiesWithOwnPublicKey"
           - "instrumented: selfSignedCert_androidKeyStore_publicKeyEqualsKeystoreKey"
           - "instrumented: selfSignedCert_freshKeyStoreLoad_sameEncodedCertForAlias"
+          - "unit: identityCertSpec_validity_notAfterIs99991231AndCaFalse"
 
       - id: E10-03
         title: "[android] SPKI SHA-256 fingerprint computation (vector-tested)"
@@ -173,7 +175,7 @@ epics:
         priority: P0
         size: M
         prd: [F-1.1]
-        use_cases: [UC-01]
+        use_cases: [UC-01, AC-17]
         invariants: [3]
         depends_on: [E00-07, E01-01, E03-02, E10-16]
         description: |
@@ -184,17 +186,20 @@ epics:
           Seam: `IdentityKeyProvider` takes `any KeychainStore` (E10-16) via init; unit tests use
           `InMemoryKeychainStore`, real Keychain behaviour is asserted by hosted `integration:`
           tests with `SecItemKeychainStore` on the macOS runner.
+          Cycle 4: identity items use the data-protection keychain (`kSecUseDataProtectionKeychain = true`) in the app's own access group only; the share extension (E40-22) gets no keychain access group.
         acceptance:
           - The first call adds exactly one key item under the fixed application tag; the second call returns it without another add
           - The add request carries kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly (recorded by the in-memory store; read back from the real Keychain in the hosted test)
           - In the hosted test, SecKeyCopyExternalRepresentation on the stored private key fails (non-extractable)
           - The key persists across a new provider instance over the same store (relaunch proxy)
+          - "The add request sets kSecUseDataProtectionKeychain and only the app's own access group."
         tdd:
           - "unit: getOrCreateIdentityKey_emptyKeychain_addsOneKeyItemWithFixedTag"
           - "unit: getOrCreateIdentityKey_secondCall_returnsExistingItemWithoutAdd"
           - "unit: getOrCreateIdentityKey_addRequest_recordsAfterFirstUnlockThisDeviceOnly"
           - "integration: identityKey_hostedKeychain_accessibilityReadsAfterFirstUnlockThisDeviceOnly"
           - "integration: identityKey_hostedKeychainExportPrivateKey_copyExternalRepresentationFails"
+          - "unit: getOrCreateIdentityKey_addRequest_usesDataProtectionKeychainOwnGroup"
 
       - id: E10-06
         title: "[macos] Self-signed certificate via swift-certificates"
@@ -216,11 +221,13 @@ epics:
           - Certificate subject equals the fixed placeholder constant and contains no host name, user name or serial number
           - The certificate signature verifies with its own public key
           - A new provider instance over the same store returns a cert and key whose public keys match (relaunch proxy)
+          - "The certificate has notBefore = generation time minus 1 day, notAfter = 9999-12-31T23:59:59Z, a random positive 16-byte serial, basicConstraints CA:false and keyUsage digitalSignature (E01-01)."
         tdd:
           - "unit: selfSignedCert_generated_publicKeyEqualsIdentityPublicKey"
           - "unit: selfSignedCert_subject_equalsFixedPlaceholderOnly"
           - "unit: selfSignedCert_signature_verifiesWithOwnPublicKey"
           - "unit: selfSignedCert_newProviderSameStore_certAndKeyPublicKeysMatch"
+          - "unit: selfSignedCert_generated_notAfterIs99991231AndCaFalse"
 
       - id: E10-07
         title: "[macos] SecIdentity construction for Network.framework"
@@ -355,23 +362,27 @@ epics:
         priority: P0
         size: S
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-20]
         invariants: [6]
         depends_on: [E10-03, E01-18]
         description: |
-          Implement pairingProof(secret, macSpki, phoneSpki) =
-          HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki) per F-2.1 step 3, in
+          Implement pairingProof(secret, macSpkiDer, phoneSpkiDer, cb) =
+          HMAC-SHA256 over the E01-02 length-prefixed, channel-bound transcript (cycle 4; supersedes the raw F-2.1 step 3 concatenation), in
           core/crypto only. Validate against protocol/vectors pairing-proof vectors (re-run by
           E15-01). Consumed by E14-06. "No HMAC outside core/crypto" is enforced by the E10-14
           boundary check.
+          Cycle 4: also `pairingCode(secret, macSpkiDer, phoneSpkiDer, cb)` returning the 6-digit confirmation code string (E01-02). Both functions reject SPKI inputs that are not 91-byte P-256 DER and cb inputs that are not 32 bytes before computing any HMAC.
         acceptance:
           - Output matches every protocol/vectors HMAC pairing-proof test vector
           - Flipping one bit of the secret changes the output
           - Swapping macSpki and phoneSpki changes the output (argument order is bound)
+          - "pairingCode matches every confirmation-code vector (E01-18), and a 65-byte raw point or a 31-byte cb is rejected with a typed error before any HMAC is computed."
         tdd:
           - "unit: pairingProof_everyHmacVector_matchesExpectedProof"
           - "unit: pairingProof_secretOneBitFlipped_outputDiffers"
           - "unit: pairingProof_macAndPhoneSpkiSwapped_outputDiffers"
+          - "unit: pairingCode_everyCodeVector_matchesExpectedSixDigits"
+          - "unit: pairingProof_cbNot32Bytes_rejectedBeforeHmac"
 
       - id: E10-13
         title: "[macos] HMAC-SHA256 pairing-proof helper (vector-tested)"
@@ -380,21 +391,25 @@ epics:
         priority: P0
         size: S
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-20]
         invariants: [6]
         depends_on: [E10-08, E01-18]
         description: |
           Swift equivalent of E10-12 in TandemCrypto, using swift-crypto's HMAC<SHA256>. Consumed
           by E14-07 for verification. "No HMAC outside TandemCrypto" is enforced by the E10-14
           boundary check.
+          Cycle 4: same signature change as E10-12 (`pairingProof(secret, macSpkiDer, phoneSpkiDer, cb)`, length-prefixed transcript) plus `pairingCode(...)` for the dialog code; both reject non-91-byte SPKIs and non-32-byte cb before computing.
         acceptance:
           - Output matches every protocol/vectors HMAC pairing-proof test vector
           - Flipping one bit of the secret changes the output
           - Swapping macSpki and phoneSpki changes the output (argument order is bound)
+          - "pairingCode matches every confirmation-code vector (E01-18), and a 65-byte raw point or a 31-byte cb is rejected with a typed error before any HMAC is computed."
         tdd:
           - "unit: pairingProof_everyHmacVector_matchesExpectedProof"
           - "unit: pairingProof_secretOneBitFlipped_outputDiffers"
           - "unit: pairingProof_macAndPhoneSpkiSwapped_outputDiffers"
+          - "unit: pairingCode_everyCodeVector_matchesExpectedSixDigits"
+          - "unit: pairingProof_cbNot32Bytes_rejectedBeforeHmac"
 
       - id: E10-14
         title: "[cross] Module boundary check: only core/crypto and TandemCrypto touch key material"
@@ -963,16 +978,24 @@ epics:
           listener on 127.0.0.1 and an in-process NWConnection client with real Network.framework
           TLS. The `openssl s_client -tls1_2` probe is the E15-11 mitm-lab scenario (E15-11
           depends on this issue).
+          Cycle 4: ALPN `tandem/1` is required (`sec_protocol_options_add_tls_application_protocol`); the session
+          exposes the E01-01 channel binding (`sec_protocol_metadata_create_secret`, label
+          `EXPORTER-Channel-Binding`, 32 bytes) as `TandemSession.channelBinding` (E12-12). Admission control
+          (pre-auth caps, deadlines, per-IP throttle) is E12-18.
         acceptance:
           - A loopback NWConnection client restricted to max TLS 1.2 fails the handshake; no application byte reaches the listener
           - A loopback client presenting no certificate fails the handshake
           - While the listener runs, `lsof -a -p <pid> -iTCP -sTCP:LISTEN` reports exactly one socket, on the SPEC port
           - With identity state `identityError` (E10-09), `ListenerFactory` is never invoked and no socket is listening (UC-01)
+          - "A loopback client offering no ALPN, or an ALPN other than `tandem/1`, fails the handshake with 0 application bytes."
+          - "After a loopback handshake the server-side channel binding equals the client exporter value (32 bytes)."
         tdd:
           - "integration: listener_loopbackClientMaxTls12_handshakeFailsNoAppBytes"
           - "integration: listener_loopbackClientWithoutCertificate_handshakeFails"
           - "integration: listener_running_exactlyOneListeningTcpSocket"
           - "unit: listenerController_identityErrorState_listenerFactoryNeverInvoked"
+          - "integration: listener_loopbackClientWithoutTandemAlpn_handshakeFails"
+          - "integration: listener_loopbackHandshake_channelBindingEqualsClientExporter"
 
       - id: E12-02
         title: "[macos] Verify block: trust store check or open pairing window"
@@ -981,7 +1004,7 @@ epics:
         priority: P0
         size: M
         prd: [F-3.1]
-        use_cases: [UC-03, UC-04, AC-04]
+        use_cases: [UC-03, UC-04, AC-04, AC-13]
         invariants: [1, 3, 5]
         depends_on: [E12-01, E13-06, E10-08]
         description: |
@@ -999,6 +1022,8 @@ epics:
           - Known fingerprint returns `.trusted` whether the window is open or closed; over loopback the handshake completes
           - Unknown fingerprint with the window open returns `.pairingCandidate` (E14-07 only accepts PairRequest on such connections)
           - A trust-store read error (e.g. `KeychainError.locked`) returns `.rejected`, never `.trusted`
+          - "A peer whose leaf key is not a 91-byte uncompressed P-256 SPKI returns `.rejected`; extra chain certificates are ignored and only the leaf is pinned."
+          - "With a pairing window open and a candidate already in flight (`PairingWindowState.candidateInFlight`), a second unknown fingerprint returns `.rejected` and no attempt is burned."
         tdd:
           - "unit: peerAuthorizer_unknownFingerprintWindowClosed_rejected"
           - "unit: peerAuthorizer_knownFingerprintAnyWindowState_trusted"
@@ -1006,6 +1031,9 @@ epics:
           - "unit: peerAuthorizer_trustStoreLocked_rejected"
           - "integration: verifyBlock_loopbackUnknownCertNoWindow_handshakeFailsZeroAppBytes"
           - "integration: verifyBlock_loopbackTrustedCert_handshakeCompletes"
+          - "unit: peerAuthorizer_nonP256LeafKey_rejected"
+          - "unit: peerAuthorizer_extraChainCertificates_onlyLeafPinned"
+          - "unit: peerAuthorizer_secondUnknownCertWhileCandidateInFlight_rejected"
 
       - id: E12-03
         title: "[macos] Disable session resumption and 0-RTT"
@@ -1047,17 +1075,27 @@ epics:
           Tests: `integration:` on the JVM with Conscrypt-openjdk against a test-only Conscrypt
           SSLServerSocket on 127.0.0.1 (test source sets are exempt from the no-listener lint),
           identity from `SoftwareIdentityKeyStore` (E10-15). The empirical nmap check is E15-12.
+          Cycle 4: a fresh SSLContext per connection with no shared client session cache and
+          `SSLSockets.setUseSessionTickets(socket, false)` (JVM harness: Conscrypt equivalents) so the client never
+          offers a PSK; ALPN `tandem/1` via `SSLParameters.setApplicationProtocols`; no SNI; channel binding via
+          `SSLSockets.exportKeyingMaterial` exposed on the `ByteStream` session (E12-11 `channelBinding`).
         acceptance:
           - A created client socket's enabledProtocols is exactly ["TLSv1.3"]
           - Against a localhost server limited to TLSv1.2, connect fails with SSLHandshakeException and 0 application bytes are sent
           - A localhost server requiring client auth receives the certificate returned by the E12-06 key manager
           - The no-listener lint fails on a fixture that calls ServerSocket/bind in a main source set and passes on the current tree
+          - "Against a localhost server that issues session tickets, the second connection offers no pre_shared_key or early_data extension and the server reports a full handshake."
+          - "A server that does not select ALPN `tandem/1` fails the handshake."
+          - "The client channel binding equals the server exporter value (32 bytes)."
         tdd:
           - "unit: sslClientFactory_createdSocket_enabledProtocolsExactlyTls13"
           - "integration: sslClient_localhostServerTls12Only_handshakeFailsNoAppBytes"
           - "integration: sslClient_localhostServerRequiresClientAuth_receivesKeyManagerCert"
           - "ci: noListenerLint_serverSocketInMainSourceFixture_fails"
           - "ci: noListenerLint_currentTree_passes"
+          - "integration: sslClient_serverIssuesTickets_secondClientHelloHasNoPsk"
+          - "integration: sslClient_serverSelectsNoAlpn_handshakeFails"
+          - "integration: sslClient_handshakeComplete_channelBindingEqualsServerExporter"
 
       - id: E12-05
         title: "[android] Custom X509TrustManager: pin check against trust store or pairing window"
@@ -1083,12 +1121,15 @@ epics:
           - With no pin registered and no trust-store record, every server cert is rejected
           - The Socket/SSLEngine passed to checkServerTrusted is never queried for address or hostname (spy)
           - Against a localhost server presenting a wrong cert, the handshake fails and the server reads 0 application bytes
+          - "A server leaf whose key is not a 91-byte uncompressed P-256 SPKI is rejected before the pin compare; validity dates are not checked (an expired but pinned certificate passes the TrustManager, CertificateVerify is still enforced by Conscrypt)."
         tdd:
           - "unit: trustManager_matchingSpkiUnrelatedSubject_accepted"
           - "unit: trustManager_mismatchedSpki_throwsCertificateException"
           - "unit: trustManager_noPinNoTrustRecord_throwsCertificateException"
           - "unit: trustManager_checkServerTrusted_neverQueriesHostOrAddress"
           - "integration: trustManager_localhostServerWrongCert_handshakeFailsZeroAppBytes"
+          - "unit: trustManager_expiredButPinnedCert_accepted"
+          - "unit: trustManager_nonP256LeafKey_rejectedBeforePinCompare"
 
       - id: E12-06
         title: "[android] Custom X509KeyManager backed by Keystore identity"
@@ -1126,7 +1167,7 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-03, UC-04, AC-04]
         invariants: [1, 5]
-        depends_on: [E12-01, E11-06, E01-06, E00-25]
+        depends_on: [E12-01, E11-06, E01-06, E00-25, E01-22, E00-24]
         description: |
           Mac side of E01-06: the first CONTROL frame each side sends after TLS is VersionHello
           {protocolVersion, capabilities}; no other channel sends before both hellos are
@@ -1140,11 +1181,13 @@ epics:
           - Peer hello with a different major version closes with version-mismatch and emits `Failed(.versionMismatch)`
           - A NOTIFY send issued before the peer hello arrives puts 0 NOTIFY bytes on the wire until Ready
           - The peer's capabilities (unknown bits ignored) are exposed on the Ready state
+          - "No peer VersionHello within 5 s of TLS completion closes with `PROTOCOL_TIMEOUT` (E01-22)."
         tdd:
           - "unit: hello_peerSameMajorHigherMinor_stateBecomesReady"
           - "unit: hello_peerDifferentMajor_closesVersionMismatchAndFailedState"
           - "unit: hello_notifySendBeforePeerHello_zeroNotifyBytesOnWire"
           - "unit: hello_peerUnknownCapabilityBit_ignoredAndOthersExposed"
+          - "unit: hello_noPeerHelloWithin5s_closesProtocolTimeout"
         notes: "Split from E12-07 in review cycle 3: was [cross]; Android half is E12-15."
 
       - id: E12-15
@@ -1156,7 +1199,7 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-03, UC-04, AC-04]
         invariants: [1, 5]
-        depends_on: [E12-04, E11-05, E01-06, E00-19, E00-04]
+        depends_on: [E12-04, E11-05, E01-06, E00-19, E00-04, E01-22, E00-18]
         description: |
           Android side of E01-06, same rules as E12-07 (first CONTROL frame, no other channel
           before both hellos, version-mismatch close + visible error event mapped by E12-16,
@@ -1167,11 +1210,13 @@ epics:
           - Peer hello with a different major version closes with version-mismatch and emits `Failed(VersionMismatch)`
           - A NOTIFY send issued before the peer hello arrives puts 0 NOTIFY bytes on the wire until Ready
           - The peer's capabilities (unknown bits ignored) are exposed on the Ready state
+          - "No peer VersionHello within 5 s of TLS completion closes with `PROTOCOL_TIMEOUT` (E01-22)."
         tdd:
           - "unit: hello_peerSameMajorHigherMinor_stateBecomesReady"
           - "unit: hello_peerDifferentMajor_closesVersionMismatchAndFailedState"
           - "unit: hello_notifySendBeforePeerHello_zeroNotifyBytesOnWire"
           - "unit: hello_peerUnknownCapabilityBit_ignoredAndOthersExposed"
+          - "unit: hello_noPeerHelloWithin5s_closesProtocolTimeout"
         notes: "Split from E12-07 in review cycle 3."
 
       - id: E12-08
@@ -1183,18 +1228,18 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-04, UC-05]
         invariants: [5]
-        depends_on: [E12-04, E12-05, E12-15, E00-18, E00-04]
+        depends_on: [E12-04, E12-05, E12-15, E00-18, E00-04, E01-22]
         description: |
           States: Disconnected -> Connecting -> TlsHandshaking -> HelloExchange -> Ready ->
           Disconnected(reason); Failed(reason) reachable from any state on handshake/Hello
-          failure or on the E01-01 handshake timeout. Expose as Flow<ConnectionState> for the
+          failure or on the 10 s E01-22 handshake deadline. Expose as Flow<ConnectionState> for the
           connection-status UI. The machine takes an injected `Clock` and dispatcher (E00-18) so
           the timeout is tested in virtual time; events are asserted with Turbine (E00-04).
         acceptance:
           - Every documented transition is exercised by a test
           - An illegal event (e.g. HandshakeStarted while Ready) leaves the state unchanged and is reported as rejected
           - Every Failed state carries a non-empty reason
-          - No handshake completion within the E01-01 timeout emits Failed(Timeout) in virtual time
+          - No handshake completion within the 10 s E01-22 deadline emits Failed(Timeout) in virtual time
         tdd:
           - "unit: connectionSm_connectWhileDisconnected_emitsConnecting"
           - "unit: connectionSm_socketOpened_emitsTlsHandshaking"
@@ -1214,7 +1259,7 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-04, UC-05]
         invariants: [5]
-        depends_on: [E12-01, E12-02, E12-07, E00-24]
+        depends_on: [E12-01, E12-02, E12-07, E00-24, E01-22]
         description: |
           Swift equivalent of E12-08 in TandemTransport, states mirrored per accepted incoming
           connection, exposed as AsyncStream<ConnectionState> (per-peer, since the Mac can hold
@@ -1224,7 +1269,7 @@ epics:
           - Every documented transition is exercised by a test
           - An illegal event leaves the state unchanged and is reported as rejected
           - Every Failed state carries a non-empty reason
-          - No handshake completion within the E01-01 timeout yields Failed(.timeout) after advancing the clock
+          - No handshake completion within the 10 s E01-22 deadline yields Failed(.timeout) after advancing the clock
         tdd:
           - "unit: connectionSm_incomingConnection_emitsAccepted"
           - "unit: connectionSm_handshakeStarted_emitsTlsHandshaking"
@@ -1291,12 +1336,15 @@ epics:
           - A Failed state never renders "Connecting" or an empty status
           - A failure log entry contains the reason category and no certificate DER or key bytes
           - The Compose status screen in state Failed(VersionMismatch) shows the version-mismatch text
+          - "The `error_no_longer_paired` state is shown only when the server passed the pin check in this handshake (an unpinned server always maps to pin mismatch), never deletes the Mac trust record automatically, and offers a \"Remove this Mac\" action that runs the E14-12 unpair."
         tdd:
           - "unit: connectionErrorMapper_everyFailureReason_distinctNonEmptyResource"
           - "unit: connectionErrorMapper_serverCertificateUnknownAlert_noLongerPairedWithMacName"
           - "unit: connectionStatusViewModel_failedState_neverRendersConnectingOrBlank"
           - "unit: failureLog_pinMismatch_containsCategoryButNoCertBytes"
           - "ui: connectionStatusScreen_failedVersionMismatch_showsVersionMismatchText"
+          - "unit: connectionErrorMapper_noLongerPaired_trustRecordNotDeleted"
+          - "unit: connectionErrorMapper_alertAfterFailedPinCheck_mapsToPinMismatch"
         notes: "Split from E12-10 in review cycle 3. Phone-side consumers (E20-09) should depend on this issue."
 
       - id: E12-11
@@ -1318,17 +1366,20 @@ epics:
           feature code. `FakeTandemSession` (records sent frames, lets tests emit incoming frames
           and states) lives in the core/transport `testFixtures` source set and is the seam every
           feature test uses.
+          Cycle 4: TandemSession exposes `channelBinding: ByteArray` (32 bytes): the TLS exporter in production, a fixed per-pair value from `InMemoryDuplexPipe` and a settable value on `FakeTandemSession`.
         acceptance:
           - No public signature of TandemSession references a javax.net.ssl or org.conscrypt type (reflection test)
           - Two real sessions over an in-memory pipe round-trip a NOTIFY frame byte-identically
           - close() moves state to Disconnected and completes every receive Flow
           - FakeTandemSession records each send(channel, payload) in order and emits injected frames on receive(channel)
+          - "`channelBinding` is 32 bytes and identical on both ends of a session (pipe-backed pair) and settable on FakeTandemSession."
         tdd:
           - "unit: tandemSessionInterface_reflectedSignatures_noSslOrConscryptTypes"
           - "unit: byteStreamSession_notifySendOverPipe_peerReceivesIdenticalEnvelope"
           - "unit: byteStreamSession_close_stateDisconnectedAndReceiveCompletes"
           - "unit: fakeTandemSession_sendCalls_recordedInOrder"
           - "unit: fakeTandemSession_injectedIncomingFrame_emittedOnReceiveFlow"
+          - "unit: byteStreamSession_channelBinding_equalOnBothEndsAndThirtyTwoBytes"
 
       - id: E12-12
         title: "[macos] Transport session abstraction exposing channels"
@@ -1346,17 +1397,20 @@ epics:
           `InMemoryConnectionPair` E00-25 in tests), kept transport-agnostic for future USB reuse.
           `FakeTandemSession` lives in TandemTestSupport (also used by the DEBUG-only E00-26
           scenario seeding).
+          Cycle 4: TandemSession exposes `channelBinding: Data` (32 bytes): the TLS exporter in production, a fixed per-pair value from `InMemoryConnectionPair` and a settable value on `FakeTandemSession`.
         acceptance:
           - No public requirement of the TandemSession protocol mentions a Network framework type (compile-time check in a test target that does not import Network)
           - Two real sessions over an in-memory pair round-trip a NOTIFY frame byte-identically
           - close() moves state to disconnected and finishes every receive stream
           - FakeTandemSession records each send in order and yields injected frames on receive
+          - "`channelBinding` is 32 bytes and identical on both ends of a session (in-memory pair) and settable on FakeTandemSession."
         tdd:
           - "unit: tandemSessionProtocol_testTargetWithoutNetworkImport_compilesAgainstIt"
           - "unit: byteStreamSession_notifySendOverPair_peerReceivesIdenticalEnvelope"
           - "unit: byteStreamSession_close_stateDisconnectedAndReceiveFinishes"
           - "unit: fakeTandemSession_sendCalls_recordedInOrder"
           - "unit: fakeTandemSession_injectedIncomingFrame_yieldedOnReceiveStream"
+          - "unit: byteStreamSession_channelBinding_equalOnBothEndsAndThirtyTwoBytes"
 
       - id: E12-13
         title: "[cross] Integration test: JVM client against macOS NWListener server"
@@ -1436,6 +1490,45 @@ epics:
           - "unit: peerRecordUpdater_pairingConnection_noRecordWritten"
           - "unit: peerRecordUpdater_twoRecordsSameDeviceId_onlyHandshakeSpkiUpdated"
         notes: "Split from E12-14 in review cycle 3."
+
+      - id: E12-18
+        title: "[macos] Listener admission control: pre-auth connection caps, deadlines, per-IP throttle"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [AC-04, AC-13, AC-17]
+        invariants: [1, 3, 5]
+        depends_on: [E12-01, E12-02, E12-09, E01-22, E00-24, E00-25, E03-01]
+        description: |
+          Added in review cycle 4 (slowloris / flood on the single Mac port). A pure `ConnectionAdmission`
+          policy (injected `Clock<Duration>`, E00-24) consulted by the listener on every accept and state
+          change, implementing the E01-22 pre-auth numbers: at most 8 not-yet-Ready connections and 2 per
+          source IP (excess closed on accept, before TLS), 10 s TLS deadline, per-IP throttle (>= 10 failed
+          handshakes in 60 s refuses that IP for 60 s). The source address is a throttling key only:
+          `PeerAuthorizer` (E12-02) takes no address or admission input, so admission can refuse but never grant
+          trust (invariant 3). Loopback connections get no exemption (the E15-15 harness uses per-test loopback
+          aliases 127.0.0.2..127.0.0.9 where it needs several sources). Refusals are logged as category plus
+          counters, never certificate bytes. VersionHello / PairRequest / MediaHello deadlines stay with their
+          owners (E12-07, E14-02, E60-03).
+        acceptance:
+          - "With 8 connections not yet Ready, a 9th accepted connection is closed before its TLS handshake starts; a 3rd concurrent pre-auth connection from one source IP is closed likewise."
+          - "A connection that has not completed TLS 10 s after accept is closed (virtual time)."
+          - "After 10 failed handshakes within 60 s from IP A, new connections from A are closed on accept for 60 s while a trusted peer from IP B still reaches Ready."
+          - "`PeerAuthorizer.decide` has no address or admission parameter (compile-time check), so the throttle can never mark a peer trusted."
+          - "Over loopback, a TCP connection that never sends a ClientHello is closed within 11 s and a burst of 10 idle connections has the 9th and 10th closed on accept."
+        tdd:
+          - "unit: connectionAdmission_ninthPreAuthConnection_refused"
+          - "unit: connectionAdmission_thirdPreAuthFromSameIp_refused"
+          - "unit: connectionAdmission_handshakeNotDoneIn10s_closed"
+          - "unit: connectionAdmission_tenFailuresIn60sFromIp_ipRefusedFor60s"
+          - "unit: connectionAdmission_throttledIp_otherIpStillAdmitted"
+          - "unit: peerAuthorizer_signature_takesNoAddressOrAdmissionInput"
+          - "integration: listener_loopbackStalledTcpConnection_closedWithin11s"
+          - "integration: listener_tenIdleLoopbackConnections_ninthAndTenthClosedOnAccept"
+        notes: |
+          Added in review cycle 4. Attacked end to end by E15-20. E03-01 finding (d) confirms the Network.framework hooks; if the listener cannot cancel before TLS, the cap is enforced at the first verify-block call instead and E01-22 is updated.
 
   - id: E13
     title: Trust store and settings storage
@@ -1607,6 +1700,7 @@ epics:
           - An injected errSecInteractionNotAllowed makes get throw `KeychainError.locked` (never nil, so the verify block cannot mistake it for "unknown" or "trusted")
           - Creating `SpkiFingerprint` from anything other than 32 bytes fails
           - Against the real Keychain (hosted), a record survives a new store instance
+          - "Every trust item is written to the data-protection keychain in the app's own access group only (cycle 4, same rule as E10-05)."
         tdd:
           - "unit: trustStore_putThenGetByFingerprint_returnsEqualRecord"
           - "unit: trustStore_getUnknownFingerprint_returnsNil"
@@ -1615,6 +1709,7 @@ epics:
           - "unit: trustStore_keychainLocked_getThrowsLockedNotNil"
           - "unit: spkiFingerprintKey_not32Bytes_initFails"
           - "integration: trustStore_hostedKeychain_recordSurvivesNewStoreInstance"
+          - "unit: trustStore_put_usesDataProtectionKeychainOwnGroup"
 
       - id: E13-07
         title: "[macos] Trust store migrations scaffold"
@@ -1782,12 +1877,15 @@ epics:
           - Two consecutive window starts produce different secrets; the `s` param decodes to exactly 16 bytes
           - The `a` param lists exactly the addresses returned by the injected LocalAddressSource
           - The payload contains the fingerprint and no bytes of the private key or its external representation
+          - "`a` lists at most 8 literal addresses (loopback, IPv6 link-local and unspecified excluded) and `n` is truncated to 64 UTF-8 bytes on a code-point boundary (E01-02)."
         tdd:
           - "unit: qrPayloadEncoder_eachValidQrVectorFields_equalsVectorString"
           - "unit: qrPayload_twoWindowStarts_secretsDiffer"
           - "unit: qrPayload_secretParam_decodesTo16Bytes"
           - "unit: qrPayload_addressParam_equalsInjectedLocalAddresses"
           - "unit: qrPayload_generated_containsNoPrivateKeyBytes"
+          - "unit: qrPayload_moreThanEightInterfaces_firstEightRoutableAddressesOnly"
+          - "unit: qrPayload_macNameOver64Bytes_truncatedOnCodePointBoundary"
 
       - id: E14-02
         title: "[macos] Pairing window state machine"
@@ -1796,9 +1894,9 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [UC-03, AC-03]
+        use_cases: [UC-03, AC-03, AC-13]
         invariants: [6]
-        depends_on: [E14-01, E00-24]
+        depends_on: [E14-01, E00-24, E01-22]
         description: |
           States: Closed -> Open(secret, expiresAt, attemptsRemaining=3) -> Closed(reason), on
           success, expiry, attempts exhausted, or explicit cancel. 120 s expiry timer; each failed
@@ -1808,6 +1906,10 @@ epics:
           old one. Conforms to the `PairingWindowState` protocol used by E12-02.
           The pairing window takes an injected `Clock` (E00-24) so the 120 s expiry is tested in
           virtual time with `ManualTestClock`.
+          Cycle 4: the window tracks at most one in-flight pairing candidate (`candidateInFlight`, read by E12-02)
+          and frees the slot when that connection closes. A candidate that sends no PairRequest within 10 s
+          (E01-22) is closed and burns one attempt. While the window is open the Mac neither starts nor accepts a
+          key rotation (E70-03 / E70-05).
         acceptance:
           - Opening yields attemptsRemaining=3 and expiresAt = now + 120 s
           - Each failed attempt decrements attemptsRemaining by exactly 1
@@ -1816,6 +1918,8 @@ epics:
           - A successful pairing closes the window (Closed(paired)) and the secret is no longer retrievable; a second PairRequest with the same secret is rejected (UC-03 same QR twice)
           - After regenerate, a proof computed with the old secret is rejected
           - Explicit cancel yields Closed(cancelled)
+          - "While a candidate is in flight `candidateInFlight` is true, so a second unknown certificate is rejected by E12-02 without decrementing attemptsRemaining."
+          - "A candidate that sends no PairRequest within 10 s of virtual time is closed with PAIRING_FAILED and burns exactly one attempt."
         tdd:
           - "unit: pairingWindow_open_threeAttemptsAndExpiresIn120s"
           - "unit: pairingWindow_failedAttempt_attemptsRemainingDecrementsByOne"
@@ -1826,6 +1930,8 @@ epics:
           - "unit: pairingWindow_sameSecretAfterSuccess_secondRequestRejected"
           - "unit: pairingWindow_regenerate_oldSecretProofRejected"
           - "unit: pairingWindow_explicitCancel_closedCancelled"
+          - "unit: pairingWindow_candidateInFlight_secondCandidateRejectedNoAttemptBurned"
+          - "unit: pairingWindow_candidateSilentFor10s_closedAndOneAttemptBurned"
 
       - id: E14-03
         title: "[android] QR payload parsing and validation"
@@ -1834,9 +1940,9 @@ epics:
         priority: P0
         size: S
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-14]
         invariants: [3]
-        depends_on: [E01-02, E01-21, E00-04]
+        depends_on: [E01-02, E01-21, E00-04, E14-21]
         description: |
           Parse tandem://pair?v=1&... into a typed PairingInvite(fp, secret, addresses, port,
           macName); reject unknown/missing v, malformed base64url fields, wrong-length fp/secret,
@@ -1847,12 +1953,15 @@ epics:
           - Every malformed vector is rejected with a typed `InviteError` and no partial invite
           - v=2 yields `UnsupportedVersion`; a missing fp or s yields `MissingParam`
           - An fp that does not decode to 32 bytes or an s that does not decode to 16 bytes is rejected
+          - "An `a` entry that is a hostname, more than 8 entries, or an unspecified, multicast or broadcast address is rejected, as is an `n` over 64 UTF-8 bytes; a valid `n` passes through DisplayStringSanitizer (E14-21) before it is shown."
         tdd:
           - "unit: parseInvite_eachValidQrVector_producesExpectedInvite"
           - "unit: parseInvite_eachMalformedQrVector_rejectedNoPartialInvite"
           - "unit: parseInvite_versionTwo_rejectedUnsupportedVersion"
           - "unit: parseInvite_missingFpOrSecret_rejectedMissingParam"
           - "unit: parseInvite_fpNot32Bytes_rejectedBadFingerprint"
+          - "unit: parseInvite_hostnameOrMulticastAddress_rejectedInvalidAddress"
+          - "unit: parseInvite_macNameWithBidiOverride_sanitizedBeforeDisplay"
 
       - id: E14-04
         title: "[android] Pin Mac fingerprint from QR before TLS connect"
@@ -1888,11 +1997,11 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-20]
         invariants: [5]
-        depends_on: [E14-04, E12-08, E12-11, E13-02, E00-18, E00-04]
+        depends_on: [E14-04, E12-08, E12-11, E13-02, E00-18, E00-04, E10-12]
         description: |
-          States: Idle -> Connecting -> AwaitingProofSent -> AwaitingAccept -> Paired |
+          States: Idle -> Connecting -> AwaitingProofSent -> AwaitingAccept -> AwaitingUserConfirm -> Paired |
           Rejected | Failed(reason). Connecting dials the QR addresses in order with the
           per-address connect timeout from the SPEC pairing section (E01-02). On TLS ready,
           computes and sends PairRequest{deviceInfo, proof} (proof from E14-06), then waits up to
@@ -1900,20 +2009,33 @@ epics:
           The pairing state machine takes an injected `Clock` and dispatcher (E00-18) so timeouts
           run in virtual time, and a feature-local `PairingConnector` returning a
           `FakeTandemSession` (E12-11 testFixtures) in tests.
+          Cycle 4 (evil-QR defence, AC-20): after PairAccepted the machine enters `AwaitingUserConfirm(code,
+          macName)` with the E01-02 confirmation code computed by the E10-12 helper from the session
+          `channelBinding` and the sanitized QR name. The Mac pin is committed only when the owner taps "Codes
+          match"; Cancel or 120 s without a tap sends Revoke over the session, closes it and commits nothing.
+          If the owner walks away the Mac keeps a record the phone never uses; it is listed with its last-seen
+          time and can be revoked (E14-14). The code is already shown from AwaitingAccept on (it only
+          needs the secret, both SPKIs and cb), so the owner can compare it before clicking Pair on the Mac.
         acceptance:
           - Every documented transition is exercised by a test
           - A timeout on the first QR address dials the next one; timeouts on all addresses yield Failed(AllAddressesUnreachable)
           - No PairAccepted within 120 s of virtual time yields Failed(Timeout); a session drop while awaiting yields Failed(ConnectionLost); never a silent return to Idle
           - On Paired, the Mac fingerprint from the invite is committed to the trust store (E13-02); Rejected or Failed leaves the trust store unchanged
+          - "PairAccepted moves the machine to AwaitingUserConfirm carrying the 6-digit code; the trust store is unchanged until the owner confirms."
+          - "Cancel, or 120 s of virtual time in AwaitingUserConfirm, sends Revoke, closes the session and leaves the trust store unchanged."
         tdd:
           - "unit: pairingSm_startPairingFromIdle_emitsConnecting"
           - "unit: pairingSm_firstAddressTimesOut_dialsNextQrAddress"
           - "unit: pairingSm_allQrAddressesTimeOut_emitsFailedAllAddressesUnreachable"
           - "unit: pairingSm_tlsReady_sendsPairRequestAndEmitsAwaitingAccept"
-          - "unit: pairingSm_pairAcceptedReceived_emitsPairedAndCommitsMacFingerprint"
+          - "unit: pairingSm_userConfirmsCodes_commitsMacFingerprintAndEmitsPaired"
           - "unit: pairingSm_pairRejectedReceived_emitsRejectedTrustStoreUnchanged"
           - "unit: pairingSm_noResponseWithin120s_emitsFailedTimeout"
           - "unit: pairingSm_sessionDropsWhileAwaiting_emitsFailedConnectionLost"
+          - "unit: pairingSm_pairAcceptedReceived_emitsAwaitingUserConfirmWithCode"
+          - "unit: pairingSm_userCancelsCodeConfirm_sendsRevokeTrustStoreUnchanged"
+          - "unit: pairingSm_codeConfirmUnansweredFor120s_sendsRevokeTrustStoreUnchanged"
+          - "unit: pairingSm_awaitingAccept_exposesConfirmationCodeBeforePairAccepted"
 
       - id: E14-06
         title: "[android] Compute pairing proof and attach to PairRequest"
@@ -1924,20 +2046,25 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03]
         invariants: [6]
-        depends_on: [E10-12, E10-03, E10-15, E14-05]
+        depends_on: [E10-12, E10-03, E10-15, E14-05, E12-11]
         description: |
-          proof = HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki) via the
+          proof = HMAC-SHA256 over the E01-02 transcript (both SPKI DERs + session channel binding) via the
           core/crypto helper (E10-12); macSpki comes from the scanned invite, phoneSpki from the
           local identity (E10-03). Unit-tested with `SoftwareIdentityKeyStore` (E10-15) as the
           local identity. "No HMAC outside core/crypto" is enforced by E10-14.
+          Cycle 4: `cb` is `TandemSession.channelBinding` (E12-11); DeviceInfo carries only displayName, model and appVersion (E01-11).
         acceptance:
-          - PairRequest.proof equals pairingProof(invite.secret, invite.fp, localPhoneSpki) from the E10-12 helper
+          - PairRequest.proof equals pairingProof(invite.secret, macSpkiDer, localPhoneSpkiDer, session.channelBinding), macSpkiDer being the handshake SPKI that matched invite.fp, from the E10-12 helper
           - The phoneSpki input is the SPKI fingerprint of the local identity cert (a different local key changes the proof)
           - The macSpki input is the invite fp (a different invite fp changes the proof)
+          - "A different session channel binding changes the proof."
+          - "PairRequest.deviceInfo contains only displayName, model and appVersion (no ANDROID_ID, serial, IMEI or account)."
         tdd:
           - "unit: pairRequest_proofField_equalsCoreCryptoHelperOutput"
           - "unit: pairRequest_differentLocalIdentity_proofChanges"
           - "unit: pairRequest_differentInviteFp_proofChanges"
+          - "unit: pairRequest_differentChannelBinding_proofChanges"
+          - "unit: pairRequest_deviceInfo_containsNoHardwareIdentifiers"
 
       - id: E14-07
         title: "[macos] Constant-time proof verification bound to handshake cert"
@@ -1946,7 +2073,7 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [UC-03, AC-03]
+        use_cases: [UC-03, AC-03, AC-15]
         invariants: [6]
         depends_on: [E14-02, E10-11, E10-13, E12-02]
         description: |
@@ -1955,18 +2082,21 @@ epics:
           presented in this TLS handshake, never from PairRequest.deviceInfo, and compare with the
           E10-11 constant-time helper (injected as a `ByteComparator` so a spy can count calls).
           Adversarial replay scenarios are E15-09 (depends on this issue).
+          Cycle 4: recompute with the channel binding of this TLS session (E12-12 `channelBinding`), so a PairRequest captured on one session and replayed on another fails.
         acceptance:
           - A proof valid for the handshake cert's SPKI is accepted
           - A proof computed for a different phone key, while deviceInfo claims that key, is rejected
           - A proof computed with a wrong secret is rejected
           - Each verification calls the constant-time comparator exactly once
           - A PairRequest on a `.trusted` (already paired) connection is rejected without computing a proof
+          - "A proof valid for the same keys and secret but computed with another session channel binding is rejected."
         tdd:
           - "unit: verifyProof_validForHandshakeCertSpki_accepted"
           - "unit: verifyProof_proofForDeviceInfoClaimedKey_rejected"
           - "unit: verifyProof_wrongSecret_rejected"
           - "unit: verifyProof_comparison_invokesConstantTimeComparatorOnce"
           - "unit: verifyProof_trustedConnection_rejectedWithoutComputing"
+          - "unit: verifyProof_otherSessionChannelBinding_rejected"
 
       - id: E14-08
         title: "[macos] Pairing confirmation dialog and PairAccepted/reject"
@@ -1975,25 +2105,35 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-14, AC-17, AC-20]
         invariants: []
-        depends_on: [E14-07, E13-06, E12-12]
+        depends_on: [E14-07, E13-06, E12-12, E14-22, E10-13]
         description: |
           On proof success, show "Pair <deviceInfo.name>?" with accept/deny; on accept, send
           PairAccepted and commit the phone's fingerprint (from the handshake cert) to the trust
           store (E13-06); on deny, send PairRejected, close the connection and burn an attempt; on
           dismiss, close and burn an attempt. `PairConfirmationViewModel` is unit-tested with
           `FakeTandemSession` (E12-12) and the trust store over `InMemoryKeychainStore`.
+          Cycle 4: the dialog shows the sanitized (E14-22) displayName in the title, and the sanitized model plus
+          the E01-02 confirmation code (E10-13 helper, this session's channel binding) in the body, e.g.
+          "Google Pixel 8 · Make sure your phone shows 123 456". The default button and Escape map to Don't Pair;
+          Pair needs an explicit click. Deny sends PairRejected(REJECTED_BY_OWNER).
         acceptance:
           - For deviceInfo.name "Pixel 8", the dialog title is exactly "Pair Pixel 8?"
           - Accept sends PairAccepted and commits exactly one record with the handshake SPKI
           - Deny sends PairRejected, closes the connection, commits nothing and decrements attemptsRemaining by 1 (UC-03 alternate)
           - Dismiss closes the connection, commits nothing and decrements attemptsRemaining by 1
+          - "The dialog body shows the model and the 6-digit code computed from this session channel binding."
+          - "The default button and the Escape key both map to Don't Pair."
+          - "A displayName containing a bidi override or control characters is displayed sanitized, and a name over 64 characters is truncated with an ellipsis."
         tdd:
           - "unit: pairConfirmation_phoneNamePixel8_titleIsPairPixel8Question"
           - "unit: pairConfirmation_accept_sendsPairAcceptedAndCommitsHandshakeSpki"
           - "unit: pairConfirmation_deny_sendsPairRejectedClosesAndBurnsAttempt"
           - "unit: pairConfirmation_dismissed_closesWithoutTrustAndBurnsAttempt"
+          - "unit: pairConfirmation_body_showsModelAndSixDigitCode"
+          - "unit: pairConfirmation_defaultAndEscapeAction_isDontPair"
+          - "unit: pairConfirmation_nameWithBidiOverride_displayedSanitized"
 
       - id: E14-09
         title: "[macos] Failure handling: any pairing failure closes connection and burns attempt"
@@ -2016,14 +2156,16 @@ epics:
           - A malformed PairRequest closes with pairing-failure and decrements by exactly 1
           - Window expiry while the confirmation is pending closes the connection and commits no trust
           - A bad proof followed by the connection dropping decrements exactly once in total
+          - "Every failure path sends PairRejected(PAIRING_UNAVAILABLE), never a detailed reason, before closing; only an owner deny sends REJECTED_BY_OWNER."
         tdd:
           - "unit: pairingFailure_badProof_closesAndDecrementsByOne"
           - "unit: pairingFailure_malformedPairRequest_closesAndDecrementsByOne"
           - "unit: pairingFailure_windowExpiresBeforeAccept_closesAndNoTrustCommitted"
           - "unit: pairingFailure_badProofThenDrop_decrementsExactlyOnce"
+          - "unit: pairingFailure_badProof_wireReasonPairingUnavailableOnly"
 
       - id: E14-10
-        title: "[android] CameraX plus ML Kit QR scanner UI"
+        title: "[android] CameraX QR scanner UI (decoder chosen by E14-23)"
         type: task
         platforms: [android]
         priority: P0
@@ -2031,30 +2173,32 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, UC-02]
         invariants: []
-        depends_on: [E14-03, E00-20, E00-21, E00-23]
+        depends_on: [E14-03, E00-20, E00-21, E00-23, E14-23]
         description: |
-          CameraX preview with ML Kit barcode scanning (bundled model) restricted to QR_CODE
+          CameraX preview feeding the `QrDecoder` seam chosen by spike E14-23, restricted to QR_CODE
           format; on a successful scan matching the tandem:// scheme, feed the raw string into
           E14-03's parser and proceed. Ignore other barcode formats/content.
           Seams: a pure `ScanResultFilter` (format + rawValue -> Accept | Ignore, de-duplicates
-          repeats) is `unit:`; ML Kit cannot run on the plain JVM, so decoding a committed fixture
-          QR bitmap through the real ML Kit `BarcodeScanner` is `instrumented:` (E00-21); the
+          repeats) is `unit:`; the decoder cannot run on the plain JVM, so decoding a committed fixture
+          QR bitmap through the real decoder is `instrumented:` (E00-21); the
           screen (preview placeholder, camera-permission state) is Compose `ui:` under Robolectric
           (E00-20) with a fake frame source; a real camera scan is `manual:` (E00-23).
         acceptance:
           - A QR_CODE result with a tandem:// value is accepted and passed to the parser exactly once, even if detected in 10 consecutive frames
           - A non-QR format or a non-tandem QR value is ignored with no parser call and no crash
-          - The fixture bitmap of a tandem:// QR decodes through ML Kit to the exact fixture string
+          - The fixture bitmap of a tandem:// QR decodes through the chosen decoder to the exact fixture string
           - With camera permission denied, the screen shows state CameraPermissionRequired with a grant button and no skip (UC-02 camera exception)
           - An accepted scan navigates to the pairing-progress screen
           - On a physical device, a QR shown on a Mac display at 30-60 cm decodes within 3 s
         tdd:
           - "unit: scanFilter_tandemQrSeenInTenFrames_parserCalledOnce"
           - "unit: scanFilter_nonQrOrNonTandemValue_ignoredNoParserCall"
-          - "instrumented: mlKitQrDecoder_fixtureTandemQrBitmap_returnsFixtureString"
+          - "instrumented: qrDecoder_fixtureTandemQrBitmap_returnsFixtureString"
           - "ui: scannerScreen_cameraPermissionDenied_showsCameraPermissionRequired"
           - "ui: scannerScreen_acceptedScan_navigatesToPairingProgress"
           - "manual: qrScanner_realCameraMacDisplay_decodesWithin3s"
+        notes: |
+          Cycle 4: decoder choice moved to spike E14-23 (ML Kit telemetry question); default if ML Kit egress cannot be proven zero is zxing-cpp. PRD tech stack line "CameraX + ML Kit" is superseded by the spike outcome.
 
       - id: E14-11
         title: "[macos] Pairing UI: QR display, countdown, regenerate"
@@ -2063,7 +2207,7 @@ epics:
         priority: P0
         size: M
         prd: [F-2.1]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-13, AC-17]
         invariants: []
         depends_on: [E14-01, E14-02, E00-24, E00-26]
         description: |
@@ -2077,12 +2221,16 @@ epics:
           - After advancing 30 s the countdown reads 90 s; at 120 s it reads 0 in the same tick the window reports Closed(expired)
           - The regenerated QR after expiry carries a different secret than the previous one
           - In the `pairingWindowOpen` scenario, the pairing window shows the QR image and a countdown label
+          - "The pairing window sets `NSWindow.sharingType = .none` (excluded from screenshots and screen sharing where macOS honours it) and offers no copy or save of the QR image or payload."
+          - "When attempts are exhausted the window shows \"Pairing attempts used up. Someone else may be trying to pair. Generate a new code.\" with a Regenerate button."
         tdd:
           - "unit: pairingViewModel_renderedQrImage_decodesToCurrentPayload"
           - "unit: pairingViewModel_advance30s_countdownReads90s"
           - "unit: pairingViewModel_advance120s_countdownZeroSameTickWindowCloses"
           - "unit: pairingViewModel_afterExpiry_regeneratedQrHasDifferentSecret"
           - "ui: pairingWindowOpenScenario_launched_showsQrImageAndCountdown"
+          - "unit: pairingWindow_created_sharingTypeNoneAndNoCopyAction"
+          - "unit: pairingViewModel_attemptsExhausted_showsAttemptsUsedUpWithRegenerate"
 
       - id: E14-12
         title: "[android] Unpair action: local deletion and Revoke if connected"
@@ -2091,7 +2239,7 @@ epics:
         priority: P0
         size: S
         prd: [F-2.3]
-        use_cases: [UC-07, AC-09]
+        use_cases: [UC-07, AC-09, AC-12]
         invariants: [3]
         depends_on: [E13-05, E12-11, E00-18]
         description: |
@@ -2099,16 +2247,19 @@ epics:
           then, only if a Ready session currently exists to that peer, best-effort sends Revoke
           on CONTROL (bounded by a 2 s timeout) before closing the session. Tested with
           `FakeTandemSession` (E12-11) and the injected dispatcher/Clock (E00-18).
+          Cycle 4: defines the Android `PeerDataPurging` registry mirroring E14-13; later stores (E40-05 transfer temp files) register with it and unpair runs every purger after the trust delete.
         acceptance:
           - With a Ready session, the order is local delete, then Revoke sent, then session closed
           - With no session, the local record is deleted and nothing is sent
           - If the Revoke send throws, the local record is still deleted and the session is closed
           - If the Revoke send never completes, the session is closed after 2 s of virtual time
+          - "Every registered purger is called once with the Mac fingerprint; a throwing purger does not stop the others."
         tdd:
           - "unit: unpairAction_readySession_deleteThenRevokeThenClose"
           - "unit: unpairAction_noSession_deletesLocallySendsNothing"
           - "unit: unpairAction_revokeSendThrows_recordDeletedAndSessionClosed"
           - "unit: unpairAction_revokeSendHangs_sessionClosedAfter2sVirtual"
+          - "unit: unpairAction_registeredPurgers_eachCalledOnceWithPeerFingerprint"
 
       - id: E14-13
         title: "[macos] Unpair action: local deletion and Revoke if connected"
@@ -2117,7 +2268,7 @@ epics:
         priority: P0
         size: S
         prd: [F-2.3]
-        use_cases: [UC-07, AC-09]
+        use_cases: [UC-07, AC-09, AC-12]
         invariants: [3]
         depends_on: [E13-09, E12-12, E00-24]
         description: |
@@ -2191,10 +2342,14 @@ epics:
           - Revoke from a Ready trusted peer deletes exactly that peer's record and closes the session
           - Revoke on a pairing-candidate connection or before Ready leaves every record unchanged
           - After the revoke, a loopback reconnect with the revoked cert and no pairing window fails the handshake with 0 application bytes
+          - "Revoke carries no target: with two paired phones, a Revoke from phone A deletes only A's record (the handshake SPKI of this session)."
+          - "A Revoke received after PairAccepted on the same connection (phone-side code-confirm cancel, E14-05) deletes the just-committed record."
         tdd:
           - "unit: revokeHandler_revokeFromReadyTrustedPeer_deletesRecordAndClosesSession"
           - "unit: revokeHandler_revokeOnPairingCandidateConnection_ignoredRecordsUnchanged"
           - "integration: revokedPeer_loopbackReconnectNoWindow_handshakeFailsZeroAppBytes"
+          - "unit: revokeHandler_twoPairedPeers_onlySendersRecordDeleted"
+          - "unit: revokeHandler_revokeAfterPairAcceptedSameConnection_deletesNewRecord"
         notes: "Split from E14-15 in review cycle 3: was [cross]; Android receiver is E14-19, cross-stack integration is E14-20."
 
       - id: E14-19
@@ -2230,7 +2385,7 @@ epics:
         priority: P0
         size: S
         prd: [F-2.3]
-        use_cases: [UC-07, AC-09]
+        use_cases: [UC-07, AC-09, AC-12]
         invariants: [3, 5]
         depends_on: [E15-15, E14-12, E14-13, E14-15, E14-19, E12-16]
         description: |
@@ -2243,10 +2398,12 @@ epics:
           - After a Mac-side revoke while connected, both trust stores lack the peer within 2 s
           - After a Mac-side revoke while the client is offline, the client's next handshake fails and its state maps to the `error_no_longer_paired` resource
           - After a phone-side unpair while connected, the Mac trust store lacks the phone's record within 2 s
+          - "Lost/stolen Mac (AC-12): after the phone unpairs while the Mac app is stopped and the Mac restarts, the client never dials it, and a forced dial fails the client-side pin check with 0 application bytes."
         tdd:
           - "integration: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s"
           - "integration: jvmHarness_macRevokesOfflinePhone_nextHandshakeFailsNoLongerPaired"
           - "integration: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s"
+          - "integration: jvmHarness_phoneUnpairsWhileMacOffline_neverDialsAndForcedDialFailsPin"
         notes: "Added in review cycle 3 (split out of E14-15) to give AC-09's integration check an owner."
 
       - id: E14-16
@@ -2256,7 +2413,7 @@ epics:
         priority: P0
         size: L
         prd: [F-2.1]
-        use_cases: [UC-03, UC-04]
+        use_cases: [UC-03, UC-04, AC-20]
         invariants: [1, 3, 5, 6]
         depends_on: [E15-15, E14-05, E14-06, E14-08, E14-11, E12-13]
         description: |
@@ -2265,6 +2422,7 @@ epics:
           scanning is out of scope here; on-device scanning is E14-10/E14-18), auto-accept the
           confirmation through the harness, kill and restart both processes, and verify the
           connection re-establishes to Ready using only the persisted trust stores.
+          Cycle 4: the harness also confirms the code on the JVM client (AwaitingUserConfirm, E14-05) and reads the code shown in the Mac dialog via the accessibility tree.
         acceptance:
           - The QR pairing flow reaches Paired on the client and a Ready session on both sides
           - After restarting both processes, the connection reaches Ready again without any pairing action
@@ -2272,6 +2430,7 @@ epics:
           - After pairing, each trust store contains exactly one new record whose fingerprint equals the other side's identity SPKI (UC-03)
           - Re-injecting the same QR payload after success is rejected by the Mac (UC-03 same QR twice)
           - Harness pairing completes in < 10 s from QR payload injection to Paired (UC-03 proxy; on-device timing is E14-18)
+          - "The code shown in the Mac dialog equals the code the JVM client computed."
         tdd:
           - "integration: e2eHarness_injectedQrPayload_bothSidesReachReady"
           - "integration: e2eHarness_restartBothProcesses_reconnectsToReadyWithoutPairing"
@@ -2279,6 +2438,7 @@ epics:
           - "integration: e2eHarness_afterPairing_eachTrustStoreOneRecordWithPeerSpki"
           - "integration: e2eHarness_sameQrPayloadReinjected_secondPairingRejected"
           - "integration: e2eHarness_qrInjectionToPaired_under10s"
+          - "integration: e2eHarness_pairing_macDialogCodeEqualsClientCode"
 
       - id: E14-17
         title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable (network hint)"
@@ -2296,24 +2456,28 @@ epics:
           secret-free string resources:
           - Mac rejected our certificate during a pairing attempt (window expired, exhausted, or QR
             already used) -> `pairing_error_qr_expired`: "QR expired, refresh on Mac" (UC-03 wording)
-          - PairRejected -> `pairing_error_declined`: "Pairing declined on Mac"
+          - PairRejected(REJECTED_BY_OWNER) -> `pairing_error_declined`; PairRejected(PAIRING_UNAVAILABLE) -> `pairing_error_qr_expired`: "Pairing declined on Mac"
           - Failed(AllAddressesUnreachable) -> `pairing_error_network`: "Can't reach your Mac. Make sure both devices are on the same Wi-Fi. Guest and office networks often block devices from reaching each other (client isolation)."
           - Pin mismatch during pairing -> the E12-16 `error_pin_mismatch` text
           No failure path retries with a relaxed pin or an address not in the QR (invariant 2).
           Mapper is `unit:`; the rendered error screen is Compose `ui:` under Robolectric (E00-20).
         acceptance:
           - A pairing handshake rejected by the Mac shows exactly "QR expired, refresh on Mac"
-          - An explicit PairRejected shows exactly "Pairing declined on Mac"
+          - An explicit PairRejected(REJECTED_BY_OWNER) shows exactly "Pairing declined on Mac"
           - Connect timeouts on every QR address show the `pairing_error_network` text quoted above, not a generic error
           - A pin mismatch during pairing shows the pin-mismatch text, not the QR-expired text
           - After any failure, the connector fake records only QR addresses and only the invite pin
+          - "PairRejected(PAIRING_UNAVAILABLE) shows \"QR expired, refresh on Mac\"."
+          - "The code-confirm screen shows \"Check that your Mac shows 123 456\" with the sanitized Mac name and the buttons \"Codes match\" and \"Cancel\"."
         tdd:
           - "unit: pairingErrorMapper_macRejectsPairingHandshake_qrExpiredRefreshOnMac"
-          - "unit: pairingErrorMapper_pairRejected_pairingDeclinedOnMac"
+          - "unit: pairingErrorMapper_pairRejectedByOwner_pairingDeclinedOnMac"
           - "unit: pairingErrorMapper_allQrAddressesUnreachable_networkIsolationHint"
           - "unit: pairingErrorMapper_pinMismatchDuringPairing_pinMismatchNotQrExpired"
           - "unit: pairingSm_anyFailure_onlyQrAddressesAndInvitePinUsed"
           - "ui: pairingErrorScreen_allAddressesUnreachable_showsNetworkHintText"
+          - "unit: pairingErrorMapper_pairRejectedUnavailable_qrExpiredRefreshOnMac"
+          - "ui: pairingConfirmScreen_awaitingUserConfirm_showsCodeAndBothButtons"
 
       - id: E14-18
         title: "[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)"
@@ -2348,4 +2512,77 @@ epics:
           - "unit: identityKeyProvider_strongBoxGenerateFails_neverFallsBackToExportableKey"
           - "instrumented: identityKeyProvider_emulatorStrongBoxUnavailable_privateKeyNotExportable"
           - "manual: qrPairing_realScanSameWifi_pairedUnder10s"
+
+      - id: E14-21
+        title: "[android] DisplayStringSanitizer (vector-tested)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1, F-7.1]
+        use_cases: [AC-14]
+        invariants: []
+        depends_on: [E01-24, E00-04]
+        description: |
+          Added in review cycle 4. Pure Kotlin `DisplayStringSanitizer.sanitize(input, kind)` in core/protocol
+          implementing E01-23 (grapheme boundaries via `android.icu.text.BreakIterator` on device and
+          `java.text.BreakIterator` on the JVM behind one interface), plain JUnit5 against the E01-24 vectors.
+          Every Android surface showing a Mac-supplied string uses it (QR `n` in E14-03 / E14-17, trust-store
+          displayName, transfer prompts in E40-07).
+        acceptance:
+          - "Every E01-24 vector produces its expected output."
+          - "For random inputs (property test, 10 000 cases) the `name` kind never contains a bidi control, C0/C1 control or zero-width character and never exceeds 64 graphemes."
+        tdd:
+          - "unit: androidDisplaySanitizer_everyDisplayStringVector_matchesExpected"
+          - "unit: androidDisplaySanitizer_randomNameInput_neverContainsBidiOrControlChars"
+        notes: |
+          Added in review cycle 4.
+
+      - id: E14-22
+        title: "[macos] DisplayStringSanitizer (vector-tested)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-2.1, F-5.1, F-8.1]
+        use_cases: [AC-14]
+        invariants: []
+        depends_on: [E01-24, E00-08]
+        description: |
+          Added in review cycle 4. Swift `DisplayStringSanitizer` in TandemProtocol implementing E01-23 (graphemes
+          via `Character`), tested against the E01-24 vectors. Used by the pairing dialog (E14-08), paired-devices
+          list (E14-14), notification presentation (E30-07), SMS UI (E50-07), call alerts (E52-06) and transfer
+          prompts (E40-18). Rendering uses plain `Text(verbatim:)` / non-attributed strings only.
+        acceptance:
+          - "Every E01-24 vector produces its expected output."
+          - "For random inputs (property test, 10 000 cases) the `name` kind never contains a bidi control, C0/C1 control or zero-width character and never exceeds 64 graphemes."
+        tdd:
+          - "unit: macDisplaySanitizer_everyDisplayStringVector_matchesExpected"
+          - "unit: macDisplaySanitizer_randomNameInput_neverContainsBidiOrControlChars"
+        notes: |
+          Added in review cycle 4.
+
+      - id: E14-23
+        title: "[android] Spike: QR decoder choice (ML Kit bundled telemetry vs. zxing-cpp)"
+        type: spike
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03, AC-18]
+        invariants: []
+        depends_on: [E00-23]
+        description: |
+          Added in review cycle 4. The PRD names ML Kit barcode scanning; ML Kit's terms allow it to send usage
+          metrics to Google and the bundled artifact pulls Google data-transport libraries, which conflicts with
+          Tandem's "the apps talk only to each other" posture (AC-18). Compare (a) `com.google.mlkit:barcode-scanning`
+          (bundled model, never the Play-services unbundled variant), (b) zxing-cpp Android wrapper (Apache-2.0,
+          native, no network code), (c) ZXing core (Java, Apache-2.0) behind the E14-10 `QrDecoder` seam.
+        acceptance:
+          - "Deliverable: `docs/spikes/qr-decoder.md` recording, per option: transitive dependencies (datatransport / Firebase / Play services), network connections observed during 20 scans and 24 h idle (per-app capture on a physical device, e.g. PCAPdroid, plus emulator `/proc/net` check), any documented opt-out, decode time at 30-60 cm (median and p95 over 20 scans), APK size delta, license and maintenance status."
+          - "Go criteria for the chosen decoder: 0 network connections, p95 decode <= 3 s, license on the E00-29 allowlist. If ML Kit egress cannot be proven zero, the decision is zxing-cpp."
+          - "The decision is recorded in `docs/dependencies.md` (E00-29) and E14-10 implements it."
+        tdd: []
+        notes: |
+          Added in review cycle 4. Egress is re-checked for the whole app at release by E71-14.
 

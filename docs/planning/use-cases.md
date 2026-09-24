@@ -42,7 +42,9 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
   3. Phone presents its cert; Mac accepts the unknown cert only because a window is open.
   4. Phone sends `PairRequest{deviceInfo, proof}`; Mac verifies proof (constant time) against the
      phone cert seen in the handshake.
-  5. Mac asks "Pair <phone name>?" → Owner accepts → `PairAccepted` → both sides store the peer.
+  5. Mac asks "Pair <phone name>?" showing the phone model and a 6-digit code (default button:
+     Don't Pair) → Owner checks the phone shows the same code and accepts → `PairAccepted` → Owner
+     taps "Codes match" on the phone → both sides store the peer (review cycle 4).
   6. Window closes; secret is destroyed; control session continues as normal.
 - **Alternate:** Owner rejects on Mac → `PairRejected`, connection closed, attempt burned.
   QR expired → phone shows "QR expired, refresh on Mac". Mac unreachable on every address →
@@ -52,6 +54,8 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
   - [ ] Both trust stores contain exactly one new record with matching fingerprints.
   - [ ] The same QR cannot be used twice.
   - [ ] Pairing survives restart of both apps (reconnect without re-pair).
+  - [ ] Mac dialog and phone show the same 6-digit code; the phone commits trust only after the
+        Owner confirms it on the phone (AC-20).
 
 ### UC-07 Unpair / revoke a device [F-2.3, F-1.2]
 - **Trigger:** Owner taps "Unpair" on phone or "Revoke" on Mac.
@@ -260,3 +264,12 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
 | AC-09 | Use a lost/stolen paired phone | Owner revokes on Mac; next handshake fails | integration test |
 | AC-10 | Harvest secrets/content from logs | Release logs contain no secrets, bodies, notification text, clipboard | log-lint rule, log audit |
 | AC-11 | Trigger a debug/test-only protocol path (echo, canary-injection, debug channel) in a release build | No such path exists: debug and release builds speak an identical protocol; an unknown payload type closes the connection | SPEC review, proto schema scan, release audit |
+| AC-12 | Use a lost/stolen paired Mac (cached SMS, contacts, thumbnails, identity key) to keep reaching the phone | Owner unpairs on the phone; the phone never dials that Mac again and rejects its key; Mac-side cached data is protected only by FileVault/login (documented residual) | integration test, threat model |
+| AC-13 | Exhaust the Mac port before authentication: connection floods, slowloris, stalled handshakes or hellos, burning the pairing attempts | Connection caps, 10 s / 5 s deadlines and per-IP throttling close offenders; paired peers still connect; burned pairing attempts are visible and fixed by regenerating the QR | mitm-lab, unit tests |
+| AC-14 | Spoof UI with peer-supplied strings (bidi overrides, control or zero-width characters, homoglyph or oversized names, filenames, notification text) | Strings sanitized and capped on every display surface; no trust decision uses a name, pairing relies on the 6-digit code | vectors, unit tests |
+| AC-15 | Abuse key rotation: replay a KeyRotation on another session, rotate onto another peer's key, rotate with a stolen old key, keep a grace pin alive | Signatures bound to the TLS session plus new-key proof of possession; duplicate keys rejected; grace pin ends after one session or 7 days; stolen-key recovery is unpair + re-pair, not rotation | mitm-lab, vectors, unit tests |
+| AC-16 | Abuse Android IPC: spoofed intents to exported components, `file://` or Tandem-own `content://` URIs in shares (confused deputy), mutable or implicit PendingIntents, tapjacking overlays | Only allowlisted, permission-guarded exports; URI and extra validation; immutable explicit PendingIntents; touches filtered when obscured | manifest audit, lint, unit tests |
+| AC-17 | Local attacker on the Mac: capture the pairing QR from the screen, connect via loopback, inject share-extension queue entries | QR window excluded from capture where supported; code confirmation defeats a stolen QR; loopback gets no extra privilege; queue entries validated | unit tests, mitm-lab |
+| AC-18 | Supply-chain or telemetry leak: tampered dependency, SDK phoning home (barcode/ML telemetry, crash SDK) | Pinned, checksum-verified dependencies; no third-party crash or analytics SDK; egress audit shows only phone-Mac flows | CI checks, egress audit |
+| AC-19 | A paired but malicious or compromised peer abuses features: offer/prompt floods, thumbnail, SMS or call spam, MMI/USSD dial codes, oversized media access units, input floods | Per-feature caps and rate limits (SPEC limits section); dangerous dial strings rejected; media fragments bounded | unit tests, mitm-lab |
+| AC-20 | "Evil QR": trick the Owner into scanning an attacker's QR so the phone pairs with the attacker's Mac | Phone shows the Mac name and 6-digit code and commits trust only after the Owner confirms the code matches their own Mac | unit tests, integration test |

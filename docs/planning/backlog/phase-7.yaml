@@ -37,12 +37,12 @@ epics:
         priority: P0
         size: M
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3, 6]
-        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02]
+        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02]
         description: |
-          protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpki, nonce,
-          sigOldKey(newSpki||nonce)}, RotationAck{}, RotationReject{reason}. Write
+          protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpkiDer,
+          sigOldKey, sigNewKey} (cycle-4 transcript below), RotationAck{}, RotationReject{reason}. Write
           docs/protocol/SPEC.md rotation section covering the grace-session semantics: the old
           SPKI stays accepted for at most one subsequent session and is purged as soon as either
           that session closes or a session authenticated with the new SPKI completes Hello; a
@@ -50,10 +50,23 @@ epics:
           the peer's current primary pin may authorize a rotation. SPEC also fixes the
           initiator's ack timeout (30 s) and the scheduled-rotation interval setting.
           Rotation vectors under protocol/vectors/rotation/ (run by the E15-01/E15-02 conformance
-          runners): an ECDSA P-256 signature by the old key over newSpki||nonce that verifies, a
+          runners): an ECDSA P-256 signature by the old key over the cycle-4 rotation transcript that verifies, a
           tampered newSpki that fails, a signature by the new key instead of the old one that
           fails, and a truncated DER signature that fails. Replay/idempotency is receiver state,
           tested in E70-04/E70-05.
+          Cycle 4 decisions (supersede PRD F-1.3's `sigOldKey(newSpki||nonce)`):
+          - `transcript = ASCII("tandem-rotate-v1") || LP(oldSpkiDer) || LP(newSpkiDer) || LP(cb)` with `LP` and
+            `cb` as in E01-01 / E01-02. `sigOldKey` and `sigNewKey` are ECDSA P-256 / SHA-256 over the transcript
+            by the old and the new key (the new-key signature is proof of possession, so a device cannot claim
+            someone else's public key). The channel binding replaces the nonce: a KeyRotation captured on one
+            session fails on any other.
+          - RotationReject.reason adds DUPLICATE_KEY (newSpki equals any existing primary or grace pin in the
+            receiver's trust store) and ROTATION_UNAVAILABLE (the Mac has a pairing window open, or a rotation for
+            this peer is already pending).
+          - The grace pin expires at the earlier of the E70-01 grace-session rule and 7 days after the swap, so a
+            lost RotationAck or a peer that never reconnects cannot keep the old key alive.
+          - Rotation is key hygiene, not compromise recovery: a holder of a stolen old key can itself rotate. A
+            suspected key compromise is handled by unpair and re-pair (AC-15, E02-01).
         acceptance:
           - buf lint exits 0 on rotation.proto.
           - RotationReject.reason enumerates at least INVALID_SIGNATURE, UNAUTHENTICATED_SESSION
@@ -63,6 +76,8 @@ epics:
             and all pass conformance on both codecs.
           - SPEC.md rotation section states the grace-session purge triggers, idempotent re-send
             rule and 30 s ack timeout.
+          - "RotationReject.reason also enumerates DUPLICATE_KEY and ROTATION_UNAVAILABLE, and SPEC.md states the transcript, both signatures, the 7-day grace TTL and that rotation is not a compromise-recovery mechanism."
+          - "Vectors additionally cover a signature made with another session channel binding and an invalid new-key signature, both failing verification."
         tdd:
           - "ci: rotationProto_bufLint_exitsZero"
           - "conformance: keyRotationVector_oldKeySignatureOverNewSpki_verifies"
@@ -70,6 +85,8 @@ epics:
           - "conformance: keyRotationVector_signedByNewKeyInsteadOfOld_verificationFails"
           - "conformance: keyRotationVector_truncatedDerSignature_verificationFails"
           - "conformance: keyRotationVector_roundTrip_matchesGoldenBytes"
+          - "conformance: keyRotationVector_otherSessionChannelBinding_verificationFails"
+          - "conformance: keyRotationVector_invalidNewKeyProofOfPossession_verificationFails"
         notes: ""
       - id: E70-02
         title: "[android] Initiate rotation: generate new key + sign with old key"
@@ -78,7 +95,7 @@ epics:
         priority: P0
         size: M
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3]
         depends_on: [E70-01, E10-01, E10-02, E10-03, E10-15, E12-11, E00-21]
         description: |
@@ -93,6 +110,7 @@ epics:
           `SoftwareIdentityKeyStore`; the initiator lives in core/crypto so the E15-15 harness
           links it. Session state comes from `TandemSession` (E12-11, `FakeTandemSession` in
           tests). Real AndroidKeyStore properties are asserted only in the instrumented test.
+          Cycle 4: signs the E70-01 transcript (both SPKIs and this session channel binding) with the old key and with the new key (proof of possession); never initiates while a pairing attempt is in progress.
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing in progress) no KeyRotation frame is written.
@@ -103,6 +121,7 @@ epics:
           - After RotationAck the next handshake's certificate carries newSpki and the old alias
             is absent from the store.
           - On the emulator the new key is non-exportable and stored under the new alias.
+          - "Both signatures cover the transcript including this session channel binding, and sigNewKey verifies with newSpki."
         tdd:
           - "unit: androidRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
           - "unit: androidRotationInitiator_pairingInProgressSession_noKeyRotationFrameSent"
@@ -110,6 +129,7 @@ epics:
           - "unit: androidRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
           - "unit: androidRotationInitiator_ackReceived_newKeyActiveAndOldAliasDeleted"
           - "instrumented: androidRotationInitiator_realKeyStore_newKeyNonExportableUnderNewAlias"
+          - "unit: androidRotationInitiator_sentFrame_bothSignaturesCoverSessionChannelBinding"
         notes: ""
       - id: E70-03
         title: "[macos] Initiate rotation: generate new key + sign with old key"
@@ -118,9 +138,9 @@ epics:
         priority: P0
         size: M
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3]
-        depends_on: [E70-01, E10-05, E10-06, E10-08, E10-16, E12-12]
+        depends_on: [E70-01, E10-05, E10-06, E10-08, E10-16, E12-12, E14-02]
         description: |
           Mirrors E70-02 for macOS: generate a new Keychain-backed P-256 keypair per F-1.1's
           storage policy, sign newSpki||nonce with the current private key, send only over an
@@ -129,6 +149,7 @@ epics:
           Key storage goes through `KeychainStore` (E10-16) so unit tests use
           `InMemoryKeychainStore`; session state comes from `TandemSession` (E12-12 fake). Real
           Keychain behaviour is covered by one hosted integration test on the macOS runner.
+          Cycle 4: signs the E70-01 transcript (both SPKIs and this session channel binding) with the old and the new key; never initiates while the Mac pairing window is open.
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing window session) no KeyRotation frame is written.
@@ -140,6 +161,7 @@ epics:
             deleted.
           - The new key item is stored with the same accessibility class as the original
             identity.
+          - "Both signatures cover the transcript including this session channel binding; no rotation starts while the pairing window is open."
         tdd:
           - "unit: macRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
           - "unit: macRotationInitiator_pairingWindowSession_noKeyRotationFrameSent"
@@ -147,6 +169,8 @@ epics:
           - "unit: macRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
           - "unit: macRotationInitiator_ackReceived_newKeyActiveAndOldItemDeleted"
           - "integration: macRotationInitiator_hostedKeychain_newKeyStoredWithOriginalAccessibility"
+          - "unit: macRotationInitiator_sentFrame_bothSignaturesCoverSessionChannelBinding"
+          - "unit: macRotationInitiator_pairingWindowOpen_noRotationStarted"
         notes: ""
       - id: E70-04
         title: "[android] Receive + verify KeyRotation, pin new key with grace period"
@@ -155,9 +179,9 @@ epics:
         priority: P0
         size: M
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3, 6]
-        depends_on: [E70-01, E13-02, E12-11]
+        depends_on: [E70-01, E13-02, E12-11, E13-03, E00-18]
         description: |
           Verify the signature against the SPKI of the peer authenticated in this session (its
           current primary pin), never against a key named in the message. On success, pin newSpki
@@ -168,6 +192,11 @@ epics:
           (reason only, no key material). A re-sent KeyRotation for the already-pinned newSpki
           returns RotationAck without a trust-store change. Lives in core/crypto (JVM-testable,
           linked by the E15-15 harness); tests use `FakeTandemSession` (E12-11).
+          Cycle 4: verifies both signatures against this session's channel binding; rejects DUPLICATE_KEY when
+          newSpki equals any existing primary or grace pin. The peer record gains `graceSpkiSha256` and
+          `graceExpiresAt` via a trust-store migration (E13-03) so the pin swap is one atomic record write; lookup
+          by fingerprint matches the primary pin or an unexpired grace pin. The grace pin is purged after the
+          grace session or 7 days (injected Clock, E00-18), whichever comes first.
         acceptance:
           - A valid rotation pins newSpki as primary and retains the old SPKI flagged grace-only.
           - The old pin is purged when the grace session closes or when a session authenticated
@@ -180,6 +209,9 @@ epics:
             RotationReject(NOT_PRIMARY_PIN).
           - Every rejection emits exactly one `rotation_rejected` log event containing the reason
             and no SPKI or signature bytes.
+          - "A KeyRotation replayed from another session is rejected INVALID_SIGNATURE; a newSpki equal to an existing pin is rejected DUPLICATE_KEY."
+          - "With a fault-injecting store, an interrupted pin swap leaves the record in either the old or the new state, never partially updated."
+          - "A grace pin older than 7 days is purged even if no further session happens."
         tdd:
           - "unit: androidRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
           - "unit: androidRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
@@ -189,6 +221,10 @@ epics:
           - "unit: androidRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
           - "unit: androidRotationReceiver_resendSameNewSpki_acksWithoutTrustStoreChange"
           - "unit: androidRotationReceiver_rejection_logsReasonWithoutKeyBytes"
+          - "unit: androidRotationReceiver_replayedFromOtherSession_rejectInvalidSignature"
+          - "unit: androidRotationReceiver_newSpkiEqualsExistingPin_rejectDuplicateKey"
+          - "unit: androidRotationReceiver_faultInjectedPinSwap_stateOldOrNewNeverPartial"
+          - "unit: androidRotationReceiver_gracePinOlderThan7Days_purgedWithoutSession"
         notes: ""
       - id: E70-05
         title: "[macos] Receive + verify KeyRotation, pin new key with grace period"
@@ -197,13 +233,17 @@ epics:
         priority: P0
         size: M
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3, 6]
-        depends_on: [E70-01, E13-06, E12-12]
+        depends_on: [E70-01, E13-06, E12-12, E13-07, E14-02, E00-24]
         description: |
           Mirrors E70-04 for macOS against TandemStore's trust store (E13-06). The Mac may hold
           several paired phones: a rotation only ever modifies the record of the peer
           authenticated in the current session. Tests use the `TandemSession` fake (E12-12).
+          Cycle 4: verifies both signatures against this session's channel binding; rejects DUPLICATE_KEY when
+          newSpki equals any existing primary or grace pin of any paired phone, and ROTATION_UNAVAILABLE while the
+          pairing window is open (E14-02). Grace fields come via a trust-store migration (E13-07); the pin swap is
+          one Keychain item update (atomic); the grace pin is purged after the grace session or 7 days.
         acceptance:
           - A valid rotation pins newSpki as primary and retains the old SPKI flagged grace-only.
           - The old pin is purged when the grace session closes or when a session authenticated
@@ -217,6 +257,9 @@ epics:
           - A rotation from phone A leaves every other paired phone's record unchanged.
           - Every rejection emits exactly one `rotation_rejected` log event containing the reason
             and no SPKI or signature bytes.
+          - "A KeyRotation replayed from another session is rejected INVALID_SIGNATURE; a newSpki equal to another paired phone's pin is rejected DUPLICATE_KEY; any rotation while the pairing window is open is rejected ROTATION_UNAVAILABLE."
+          - "With a fault-injecting KeychainStore, an interrupted pin swap leaves the record in either the old or the new state, never partially updated."
+          - "A grace pin older than 7 days is purged even if no further session happens."
         tdd:
           - "unit: macRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
           - "unit: macRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
@@ -226,6 +269,11 @@ epics:
           - "unit: macRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
           - "unit: macRotationReceiver_rotationFromPhoneA_otherPeerRecordsUnchanged"
           - "unit: macRotationReceiver_rejection_logsReasonWithoutKeyBytes"
+          - "unit: macRotationReceiver_replayedFromOtherSession_rejectInvalidSignature"
+          - "unit: macRotationReceiver_newSpkiEqualsOtherPeersPin_rejectDuplicateKey"
+          - "unit: macRotationReceiver_pairingWindowOpen_rejectRotationUnavailable"
+          - "unit: macRotationReceiver_faultInjectedPinSwap_stateOldOrNewNeverPartial"
+          - "unit: macRotationReceiver_gracePinOlderThan7Days_purgedWithoutSession"
         notes: ""
       - id: E70-06
         title: "[android] User-initiated rotation UI"
@@ -311,12 +359,14 @@ epics:
           - RotationReject deletes the pending new key and keeps the old key as sole identity.
           - A session dropped before ack leaves the old key active and the rotation pending.
           - A pending rotation survives process restart and is re-sent on the next session.
+          - "While a rotation is pending, a handshake rejected with the old key is retried once with the pending new key; success commits the rotation locally."
         tdd:
           - "unit: androidRotationRollback_noAckWithin30s_oldKeyRemainsActiveIdentity"
           - "unit: androidRotationRollback_nextSessionAfterTimeout_resendsSamePendingNewSpki"
           - "unit: androidRotationRollback_rotationRejectReceived_pendingKeyDeletedOldKeySole"
           - "unit: androidRotationRollback_sessionDropBeforeAck_rotationStaysPending"
           - "unit: androidRotationRollback_processRestart_pendingRotationResent"
+          - "unit: androidRotationRollback_oldKeyRejectedWhilePending_retriesOnceWithPendingKey"
         notes: "Split from E70-08 in review cycle 3 (macOS half is E70-13)."
       - id: E70-09
         title: "[tools] mitm-lab: rotation over unauthenticated channel rejected"
@@ -325,7 +375,7 @@ epics:
         priority: P0
         size: S
         prd: [F-1.3]
-        use_cases: [UC-24]
+        use_cases: [UC-24, AC-15]
         invariants: [1, 3]
         depends_on: [E70-04, E70-05, E15-08]
         description: |
@@ -333,13 +383,17 @@ epics:
           runner) against both the real Mac listener and the phone client send KeyRotation before
           the handshake/Hello completes, inside a pairing-window session, and on a connection
           from a peer with no valid pin.
+          Cycle 4 adds: a KeyRotation built by the harness for session A replayed on session B, and a KeyRotation whose newSpki is another paired peer's key.
         acceptance:
           - Each scenario observes the connection closed or RotationReject, and the target's
             trust store is unchanged afterwards (record count and fingerprints compared).
+          - "The replayed KeyRotation is rejected INVALID_SIGNATURE and the duplicate-key one DUPLICATE_KEY, trust stores unchanged."
         tdd:
           - "security: mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged"
           - "security: mitmLabRotation_keyRotationInPairingWindow_rejectedTrustStoreUnchanged"
           - "security: mitmLabRotation_unpinnedPeerSendsKeyRotation_handshakeFailsNoPinAdded"
+          - "security: mitmLabRotation_keyRotationReplayedOnNewSession_rejectedTrustStoreUnchanged"
+          - "security: mitmLabRotation_newSpkiOfOtherPairedPeer_rejectedDuplicateKey"
         notes: ""
       - id: E70-10
         title: "[cross] End-to-end rotation: JVM client and real Mac server (E15-15)"
@@ -450,7 +504,9 @@ epics:
           - "unit: macRotationRollback_rotationRejectReceived_pendingKeyDeletedOldKeySole"
           - "unit: macRotationRollback_sessionDropBeforeAck_rotationStaysPending"
           - "unit: macRotationRollback_appRelaunch_pendingRotationResent"
-        notes: "Split from E70-08 in review cycle 3."
+        notes: |
+          Split from E70-08 in review cycle 3.
+          Cycle 4 open item for cycle 5: Mac-initiated rotation with several paired phones. The listener presents one identity before it knows which phone is connecting, so a phone that missed the RotationAck exchange and already purged the old Mac pin cannot be served the right key. Proposed: the Mac switches identity only after every paired phone acked (or after the 7-day grace TTL), otherwise keeps the old key; decide in cycle 5.
 
   - id: E71
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
@@ -635,10 +691,12 @@ epics:
             (control and media connections).
           - The canary bytes occur 0 times in the entire capture.
           - The canary bytes occur 0 times in the captured release-build logs.
+          - "The log-audit canary manifest for the session includes every E15-17 kind (notification text, clipboard, file name and content, SMS body and address, contact name, caller number, input text and sentinel coordinates, display name, pairing secret, media ticket), and none occurs raw or encoded."
         tdd:
           - "security: pcapAudit_fullFeatureCanarySession_onlyTls13RecordsOnTandemPort"
           - "security: pcapAudit_fullFeatureCanarySession_zeroCanaryOccurrences"
           - "security: logAudit_fullFeatureCanarySession_zeroCanaryOccurrences"
+          - "security: logAudit_fullFeatureSession_everyCanaryKindRawAndEncodedAbsent"
         notes: ""
       - id: E71-08
         title: "[tools] Release security audit: nmap + full mitm-lab suite"
@@ -649,12 +707,13 @@ epics:
         prd: []
         use_cases: [AC-01, AC-03, AC-04]
         invariants: [1, 2, 3, 4, 5, 6]
-        depends_on: [E15-09, E15-10, E15-11, E15-12, E60-05, E62-08, E70-09]
+        depends_on: [E15-09, E15-10, E15-11, E15-12, E60-05, E62-08, E70-09, E15-20]
         description: |
           Run nmap against the phone with every feature active (mirroring, file transfer,
           notification sync), the complete accumulated mitm-lab scenario suite from Phases 1
           through 7 in one pass, and the `openssl s_client` downgrade checks against the Mac
           listener.
+          Cycle 4: the full suite includes the E15-20 pre-auth DoS scenarios and the cycle-4 additions to E15-09, E15-10, E15-11, E60-05, E62-08 and E70-09.
         acceptance:
           - "nmap -p- against the phone shows zero open ports."
           - Every mitm-lab scenario across all phases passes (zero unexpected acceptances).
@@ -671,9 +730,9 @@ epics:
         priority: P0
         size: M
         prd: []
-        use_cases: [AC-11]
+        use_cases: [AC-11, AC-16, AC-17]
         invariants: [2, 4]
-        depends_on: [E22-04, E15-07, E00-11]
+        depends_on: [E22-04, E15-07, E00-11, E00-28, E00-30]
         description: |
           Automate the review as CI checks over the release artifacts, per invariant 2 and
           invariant 4. Android (merged release manifest + network security config):
@@ -687,6 +746,12 @@ epics:
           NSAllowsArbitraryLoads. Each check has a failing fixture. AC-11: debug and release
           builds embed byte-identical generated protocol descriptors, and the proto schema scan
           (E15-07) finds no debug/echo/test message or channel.
+          Cycle 4 additions to the release audit: Android — allowBackup false and dataExtractionRules excluding
+          all domains, network security config without user anchors or debug-overrides, the E00-28 exported
+          allowlist (each service guarded by its BIND_* permission) and denied-permission list, PendingIntent lint
+          clean; macOS — hardened runtime, no com.apple.security.cs.* or get-task-allow, share extension
+          entitlements exactly app-sandbox + application-groups, no ATS exception keys; both — the E00-30
+          test-code scan re-run on the signed artifacts.
         acceptance:
           - A fixture manifest declaring one permission not in the allowlist fails CI naming the
             permission.
@@ -699,6 +764,8 @@ epics:
           - A fixture Info.plist containing NSAllowsLocalNetworking fails CI.
           - Release and debug builds ship identical generated protocol descriptors, and no
             debug/echo/test message or channel exists (AC-11).
+          - "Fixtures with allowBackup=\"true\", user trust anchors, a denied permission, a com.apple.security.cs.* entitlement, or a network entitlement on the share extension each fail the release audit."
+          - "The E00-30 test-code scan passes on the signed release APK and .app."
         tdd:
           - "ci: releaseManifest_declaredPermissions_matchAllowlist"
           - "ci: releaseManifest_exportedComponents_matchAllowlistAndPermissionGuarded"
@@ -706,6 +773,11 @@ epics:
           - "ci: macReleaseEntitlements_setDiffAgainstAllowlist_empty"
           - "ci: macReleaseInfoPlist_nsAllowsLocalNetworkingFixture_exitsNonZero"
           - "ci: protoDescriptors_debugVersusRelease_byteIdentical"
+          - "ci: releaseManifest_allowBackupTrueFixture_exitsNonZero"
+          - "ci: releaseNetworkSecurityConfig_userTrustAnchorsFixture_exitsNonZero"
+          - "ci: releaseManifest_deniedPermissionFixture_exitsNonZero"
+          - "ci: macReleaseEntitlements_csExceptionFixture_exitsNonZero"
+          - "ci: shareExtensionEntitlements_networkClientFixture_exitsNonZero"
         notes: "Size S -> M in review cycle 3 (six automated checks with fixtures)."
       - id: E71-10
         title: "[tools] Dependency / SBOM scan"
@@ -714,13 +786,14 @@ epics:
         priority: P0
         size: M
         prd: []
-        use_cases: []
+        use_cases: [AC-18]
         invariants: []
-        depends_on: [E00-11]
+        depends_on: [E00-11, E00-29]
         description: |
           Generate an SBOM (CycloneDX) for the Android (Gradle) and macOS (SwiftPM) dependency
           trees; run a vulnerability scan against both in CI; address any high/critical findings.
           Waivers live in a checked-in file with a reason and expiry date.
+          Cycle 4: builds on the E00-29 baseline (verification metadata, lockfiles, license gate); the release SBOM records each component's license and the license gate is re-run on the release dependency trees.
         acceptance:
           - An SBOM is committed under tools/sbom/ and lists every resolved Gradle and SwiftPM
             dependency.
@@ -728,10 +801,12 @@ epics:
           - A fixture dependency with a known critical CVE fails the scan (exit code non-zero)
             unless waived.
           - The release scan completes with zero unwaived high or critical findings.
+          - "Every SBOM component carries a license field and the E00-29 license gate passes on the release trees."
         tdd:
           - "ci: sbomGeneration_gradleAndSwiftPm_bothDependencyTreesListed"
           - "ci: sbomCheck_dependencyChangedWithoutRegeneration_exitsNonZero"
           - "ci: vulnScan_fixtureWithKnownCriticalCve_exitsNonZero"
+          - "ci: sbom_everyComponent_hasLicenseField"
         notes: ""
       - id: E71-11
         title: "[ci] Release build signing"
@@ -756,11 +831,13 @@ epics:
           - An unsigned or debug-key-signed APK fails the verification step.
           - An unsigned or tampered .app fails `codesign --verify --deep --strict`.
           - When notarization is enabled, an artifact without a stapled ticket fails the step.
+          - "Signing secrets are exposed only to the release workflow on protected tags (environment with a required reviewer); a pull-request workflow cannot read them."
         tdd:
           - "ci: releaseSigningCheck_unsignedApk_apksignerVerifyFails"
           - "ci: releaseSigningCheck_apkSignedWithDebugKey_exitsNonZero"
           - "ci: releaseSigningCheck_tamperedMacApp_codesignVerifyFails"
           - "ci: releaseSigningCheck_notarizationEnabledWithoutTicket_staplerValidateFails"
+          - "ci: releaseSigningSecrets_pullRequestWorkflow_notAvailable"
         notes: ""
       - id: E71-12
         title: "[docs] Release security audit checklist and sign-off"
@@ -769,19 +846,20 @@ epics:
         priority: P0
         size: S
         prd: []
-        use_cases: [UC-25, AC-11]
+        use_cases: [UC-25, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20]
         invariants: [1, 2, 3, 4, 5, 6, 7, 8]
-        depends_on: [E15-18, E71-05, E71-06, E71-07, E71-08, E71-09, E71-10, E71-11]
+        depends_on: [E15-18, E71-05, E71-06, E71-07, E71-08, E71-09, E71-10, E71-11, E71-14, E15-20, E00-29, E00-30]
         description: |
           Roadmap Phase 7 "release security audit checklist signed off (UC-25)" had no owner.
           `docs/security/release-audit.md`: one row per PRD security-test row, the canary procedure,
-          each of the eight invariants, and AC-01..AC-11, each linked to its evidence (E15-18 report,
+          each of the eight invariants, and AC-01..AC-20, each linked to its evidence (E15-18 report,
           E71-07..E71-10 outputs, fuzz logs). Sign-off = PR approval before the v1 tag.
         acceptance:
-          - Every PRD security-test row, invariant 1-8, and AC-01..AC-11 has a checklist row with
+          - Every PRD security-test row, invariant 1-8, and AC-01..AC-20 has a checklist row with
             linked evidence; a CI check fails on any row without a link.
           - Every evidence link resolves.
           - The checklist is approved in a PR before the v1 release tag.
+          - "The checklist has one row per review-cycle-4 decision listed in traceability.md (\"Review cycle 4\"), each linked to its evidence."
         tdd:
           - "ci: releaseAuditChecklist_rowWithoutEvidenceLink_exitsNonZero"
           - "ci: releaseAuditLinkCheck_allEvidenceLinks_resolve"
@@ -795,7 +873,7 @@ epics:
         prd: []
         use_cases: [AC-07]
         invariants: []
-        depends_on: [E15-14, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01]
+        depends_on: [E15-14, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01, E61-14]
         description: |
           Mirrors E71-04 for the Swift codec: libFuzzer targets (one generic target parametrized
           by message type) and 24-hour campaigns against each Swift domain message decoder,
@@ -805,10 +883,41 @@ epics:
             fails CI naming the file.
           - Each domain decoder runs an independent >= 86 400 s campaign with zero crashes or
             hangs, run logs archived as E71-12 evidence.
+          - "The media target drives MediaFrame fragment sequences through FragmentReassembler (E61-14)."
         tdd:
           - "ci: libFuzzerTargetRegistry_protoFileWithoutTarget_exitsNonZeroNamingFile"
           - "security: domainDecoderFuzz24h_everyLibFuzzerTarget_zeroCrashesOrHangs"
         notes: "Split from E71-04 in review cycle 3."
+
+      - id: E71-14
+        title: "[tools] Release audit: network egress audit (the apps talk only to each other)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-18, AC-02]
+        invariants: [1, 2, 4]
+        depends_on: [E71-07, E14-23, E00-23]
+        description: |
+          Added in review cycle 4 (telemetry / supply-chain leak, AC-18). During the E71-07 full-feature session:
+          macOS — `tcpdump -i pktap -Q "pid=<Tandem pid>"` captures every flow of the app and share extension;
+          Android — an instrumented test samples `/proc/net/tcp*` and `udp*` for the app UID on the emulator, and
+          a manual gate captures per-app traffic on a physical phone for 24 h (PCAPdroid). Allowed: the paired
+          peer's address on the Tandem port only (mDNS is performed by mDNSResponder / system_server, not the app
+          UID). A self-tested parser turns captures into a pass/fail report.
+        acceptance:
+          - "The Mac capture of the Tandem processes contains only flows to the phone address on the Tandem port."
+          - "On the emulator, every socket owned by the app UID during the session has the Mac address and Tandem port as remote endpoint."
+          - "Manual gate: a 24 h per-app capture on a physical phone shows only flows to the paired Mac on the Tandem port."
+          - "The parser exits non-zero on a fixture capture containing a flow to a third-party host."
+        tdd:
+          - "security: macEgressAudit_fullFeatureSession_onlyPhoneTandemPortFlows"
+          - "instrumented: androidEgressAudit_fullSessionOnEmulator_onlyMacEndpointsForAppUid"
+          - "manual: androidEgressAudit_physicalPhone24hCapture_onlyMacTandemPortFlows"
+          - "unit: egressAuditParser_flowToThirdPartyHostFixture_exitsNonZero"
+        notes: |
+          Added in review cycle 4.
 
   - id: E72
     title: "Extras (F-10.x: media control, DND sync, USB, multi-Mac)"
