@@ -20,3 +20,5 @@ assumes; work proceeds on the default unless the owner overrides it. Answered qu
 | Q12 | v1 SMS text only (MMS v2, RCS never), confirmed by the real message-mix spike? | Text only unless E50-12 shows > 10 % MMS in the owner's threads. | E50-12, E50-01, E50-07 |
 | Q13 | Restart the phone service after an app update (MY_PACKAGE_REPLACED), not only after reboot? | Yes (already in E20-08). | E20-08 |
 | Q14 | Mac key rotation with several phones: after 7 days of waiting, "Finish" unpairs phones that have not confirmed. Acceptable? | Yes (D-34); the Mac never switches keys silently. | E70-03, E70-11, E70-13 |
+| Q15 | Android home ring: idle = items synced today, running task (transfer %, mirror time, ringing) takes over. OK? | Yes (ui-spec §6); alternatives: link uptime, key age. | E20-17 |
+| Q16 | Mac popover hero: keep phone battery, or show the same "synced today" count as Android? | Phone battery. | E22-01 |

@@ -19,6 +19,7 @@ tools/       conformance, pcap-audit, mitm-lab, fuzz, planning scripts
 ## Documents
 
 - [PRD](docs/PRD.md) — requirements, architecture, security invariants
+- [UI spec](docs/design/ui-spec.md) — screens, states, tokens, motion, copy; visuals in `ui-design.pen` + `docs/design/screens/`
 - [Decisions](docs/planning/decisions.md) — planning decisions; **SPEC.md and decisions.md override the PRD where they conflict**
 - [Open questions](docs/planning/open-questions.md) — owner decisions pending, with the defaults the backlog assumes
 - [Use cases](docs/planning/use-cases.md) — UC-xx and abuse cases AC-xx

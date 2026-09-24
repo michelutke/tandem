@@ -951,6 +951,68 @@ epics:
           Cycle 5: no longer depends on E00-26 (the symbol list names `UITestScenario` whether or not the target
           exists yet); lands at Phase 1 start, before E15-22 needs it.
 
+      - id: E00-31
+        title: "[android] Swiss/M3 Expressive design system: tokens, type, core components"
+        type: task
+        platforms: [android]
+        priority: P0
+        lands_in_phase: 1
+        size: L
+        prd: [F-4.1]
+        use_cases: [UC-02, UC-03]
+        invariants: []
+        depends_on: [E00-04, E00-20]
+        description: |
+          Implement the design system in docs/design/ui-spec.md (§3–§5) as a Compose module
+          `core/designsystem`: colour tokens (ink, ink2, line, paper, signal, alert), Inter Tight +
+          JetBrains Mono type scale (title 30/-1, numeral 64–96, row 16–17, meta 12), spacing and
+          radii, and components: TitleBlock ("Noun." + grey state line), NumberedRow, HairlineRule,
+          M3E Switch (morphing thumb with check), FloatingToolbar, CookieFab, BottomSheet, Dialog,
+          Banner, DotRing and DotChart. Motion specs (spring stiffness/damping) as constants; all
+          animations respect "Remove animations". Screens never hard-code colours or sizes.
+        acceptance:
+          - Every component in ui-spec.md §5 (Android) exists with a Compose preview
+          - Colour contrast of ink2 on paper is >= 4.5:1; green/red are never the only signal (text accompanies)
+          - DotRing/DotChart expose a TalkBack content description with the numeric value
+          - With "Remove animations" on, springs are replaced by instant state changes
+        tdd:
+          - "ui: dotRing_value43_contentDescriptionReads43Percent"
+          - "ui: m3eSwitch_toggledOn_thumbShowsCheckIcon"
+          - "unit: tandemColors_ink2OnPaper_contrastAtLeast4point5"
+          - "ui: motion_removeAnimationsEnabled_noSpringAnimation"
+        notes: |
+          Added with the UI spec (docs/design/ui-spec.md). Lands at the start of Phase 1 because the
+          pairing screens (E14-10, E14-17) are the first UI.
+      - id: E00-32
+        title: "[macos] Swiss/Liquid Glass design system: tokens, type, core components"
+        type: task
+        platforms: [macos]
+        priority: P0
+        lands_in_phase: 1
+        size: L
+        prd: [F-4.2]
+        use_cases: [UC-01, UC-03]
+        invariants: []
+        depends_on: [E00-08, E00-26]
+        description: |
+          Implement docs/design/ui-spec.md (§3–§5) as a SwiftUI package `TandemDesign`: the same
+          colour and type tokens as Android, system Liquid Glass materials for popover, windows,
+          sidebar and toolbars (no custom blur), and components: TitleBlock, NumberedActionRow
+          (hover highlight), HairlineRow (key/value), GlassToggle, PillButton, DotRing, DotProgress,
+          DotQR renderer. Honours Reduce Transparency (solid fallback), Reduce Motion and Increase
+          Contrast.
+        acceptance:
+          - Every component in ui-spec.md §5 (macOS) exists with an Xcode preview
+          - With Reduce Transparency on, glass surfaces render as solid paper
+          - DotProgress and DotRing expose VoiceOver values
+          - Text uses tokens only; no literal colours in feature code (lint check)
+        tdd:
+          - "ui: glassSurface_reduceTransparencyOn_rendersSolidPaper"
+          - "ui: dotProgress_value43_voiceOverValue43Percent"
+          - "ci: featureSources_literalColor_lintFails"
+        notes: |
+          Added with the UI spec. The dot-QR renderer must keep the QR scannable (finder patterns as
+          rounded squares, modules as dots, quiet zone >= 4 modules) — verified by E14-11 tests.
   - id: E01
     title: "Wire protocol: SPEC.md, .proto schema, test vectors"
     labels: [area:protocol]

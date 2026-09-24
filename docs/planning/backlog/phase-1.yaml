@@ -2198,7 +2198,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, UC-02]
         invariants: []
-        depends_on: [E14-03, E00-20, E00-21, E00-23, E14-23]
+        depends_on: [E14-03, E00-20, E00-21, E00-23, E14-23, E00-31]
         description: |
           CameraX preview feeding the `QrDecoder` seam chosen by spike E14-23, restricted to QR_CODE
           format; on a successful scan matching the tandem:// scheme, feed the raw string into
@@ -2234,7 +2234,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, AC-13, AC-17]
         invariants: []
-        depends_on: [E14-01, E14-02, E00-24, E00-26]
+        depends_on: [E14-01, E14-02, E00-24, E00-26, E00-32]
         description: |
           Render the QR payload (E14-01) as a scannable code with a visible 120 s countdown tied
           to the pairing-window state (E14-02); on expiry, auto-regenerate a new code and secret
@@ -2475,7 +2475,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03]
         invariants: [2, 5]
-        depends_on: [E14-05, E12-16, E00-20]
+        depends_on: [E14-05, E12-16, E00-20, E00-31]
         description: |
           UC-03 alternate flows and the PRD client-isolation risk ("detect and explain") had no owner.
           `PairingErrorMapper` maps the pairing state machine's failure reasons (E14-05) to distinct,

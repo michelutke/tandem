@@ -64,6 +64,8 @@ exit does not wait for them.
 | E00-28 | [android] Platform-hardening baseline: backup, NSC, exports, PendingIntents, tapjacking *(lands Phase 2)* | task | P0 | M | E00-02, E00-05, E00-20 |
 | E00-29 | [ci] Supply-chain baseline: dependency verification, lockfiles, pinned actions, licenses *(lands Phase 1)* | task | P0 | M | E00-02, E00-07, E00-11 |
 | E00-30 | [ci] Release-artifact test-code scan (dex, Mach-O symbols, bundle contents) *(lands Phase 1)* | task | P0 | M | E00-02, E00-07, E00-11 |
+| E00-31 | [android] Swiss/M3 Expressive design system: tokens, type, core components *(lands Phase 1)* | task | P0 | L | E00-04, E00-20 |
+| E00-32 | [macos] Swiss/Liquid Glass design system: tokens, type, core components *(lands Phase 1)* | task | P0 | L | E00-08, E00-26 |
 
 ### E01 — Wire protocol: SPEC.md, .proto schema, test vectors
 
@@ -380,8 +382,8 @@ both apps.
 | E14-07 | [macos] Constant-time proof verification bound to handshake cert | task | P0 | M | E14-02, E10-11, E10-13, E12-02, E03-04 |
 | E14-08 | [macos] Pairing confirmation dialog and PairAccepted/reject | task | P0 | M | E14-07, E13-06, E12-12, E14-22, E10-13 |
 | E14-09 | [macos] Failure handling: any pairing failure closes connection and burns attempt | task | P0 | S | E14-07, E14-02, E00-24, E12-12 |
-| E14-10 | [android] CameraX QR scanner UI (decoder chosen by E14-23) | task | P0 | M | E14-03, E00-20, E00-21, E00-23, E14-23 |
-| E14-11 | [macos] Pairing UI: QR display, countdown, regenerate | task | P0 | M | E14-01, E14-02, E00-24, E00-26 |
+| E14-10 | [android] CameraX QR scanner UI (decoder chosen by E14-23) | task | P0 | M | E14-03, E00-20, E00-21, E00-23, E14-23, E00-31 |
+| E14-11 | [macos] Pairing UI: QR display, countdown, regenerate | task | P0 | M | E14-01, E14-02, E00-24, E00-26, E00-32 |
 | E14-12 | [android] Unpair action: local deletion and Revoke if connected | task | P0 | S | E13-05, E12-11, E00-18 |
 | E14-13 | [macos] Unpair action: local deletion and Revoke if connected | task | P0 | S | E13-09, E12-12, E00-24 |
 | E14-14 | [macos] Paired-devices list UI: last-seen and revoke button | task | P0 | M | E13-06, E14-13, E12-14, E00-24, E00-26 |
@@ -389,7 +391,7 @@ both apps.
 | E14-19 | [android] Revoke message handling: receiver drops session and trust | task | P0 | S | E14-12, E12-11, E12-08 |
 | E14-20 | [cross] Integration: revoke over the JVM harness (connected and offline) | test | P0 | S | E15-15, E14-12, E14-13, E14-15, E14-19, E12-16 |
 | E14-16 | [cross] End-to-end: QR pair then reconnect after restarting both apps | test | P0 | L | E15-15, E14-05, E14-06, E14-08 |
-| E14-17 | [android] Pairing failure messages: expired/used QR, declined, Mac unreachable | story | P0 | S | E14-05, E12-16, E00-20 |
+| E14-17 | [android] Pairing failure messages: expired/used QR, declined, Mac unreachable | story | P0 | S | E14-05, E12-16, E00-20, E00-31 |
 | E14-18 | [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM) | test | P0 | M | E10-01, E10-15, E12-04, E12-06, E14-10, E00-21, E00-23, E14-05, E14-06, E14-08, E14-11 |
 | E14-21 | [android] DisplayStringSanitizer (vector-tested) | task | P0 | S | E01-24, E00-04 |
 | E14-22 | [macos] DisplayStringSanitizer (vector-tested) | task | P0 | S | E01-24, E00-08 |
@@ -431,6 +433,9 @@ connection state.
 | E20-14 | [android] Onboarding flow: per-permission explanations with skip paths | story | P0 | M | E20-04, E14-10, E10-04, E00-20 |
 | E20-15 | [android] Heartbeat responder, Doze-aware timer, sleep-inclusive dead-peer detection | task | P0 | L | E20-01, E12-08, E12-11, E00-18, E00-19, E00-20, E00-23 |
 | E20-16 | [android] CompanionDeviceManager association (+ presence restart if E20-03 = go) | task | P1 | M | E20-03, E20-02, E14-05, E14-12, E00-20, E00-23 |
+| E20-17 | [android] App shell: floating toolbar navigation and Home status ring | story | P0 | M | E00-31, E20-09, E12-16 |
+| E20-18 | [android] Activity tab: metadata-only feed with 7-day retention *(lands Phase 3)* | story | P1 | M | E20-17, E13-04 |
+| E20-19 | [android] Settings tab: paired Mac, battery, key, unpair | story | P1 | S | E20-17, E14-12, E20-04 |
 
 ### E21 — Bonjour discovery with rotating ID
 
@@ -477,6 +482,7 @@ version mismatch) are surfaced to the user.
 | E22-05 | [macos] Settings window shell | task | P1 | S | E22-01, E14-14, E00-26 |
 | E22-07 | [macos] Visible error surfacing for fail-closed events | story | P0 | M | E22-01, E12-10, E12-12, E00-24, E00-26 |
 | E22-08 | [macos] Bind menu bar state to sleep/wake and network restarts | task | P1 | S | E22-01, E20-10, E20-11, E00-24 |
+| E22-09 | [macos] Main window shell: glass sidebar, sections, offline/empty states | story | P1 | M | E00-32, E22-01, E22-07 |
 
 ### E23 — Device status and find my phone
 
@@ -954,4 +960,4 @@ Implementation issues are P2 and do not start before the ADR is accepted.
 
 ---
 
-**Totals:** 28 epics, 385 issues (P0: 338, P1: 31, P2: 16)
+**Totals:** 28 epics, 391 issues (P0: 341, P1: 34, P2: 16)

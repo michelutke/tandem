@@ -135,8 +135,8 @@ issues (gates the phase checklist); **all** includes P1/P2.
 | Phase | P0 issues | Exit path | All issues | Sum of P0 effort |
 |---|---|---|---|---|
 | 0 | 60 | 7.0 d | 7.0 d | 60.5 d |
-| 1 | 104 | 15.5 d | 15.5 d | 109.5 d |
-| 2 | 33 | 7.5 d | 7.5 d | 37.0 d |
+| 1 | 106 | 15.5 d | 15.5 d | 117.5 d |
+| 2 | 34 | 7.5 d | 7.5 d | 38.5 d |
 | 3 | 27 | 8.0 d | 8.0 d | 25.5 d |
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
 | 5 | 30 | 12.0 d | 12.0 d | 42.0 d |
@@ -273,16 +273,16 @@ How:
 <!-- BEGIN GENERATED: hotspots -->
 | Fan-out (most dependents) | n | Fan-in (most dependencies) | n |
 |---|---|---|---|
-| E00-20 [android] Robolectric + Compose UI test setup on the JVM | 44 | E71-13 [tools] Fuzz targets: per-domain message decoders, macOS libFuzzer (24 h each) | 14 |
+| E00-20 [android] Robolectric + Compose UI test setup on the JVM | 45 | E71-13 [tools] Fuzz targets: per-domain message decoders, macOS libFuzzer (24 h each) | 14 |
 | E00-23 [docs] Physical device matrix and manual-gate procedure | 40 | E15-23 [tools] Phase 1 security audit gate: every Phase 1 step green in one report | 13 |
 | E00-21 [ci] Android emulator instrumented-test job (Gradle Managed Devices) | 39 | E71-04 [tools] Fuzz targets: per-domain message decoders, Android Jazzer (24 h each) | 13 |
 | E12-11 [android] Transport session abstraction exposing channels | 37 | E71-12 [docs] Release security audit checklist and sign-off | 12 |
 | E12-12 [macos] Transport session abstraction exposing channels | 36 | E14-18 [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM) | 11 |
 | E00-24 [macos] TandemTestSupport package: injectable Clock and ManualTestClock | 34 | E30-13 [cross] Phase 3 notification exit test | 9 |
-| E00-08 [macos] Swift Testing baseline + SwiftLint configuration | 30 | E31-10 [cross] Clipboard exit test: no echo loop, concealed never leaves Mac | 9 |
+| E00-08 [macos] Swift Testing baseline + SwiftLint configuration | 31 | E31-10 [cross] Clipboard exit test: no echo loop, concealed never leaves Mac | 9 |
 | E00-18 [android] core/testing fixtures: injectable Clock, TestClock, dispatcher rules | 30 | E41-01 [protocol] photos.proto: PhotoPage and Thumb messages | 9 |
 | E15-15 [cross] JVM integration-test harness: JVM client against the real Mac server on macOS CI | 29 | E15-09 [tools] mitm-lab: pairing-abuse scenarios (replay, expiry, 4th attempt, wrong key) | 8 |
-| E00-04 [android] JUnit5 + Turbine test infrastructure baseline | 20 | E20-12 [tools] Reconnect latency measurement harness and overnight Doze gate | 8 |
+| E00-04 [android] JUnit5 + Turbine test infrastructure baseline | 21 | E20-12 [tools] Reconnect latency measurement harness and overnight Doze gate | 8 |
 <!-- END GENERATED: hotspots -->
 
 Fan-out hotspots are test seams and session abstractions; they are all Phase 0 / early Phase 1
@@ -297,8 +297,8 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 | Phase | android | macos | shared (protocol, docs, tools, ci, cross) |
 |---|---|---|---|
 | 0 | 11.0 d | 8.0 d | 41.5 d |
-| 1 | 38.5 d | 45.0 d | 26.0 d |
-| 2 | 21.5 d | 12.0 d | 3.5 d |
+| 1 | 42.5 d | 49.0 d | 26.0 d |
+| 2 | 23.0 d | 12.0 d | 3.5 d |
 | 3 | 11.0 d | 6.5 d | 8.0 d |
 | 4 | 19.5 d | 19.0 d | 8.0 d |
 | 5 | 19.0 d | 12.0 d | 11.0 d |

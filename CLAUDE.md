@@ -8,6 +8,7 @@
   (`ruby tools/planning/sync_issues.rb validate|render|sync`). Edit YAML, not issues. After editing
   dependencies or priorities run `ruby tools/planning/critical_path.rb --write` (roadmap sections)
   and `ruby tools/planning/traceability.rb`. Start work from `docs/planning/roadmap.md` → Start here.
+- UI work follows `docs/design/ui-spec.md` (tokens, components, copy, states); visuals in `ui-design.pen`.
 - Work is TDD: write the `tdd:` tests listed on the issue first, see them fail, then implement.
 - Never edit generated protocol code; change `protocol/proto` and regenerate.
 

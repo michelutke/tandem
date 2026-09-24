@@ -563,6 +563,78 @@ epics:
           Conditional: close as won't-do if the E20-03 spike is no-go. If the spike is go but only
           association (no presence restart) is useful, drop the presence acceptance and tdd entries.
 
+      - id: E20-17
+        title: "[android] App shell: floating toolbar navigation and Home status ring"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-4.1, F-4.3]
+        use_cases: [UC-04, UC-05]
+        invariants: [5]
+        depends_on: [E00-31, E20-09, E12-16]
+        description: |
+          Home per docs/design/ui-spec.md §7.2: TitleBlock ("Tandem." / connection state line),
+          DotRing hero, numbered feature switches, M3E floating toolbar (Home, Notifications,
+          Activity, Settings) and cookie share FAB. Ring content (decision in ui-spec §6):
+          idle = items synced today; while a task runs (transfer, mirroring, ringing) the ring shows
+          that task's progress/time; reconnecting shows the countdown to the next attempt with grey
+          dots. Trust failures replace Home with the "Blocked." screen (E12-16).
+        acceptance:
+          - Idle ring shows today's synced-item count and label "synced today"
+          - A running transfer switches the ring to its percentage within 1 s; it returns to idle when done
+          - Reconnecting state shows grey dots and the seconds until the next attempt
+          - Toolbar selection pill moves to the tapped destination; FAB opens the send sheet
+        tdd:
+          - "ui: homeRing_idle_showsSyncedTodayCount"
+          - "ui: homeRing_transferRunning_showsTransferPercent"
+          - "ui: homeRing_reconnecting_showsCountdownAndGreyDots"
+          - "ui: floatingToolbar_tapActivity_selectsActivityDestination"
+      - id: E20-18
+        title: "[android] Activity tab: metadata-only feed with 7-day retention"
+        type: story
+        platforms: [android]
+        priority: P1
+        lands_in_phase: 3
+        size: M
+        prd: [F-4.1]
+        use_cases: [UC-05]
+        invariants: [7]
+        depends_on: [E20-17, E13-04]
+        description: |
+          Activity tab per ui-spec §7.2: dot chart of the last 7 days and a list of events
+          (file received + size, clipboard from Mac, mirroring + duration, find phone). Stores
+          metadata only — never message text, notification content, clip content or file names
+          beyond the transfer's own display name — and deletes entries older than 7 days. Local only.
+        acceptance:
+          - Feed entries contain event type, size/duration and timestamp only (no content fields in the schema)
+          - Entries older than 7 days are purged on app start and daily
+          - Unpair clears the feed
+        tdd:
+          - "unit: activityStore_clipboardEvent_storesNoContentField"
+          - "unit: activityStore_entryOlderThan7Days_purged"
+          - "unit: activityStore_unpairCompleted_feedCleared"
+          - "ui: activityChart_sevenDays_rendersSevenColumns"
+      - id: E20-19
+        title: "[android] Settings tab: paired Mac, battery, key, unpair"
+        type: story
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-2.3, F-4.1]
+        use_cases: [UC-07]
+        invariants: [3]
+        depends_on: [E20-17, E14-12, E20-04]
+        description: |
+          Settings tab per ui-spec §7.2: hairline rows for Paired Mac (state), Battery (restriction
+          state + fix), Key (fingerprint short code + Rotate, wired in E70-06), and a red Unpair row
+          that opens the confirmation dialog (E14-12).
+        acceptance:
+          - Rows show live state; Battery row links to the battery onboarding (E20-04)
+          - Unpair row opens the confirm dialog; confirming calls the E14-12 unpair action
+        tdd:
+          - "ui: settingsTab_batteryRestricted_showsFixAction"
+          - "ui: settingsTab_unpairConfirmed_invokesUnpairAction"
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
@@ -1002,6 +1074,29 @@ epics:
           - "unit: menuBarViewModel_willSleepThenDidWake_reconnectingThenConnected"
           - "unit: menuBarViewModel_pathInterfaceChanged_reconnectingWithin1s"
 
+      - id: E22-09
+        title: "[macos] Main window shell: glass sidebar, sections, offline/empty states"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: [F-4.2]
+        use_cases: [UC-05]
+        invariants: [5]
+        depends_on: [E00-32, E22-01, E22-07]
+        description: |
+          Main window per ui-spec §7.1: Liquid Glass sidebar (device name, state, numbered sections
+          Messages, Photos, Calls, Transfers, Devices) and a content area. Provides the shared
+          empty/offline/turned-off-on-phone states each section uses ("Offline." + last seen;
+          "Turned off on the phone."). Opened from the popover's "Open Tandem".
+        acceptance:
+          - Sidebar lists the five sections; selection persists across launches
+          - When the phone is offline the sidebar state reads "Offline · seen HH:MM" with a grey dot
+          - A section whose feature is disabled on the phone shows the turned-off empty state
+        tdd:
+          - "ui: mainWindow_phoneOffline_sidebarShowsLastSeen"
+          - "ui: mainWindow_featureDisabledOnPhone_showsTurnedOffState"
+          - "unit: mainWindowState_relaunch_restoresSelectedSection"
   - id: E23
     title: Device status and find my phone
     labels: [area:status]
