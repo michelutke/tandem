@@ -26,7 +26,7 @@ are generated from it by `tools/planning/sync_issues.rb`. Edit YAML here, then r
 | E12 | Secure transport (mTLS 1.3 client/server, pinning) | 1 |
 | E13 | Trust store and settings storage | 1 |
 | E14 | QR pairing, unpair, revoke | 1 |
-| E15 | Security test harness (conformance, pcap-audit, mitm-lab, fuzz scaffolding) | 1 |
+| E15 | Security test harness (conformance, pcap-audit, log-audit, mitm-lab, fuzz scaffolding) | 1 |
 | E20 | Android connection lifecycle (foreground service, heartbeat, reconnect) | 2 |
 | E21 | Bonjour discovery with rotating ID | 2 |
 | E22 | macOS menu bar agent and connection UI | 2 |

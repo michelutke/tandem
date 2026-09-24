@@ -1,0 +1,747 @@
+phase: 5
+epics:
+  - id: E50
+    title: SMS read, sync, send
+    labels: [area:messaging]
+    prd: [F-8.1, F-8.2]
+    use_cases: [UC-18, UC-19]
+    summary: |
+      Read-only sync of SMS threads and messages from the Android Telephony provider to the Mac
+      (initial paged sync + incremental _id-watermark sync via ContentObserver), and sending
+      SMS from the Mac through SmsManager with delivery/sent status reported back, including
+      multi-SIM subscription choice. Includes the Mac conversation UI (thread list, message view,
+      compose) and documents the concrete behavior of Android's non-default-SMS-app write
+      restriction so the Mac's local store, not the Android provider, is treated as the source of
+      truth for Tandem-originated sends. MMS and RCS are explicitly out of scope for v1.
+    scope:
+      - sms.proto messages and SPEC.md section for the SMS channel.
+      - "Android: paged initial sync, incremental _id-watermark sync, ContentObserver,
+        SmsManager.sendMultipartTextMessage with sent/delivered PendingIntent status,
+        multi-SIM SubscriptionManager chooser."
+      - "macOS: thread list, message view, compose UI, local encrypted-at-rest decision and
+        persisted store."
+      - Cross-platform end-to-end sync+send integration test and an invariant-7 log audit.
+    out_of_scope:
+      - MMS (images/attachments) -- v2 (PRD Capability 8, PRD Appendix C.4).
+      - RCS -- not accessible to third-party apps on Android (PRD Appendix C.4).
+      - Making Tandem the default SMS app (documented decision in E50-06, revisit v2).
+      - Call log and contacts sync (E51, E52).
+    exit_criteria:
+      - Send and receive SMS from the Mac (roadmap Phase 5 exit criterion).
+      - A 5k-message fixture completes initial sync in bounded paged batches with no gaps or
+        duplicates across a forced mid-sync disconnect.
+      - "A log audit (tools/pcap-audit-style) over a canary SMS session finds zero occurrences of
+        the canary body or number in logs (invariant 7)."
+    issues:
+      - id: E50-01
+        title: "[protocol] sms.proto: threads, messages, sync, send"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-8.1, F-8.2]
+        use_cases: [UC-18, UC-19]
+        invariants: [7]
+        depends_on: [E01-10, E01-14, E01-16]
+        description: |
+          protocol/proto/tandem/v1/sms.proto: SmsThread{threadId, address, snippet,
+          lastMessageAtMs, unreadCount}, SmsMessage{id, threadId, address, body, timestampMs,
+          type, subscriptionId, deliveryStatus}, SmsSyncRequest{sinceId},
+          SmsSyncResponse{threads[], messages[], watermarkId}, SendSmsRequest{threadId, address,
+          subscriptionId, body}, SendSmsStatus{messageId, state, errorCode}. Adds the SMS
+          channel oneof case to Envelope (F-3.2). Write docs/protocol/SPEC.md SMS section.
+          Add vectors: message round trip, all SendSmsStatus states, oversized-body frame
+          rejected before allocation (mirrors E01-03's max-frame rule).
+        acceptance:
+          - buf lint passes on the new file.
+          - docs/protocol/SPEC.md documents the full SMS sync and send message flow, including
+            watermark semantics.
+          - protocol/vectors/sms/*.json committed and pass conformance on both platforms.
+        tdd:
+          - smsMessageVector_roundTrip_matchesGoldenBytes
+          - sendSmsStatusVector_allStates_encodeDecodeSymmetric
+          - envelope_smsChannelOversizedBody_rejectedBeforeAllocation
+        notes: ""
+      - id: E50-02
+        title: "[android] Initial paged SMS sync from Telephony provider"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: L
+        prd: [F-8.1]
+        use_cases: [UC-18]
+        invariants: [7]
+        depends_on: [E50-01, E11-07, E20-02]
+        description: |
+          Query content://sms and content://mms-sms/conversations (text-only path; no MMS
+          parts) paged by descending _id window, requires READ_SMS. Maps rows to
+          SmsThread/SmsMessage and streams paged SmsSyncResponse batches over the SMS
+          channel honoring the channel's flow-control credits (E11-07) so a large history does
+          not starve NOTIFY/STATUS.
+        acceptance:
+          - A 5k-message fixture completes in bounded paged batches with no OOM (measured heap
+            ceiling in the instrumented test harness).
+          - A forced disconnect mid-page resumes from the last acknowledged watermark with no
+            duplicate or missing rows on the next attempt.
+        tdd:
+          - smsRepository_pagedQuery_returnsDescendingIdWindows
+          - smsSyncSession_disconnectMidPage_resumesFromLastAckedWatermarkNoDuplicates
+        notes: ""
+      - id: E50-03
+        title: "[android] Incremental SMS sync via _id watermark + ContentObserver"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.1]
+        use_cases: [UC-18]
+        invariants: [7]
+        depends_on: [E50-02]
+        description: |
+          Register a ContentObserver on content://sms and content://mms-sms/conversations;
+          on change, query rows with _id greater than the persisted watermark (core/storage)
+          and push an incremental SmsSyncResponse. Watermark persists across process death.
+        acceptance:
+          - An inbound SMS fixture triggers a push containing only rows above the watermark
+            (unit test with a fake ContentObserver callback).
+          - Restarting the process resumes from the persisted watermark with no re-sent rows.
+          - A duplicate ContentObserver callback for the same change does not re-push already
+            synced rows.
+        tdd:
+          - smsWatermarkStore_afterProcessRestart_resumesFromPersistedId
+          - contentObserver_onChange_emitsOnlyRowsAboveWatermark
+          - incrementalSync_duplicateObserverCallback_dedupedByWatermark
+        notes: ""
+      - id: E50-04
+        title: "[android] SmsManager multipart send with delivery status"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.2]
+        use_cases: [UC-19]
+        invariants: [7]
+        depends_on: [E50-01]
+        description: |
+          Handle SendSmsRequest via SmsManager.sendMultipartTextMessage(destination, null,
+          parts, sentIntents, deliveryIntents); map each PendingIntent result (RESULT_OK,
+          generic failure, no service, null PDU, radio off) and delivery reports to
+          SendSmsStatus, streamed back on the SMS channel. Failure mapping never logs the
+          message body (invariant 7).
+        acceptance:
+          - A 200-character body splits into the correct part count and reassembles as a single
+            SmsMessage in local history once all parts report sent.
+          - Every documented SmsManager failure result maps to a distinct SendSmsStatus.errorCode
+            without the body or destination address appearing in any log line.
+          - A delivery PendingIntent callback updates the corresponding message's status to
+            DELIVERED.
+        tdd:
+          - sendSms_longBody_splitsAndSentIntentsAggregateToSingleStatus
+          - sendSms_radioOffFailure_mapsToFailedStatusWithoutLoggingBody
+          - sendSms_deliveryIntentReceived_updatesStatusToDelivered
+        notes: ""
+      - id: E50-05
+        title: "[android] Multi-SIM subscription chooser for send"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-8.2]
+        use_cases: [UC-19]
+        invariants: []
+        depends_on: [E50-04]
+        description: |
+          When SubscriptionManager.getActiveSubscriptionInfoList() reports more than one active
+          subscription, SendSmsRequest.subscriptionId selects the SmsManager instance via
+          SmsManager.getSmsManagerForSubscriptionId; falls back to SmsManager.getDefault()
+          when the field is absent or only one SIM is active. DeviceStatus (F-4.3) reports the
+          active subscription count so the Mac only shows a SIM picker when relevant.
+        acceptance:
+          - "Dual-SIM test double: a request with an explicit subscriptionId sends through the
+            matching per-subscription SmsManager."
+          - "Single-SIM test double: a request omitting subscriptionId sends via the default
+            manager without prompting."
+        tdd:
+          - sendSms_explicitSubscriptionId_usesSubscriptionSmsManager
+          - sendSms_singleSimDevice_defaultsWithoutSubscriptionId
+        notes: ""
+      - id: E50-06
+        title: "[docs] Document default-SMS-app write restriction behavior"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-8.2]
+        use_cases: [UC-19]
+        invariants: []
+        depends_on: [E50-04]
+        description: |
+          Since Android 4.4, only the app holding the default-SMS-app role may insert/update rows
+          in the SMS provider; SmsManager.sendMultipartTextMessage itself still sends the
+          message over the air regardless of default-app status, but Tandem cannot write its own
+          Sms.Sent row without that role. Tandem does not request the default-SMS-app role in
+          v1 (decision recorded here, revisit v2). Document that the Mac's local SMS store
+          (E50-09) is therefore the authoritative history for Tandem-originated sends, and that
+          the Android SMS provider will not gain a matching "Sent" row from Tandem's send --
+          only from whichever app is the actual default (if any).
+        acceptance:
+          - docs/protocol/SPEC.md (or a feature doc under android/feature/messaging/) states
+            the restriction, the v1 decision not to request the default-SMS-app role, and its
+            consequence for where "sent" history lives.
+        tdd: []
+        notes: ""
+      - id: E50-07
+        title: "[macos] Conversation thread list UI"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-8.1]
+        use_cases: [UC-18]
+        invariants: []
+        depends_on: [E50-01, E51-04, E22-01]
+        description: |
+          SwiftUI list of SmsThread sorted by lastMessageAtMs descending; resolves address
+          to a contact display name via the contacts cache (E51-04); shows snippet and unread
+          badge; empty and loading states.
+        acceptance:
+          - Thread list renders sorted by most-recent-message descending.
+          - An address with no contacts-cache match shows a formatted phone number, never a raw
+            provider address string.
+          - The unread badge count matches SmsThread.unreadCount.
+        tdd:
+          - threadListViewModel_multipleThreads_sortsByLastMessageDescending
+          - threadListViewModel_unresolvedAddress_showsFormattedNumberNotRawAddress
+        notes: ""
+      - id: E50-08
+        title: "[macos] Message view + compose"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-8.1, F-8.2]
+        use_cases: [UC-18, UC-19]
+        invariants: []
+        depends_on: [E50-07, E50-01]
+        description: |
+          Message bubbles distinguished by type (inbound/outbound); compose box sends
+          SendSmsRequest; optimistic local echo marked "sending" until a matching
+          SendSmsStatus arrives; SIM picker shown only when E50-05's multi-SIM status is set.
+        acceptance:
+          - Sending a message shows an optimistic bubble immediately, then reconciles to
+            sent/delivered/failed once SendSmsStatus arrives.
+          - A FAILED status shows a retry affordance on the corresponding bubble.
+        tdd:
+          - composeViewModel_send_showsOptimisticBubbleThenReconcilesWithStatus
+          - composeViewModel_failedStatus_showsRetryAffordance
+        notes: ""
+      - id: E50-09
+        title: "[macos] Local SMS store: persistence + at-rest decision"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-8.1]
+        use_cases: [UC-18]
+        invariants: [7]
+        depends_on: [E50-01]
+        description: |
+          Persist synced threads/messages in TandemStore, consistent with the trust store's
+          storage technology (E13-06/E13-07). At-rest decision: rely on the macOS file-protection class
+          plus owner-only (0600) file permissions under Application Support; no additional
+          application-level encryption in v1 (documented trade-off -- FileVault-at-rest is assumed;
+          multi-user Mac scenarios are out of scope per PRD target user). Treat the store as
+          sensitive per invariant 7: never log its contents, only row counts/ids in diagnostics.
+        acceptance:
+          - The SMS database survives an app restart with all previously synced rows intact.
+          - The database file is created with owner-only (0600) permissions.
+          - The at-rest decision and its rationale are recorded in docs/protocol/SPEC.md or an
+            ADR-style note referenced from it.
+        tdd:
+          - smsStore_afterAppRestart_returnsAllPersistedRows
+          - smsStore_databaseFile_createdWithOwnerOnlyPermissions
+        notes: ""
+      - id: E50-10
+        title: "[cross] End-to-end SMS sync + send integration test"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-8.1, F-8.2]
+        use_cases: [UC-18, UC-19]
+        invariants: [7]
+        depends_on: [E50-02, E50-03, E50-04, E50-07, E50-08]
+        description: |
+          JVM test client plus a real Mac server (or the reverse) drives the full sync-then-send
+          flow to satisfy the roadmap Phase 5 exit criterion "send and receive SMS from the Mac".
+        acceptance:
+          - Sending from the Mac test harness to a test Android device/emulator SIM completes
+            with an observed SENT/DELIVERED status.
+          - A new inbound SMS on the Android side is reflected on the Mac within the test's
+            polling bound.
+        tdd:
+          - e2eSms_sendFromMac_deliveredStatusObserved
+          - e2eSms_inboundOnAndroid_syncedToMacWithinBound
+        notes: ""
+      - id: E50-11
+        title: "[tools] Security test: SMS content never logged"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-8.1, F-8.2]
+        use_cases: []
+        invariants: [7]
+        depends_on: [E50-02, E50-04, E15-17]
+        description: |
+          Extend the invariant-7 log-audit tool (E15-17) to grep both
+          apps' logs for a canary SMS body and phone number across a full sync-then-send session.
+        acceptance:
+          - The log audit over a canary SMS session finds zero occurrences of the canary body or
+            number in either app's logs.
+        tdd:
+          - logAudit_smsCanarySession_zeroOccurrencesInLogs
+        notes: ""
+
+  - id: E51
+    title: Contacts sync
+    labels: [area:contacts]
+    prd: [F-8.3]
+    use_cases: [UC-18, UC-19, UC-20, UC-21]
+    summary: |
+      Read-only sync of contact name, phone numbers, emails, and a photo thumbnail from
+      ContactsContract to a Mac-side cache, kept current via an updated-timestamp watermark and
+      ContactsContract.DeletedContacts. Phone numbers are normalized to E.164 on both platforms
+      (Android via Google's libphonenumber, macOS via a Swift port) so SMS senders and call
+      caller IDs match cached contacts regardless of the number's original formatting. This epic
+      has no UI of its own; it is a dependency of E50's thread list and E52's caller-ID alert.
+    scope:
+      - contacts.proto messages and SPEC.md section.
+      - "Android: initial paged read, incremental sync via updated-timestamp watermark + deleted
+        contacts, libphonenumber normalization."
+      - "macOS: contacts cache storage + lookup API, Swift-side normalization for numbers that
+        arrive without an exact cache match."
+      - Cross-platform phone-number-normalization parity vectors.
+    out_of_scope:
+      - Writing/editing contacts on the phone from the Mac.
+      - Contact groups/labels beyond phone numbers and emails.
+      - Call log (E52) and SMS thread UI (E50) themselves -- this epic only supplies lookups.
+    exit_criteria:
+      - A 500-contact fixture's initial sync matches on the Mac; a subsequent edit and a delete
+        are both reflected within the incremental sync window.
+      - Phone-number-normalization vectors produce identical E.164 output on both platforms.
+      - A log audit over a full contacts sync session finds zero occurrences of canary contact
+        PII (invariant 7).
+    issues:
+      - id: E51-01
+        title: "[protocol] contacts.proto: contact record, sync, delete"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E01-10, E01-14, E01-16]
+        description: |
+          protocol/proto/tandem/v1/contacts.proto: Contact{contactId, displayName,
+          phoneNumbers[]{number, normalizedE164, type}, emails[]{address, type}, photoThumbnail,
+          updatedAtMs}, ContactsSyncRequest{sinceUpdatedAtMs}, ContactsSyncResponse{contacts[],
+          deletedContactIds[], watermarkMs}. Write docs/protocol/SPEC.md Contacts section.
+          Vectors: contact round trip, deleted-contact tombstone handling, an oversized
+          thumbnail rejected against the configured maxPx cap.
+        acceptance:
+          - buf lint passes.
+          - protocol/vectors/contacts/*.json pass conformance on both platforms.
+        tdd:
+          - contactVector_roundTrip_matchesGoldenBytes
+          - contactsSyncResponseVector_deletedIds_encodeDecodeSymmetric
+          - contactThumbnail_overMaxPxCap_rejectedByParser
+        notes: ""
+      - id: E51-02
+        title: "[android] Initial ContactsContract read"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: L
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E51-01, E20-02]
+        description: |
+          Query ContactsContract.Contacts, CommonDataKinds.Phone, CommonDataKinds.Email, and
+          CommonDataKinds.Photo; requires READ_CONTACTS. Pages via a cursor window analogous to
+          E50-02's SMS paging. Thumbnails are downsampled to a configured maxPx before sending.
+        acceptance:
+          - A 2k-contact fixture syncs with no OOM (bounded-heap instrumented test).
+          - Every synced thumbnail is downsampled to the configured maxPx.
+        tdd:
+          - contactsRepository_pagedRead_returnsAllContactsWithPhoneAndEmail
+          - contactsRepository_photoThumbnail_downsampledToConfiguredMaxPx
+        notes: ""
+      - id: E51-03
+        title: "[android] Phone number normalization (libphonenumber)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: []
+        depends_on: [E51-02]
+        description: |
+          Integrate Google's libphonenumber (Apache 2.0) to normalize every read number to E.164
+          using the device region; store normalizedE164 alongside the raw string for exact
+          address matching in SMS (E50) and calls (E52).
+        acceptance:
+          - Numbers in varied local formats (national, with/without leading zero, with
+            separators) normalize to the same E.164 value as a reference vector set.
+          - An unparsable number falls back to the raw string without throwing.
+        tdd:
+          - phoneNormalizer_localFormatVariants_normalizeToSameE164
+          - phoneNormalizer_unparsableNumber_fallsBackToRawWithoutCrashing
+        notes: ""
+      - id: E51-04
+        title: "[macos] Contacts cache + lookup API"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E51-01]
+        description: |
+          TandemStore contacts cache table; applies ContactsSyncResponse as an upsert plus
+          tombstone-delete of deletedContactIds. Exposes lookup(normalizedE164) -> Contact?
+          consumed by E50-07's thread list and E52-06/07's caller-ID UI. Uses a Swift
+          libphonenumber port (e.g. PhoneNumberKit) to re-normalize numbers arriving on the SMS or
+          CALLS channel that lack an exact cache-side match, so formatting differences at the
+          source never cause a false lookup miss.
+        acceptance:
+          - Applying a ContactsSyncResponse with deletedContactIds removes the corresponding
+            cached rows.
+          - Looking up a number formatted differently but numerically equivalent to a cached
+            number resolves to the same contact.
+        tdd:
+          - contactsCache_deletedContactId_removedFromStore
+          - contactsCache_lookupDifferentlyFormattedEquivalentNumber_resolvesSameContact
+        notes: ""
+      - id: E51-05
+        title: "[android] Incremental contacts sync via updated timestamp + deleted contacts"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E51-02]
+        description: |
+          Use ContactsContract.Contacts.CONTACT_LAST_UPDATED_TIMESTAMP as the sync watermark and
+          ContactsContract.DeletedContacts since the last sync for tombstones. Register a
+          ContentObserver on the Contacts URI for near-real-time push of edits.
+        acceptance:
+          - Editing a single contact pushes only that updated record, not a full resync.
+          - Deleting a contact yields an entry in deletedContactIds that removes it from the
+            Mac cache.
+        tdd:
+          - contactsIncrementalSync_editedContact_pushesSingleUpdatedRecord
+          - contactsIncrementalSync_deletedContact_reportedInDeletedContactIds
+        notes: ""
+      - id: E51-06
+        title: "[protocol] Phone-number-normalization parity vectors"
+        type: test
+        platforms: [protocol]
+        priority: P1
+        size: S
+        prd: [F-8.3]
+        use_cases: []
+        invariants: []
+        depends_on: [E51-03, E51-04, E01-16]
+        description: |
+          Cross-platform vector set (shared JSON, in the E01-16 vector format) of
+          raw-to-E.164 normalization cases (valid national/international, invalid, with
+          extension) run against both Android's libphonenumber and macOS's Swift port to
+          guarantee identical output used for SMS/call matching.
+        acceptance:
+          - The conformance run produces identical normalized output on both platforms for every
+            vector case.
+        tdd:
+          - phoneNormalizationVectors_bothPlatforms_produceIdenticalE164
+        notes: ""
+      - id: E51-07
+        title: "[cross] End-to-end contacts sync integration test"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-8.3]
+        use_cases: [UC-18, UC-19, UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E51-02, E51-04, E51-05]
+        description: |
+          Matches the epic exit criterion: a 500-contact fixture's initial sync matches on the
+          Mac; a subsequent edit and delete are both reflected within the incremental sync
+          window.
+        acceptance:
+          - Initial sync of the fixture produces the same contact count and field values on the
+            Mac.
+          - An edit followed by a delete on Android is reflected on the Mac incrementally,
+            without a full resync.
+        tdd:
+          - e2eContacts_initialSync_matchesFixtureCountAndFields
+          - e2eContacts_editThenDelete_reflectedIncrementallyOnMac
+        notes: ""
+      - id: E51-08
+        title: "[tools] Security test: contact PII never logged"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-8.3]
+        use_cases: []
+        invariants: [7]
+        depends_on: [E51-02, E51-04, E15-17]
+        description: |
+          Extend the invariant-7 log audit (E15-17) to grep both apps' logs for a canary contact name,
+          number, and email across a full contacts sync session.
+        acceptance:
+          - The log audit finds zero occurrences of the canary contact name, number, or email in
+            either app's logs.
+        tdd:
+          - logAudit_contactsCanarySession_zeroOccurrencesInLogs
+        notes: ""
+
+  - id: E52
+    title: Calls control
+    labels: [area:calls]
+    prd: [F-8.4]
+    use_cases: [UC-20, UC-21]
+    summary: |
+      Incoming-call detection with caller ID resolved via the contacts cache (E51), a Mac alert
+      shown within 1 s with answer/decline actions, hang up of an active call, and placing
+      outgoing calls from the Mac. Audio always stays on the phone (PRD non-goal: no Bluetooth
+      HFP audio bridging). A spike first settles which Android call APIs to use so detection and
+      control do not require becoming the default dialer or a call-screening app.
+    scope:
+      - calls.proto messages and SPEC.md section.
+      - "Android: TelephonyCallback-based incoming-call detection, TelecomManager
+        answer/decline/hangup, ACTION_CALL outgoing placement with background-start handling."
+      - "macOS: incoming-call alert UI, place-call UI with SIM picker."
+      - Cross-platform / device-level latency and control test.
+    out_of_scope:
+      - Call audio on the Mac (Bluetooth HFP) -- PRD non-goal.
+      - Call log UI -- v2 (PRD F-8.4 note).
+      - Becoming the default dialer or a CallScreeningService (decision recorded in E52-02).
+    exit_criteria:
+      - Incoming call shows on the Mac within 1 s p95 (roadmap Phase 5 exit criterion).
+      - Answer, decline, hang up, and place-call all work from the Mac in a device-level test.
+      - A log audit over a call-control session finds zero occurrences of canary caller identity
+        (invariant 7).
+    issues:
+      - id: E52-01
+        title: "[protocol] calls.proto: call events, actions, place call"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-20, UC-21]
+        invariants: [7]
+        depends_on: [E01-10, E01-14, E01-16]
+        description: |
+          protocol/proto/tandem/v1/calls.proto: CallEvent{callId, direction, state, address,
+          normalizedE164, timestampMs}, CallAction{callId, action} (ANSWER/DECLINE/
+          HANGUP), PlaceCallRequest{address, subscriptionId}, CallActionResult{callId,
+          success, errorCode}. Write docs/protocol/SPEC.md Calls section. Vectors: call-state
+          transition sequences, a CallAction referencing an unknown callId rejected.
+        acceptance:
+          - buf lint passes.
+          - protocol/vectors/calls/*.json pass conformance on both platforms.
+        tdd:
+          - callEventVector_roundTrip_matchesGoldenBytes
+          - callAction_unknownCallId_rejectedByReceiver
+        notes: ""
+      - id: E52-02
+        title: "[android] Spike: choose call-detection and control APIs"
+        type: spike
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-8.4]
+        use_cases: [UC-20, UC-21]
+        invariants: []
+        depends_on: []
+        description: |
+          Compare TelephonyCallback (passive detection, READ_PHONE_STATE) versus registering
+          as a CallScreeningService (requires being the default call-screening app) versus
+          TelecomManager.acceptRingingCall()/related APIs (ANSWER_PHONE_CALLS) for actually
+          answering, declining, and hanging up. Output: a decision record -- v1 uses
+          TelephonyCallback for detection and TelecomManager for control, and does not become
+          a CallScreeningService or default dialer, avoiding default-app exclusivity and user
+          friction; revisit in v2 if screening features are wanted.
+        acceptance:
+          - Decision documented with rationale, unblocking E52-03 through E52-05.
+        tdd: []
+        notes: ""
+      - id: E52-03
+        title: "[android] Incoming call detection via TelephonyCallback"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-20]
+        invariants: [7]
+        depends_on: [E52-01, E52-02, E20-02, E51-03]
+        description: |
+          TelephonyManager.registerTelephonyCallback with a CallStateListener
+          (READ_PHONE_STATE); maps RINGING/OFFHOOK/IDLE transitions to CallEvent;
+          resolves caller number to a display name via an on-device ContactsContract.PhoneLookup (E51-03
+          normalization) before sending. Pushed on the CALLS channel with priority so it is not
+          delayed behind bulk traffic (target: Mac display within 1 s, UC-20).
+        acceptance:
+          - A simulated RINGING callback emits a CallEvent on the send path within a
+            test-measurable bound; the real-device 1 s wall-clock bound is verified by E52-08's
+            manual gate.
+          - "A RINGING -> OFFHOOK -> IDLE sequence emits the matching CallEvent sequence."
+        tdd:
+          - callStateListener_ringingState_emitsIncomingCallEventWithResolvedCallerName
+          - callStateListener_offhookThenIdle_emitsActiveThenDisconnectedEvents
+        notes: ""
+      - id: E52-04
+        title: "[android] Answer/decline/hangup via TelecomManager"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-20]
+        invariants: []
+        depends_on: [E52-01, E52-03]
+        description: |
+          Handle CallAction: ANSWER calls TelecomManager.acceptRingingCall(); DECLINE
+          rejects the ringing call without answering; HANGUP ends the active call. Requires
+          ANSWER_PHONE_CALLS. Audio stays on the phone (no bridging). Reports success/failure
+          as CallActionResult.
+        acceptance:
+          - ANSWER invokes acceptRingingCall() on a ringing call.
+          - DECLINE ends a ringing call without ever answering it.
+          - HANGUP with no active call returns a failure CallActionResult rather than
+            throwing.
+        tdd:
+          - callAction_answer_invokesAcceptRingingCall
+          - callAction_decline_endsRingingCallWithoutAnswering
+          - callAction_hangupNoActiveCall_returnsFailureResult
+        notes: ""
+      - id: E52-05
+        title: "[android] Place outgoing call + background-start handling"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-21]
+        invariants: []
+        depends_on: [E52-01, E52-02]
+        description: |
+          Handle PlaceCallRequest via startActivity(Intent(ACTION_CALL, tel:...)), requiring
+          CALL_PHONE. Because the request can arrive while the app is not in the foreground,
+          Android 10+ background-activity-start (BAL) restrictions block a bare startActivity
+          from a non-visible service context; route through a high-priority full-screen-intent
+          notification the user taps when a direct start is blocked, and log which path was used
+          (never the phone number). Reuses the multi-SIM subscription selection pattern from
+          E50-05.
+        acceptance:
+          - Placing a call while the app UI is foregrounded starts the call activity directly.
+          - Placing a call while backgrounded falls back to a full-screen-intent notification
+            whose tap starts the call.
+          - A request with subscriptionId set selects the matching SIM for the outgoing call.
+        tdd:
+          - placeCall_appForegrounded_startsCallActivityDirectly
+          - placeCall_appBackgrounded_fallsBackToFullScreenNotificationLaunch
+          - placeCall_explicitSubscriptionId_usesMatchingSimForOutgoingCall
+        notes: ""
+      - id: E52-06
+        title: "[macos] Incoming call alert UI"
+        type: story
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-20]
+        invariants: []
+        depends_on: [E52-01, E51-04, E22-01, E30-07]
+        description: |
+          Reuses the notification-alert pattern from E30-07 (UNUserNotificationCenter) for a
+          RINGING CallEvent, with the caller display name resolved via the contacts cache
+          (E51-04) and Answer/Decline actions producing CallAction. A menu-bar quick action
+          offers Hang Up while the call is ACTIVE.
+        acceptance:
+          - A RINGING event shows an alert with the resolved caller name (or formatted number
+            if unresolved) within the UI test bound.
+          - Tapping Answer/Decline sends the corresponding CallAction.
+        tdd:
+          - callAlertViewModel_ringingEvent_resolvesCallerNameFromContactsCache
+          - callAlertViewModel_answerTapped_sendsAnswerAction
+        notes: ""
+      - id: E52-07
+        title: "[macos] Place call UI"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-8.4]
+        use_cases: [UC-21]
+        invariants: []
+        depends_on: [E52-01, E51-04, E50-08]
+        description: |
+          Mac UI entry point (contact detail row / dial affordance) sending PlaceCallRequest,
+          reusing the Mac SIM-picker pattern from E50-08's compose flow (SIM list from E50-05).
+        acceptance:
+          - Placing a call with two active SIMs prompts a subscription picker before sending.
+          - A failure CallActionResult surfaces an error in the UI.
+        tdd:
+          - placeCallViewModel_multiSimStatus_promptsSubscriptionPicker
+          - placeCallViewModel_failureResult_showsError
+        notes: ""
+      - id: E52-08
+        title: "[cross] Device-level test: call control latency and correctness"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-8.4]
+        use_cases: [UC-20, UC-21]
+        invariants: []
+        depends_on: [E52-03, E52-04, E52-05, E52-06, E52-07]
+        description: |
+          Manual device gate matching the roadmap Phase 5 exit criterion: incoming call shows on
+          the Mac within 1 s, and answer/decline/hangup/place-call all work.
+        acceptance:
+          - Over 10 trials on physical hardware, the Mac alert for an incoming call appears
+            within 1 s p95 of the call state changing on the phone.
+          - Answer, decline, hangup, and place-call each succeed at least once during the test
+            run.
+        tdd: []
+        notes: ""
+      - id: E52-09
+        title: "[tools] Security test: call metadata never logged"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-8.4]
+        use_cases: []
+        invariants: [7]
+        depends_on: [E52-03, E52-04, E15-17]
+        description: |
+          Extend the invariant-7 log audit (E15-17) to grep both apps' logs for a canary caller name and
+          number across a full incoming/outgoing call-control session.
+        acceptance:
+          - The log audit finds zero occurrences of the canary caller identity in either app's
+            logs.
+        tdd:
+          - logAudit_callCanarySession_zeroOccurrencesInLogs
+        notes: ""

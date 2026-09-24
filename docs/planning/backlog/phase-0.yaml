@@ -1,0 +1,1282 @@
+phase: 0
+epics:
+  - id: E00
+    title: Monorepo scaffolding and CI
+    labels: [area:scaffolding, area:ci]
+    prd: []
+    use_cases: []
+    summary: |
+      Stand up the monorepo exactly as PRD `<structural-decomposition>` lays it out, with a
+      working Gradle build, a working Xcode/SwiftPM build, generated-code hygiene, CI on both
+      platforms with path filters, and the repo-level guardrails (CLAUDE.md, module dependency
+      rules, secret scanning, release-log lint) that every later epic relies on. Nothing here
+      implements a PRD feature; it makes every later issue buildable, testable, and reviewable.
+    scope:
+      - Directory layout matching the PRD tree (`android/`, `macos/`, `protocol/`, `tools/`, `docs/`).
+      - Gradle convention plugins, version catalog, Hilt, JUnit5, Turbine, ktlint, detekt, Kover/Jacoco.
+      - Xcode project + local SwiftPM packages, Swift 6 strict concurrency, Swift Testing, SwiftLint.
+      - buf codegen wiring for protobuf-kotlin-lite and swift-protobuf, with a CI check that
+        generated code is never hand-edited.
+      - GitHub Actions workflows with path filters (android/ubuntu, macos/macos-runner, protocol, conformance).
+      - CLAUDE.md per PRD Appendix D, PR template, CODEOWNERS-lite, issue templates.
+      - Module dependency rule enforcement (features never depend on each other; only
+        core/transport touches sockets) on both platforms.
+      - Secret scanning; release-log lint rule (no content logging in release builds).
+    out_of_scope:
+      - The actual `.proto` schemas and buf lint/breaking rules (E01).
+      - Any feature module implementation (Layer 4+ epics).
+      - Threat model and ADR content (E02).
+    exit_criteria:
+      - Fresh checkout builds on ubuntu-latest (`./gradlew help`) and on a macos runner (`xcodebuild -list`).
+      - CI runs android, macos, protocol, and conformance jobs, each triggered only by its path filter.
+      - Editing a generated `*.pb.kt` or `*.pb.swift` file by hand fails CI.
+      - A feature module depending on another feature module fails the build.
+      - A non-transport module opening a raw socket fails the build.
+      - "`CLAUDE.md` exists at repo root and contains the eight security invariants verbatim."
+    issues:
+      - id: E00-01
+        title: "[docs] Create monorepo directory skeleton per PRD structural decomposition"
+        type: task
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Create the empty directory tree from PRD `<structural-decomposition>` (`android/app`,
+          `android/core/{protocol,crypto,transport,pairing,storage}`, `android/feature/*`,
+          `macos/Tandem.xcodeproj` placeholder, `macos/TandemApp`, `macos/TandemShare`,
+          `macos/Packages/{TandemProtocol,TandemCrypto,TandemTransport,TandemPairing,TandemStore,Feature*}`,
+          `protocol/{proto/tandem/v1,vectors}`, `tools/{conformance,pcap-audit,mitm-lab,fuzz}`).
+          Each empty module directory gets a placeholder `README.md` naming the PRD capability it
+          will own so the tree is self-documenting before code lands.
+        acceptance:
+          - Directory tree matches the PRD tree exactly, verified by a script that diffs `find`
+            output against a checked-in manifest.
+          - Every leaf module directory contains a one-line README naming its owning capability IDs.
+        tdd:
+          - "`directoryManifestCheck_treeMatchesManifest_passes`"
+          - "`directoryManifestCheck_missingModuleDirectory_failsWithPathListed`"
+          - "`directoryManifestCheck_leafReadmeMissingCapabilityIds_fails`"
+        notes: ""
+      - id: E00-02
+        title: "[android] Gradle multi-module skeleton, convention plugins, version catalog"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01]
+        description: |
+          `settings.gradle.kts` declaring every module from the PRD tree; `gradle/libs.versions.toml`
+          version catalog; `build-logic` included build with convention plugins
+          (`tandem.android.library`, `tandem.android.feature`, `tandem.kotlin.jvm`) so each module's
+          `build.gradle.kts` is a few lines applying a convention plugin, not repeated boilerplate.
+        acceptance:
+          - "`./gradlew projects` lists every module from the directory manifest."
+          - "`./gradlew help` succeeds on a clean checkout with no manual SDK configuration beyond `local.properties`."
+          - Adding a new `feature/*` module requires only applying `tandem.android.feature` and one line in `settings.gradle.kts`.
+        tdd:
+          - convention plugin test `androidFeaturePlugin_appliedToNewModule_configuresCompileSdkAndLint`
+          - settings test `gradleSettings_allPrdModulesDeclared_projectsListMatchesManifest`
+        notes: ""
+      - id: E00-03
+        title: "[android] Hilt DI wiring skeleton across modules"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02]
+        description: |
+          Root `@HiltAndroidApp` application in `android/app`, empty `@Module @InstallIn` shells in
+          each `core/*` module so downstream epics bind real implementations instead of wiring DI
+          from scratch. No production bindings yet.
+        acceptance:
+          - App module builds and launches to a blank screen with Hilt initialized (instrumented smoke test).
+          - Each `core/*` module exposes exactly one empty Hilt module ready for bindings.
+        tdd:
+          - "`hiltApplication_onCreate_noExceptionThrown`"
+          - "`coreCryptoHiltModule_isInstalledInSingletonComponent`"
+        notes: ""
+      - id: E00-04
+        title: "[android] JUnit5 + Turbine test infrastructure baseline"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02]
+        description: |
+          JUnit5 test runner wired through the Android Gradle Plugin (via `de.mannodermaus.android-junit5`
+          or equivalent), Turbine on the test classpath for Flow assertions, a shared `test-fixtures`
+          convention plugin so every module gets the same test dependencies without repetition.
+        acceptance:
+          - A sample JUnit5 test with a `@Test` and a Turbine `flow.test { }` block runs via `./gradlew test`.
+          - Test reports are produced in the standard Gradle location for CI to pick up.
+        tdd:
+          - "`sampleFlowEmitter_collectedWithTurbine_emitsExpectedSequence`"
+        notes: ""
+      - id: E00-05
+        title: "[android] ktlint + detekt baseline configuration"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02]
+        description: |
+          `.editorconfig`-driven ktlint rules, `detekt.yml` baseline with the default ruleset plus
+          a placeholder custom-rule module for the module-dependency check (E00-14) to plug into.
+        acceptance:
+          - "`./gradlew ktlintCheck` and `./gradlew detekt` both run clean on the empty skeleton."
+          - Introducing a ktlint violation (e.g. wildcard import) fails `ktlintCheck`.
+        tdd:
+          - "`ktlintCheck_wildcardImportIntroduced_buildFails`"
+          - "`detekt_defaultRuleset_runsWithoutConfigErrors`"
+        notes: ""
+      - id: E00-06
+        title: "[android] Kover/Jacoco coverage reporting setup"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02, E00-04]
+        description: |
+          Kover (or Jacoco, whichever integrates cleaner with the JUnit5 runner chosen in E00-04)
+          aggregate coverage report across all modules, published as a CI artifact. No coverage
+          gate yet (thresholds are a per-epic decision later).
+        acceptance:
+          - "`./gradlew koverHtmlReport` (or jacoco equivalent) produces an aggregate report covering all modules."
+        tdd:
+          - "`coverageReport_sampleTestFromE00-04_appearsInAggregateReport`"
+        notes: ""
+      - id: E00-07
+        title: "[macos] Xcode project + local SwiftPM package skeleton (Swift 6 strict concurrency)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01]
+        description: |
+          `Tandem.xcodeproj` with `TandemApp` (menu bar app target) and `TandemShare` (share
+          extension target); local SwiftPM packages `TandemProtocol`, `TandemCrypto`,
+          `TandemTransport`, `TandemPairing`, `TandemStore`, and empty `Feature*` package stubs,
+          each with `swiftLanguageMode: .v6` and complete concurrency checking enabled.
+        acceptance:
+          - "`xcodebuild -scheme Tandem -destination 'platform=macOS' build` succeeds on a clean checkout."
+          - Every local package compiles under `-strict-concurrency=complete`.
+          - Introducing a data race (unsynchronized mutable state shared across a `Task`) fails the build.
+        tdd:
+          - "`tandemTransportPackage_sharedMutableStateAcrossTask_strictConcurrencyBuildFails`"
+          - "`xcodeprojScheme_tandem_buildsCleanOnFreshCheckout`"
+        notes: ""
+      - id: E00-08
+        title: "[macos] Swift Testing baseline + SwiftLint configuration"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-07]
+        description: |
+          `.swiftlint.yml` baseline ruleset; a sample Swift Testing `@Test` in each package's test
+          target so downstream epics have a working pattern to copy.
+        acceptance:
+          - "`swiftlint` runs clean on the skeleton; introducing a force-unwrap in new code fails lint
+            per the configured rule."
+          - "`swift test` runs the sample Swift Testing case in every package."
+        tdd:
+          - "`swiftlintForceUnwrapRule_introducedForceUnwrap_lintFails`"
+          - "`tandemCryptoPackage_sampleSwiftTestingCase_passes`"
+        notes: ""
+      - id: E00-09
+        title: "[protocol] buf setup + codegen for protobuf-kotlin-lite and swift-protobuf"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01, E00-02, E00-07]
+        description: |
+          `protocol/buf.gen.yaml` with two outputs (protobuf-kotlin-lite into
+          `android/core/protocol/src/main/kotlin`, swift-protobuf into
+          `macos/Packages/TandemProtocol/Sources`); a `tools/protocol/generate.sh` wrapper both
+          Gradle and Xcode pre-build phases can call. Runs against an empty placeholder `.proto`
+          until E01 lands real schemas.
+        acceptance:
+          - "`buf generate` produces compiling Kotlin and Swift output from a placeholder message."
+          - Regenerating twice in a row produces byte-identical output (deterministic codegen).
+        tdd:
+          - "`bufGenerate_placeholderMessage_producesCompilingKotlinAndSwift`"
+          - "`bufGenerate_runTwice_outputIsByteIdentical`"
+        notes: ""
+      - id: E00-10
+        title: "[ci] CI check: generated protocol code is never hand-edited"
+        type: task
+        platforms: [ci]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-09]
+        description: |
+          CI job regenerates all protocol code via `tools/protocol/generate.sh` and fails the build
+          if `git diff` is non-empty, catching any hand-edit of `*.pb.kt` / `*.pb.swift` files.
+        acceptance:
+          - A PR that hand-edits a generated file fails this CI job with a diff shown in the log.
+          - A PR that only edits `.proto` and regenerates correctly passes.
+        tdd:
+          - "`generatedCodeCheck_handEditedPbKtFile_ciFails`"
+          - "`generatedCodeCheck_protoChangedAndRegenerated_ciPasses`"
+        notes: ""
+      - id: E00-11
+        title: "[ci] GitHub Actions workflows with path filters (android/macos/protocol/conformance)"
+        type: task
+        platforms: [ci]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02, E00-07, E00-09]
+        description: |
+          Four workflows: `android.yml` (ubuntu-latest, triggered on `android/**` and `protocol/**`
+          changes), `macos.yml` (macos-latest runner, triggered on `macos/**` and `protocol/**`),
+          `protocol.yml` (buf lint/breaking, triggered on `protocol/**`), `conformance.yml` (runs
+          `tools/conformance`, triggered on `protocol/**`, `android/core/protocol/**`,
+          `macos/Packages/TandemProtocol/**`). All required as branch protection checks.
+        acceptance:
+          - A PR touching only `android/**` runs the android workflow and not the macos workflow.
+          - A PR touching only `macos/**` runs the macos workflow and not the android workflow.
+          - A PR touching `protocol/**` runs all four workflows.
+        tdd:
+          - "`pathFilterAndroidOnly_prTouchesAndroidOnly_macosWorkflowSkipped`"
+          - "`pathFilterProtocolChange_prTouchesProto_allFourWorkflowsRun`"
+        notes: ""
+      - id: E00-12
+        title: "[docs] CLAUDE.md per PRD Appendix D including security invariants"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: [1, 2, 3, 4, 5, 6, 7, 8]
+        depends_on: [E00-01]
+        description: |
+          Root `CLAUDE.md` following the PRD Appendix D skeleton verbatim: pointers to
+          `docs/PRD.md` and `docs/protocol/SPEC.md`, the eight security invariants copied from
+          the architecture section, the "never edit generated code" rule, and the build/test/lint
+          commands for both platforms plus `buf` and conformance.
+        acceptance:
+          - "`CLAUDE.md` contains all eight invariants, each matching the PRD wording."
+          - Every command listed in `CLAUDE.md` (gradlew, xcodebuild, swiftlint, buf, conformance
+            run script) exists and exits 0 on the current skeleton.
+        tdd: []
+        notes: ""
+      - id: E00-13
+        title: "[docs] PR template, CODEOWNERS-lite, issue templates"
+        type: doc
+        platforms: [docs]
+        priority: P1
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01]
+        description: |
+          `.github/PULL_REQUEST_TEMPLATE.md` with a Definition-of-Done checklist mirroring
+          `docs/planning/README.md`; `.github/CODEOWNERS` mapping `android/**`, `macos/**`,
+          `protocol/**`, `tools/**` to placeholder owner handles (single-owner repo, kept simple);
+          issue templates for `bug`, `security-finding`, and `spike-result`.
+        acceptance:
+          - Opening a PR pre-fills the DoD checklist from the template.
+          - "`CODEOWNERS` syntax validates (`git ls-files` + GitHub's own linter, no path left unowned)."
+        tdd: []
+        notes: ""
+      - id: E00-14
+        title: "[android] Module dependency rule enforcement (features never depend on each other; only core/transport touches sockets)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: [1, 4]
+        depends_on: [E00-02, E00-05]
+        description: |
+          Custom detekt rule (or Gradle `dependencies.all { }` inspection task) that fails the
+          build if: (a) any `feature/*` module has a project dependency on another `feature/*`
+          module, (b) any module other than `core/transport` references `java.net.Socket`,
+          `javax.net.ssl.SSLSocket`, or `java.nio.channels.SocketChannel` in its source set.
+        acceptance:
+          - A deliberately introduced `feature/clipboard -> feature/files` dependency fails the build.
+          - A deliberately introduced raw `Socket` usage in `feature/notifications` fails the build.
+          - The same check passing is required for CI green (wired into E00-11's android workflow).
+        tdd:
+          - "`moduleDependencyRule_featureDependsOnFeature_buildFails`"
+          - "`moduleDependencyRule_socketUsageOutsideTransport_buildFails`"
+          - "`moduleDependencyRule_transportUsesSocket_buildPasses`"
+        notes: ""
+      - id: E00-15
+        title: "[macos] Swift package graph dependency rule check"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: [1]
+        depends_on: [E00-07, E00-08]
+        description: |
+          A small `tools/protocol` (or `tools/lint`) Swift script that parses
+          `Tandem.xcodeproj`'s package graph and each `Package.swift` and fails if any `Feature*`
+          package depends on another `Feature*` package, or if any package other than
+          `TandemTransport` imports `Network` directly.
+        acceptance:
+          - A deliberately introduced `FeatureClipboard -> FeatureFiles` dependency fails the check.
+          - A deliberately introduced `import Network` in `FeatureNotifications` fails the check.
+        tdd:
+          - "`packageGraphCheck_featureDependsOnFeature_checkFails`"
+          - "`packageGraphCheck_networkImportOutsideTransport_checkFails`"
+        notes: ""
+      - id: E00-16
+        title: "[ci] Secret scanning setup"
+        type: task
+        platforms: [ci]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-01]
+        description: |
+          Wire a secret-scanning tool (gitleaks or GitHub's native secret scanning, whichever
+          needs less bespoke config) into CI on every push and PR, with a baseline allowlist file
+          for known-safe test fixtures (e.g. vector files containing fake HMAC secrets).
+        acceptance:
+          - A PR introducing a plausible private key or API token string fails the scan.
+          - The scan runs against the full diff, not just changed-file heads, to catch secrets added
+            then "removed" in the same PR.
+        tdd:
+          - "`secretScan_introducedPrivateKeyPem_ciFails`"
+          - "`secretScan_addedThenRemovedInSamePr_stillDetected`"
+        notes: ""
+      - id: E00-17
+        title: "[cross] Release-log lint rule: no content logging in release builds"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-10]
+        invariants: [7]
+        depends_on: [E00-05, E00-08]
+        description: |
+          Android: detekt custom rule failing on `Log.*`/`Timber.*` calls that reference known
+          sensitive types (notification text, clipboard content, message bodies, secrets) in
+          non-debug source sets. macOS: SwiftLint custom rule (or a `grep`-based CI check) failing
+          on `os_log`/`print` calls referencing the equivalent Swift types, scoped to Release
+          configuration. Both checks read a shared list of "sensitive symbol names" so the rule
+          stays in sync across platforms.
+        acceptance:
+          - A `Log.d("clip", clipboardText)` call in a release-visible path fails the Android check.
+          - A `os_log("%@", notification.body)` call fails the macOS check.
+          - The same log call using a redacted/length-only representation passes both checks.
+        tdd:
+          - "`releaseLogLint_clipboardContentLoggedInReleaseSourceSet_buildFails`"
+          - "`releaseLogLint_notificationBodyLoggedViaOsLog_checkFails`"
+          - "`releaseLogLint_redactedLengthOnlyLog_checkPasses`"
+        notes: |
+          This is a static best-effort check (symbol-name based), not a runtime guarantee; the
+          real guarantee comes from `tools/pcap-audit` canaries (E15) and code review.
+
+  - id: E01
+    title: "Wire protocol: SPEC.md, .proto schema, test vectors"
+    labels: [area:protocol]
+    prd: [F-2.1, F-3.1, F-3.2, F-3.3, F-3.4, F-3.5]
+    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-02, AC-03, AC-04, AC-05, AC-07, AC-08]
+    summary: |
+      Produce the single normative source of truth for the wire protocol: `docs/protocol/SPEC.md`
+      (RFC 2119 language, one issue per section), the phase-0 `.proto` schemas it describes, buf
+      lint/breaking enforcement, and the cross-platform test-vector suite that later epics
+      (E10-E14) implement against and E15 runs in CI. Nothing here writes Kotlin or Swift codec
+      implementations; it defines what those implementations must do and proves it with vectors.
+    scope:
+      - SPEC.md sections (handshake/TLS profile, pairing, framing+envelope, channels+flow control,
+        errors+close codes, versioning/capability negotiation, heartbeat, discovery TXT, media ticket).
+      - "`protocol/proto/tandem/v1/{envelope,pairing,control,status}.proto` for phase-0 scope."
+      - A written placeholder plan for later-phase proto domains (notify, clipboard, files, sms,
+        contacts, calls, input) so E01 does not block on features not yet designed.
+      - "`buf.yaml` lint configuration and `buf breaking` baseline against `main`."
+      - Test-vector file format, a Python reference generator, and vectors for SPKI fingerprint,
+        pairing proof HMAC, frame encoding (valid and invalid), Bonjour rotating ID, and QR payload
+        parsing (valid and malformed).
+    out_of_scope:
+      - Kotlin/Swift codec implementations that consume these vectors (E11).
+      - The conformance runner that executes vectors in CI (E15).
+      - Proto messages for any domain beyond envelope/pairing/control/status (deferred per the
+        placeholder plan, owned by the epic that implements each feature).
+    exit_criteria:
+      - "`buf lint` and `buf breaking --against '.git#branch=main'` both pass on `protocol/`."
+      - Every SPEC.md section referenced above exists, uses RFC 2119 keywords, and is cross-linked
+        from the relevant `.proto` file's comments.
+      - All five vector categories exist under `protocol/vectors/`, are regenerable from the
+        reference generator, and have been reviewed (PR approval recorded).
+    issues:
+      - id: E01-01
+        title: "[docs] SPEC.md section: handshake & TLS profile"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [AC-01, AC-04]
+        invariants: [1, 2, 5, 6]
+        depends_on: []
+        description: |
+          Normative section: TLS 1.3 only, no session resumption, no 0-RTT, client cert required,
+          verify-callback semantics (pin against trust store; unknown key fails except inside an
+          open pairing window per F-2.1), and the exact failure behavior (fail closed, visible
+          error, invariant 5). Cite PRD F-3.1 verbatim behavior list as the normative baseline.
+        acceptance:
+          - Section states, in RFC 2119 terms, that TLS 1.2 and session resumption/0-RTT MUST be rejected.
+          - Section states the verify-callback pin-check algorithm precisely enough that both an
+            Android and a macOS implementer would produce interoperable behavior without further
+            questions.
+        tdd: []
+        notes: ""
+      - id: E01-02
+        title: "[docs] SPEC.md section: pairing"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03, AC-03]
+        invariants: [3, 5, 6]
+        depends_on: []
+        description: |
+          Normative section for the QR payload grammar (`tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...`),
+          the pairing window (expiry 120 s, max 3 attempts, single use), the exact proof
+          computation (`HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki)`), constant-time
+          comparison requirement, and PairAccepted/failure semantics per PRD F-2.1.
+        acceptance:
+          - Section fully specifies the QR payload grammar including character encoding (base64url,
+            no padding) and field order.
+          - Section states the proof formula byte-for-byte, including the exact bytes hashed
+            (delimiter handling, encoding of SPKI values).
+        tdd: []
+        notes: ""
+      - id: E01-03
+        title: "[docs] SPEC.md section: framing + envelope"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: []
+        description: |
+          Normative section for the frame format (`u32 length big-endian | protobuf Envelope`),
+          max frame size (1 MiB), and required rejection behavior for oversize, truncated, and
+          malformed-length frames. Defines the `Envelope` fields (`channel`, `seq`, `ack`, `oneof`
+          payload) at the wire-contract level (message shape lives in E01-10's `.proto`).
+        acceptance:
+          - Section states the exact byte order and width of the length prefix and the max-frame
+            enforcement point (before or after allocation) to prevent memory-exhaustion attacks.
+          - Section enumerates every required rejection case (oversize, truncated, bad length,
+            unknown channel) and states the connection MUST close on each.
+        tdd: []
+        notes: ""
+      - id: E01-04
+        title: "[docs] SPEC.md section: channels + flow control credits"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-09, UC-14, UC-15]
+        invariants: []
+        depends_on: []
+        description: |
+          Normative section enumerating the channel set (`CONTROL, NOTIFY, CLIPBOARD, FILES, SMS,
+          CONTACTS, CALLS, INPUT, STATUS`) and the credit-based flow-control algorithm so a large
+          file transfer cannot starve notifications: initial credit grant, credit replenishment
+          trigger, and behavior when a sender exceeds its credit.
+        acceptance:
+          - Section defines credit units (frames or bytes), initial grant per channel, and the
+            replenishment message/trigger.
+          - Section states the required behavior when a peer sends past its granted credit
+            (connection error vs. silent drop) unambiguously.
+        tdd: []
+        notes: ""
+      - id: E01-05
+        title: "[docs] SPEC.md section: errors + close codes"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: [AC-04, AC-07]
+        invariants: [5]
+        depends_on: []
+        description: |
+          Normative enumeration of protocol-level error/close codes (version mismatch, pin
+          mismatch, malformed frame, credit violation, pairing failure, ticket rejected) with the
+          required close behavior for each (invariant 5: fail closed with a visible error).
+        acceptance:
+          - Every close code has a stable numeric ID, a name, and a one-line required client-visible
+            behavior.
+          - No close code implies a plaintext or reduced-security fallback path (checked against
+            invariant 2 explicitly in the section's intro).
+        tdd: []
+        notes: ""
+      - id: E01-06
+        title: "[docs] SPEC.md section: versioning & capability negotiation"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [AC-04]
+        invariants: [5]
+        depends_on: []
+        description: |
+          Normative section for the protocol version field, the capability-bitset (or similar)
+          exchanged on connect, and the required behavior on version mismatch (fail closed, per
+          invariant 5) versus capability mismatch (feature-level degrade, never a security
+          downgrade).
+        acceptance:
+          - Section states exactly which fields are compared for "version mismatch" versus
+            "capability mismatch" and confirms only the latter may result in a reduced feature set.
+        tdd: []
+        notes: ""
+      - id: E01-07
+        title: "[docs] SPEC.md section: heartbeat"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-3.4]
+        use_cases: [UC-04]
+        invariants: []
+        depends_on: []
+        description: |
+          Normative section: heartbeat every 15 s on the control channel, connection considered
+          dead after 3 consecutive misses, and the reconnect trigger this feeds (detailed reconnect
+          strategy itself belongs to F-3.4's lifecycle epic, E20, but the wire-level heartbeat
+          message and timing contract is specified here).
+        acceptance:
+          - Section states the exact interval, miss threshold, and the message shape reference
+            (control.proto heartbeat message, E01-12).
+        tdd: []
+        notes: ""
+      - id: E01-08
+        title: "[docs] SPEC.md section: discovery TXT record"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-3.5]
+        use_cases: [UC-03, AC-05]
+        invariants: [1, 3]
+        depends_on: []
+        description: |
+          Normative section for the `_tandem._tcp` Bonjour TXT record: `v=1` and the rotating
+          8-byte identifier `HMAC(macSpki, dayIndex)`. States explicitly that discovery data is a
+          hint only and MUST NOT be used to establish trust or bypass the handshake verify step.
+        acceptance:
+          - Section states the exact `dayIndex` definition (UTC day boundary) so both platforms
+            compute the same rotating ID independent of local timezone.
+          - Section states, as a MUST NOT, that discovery data never supplies keys or bypasses
+            verification.
+          - Section states that a receiver MUST accept the IDs for dayIndex-1, dayIndex, and
+            dayIndex+1 (clock-skew tolerance across a UTC day boundary) and MUST NOT accept any
+            other day's ID.
+        tdd: []
+        notes: ""
+      - id: E01-09
+        title: "[docs] SPEC.md section: media ticket"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: [F-3.3]
+        use_cases: [UC-22, AC-08]
+        invariants: [1]
+        depends_on: []
+        description: |
+          Normative section for the media connection's binding to a control session: a random
+          256-bit `mediaTicket` issued over the control channel, single use, 30 s expiry, and the
+          required rejection behavior for a missing, reused, or expired ticket (AC-08). States that
+          the media connection is still full mTLS; the ticket only binds it to a session and never
+          substitutes for authentication.
+        acceptance:
+          - Section states ticket generation source (CSPRNG), length, expiry, and single-use
+            enforcement point (server-side, checked before any media data is accepted).
+          - Section states the required rejection behavior for each of missing ticket, reused
+            ticket, and expired ticket.
+        tdd: []
+        notes: ""
+      - id: E01-10
+        title: "[protocol] envelope.proto: Envelope message with channel/seq/ack oneof"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E01-03]
+        description: |
+          `protocol/proto/tandem/v1/envelope.proto` defining `Envelope { channel, seq, ack, oneof
+          payload }` and the `Channel` enum exactly as specified in E01-03/E01-04. Comments in the
+          `.proto` cross-reference the relevant SPEC.md section headers.
+        acceptance:
+          - "`buf lint` passes on the new file with the repo's configured ruleset."
+          - Generated Kotlin and Swift types compile (via E00-09's codegen pipeline) with no manual edits.
+        tdd:
+          - "`envelopeProto_bufLint_passes`"
+          - "`envelopeProto_codegen_producesCompilingKotlinAndSwiftTypes`"
+        notes: ""
+      - id: E01-11
+        title: "[protocol] pairing.proto: PairRequest / PairAccepted / Revoke"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-2.1, F-2.3]
+        use_cases: [UC-03, UC-07, AC-03]
+        invariants: [3, 6]
+        depends_on: [E01-02]
+        description: |
+          `protocol/proto/tandem/v1/pairing.proto` defining `PairRequest { deviceInfo, proof }`,
+          `PairAccepted`, and `Revoke` messages matching F-2.1/F-2.3 field-for-field. `KeyRotation`
+          (F-1.3) is deliberately not defined here: it lives in `rotation.proto`, owned by E70-01.
+        acceptance:
+          - "`buf lint` passes."
+          - Message field names and types match the SPEC.md pairing section (E01-02) exactly;
+            reviewed side by side in the PR description.
+        tdd:
+          - "`pairingProto_bufLint_passes`"
+          - "`pairingProto_fieldsMatchSpecSection_reviewChecklistComplete`"
+        notes: ""
+      - id: E01-12
+        title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-3.1, F-3.3, F-3.4]
+        use_cases: [UC-04, UC-22]
+        invariants: [1, 5]
+        depends_on: [E01-06, E01-07, E01-09]
+        description: |
+          `protocol/proto/tandem/v1/control.proto` defining `Heartbeat`, `VersionHello { version,
+          capabilities }`, and `MediaTicketGrant { ticket, expiresAt }` messages matching E01-06,
+          E01-07, and E01-09.
+        acceptance:
+          - "`buf lint` passes."
+          - Message field names and types match their respective SPEC.md sections exactly.
+        tdd:
+          - "`controlProto_bufLint_passes`"
+          - "`controlProto_fieldsMatchSpecSections_reviewChecklistComplete`"
+        notes: |
+          Owner of the heartbeat and media-ticket grant message shapes. Heartbeat vectors are added
+          by E20-01; E60-01's media.proto reuses `MediaTicketGrant` rather than redefining it.
+      - id: E01-13
+        title: "[protocol] status.proto: device status and ring messages"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: S
+        prd: [F-4.3, F-4.4]
+        use_cases: [UC-05, UC-06]
+        invariants: []
+        depends_on: [E01-03]
+        description: |
+          `protocol/proto/tandem/v1/status.proto` defining `DeviceStatus { batteryLevel,
+          isCharging, networkType, signalLevel }` and `Ring {}` matching PRD F-4.3/F-4.4. Phase-0
+          scope only; richer status fields can extend this message later without breaking change
+          if added as new optional fields.
+        acceptance:
+          - "`buf lint` passes."
+          - Message shape supports F-4.3's "on change and at most every 60 s" semantics without
+            requiring a wrapper message.
+        tdd:
+          - "`statusProto_bufLint_passes`"
+        notes: |
+          Owner of `DeviceStatus` and `Ring`. E23-01 extends this file with `RingStop`, the STATUS
+          SPEC.md section, and vectors; it must not redefine these messages.
+      - id: E01-14
+        title: "[protocol] Proto placeholder plan for later-phase domains"
+        type: doc
+        platforms: [protocol]
+        priority: P1
+        size: S
+        prd: [F-5.1, F-6.1, F-7.1, F-8.1, F-9.1]
+        use_cases: []
+        invariants: []
+        depends_on: [E01-10]
+        description: |
+          A short planning doc (`protocol/proto/tandem/v1/README.md`) listing the proto files each
+          later phase/epic is expected to add (`notify.proto` (E30-01), `clipboard.proto` (E31-01),
+          `files.proto` (E40-01), `photos.proto` (E41-01), `sms.proto` (E50-01), `contacts.proto`
+          (E51-01), `calls.proto` (E52-01), `media.proto` (E60-01/E61-01), `input.proto` (E62-01),
+          `rotation.proto` (E70-01), plus the `status.proto` extension (E23-01)), each pre-registered
+          with a reserved `Channel` enum value from E01-10 so adding a domain later never renumbers existing
+          channels (a `buf breaking` hazard).
+        acceptance:
+          - Every `Channel` enum value used by a future domain is reserved (named but unimplemented,
+            or an explicit `reserved` range) in `envelope.proto` today.
+          - Doc lists, for each future proto file, which epic owns writing it.
+        tdd: []
+        notes: ""
+      - id: E01-15
+        title: "[protocol] buf.yaml lint rules + buf breaking baseline"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E01-10, E01-11, E01-12, E01-13]
+        description: |
+          `protocol/buf.yaml` with the `STANDARD` lint ruleset (or a documented subset), and
+          `buf breaking` configured `--against '.git#branch=main'` so any incompatible change to
+          committed proto files fails CI once merged to main. This is the config; the CI job that
+          runs it is E00-11's `protocol.yml` workflow.
+        acceptance:
+          - "`buf lint` passes on all four phase-0 proto files."
+          - A deliberately introduced breaking change (renumbering a field) fails `buf breaking`.
+        tdd:
+          - "`bufBreaking_fieldRenumbered_checkFails`"
+          - "`bufLint_allPhase0ProtoFiles_passes`"
+        notes: ""
+      - id: E01-16
+        title: "[tools] Test vector file format + Python reference generator"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E01-01, E01-02, E01-03, E01-08]
+        description: |
+          Define the vector file format under `protocol/vectors/` (one JSON manifest per category
+          plus binary fixture files where the payload is not text-safe), and a
+          `tools/vectors/generate.py` reference implementation that produces every category's
+          fixtures deterministically (fixed seeds/inputs checked into the manifest). PR requires
+          review sign-off before vectors are treated as authoritative (both platform teams must be
+          able to reproduce the same expected outputs independently).
+        acceptance:
+          - "`python tools/vectors/generate.py` run twice produces byte-identical output."
+          - Vector manifest schema documented (JSON Schema or equivalent) in
+            `protocol/vectors/README.md`.
+          - PR reviewed and approved before any downstream vector category (E01-17..E01-21) is
+            marked done.
+        tdd:
+          - "`vectorGenerator_runTwice_producesIdenticalOutput`"
+          - "`vectorManifest_validatesAgainstJsonSchema`"
+        notes: ""
+      - id: E01-17
+        title: "[tools] Test vectors: SPKI fingerprint computation"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [AC-01]
+        invariants: [3]
+        depends_on: [E01-16]
+        description: |
+          Vectors covering SHA-256 over DER-encoded SubjectPublicKeyInfo for a handful of known
+          P-256 test keys, including edge cases (compressed vs. uncompressed point encoding
+          rejected/normalized consistently).
+        acceptance:
+          - At least 5 fixture keys with precomputed expected fingerprints, reviewed against an
+            independent OpenSSL computation.
+        tdd:
+          - "`spkiFingerprintVector_knownP256Key_matchesOpensslReference`"
+        notes: ""
+      - id: E01-18
+        title: "[tools] Test vectors: pairing proof HMAC"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [AC-03]
+        invariants: [6]
+        depends_on: [E01-16, E01-11]
+        description: |
+          Vectors covering `HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki)` for
+          several secret/fingerprint combinations, plus a negative vector (proof computed for a
+          different phone key) for use by `mitm-lab` (E15-09).
+        acceptance:
+          - At least 5 positive vectors and 2 negative vectors (wrong phone key, wrong secret),
+            each with the exact input byte sequence recorded.
+        tdd:
+          - "`pairingProofVector_correctInputs_matchesExpectedHmac`"
+          - "`pairingProofVector_wrongPhoneKey_doesNotMatchExpectedHmac`"
+        notes: ""
+      - id: E01-19
+        title: "[tools] Test vectors: frame encoding valid + invalid cases"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E01-16, E01-10]
+        description: |
+          Valid vectors: a range of `Envelope` payloads at min/typical/max (1 MiB) size, correctly
+          framed. Invalid vectors, each expected to be rejected: oversize (>1 MiB claimed length),
+          truncated (length prefix promises more bytes than supplied), bad length (zero or
+          negative-as-unsigned-overflow), unknown channel enum value.
+        acceptance:
+          - At least one valid vector at exactly the 1 MiB boundary (accepted) and one at 1 MiB + 1
+            byte (rejected), proving the boundary is exact.
+          - One vector per invalid category (oversize, truncated, bad length, unknown channel),
+            each tagged with the expected close code from E01-05.
+        tdd:
+          - "`frameVector_exactlyMaxSize_acceptedByReferenceDecoder`"
+          - "`frameVector_oneByteOverMaxSize_rejectedWithExpectedCloseCode`"
+          - "`frameVector_truncatedPayload_rejectedWithExpectedCloseCode`"
+          - "`frameVector_unknownChannelEnum_rejectedWithExpectedCloseCode`"
+        notes: ""
+      - id: E01-20
+        title: "[tools] Test vectors: Bonjour rotating ID"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-3.5]
+        use_cases: [AC-05]
+        invariants: [3]
+        depends_on: [E01-16]
+        description: |
+          Vectors covering `HMAC(macSpki, dayIndex)` for several `(spki, dayIndex)` pairs, including
+          a UTC day-boundary edge case (23:59:59 vs 00:00:00) to catch timezone bugs early, plus
+          skew-window cases (dayIndex+/-1 recognized, dayIndex+/-2 not recognized) per E01-08.
+        acceptance:
+          - At least 4 vectors including one explicit day-boundary pair.
+          - Skew-window vectors cover +/-1 day (recognized) and +/-2 days (not recognized).
+        tdd:
+          - "`bonjourRotatingIdVector_knownSpkiAndDayIndex_matchesExpectedId`"
+          - "`bonjourRotatingIdVector_utcDayBoundary_rolloverProducesNewId`"
+          - "`bonjourRotatingIdVector_skewBeyondOneDay_notRecognized`"
+        notes: ""
+      - id: E01-21
+        title: "[tools] Test vectors: base64url QR payload parsing (valid + malformed)"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03, AC-03]
+        invariants: [3, 6]
+        depends_on: [E01-16, E01-02]
+        description: |
+          Valid vectors: well-formed `tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...` payloads
+          with varying address-list lengths. Malformed vectors: missing required field, invalid
+          base64url padding, out-of-range port, empty address list, unsupported `v=` value.
+        acceptance:
+          - At least 3 valid vectors and 5 malformed vectors, each malformed one tagged with the
+            single field that makes it invalid.
+        tdd:
+          - "`qrPayloadVector_wellFormedPayload_parsesToExpectedFields`"
+          - "`qrPayloadVector_missingRequiredField_parseFails`"
+          - "`qrPayloadVector_unsupportedVersion_parseFails`"
+        notes: ""
+
+  - id: E02
+    title: "Threat model and ADR-001…006"
+    labels: [area:security, area:architecture]
+    prd: []
+    use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08, AC-09, AC-10]
+    summary: |
+      Write the STRIDE threat model for every data flow in the architecture diagram, and record
+      ADR-001 through ADR-006 with the options and decision criteria from the PRD architecture
+      section. ADR-006 (mirroring transport) is explicitly allowed to defer its final decision to
+      Phase 6, but Phase 0 must record the options and criteria now.
+    scope:
+      - One STRIDE pass per data flow in PRD `<architecture>`'s data-flow diagram.
+      - ADR-001 (native Swift+Kotlin vs KMP/CMP), ADR-002 (phone-client/Mac-server), ADR-003
+        (mTLS vs Noise), ADR-004 (QR-only pairing v1), ADR-005 (two connections vs one
+        multiplexed), ADR-006 (MediaProjection+Accessibility vs ADB/scrcpy, decision deferred).
+    out_of_scope:
+      - Implementing any mitigation identified by the threat model (tracked back to the owning
+        epic per finding).
+      - The Phase 0 spikes that inform ADR-003/ADR-006 (E03); this epic records decision criteria,
+        E03 supplies empirical input.
+    exit_criteria:
+      - "`docs/threat-model.md` covers every arrow in the PRD data-flow diagram with STRIDE
+        categories and at least one mitigation reference per identified threat."
+      - Six ADR files exist under `docs/adr/`, each accepted (or, for ADR-006 only, explicitly
+        marked "options recorded, decision deferred to Phase 6") via PR review.
+    issues:
+      - id: E02-01
+        title: "[docs] STRIDE threat model per data flow"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: L
+        prd: []
+        use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-06, AC-07, AC-08, AC-09, AC-10]
+        invariants: [1, 2, 3, 4, 5, 6, 7, 8]
+        depends_on: []
+        description: |
+          `docs/threat-model.md`: for every arrow in the PRD `<architecture>` data-flow diagram
+          (control mTLS, media mTLS, and each on-device data source feeding the mux), enumerate
+          Spoofing/Tampering/Repudiation/Information disclosure/Denial of service/Elevation of
+          privilege threats, map each to an existing abuse case (AC-01..AC-10) where one applies,
+          and cite the invariant or future epic that mitigates it.
+        acceptance:
+          - Every arrow in the architecture diagram has at least one STRIDE row.
+          - Every AC-01..AC-10 abuse case is referenced from at least one threat-model row.
+          - Any threat with no existing mitigation is flagged as an open risk and cross-referenced
+            into PRD `<risks>` or a new backlog issue.
+        tdd: []
+        notes: ""
+      - id: E02-02
+        title: "[docs] ADR-001: native Swift + native Kotlin vs KMP/CMP"
+        type: adr
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Options: (a) native Swift + native Kotlin with a shared Protobuf schema, (b) Kotlin
+          Multiplatform sharing core/transport/crypto logic, (c) Compose Multiplatform for shared
+          UI. Decision criteria: platform API dominance (Keystore/Keychain, Network.framework,
+          MediaProjection/MediaCodec, AccessibilityService, VideoToolbox all platform-specific
+          regardless), TLS must be platform-native anyway, Swift↔Kotlin/Native interop cost vs.
+          the small shared surface (only the wire protocol is truly shared, and that's solved by
+          Protobuf, not KMP). PRD records the answer as (a); this ADR documents why with the
+          criteria above.
+        acceptance:
+          - ADR states all three options, the criteria used, and the decision, in the standard ADR
+            format (Context/Decision/Consequences).
+          - Consequences section names what this rules out (no shared KMP `core/*` modules).
+        tdd: []
+        notes: ""
+      - id: E02-03
+        title: "[docs] ADR-002: phone as TLS client, Mac as sole listening server"
+        type: adr
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [AC-04]
+        invariants: [4]
+        depends_on: []
+        description: |
+          Options: (a) phone always dials, Mac is the only listener (single port); (b) both sides
+          can listen; (c) phone listens, Mac dials. Decision criteria: Android has no reliable
+          way to keep a listening socket alive across Doze/OEM battery killers and store-adjacent
+          scanners would flag a listening service; a single well-known Mac port is easier to
+          firewall, audit (`nmap`), and reason about for invariant 4 (Android opens no listening
+          sockets). PRD records (a).
+        acceptance:
+          - ADR states the option set, criteria, and decision; explicitly ties the decision to
+            invariant 4 and to Appendix C open question 3 (Mac-initiated reconnect must not require
+            a phone listener).
+        tdd: []
+        notes: ""
+      - id: E02-04
+        title: "[docs] ADR-003: mTLS 1.3 self-signed + SPKI pinning vs. Noise protocol"
+        type: adr
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-01, AC-02]
+        invariants: [1, 2, 3, 6]
+        depends_on: []
+        description: |
+          Options: (a) mTLS 1.3 with self-signed certs and SPKI pinning on both native TLS stacks;
+          (b) a Noise protocol handshake (e.g. Noise_XX) over raw TCP. Decision criteria:
+          first-class platform support and audited implementations on both sides (Network.framework
+          + Secure Enclave, Android SSLSocket/Conscrypt + Keystore) vs. hand-rolled or third-party
+          Noise library maintenance burden; certificate transport already carries the SPKI in a
+          format both platform TLS stacks understand natively. Note that the Phase 0 spikes (E03)
+          on Network.framework client-cert behavior are the primary empirical input to this
+          decision; if a spike fails outright, this ADR must be revisited before Phase 1 exit.
+        acceptance:
+          - ADR states both options, the platform-support criterion, and the decision; explicitly
+            notes the E03 spike dependency and the revisit condition.
+        tdd: []
+        notes: ""
+      - id: E02-05
+        title: "[docs] ADR-004: QR-only pairing for v1; manual pairing only with a commitment-based SAS"
+        type: adr
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [UC-03, AC-03]
+        invariants: [3, 6]
+        depends_on: []
+        description: |
+          Options: (a) QR-only pairing in v1, manual/no-camera pairing deferred to v2+ and only
+          ever implemented with a hash-commitment SAS (≥6 digits, never a fingerprint-prefix
+          check); (b) support a fingerprint-prefix manual fallback in v1 for camera-less setups.
+          Decision criteria: the reference app's 32-bit fingerprint-prefix check is a known
+          brute-forceable weakness (PRD Appendix A); a commitment scheme is the only manual
+          alternative that doesn't reintroduce that class of bug, and it is not needed for the v1
+          target user (single owner, has a phone camera).
+        acceptance:
+          - ADR states both options and explicitly rules out any fingerprint-prefix manual pairing
+            design, citing the LinkMyMac finding as the negative example.
+        tdd: []
+        notes: ""
+      - id: E02-06
+        title: "[docs] ADR-005: two connections (control + media) vs. one multiplexed connection"
+        type: adr
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [UC-22]
+        invariants: [1]
+        depends_on: []
+        description: |
+          Options: (a) separate control and media mTLS connections, media bound to control via a
+          single-use ticket (PRD F-3.3); (b) one multiplexed connection for everything, relying
+          solely on channel-level flow control (F-3.2) to prevent media from starving control
+          traffic. Decision criteria: head-of-line blocking risk on a single TCP/TLS connection
+          when a large H.264 frame is in flight versus the added complexity of a second listener
+          and ticket-issuance protocol. PRD records (a).
+        acceptance:
+          - ADR states both options, the head-of-line-blocking criterion, and the decision;
+            references F-3.2 flow control as the reason (a) is still needed even with credits.
+        tdd: []
+        notes: ""
+      - id: E02-07
+        title: "[docs] ADR-006: mirroring via MediaProjection+Accessibility vs. ADB wireless + scrcpy-server (options recorded, decision by Phase 6)"
+        type: adr
+        platforms: [docs]
+        priority: P1
+        size: S
+        prd: []
+        use_cases: [UC-22, UC-23, AC-06]
+        invariants: [8]
+        depends_on: []
+        description: |
+          Options: (a) `MediaProjection`/`MediaCodec` capture with `AccessibilityService` remote
+          input, no developer mode required, matches invariant 8's user-started-session model
+          directly; (b) ADB wireless debugging + bundled scrcpy-server (Apache 2.0) for better
+          input injection fidelity, at the cost of requiring developer mode and a different
+          input-authorization model that must be independently checked against invariant 8.
+          Phase 0 records both options and the criteria (input injection quality, developer-mode
+          requirement, invariant-8 compatibility, licensing); the final decision is explicitly
+          deferred to Phase 6 (see PRD Phase 6 tasks) once mirroring performance is measurable.
+        acceptance:
+          - ADR records both options and criteria without forcing a decision; status field reads
+            "deferred to Phase 6" rather than "accepted" or "rejected".
+          - ADR explicitly notes that whichever option is chosen must satisfy invariant 8
+            independently (a scrcpy-based path does not inherit the accessibility session
+            indicator for free).
+        tdd: []
+        notes: ""
+
+  - id: E03
+    title: "Phase 0 technical spikes (mTLS on both platforms, Secure Enclave)"
+    labels: [area:spike, area:security]
+    prd: [F-3.1, F-1.1]
+    use_cases: [AC-01, AC-04]
+    summary: |
+      Time-boxed spikes to de-risk the two hardest platform-specific unknowns before Phase 1
+      committed work starts: whether Network.framework's mTLS client-cert + verify-block model
+      behaves as documented, whether a Secure-Enclave-backed key can serve as the Mac's TLS
+      identity, and the Android-side equivalent with AndroidKeyStore across the StrongBox/TEE
+      device matrix. Each spike ends in a written findings doc under `docs/spikes/`, never
+      production code.
+    scope:
+      - Network.framework NWListener mTLS spike (client cert required, verify block, TLS 1.3-only,
+        no resumption).
+      - Secure Enclave key as `sec_identity` spike (PRD Appendix C.1).
+      - Android SSLSocket client-auth spike via AndroidKeyStore P-256 custom X509KeyManager +
+        pinning TrustManager, StrongBox vs. TEE device matrix.
+      - End-to-end handshake Android↔Mac hello-world spike tying the two platform spikes together.
+      - swift-nio-ssl fallback evaluation, only if the Network.framework spike fails its
+        acceptance bar.
+    out_of_scope:
+      - Production `core/transport` / `TandemTransport` implementations (E12).
+      - Any UI.
+    exit_criteria:
+      - Each spike has a findings doc under `docs/spikes/` with a clear go/no-go recommendation.
+      - The fallback decision criteria doc (E03-06) exists regardless of whether the fallback spike
+        (E03-05) ran, so Phase 1 has an unambiguous trigger for revisiting ADR-003 if
+        `core/transport`/`TandemTransport` hits the same wall in production code.
+    issues:
+      - id: E03-01
+        title: "[macos] Spike: NWListener mTLS with required client cert, verify block, TLS 1.3-only, no resumption"
+        type: spike
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [AC-01, AC-04]
+        invariants: [1, 2, 5]
+        depends_on: []
+        description: |
+          Build a throwaway `NWListener` with `NWProtocolTLS.Options` configured for TLS 1.3 only,
+          client certificate required, and `sec_protocol_options_set_verify_block` performing an
+          SPKI pin check against a hardcoded test fingerprint. Confirm: an unpinned client cert is
+          rejected inside the verify block (not after), TLS 1.2 ClientHello is rejected at the
+          protocol-options level, and no session ticket/resumption artifact is produced.
+        acceptance:
+          - Findings doc `docs/spikes/nwlistener-mtls.md` records pass/fail for each of TLS 1.2
+            rejection, unpinned client cert rejection, no-resumption confirmation, plus any
+            surprising API behavior (timing of verify-block invocation relative to full handshake
+            completion).
+          - Explicit go/no-go recommendation for ADR-003.
+        tdd: []
+        notes: ""
+      - id: E03-02
+        title: "[macos] Spike: Secure Enclave key as sec_identity for the Mac TLS listener"
+        type: spike
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-1.1]
+        use_cases: [AC-01]
+        invariants: [1, 3]
+        depends_on: []
+        description: |
+          Per PRD Appendix C.1 open question: attempt to back the Mac's long-term P-256 TLS
+          identity with a Secure-Enclave-generated key exposed as a `sec_identity`, and use it in
+          `NWProtocolTLS.Options` local identity. Confirm whether Network.framework accepts a
+          Secure-Enclave `sec_identity` at all, and if so whether handshake latency is acceptable.
+        acceptance:
+          - Findings doc `docs/spikes/secure-enclave-identity.md` records whether a Secure Enclave
+            key worked as a `sec_identity`, any API limitations found (e.g. certificate export
+            restrictions), and a recommendation of Secure Enclave vs. Keychain-only key (the PRD
+            default) for v1.
+        tdd: []
+        notes: ""
+      - id: E03-03
+        title: "[android] Spike: SSLSocket client auth via AndroidKeyStore P-256, custom X509KeyManager + pinning TrustManager, StrongBox vs. TEE device matrix"
+        type: spike
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.1, F-3.1]
+        use_cases: [AC-01, AC-04]
+        invariants: [1, 4]
+        depends_on: []
+        description: |
+          Build a throwaway Android client using platform `SSLSocket` (Conscrypt) with a custom
+          `X509KeyManager` backed by an AndroidKeyStore P-256 key (StrongBox if available, else
+          TEE, never exportable) and a custom `X509TrustManager` doing an SPKI pin check. Run
+          against a small device matrix (at minimum: one StrongBox-capable device, one TEE-only
+          device, one older API 29 device) to confirm client-cert presentation actually works
+          end-to-end on real hardware, not just an emulator.
+        acceptance:
+          - Findings doc `docs/spikes/android-sslsocket-keystore.md` records, per device, StrongBox
+            vs. TEE availability, whether client-cert auth succeeded, and any OEM-specific quirks.
+          - Explicit go/no-go recommendation feeding the risk in PRD `<risks>` ("Keystore-backed
+            keys with SSLSocket client auth behave differently across OEMs").
+        tdd: []
+        notes: ""
+      - id: E03-04
+        title: "[cross] Spike: end-to-end handshake Android↔Mac hello-world"
+        type: spike
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [1, 2, 3, 4, 5]
+        depends_on: [E03-01, E03-03]
+        description: |
+          Wire the two platform spikes together: the Android throwaway client from E03-03 dials
+          the macOS throwaway listener from E03-01 over a real Wi-Fi network, completes a full mTLS
+          1.3 handshake with mutual pin verification, and exchanges a single hello-world byte
+          payload. This is the first empirical proof the two native TLS stacks actually
+          interoperate under the exact constraints both SPEC.md (E01-01) and ADR-003 assume.
+        acceptance:
+          - Findings doc `docs/spikes/e2e-handshake-hello-world.md` records a successful handshake
+            capture (or the specific interop failure found, with enough detail to file a follow-up
+            issue) plus measured handshake latency on the same Wi-Fi network.
+        tdd: []
+        notes: ""
+      - id: E03-05
+        title: "[macos] Spike: swift-nio-ssl fallback evaluation (only if Network.framework spike fails)"
+        type: spike
+        platforms: [macos]
+        priority: P2
+        size: M
+        prd: [F-3.1]
+        use_cases: [AC-01]
+        invariants: [1, 2, 5]
+        depends_on: [E03-01]
+        description: |
+          Conditional spike: only executed if E03-01 records a no-go (Network.framework cannot
+          enforce TLS 1.3-only client-cert-required mTLS with the required verify-block
+          semantics). Evaluate swift-nio-ssl (BoringSSL-backed) as the fallback transport stack for
+          `TandemTransport`, covering the same acceptance bar as E03-01.
+        acceptance:
+          - If executed, findings doc `docs/spikes/swift-nio-ssl-fallback.md` records the same
+            pass/fail matrix as E03-01 for swift-nio-ssl, plus an assessment of Secure Enclave key
+            usability (E03-02) with a non-Network.framework stack.
+          - If not executed (E03-01 was a go), a one-line note in the same file recording "not
+            executed, E03-01 passed" so the decision trail is complete.
+        tdd: []
+        notes: ""
+      - id: E03-06
+        title: "[docs] Fallback decision criteria doc for the TLS stack choice"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E03-01, E03-05]
+        description: |
+          `docs/spikes/tls-stack-decision-criteria.md`: independent of whether E03-05 ran, write
+          down the concrete, checkable conditions that would force Phase 1 to revisit ADR-003
+          mid-implementation (e.g. "verify-block invoked after resumption ticket already
+          negotiated", "client cert rejection surfaces only as a generic POSIX error with no
+          distinguishable code"). This is the trigger document E12 (secure transport
+          implementation, Phase 1) checks against if production code hits unexpected
+          Network.framework behavior.
+        acceptance:
+          - Doc lists at least 3 concrete trigger conditions, each phrased as an observable
+            symptom, not a vague concern.
+          - Doc references ADR-003 and states who owns the revisit decision.
+        tdd: []
+        notes: ""

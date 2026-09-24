@@ -1,0 +1,1656 @@
+phase: 1
+epics:
+  - id: E10
+    title: Device identity (keys, self-signed certs, SPKI fingerprints)
+    labels: [area:crypto]
+    prd: [F-1.1]
+    use_cases: [UC-01, UC-02, UC-03, UC-05]
+    summary: |
+      Each device owns a long-term, non-exportable P-256 key pair and a self-signed X.509
+      certificate used purely as a TLS identity; the only thing ever trusted is the SHA-256
+      hash of the certificate's SubjectPublicKeyInfo (invariant 3). This epic generates and
+      stores that identity on both platforms, computes and vector-tests the fingerprint,
+      handles the lifecycle case where the key is missing or corrupted (a new identity is
+      generated and the device must be re-paired), and provides the small crypto primitives
+      (constant-time compare, HMAC-SHA256 pairing proof) that transport (E12) and pairing
+      (E14) build on. Only core/crypto (Android) / TandemCrypto (macOS) may touch key material.
+    scope:
+      - AndroidKeyStore P-256 key generation, StrongBox preferred, TEE fallback, never exportable
+      - macOS CryptoKit/Security P-256 key generation in Keychain
+        (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+      - Self-signed X.509 certificate generation on both platforms (swift-certificates on macOS)
+      - SecIdentity construction for Network.framework consumption
+      - SPKI SHA-256 fingerprint computation, vector-tested against protocol/vectors
+      - "Identity lifecycle: first-launch bootstrap; corrupted/missing-key recovery = new
+        identity + requires re-pair"
+      - Constant-time byte-compare helper
+      - HMAC-SHA256 pairing-proof helper, vector-tested
+    out_of_scope:
+      - Key rotation (F-1.3) — Phase 7, epic E70
+      - Meaningful certificate subject/identity claims — never added, by design
+      - Pairing protocol itself — E14
+      - TLS handshake wiring and trust-store verify logic — E12 / E13
+    exit_criteria:
+      - Android identity generation succeeds on a StrongBox-capable and a StrongBox-unavailable
+        device profile, never falling back to an exportable key
+      - macOS identity key is created in the Keychain with
+        kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly and is usable as a SecIdentity in
+        Network.framework
+      - SPKI fingerprint vectors in protocol/vectors pass on both platforms
+      - A corrupted or missing key on either platform yields a fresh identity and an explicit
+        "re-pair required" state, never a crash or silent reuse of stale key material
+    issues:
+      - id: E10-01
+        title: "[android] AndroidKeyStore P-256 key generation (StrongBox to TEE fallback, non-exportable)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E00-02, E01-01, E03-03]
+        description: |
+          Generate a P-256 (secp256r1) key pair in AndroidKeyStore via KeyGenParameterSpec,
+          requesting StrongBox (setIsStrongBoxBacked(true)) and retrying without it on
+          StrongBoxUnavailableException (TEE). Purpose is signing only; the key is never
+          exportable. Fixed alias `tandem.identity.v1`. Expose an IdentityKeyProvider in
+          core/crypto.
+        acceptance:
+          - On a StrongBox-capable profile, the generated key reports isInsideSecureHardware=true
+            and isStrongBoxBacked=true
+          - On a StrongBox-unavailable profile, generation retries without StrongBox and succeeds
+            with isInsideSecureHardware=true
+          - No code path extracts raw private key bytes; export attempts fail or return null
+          - A second call to getOrCreateIdentityKey() returns the same key while the alias exists
+        tdd:
+          - getOrCreateIdentityKey_strongBoxAvailable_marksStrongBoxBacked
+          - getOrCreateIdentityKey_strongBoxUnavailable_fallsBackToTee
+          - getOrCreateIdentityKey_calledTwice_returnsSameAlias
+          - identityKey_neverExportable_privateKeyBytesUnavailable
+
+      - id: E10-02
+        title: "[android] Self-signed X.509 certificate generation from Keystore key"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E10-01]
+        description: |
+          Build a self-signed X.509v3 certificate over the Keystore P-256 key, issued at
+          key-generation time via setCertificateSubject / setCertificateNotBefore etc. Subject
+          is a fixed placeholder; the cert carries no meaningful identity. Retrievable for the
+          TLS KeyManager (E12-06).
+        acceptance:
+          - Generated cert's public key matches the Keystore key's public key
+          - Cert subject contains no device-identifying information (fixed CN)
+          - Cert is retrievable from AndroidKeyStore via alias after a process restart
+        tdd:
+          - selfSignedCert_generated_publicKeyMatchesKeystoreKey
+          - selfSignedCert_subject_containsNoDeviceIdentifyingInfo
+          - selfSignedCert_afterProcessRestart_stillRetrievable
+
+      - id: E10-03
+        title: "[android] SPKI SHA-256 fingerprint computation (vector-tested)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [UC-03, UC-05]
+        invariants: [3]
+        depends_on: [E10-02, E01-17]
+        description: |
+          Compute SHA-256 over the DER-encoded SubjectPublicKeyInfo of the identity cert.
+          Expose as a base64url string (matches the QR `fp=` param, F-2.1) and as raw bytes for
+          constant-time comparisons. Validate against protocol/vectors fingerprint vectors.
+        acceptance:
+          - fingerprint(cert) matches every protocol/vectors fingerprint test vector
+          - fingerprint is stable across process restarts for the same key
+          - output encoding matches the base64url-no-padding format used in the QR payload (SPEC pairing section, E01-02)
+        tdd:
+          - spkiFingerprint_knownTestVector_matchesExpectedHash
+          - spkiFingerprint_sameKeyAcrossRestarts_stable
+          - spkiFingerprint_encoding_isBase64UrlNoPadding
+
+      - id: E10-04
+        title: "[android] Identity lifecycle: first-launch bootstrap and corrupted/missing key recovery"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.1]
+        use_cases: [UC-01, UC-02]
+        invariants: [3]
+        depends_on: [E10-01, E10-02, E10-03]
+        description: |
+          On first launch, generate the identity eagerly before any pairing UI shows. On every
+          subsequent launch, verify the Keystore alias is present and usable (sign+verify smoke
+          test). On KeyPermanentlyInvalidatedException or a missing alias, emit an IdentityReset
+          event, regenerate a new identity, and surface a requiresRePair app state until the next
+          successful pairing.
+        acceptance:
+          - First launch with no existing alias generates a new identity in one call
+          - A simulated KeyPermanentlyInvalidatedException triggers IdentityReset and a fresh
+            identity is generated on next access
+          - After IdentityReset, app state exposes requiresRePair=true until paired again
+        tdd:
+          - bootstrapIdentity_firstLaunch_generatesNewIdentity
+          - bootstrapIdentity_permanentlyInvalidatedKey_emitsIdentityResetAndRegenerates
+          - bootstrapIdentity_afterReset_requiresRePairUntilPaired
+
+      - id: E10-05
+        title: "[macos] CryptoKit/Security P-256 key generation in Keychain"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E00-07, E01-01, E03-02]
+        description: |
+          Generate a P-256 SecKey via SecKeyCreateRandomKey, stored in the Keychain with
+          kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly and marked non-extractable. Fold in
+          findings from the E03-01 Network.framework mTLS spike (Secure Enclave availability per
+          Appendix C). Expose an IdentityKeyProvider in TandemCrypto.
+        acceptance:
+          - Key persists across app relaunch, retrievable by a fixed application tag
+          - No code path calls SecKeyCopyExternalRepresentation on the private key
+          - Key accessibility attribute is kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        tdd:
+          - getOrCreateIdentityKey_firstCall_createsKeychainItem
+          - getOrCreateIdentityKey_secondCall_returnsSameItem
+          - identityKey_accessibility_isAfterFirstUnlockThisDeviceOnly
+
+      - id: E10-06
+        title: "[macos] Self-signed certificate via swift-certificates"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E10-05]
+        description: |
+          Use swift-certificates + swift-crypto to build a self-signed X.509 certificate over
+          the Keychain P-256 key, with a fixed placeholder subject (no device identity). Store
+          as a Keychain certificate item associated with the key.
+        acceptance:
+          - Certificate public key matches the Keychain key's public key
+          - Certificate subject carries no device-identifying information
+          - Cert and key are retrievable together as a matched pair after relaunch
+        tdd:
+          - selfSignedCert_generated_publicKeyMatchesKeychainKey
+          - selfSignedCert_subject_containsNoDeviceIdentifyingInfo
+          - selfSignedCert_afterRelaunch_stillPairedWithKey
+
+      - id: E10-07
+        title: "[macos] SecIdentity construction for Network.framework"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E10-06, E03-01, E03-02]
+        description: |
+          Combine the Keychain cert and key into a SecIdentity via sec_identity_create for use
+          as the NWProtocolTLS.Options local identity (consumed by E12-01). Document any
+          workaround needed for the E03-01 spike findings.
+        acceptance:
+          - SecIdentity constructed from the stored cert and key is accepted by
+            sec_identity_create without error
+          - A NWListener configured with this identity completes a local TLS handshake smoke test
+        tdd:
+          - secIdentity_fromStoredCertAndKey_createsValidSecIdentity
+          - secIdentity_usedInLocalTlsHandshake_succeeds
+
+      - id: E10-08
+        title: "[macos] SPKI SHA-256 fingerprint computation (vector-tested)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-1.1]
+        use_cases: [UC-03, UC-05]
+        invariants: [3]
+        depends_on: [E10-06, E01-17]
+        description: |
+          Compute SHA-256 over the DER-encoded SubjectPublicKeyInfo of the identity cert using
+          swift-crypto. Expose base64url string and raw bytes. Validate against protocol/vectors.
+        acceptance:
+          - fingerprint(cert) matches every protocol/vectors fingerprint test vector
+          - fingerprint is stable across relaunch
+          - output encoding matches the base64url-no-padding format used in the QR payload (SPEC pairing section, E01-02)
+        tdd:
+          - spkiFingerprint_knownTestVector_matchesExpectedHash
+          - spkiFingerprint_sameKeyAcrossRelaunch_stable
+          - spkiFingerprint_encoding_isBase64UrlNoPadding
+
+      - id: E10-09
+        title: "[macos] Identity lifecycle: first-launch bootstrap and corrupted/missing key recovery"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.1]
+        use_cases: [UC-01]
+        invariants: [3]
+        depends_on: [E10-05, E10-06, E10-08]
+        description: |
+          Mirror of E10-04: eager bootstrap on first launch; verify the Keychain item usable via
+          a sign+verify smoke test on every launch; on errSecItemNotFound or an unusable item,
+          emit IdentityReset, regenerate, and surface a requiresRePair app state.
+        acceptance:
+          - First launch with no Keychain item generates a new identity
+          - A missing or unusable Keychain item triggers IdentityReset and regenerates on next
+            access
+          - After reset, app state exposes requiresRePair=true until paired again
+        tdd:
+          - bootstrapIdentity_firstLaunch_generatesNewIdentity
+          - bootstrapIdentity_missingKeychainItem_emitsIdentityResetAndRegenerates
+          - bootstrapIdentity_afterReset_requiresRePairUntilPaired
+
+      - id: E10-10
+        title: "[android] Constant-time byte-array compare helper"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: []
+        invariants: [6]
+        depends_on: [E00-02]
+        description: |
+          Implement constantTimeEquals(a: ByteArray, b: ByteArray): Boolean with no data-dependent
+          branching or early exit. Used by the fingerprint pin comparison (E12-05) and any future
+          secret comparison in core/crypto (Mac-side proof verification is E10-11/E14-07).
+        acceptance:
+          - Returns true only for exactly equal arrays
+          - Returns false for different-length inputs without throwing
+          - Comparison scans the full length regardless of where the first mismatch occurs
+            (asserted via an instrumented byte-access counter in test)
+        tdd:
+          - constantTimeEquals_equalArrays_true
+          - constantTimeEquals_differingAtFirstByte_falseAndScansFullLength
+          - constantTimeEquals_differentLengths_falseNoException
+
+      - id: E10-11
+        title: "[macos] Constant-time byte-array compare helper"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: []
+        invariants: [6]
+        depends_on: [E00-07]
+        description: |
+          Swift equivalent of E10-10 in TandemCrypto, using swift-crypto's constant-time
+          primitives where available, otherwise a hand-rolled full-scan compare. Used by E14-07.
+        acceptance:
+          - Returns true only for exactly equal arrays
+          - Returns false for different-length inputs without throwing
+          - Comparison scans the full length regardless of where the first mismatch occurs
+        tdd:
+          - constantTimeEquals_equalArrays_true
+          - constantTimeEquals_differingAtFirstByte_falseAndScansFullLength
+          - constantTimeEquals_differentLengths_falseNoException
+
+      - id: E10-12
+        title: "[android] HMAC-SHA256 pairing-proof helper (vector-tested)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [6]
+        depends_on: [E10-03, E01-18]
+        description: |
+          Implement pairingProof(secret, macSpki, phoneSpki) =
+          HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki) per F-2.1 step 3, in
+          core/crypto only. Validate against protocol/vectors pairing-proof vectors. Consumed by
+          E14-06.
+        acceptance:
+          - Output matches every protocol/vectors HMAC pairing-proof test vector
+          - The function has no duplicate implementation outside core/crypto (grep check)
+        tdd:
+          - pairingProof_knownTestVector_matchesExpectedHmac
+          - pairingProof_differentSecretOrInputs_differentOutput
+
+      - id: E10-13
+        title: "[macos] HMAC-SHA256 pairing-proof helper (vector-tested)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [6]
+        depends_on: [E10-08, E01-18]
+        description: |
+          Swift equivalent of E10-12 in TandemCrypto, using swift-crypto's HMAC<SHA256>. Consumed
+          by E14-07 for verification.
+        acceptance:
+          - Output matches every protocol/vectors HMAC pairing-proof test vector
+          - The function has no duplicate implementation outside TandemCrypto (grep check)
+        tdd:
+          - pairingProof_knownTestVector_matchesExpectedHmac
+          - pairingProof_differentSecretOrInputs_differentOutput
+
+      - id: E10-14
+        title: "[cross] Module boundary check: only core/crypto and TandemCrypto touch key material"
+        type: test
+        platforms: [android, macos]
+        priority: P1
+        size: S
+        prd: [F-1.1]
+        use_cases: []
+        invariants: [3]
+        depends_on: [E10-01, E10-05]
+        description: |
+          Add a CI check (grep-based lint or per-platform static analysis rule) that fails if
+          AndroidKeyStore / SecKey / SecItem key-material APIs are referenced outside core/crypto
+          (Android) or TandemCrypto (macOS).
+        acceptance:
+          - The check fails when a KeyStore/SecKey call is added to a feature module (regression
+            fixture added and reverted)
+          - The check passes on the current tree
+        tdd: []
+        notes: |
+          type test with tdd: [] since this is a static-check harness rather than app behavior;
+          still proven via a regression fixture that is added and then reverted.
+
+  - id: E11
+    title: Protocol codec, multiplexer, flow control
+    labels: [area:protocol]
+    prd: [F-3.2]
+    use_cases: [UC-08, UC-12, UC-13, UC-14, UC-15]
+    summary: |
+      Implements the framed transport codec (F-3.2): a u32 big-endian length-prefixed protobuf
+      Envelope, max 1 MiB, with fail-closed rejection of malformed input; a channel multiplexer
+      routing CONTROL/NOTIFY/CLIPBOARD/FILES/SMS/CONTACTS/CALLS/INPUT/STATUS frames with seq/ack;
+      and credit-based per-channel flow control so a large FILES transfer cannot starve NOTIFY.
+      Both platforms implement independently against the same protocol/vectors fixtures and
+      design, with conformance and starvation regression tests on each side.
+    scope:
+      - Envelope encode/decode on both platforms
+      - Fail-closed handling of oversize (>1 MiB), truncated, and garbage frames
+      - "Channel multiplexer: routing by channel, seq/ack bookkeeping"
+      - Credit-based flow control per channel with a suspending backpressure API
+        (Kotlin Flow / Swift AsyncSequence)
+      - Starvation regression test (FILES must not delay NOTIFY)
+      - Conformance against protocol/vectors frame fixtures
+    out_of_scope:
+      - TLS/session establishment — E12
+      - Specific channel payload semantics (NOTIFY content, FILES chunking) — later phase epics
+      - Building the tools/conformance runner itself — E15
+    exit_criteria:
+      - Both codecs pass every protocol/vectors frame vector, valid and invalid
+      - Oversize, truncated, and garbage input close the connection with a defined close code
+        on both platforms
+      - The starvation test demonstrates a NOTIFY frame delivered within a fixed latency bound
+        while a large FILES transfer is in-flight, on both platforms
+    issues:
+      - id: E11-01
+        title: "[android] Envelope frame encode: u32 BE length plus protobuf"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-13]
+        invariants: []
+        depends_on: [E00-02, E00-04, E00-09, E01-03, E01-10]
+        description: |
+          Implement FrameEncoder writing a 4-byte big-endian length prefix followed by the
+          serialized Envelope proto (protobuf-kotlin-lite). Enforce the 1 MiB max total frame
+          size at encode time.
+        acceptance:
+          - Encoded bytes are a 4-byte BE length followed by exact protobuf bytes, matching
+            protocol/vectors valid-frame fixtures
+          - Encoding a payload that would produce a frame over 1 MiB throws before any bytes are
+            written
+        tdd:
+          - encodeFrame_validEnvelope_matchesVectorBytes
+          - encodeFrame_payloadExceeding1MiB_throwsBeforeWrite
+
+      - id: E11-02
+        title: "[android] Envelope frame decode and fail-closed rejection"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: [1, 5]
+        depends_on: [E11-01]
+        description: |
+          Implement FrameDecoder reading the 4-byte length then exactly that many bytes; close
+          the connection (no partial parse) with a defined close code when the declared length
+          exceeds 1 MiB, when the stream ends before the length bytes are read, or when the
+          payload does not parse as a valid Envelope.
+        acceptance:
+          - Valid vectors decode to the expected Envelope
+          - Declared length over 1 MiB closes the connection with FRAME_TOO_LARGE
+          - A truncated stream (EOF mid-frame) closes with FRAME_TRUNCATED
+          - Garbage bytes that do not parse as an Envelope close with FRAME_MALFORMED
+        tdd:
+          - decodeFrame_validVectors_decodeToExpectedEnvelope
+          - decodeFrame_declaredLengthOver1MiB_closesWithFrameTooLarge
+          - decodeFrame_truncatedStream_closesWithFrameTruncated
+          - decodeFrame_garbageBytes_closesWithFrameMalformed
+
+      - id: E11-03
+        title: "[macos] Envelope frame encode: u32 BE length plus protobuf"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-13]
+        invariants: []
+        depends_on: [E00-07, E00-08, E00-09, E01-03, E01-10]
+        description: |
+          Swift equivalent of E11-01 using swift-protobuf; FrameEncoder lives in TandemProtocol.
+        acceptance:
+          - Encoded bytes match protocol/vectors valid-frame fixtures
+          - Encoding a payload that would produce a frame over 1 MiB throws before any bytes are
+            written
+        tdd:
+          - encodeFrame_validEnvelope_matchesVectorBytes
+          - encodeFrame_payloadExceeding1MiB_throwsBeforeWrite
+
+      - id: E11-04
+        title: "[macos] Envelope frame decode and fail-closed rejection"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: [1, 5]
+        depends_on: [E11-03]
+        description: |
+          Swift equivalent of E11-02 in TandemProtocol, using the same three close codes.
+        acceptance:
+          - Valid vectors decode to the expected Envelope
+          - Declared length over 1 MiB closes with FRAME_TOO_LARGE
+          - A truncated stream closes with FRAME_TRUNCATED
+          - Garbage bytes close with FRAME_MALFORMED
+        tdd:
+          - decodeFrame_validVectors_decodeToExpectedEnvelope
+          - decodeFrame_declaredLengthOver1MiB_closesWithFrameTooLarge
+          - decodeFrame_truncatedStream_closesWithFrameTruncated
+          - decodeFrame_garbageBytes_closesWithFrameMalformed
+
+      - id: E11-05
+        title: "[android] Channel multiplexer: routing plus seq/ack"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-12, UC-13, UC-14, UC-15]
+        invariants: []
+        depends_on: [E11-02, E01-04]
+        description: |
+          Route decoded Envelopes to per-channel Kotlin Flow sinks (CONTROL, NOTIFY, CLIPBOARD,
+          FILES, SMS, CONTACTS, CALLS, INPUT, STATUS); track outgoing seq per channel and
+          incoming ack. Expose send(channel, payload) and receive(channel): Flow<Envelope>.
+        acceptance:
+          - Frames sent on channel A are never delivered to channel B's Flow
+          - seq increments monotonically per channel, independent of other channels
+          - ack reflects the highest contiguous seq received per channel
+        tdd:
+          - multiplexer_frameOnChannelA_notDeliveredToChannelBFlow
+          - multiplexer_send_seqIncrementsPerChannelIndependently
+          - multiplexer_receive_ackReflectsHighestContiguousSeq
+
+      - id: E11-06
+        title: "[macos] Channel multiplexer: routing plus seq/ack"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-12, UC-13, UC-14, UC-15]
+        invariants: []
+        depends_on: [E11-04, E01-04]
+        description: |
+          Swift equivalent using AsyncStream per channel, in TandemTransport.
+        acceptance:
+          - Frames sent on channel A are never delivered to channel B's AsyncStream
+          - seq increments monotonically per channel, independent of other channels
+          - ack reflects the highest contiguous seq received per channel
+        tdd:
+          - multiplexer_frameOnChannelA_notDeliveredToChannelBStream
+          - multiplexer_send_seqIncrementsPerChannelIndependently
+          - multiplexer_receive_ackReflectsHighestContiguousSeq
+
+      - id: E11-07
+        title: "[android] Credit-based per-channel flow control and backpressure API"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: L
+        prd: [F-3.2]
+        use_cases: [UC-14, UC-15]
+        invariants: []
+        depends_on: [E11-05]
+        description: |
+          Each channel gets a credit window sized per SPEC.md; the sender suspends when credits
+          are exhausted until a credit-replenish control message arrives. Expose as a suspending
+          Flow-based API so a slow collector on one channel does not block other channels.
+        acceptance:
+          - The sender suspends when a channel's credit reaches zero and resumes on replenishment
+          - A slow Flow collector on one channel does not block sends on other channels
+          - Credits never go negative; replenishment is additive up to a configured max
+        tdd:
+          - flowControl_creditsExhausted_senderSuspendsUntilReplenished
+          - flowControl_slowCollectorOnOneChannel_doesNotBlockOtherChannels
+          - flowControl_replenish_neverExceedsConfiguredMax
+
+      - id: E11-08
+        title: "[macos] Credit-based per-channel flow control and backpressure API"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: L
+        prd: [F-3.2]
+        use_cases: [UC-14, UC-15]
+        invariants: []
+        depends_on: [E11-06]
+        description: |
+          Swift equivalent using Swift concurrency's suspending send for backpressure, in
+          TandemTransport.
+        acceptance:
+          - The sender suspends when a channel's credit reaches zero and resumes on replenishment
+          - A slow consumer on one channel does not block sends on other channels
+          - Credits never go negative; replenishment is additive up to a configured max
+        tdd:
+          - flowControl_creditsExhausted_senderSuspendsUntilReplenished
+          - flowControl_slowConsumerOnOneChannel_doesNotBlockOtherChannels
+          - flowControl_replenish_neverExceedsConfiguredMax
+
+      - id: E11-09
+        title: "[android] Starvation regression test: FILES transfer must not delay NOTIFY"
+        type: test
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-15]
+        invariants: []
+        depends_on: [E11-07]
+        description: |
+          Integration test driving a synthetic large FILES stream (e.g. 50 MiB in credit-limited
+          256 KiB chunks) concurrently with periodic NOTIFY frames; assert a bounded NOTIFY
+          delivery latency regardless of FILES backlog.
+        acceptance:
+          - With a saturated FILES channel, a concurrently sent NOTIFY frame is delivered within
+            a fixed latency bound in at least 95% of 100 trials
+        tdd:
+          - starvationTest_largeFilesTransferInFlight_notifyDeliveredWithinLatencyBound
+
+      - id: E11-10
+        title: "[macos] Starvation regression test: FILES transfer must not delay NOTIFY"
+        type: test
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [UC-08, UC-15]
+        invariants: []
+        depends_on: [E11-08]
+        description: |
+          Swift equivalent of E11-09 in TandemTransport tests.
+        acceptance:
+          - With a saturated FILES channel, a concurrently sent NOTIFY frame is delivered within
+            a fixed latency bound in at least 95% of 100 trials
+        tdd:
+          - starvationTest_largeFilesTransferInFlight_notifyDeliveredWithinLatencyBound
+
+      - id: E11-11
+        title: "[android] Conformance: codec against protocol/vectors frame fixtures"
+        type: test
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E11-02, E01-19]
+        description: |
+          Load every fixture under protocol/vectors/frames (valid and invalid) and assert
+          encode/decode matches the expected outcome (decoded Envelope or a specific close code).
+        acceptance:
+          - Every vector in protocol/vectors/frames passes on Android
+          - The test is data-driven (loads fixtures at runtime), so a new vector is picked up
+            without code changes
+        tdd:
+          - conformance_allFrameVectors_matchExpectedOutcome
+
+      - id: E11-12
+        title: "[macos] Conformance: codec against protocol/vectors frame fixtures"
+        type: test
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E11-04, E01-19]
+        description: |
+          Swift equivalent of E11-11 in TandemProtocol tests.
+        acceptance:
+          - Every vector in protocol/vectors/frames passes on macOS
+          - The test is data-driven (loads fixtures at runtime), so a new vector is picked up
+            without code changes
+        tdd:
+          - conformance_allFrameVectors_matchExpectedOutcome
+
+  - id: E12
+    title: Secure transport (mTLS 1.3 client/server, pinning)
+    labels: [area:transport]
+    prd: [F-3.1]
+    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-04]
+    summary: |
+      Establishes the mutually authenticated TLS 1.3 transport (F-3.1): a macOS NWListener as
+      the sole listening endpoint on one port, an Android SSLSocket client that always dials,
+      both pinned to the trust store (E13) with an open-pairing-window exception (E14), a
+      CONTROL-channel Hello for version/capability negotiation, a connection state machine,
+      fail-closed error surfacing (invariant 5), and a session abstraction over the multiplexer
+      (E11) designed so a future USB transport (F-10.3) can implement the same interface.
+    scope:
+      - macOS NWListener, TLS 1.3-only, client-cert-required, single port
+      - Android SSLSocket (Conscrypt) client, custom TrustManager/KeyManager
+      - Verify-block / TrustManager pin check against trust store OR open pairing window
+      - No session resumption, no 0-RTT
+      - CONTROL channel Hello (version/capability handshake)
+      - Connection state machine on both sides
+      - Fail-closed error reporting surfaced to the UI
+      - Session object / transport abstraction interface exposing channels
+      - JVM-client-to-Mac-server integration test
+    out_of_scope:
+      - Trust store persistence itself — E13
+      - Pairing window state machine and QR flow — E14
+      - Heartbeat/reconnect strategy, Bonjour discovery — Phase 2 (E20/E21)
+      - mitm-lab scenario automation — E15
+    exit_criteria:
+      - The macOS listener rejects TLS 1.2 (openssl s_client -tls1_2 fails) and rejects an
+        unknown client certificate outside an open pairing window
+      - The Android SSLSocket client completes a full handshake against the Mac listener using
+        its Keystore identity
+      - The JVM-test-client-to-Mac-server integration test passes in CI
+      - A version-mismatched Hello fails closed with a visible error on both sides
+    issues:
+      - id: E12-01
+        title: "[macos] NWListener: TLS 1.3-only mTLS options, single port"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-01, UC-05]
+        invariants: [1, 2, 4]
+        depends_on: [E10-07, E03-01, E00-07, E01-01]
+        description: |
+          Configure NWListener with NWProtocolTLS.Options: min and max TLS version 1.3, local
+          identity = the SecIdentity from E10-07, and
+          sec_protocol_options_set_peer_authentication_required(true). Bind to a single fixed
+          port per SPEC.md; no other listener exists anywhere in the app.
+        acceptance:
+          - openssl s_client -tls1_2 against the listener fails to complete a handshake
+          - The listener requires a client certificate; a connection without one is rejected
+          - Only one listening socket exists in the process (verified via lsof/netstat in test)
+        tdd:
+          - listener_tls12ClientHello_handshakeFails
+          - listener_noClientCert_handshakeRejected
+          - listener_processSockets_onlyOneListeningPort
+
+      - id: E12-02
+        title: "[macos] Verify block: trust store check or open pairing window"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04, AC-04]
+        invariants: [1, 3, 5]
+        depends_on: [E12-01, E13-06]
+        description: |
+          Implement the sec_protocol_verify_t block: compute the peer cert's SPKI fingerprint,
+          accept if present in the trust store (E13-06), else accept only if a pairing window is
+          currently open (E14-02 state), else reject before any application data is exchanged.
+        acceptance:
+          - An unknown fingerprint with no open pairing window fails the handshake before any
+            data is exchanged
+          - A known fingerprint from the trust store is accepted regardless of pairing-window
+            state
+          - An unknown fingerprint during an open pairing window is accepted (pairing continues
+            in E14)
+        tdd:
+          - verifyBlock_unknownFingerprintNoWindow_handshakeFails
+          - verifyBlock_knownFingerprint_handshakeSucceeds
+          - verifyBlock_unknownFingerprintDuringOpenWindow_handshakeSucceeds
+
+      - id: E12-03
+        title: "[macos] Disable session resumption and 0-RTT"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [AC-01]
+        invariants: [1]
+        depends_on: [E12-01]
+        description: |
+          Explicitly disable TLS session ticket resumption and early data (0-RTT) in
+          NWProtocolTLS.Options.
+        acceptance:
+          - A client attempting session resumption with a previously issued ticket is forced
+            into a full handshake
+          - A client attempting 0-RTT early data has that data rejected/ignored until the full
+            handshake completes
+        tdd:
+          - listener_sessionResumptionAttempt_forcesFullHandshake
+          - listener_zeroRttEarlyData_rejectedUntilFullHandshake
+
+      - id: E12-04
+        title: "[android] SSLSocket (Conscrypt) TLS 1.3-only client"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-01, UC-03, UC-04]
+        invariants: [1, 2, 4]
+        depends_on: [E10-02, E00-02, E03-03]
+        description: |
+          Configure an SSLContext using Conscrypt with enabled protocols restricted to
+          ["TLSv1.3"], presenting the app's client certificate via a custom X509KeyManager
+          (E12-06). The app never binds a ServerSocket anywhere (invariant 4).
+        acceptance:
+          - A client connecting to a TLS-1.2-only test server fails the handshake
+          - The client presents its Keystore-backed certificate during the handshake
+          - A static/lint check confirms no ServerSocket/bind call exists anywhere in the
+            Android codebase
+        tdd:
+          - sslClient_serverTls12Only_handshakeFails
+          - sslClient_handshake_presentsKeystoreCertificate
+          - codebaseScan_noServerSocketBindCallsAnywhere
+
+      - id: E12-05
+        title: "[android] Custom X509TrustManager: pin check against trust store or pairing window"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04, AC-04]
+        invariants: [1, 3, 5]
+        depends_on: [E12-04, E13-02]
+        description: |
+          Implement checkServerTrusted to compute the presented cert's SPKI fingerprint and
+          accept only if it matches the pinned Mac fingerprint (from the trust store, or from
+          the QR payload during an in-progress pairing attempt, E14-04). Any mismatch throws
+          CertificateException, failing the handshake closed.
+        acceptance:
+          - A server cert fingerprint matching the pinned value is accepted
+          - A mismatched server cert fingerprint (wrong or swapped cert) throws
+            CertificateException with no data sent
+          - The trust manager never consults an IP address or hostname
+        tdd:
+          - trustManager_matchingPinnedFingerprint_accepted
+          - trustManager_mismatchedFingerprint_throwsCertificateException
+          - trustManager_verification_neverUsesIpOrHostname
+
+      - id: E12-06
+        title: "[android] Custom X509KeyManager backed by Keystore identity"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [UC-03]
+        invariants: [3]
+        depends_on: [E10-02]
+        description: |
+          Implement chooseClientAlias/getCertificateChain/getPrivateKey returning the single
+          Keystore identity alias and cert chain from E10-02; private key operations stay inside
+          Keystore and are never copied out.
+        acceptance:
+          - The key manager always returns the fixed identity alias regardless of requested key
+            types (single-identity design)
+          - getPrivateKey returns a Keystore-backed PrivateKey whose signing operation succeeds
+            without exposing raw key material
+        tdd:
+          - keyManager_chooseClientAlias_returnsFixedIdentityAlias
+          - keyManager_getPrivateKey_signsViaKeystoreWithoutExposingKeyMaterial
+
+      - id: E12-07
+        title: "[cross] CONTROL channel Hello: version/capability handshake"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [5]
+        depends_on: [E12-01, E12-04, E11-05, E11-06]
+        description: |
+          Both sides send a Hello{protocolVersion, capabilities} on CONTROL immediately after TLS
+          completes, before any other channel is used. A mismatched major version fails the
+          connection closed and surfaces a visible error; a matching version continues.
+        acceptance:
+          - A compatible Hello exchange transitions the connection to Ready
+          - A Hello with an unsupported major version on either side fails the connection closed
+            and surfaces a visible error, not just a log line
+          - No channel other than CONTROL sends data before the Hello exchange completes
+        tdd:
+          - hello_compatibleVersions_transitionsToReady
+          - hello_incompatibleMajorVersion_failsClosedWithVisibleError
+          - hello_beforeCompletion_otherChannelsBlocked
+
+      - id: E12-08
+        title: "[android] Connection state machine"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-04, UC-05]
+        invariants: [5]
+        depends_on: [E12-04, E12-05, E12-07]
+        description: |
+          States: Disconnected -> Connecting -> TlsHandshaking -> HelloExchange -> Ready ->
+          Disconnected(reason); Failed(reason) reachable from any state on handshake/Hello
+          failure. Expose as Flow<ConnectionState> for the connection-status UI.
+        acceptance:
+          - Every documented transition is exercised by a test
+          - An illegal transition (e.g. Ready to TlsHandshaking without disconnecting first) is
+            rejected or impossible by construction
+          - The Failed state always carries a non-empty reason
+        tdd:
+          - stateMachine_disconnectedToConnecting_onConnectCalled
+          - stateMachine_connectingToTlsHandshaking_onSocketOpen
+          - stateMachine_tlsHandshakingToHelloExchange_onHandshakeComplete
+          - stateMachine_helloExchangeToReady_onCompatibleHello
+          - stateMachine_anyStateToFailed_onHandshakeError_reasonNonEmpty
+          - stateMachine_readyToDisconnected_onSocketClosed
+          - stateMachine_illegalTransition_rejected
+
+      - id: E12-09
+        title: "[macos] Connection state machine"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-04, UC-05]
+        invariants: [5]
+        depends_on: [E12-01, E12-02, E12-07]
+        description: |
+          Swift equivalent of E12-08 in TandemTransport, states mirrored per accepted incoming
+          connection, exposed as AsyncStream<ConnectionState> (per-peer, since the Mac can hold
+          multiple incoming connections).
+        acceptance:
+          - Every documented transition is exercised by a test
+          - An illegal transition is rejected or impossible by construction
+          - The Failed state always carries a non-empty reason
+        tdd:
+          - stateMachine_disconnectedToAccepted_onIncomingConnection
+          - stateMachine_acceptedToTlsHandshaking_onHandshakeStart
+          - stateMachine_tlsHandshakingToHelloExchange_onHandshakeComplete
+          - stateMachine_helloExchangeToReady_onCompatibleHello
+          - stateMachine_anyStateToFailed_onHandshakeError_reasonNonEmpty
+          - stateMachine_readyToDisconnected_onSocketClosed
+          - stateMachine_illegalTransition_rejected
+
+      - id: E12-10
+        title: "[cross] Fail-closed error reporting surfaced to the UI"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [UC-05, AC-01, AC-04]
+        invariants: [5, 7]
+        depends_on: [E12-08, E12-09]
+        description: |
+          Map every Failed(reason) state to a user-visible, secret-free error string in the
+          connection-status UI area on both platforms. Reason categories: cert mismatch, unknown
+          peer, version mismatch, network error.
+        acceptance:
+          - Each defined failure reason maps to a distinct, non-empty, secret-free user-facing
+            message
+          - No failure path leaves the UI silently at "Connecting" or blank
+          - Log output for a failure contains the reason category but never raw peer certificate
+            bytes or secret material
+        tdd:
+          - errorMapping_certMismatch_producesDistinctUserMessage
+          - errorMapping_versionMismatch_producesDistinctUserMessage
+          - errorMapping_anyFailure_neverLeavesUiBlank
+          - errorLog_onFailure_excludesCertBytesAndSecrets
+
+      - id: E12-11
+        title: "[android] Transport session abstraction exposing channels"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-08, UC-12, UC-13, UC-14, UC-15]
+        invariants: []
+        depends_on: [E12-08, E11-07]
+        description: |
+          Define a TandemSession interface (send(channel, payload), receive(channel):
+          Flow<Envelope>, state: Flow<ConnectionState>, close()) implemented by the SSLSocket-
+          backed session. Keep the interface transport-agnostic (no SSLSocket/Conscrypt types
+          leak through it) so a future USB transport (F-10.3) can implement it without touching
+          feature code.
+        acceptance:
+          - Feature-layer code compiles against TandemSession with zero references to
+            SSLSocket/Conscrypt types
+          - A fake in-memory TandemSession implementation (for feature tests) satisfies the
+            interface without a real socket
+        tdd:
+          - session_interface_hasNoTransportSpecificTypesInSignature
+          - fakeSession_implementsInterface_usableInFeatureTests
+
+      - id: E12-12
+        title: "[macos] Transport session abstraction exposing channels"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-08, UC-12, UC-13, UC-14, UC-15]
+        invariants: []
+        depends_on: [E12-09, E11-08]
+        description: |
+          Swift equivalent of E12-11: a TandemSession protocol implemented by the NWConnection-
+          backed session, kept transport-agnostic for future USB reuse.
+        acceptance:
+          - Feature-layer code compiles against TandemSession with zero references to
+            NWConnection types
+          - A fake in-memory TandemSession implementation satisfies the protocol without a real
+            socket
+        tdd:
+          - session_protocol_hasNoTransportSpecificTypesInSignature
+          - fakeSession_conformsToProtocol_usableInFeatureTests
+
+      - id: E12-13
+        title: "[cross] Integration test: JVM client against macOS NWListener server"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: L
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [1, 5]
+        depends_on: [E15-15, E12-02, E12-05, E12-06, E12-07]
+        description: |
+          Using the E15-15 JVM harness, run the real macOS listener (E12-01/E12-02) on a macOS CI
+          runner and a JVM client reusing core/transport (E12-04/E12-05/E12-06) against it;
+          drive a full handshake plus Hello plus a round-tripped CONTROL frame.
+        acceptance:
+          - The JVM client completes the TLS handshake and Hello exchange against the real
+            macOS listener in CI
+          - A frame sent from the JVM client is received intact by the macOS server, and vice
+            versa
+          - The test fails (not skipped) if the macOS runner is unavailable, per CI policy
+        tdd:
+          - integration_jvmClientAgainstMacListener_handshakeAndHelloSucceed
+          - integration_jvmClientAgainstMacListener_frameRoundTripsIntact
+
+  - id: E13
+    title: Trust store and settings storage
+    labels: [area:storage]
+    prd: [F-1.2]
+    use_cases: [UC-03, UC-05, UC-07, AC-09]
+    summary: |
+      Persists the trust store (F-1.2): the peer table keyed strictly by SPKI fingerprint
+      (invariant 3) that E12's TLS verify logic and E14's pairing flow read and write, plus a
+      small settings store for user preferences. Both platforms choose a concrete persistence
+      technology, define migrations, and guarantee that unpair deletes locally and immediately
+      regardless of connectivity.
+    scope:
+      - Peer record schema {deviceId, displayName, spkiSha256, pairedAt, lastSeen, capabilities}
+      - CRUD keyed by fingerprint only
+      - Schema migrations
+      - Settings store for non-trust user preferences
+      - Immediate local deletion on unpair
+    out_of_scope:
+      - Sending or receiving the Revoke wire message — E14
+      - Consuming the trust store inside the TLS verify block — E12 (depends on this epic)
+      - Paired-devices list UI — E14
+    exit_criteria:
+      - CRUD operations on both platforms are keyed only by spkiSha256; no API accepts an IP
+        address, hostname, or bare deviceId as a trust key
+      - Unpair removes the record and a subsequent read in the same process returns nothing,
+        with no network round-trip required
+      - A schema migration test proves a v1-to-v2 change (simulated) does not lose existing
+        peer records
+    issues:
+      - id: E13-01
+        title: "[android] spike: DataStore vs Room for trust store persistence"
+        type: spike
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-1.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02]
+        description: |
+          Compare Proto DataStore vs Room for the trust store: migration story, query needs
+          (lookup by fingerprint, list all for UI), and transactional unpair-delete. Produce a
+          short findings note with a clear recommendation used by E13-02.
+        acceptance:
+          - A findings note is committed comparing both options against migration and query
+            needs, with an explicit recommendation
+        tdd: []
+
+      - id: E13-02
+        title: "[android] Trust store: peer record schema and CRUD keyed by fingerprint"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.2]
+        use_cases: [UC-03, UC-05, UC-07]
+        invariants: [3]
+        depends_on: [E13-01, E10-03]
+        description: |
+          Implement the peer record {deviceId, displayName, spkiSha256, pairedAt, lastSeen,
+          capabilities} using the technology chosen in E13-01. Only get/put/delete/list APIs,
+          all keyed by spkiSha256; no IP/hostname field is accepted as a lookup key.
+        acceptance:
+          - put then get by fingerprint returns the same record
+          - No public API method accepts an IP address or hostname as a lookup parameter
+          - list() returns all paired peers, for the Android unpair flow (E14-12)
+        tdd:
+          - trustStore_putThenGetByFingerprint_returnsSameRecord
+          - trustStore_getUnknownFingerprint_returnsNull
+          - trustStore_apiSurface_hasNoIpOrHostnameLookup
+
+      - id: E13-03
+        title: "[android] Trust store migrations scaffold"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-1.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E13-02]
+        description: |
+          Add a schema-version field and a migration runner (trivial v1 today) so future field
+          additions don't require a destructive reinstall.
+        acceptance:
+          - Opening a v1 store on current code is a no-op migration with no data loss
+          - A simulated v1-to-v2 migration (added optional field) preserves all existing records
+        tdd:
+          - migration_openExistingV1Store_noDataLoss
+          - migration_v1ToV2Simulated_preservesExistingRecords
+
+      - id: E13-04
+        title: "[android] Settings store for user preferences"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-1.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E00-02]
+        description: |
+          DataStore-backed settings store for non-trust preferences (e.g. future per-app
+          notification filters in Phase 3); scaffold only the store and a get/set API in this
+          epic.
+        acceptance:
+          - set then get of a preference key round-trips the value
+          - A default value is returned when the key is absent
+        tdd:
+          - settingsStore_setThenGet_roundTripsValue
+          - settingsStore_getAbsentKey_returnsDefault
+
+      - id: E13-05
+        title: "[android] Unpair: immediate local trust deletion"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-1.2, F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3]
+        depends_on: [E13-02]
+        description: |
+          unpair(fingerprint) deletes the peer record synchronously, within the local
+          transaction, regardless of connection state; does not wait on network Revoke delivery
+          (that is a separate best-effort send, E14-12).
+        acceptance:
+          - Calling unpair while offline still deletes the local record immediately
+          - A subsequent get by that fingerprint returns null in the same process, with no delay
+        tdd:
+          - unpair_whileOffline_deletesLocalRecordImmediately
+          - unpair_thenGet_returnsNullSameProcess
+
+      - id: E13-06
+        title: "[macos] Trust store: peer record schema and CRUD keyed by fingerprint"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.2]
+        use_cases: [UC-03, UC-05, UC-07]
+        invariants: [3]
+        depends_on: [E10-08, E00-07]
+        description: |
+          Same record shape as E13-02, backed by the Keychain (generic-password items, for
+          consistency with identity storage) in TandemStore. Keyed by spkiSha256 only.
+        acceptance:
+          - put then get by fingerprint returns the same record
+          - No public API method accepts an IP address or hostname as a lookup parameter
+          - list() returns all paired peers, for the paired-devices UI (E14-14)
+        tdd:
+          - trustStore_putThenGetByFingerprint_returnsSameRecord
+          - trustStore_getUnknownFingerprint_returnsNil
+          - trustStore_apiSurface_hasNoIpOrHostnameLookup
+
+      - id: E13-07
+        title: "[macos] Trust store migrations scaffold"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-1.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E13-06]
+        description: |
+          Swift equivalent of E13-03: a schema-version tag and migration runner in TandemStore.
+        acceptance:
+          - Opening a v1 store on current code is a no-op migration with no data loss
+          - A simulated v1-to-v2 migration (added optional field) preserves all existing records
+        tdd:
+          - migration_openExistingV1Store_noDataLoss
+          - migration_v1ToV2Simulated_preservesExistingRecords
+
+      - id: E13-08
+        title: "[macos] Settings store for user preferences"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-1.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E00-07]
+        description: |
+          A file- or UserDefaults-backed settings store in TandemStore; scaffold only a get/set
+          API in this epic.
+        acceptance:
+          - set then get of a preference key round-trips the value
+          - A default value is returned when the key is absent
+        tdd:
+          - settingsStore_setThenGet_roundTripsValue
+          - settingsStore_getAbsentKey_returnsDefault
+
+      - id: E13-09
+        title: "[macos] Unpair: immediate local trust deletion"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-1.2, F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3]
+        depends_on: [E13-06]
+        description: |
+          Swift equivalent of E13-05: unpair(fingerprint) deletes synchronously and locally
+          regardless of connection state.
+        acceptance:
+          - Calling unpair while offline still deletes the local record immediately
+          - A subsequent get by that fingerprint returns nil in the same process, with no delay
+        tdd:
+          - unpair_whileOffline_deletesLocalRecordImmediately
+          - unpair_thenGet_returnsNilSameProcess
+
+      - id: E13-10
+        title: "[cross] Trust-store invariant test: fingerprint-only keying"
+        type: test
+        platforms: [android, macos]
+        priority: P1
+        size: S
+        prd: [F-1.2]
+        use_cases: [AC-04, AC-09]
+        invariants: [3]
+        depends_on: [E13-02, E13-06]
+        description: |
+          Regression test on both platforms asserting the trust-store public API has no method
+          whose parameter or key is an IP address, hostname, or bare deviceId used as the sole
+          lookup key (deviceId is a display field only, never a primary key).
+        acceptance:
+          - A reflection/signature-based test fails if a new API method introduces an
+            IP/hostname/deviceId-only lookup
+        tdd:
+          - trustStoreApi_publicSurface_rejectsNonFingerprintLookupKeys
+
+  - id: E14
+    title: QR pairing, unpair, revoke
+    labels: [area:pairing]
+    prd: [F-2.1, F-2.3]
+    use_cases: [UC-03, UC-04, UC-07, AC-03, AC-09]
+    summary: |
+      Implements F-2.1 QR pairing end to end and F-2.3 unpair/revoke: Mac-side QR generation and
+      pairing-window state machine, Android-side scanner and pairing state machine, constant-time
+      proof verification bound to the certificate actually seen in the TLS handshake, a
+      confirmation dialog on the Mac, a scanning UI on Android, and the unpair/revoke flow on
+      both sides culminating in the Phase 1 exit criterion: pair via QR, then reconnect after
+      restarting both apps.
+    scope:
+      - Mac QR payload generation and pairing-window state machine (120 s expiry, 3 attempts,
+        single use, secret regeneration)
+      - Android QR parsing/validation and pairing state machine
+      - PairRequest/PairAccepted flow, proof computation and verification
+      - Mac confirmation dialog; Android CameraX + ML Kit scanner UI; Mac QR display UI
+      - Unpair and Revoke on both sides; Mac paired-devices list with last-seen and revoke
+      - End-to-end pairing-then-reconnect test (Phase 1 exit criterion)
+    out_of_scope:
+      - TLS transport mechanics themselves — E12
+      - Trust store persistence mechanics — E13
+      - Manual pairing (F-2.2) — Phase 7, epic E73
+    exit_criteria:
+      - A phone pairs with a Mac via QR and reconnects after restarting both apps
+      - Every pairing failure path (bad proof, malformed message, window expiry) fails closed
+        and burns exactly one attempt where applicable
+      - Revoke removes trust on both sides when the peer is reachable; local unpair is immediate
+        regardless of reachability
+    issues:
+      - id: E14-01
+        title: "[macos] QR payload generation: secret and payload encode"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [6]
+        depends_on: [E10-08, E01-02]
+        description: |
+          Generate a fresh 128-bit secret per pairing window; encode
+          tandem://pair?v=1&fp=<b64url mac spki>&s=<b64url secret>&a=<addr1,addr2>&p=<port>
+          &n=<mac name> per F-2.1. Addresses are the Mac's current local interface addresses;
+          name is the Mac's display name.
+        acceptance:
+          - A generated payload round-trips through the Android parser (E14-03) in a
+            cross-platform fixture test
+          - Each call to start a pairing window generates a different secret
+          - The payload never includes any private key material, only the fingerprint
+        tdd:
+          - qrPayload_generated_parsesBackToSameFields
+          - qrPayload_eachWindowStart_differentSecret
+          - qrPayload_neverContainsPrivateKeyMaterial
+
+      - id: E14-02
+        title: "[macos] Pairing window state machine"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03, AC-03]
+        invariants: [6]
+        depends_on: [E14-01]
+        description: |
+          States: Closed -> Open(secret, expiresAt, attemptsRemaining=3) -> Closed, on success,
+          expiry, attempts exhausted, or explicit cancel. 120 s expiry timer; each failed
+          PairRequest decrements attemptsRemaining; the window is single-use and closes
+          immediately on a successful PairAccepted; regenerating (E14-01) always opens a fresh
+          window with a new secret, invalidating the old one.
+        acceptance:
+          - Every documented transition is exercised by a test
+          - A 4th attempt within the window is rejected without checking the proof
+          - The window auto-closes at 120 s even with no attempts made
+          - A successful pairing closes the window immediately (single use)
+        tdd:
+          - pairingWindow_open_startsWithThreeAttemptsAndExpiry
+          - pairingWindow_failedAttempt_decrementsAttemptsRemaining
+          - pairingWindow_fourthAttempt_rejectedWithoutCheckingProof
+          - pairingWindow_after120s_autoClosesWithNoAttempts
+          - pairingWindow_successfulPairing_closesImmediately
+          - pairingWindow_regenerate_invalidatesOldSecret
+
+      - id: E14-03
+        title: "[android] QR payload parsing and validation"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: []
+        depends_on: [E01-02, E01-21]
+        description: |
+          Parse tandem://pair?v=1&... into a typed PairingInvite(fp, secret, addresses, port,
+          macName); reject unknown/missing v, malformed base64url fields, or missing required
+          params.
+        acceptance:
+          - A valid F-2.1 payload parses to the expected PairingInvite
+          - v != 1, a missing fp/s, or a malformed base64url field each yield a rejection with
+            no partial/best-effort parse
+        tdd:
+          - parseInvite_validPayload_producesExpectedInvite
+          - parseInvite_unsupportedVersion_rejected
+          - parseInvite_malformedBase64Field_rejected
+          - parseInvite_missingRequiredParam_rejected
+
+      - id: E14-04
+        title: "[android] Pin Mac fingerprint from QR before TLS connect"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [1, 3]
+        depends_on: [E14-03, E12-05]
+        description: |
+          Before dialing, register the scanned invite's fp as the expected pin for this
+          connection attempt so the TrustManager (E12-05) accepts only that exact fingerprint
+          for the duration of the pairing attempt, without writing a permanent trust-store entry
+          until PairAccepted.
+        acceptance:
+          - A connection attempt succeeds only if the server presents exactly the scanned
+            fingerprint
+          - A server presenting a different fingerprint during this attempt is rejected and no
+            PairRequest is sent
+        tdd:
+          - pinFromInvite_serverPresentsMatchingFingerprint_connectionProceeds
+          - pinFromInvite_serverPresentsDifferentFingerprint_rejectedBeforePairRequest
+
+      - id: E14-05
+        title: "[android] Pairing state machine: connect, PairRequest, await result"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: []
+        depends_on: [E14-04, E12-08]
+        description: |
+          States: Idle -> Connecting -> AwaitingProofSent -> AwaitingAccept -> Paired |
+          Rejected | Failed(reason). On TLS ready, computes and sends PairRequest{deviceInfo,
+          proof} (proof from E14-06), then waits for PairAccepted or an explicit
+          rejection/timeout.
+        acceptance:
+          - Every documented transition is exercised by a test
+          - Any failure (rejected, timeout, connection drop) leaves the app in a Failed/Rejected
+            state, never silently Idle
+          - On Paired, the Mac's fingerprint is committed to the local trust store (E13-02)
+        tdd:
+          - pairingSm_idleToConnecting_onStartPairing
+          - pairingSm_connectingToAwaitingProofSent_onTlsReady
+          - pairingSm_awaitingAcceptToPaired_onPairAccepted
+          - pairingSm_awaitingAcceptToRejected_onExplicitReject
+          - pairingSm_awaitingAcceptToFailed_onTimeout
+          - pairingSm_onPaired_commitsFingerprintToTrustStore
+
+      - id: E14-06
+        title: "[android] Compute pairing proof and attach to PairRequest"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [6]
+        depends_on: [E10-12, E14-05]
+        description: |
+          proof = HMAC-SHA256(secret, "tandem-pair-v1" || macSpki || phoneSpki) via the
+          core/crypto helper (E10-12); macSpki comes from the scanned invite, phoneSpki from the
+          local identity (E10-03).
+        acceptance:
+          - PairRequest.proof matches the value computed by the E10-12 vector-tested helper for
+            the same inputs
+          - No ad-hoc HMAC implementation exists outside core/crypto (grep check)
+        tdd:
+          - pairRequest_proof_matchesCoreCryptoHelperOutput
+          - codebaseScan_noAdHocHmacOutsideCoreCrypto
+
+      - id: E14-07
+        title: "[macos] Constant-time proof verification bound to handshake cert"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03, AC-03]
+        invariants: [6]
+        depends_on: [E14-02, E10-11, E10-13, E12-02]
+        description: |
+          On receiving PairRequest over a connection accepted during an open pairing window
+          (E12-02), recompute the expected proof using the phoneSpki taken from the certificate
+          actually presented in this TLS handshake, never from PairRequest.deviceInfo, and
+          compare with the E10-11 constant-time helper.
+        acceptance:
+          - A proof valid for the connecting certificate is accepted
+          - A proof computed for a different phone key while deviceInfo claims another identity
+            is rejected, because verification uses the handshake cert, not the claimed one
+          - The comparison uses the constant-time helper (verified via a spy/wrapper in test)
+        tdd:
+          - verifyProof_validForHandshakeCert_accepted
+          - verifyProof_deviceInfoClaimsDifferentKeyThanHandshakeCert_rejected
+          - verifyProof_comparison_usesConstantTimeHelper
+
+      - id: E14-08
+        title: "[macos] Pairing confirmation dialog and PairAccepted/reject"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: []
+        depends_on: [E14-07]
+        description: |
+          On proof success, show "Pair <deviceInfo.name>?" with accept/deny; on accept, send
+          PairAccepted and commit the phone's fingerprint to the trust store (E13-06); on deny
+          or dismiss, close the connection and burn an attempt.
+        acceptance:
+          - Accepting the dialog sends PairAccepted and commits the fingerprint to the trust
+            store
+          - Denying or dismissing closes the connection without committing trust, and counts as
+            a failed attempt against the pairing window
+        tdd:
+          - confirmationDialog_accept_sendsPairAcceptedAndCommitsTrust
+          - confirmationDialog_denyOrDismiss_closesConnectionAndBurnsAttempt
+
+      - id: E14-09
+        title: "[macos] Failure handling: any pairing failure closes connection and burns attempt"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [AC-03]
+        invariants: [5, 6]
+        depends_on: [E14-07, E14-02]
+        description: |
+          Centralize failure handling for the pairing receive path (bad proof, malformed
+          PairRequest, window closed/expired mid-flight) so every failure path closes the
+          connection and decrements attemptsRemaining exactly once.
+        acceptance:
+          - Bad proof, a malformed message, and mid-flight window expiry each close the
+            connection
+          - Each distinct failed attempt decrements attemptsRemaining by exactly one, with no
+            double- or skipped counting
+        tdd:
+          - pairingFailure_badProof_closesConnectionAndBurnsOneAttempt
+          - pairingFailure_malformedPairRequest_closesConnectionAndBurnsOneAttempt
+          - pairingFailure_windowExpiresMidFlight_closesConnectionWithoutDoubleCounting
+
+      - id: E14-10
+        title: "[android] CameraX plus ML Kit QR scanner UI"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: []
+        depends_on: [E14-03]
+        description: |
+          CameraX preview with ML Kit barcode scanning restricted to QR_CODE format; on a
+          successful scan matching the tandem:// scheme, feed the raw string into E14-03's
+          parser and proceed. Ignore other barcode formats/content.
+        acceptance:
+          - Scanning a valid tandem:// QR triggers the parse-and-connect flow
+          - Scanning a non-tandem QR/barcode is ignored, with no crash and no parse attempt
+        tdd:
+          - scannerUi_validTandemQr_triggersParseAndConnect
+          - scannerUi_nonTandemBarcode_ignoredNoParseAttempt
+
+      - id: E14-11
+        title: "[macos] Pairing UI: QR display, countdown, regenerate"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: []
+        depends_on: [E14-01, E14-02]
+        description: |
+          Render the QR payload (E14-01) as a scannable code with a visible 120 s countdown tied
+          to the pairing-window state (E14-02); on expiry, auto-regenerate a new code and secret
+          and restart the countdown.
+        acceptance:
+          - The displayed QR encodes exactly the current pairing-window secret
+          - The countdown reaches zero at the same instant the pairing window closes
+          - After expiry, a newly displayed QR encodes a different secret than the previous one
+        tdd:
+          - pairingUi_displayedQr_encodesCurrentWindowSecret
+          - pairingUi_countdown_reachesZeroWhenWindowCloses
+          - pairingUi_afterExpiryRegenerate_newQrHasDifferentSecret
+
+      - id: E14-12
+        title: "[android] Unpair action: local deletion and Revoke if connected"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3]
+        depends_on: [E13-05, E12-11]
+        description: |
+          A user-triggered unpair calls the local trust-store delete (E13-05) synchronously,
+          then, only if a Ready session currently exists to that peer, best-effort sends Revoke
+          on CONTROL before closing the session.
+        acceptance:
+          - Unpair while connected deletes locally and sends Revoke before closing
+          - Unpair while disconnected deletes locally without attempting to send anything
+        tdd:
+          - unpairAction_whileConnected_deletesLocallyAndSendsRevoke
+          - unpairAction_whileDisconnected_deletesLocallyOnly
+
+      - id: E14-13
+        title: "[macos] Unpair action: local deletion and Revoke if connected"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3]
+        depends_on: [E13-09, E12-12]
+        description: |
+          Swift equivalent of E14-12, triggered from the paired-devices list (E14-14).
+        acceptance:
+          - Unpair while connected deletes locally and sends Revoke before closing
+          - Unpair while disconnected deletes locally without attempting to send anything
+        tdd:
+          - unpairAction_whileConnected_deletesLocallyAndSendsRevoke
+          - unpairAction_whileDisconnected_deletesLocallyOnly
+
+      - id: E14-14
+        title: "[macos] Paired-devices list UI: last-seen and revoke button"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.3]
+        use_cases: [UC-05, UC-07]
+        invariants: []
+        depends_on: [E13-06, E14-13]
+        description: |
+          List all trust-store entries (E13-06) with displayName and lastSeen (relative time); a
+          revoke button per row invokes E14-13.
+        acceptance:
+          - The list shows every currently paired device with a human-readable last-seen time
+          - Tapping revoke on a row removes it from the list immediately (optimistic on local
+            delete)
+        tdd:
+          - pairedDevicesList_showsAllTrustStoreEntriesWithLastSeen
+          - pairedDevicesList_revokeButton_removesRowImmediately
+
+      - id: E14-15
+        title: "[cross] Revoke message handling: receiver drops session and trust"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3]
+        depends_on: [E14-12, E14-13]
+        description: |
+          On receiving Revoke on CONTROL from an authenticated peer, the receiver deletes that
+          peer's own trust-store record (if present) and closes the session; a subsequent
+          reconnect attempt from that peer fails the verify block (E12-02) since it is no longer
+          in the trust store and no pairing window is open.
+        acceptance:
+          - Receiving Revoke deletes the local trust record for the sender and closes the
+            connection
+          - A reconnect attempt from the revoked peer afterward fails the TLS verify block
+            (no pairing window open)
+        tdd:
+          - revoke_received_deletesLocalTrustRecordAndClosesSession
+          - revoke_afterReceipt_peerReconnectFailsVerifyBlock
+
+      - id: E14-16
+        title: "[cross] End-to-end: QR pair then reconnect after restarting both apps"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: L
+        prd: [F-2.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [1, 3, 5, 6]
+        depends_on: [E15-15, E14-05, E14-08, E14-10, E14-11, E12-13]
+        description: |
+          Phase 1 exit-criterion test: display a QR on a macOS test instance, scan/parse it on
+          an Android test client (or the E15-15 JVM harness reusing core/pairing),
+          complete pairing, kill and restart both processes, and verify the connection
+          re-establishes to Ready using only the persisted trust store, with no new pairing.
+        acceptance:
+          - The full QR pairing flow completes to Paired/Ready on both sides
+          - After restarting both processes, the connection reaches Ready again without any user
+            pairing action
+          - No pairing window is open during the restart-reconnect path (trust-store path only)
+        tdd:
+          - e2e_qrPairingFlow_reachesReadyBothSides
+          - e2e_restartBothProcesses_reconnectsToReadyViaTrustStoreOnly
+          - e2e_restartReconnect_doesNotRequireOpenPairingWindow

@@ -1,0 +1,763 @@
+phase: 7
+epics:
+  - id: E70
+    title: Key rotation
+    labels: [area:crypto]
+    prd: [F-1.3]
+    use_cases: [UC-24]
+    summary: |
+      Replace a device's long-term identity key without re-pairing: over an already-authenticated
+      control session, a device sends KeyRotation{newSpki, sigOldKey(newSpki||nonce)}; the peer
+      verifies the signature against the currently pinned key, pins the new key, and keeps the
+      old one valid for exactly one grace session before purging it. Covers both user-initiated
+      and scheduled rotation, failure/rollback handling, and a mitm-lab scenario proving rotation
+      over an unauthenticated channel is rejected.
+    scope:
+      - rotation.proto messages and SPEC.md section.
+      - "Android and macOS: initiate rotation (generate + sign), receive + verify + pin with
+        grace period."
+      - User-initiated rotation UI, scheduled rotation, failure/rollback handling.
+      - mitm-lab coverage for rotation over an unauthenticated channel.
+    out_of_scope:
+      - Initial device identity generation and the first pairing (E10, E14).
+      - Manual pairing (E73) -- unrelated mechanism.
+    exit_criteria:
+      - A user-triggered rotation on either platform completes and both peers pin the new
+        fingerprint while the old one is purged after one grace session.
+      - A scheduled rotation fires automatically only over an authenticated session and defers
+        cleanly when offline.
+      - mitm-lab confirms rotation attempted outside an authenticated session is rejected with
+        no trust-store change.
+    issues:
+      - id: E70-01
+        title: "[protocol] rotation.proto: KeyRotation, RotationAck, RotationReject"
+        type: task
+        platforms: [protocol]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3, 6]
+        depends_on: [E01-10, E01-14, E01-16]
+        description: |
+          protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpki, nonce,
+          sigOldKey(newSpki||nonce)}, RotationAck{}, RotationReject{reason}. Write
+          docs/protocol/SPEC.md rotation section covering the grace-session semantics. Vectors: a
+          valid rotation signature verifies, a tampered newSpki fails signature verification, a
+          replay of an already-applied rotation is rejected.
+        acceptance:
+          - buf lint passes.
+          - protocol/vectors/rotation/*.json pass conformance on both platforms.
+        tdd:
+          - keyRotationVector_validSignature_verifies
+          - keyRotationVector_tamperedNewSpki_signatureVerificationFails
+          - keyRotation_replayedAfterAlreadyApplied_rejected
+        notes: ""
+      - id: E70-02
+        title: "[android] Initiate rotation: generate new key + sign with old key"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E70-01, E10-01, E10-02, E10-03, E12-11]
+        description: |
+          Generate a new P-256 keypair in AndroidKeyStore under the same StrongBox/TEE policy as
+          the original identity (F-1.1); compute the signature over newSpki||nonce with the
+          current private key; send KeyRotation only over an authenticated control session,
+          refusing to send otherwise.
+        acceptance:
+          - Rotation refuses to send when the control session is not a fully authenticated mTLS
+            session.
+          - A rotation attempt over an authenticated session sends a correctly signed newSpki and
+            leaves the old key fully usable until an ack is received.
+        tdd:
+          - androidRotationInitiator_unauthenticatedSession_refusesToSend
+          - androidRotationInitiator_authenticatedSession_sendsSignedNewSpkiKeepsOldKeyUsable
+        notes: ""
+      - id: E70-03
+        title: "[macos] Initiate rotation: generate new key + sign with old key"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E70-01, E10-05, E10-06, E10-08, E12-12]
+        description: |
+          Mirrors E70-02 for macOS: generate a new Keychain-backed P-256 keypair per F-1.1's
+          storage policy, sign newSpki||nonce with the current private key, and send only over
+          an authenticated control session.
+        acceptance:
+          - Rotation refuses to send when the control session is not a fully authenticated mTLS
+            session.
+          - A rotation attempt over an authenticated session sends a correctly signed newSpki and
+            leaves the old key fully usable until an ack is received.
+        tdd:
+          - macRotationInitiator_unauthenticatedSession_refusesToSend
+          - macRotationInitiator_authenticatedSession_sendsSignedNewSpkiKeepsOldKeyUsable
+        notes: ""
+      - id: E70-04
+        title: "[android] Receive + verify KeyRotation, pin new key with grace period"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3, 6]
+        depends_on: [E70-01, E13-02, E12-11]
+        description: |
+          Verify the signature against the currently pinned old SPKI; on success, pin newSpki in
+          the trust store while retaining the old SPKI flagged grace-only for exactly one
+          subsequent session, then purge it. An invalid signature leaves the trust store
+          unchanged and returns RotationReject.
+        acceptance:
+          - A valid rotation pins the new key and retains the old key flagged as grace-only.
+          - After one full session completes using either key, the old pin is purged.
+          - An invalid signature leaves the trust store completely unchanged.
+        tdd:
+          - androidRotationReceiver_validSignature_pinsNewKeyKeepsOldAsGrace
+          - androidRotationReceiver_afterGraceSessionElapsed_oldPinPurged
+          - androidRotationReceiver_invalidSignature_trustStoreUnchanged
+        notes: ""
+      - id: E70-05
+        title: "[macos] Receive + verify KeyRotation, pin new key with grace period"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3, 6]
+        depends_on: [E70-01, E13-06, E12-12]
+        description: |
+          Mirrors E70-04 for macOS against TandemStore's trust store (E13-06).
+        acceptance:
+          - A valid rotation pins the new key and retains the old key flagged as grace-only.
+          - After one full session completes using either key, the old pin is purged.
+          - An invalid signature leaves the trust store completely unchanged.
+        tdd:
+          - macRotationReceiver_validSignature_pinsNewKeyKeepsOldAsGrace
+          - macRotationReceiver_afterGraceSessionElapsed_oldPinPurged
+          - macRotationReceiver_invalidSignature_trustStoreUnchanged
+        notes: ""
+      - id: E70-06
+        title: "[cross] User-initiated rotation UI"
+        type: story
+        platforms: [android, macos]
+        priority: P1
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: []
+        depends_on: [E70-02, E70-03]
+        description: |
+          A "rotate this device's key" settings action on both platforms with confirmation,
+          progress, and success/failure feedback.
+        acceptance:
+          - Confirming the action completes a rotation; both peers show the new fingerprint as
+            pinned.
+        tdd:
+          - rotationSettingsViewModel_userConfirms_triggersRotationAndShowsResult
+        notes: ""
+      - id: E70-07
+        title: "[cross] Scheduled rotation"
+        type: task
+        platforms: [android, macos]
+        priority: P1
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1]
+        depends_on: [E70-02, E70-03]
+        description: |
+          Periodic rotation on a configurable interval, triggered only while an authenticated
+          session is active; deferred when offline past the due date and retried on next
+          connect.
+        acceptance:
+          - A rotation due while offline is deferred and fires automatically on the next
+            authenticated session.
+          - A rotation due while connected fires automatically without user action.
+        tdd:
+          - scheduledRotation_dueWhileOffline_deferredUntilNextAuthenticatedSession
+          - scheduledRotation_dueWhileConnected_firesAutomatically
+        notes: ""
+      - id: E70-08
+        title: "[cross] Rotation failure and rollback handling"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E70-04, E70-05]
+        description: |
+          The initiator must not delete its old key until it receives an explicit RotationAck.
+          On ack timeout, retry on the next session using the still-valid old key rather than
+          assuming success. An explicit RotationReject aborts the rotation and keeps the old key
+          as the sole pin.
+        acceptance:
+          - A simulated ack timeout leaves the old key fully usable and the rotation is retried
+            on the next session.
+          - An explicit RotationReject aborts the rotation attempt and keeps the old key as the
+            sole pin.
+        tdd:
+          - rotation_ackTimeout_oldKeyRemainsSolePinAndRetriedNextSession
+          - rotation_explicitReject_abortsAndKeepsOldKeyAsSolePin
+        notes: ""
+      - id: E70-09
+        title: "[tools] mitm-lab: rotation over unauthenticated channel rejected"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-1.3]
+        use_cases: []
+        invariants: [1, 3]
+        depends_on: [E70-04, E70-05, E15-08]
+        description: |
+          Per PRD F-1.3 ("no rotation over unauthenticated channels"), a mitm-lab scenario sends
+          KeyRotation before the handshake/pairing completes, or on a connection with no valid
+          peer pin.
+        acceptance:
+          - The scenario confirms a rotation attempted outside an authenticated session is
+            rejected and leaves the trust store unchanged.
+        tdd:
+          - mitmLab_rotationOverUnauthenticatedChannel_rejectedNoTrustStoreChange
+        notes: ""
+
+  - id: E71
+    title: "Hardening: fuzz campaigns, external SPEC review, release audit"
+    labels: [area:security]
+    prd: []
+    use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-07]
+    summary: |
+      Final security hardening pass before release: 24-hour fuzz campaigns per parser target
+      with a fix-found-crashes process, an external review of docs/protocol/SPEC.md, and the
+      full release security audit -- a full-feature canary pcap-audit run, nmap plus the
+      complete mitm-lab suite, an entitlement/manifest review, a dependency/SBOM scan, and
+      signed release builds.
+    scope:
+      - "Fuzz targets: frame parser, Envelope decoder, QR payload parser, and each domain message
+        decoder (sms, contacts, calls, media, input, rotation), each run for 24 hours."
+      - Fix-found-crashes triage process.
+      - External SPEC.md review.
+      - "Full release audit: pcap-audit, nmap + mitm-lab, entitlement/manifest review,
+        dependency/SBOM scan, release build signing."
+    out_of_scope:
+      - New feature work of any kind -- this epic only hardens what already exists.
+    exit_criteria:
+      - Every fuzz target completes a clean 24-hour run with zero unresolved crashes.
+      - The full-feature pcap-audit canary run and the complete mitm-lab suite both pass.
+      - nmap against the phone shows zero open ports.
+      - Release builds are signed for both platforms.
+    issues:
+      - id: E71-01
+        title: "[tools] Fuzz target: frame length-prefix parser (24 h campaign)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E15-13, E15-14]
+        description: |
+          Run Jazzer (Kotlin) and libFuzzer (Swift) continuously for 24 hours against the
+          length-prefix framing decoder, seeded from protocol/vectors' valid and invalid frame
+          cases.
+        acceptance:
+          - A 24-hour run completes with zero uncaught crashes or hangs.
+        tdd:
+          - fuzzFrameParser_seedCorpus_harnessRunsCleanly
+        notes: ""
+      - id: E71-02
+        title: "[tools] Fuzz target: Envelope protobuf decoder (24 h campaign)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E15-13, E15-14]
+        description: |
+          24-hour Jazzer/libFuzzer campaign against the Envelope decoder, seeded from
+          protocol/vectors.
+        acceptance:
+          - A 24-hour run completes with zero uncaught crashes or hangs.
+        tdd:
+          - fuzzEnvelopeDecoder_seedCorpus_harnessRunsCleanly
+        notes: ""
+      - id: E71-03
+        title: "[tools] Fuzz target: QR pairing payload parser (24 h campaign)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [AC-03]
+        invariants: [3, 6]
+        depends_on: [E15-13, E14-03]
+        description: |
+          24-hour Jazzer campaign against the Android QR payload parser (E14-03; macOS never parses QR)
+          (tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...), seeded from the base64url QR
+          payload vectors.
+        acceptance:
+          - A 24-hour run completes with zero uncaught crashes or hangs.
+        tdd:
+          - fuzzQrPayloadParser_seedCorpus_harnessRunsCleanly
+        notes: ""
+      - id: E71-04
+        title: "[tools] Fuzz targets: per-domain message decoders (24 h each)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: L
+        prd: []
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E15-13, E15-14, E23-01, E30-01, E31-01, E40-01, E41-01, E50-01, E51-01, E52-01, E60-01, E61-01, E62-01, E70-01]
+        description: |
+          24-hour Jazzer/libFuzzer campaigns against each domain message decoder introduced after
+          Phase 0: status.proto extension, notify.proto, clipboard.proto, files.proto, photos.proto,
+          sms.proto, contacts.proto, calls.proto, media.proto, input.proto, and rotation.proto, each seeded from its own protocol/vectors set.
+        acceptance:
+          - Each domain decoder completes an independent 24-hour run with zero uncaught crashes
+            or hangs.
+        tdd:
+          - fuzzDomainDecoders_allDomainTargets_seedCorporaRunCleanly
+        notes: ""
+      - id: E71-05
+        title: "[docs] Fix-found-crashes triage process"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E71-01, E71-02, E71-03, E71-04]
+        description: |
+          Define and apply the process: any crash or hang found during a campaign becomes a P0
+          bug, its minimized reproducer is added to the corpus as a permanent regression case,
+          and the affected target is re-run for a full clean 24 hours after the fix before
+          sign-off.
+        acceptance:
+          - The process is documented in CLAUDE.md or SPEC.md.
+          - At least one full clean 24-hour run is recorded per target after the process has been
+            applied.
+        tdd: []
+        notes: ""
+      - id: E71-06
+        title: "[docs] External review of SPEC.md"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Circulate docs/protocol/SPEC.md to an external or independent reviewer focused on
+          ambiguity, downgrade paths, and coverage of the eight security invariants. Log findings
+          and their resolution.
+        acceptance:
+          - Findings are documented with a resolution status for each.
+          - SPEC.md is updated for every accepted finding.
+        tdd: []
+        notes: ""
+      - id: E71-07
+        title: "[tools] Release security audit: full-feature canary pcap-audit"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-01, AC-02]
+        invariants: [1, 2, 7]
+        depends_on: [E15-07, E60-06, E61-09, E50-11, E51-08, E52-09]
+        description: |
+          A single full-feature session exercising notifications, clipboard, files, SMS,
+          contacts, calls, and mirroring simultaneously, following the canary procedure
+          (test-strategy) across every channel at once.
+        acceptance:
+          - The full-session pcap-audit run shows only TLS 1.3 records on the Tandem port(s).
+          - The canary bytes are absent from the entire capture.
+        tdd:
+          - pcapAudit_fullFeatureCanarySession_zeroPlaintextOccurrences
+        notes: ""
+      - id: E71-08
+        title: "[tools] Release security audit: nmap + full mitm-lab suite"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-01, AC-03, AC-04]
+        invariants: [1, 2, 3, 4, 5, 6]
+        depends_on: [E15-09, E15-10, E15-11, E15-12, E60-05, E62-08, E70-09]
+        description: |
+          Run nmap against the phone across every feature phase, and the complete accumulated
+          mitm-lab scenario suite from Phases 1 through 7 in one pass.
+        acceptance:
+          - "nmap -p- against the phone shows zero open ports."
+          - Every mitm-lab scenario across all phases passes.
+        tdd:
+          - nmap_phoneFullPortScan_noOpenPorts
+        notes: ""
+      - id: E71-09
+        title: "[tools] Release security audit: entitlement + manifest review"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: [2, 4]
+        depends_on: []
+        description: |
+          Review AndroidManifest.xml (no cleartextTrafficPermitted, no exported component without
+          a permission) and the macOS entitlements/Info.plist (no NSAllowsLocalNetworking,
+          minimal sandbox entitlements) per invariant 2 and invariant 4.
+        acceptance:
+          - The checklist completes with zero findings, or all findings are fixed and
+            re-checked.
+        tdd: []
+        notes: ""
+      - id: E71-10
+        title: "[tools] Dependency / SBOM scan"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Generate an SBOM for the Android (Gradle) and macOS (SwiftPM) dependency trees; run a
+          vulnerability scan against both; address any high/critical findings.
+        acceptance:
+          - An SBOM is committed under tools/ or docs/.
+          - The vulnerability scan completes with zero unaddressed high or critical findings.
+        tdd:
+          - "`sbomGeneration_gradleAndSwiftPm_bothDependencyTreesIncluded`"
+          - "`vulnScan_fixtureWithKnownCriticalCve_ciFails`"
+        notes: ""
+      - id: E71-11
+        title: "[ci] Release build signing"
+        type: task
+        platforms: [ci]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Android: sideload keystore signing config for release builds, no debug keys. macOS:
+          local Developer ID (or ad hoc) signing; notarization is optional per the PRD's no-store-
+          distribution non-goal. The signing decision and its rationale are documented.
+        acceptance:
+          - CI produces a signed release artifact for both platforms from the same pipeline used
+            for every other build.
+        tdd:
+          - "`releaseSigningCheck_apkSignedWithDebugKey_ciFails`"
+          - "`releaseSigningCheck_macArtifact_codesignVerifyPasses`"
+        notes: ""
+
+  - id: E72
+    title: "Extras (F-10.x: media control, DND sync, USB, multi-Mac)"
+    labels: [area:extras]
+    prd: [F-10.1, F-10.2, F-10.3, F-10.4]
+    use_cases: []
+    summary: |
+      The v2+ extras capability from the PRD, prioritized P2 and only taken up if there is time
+      after Phases 5 and 6 land cleanly. Each feature begins with its own design note or ADR
+      before any implementation issue, per the PRD's "decide in ADR first" guidance for F-10.4
+      and the general caution warranted by USB transport touching the transport abstraction.
+    scope:
+      - Design notes / ADRs for media control, Focus/DND sync, USB transport, and multi-Mac.
+      - P2 implementation issues for media control, Focus/DND sync, and USB transport.
+    out_of_scope:
+      - Any implementation issue proceeding before its own design note or ADR is accepted.
+      - Multi-Mac implementation itself -- this epic only resolves the ADR (Appendix C.2);
+        implementation is a future epic once the architecture is chosen.
+    exit_criteria:
+      - Each F-10.x item has an accepted design note or ADR before any code is written.
+      - Any implemented P2 item passes its own conformance/acceptance tests without touching
+        invariant 1, 2, or 4 guarantees.
+    issues:
+      - id: E72-01
+        title: "[docs] Design note: media control (F-10.1)"
+        type: spike
+        platforms: [docs]
+        priority: P2
+        size: S
+        prd: [F-10.1]
+        use_cases: []
+        invariants: []
+        depends_on: [E30-02]
+        description: |
+          F-10.1 needs notification-listener access already granted for E30-02. Design the
+          MediaSessionManager.getActiveSessions integration (also requires the notification
+          listener), the transport-control message shape, and which channel carries it.
+        acceptance:
+          - A design doc lists the message shape and channel choice, approved before E72-02
+            starts.
+        tdd: []
+        notes: ""
+      - id: E72-02
+        title: "[cross] Implement media control (F-10.1, P2)"
+        type: task
+        platforms: [android, macos]
+        priority: P2
+        size: M
+        prd: [F-10.1]
+        use_cases: []
+        invariants: []
+        depends_on: [E72-01]
+        description: |
+          Now-playing metadata push plus play/pause/skip transport controls, per E72-01's design
+          doc.
+        acceptance:
+          - Play/pause/skip from the Mac controls the phone's active media session.
+          - Now-playing metadata is displayed on the Mac.
+        tdd:
+          - mediaControl_playPauseFromMac_reflectsOnPhoneSession
+          - mediaControl_nowPlayingMetadata_displayedOnMac
+        notes: ""
+      - id: E72-03
+        title: "[docs] Design note: Focus/DND sync (F-10.2)"
+        type: spike
+        platforms: [docs]
+        priority: P2
+        size: S
+        prd: [F-10.2]
+        use_cases: []
+        invariants: []
+        depends_on: []
+        description: |
+          Design the Mac Focus state to phone NotificationManager.setInterruptionFilter mapping;
+          confirms the direction is Mac-to-phone only per the PRD, and chooses the carrying
+          channel.
+        acceptance:
+          - A design doc is approved before E72-04 starts.
+        tdd: []
+        notes: ""
+      - id: E72-04
+        title: "[cross] Implement Focus/DND sync (F-10.2, P2)"
+        type: task
+        platforms: [android, macos]
+        priority: P2
+        size: S
+        prd: [F-10.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E72-03]
+        description: |
+          Mac Focus-state changes toggle the phone's notification interruption filter, per
+          E72-03's design doc.
+        acceptance:
+          - Toggling Focus on the Mac updates the phone's interruption filter within the test
+            harness's bound.
+        tdd:
+          - focusSync_macFocusEnabled_phoneInterruptionFilterUpdates
+        notes: ""
+      - id: E72-05
+        title: "[docs] Design spike: USB transport (F-10.3, AOA vs. adb forward)"
+        type: spike
+        platforms: [docs]
+        priority: P2
+        size: M
+        prd: [F-10.3]
+        use_cases: []
+        invariants: []
+        depends_on: [E12-11, E12-12]
+        description: |
+          Evaluate Android Open Accessory (AOA) versus adb forward/reverse for carrying the same
+          framed mTLS protocol over USB, reusing the transport abstraction interfaces (E12-11 Android, E12-12 macOS).
+          Output: the chosen approach with feasibility notes.
+        acceptance:
+          - A decision is documented with feasibility notes, approved before E72-06 starts.
+        tdd: []
+        notes: ""
+      - id: E72-06
+        title: "[cross] Implement USB transport (F-10.3, P2)"
+        type: task
+        platforms: [android, macos]
+        priority: P2
+        size: L
+        prd: [F-10.3]
+        use_cases: []
+        invariants: [1, 2]
+        depends_on: [E72-05]
+        description: |
+          Implement the chosen USB transport (E72-05) as an alternate Transport implementation
+          behind the E12-11/E12-12 abstractions, using the same mTLS identity and pinning as the Wi-Fi
+          path; no relaxed authentication for the USB link.
+        acceptance:
+          - A control session established over USB passes the same conformance vectors as over
+            Wi-Fi.
+        tdd:
+          - usbTransport_controlSession_passesConformanceVectorsIdenticalToWifi
+        notes: ""
+      - id: E72-07
+        title: "[docs] ADR: multi-Mac support (F-10.4, resolves Appendix C.2)"
+        type: adr
+        platforms: [docs]
+        priority: P2
+        size: M
+        prd: [F-10.4]
+        use_cases: []
+        invariants: [3]
+        depends_on: [E12-08, E12-09]
+        description: |
+          Resolve PRD Appendix C.2: one control connection per Mac versus a phone-side broker.
+          Consider the connection state machines (E12-08/E12-09) and trust-store implications of multiple
+          concurrent authenticated peers sharing one phone identity.
+        acceptance:
+          - The ADR is accepted with a chosen architecture before any multi-Mac implementation
+            issue is opened.
+        tdd: []
+        notes: ""
+
+  - id: E73
+    title: Manual pairing ADR (F-2.2)
+    labels: [area:pairing]
+    prd: [F-2.2]
+    use_cases: [UC-03]
+    summary: |
+      Pairing without a camera, deferred to v2+ per the PRD. Gated entirely on an accepted ADR
+      that specifies a commitment-based short authentication string (SAS) of at least 6 digits,
+      compared on both screens -- explicitly never a raw fingerprint-prefix check, which is the
+      exact 32-bit-prefix weakness observed in the LinkMyMac reference (PRD Appendix A).
+      Implementation issues are P2 and do not start before the ADR is accepted.
+    scope:
+      - ADR for the commitment-based SAS scheme.
+      - manual-pairing.proto messages, gated on ADR acceptance.
+      - Android and macOS implementation, gated on ADR acceptance.
+      - mitm-lab coverage for brute-force and downgrade resistance.
+    out_of_scope:
+      - Any implementation work before the ADR is accepted.
+      - Changes to QR pairing (F-2.1, E14) -- manual pairing is a separate, additional method.
+    exit_criteria:
+      - The ADR is accepted, specifying SAS length, commit-then-reveal ordering, and explicit
+        rejection of fingerprint-prefix comparison.
+      - If implemented, brute-force and downgrade mitm-lab scenarios both fail closed.
+    issues:
+      - id: E73-01
+        title: "[docs] ADR: manual pairing with commitment-based SAS"
+        type: adr
+        platforms: [docs]
+        priority: P1
+        size: M
+        prd: [F-2.2]
+        use_cases: [UC-03]
+        invariants: [3, 5, 6]
+        depends_on: [E14-16, E02-05]
+        description: |
+          Design a commitment-based short authentication string scheme: both sides generate a
+          nonce and first exchange SHA-256 commitments to (nonce || context), only then reveal
+          the nonces; the SAS is a truncation of HMAC(nonceA||nonceB, "tandem-manual-pair-v1") to
+          at least 6 digits, displayed on both screens for the user to compare. The ADR must
+          cover replay resistance, downgrade resistance (no silent fallback from QR pairing to a
+          weaker check), and the UX of the compare step, and must explicitly reject any
+          fingerprint-prefix-only comparison per PRD ADR-004.
+        acceptance:
+          - The ADR is accepted, specifying an SAS length of at least 6 digits, commit-then-
+            reveal ordering, and explicit rejection of fingerprint-prefix comparison as a
+            substitute.
+        tdd: []
+        notes: ""
+      - id: E73-02
+        title: "[protocol] manual-pairing.proto (P2, gated on E73-01)"
+        type: task
+        platforms: [protocol]
+        priority: P2
+        size: M
+        prd: [F-2.2]
+        use_cases: [UC-03]
+        invariants: [3, 6]
+        depends_on: [E73-01]
+        description: |
+          Commitment{hash}, Reveal{nonce}, ManualPairResult{accepted} messages, implemented only
+          if E73-01 is accepted. Vectors: a Reveal sent before both sides' Commitment are
+          received is rejected; round trip for all three messages.
+        acceptance:
+          - Not started unless E73-01 is accepted.
+          - protocol/vectors/manual-pairing/*.json pass conformance on both platforms.
+        tdd:
+          - manualPairingVector_roundTrip_matchesGoldenBytes
+          - manualPairing_revealBeforeBothCommitmentsReceived_rejected
+        notes: ""
+      - id: E73-03
+        title: "[android] Manual pairing implementation (P2, gated on E73-01)"
+        type: task
+        platforms: [android]
+        priority: P2
+        size: L
+        prd: [F-2.2]
+        use_cases: [UC-03]
+        invariants: [3, 5, 6]
+        depends_on: [E73-02]
+        description: |
+          UI and state machine implementing commit, reveal, SAS compare, and confirm, reusing the
+          pairing state-machine patterns from F-2.1 (E14). Not started unless E73-01 is accepted.
+        acceptance:
+          - Pairing completes and pins the peer only after the user confirms the SAS matches on
+            both screens.
+          - The user reporting a mismatch aborts the pairing without pinning anything.
+        tdd:
+          - manualPairing_userConfirmsMatchingSas_pinsPeer
+          - manualPairing_userReportsMismatch_abortsWithoutPinning
+        notes: ""
+      - id: E73-04
+        title: "[macos] Manual pairing implementation (P2, gated on E73-01)"
+        type: task
+        platforms: [macos]
+        priority: P2
+        size: L
+        prd: [F-2.2]
+        use_cases: [UC-03]
+        invariants: [3, 5, 6]
+        depends_on: [E73-02]
+        description: |
+          Mirrors E73-03 for macOS. Not started unless E73-01 is accepted.
+        acceptance:
+          - Pairing completes and pins the peer only after the user confirms the SAS matches on
+            both screens.
+          - The user reporting a mismatch aborts the pairing without pinning anything.
+        tdd:
+          - manualPairing_userConfirmsMatchingSas_pinsPeer
+          - manualPairing_userReportsMismatch_abortsWithoutPinning
+        notes: ""
+      - id: E73-05
+        title: "[tools] mitm-lab: manual pairing brute-force + downgrade scenarios (P2, gated)"
+        type: test
+        platforms: [tools]
+        priority: P2
+        size: M
+        prd: [F-2.2]
+        use_cases: [UC-03, AC-03]
+        invariants: [3, 5, 6]
+        depends_on: [E73-03, E73-04, E15-08]
+        description: |
+          Verifies a 6-digit SAS resists brute force within the pairing window's attempt limit,
+          and that no code path accepts a manual pairing using only a fingerprint prefix (the
+          LinkMyMac weakness this ADR exists to avoid).
+        acceptance:
+          - The brute-force scenario fails closed once the attempt limit is reached.
+          - A code-level check confirms no path accepts a manual pairing on fingerprint-prefix
+            comparison alone.
+        tdd:
+          - mitmLab_manualPairingBruteForce_failsClosedAfterAttemptLimit
+          - codeReview_manualPairing_neverAcceptsFingerprintPrefixOnly
+        notes: ""

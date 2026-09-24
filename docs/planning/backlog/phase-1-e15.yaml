@@ -1,0 +1,439 @@
+phase: 1
+epics:
+  - id: E15
+    title: "Security test harness (conformance, pcap-audit, log-audit, mitm-lab, fuzz scaffolding)"
+    labels: [area:security, area:testing, area:tools]
+    prd: [F-3.1, F-3.2]
+    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-02, AC-03, AC-04, AC-07, AC-10]
+    summary: |
+      Build the security and interoperability test harness that Phase 1's exit criteria depend on,
+      and that stays in continuous use through every later phase: a conformance runner executing
+      `protocol/vectors/` (E01) against both the Kotlin and Swift codecs, a pcap-audit tool that
+      fails a build if anything but TLS 1.3 (or a canary string) appears on the wire, a scripted
+      MITM lab covering every fail-closed scenario the PRD lists, an `nmap` check proving the
+      phone opens no listener, short-running fuzz scaffolding for the frame/envelope parsers on
+      both platforms, and a JVM integration client that runs Android's real `core/*` modules
+      against the real macOS server. This epic does not implement any protocol or transport
+      behavior itself; it proves the behavior other epics (E10-E14) implement is correct and fails
+      closed.
+    scope:
+      - tools/conformance runner (Kotlin + Swift codecs), CI-blocking.
+      - tools/pcap-audit (tshark-based), covering the TLS-1.3-only assertion, canary-string scan, and
+        canary injection procedure script.
+      - tools/mitm-lab scripted scenarios covering every PRD Phase 1 exit-criterion attack and the
+        abuse cases (AC-01, AC-03, AC-04); media-ticket abuse scenarios are owned by E60-05.
+      - nmap phone-listener check.
+      - log-audit tool (runtime canary scan of both apps' logs).
+      - Fuzz scaffolding, covering a Jazzer target for the Kotlin frame/envelope parser and a
+        libFuzzer target for the Swift frame/envelope parser, both wired as short CI smoke runs
+        (not full campaigns).
+      - JVM test client reusing Android `core/*` modules to run integration tests against the real
+        Mac server on macOS CI.
+    out_of_scope:
+      - Full multi-hour/multi-day fuzz campaigns (E71, Phase 7).
+      - The codec, transport, and pairing implementations themselves (E10-E14).
+      - External review of SPEC.md (E71).
+    exit_criteria:
+      - Every Phase 1 exit criterion in `docs/PRD.md` `<implementation-roadmap>` is verifiable by
+        running a specific tool or test in this epic —
+        pairing+reconnect → E14-16 (on the E15-15 harness); pcap-audit clean + no canary → E15-05/E15-06/E15-07;
+        every listed mitm-lab scenario fails closed → E15-09/E15-10/E15-11; no phone listeners →
+        E15-12.
+      - "`tools/conformance/run.sh` is a required CI check on both the android and macos workflows."
+      - Fuzz smoke runs complete in CI within a bounded time budget (documented per-issue) with zero
+        crashes on the phase-0 vector corpus.
+    issues:
+      - id: E15-01
+        title: "[android] Conformance runner: execute protocol/vectors against the Kotlin codec"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E01-16, E10-03, E10-12, E11-11, E14-03]
+        description: |
+          `tools/conformance` gains an Android/JVM entry point that loads every fixture under
+          `protocol/vectors/` (SPKI fingerprint, pairing HMAC, frame encoding, Bonjour rotating ID,
+          QR payload — all from E01) and asserts the Kotlin codec/crypto implementations (E11,
+          E10) produce the expected output for every valid vector and reject every invalid one with
+          the expected error. Aggregates the codec-level frame conformance tests (E11-11) with the
+          crypto (E10-03, E10-12) and QR parser (E14-03) categories into one runner.
+        acceptance:
+          - Every vector category from `protocol/vectors/` has a corresponding JVM test case.
+          - A deliberately corrupted vector file fails the runner with a clear diff (expected vs.
+            actual), not a silent pass.
+        tdd:
+          - "`kotlinConformance_allSpkiVectors_matchExpectedFingerprint`"
+          - "`kotlinConformance_allPairingHmacVectors_matchExpectedProof`"
+          - "`kotlinConformance_validFrameVectors_decodeToExpectedEnvelope`"
+          - "`kotlinConformance_invalidFrameVectors_rejectedWithExpectedCloseCode`"
+          - "`kotlinConformance_corruptedVectorFile_runnerFailsWithDiffNotSilentPass`"
+        notes: |
+          The Bonjour rotating-ID category can only run against the Kotlin implementation once
+          E21-05 (Phase 2) lands; until then it is validated against the reference generator only.
+      - id: E15-02
+        title: "[macos] Conformance runner: execute protocol/vectors against the Swift codec"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E01-16, E10-08, E10-13, E11-12]
+        description: |
+          Same as E15-01 but for the Swift codec/crypto implementations (`TandemProtocol`,
+          `TandemCrypto`), invoked via `swift test` or a standalone executable under
+          `tools/conformance`.
+        acceptance:
+          - Every vector category from `protocol/vectors/` has a corresponding Swift Testing case.
+          - A deliberately corrupted vector file fails the runner with a clear diff, not a silent pass.
+        tdd:
+          - "`swiftConformance_allSpkiVectors_matchExpectedFingerprint`"
+          - "`swiftConformance_allPairingHmacVectors_matchExpectedProof`"
+          - "`swiftConformance_validFrameVectors_decodeToExpectedEnvelope`"
+          - "`swiftConformance_invalidFrameVectors_rejectedWithExpectedCloseCode`"
+          - "`swiftConformance_corruptedVectorFile_runnerFailsWithDiffNotSilentPass`"
+        notes: |
+          macOS never parses QR payloads, so that category is Android-only. The rotating-ID
+          category runs against the Swift implementation once E21-02 (Phase 2) lands.
+      - id: E15-03
+        title: "[ci] Wire conformance runner into CI as a blocking check"
+        type: task
+        platforms: [ci]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E15-01, E15-02, E00-11]
+        description: |
+          Add `tools/conformance/run.sh` (invokes both E15-01 and E15-02 runners) to the
+          `conformance.yml` workflow from E00-11 as a required status check on the android and
+          macos workflows, so a vector-breaking change on either platform blocks merge regardless
+          of which platform's PR introduced it.
+        acceptance:
+          - A PR that only breaks the Swift codec still fails the required check even though it
+            touches no Android files.
+          - "`run.sh` exits non-zero on any single vector failure and prints which vector/platform
+            failed."
+        tdd:
+          - "`conformanceCi_swiftCodecRegression_androidOnlyPrStillFails`"
+          - "`conformanceRunSh_singleVectorFailure_exitsNonZeroWithVectorNamed`"
+        notes: ""
+      - id: E15-04
+        title: "[tools] pcap-audit: tshark capture harness for the Tandem port"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-02]
+        invariants: [2]
+        depends_on: []
+        description: |
+          `tools/pcap-audit/capture.sh` starts a `tshark` capture filtered to the configured Tandem
+          port(s) for the duration of a scripted session (or a fixed timeout), and
+          `tools/pcap-audit/analyze.py` parses the resulting pcap into a structured record list
+          (protocol, TLS version if present, payload bytes) for the two assertion tools (E15-05,
+          E15-06) to consume.
+        acceptance:
+          - "`capture.sh` produces a valid pcap file covering exactly the configured port range."
+          - "`analyze.py` correctly classifies at least: TLS 1.3 record, TLS 1.2 record, plaintext
+            TCP payload, on a set of hand-crafted test pcaps."
+        tdd:
+          - "`pcapCapture_configuredPortRange_capturesOnlyThatRange`"
+          - "`pcapAnalyze_mixedRecordTypes_classifiesEachCorrectly`"
+        notes: ""
+      - id: E15-05
+        title: "[tools] pcap-audit: \"only TLS 1.3 records\" assertion"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [AC-02, AC-04]
+        invariants: [2]
+        depends_on: [E15-04]
+        description: |
+          Assertion pass over `analyze.py`'s classified record list: fail if any record on the
+          Tandem port is not a TLS 1.3 record (catches plaintext, TLS 1.2 downgrade, or any
+          non-TLS protocol on the port).
+        acceptance:
+          - A capture containing a single injected plaintext TCP payload on the Tandem port fails
+            the assertion with the byte offset reported.
+          - A capture containing only TLS 1.3 records passes.
+        tdd:
+          - "`pcapAudit_plaintextPayloadOnTandemPort_assertionFailsWithOffset`"
+          - "`pcapAudit_onlyTls13Records_assertionPasses`"
+        notes: ""
+      - id: E15-06
+        title: "[tools] pcap-audit: canary string scan across full capture"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [AC-02]
+        invariants: [7]
+        depends_on: [E15-04]
+        description: |
+          Scan the raw capture bytes (not just parsed payloads, to catch canaries leaking in
+          unexpected framing) for a supplied canary string (`TANDEM-CANARY-<random>`) and fail if
+          found anywhere.
+        acceptance:
+          - A capture with the canary string embedded (simulating a plaintext leak) fails the scan.
+          - A capture with only encrypted TLS application data (no plaintext canary) passes.
+        tdd:
+          - "`pcapAudit_canaryStringPresentInCapture_scanFails`"
+          - "`pcapAudit_canaryOnlyInsideTlsCiphertext_scanPasses`"
+        notes: ""
+      - id: E15-07
+        title: "[tools] Canary procedure script (clipboard, file, notification, mirror injection)"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-02]
+        invariants: [7]
+        depends_on: [E15-04, E15-06, E14-16]
+        description: |
+          `tools/pcap-audit/canary.sh` automates the PRD test-strategy canary procedure: generate a
+          fresh `TANDEM-CANARY-<random>`, sync it to the clipboard, send it as a file's contents,
+          trigger a notification containing it, and display it on the mirrored screen (each step
+          is skipped with a warning until its feature lands: notification E30, clipboard E31, file
+          E40; the mirror step is owned by E61-09) — all while E15-04's capture
+          runs, then hand the capture to E15-06.
+        acceptance:
+          - Running the script against a live paired phone+Mac produces one capture file and a
+            pass/fail result from the canary scan.
+          - Script is idempotent and generates a new random canary every run (no reuse across runs).
+        tdd:
+          - "`canaryProcedure_freshRun_generatesUniqueCanaryEveryTime`"
+          - "`canaryProcedure_endToEndAgainstLiveDevices_producesPassFailResult`"
+        notes: |
+          In Phase 1 no feature channel exists yet, so the Phase 1 exit run injects the canary via a
+          test-only CONTROL-channel payload; feature steps become live in Phases 3-6 (E61-09 owns
+          the mirror step, E71-07 the full-feature release run).
+      - id: E15-08
+        title: "[tools] mitm-lab: scenario harness scaffolding + scripted-scenario runner"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: []
+        use_cases: [AC-01, AC-03, AC-04]
+        invariants: [1, 5, 6]
+        depends_on: []
+        description: |
+          `tools/mitm-lab/` scaffolding: a scenario definition format (one scenario = a script that
+          acts as a malicious or malformed peer against the real Mac listener or phone client), a
+          runner that executes a directory of scenarios and reports pass (connection/handshake
+          rejected as expected) or fail (anything accepted that should not have been) per scenario.
+          The concrete scenarios (E15-09/10/11/16) are separate issues built on this scaffold.
+        acceptance:
+          - Runner discovers and executes every scenario file under `tools/mitm-lab/scenarios/`.
+          - A scenario that expects rejection but observes acceptance is reported as a hard failure
+            with the scenario name in the output.
+        tdd:
+          - "`mitmLabRunner_scenarioDirectory_discoversAndExecutesAllScenarios`"
+          - "`mitmLabRunner_unexpectedAcceptance_reportsHardFailureWithScenarioName`"
+        notes: ""
+      - id: E15-09
+        title: "[tools] mitm-lab: pairing-abuse scenarios (replayed PairRequest, expired secret, 4th attempt, proof for different phone key)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-2.1]
+        use_cases: [AC-03]
+        invariants: [6]
+        depends_on: [E15-08, E14-07, E14-09, E01-18, E01-21]
+        description: |
+          Four scenarios on the E15-08 scaffold, using vectors from E01-18/E01-21 where
+          applicable: (1) replay a previously valid `PairRequest` after the original pairing
+          completed; (2) attempt pairing after the secret's 120 s expiry; (3) a 4th pairing attempt
+          after 3 failures within the same window; (4) a `PairRequest` whose proof was computed
+          for a different phone's key than the one presented in the TLS handshake.
+        acceptance:
+          - All four scenarios result in a rejected connection and a burned/expired attempt state,
+            never a `PairAccepted`.
+          - Scenario (3) confirms the window is closed/exhausted after the 4th attempt, not merely
+            that the 4th attempt itself fails.
+        tdd:
+          - "`mitmLab_replayedPairRequest_rejected`"
+          - "`mitmLab_expiredSecretPairRequest_rejected`"
+          - "`mitmLab_fourthPairingAttempt_windowExhaustedAndRejected`"
+          - "`mitmLab_proofForDifferentPhoneKey_rejected`"
+        notes: ""
+      - id: E15-10
+        title: "[tools] mitm-lab: certificate-abuse scenarios (unknown client cert, wrong server cert, swapped cert)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [AC-01]
+        invariants: [1, 3, 5]
+        depends_on: [E15-08, E12-02, E12-05]
+        description: |
+          Three scenarios: (1) a client presenting a certificate whose SPKI fingerprint is not in
+          the Mac's trust store and no pairing window is open; (2) a client that pins a
+          server-certificate fingerprint different from the Mac's real one (wrong server cert);
+          (3) a client and server pair where the certificates have been swapped between two
+          otherwise-legitimate paired devices (fingerprint collision test).
+        acceptance:
+          - All three scenarios fail the handshake with no application data exchanged (verified via
+            a companion pcap capture showing zero bytes past the TLS handshake).
+        tdd:
+          - "`mitmLab_unknownClientCertOutsidePairingWindow_handshakeRejectedNoAppData`"
+          - "`mitmLab_wrongServerCertFingerprint_handshakeRejectedNoAppData`"
+          - "`mitmLab_swappedCertsBetweenPairedDevices_handshakeRejectedNoAppData`"
+        notes: ""
+      - id: E15-11
+        title: "[tools] mitm-lab: downgrade & resumption scenarios (TLS 1.2 downgrade, session-resumption attempt)"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [AC-04]
+        invariants: [1, 5]
+        depends_on: [E15-08, E12-01, E12-03]
+        description: |
+          Two scenarios using `openssl s_client -tls1_2` (or equivalent scripted client) against
+          the Mac listener: (1) a TLS 1.2-only ClientHello; (2) a client attempting session
+          resumption (ticket reuse or session-ID reuse) against a listener configured for no
+          resumption.
+        acceptance:
+          - Both scenarios are rejected at the handshake layer; the resumption attempt confirms no
+            session ticket was issued in the first place (not merely that reuse fails).
+        tdd:
+          - "`mitmLab_tls12OnlyClientHello_rejected`"
+          - "`mitmLab_sessionResumptionAttempt_noTicketIssuedAndReuseRejected`"
+        notes: ""
+      - id: E15-12
+        title: "[tools] nmap phone-listener check script"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [UC-05, AC-04]
+        invariants: [4]
+        depends_on: [E12-08]
+        description: |
+          `tools/mitm-lab/nmap-phone-check.sh` (or a `tools/` top-level script) runs `nmap -p-`
+          against a paired phone's IP while the Tandem app is running and fails if any TCP port is
+          reported open, enforcing invariant 4 empirically rather than only by code review.
+        acceptance:
+          - Script exits non-zero and lists the offending port(s) if any port is open.
+          - Script exits zero when run against a phone with only the expected non-Tandem system
+            ports (documented allowlist, e.g. ADB over Wi-Fi if explicitly enabled) open.
+        tdd:
+          - "`nmapPhoneCheck_tandemPortAccidentallyOpened_scriptFailsWithPortListed`"
+          - "`nmapPhoneCheck_onlyAllowlistedSystemPorts_scriptPasses`"
+        notes: ""
+      - id: E15-13
+        title: "[android] Fuzz scaffolding: Jazzer target for the Kotlin frame/envelope parser + CI smoke run"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E11-02, E01-19]
+        description: |
+          `tools/fuzz/jazzer/` fuzz target wrapping the Kotlin frame decoder + `Envelope` parser,
+          seeded with the corpus from `protocol/vectors/` (E01-19). Wired as a short (bounded
+          duration, e.g. a few minutes) smoke run in CI on every PR touching the parser, with a
+          separate longer nightly/weekly campaign left to E71 (Phase 7).
+        acceptance:
+          - Fuzz target builds and runs against the seed corpus with zero crashes.
+          - CI smoke run has a hard wall-clock budget and fails the build only on an actual crash or
+            sanitizer finding, not on timeout alone.
+        tdd:
+          - "`jazzerFuzzTarget_seedCorpus_noCrashesFound`"
+          - "`jazzerCiSmokeRun_boundedDuration_completesWithinBudget`"
+        notes: ""
+      - id: E15-14
+        title: "[macos] Fuzz scaffolding: libFuzzer target for the Swift frame/envelope parser + CI smoke run"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.2]
+        use_cases: [AC-07]
+        invariants: []
+        depends_on: [E11-04, E01-19]
+        description: |
+          Same as E15-13 but a libFuzzer target (via SwiftPM's `-enable-fuzzing` support) wrapping
+          the Swift frame decoder + `Envelope` parser, seeded from the same `protocol/vectors/`
+          corpus, with a bounded-duration CI smoke run.
+        acceptance:
+          - Fuzz target builds and runs against the seed corpus with zero crashes.
+          - CI smoke run has a hard wall-clock budget and fails the build only on an actual crash or
+            sanitizer finding, not on timeout alone.
+        tdd:
+          - "`libFuzzerTarget_seedCorpus_noCrashesFound`"
+          - "`libFuzzerCiSmokeRun_boundedDuration_completesWithinBudget`"
+        notes: ""
+      - id: E15-15
+        title: "[cross] JVM integration-test harness: Android core/* modules against the real Mac server on macOS CI"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [1, 3, 5]
+        depends_on: [E12-01, E12-02, E12-04, E12-05, E12-06]
+        description: |
+          Reusable harness (owner of the JVM-client infrastructure): a JVM test client that links the
+          real Android `core/protocol`, `core/crypto`, `core/transport`, and `core/pairing` modules
+          (not a reimplementation), plus macOS CI plumbing that builds, launches, stops, and restarts
+          the real macOS server app, seeds or clears its trust store, and injects a simulated QR
+          payload. It removes the need for a physical Android device in CI. Concrete scenarios live
+          with the epics that own the behavior: E12-13 (handshake + Hello + frame round trip) and
+          E14-16 (QR pairing, restart both processes, reconnect — the Phase 1 exit criterion).
+        acceptance:
+          - The harness launches the real Mac server app on a macOS CI runner and a JVM client
+            completes an mTLS handshake against it using a pre-seeded trust store.
+          - The harness can kill and relaunch both the server app and the client process
+            unattended, with trust-store state preserved across restarts.
+          - Runs as part of the macos workflow with no physical device or emulator.
+        tdd:
+          - "`jvmHarness_realMacServerLaunched_clientCompletesHandshakeWithSeededTrust`"
+          - "`jvmHarness_restartBothProcesses_trustStorePreservedAndServerReachable`"
+        notes: |
+          Scenario tests E12-13 and E14-16 depend on this issue.
+      - id: E15-17
+        title: "[tools] log-audit: canary scan over captured app logs (logcat + macOS unified log)"
+        type: task
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [AC-10]
+        invariants: [7]
+        depends_on: [E15-06]
+        description: |
+          Runtime complement to the static release-log lint (E00-17): `tools/pcap-audit/log-audit.sh`
+          collects `adb logcat` from the phone and `log show --predicate 'subsystem == "…tandem…"'`
+          from the Mac for a scripted session window and fails if any supplied canary string (message
+          body, phone number, contact name, notification text, clipboard text) appears. Reuses the
+          canary generation of E15-06/E15-07. Per-domain sessions are owned by the feature epics
+          (E50-11, E51-08, E52-09); this issue provides the tool only.
+        acceptance:
+          - A captured log containing the canary string fails the audit and names the log source and
+            line.
+          - A captured log containing only redacted/length-only representations passes.
+        tdd:
+          - "`logAudit_canaryPresentInLogcat_failsWithSourceAndLine`"
+          - "`logAudit_canaryPresentInUnifiedLog_failsWithSourceAndLine`"
+          - "`logAudit_redactedLengthOnlyEntries_passes`"
+        notes: ""
