@@ -471,5 +471,195 @@ remains E02-08's.
 
 ---
 
-<!-- E02-08 CHAPTER 2 MARKER: append "Threat model part 2 — local platform surfaces, storage,
-     logs, CI and supply chain" below this line when E02-08 lands. Do not remove this marker. -->
+# Chapter 2 — Local platform surfaces, storage, logs, CI and supply chain
+
+STRIDE analysis of every local surface outside the wire protocol, per backlog issue **E02-08**
+(depends on chapter 1, E02-01; split recorded in D-33). Same conventions as chapter 1 (§1): **Inv
+N**, **D-NN**, **E##-##**, **AC-##**, and the same six-column table (STRIDE, Threat, Mitigation,
+Residual risk, Verifying test, AC). Where a surface is already touched by a chapter 1 row (cross-
+referenced explicitly below), this chapter either completes it or points back rather than
+repeating it.
+
+## 8. Scope and method
+
+Per E02-01's scope split (D-33), this chapter covers what chapter 1 explicitly excluded: Android
+IPC internals (exported components, PendingIntents, tapjacking, backup/device-transfer
+extraction), Mac local surfaces (loopback and other local reachability of the listener, QR
+capture during the pairing window, the share-extension queue, Finder Services, NSPasteboard
+writes, notification presentation and the lock screen), on-disk storage (Keychain identity/trust
+items, GRDB SMS/contacts stores, thumbnail/icon caches, transfer temp files, downloaded files,
+unpair purge, lost/stolen phone and Mac), logs and crash reports, and CI/release (signing
+secrets, secret scanning, test-only-code scanning, dependency supply chain, telemetry/egress).
+
+## 9. Trust boundaries (chapter 2 additions)
+
+| # | Boundary | Notes |
+|---|---|---|
+| B8 | Other apps on the phone ↔ Tandem's exported components, PendingIntents and FileProvider-served content | Untrusted: any installed app can send an intent to an exported component or a crafted share/PROCESS_TEXT intent (AC-16). |
+| B9 | Other local processes/OS users on the Mac ↔ the listener (incl. loopback), the App Group queue, and the pairing QR window | Bounded, not trusted: no special exemption exists for "local," but no local-only attack surface beyond what chapter 1's pin check and admission control already cover is introduced either (AC-17). |
+| B10 | OS keystore/keychain and on-disk stores ↔ physical possession of the device | The boundary a lost/stolen phone (AC-09) or Mac (AC-12) actually tests. |
+| B11 | CI environment ↔ release signing secrets and the third-party dependency graph | Untrusted: a pull-request workflow, a compromised transitive dependency, or an unpinned Action (AC-18). |
+
+## 10. Threat model per surface
+
+### 10.1 Android IPC surfaces
+
+Assets: exported components, PendingIntents Tandem creates and the third-party ones it fires,
+the backup/device-transfer channel, the NotificationListenerService and AccessibilityService
+bindings, Tandem's own FileProvider content.
+
+| STRIDE | Threat | Mitigation | Residual risk | Verifying test | AC |
+|---|---|---|---|---|---|
+| Elevation of privilege | Another app starts or binds to a Tandem component it shouldn't reach (share/PROCESS_TEXT activities, the QS `TileService`, `NotificationListenerService`, `AccessibilityService`, the `BOOT_COMPLETED` receiver), or a component is exported by accident. | Every component is `exported="false"` unless listed in `tools/release-audit/android-exported.allowlist` with its guarding permission (`BIND_QUICK_SETTINGS_TILE`, `BIND_NOTIFICATION_LISTENER_SERVICE`, `BIND_ACCESSIBILITY_SERVICE`); the `BOOT_COMPLETED`/`MY_PACKAGE_REPLACED` receiver, which must be exported, additionally checks the intent action itself (D-28; E00-28, E20-08). | None within the allowlist's coverage; a new component not added to the allowlist fails CI rather than shipping silently exported. | `ci: exportedComponentCheck_unlistedExportedActivityFixture_checkFails` (E00-28); `unit: bootReceiver_explicitIntentOtherAction_startsNothing` (E20-08) | AC-16 |
+| Tampering / EoP (confused deputy via intents and URIs) | A crafted `ACTION_SEND`/`ACTION_SEND_MULTIPLE`/`PROCESS_TEXT` intent carries a `file://` URI (reads another app's or Tandem's own private files), a `content://` URI whose authority is Tandem's own `FileProvider`, more than 20 streams, or a non-`CharSequence` extra. | Only `content://` URIs are accepted, `file://` is rejected outright, a URI whose authority belongs to Tandem's own package is rejected, shares are capped at 20 streams, and `PROCESS_TEXT` accepts only a `CharSequence` extra (E40-11, E31-06). | None within the vector set tested. | `unit: shareTarget_fileSchemeUriIntoAppDataDir_rejectedNoOffer`, `unit: shareTarget_ownFileProviderAuthorityUri_rejectedNoOffer`, `unit: shareTarget_twentyOneStreams_rejectedNoOffer` (E40-11); `unit: processTextActivity_nonCharSequenceExtra_sendsNothing` (E31-06) | AC-16 |
+| Elevation of privilege (PendingIntent hijack) | A PendingIntent Tandem creates is mutable or wraps an implicit Intent, letting another app fill in extras or redirect it; separately, the one PendingIntent Tandem itself *fires* on the peer's behalf (a notification action/reply) is reconstructed from attacker-influenced fields. | `PendingIntentImmutable` lint requires `FLAG_IMMUTABLE` and an explicit-component Intent on every `PendingIntent.getActivity/getBroadcast/getService/getForegroundService` (`FLAG_MUTABLE` needs a named allowlist entry) (D-28; E00-28); the action Tandem fires is looked up locally by key/actionIndex from the original posted notification, not reconstructed from peer-supplied fields, and a reply's `RemoteInput` fill-in carries only the result keys, nothing else (E30-09). | None within the lint's coverage. | `ci: pendingIntentLint_mutableWithoutAllowlistFixture_lintFails`, `ci: pendingIntentLint_implicitIntentFixture_lintFails` (E00-28); `unit: actionExecutor_plainActionIndexZero_sendsPendingIntentOfActionZero`, `unit: actionExecutor_fillInIntent_containsOnlyRemoteInputResults` (E30-09) | AC-16, AC-19 |
+| Elevation of privilege (tapjacking) | An overlay from another app is drawn over a Tandem activity (settings toggles, the Accessibility opt-in explanation, share/QS capture activities) to intercept a tap. | Every Tandem activity extends a `TandemActivity` base that sets `window.decorView.filterTouchesWhenObscured = true`; lint requires every activity to extend it (D-28; E00-28). | None within lint coverage. | `unit: tandemActivity_onCreate_decorViewFiltersTouchesWhenObscured`, `ci: activityBaseClassLint_activityNotExtendingTandemActivity_lintFails` (E00-28) | AC-16 |
+| Information disclosure (backup / device-transfer extraction) | Cloud backup or Android's device-to-device transfer tool extracts the trust store, settings, or transfer temp files from a lost, stolen, or backed-up phone. | `allowBackup="false"`, `fullBackupContent="false"`, and `dataExtractionRules` excluding every domain (D-28; E00-28). | None within the fixture check's coverage. | `ci: mergedManifest_allowBackupTrueFixture_checkFails` (E00-28) | AC-16, AC-09 |
+| Information disclosure (denied dangerous permissions) | The app requests permissions beyond its documented feature set (app-inventory scraping, drawing over other apps, full-screen intents, unscoped storage, side-loading, device-admin) that would widen the blast radius if the app were later compromised. | CI denies `QUERY_ALL_PACKAGES`, `SYSTEM_ALERT_WINDOW`, `USE_FULL_SCREEN_INTENT`, `READ_CALL_LOG` (unless allowlisted), `MANAGE_EXTERNAL_STORAGE`, `REQUEST_INSTALL_PACKAGES`, `WRITE_SETTINGS`, `READ_LOGS`, `BIND_DEVICE_ADMIN` in the merged manifest (D-28; E00-28). | None within the denylist's coverage. | `ci: deniedPermissionCheck_queryAllPackagesFixture_checkFails` (E00-28) | AC-16 |
+| Elevation of privilege (NotificationListenerService / AccessibilityService opt-in) | The two highest-privilege Android surfaces are bound without the owner understanding why, or bind with a wider capability set than declared. | `NotificationListenerService` is guarded by `BIND_NOTIFICATION_LISTENER_SERVICE`; `AccessibilityService` requires an explicit opt-in settings screen naming the reason, is disabled by default, requires `BIND_ACCESSIBILITY_SERVICE`, and its declared capability set is checked against a fixed allowlist that excludes key-event filtering (Inv 8; E62-02). | None within the config allowlist's coverage. | `ci: accessibilityServiceConfig_declaredCapabilities_equalAllowlist`, `ci: mergedManifest_accessibilityService_requiresBindAccessibilityPermission` (E62-02) | AC-16, AC-06 |
+| Information disclosure (screenshots / recent-apps thumbnails) | The OS or another app captures a screenshot or recent-apps thumbnail of a Tandem phone screen showing forwarded content (e.g. a synced SMS thread). | Deliberately **not** mitigated with `FLAG_SECURE`: no secret is rendered on the phone (the pairing secret lives on the Mac, not the phone), and `FLAG_SECURE` would also blank Tandem's own screens inside the Mac's mirrored view of the phone (E61) — an explicit trade-off recorded here per E00-28's own note. | Accepted residual: screenshots/recent-apps thumbnails of Tandem's phone screens can capture forwarded content, exactly like any other non-`FLAG_SECURE` Android app. See residual register item 19. | Design decision, no test (D-28; E00-28 note). | AC-17 (adjacent), AC-19 |
+
+### 10.2 Mac local surfaces
+
+Assets: local reachability of the listener, the pairing QR image, the share-extension queue,
+the general pasteboard, notification presentation, lock-screen content.
+
+| STRIDE | Threat | Mitigation | Residual risk | Verifying test | AC |
+|---|---|---|---|---|---|
+| Spoofing / EoP (other local users or processes) | A process or login session on the same Mac (not the network attacker of chapter 1, but literally local — another account, or malware running as the same user) opens a connection to the listener, including over loopback, hoping for a local-only trust exemption. | Admission control and the SPKI pin check apply identically regardless of source address; loopback gets no exemption from the pre-auth caps, the 10 s TLS deadline, or the pin check (E12-18, chapter 1 §4.1); a revoked or never-paired peer reconnecting over loopback with no pairing window open fails the handshake with zero application bytes delivered (E14-15). App Sandbox network entitlements (E22-04) bound what the Tandem process itself can do but do not restrict which local uid can dial 127.0.0.1 — the pin check, not the sandbox, is what actually protects here. | A genuinely multi-user Mac is outside the PRD's single-user target-user assumption (D-12); any local account can attempt the same connection a network attacker could, though it gains nothing without a valid pinned key. See residual register item 15. | `integration: listener_loopbackStalledTcpConnection_closedWithin11s`, `integration: listener_tenIdleLoopbackConnections_ninthAndTenthClosedOnAccept` (E12-18); `integration: revokedPeer_loopbackReconnectNoWindow_handshakeFailsZeroAppBytes` (E14-15) | AC-17 |
+| Information disclosure (QR capture during the pairing window) | A local attacker (another local session, a screen-recording tool, or a shoulder-surfer) captures the pairing QR while the window is open. | The pairing window sets `NSWindow.sharingType = .none`, excluded from screenshots and screen sharing where macOS honours it, and offers no copy/save action for the QR image or payload (E14-11); a captured secret still requires winning the Mac-side confirmation dialog and the single in-flight candidate slot before it grants trust (D-16, D-18; chapter 1 §4.3). | `sharingType = .none` is best-effort, not an OS guarantee, and physical shoulder-surfing is not addressable in software at all. See residual register item 16 (cross-ref chapter 1 residual item 2). | `unit: pairingWindow_created_sharingTypeNoneAndNoCopyAction` (E14-11) | AC-17 |
+| Tampering (share-extension queue injection) | The Share extension has no network entitlement and wakes the agent only via a payload-free Darwin notification, so the agent trusts whatever it finds in the shared App Group queue directory; a process able to write into that same container could plant a symlink, an entry resolving outside the queue directory, a non-regular-file entry, or more than 20 entries per request. | The agent accepts only regular files, no symlinks, resolving inside the queue directory, at most 20 per request and each within the 64 GiB cap; the extension's own entitlements are exactly app-sandbox and application-groups — no network, no keychain access group — so the extension itself cannot be the network-facing half of an attack (E40-22). | None within the validated entry set; still assumes no *other* process legitimately shares this Mac's App Group, which holds for a single Tandem install. | `unit: sendRequestQueue_symlinkEntry_rejectedNoOffer`, `unit: sendRequestQueue_entryResolvingOutsideQueueDir_rejectedNoOffer`, `ci: shareExtensionEntitlements_releaseBuild_exactlySandboxAndAppGroup` (E40-22) | AC-17, AC-19 |
+| Tampering (Finder Services entry point) | The "Send to phone" Finder Services item processes whatever the invoking context puts on the service pasteboard; a pasteboard with no file URL, or an unexpectedly large URL list, could be fed to it. | The provider reads only file URLs from the service pasteboard and starts one FileOffer per file; a pasteboard with no file URL starts nothing; the same FILES-channel caps as chapter 1 §4.9 (D-21) still gate size/count regardless of entry point (E40-21). | None within the tested paths; this entry point has no remote/attacker-controlled input — it is a local Services-menu invocation by the owner. | `unit: servicesProvider_noFileUrl_noOfferAndErrorReturned` (E40-21) | AC-17 (adjacent) |
+| Information disclosure (NSPasteboard writes) | Text received from the phone and written to the general pasteboard is picked up by a local clipboard-history tool that persists it beyond the owner's expectation, or a sensitive phone-side clip is written without its Concealed/Transient markers. | Received text over 1 MiB is rejected before writing; a `sensitive = true` `ClipboardText` is written with both `org.nspasteboard.ConcealedType` and `org.nspasteboard.TransientType` so clipboard managers and Tandem's own poller skip it (E31-13; D-29). | A non-sensitive clip is, by design, written to the ordinary shared pasteboard like any other paste — a local clipboard-history tool a co-user might have installed will see it; this is the general macOS clipboard trust model, not a Tandem-specific hole. | `unit: pasteboardWriter_sensitiveText_writtenWithConcealedAndTransientTypes`, `unit: pasteboardWriter_textOver1MiB_pasteboardUnchanged` (E31-13) | AC-17, AC-02 (adjacent) |
+| Information disclosure (notification presentation / lock screen / icon cache) | Forwarded notification content is visible to anyone who can see the Mac's screen while locked, or the per-app icon cache leaks or serves stale data for an unpaired phone. | The Mac-side "hide content while locked" setting (off by default) collapses a presented notification to app-name-only while `isLocked`, with no re-post on unlock (E30-15); the icon cache registers with `PeerDataPurgeRegistry` so unpairing a phone deletes its cached icons, and an oversized/malformed `IconData` is discarded in favor of a placeholder rather than cached (E30-06; E14-13). | With the lock-content-hiding setting left off (its default), full notification content shows on the lock screen like any other macOS app's notifications — this mirrors the phone's own `VISIBILITY_SECRET` opt-in model (chapter 1 §4.7) rather than being Tandem-specific. | `unit: lockScreenHiding_enabledAndLocked_titleAppNameBodyEmpty` (E30-15); `unit: iconCache_peerUnpaired_iconsForPeerDeleted`, `unit: iconCache_iconOver64KiB_discardedPlaceholderUsed` (E30-06) | AC-10, AC-12 (adjacent) |
+
+### 10.3 Storage
+
+Assets: long-term identity private keys, the trust store, GRDB SMS/contacts stores, thumbnail
+and icon caches, transfer temp files, downloaded files.
+
+| STRIDE | Threat | Mitigation | Residual risk | Verifying test | AC |
+|---|---|---|---|---|---|
+| Information disclosure / EoP (identity key extraction) | An attacker with local access, including physical possession of a lost/stolen device, tries to export the long-term identity private key to impersonate the owner's device elsewhere. | Mac: P-256 key generated via `SecKeyCreateRandomKey`, stored in the data-protection Keychain in the app's own access group with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, marked non-extractable (`SecKeyCopyExternalRepresentation` fails on the stored key) (E10-05). Android: `AndroidKeyStore` P-256, StrongBox preferred, non-extractable by construction; the JVM-only `SoftwareIdentityKeyStore` test fake is scanned out of every release APK (E10-15, E00-30). Per spike E03-02, Secure Enclave backing is a **NO-GO for v1** — SE key generation fails in every configuration reachable outside a fully Xcode-provisioned, Apple-ID-signed build — so the Mac key stays Keychain-only, the PRD's own documented default (`docs/spikes/secure-enclave-identity.md`). | Key-extraction attacks against the Keychain/AndroidKeyStore hardware boundary itself are out of scope (chapter 1 §6 Assumptions). The Mac key is Keychain-protected but not Secure-Enclave-token-backed, a narrower hardware boundary than Android's StrongBox path when StrongBox is available on the device. | `integration: identityKey_hostedKeychainExportPrivateKey_copyExternalRepresentationFails` (E10-05); `ci: releaseApk_softwareKeyStoreClass_absentFromDex` (E10-15 / E00-30) | AC-09, AC-12 |
+| Information disclosure (trust store contents) | Reading the on-disk trust store directly (bypassing the app) to learn paired-peer fingerprints, or tampering with it to change pinning. | Both trust stores are keyed strictly by 32-byte `SpkiFingerprint`, with no IP/hostname/deviceId lookup path at all (Inv 3); Mac trust items live in the data-protection Keychain, app's own access group, `AfterFirstUnlockThisDeviceOnly` (E13-06); Android's is app-private Room/DataStore storage, excluded from backup by the same rule as the rest of the app (E13-02, E00-28). | Fingerprints are not secrets (public-key hashes); reading the store discloses *which* devices are paired, not a way to impersonate them — impersonation still needs the private key (row above). | `unit: trustStore_put_usesDataProtectionKeychainOwnGroup` (E13-06); `ci: mergedManifest_allowBackupTrueFixture_checkFails` (E00-28, covers the Android trust-store file's backup exclusion) | AC-09, AC-12 |
+| Information disclosure (SMS / contacts at rest) | Physical access to a lost/stolen, powered-on-and-unlocked Mac reads cached SMS threads or contacts straight off disk. | GRDB SQLite files (`sms.sqlite`, `contacts.sqlite`, WAL/SHM sidecars included) are POSIX mode 0600, excluded from Time Machine backup, and use `completeUntilFirstUserAuthentication` file protection where the platform supports it (D-12, D-49; E50-09, E51-04); both stores register with `PeerDataPurgeRegistry` so unpairing a phone purges its rows, and diagnostics expose only row counts/ids, never bodies (Inv 7; E14-13). | **No application-level encryption of these databases in v1** — at-rest confidentiality against a stolen, unlocked Mac depends entirely on FileVault plus the owner's login password, an explicit owner-accepted trade-off for a single-user-Mac target (D-12, D-49). This is this chapter's principal AC-12 residual; see residual register item 14. | `unit: smsDatabaseFile_created_hasPosixMode0600`, `unit: smsDatabaseFile_created_isExcludedFromBackupTrue`, `unit: smsDatabaseFile_protectionSupported_readsBackCompleteUntilFirstUserAuth`, `unit: smsStoreDiagnostics_afterSync_containsCountsButNoBodies`, `unit: smsStore_peerUnpaired_allRowsForPeerDeleted` (E50-09); `unit: contactsDatabaseFile_created_hasPosixMode0600`, `unit: contactsStore_peerUnpaired_allRowsForPeerDeleted` (E51-04) | AC-12 |
+| Information disclosure (thumbnail / icon caches, transfer temp files) | Cached photo thumbnails, per-app notification icons, or in-flight `.part` transfer files outlive the pairing they came from, or leak content for a device the owner believed unpaired. | The Mac thumbnail cache (E41-06) and icon cache (E30-06) both register with `PeerDataPurgeRegistry`, deleted on unpair; Android's transfer temp files live in app-private `noBackupFilesDir` and are deleted both on normal completion/cancel and via the Android `PeerDataPurging` registry on unpair (E14-12; E40-05). | None within the registered-purger set; a purger that throws is still recorded and retried on next launch rather than silently skipped (E14-13). | `unit: thumbnailCache_peerUnpaired_entriesForPeerDeleted` (E41-06); `unit: iconCache_peerUnpaired_iconsForPeerDeleted` (E30-06); `unit: androidReceiver_macUnpaired_retainedPartFilesDeleted` (E40-05) | AC-09, AC-12 |
+| Elevation of privilege (destination files) | A received file lands somewhere other than the intended destination folder, overwrites an existing file, or is visible to other apps/queries before it is fully hash-verified. | The receiver stages to a temp/`.part` file, verifies the full SHA-256, and only then atomically moves/publishes it — MediaStore `IS_PENDING` on Android, `rename` from an `itemReplacementDirectory` on the same volume on macOS; name collisions are suffixed, never overwritten (E40-05, E40-06). | None within the tested paths. | `instrumented: mediaStorePublisher_pendingPublish_invisibleToDownloadTandemQuery`, `instrumented: mediaStorePublisher_existingSameName_originalUntouchedAndSuffixedEntryAdded` (E40-05) | AC-19 (adjacent), AC-12 |
+
+### 10.4 Logs and crash reports
+
+Assets: everything invariant 7 protects (secrets, message bodies, notification text, clipboard
+content), plus whatever a crash report could otherwise leak.
+
+| STRIDE | Threat | Mitigation | Residual risk | Verifying test | AC |
+|---|---|---|---|---|---|
+| Information disclosure (release logs, static) | A release build logs notification text, clipboard content, message bodies, SMS/contact PII, dial numbers, or protocol secrets (pairing secret, media ticket, channel binding). | Shared `tools/lint/sensitive-symbols.txt` names every sensitive field (notification text, clipboardText, smsBody/smsAddress, contactName, phoneNumber, callerNumber, inputText/inputCoordinates, pairingSecret, mediaTicket, channelBinding, fileName, displayName, deviceName, replyText); Android's `NoSensitiveReleaseLog` detekt rule fails any release-visible `Log.*`/`Timber.*` call referencing a listed symbol, and R8 strips `Log.v/d/i` entirely from release dex; the macOS equivalent check fails `os_log`/`Logger`/`print` calls referencing the same list outside `#if DEBUG`, and a non-literal value logged with `.public` privacy fails unless allowlisted (Inv 7; D-31; E00-17, E00-27). | Static, symbol-name-based checks only — a value logged through an unlisted variable name would not be caught by lint alone; the runtime canary scan below is the actual guarantee. | `ci: releaseLogLint_clipboardTextInReleaseSourceSet_detektFails`, `ci: sensitiveSymbolsList_cycle4Symbols_allPresent` (E00-17); `ci: releaseLogLint_notificationBodyViaOsLog_checkFails`, `ci: releaseLogLint_publicPrivacyOnStringValue_checkFails` (E00-27) | AC-10 |
+| Information disclosure (release logs, runtime) | A real canary value (message body, phone number, contact name, notification text, clipboard text, or a secret only ever loggable in encoded form) appears in an actual captured `logcat`/unified-log session — the gap the static lint can't reach. | `tools/log-audit` scans captured logs for every supplied canary, raw and in hex/base64/base64url form, and fails on a single occurrence or an empty capture; per-domain sessions are owned by the feature epics and run before release (E15-17; D-31). | None within the canary manifest's kind coverage; a kind not yet added to the manifest for a newly enabled feature fails the tool itself rather than silently passing. | `unit: logAudit_canaryInLogcatFixture_exitsOneWithSourceAndLine`, `unit: logAudit_base64urlEncodedCanary_detected`, `unit: logAudit_manifestMissingRequiredKindForEnabledFeature_exitsNonZero` (E15-17) | AC-10 |
+| Information disclosure (third-party crash / analytics SDK) | A bundled crash-reporting or analytics SDK exfiltrates notification content, stack traces with sensitive locals, or device identifiers to a third party without the owner's knowledge. | v1 ships **no third-party crash or analytics SDK** — OS-local crash reports only; a dependency on Firebase Crashlytics/Analytics, Sentry, Bugsnag, App Center, Instabug (or the Swift equivalents) fails the module-dependency-rule build on both platforms (D-31; E00-14, E00-15). | None within the denylist's coverage; a new SDK not yet on the denylist would need the list updated, same as any denylist. | `ci: dependencyDenylist_crashlyticsAdded_buildFails` (E00-14); `ci: dependencyDenylist_sentryCocoaPackageAdded_exitsNonZero` (E00-15) | AC-10, AC-18 |
+
+### 10.5 CI and release: signing, secrets, supply chain
+
+Assets: the release signing identities, CI secrets, the third-party dependency graph, the
+"apps talk only to each other" egress guarantee.
+
+| STRIDE | Threat | Mitigation | Residual risk | Verifying test | AC |
+|---|---|---|---|---|---|
+| Spoofing (unsigned / tampered release artifact) | An attacker distributes a modified or debug-signed build as if it were the real release. | Android release builds use a dedicated sideload keystore signing config (no debug keys); macOS uses local Developer ID (or ad hoc) signing; CI verifies with `apksigner verify --print-certs` / `codesign --verify --deep --strict` on every release artifact (E71-11). | None within the verification step's coverage. | `ci: releaseSigningCheck_apkSignedWithDebugKey_exitsNonZero`, `ci: releaseSigningCheck_tamperedMacApp_codesignVerifyFails` (E71-11) | AC-18 (adjacent) |
+| Information disclosure (signing / CI secrets) | The Android keystore, its passwords, or the Mac Developer ID/CI keychain credentials leak through a pull-request-triggered workflow, a log, or a fork. | Signing secrets are exposed only to the release workflow on protected tags via an environment requiring a reviewer; a pull-request workflow cannot read them (E71-11); secret scanning runs on every push/PR against the full diff, with an allowlist only for known-safe test fixtures (E00-16). | None within the scan's/environment-scoping's coverage. | `ci: releaseSigningSecrets_pullRequestWorkflow_notAvailable` (E71-11); `ci: secretScan_addedThenRemovedInSamePr_stillDetected`, `ci: secretScan_allowlistedVectorFixture_notFlagged` (E00-16) | AC-18 |
+| Elevation of privilege (test-only code ships) | Test doubles, fakes, or debug-only hooks (`SoftwareIdentityKeyStore`, `FakeTandemSession`, the JVM harness's pairing-payload launch hook, the companion app's package) ship inside the real release artifact and widen its attack surface or reintroduce a bypass. | Every CI release build (not only at Phase 7) scans the release APK's dex and the macOS Release Mach-O's symbols/bundle contents against a checked-in test-only-symbol list, and checks the `.app` bundle contents against an exact allowlist (Inv 2; D-30; E00-30). | None within the checked-in symbol list's coverage; a new test-only type must be added to the list or it ships undetected. | `ci: releaseApkDexScan_currentReleaseBuild_noTestOnlyClasses`, `ci: macReleaseSymbolScan_currentReleaseBuild_noTestOnlySymbols`, `ci: macReleaseBundle_unexpectedExecutableOrXctest_exitsNonZero` (E00-30) | AC-11 |
+| Tampering (dependency supply chain) | A transitive dependency is swapped for a malicious version (typosquatting, compromised registry, unpinned Action) between CI runs. | Gradle `verification-metadata.xml` sha256 for every artifact plus dependency locking and no dynamic versions; SwiftPM `Package.resolved` committed, direct dependencies pinned `exact:`, CI resolution fails if the lockfile would change; GitHub Actions referenced by full commit SHA; license gate restricted to permissive licenses; every direct dependency requires a justification entry in `docs/dependencies.md` (D-32; E00-29). | None within the verification/pinning coverage; a compromised upstream release matching an already-recorded checksum (a compromise before the checksum was first pinned) is outside what checksum pinning alone can catch. | `ci: gradleDependencyVerification_tamperedArtifactChecksum_buildFails`, `ci: githubActions_unpinnedActionRef_checkFails`, `ci: licenseCheck_gplDependencyFixture_exitsNonZero` (E00-29) | AC-18 |
+| Information disclosure (bundled-SDK telemetry / egress) | The QR-scanning dependency, or any other bundled SDK, phones home with usage telemetry, contradicting "the apps talk only to each other." | The QR decoder choice is gated on a zero-egress spike result: ML Kit only if 0 network connections are observed over 20 scans plus 24 h idle; otherwise the decision is zxing-cpp, which has no network code (D-32, D-43; E14-23). The whole app's egress is re-checked at release: a Mac `pktap` capture and an Android per-UID `/proc/net` sample (plus a 24 h physical-phone manual gate) must show only flows to the paired peer's address on the Tandem port (E71-14). | None within the tested session's coverage; the 24 h physical-phone manual gate is the only check that would catch a rare/delayed telemetry call, and it is a gate, not continuous monitoring. | `security: macEgressAudit_fullFeatureSession_onlyPhoneTandemPortFlows`, `instrumented: androidEgressAudit_fullSessionOnEmulator_onlyMacEndpointsForAppUid`, `manual: androidEgressAudit_physicalPhone24hCapture_onlyMacTandemPortFlows` (E71-14) | AC-18, AC-02 |
+
+---
+
+## 11. Residual risk register (chapter 2)
+
+Continues the numbering of chapter 1's register (§5, items 1–13):
+
+14. **Mac at-rest data relies entirely on FileVault/login, not app-level encryption.** SMS and
+    contacts (GRDB SQLite), thumbnail and icon caches, and downloaded files carry no
+    application-level encryption in v1; confidentiality against a stolen, unlocked Mac depends on
+    FileVault plus the owner's login password. Explicit owner-accepted trade-off for a
+    single-user-Mac target. (§10.3; D-12, D-49.) This is AC-12's principal residual.
+15. **Local reachability of the Mac listener (including loopback) carries no special exemption,
+    but also no special protection beyond the pin check any unauthenticated peer already faces.**
+    A genuinely multi-user Mac is outside the PRD's single-user assumption; any local account
+    could attempt the same connection a network attacker could, gaining nothing without a valid
+    pinned key. (§10.2; D-12.)
+16. **macOS screen-capture exclusion of the QR pairing window is best-effort, not an OS
+    guarantee.** Cross-references chapter 1 residual item 2; this chapter is the QR window's local-
+    attacker owner per E02-08's scope. (§10.2; E14-11.)
+17. **Remote input can drive any on-phone UI reachable by AccessibilityService during an active,
+    indicator-shown mirror session; `FLAG_SECURE` apps mirror black but still receive injected
+    input.** Cross-references chapter 1 residual item 13; this chapter is its full local-surface
+    owner per E02-08's scope. (Chapter 1 §4.13.)
+18. **Enumerated denylists/allowlists are only as complete as the list.** Exported components,
+    denied permissions, dependency licenses, test-only symbols, and crash/analytics SDK names are
+    all checked against checked-in lists; a new component/permission/dependency/symbol not yet
+    added to its list ships unchecked until the list is updated. Inherent to any enumerated-list
+    defense, not specific to one check. (§10.1, §10.4, §10.5.)
+19. **`FLAG_SECURE` is deliberately not applied on the phone.** No Tandem phone screen sets
+    `FLAG_SECURE`: no secret is rendered on the phone itself (the pairing secret lives on the Mac),
+    and `FLAG_SECURE` would also blank Tandem's own screens inside the Mac's mirrored view of the
+    phone. Accepted residual: OS screenshots and recent-apps thumbnails of Tandem's phone screens
+    can capture forwarded content, like any other non-`FLAG_SECURE` Android app. (§10.1; D-28,
+    E00-28 note.)
+
+## 12. Gaps
+
+Threats identified while writing this chapter with **no existing backlog mitigation or test**:
+
+1. **Mirror window is not excluded from screen capture/screen sharing.** The pairing QR window
+   sets `NSWindow.sharingType = .none` and is documented as excluded from screenshots/screen
+   sharing where macOS honours it (E14-11). The mirror window (`E61-07`, "Resizable mirror window
+   + rotation handling"), which displays the phone's live screen content — potentially including
+   message threads, notifications, or anything else visible during the mirrored session — has no
+   equivalent acceptance criterion or test. A local attacker (another local account, or a screen-
+   recording tool) able to see the Mac's screen could otherwise capture the mirrored phone content
+   the same way the QR window's mitigation was written to prevent for the pairing secret.
+   Proposed test: `unit: mirrorWindow_created_sharingTypeNoneExcludedFromCapture`. Proposed owner:
+   extend `E61-07`'s acceptance/tdd list (or a new follow-up issue under the same epic) with the
+   same `sharingType = .none` treatment E14-11 already gives the pairing window, with the same
+   "best-effort, not an OS guarantee" caveat.
+
+No other threat surveyed for this chapter's surfaces (§10.1–§10.5) lacked at least one existing
+mitigation reference and verifying test; see the residual risk register (§11) for accepted
+limits of existing mitigations, which is a distinct category from an absent mitigation.
+
+## 13. Assumptions (chapter 2 additions)
+
+- The Mac is a single-user machine with FileVault enabled; once local storage is reached, the
+  owner's login password is the boundary (D-12, D-49). A shared/multi-user Mac is outside the
+  PRD's target-user assumption (chapter 1 §6 extends the same way for network flows).
+- "Local attacker on the Mac" (AC-17) is bounded to: capturing the pairing QR from the screen,
+  connecting over loopback or otherwise from the same machine, or writing into the shared App
+  Group queue as another process running as the same OS user — not an attacker with root or
+  administrator privileges, which is out of scope for any app-level control.
+- CI secrets (signing keystore, Developer ID identity) are protected by GitHub's
+  environment/required-reviewer gating; a compromised CI runner itself, or a compromised GitHub
+  account with administrative rights over the repository, is out of scope.
+- Dependency verification and the license gate assume the checksum first recorded for a pinned
+  artifact is itself trustworthy; a supply-chain compromise that occurs before that checksum is
+  first pinned is not caught retroactively by pinning alone.
+
+## 14. Abuse-case coverage index (chapter 2)
+
+| AC | Referenced in |
+|---|---|
+| AC-02 | §10.2, §10.5 (adjacent) |
+| AC-06 | §10.1 |
+| AC-09 | §10.1, §10.3 |
+| AC-10 | §10.2, §10.4 |
+| AC-11 | §10.5 |
+| AC-12 | §10.2, §10.3, residual item 14 |
+| AC-16 | §10.1 |
+| AC-17 | §10.1, §10.2, residual items 16, 19 |
+| AC-18 | §10.4, §10.5 |
+| AC-19 | §10.1, §10.2, §10.3 (adjacent) |
+
+AC-12 is now fully covered across both chapters: the network-protocol half (phone unpairs while
+the Mac is offline, then never dials that Mac again and a forced dial fails the pin check) is
+chapter 1 §4.6; the Mac-side cached-data half (what a stolen Mac's local SMS/contacts/thumbnail
+caches still expose, bounded only by FileVault) is this chapter's §10.2/§10.3. AC-18
+(supply-chain/telemetry), entirely within this chapter's scope per D-33, is now covered by §10.4
+(row 3) and §10.5 (rows 1, 2, 4, 5).
