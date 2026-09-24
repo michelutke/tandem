@@ -1,0 +1,2 @@
+keygen: label=relaunch-label backing=software persistent=true data_protection_keychain=false spki_sha256=4d7d75aacd69ede32ac4183371844b738a0905aaa29247558a61175039712bee
+keygen: temp keychain KEPT at path=/tmp/se-spike-relaunch-test/spike.keychain-db -- caller must delete it (e.g. via relaunch-check's paired run, then `rm -rf`)
