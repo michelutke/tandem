@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+// E01-10: Envelope, the message every frame on every mTLS connection carries once the TLS
+// handshake completes (docs/protocol/SPEC.md #framing-and-envelope, E01-03), and Channel, the
+// frozen enumeration of the nine F-3.2 channels. The channel name list and order below are the
+// ones committed in #framing-and-envelope's "Envelope fields" subsection and frozen by
+// docs/planning/backlog/phase-0.yaml E01-04 acceptance; #channels-and-flow-control-credits
+// (E01-04) is this enum's eventual normative home but is still TBD as of this issue landing.
+package tandem.v1;
+
+import "tandem/v1/status.proto";
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// Channel: docs/protocol/SPEC.md #framing-and-envelope. CHANNEL_UNSPECIFIED = 0 is never valid
+// on the wire; receiving it (or any value outside this list) is rejected UNKNOWN_CHANNEL
+// (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at exactly these nine
+// values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no PHOTOS channel,
+// photo-browser messages ride FILES). Numbers are frozen once released: never renumber or reuse.
+// Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD ENUM_VALUE_PREFIX rule; SPEC.md
+// and the backlog refer to the same channels by their unprefixed names (CONTROL, NOTIFY, ...).
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_CONTROL = 1;
+  CHANNEL_NOTIFY = 2;
+  CHANNEL_CLIPBOARD = 3;
+  CHANNEL_FILES = 4;
+  CHANNEL_SMS = 5;
+  CHANNEL_CONTACTS = 6;
+  CHANNEL_CALLS = 7;
+  CHANNEL_INPUT = 8;
+  CHANNEL_STATUS = 9;
+}
+
+// Envelope: docs/protocol/SPEC.md #framing-and-envelope. Every frame (length-prefixed per that
+// section) on every mTLS connection carries exactly one Envelope.
+message Envelope {
+  Channel channel = 1;
+  // Per-channel, per-direction counter maintained independently by each side. The first frame a
+  // side sends on a channel carries seq = 1; seq = 0 is never valid on the wire
+  // (#framing-and-envelope "Envelope fields").
+  uint64 seq = 2;
+  // Highest seq received in contiguous order from the peer on this channel; 0 before anything
+  // has arrived on that channel in that direction (#framing-and-envelope "Envelope fields").
+  uint64 ack = 3;
+
+  // Payload field numbers are grouped into per-domain ranges below so every later issue that
+  // adds a .proto file (mapping in E01-14's protocol/proto/tandem/v1/README.md) has a
+  // pre-allocated, stable range and never collides with another domain's payload. None of these
+  // ranges may ever hold a debug, echo, loopback or test-only message type
+  // (docs/planning/decisions.md AC-11); an unset oneof, or a payload type this receiver's
+  // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
+  // MALFORMED_FRAME).
+  reserved 4 to 9;     // control.proto (E01-12): Heartbeat, VersionHello, MediaTicketGrant — CONTROL channel
+  reserved 10 to 19;   // pairing.proto (E01-11): PairRequest, PairAccepted, PairRejected, Revoke — CONTROL channel
+  // 20-29: status.proto (E01-13, this issue). 22-29 held for RingStop, added when E23-01 writes
+  // the STATUS SPEC.md section; do not assign those numbers before then.
+  reserved 22 to 29;
+  reserved 30 to 39;   // notify.proto (E30-01) — NOTIFY channel
+  reserved 40 to 49;   // clipboard.proto (E31-01) — CLIPBOARD channel
+  reserved 50 to 59;   // files.proto (E40-01) — FILES channel
+  reserved 60 to 69;   // photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision)
+  reserved 70 to 79;   // sms.proto (E50-01) — SMS channel
+  reserved 80 to 89;   // contacts.proto (E51-01) — CONTACTS channel
+  reserved 90 to 99;   // calls.proto (E52-01) — CALLS channel
+  reserved 100 to 109; // input.proto (E62-01) — INPUT channel
+  reserved 110 to 119; // rotation.proto (E70-01) — CONTROL channel
+  // media.proto (E60-01/E61-01) frames ride the separate media connection, which has no
+  // channel and therefore no Envelope payload slot (E01-14).
+
+  oneof payload {
+    DeviceStatus device_status = 20;
+    Ring ring = 21;
+  }
+}
