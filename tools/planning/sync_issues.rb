@@ -6,6 +6,7 @@
 #   ruby tools/planning/sync_issues.rb validate        # schema, refs, cycles
 #   ruby tools/planning/sync_issues.rb render          # writes docs/planning/BACKLOG.md
 #   ruby tools/planning/sync_issues.rb sync [--dry-run] [--link-deps] # labels, milestones, issues, sub-issues
+#     --phases=0,1 only creates issues of those phases (epics always); sync later phases just in time
 #     --link-deps also creates native blocked-by links (slow: GitHub write rate limits)
 #
 # Idempotent: every issue body carries `<!-- tandem-id: X -->`; existing issues are updated.
@@ -343,9 +344,11 @@ end
 
 # Issue numbers are predicted (next free number, in creation order) so each issue is created
 # with its final body in one request; a mismatch falls back to a PATCH pass.
-def sync(epics, issues, dry_run:, link_deps:)
+# `phases` limits which issues are created (all epics always sync); later phases sync just in time.
+def sync(epics, all_issues, dry_run:, link_deps:, phases: nil)
+  issues = phases ? all_issues.select { |i| phases.include?(epic_phase(epics, i)) } : all_issues
   gh = GitHub.new(dry_run: dry_run)
-  puts "repo: #{gh.repo}#{' (dry run)' if dry_run}"
+  puts "repo: #{gh.repo}#{' (dry run)' if dry_run}#{" phases #{phases.join(',')}" if phases}"
   epic_by_id = epics.to_h { |e| [e['id'], e] }
   gh.ensure_labels(epics.flat_map { |e| labels_for_epic(e) } +
                    issues.flat_map { |i| labels_for_issue(i, epic_by_id[i['epic']]) })
@@ -361,7 +364,7 @@ def sync(epics, issues, dry_run:, link_deps:)
 
   stale = []
   missing.each do |id, obj, epic|
-    payload = render_item(id, obj, epic, issues, numbers, milestones)
+    payload = render_item(id, obj, epic, all_issues, numbers, milestones)
     res = JSON.parse(gh.api('POST', "repos/#{gh.repo}/issues", payload))
     next puts("create #{payload[:title]}") if dry_run
 
@@ -377,7 +380,7 @@ def sync(epics, issues, dry_run:, link_deps:)
   items.each do |id, obj, epic|
     next unless existing[id] || !stale.empty?
 
-    payload = render_item(id, obj, epic, issues, numbers, milestones)
+    payload = render_item(id, obj, epic, all_issues, numbers, milestones)
     next if existing[id] && unchanged?(existing[id], payload)
 
     gh.api('PATCH', "repos/#{gh.repo}/issues/#{numbers[id]}", payload)
@@ -388,6 +391,8 @@ def sync(epics, issues, dry_run:, link_deps:)
   link_sub_issues(gh, epics, issues, numbers, db_ids)
   link_dependencies(gh, issues, numbers, db_ids) if link_deps
 end
+
+def epic_phase(epics, issue) = epics.find { |e| e['id'] == issue['epic'] }['phase']
 
 def link_sub_issues(gh, epics, issues, numbers, db_ids)
   epics.each do |e|
@@ -427,6 +432,7 @@ puts "✓ #{epics.size} epics, #{issues.size} issues valid"
 case command
 when 'validate' then nil
 when 'render' then render_markdown(epics)
-when 'sync' then sync(epics, issues, dry_run: ARGV.include?('--dry-run'), link_deps: ARGV.include?('--link-deps'))
+when 'sync' then sync(epics, issues, dry_run: ARGV.include?('--dry-run'), link_deps: ARGV.include?('--link-deps'),
+                         phases: ARGV.find { |a| a.start_with?('--phases=') }&.split('=', 2)&.last&.split(',')&.map(&:to_i))
 else abort "unknown command #{command}"
 end
