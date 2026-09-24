@@ -37,3 +37,4 @@ jobs:
           tools/lint/test/detekt_injected_clock_only_test.sh
           tools/lint/test/detekt_socket_only_in_transport_test.sh
           tools/lint/test/gradle_module_rules_test.sh
+          tools/lint/test/release_apk_software_identity_key_store_absent_test.sh
