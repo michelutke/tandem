@@ -43,4 +43,4 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
       - name: Run instrumented tests on managed devices
-        run: ./gradlew :core:crypto:ciGroupDebugAndroidTest
+        run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
