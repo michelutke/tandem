@@ -4,6 +4,7 @@
 
 android
 android/app
+android/build-logic
 android/core
 android/core/crypto
 android/core/pairing
@@ -19,6 +20,7 @@ android/feature/input
 android/feature/messaging
 android/feature/mirror
 android/feature/notifications
+android/gradle
 
 macos
 macos/Packages
