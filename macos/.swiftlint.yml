@@ -1,0 +1,10 @@
+excluded:
+  - Packages/*/.build
+  - .build
+  - DerivedData
+  - "**/*.pb.swift"
+
+opt_in_rules:
+  - force_unwrapping
+
+reporter: "xcode"
