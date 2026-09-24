@@ -5,6 +5,8 @@
 android
 android/app
 android/build-logic
+android/config
+android/config/detekt
 android/core
 android/core/crypto
 android/core/pairing
@@ -20,6 +22,8 @@ android/feature/input
 android/feature/messaging
 android/feature/mirror
 android/feature/notifications
+android/lint
+android/lint/detekt-rules
 android/gradle
 
 macos
