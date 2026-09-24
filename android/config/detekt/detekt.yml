@@ -1,0 +1,4 @@
+# Tandem detekt configuration (E00-05). Builds on detekt's default ruleset
+# (buildUponDefaultConfig = true); only deviations from the defaults are listed here.
+tandem:
+  active: true

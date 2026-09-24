@@ -6,6 +6,7 @@ import com.android.build.api.dsl.LibraryExtension
 plugins {
     id("com.android.library")
     id("tandem.android.test-fixtures")
+    id("tandem.quality")
 }
 
 extensions.configure<LibraryExtension> {

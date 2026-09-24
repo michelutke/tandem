@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // ktlint-gradle and detekt-gradle-plugin are published to the Gradle Plugin Portal.
+        gradlePluginPortal()
     }
     versionCatalogs {
         create("libs") {
