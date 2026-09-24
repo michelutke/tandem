@@ -1,0 +1,55 @@
+listen: server spki_sha256=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+listen: starting on 127.0.0.1:4470 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false challenge=true client_name=android-client
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61049
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=10117.167
+EVENT type=ready role=server remote=127.0.0.1:61049 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=2a8404527279dc2810e8aad17fbeecad47fe0a3e10d79bcd4c8303c19015aeb5 elapsed_ms=45.79825
+EVENT type=challenge-verified role=server remote=127.0.0.1:61049 match=true challenge_sha256=65a9fd2ddc4491b15c7ae2bce31e09679951f95b2b186d1135122d3921f99009
+EVENT type=cancelled role=server remote=127.0.0.1:61049 elapsed_ms=56.876125
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61050
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1031.0
+EVENT type=ready role=server remote=127.0.0.1:61050 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=28127374f8e7a88f9d0a5ec84f52ce32c8c41924205e1b0452492cc73f0ab099 elapsed_ms=20.875667
+EVENT type=challenge-verified role=server remote=127.0.0.1:61050 match=true challenge_sha256=f91e22a96812826229746899b3899508c91c874721fc0d5e585241bc708f7b3f
+EVENT type=cancelled role=server remote=127.0.0.1:61050 elapsed_ms=29.613209
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61051
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1030.041
+EVENT type=ready role=server remote=127.0.0.1:61051 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=1ce380cf0ec79caa00ec4611e79b3c07f934a7a4d1308f16a211282edc713688 elapsed_ms=15.580375
+EVENT type=challenge-verified role=server remote=127.0.0.1:61051 match=true challenge_sha256=c0e22885dafcbda25653ece03e4e149ab42c11125ac6d014c2dfae5ff3f4349b
+EVENT type=cancelled role=server remote=127.0.0.1:61051 elapsed_ms=24.447875
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61052
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1039.833
+EVENT type=ready role=server remote=127.0.0.1:61052 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=2960cbb30d580202fc5fcb4151501811c6d9f7b875a3ec99bd463b54158cb91e elapsed_ms=19.036541
+EVENT type=challenge-verified role=server remote=127.0.0.1:61052 match=true challenge_sha256=574c13f7707a2c21186b04b41ca6255eca836f9a695445aeb9eb5652d9f8df32
+EVENT type=cancelled role=server remote=127.0.0.1:61052 elapsed_ms=28.885166
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61053
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=976.208
+EVENT type=ready role=server remote=127.0.0.1:61053 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=bb160667211a27cd2ecbfab12b503d5f7fc5d8ff443190d31da275a6fba58fe5 elapsed_ms=16.35275
+EVENT type=challenge-verified role=server remote=127.0.0.1:61053 match=true challenge_sha256=edb45a56a2428921f5eaa4ba20a93217df0c81ccf9af7b8d63d82f28d6dfaf4f
+EVENT type=cancelled role=server remote=127.0.0.1:61053 elapsed_ms=25.887458
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61054
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1127.416
+EVENT type=ready role=server remote=127.0.0.1:61054 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=ff54fb6adec9be4a1a76cdff5b5fd8b1700034270cb2d5e4da0d09bac46d286d elapsed_ms=17.184083
+EVENT type=challenge-verified role=server remote=127.0.0.1:61054 match=true challenge_sha256=4d187f0685e825a7f61ac6f95be8ab73b7651006f3b971f646a7dee29e766d3d
+EVENT type=cancelled role=server remote=127.0.0.1:61054 elapsed_ms=25.897417
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61056
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1068.625
+EVENT type=ready role=server remote=127.0.0.1:61056 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=10896ef374e579c93bb4fa83f0d87870b1d81f1843f6fd7cd9433f55ee157a99 elapsed_ms=16.063166
+EVENT type=challenge-verified role=server remote=127.0.0.1:61056 match=true challenge_sha256=49f83144ba8b3c92a6b960e197c6b78bee77265ab13e37ae0d275e7777559e03
+EVENT type=cancelled role=server remote=127.0.0.1:61056 elapsed_ms=26.5895
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61057
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=1013.958
+EVENT type=ready role=server remote=127.0.0.1:61057 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=3208e78e2c70273ed4907f5d13ada40b1eb1db38c95a85579c534c1652e3771d elapsed_ms=15.787084
+EVENT type=challenge-verified role=server remote=127.0.0.1:61057 match=true challenge_sha256=e9aac76f8607841bdb33f174ceca387bc701c6a0afb6c8541fcd28c3c24237a9
+EVENT type=cancelled role=server remote=127.0.0.1:61057 elapsed_ms=26.402375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61059
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=991.5
+EVENT type=ready role=server remote=127.0.0.1:61059 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=048264c8caf61a32150cd17d3b22ed9ef47268724fcd6e0e117dfc770ba70f09 elapsed_ms=17.151125
+EVENT type=challenge-verified role=server remote=127.0.0.1:61059 match=true challenge_sha256=ab394d702121b47b11f46843dbc6cdbf8320f952816b70b1eb110b8942cf7f1f
+EVENT type=cancelled role=server remote=127.0.0.1:61059 elapsed_ms=26.826667
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:61060
+LOG[listener] verify_block: peer_spki=fbe64030c7fb52e9... match=true elapsed_us=964.584
+EVENT type=ready role=server remote=127.0.0.1:61060 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=cd9fb38637282ba3f3976279a1dc68b6dee61b576171f3551b20792eaddbd64e elapsed_ms=15.127167
+EVENT type=challenge-verified role=server remote=127.0.0.1:61060 match=true challenge_sha256=6c7a49bd06a0563543b01036139b690681ccbe11d4291d9fada3af355f75f642
+EVENT type=cancelled role=server remote=127.0.0.1:61060 elapsed_ms=26.144167
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tandem.local/protocol/vectors/schema.json",
+  "title": "Tandem protocol test-vector manifest (E01-16)",
+  "description": "One JSON manifest per vector category under protocol/vectors/, produced by tools/vectors/generate.py. See protocol/vectors/README.md for the format contract.",
+  "type": "object",
+  "required": ["category", "generatedBy", "vectors"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Relative path back to this schema, for editor tooling."
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable, kebab-case name of the vector category (e.g. spki-fingerprint)."
+    },
+    "generatedBy": {
+      "const": "tools/vectors/generate.py",
+      "description": "Every manifest is produced by the reference generator; hand-edits are rejected by the regeneration check."
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/vectorEntry" }
+    }
+  },
+  "$defs": {
+    "vectorEntry": {
+      "type": "object",
+      "required": ["id", "description", "input"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique within this manifest; stable across regenerations."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": {
+          "description": "Category-defined input. Not text-safe payloads reference a file under protocol/vectors/fixtures/<category>/ by relative path instead of inlining bytes (see README)."
+        },
+        "expected": {
+          "description": "Positive-case expected output. Mutually exclusive with expectedError."
+        },
+        "expectedError": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable, camelCase error name for a negative case. Mutually exclusive with expected."
+        },
+        "closeCode": {
+          "type": "string",
+          "enum": [
+            "VERSION_MISMATCH",
+            "PIN_MISMATCH",
+            "MALFORMED_FRAME",
+            "CREDIT_VIOLATION",
+            "PAIRING_FAILED",
+            "TICKET_REJECTED",
+            "REVOKED",
+            "PROTOCOL_TIMEOUT",
+            "LIMIT_EXCEEDED"
+          ],
+          "description": "SPEC.md #errors-and-close-codes name, present only when the negative case closes a connection (E01-05)."
+        },
+        "localReason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Category-defined local diagnostic reason grouped under closeCode (e.g. TOO_LARGE under MALFORMED_FRAME, per SPEC.md); never sent on the wire."
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["expected"],
+          "not": { "required": ["expectedError"] }
+        },
+        {
+          "required": ["expectedError"],
+          "not": { "required": ["expected"] }
+        }
+      ],
+      "dependentRequired": {
+        "closeCode": ["expectedError"],
+        "localReason": ["expectedError"]
+      }
+    }
+  }
+}

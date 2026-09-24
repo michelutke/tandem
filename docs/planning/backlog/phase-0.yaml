@@ -1412,31 +1412,37 @@ epics:
           outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
           `RotationChallenge`, 32 CSPRNG bytes from the verifier) and pairing.proto gains `PairChallenge` before Phase 1 starts.
       - id: E01-12
-        title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance"
+        title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance, credit grants"
         type: task
         platforms: [protocol]
         priority: P0
         size: M
-        prd: [F-3.1, F-3.3, F-3.4]
+        prd: [F-3.1, F-3.2, F-3.3, F-3.4]
         use_cases: [UC-04, UC-22]
         invariants: [1, 5]
-        depends_on: [E01-06, E01-07, E01-09]
+        depends_on: [E01-04, E01-06, E01-07, E01-09]
         description: |
-          `protocol/proto/tandem/v1/control.proto` defining `Heartbeat`, `VersionHello { version,
-          capabilities }`, and `MediaTicketGrant { ticket, expiresAt }` messages matching E01-06,
-          E01-07, and E01-09.
+          `protocol/proto/tandem/v1/control.proto` defining `Heartbeat`, `VersionHello { major,
+          minor, capabilities }`, `MediaTicketGrant { ticket, expiresAt }`, and `CreditGrant
+          { channel, amount }` messages matching E01-04, E01-06, E01-07, and E01-09. `CreditGrant`
+          rides `CONTROL` like every other message in this file, since it must never itself be
+          subject to the credit system it manages (E01-04).
         acceptance:
           - "`buf lint` passes."
           - Message field names and types match their respective SPEC.md sections exactly (reviewed side by side in the PR description).
           - "`MediaTicketGrant.ticket` is `bytes` documented as exactly 32 bytes; `Heartbeat` has no fields."
+          - "`CreditGrant.channel` is the `Channel` enum from `envelope.proto` (E01-10) and `CreditGrant.amount` is an unsigned integer type matching E01-04's credit unit."
           - Generated Kotlin and Swift types compile with no manual edits.
         tdd:
           - "ci: controlProto_bufLint_exitsZero"
           - "ci: controlProto_codegen_kotlinAndSwiftTypesCompile"
           - "ci: protoSpecAnchorCheck_controlProtoAnchors_allResolveInSpec"
         notes: |
-          Owner of the heartbeat and media-ticket grant message shapes. Heartbeat vectors are added
-          by E20-01; E60-01's media.proto reuses `MediaTicketGrant` rather than redefining it.
+          Owner of the heartbeat, media-ticket grant, and credit-grant message shapes. Heartbeat
+          vectors are added by E20-01; E60-01's media.proto reuses `MediaTicketGrant` rather than
+          redefining it. `CreditGrant` was added to this issue in review cycle 6 (verifier feedback
+          on the E01-04 SPEC section, which originally named the message without an owning proto
+          issue); E11-07/E11-08 consume it.
       - id: E01-13
         title: "[protocol] status.proto: device status and ring messages"
         type: task

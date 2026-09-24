@@ -9,3 +9,7 @@ lint:
 breaking:
   use:
     - FILE
+  # Pre-v1: nothing is released yet, so removing unreleased files (e.g. E00-09's placeholder) is
+  # allowed. Remove this exception when protocol v1 ships.
+  except:
+    - FILE_NO_DELETE

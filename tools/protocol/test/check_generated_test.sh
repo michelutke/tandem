@@ -8,8 +8,8 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PATHS=(tools/protocol protocol android/core/protocol/src/main macos/Packages/TandemProtocol/Sources/TandemProtocol)
-KT=android/core/protocol/src/main/kotlin/dev/tandem/protocol/v1/PlaceholderKt.kt
-SWIFT=macos/Packages/TandemProtocol/Sources/TandemProtocol/tandem/v1/placeholder.pb.swift
+KT=android/core/protocol/src/main/kotlin/dev/tandem/protocol/v1/EnvelopeKt.kt
+SWIFT=macos/Packages/TandemProtocol/Sources/TandemProtocol/tandem/v1/envelope.pb.swift
 
 scratch() {
   local dir; dir="$(mktemp -d)"
@@ -32,7 +32,7 @@ d="$(scratch)"; echo "// hand edit" >> "$d/$SWIFT"; commit_all "$d"
 expect_fail generatedCodeCheck_handEditedPbSwiftFile_jobFailsShowingDiff "$d"; rm -rf "$d"
 
 d="$(scratch)"
-sed -i.bak 's/string value = 1;/string value = 1;\n  string note = 2;/' "$d/protocol/proto/tandem/v1/placeholder.proto" && rm "$d/protocol/proto/tandem/v1/placeholder.proto.bak"
+perl -0pi -e 's/int32 signal_level = 4;/int32 signal_level = 4;\n  int32 check_generated_test_field = 5;/' "$d/protocol/proto/tandem/v1/status.proto"
 "$d/tools/protocol/generate.sh" >/dev/null
 (cd "$d" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm regen)
 "$d/tools/protocol/check_generated.sh" "$d" >/dev/null
