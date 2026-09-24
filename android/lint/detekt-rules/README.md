@@ -1,1 +1,1 @@
-android/lint/detekt-rules — Tandem custom detekt rule set (E00-05 placeholder; E00-14 SocketOnlyInTransport, E00-18 InjectedClockOnly).
+android/lint/detekt-rules — Tandem custom detekt rule set: InjectedClockOnly (E00-18), SocketOnlyInTransport (E00-14), NoSensitiveReleaseLog (E00-17).
