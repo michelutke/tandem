@@ -436,6 +436,7 @@ connection state.
 | E20-17 | [android] App shell: floating toolbar navigation and Home status ring | story | P0 | M | E00-31, E20-09, E12-16 |
 | E20-18 | [android] Activity tab: metadata-only feed with 7-day retention *(lands Phase 3)* | story | P1 | M | E20-17, E13-04 |
 | E20-19 | [android] Settings tab: paired Mac, battery, key, unpair | story | P1 | S | E20-17, E14-12, E20-04 |
+| E20-20 | [tools] mitm-lab: authenticated heartbeat/CONTROL flood | test | P1 | S | E20-15, E20-05, E15-08 |
 
 ### E21 — Bonjour discovery with rotating ID
 
@@ -960,4 +961,4 @@ Implementation issues are P2 and do not start before the ADR is accepted.
 
 ---
 
-**Totals:** 28 epics, 391 issues (P0: 341, P1: 34, P2: 16)
+**Totals:** 28 epics, 392 issues (P0: 341, P1: 35, P2: 16)
