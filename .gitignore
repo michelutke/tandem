@@ -11,6 +11,7 @@ xcuserdata/
 .env
 .kotlin/
 tools/vectors/.venv/
+tools/pcap-audit/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
