@@ -430,6 +430,7 @@ epics:
           - "security: mitmLabRotation_unpinnedPeerSendsKeyRotation_handshakeFailsNoPinAdded"
           - "security: mitmLabRotation_keyRotationReplayedOnNewSession_rejectedTrustStoreUnchanged"
           - "security: mitmLabRotation_newSpkiOfOtherPairedPeer_rejectedDuplicateKey"
+          - "security: mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly"
         notes: ""
       - id: E70-10
         title: "[cross] End-to-end rotation: JVM client and real Mac server (E15-15)"
@@ -457,6 +458,8 @@ epics:
           - "integration: rotationE2e_macInitiated_jvmClientPinsNewMacFingerprint"
           - "integration: rotationE2e_oldPhoneKeyAfterGraceSession_handshakeFails"
           - "integration: rotationE2e_bothProcessesRestartedDuringGrace_oldKeyAcceptedOnce"
+          - "integration: rotationE2e_twoJvmClientsOneNeverAcks_listenerKeepsOldIdentityBothStillConnect"
+          - "integration: rotationE2e_finishAfter7DaysVirtual_pendingClientHandshakeFailsAckedClientOnNewKey"
         notes: "Added in review cycle 3 to own UC-24 end-to-end acceptance."
       - id: E70-11
         title: "[macos] User-initiated rotation UI"
