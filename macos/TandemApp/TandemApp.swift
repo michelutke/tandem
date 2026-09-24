@@ -64,6 +64,7 @@ private struct ScenarioView: View {
         case .notPaired:
             Text("Not Paired")
                 .accessibilityIdentifier("notPairedStateLabel")
+                .accessibilityLabel("Not Paired")
         }
     }
 }
