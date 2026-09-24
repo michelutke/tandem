@@ -1,0 +1,434 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
+		73B62DA518FFEDCE79282EF0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9CCF1B115421D313E1D549EA /* README.md */; };
+		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
+		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
+		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0BEB5AA17C66FEEC4A3562E7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 65C5B6802EBC009E346053A9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 04ABC6CCB7A3CFDAB37494F5;
+			remoteInfo = TandemShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		433EE791D885AE4A2DDBCBCD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1ADF46FA55FCA2970CBE9E9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		32CDA13C3DF0DEB4E7DCD12B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
+		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
+		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TandemShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0A6ACEE33F1C9E09EEC5E95C /* TandemShare */ = {
+			isa = PBXGroup;
+			children = (
+				32CDA13C3DF0DEB4E7DCD12B /* Info.plist */,
+				9CCF1B115421D313E1D549EA /* README.md */,
+				B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */,
+				9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */,
+			);
+			path = TandemShare;
+			sourceTree = "<group>";
+		};
+		90B0D721ADB7BDABE34F39FF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DA99F72F15344D7755773094 /* TandemApp.app */,
+				A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B4DBF71FB3128126612D5D3C = {
+			isa = PBXGroup;
+			children = (
+				EF686EE77DBC985FA54C12E5 /* TandemApp */,
+				0A6ACEE33F1C9E09EEC5E95C /* TandemShare */,
+				90B0D721ADB7BDABE34F39FF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EF686EE77DBC985FA54C12E5 /* TandemApp */ = {
+			isa = PBXGroup;
+			children = (
+				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
+				5319BE92DEC9F94E1C83D1EC /* README.md */,
+				8A44A1216CFE5055E0699868 /* TandemApp.entitlements */,
+				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
+			);
+			path = TandemApp;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		04ABC6CCB7A3CFDAB37494F5 /* TandemShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 43F5DB77CC59FF0186EF0268 /* Build configuration list for PBXNativeTarget "TandemShare" */;
+			buildPhases = (
+				E6C0D035596B8AB2F87A804F /* Sources */,
+				49B17D310B02CAFE6AEB90BF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TandemShare;
+			packageProductDependencies = (
+			);
+			productName = TandemShare;
+			productReference = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		420AE8114A5DC308D38B542C /* TandemApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C94FAB219E15BE98561A01EE /* Build configuration list for PBXNativeTarget "TandemApp" */;
+			buildPhases = (
+				9B61F966E94CF80254988195 /* Sources */,
+				F182F9806FA41F82E0997B5D /* Resources */,
+				433EE791D885AE4A2DDBCBCD /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0BC96B36252E1950445D51AB /* PBXTargetDependency */,
+			);
+			name = TandemApp;
+			packageProductDependencies = (
+			);
+			productName = TandemApp;
+			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		65C5B6802EBC009E346053A9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = A768536B4BC3573356B3E1E5 /* Build configuration list for PBXProject "Tandem" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B4DBF71FB3128126612D5D3C;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 90B0D721ADB7BDABE34F39FF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				420AE8114A5DC308D38B542C /* TandemApp */,
+				04ABC6CCB7A3CFDAB37494F5 /* TandemShare */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		49B17D310B02CAFE6AEB90BF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73B62DA518FFEDCE79282EF0 /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F182F9806FA41F82E0997B5D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				37514F52E2CE1541F53D6B5F /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9B61F966E94CF80254988195 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6C0D035596B8AB2F87A804F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0BC96B36252E1950445D51AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 04ABC6CCB7A3CFDAB37494F5 /* TandemShare */;
+			targetProxy = 0BEB5AA17C66FEEC4A3562E7 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0CF2B687895DB98B0E229CD7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		1F6AE557B87C19900876D355 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TandemApp/TandemApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TandemApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		2C3D55C22239E535255FB897 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8B7823A5CF9CF3AD2DA774F6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TandemShare/TandemShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TandemShare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app.Share;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A454A9839BB568C697724F69 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TandemApp/TandemApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TandemApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		C10DE3C99A01694D1D6B81EC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TandemShare/TandemShare.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TandemShare/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app.Share;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		43F5DB77CC59FF0186EF0268 /* Build configuration list for PBXNativeTarget "TandemShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10DE3C99A01694D1D6B81EC /* Debug */,
+				8B7823A5CF9CF3AD2DA774F6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A768536B4BC3573356B3E1E5 /* Build configuration list for PBXProject "Tandem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C3D55C22239E535255FB897 /* Debug */,
+				0CF2B687895DB98B0E229CD7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C94FAB219E15BE98561A01EE /* Build configuration list for PBXNativeTarget "TandemApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1F6AE557B87C19900876D355 /* Debug */,
+				A454A9839BB568C697724F69 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 65C5B6802EBC009E346053A9 /* Project object */;
+}

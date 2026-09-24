@@ -592,7 +592,7 @@ epics:
           - Declared length 0 closes with malformed-frame/BAD_LENGTH
           - EOF after 2 prefix bytes, or mid-payload, closes with malformed-frame/TRUNCATED
           - Non-protobuf payload bytes close with malformed-frame/DECODE_FAILED and no Envelope is emitted
-          - An unknown channel value or unknown payload type closes with UNKNOWN_CHANNEL / UNKNOWN_PAYLOAD
+          - An unknown channel value or unknown payload type closes with UNKNOWN_CHANNEL / UNKNOWN_PAYLOAD_TYPE
         tdd:
           - "unit: decodeFrame_everyValidFrameVector_decodesToExpectedEnvelope"
           - "unit: decodeFrame_declaredLengthOver1MiB_closesTooLargeAfterPrefixOnly"
@@ -645,7 +645,7 @@ epics:
           - Declared length 0 closes with malformed-frame/BAD_LENGTH
           - EOF mid-prefix or mid-payload closes with malformed-frame/TRUNCATED
           - Non-protobuf payload bytes close with malformed-frame/DECODE_FAILED and no Envelope is yielded
-          - An unknown channel value or unknown payload type closes with UNKNOWN_CHANNEL / UNKNOWN_PAYLOAD
+          - An unknown channel value or unknown payload type closes with UNKNOWN_CHANNEL / UNKNOWN_PAYLOAD_TYPE
         tdd:
           - "unit: decodeFrame_everyValidFrameVector_decodesToExpectedEnvelope"
           - "unit: decodeFrame_declaredLengthOver1MiB_closesTooLargeAfterPrefixOnly"

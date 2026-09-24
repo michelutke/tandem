@@ -1226,9 +1226,12 @@ epics:
           close code. Pairing sub-cases likewise share `PAIRING_FAILED` (local reasons `EXPIRED`,
           `ATTEMPTS_EXHAUSTED`, `BAD_PROOF`, `REJECTED_BY_OWNER`), and ticket sub-cases share
           `TICKET_REJECTED`.
-          Cycle 4: adds `PROTOCOL_TIMEOUT` (TLS / VersionHello / PairRequest / MediaHello deadlines, E01-22) and
-          `LIMIT_EXCEEDED` (a peer exceeds a connection-level cap of E01-22); local pairing reasons gain
-          `TIMEOUT` and `MALFORMED`. On the wire, `PairRejected.reason` is collapsed per E01-02.
+          Cycle 4: adds `PROTOCOL_TIMEOUT` (TLS / VersionHello / MediaHello deadlines, E01-22; the
+          PairRequest 10 s deadline on a pairing-candidate connection closes with `PAIRING_FAILED`
+          / `TIMEOUT` instead, burning one pairing attempt like any other failed attempt, per
+          E01-02/E14-02) and `LIMIT_EXCEEDED` (a peer exceeds a connection-level cap of E01-22);
+          local pairing reasons gain `TIMEOUT` and `MALFORMED`. On the wire, `PairRejected.reason`
+          is collapsed per E01-02.
         acceptance:
           - "Section has a table with, per close code, a stable numeric ID, a name and the required user-visible behavior, covering at least: version mismatch, pin mismatch, malformed frame (oversize/truncated/bad length/decode failure/unknown channel/unknown payload type), credit violation, pairing failure (expired, attempts exhausted, bad proof, rejected by owner), media ticket rejected (missing/reused/expired/other session), revoked peer."
           - "Section contains these MUST statements: a close code MUST NOT trigger a plaintext, reduced-security or unauthenticated retry (invariant 2, stated in the section intro); an implementation receiving an unknown close code MUST treat it as fatal and show a generic error; security-relevant closes (pin mismatch, version mismatch, revoked) MUST be shown in UI, not only logged (UC-05)."

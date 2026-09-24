@@ -1,0 +1,18 @@
+# Shared denylist for platform module-dependency checks (E00-14 android, E00-15 macos).
+# One substring per line, matched case-insensitively against a package dependency's identity
+# and repository URL. Blank lines and lines starting with # are ignored.
+
+# HTTP / WebDAV server libraries (invariant 2: no plaintext listener, no HTTP server, no WebDAV,
+# no "legacy" or "fallback" mode).
+swifter
+vapor
+gcdwebserver
+nanohttpd
+ktor-server
+
+# Third-party crash-reporting / analytics SDKs (cycle-4 decision: no third-party crash SDK in v1).
+sentry
+firebase
+bugsnag
+appcenter
+instabug

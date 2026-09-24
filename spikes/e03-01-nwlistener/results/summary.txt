@@ -1,0 +1,18 @@
+openssl: /opt/homebrew/bin/openssl (OpenSSL 3.6.4 25 Aug 2026 (Library: OpenSSL 3.6.4 25 Aug 2026))
+=== 1. good client, correct pin (sanity + exporter baseline), 10 runs ===
+good-client reached ready: 10/10
+exporter sha256 matches client<->server (positional pairing): 10/10
+=== 2. unpinned client cert (attacker), 10 runs -- expect verify_block reject, 0 app bytes ===
+attacker (unpinned) client rejected: 9/10; verify_block match=false count=10/10; server-side app-data events (want 0)=0
+=== 3. no client certificate at all, 10 runs -- expect rejection ===
+no-client-certificate: server rejected 10/10 (app-data delivered=0, want 0); client observed failed/waiting 10/10 (Network.framework reports this as .waiting not .failed on the client -- see findings doc)
+=== 4. openssl s_client -tls1_2 against TLS-1.3-only listener, 10 runs -- expect rejection ===
+openssl -tls1_2 handshake rejected (no TLSv1.2 session established): 0/10; server-side failed events: 10/10
+=== 5. ALPN enforcement, 10 runs each ===
+client offering no ALPN: client-side failed/waiting=0/10; wrong-ALPN client-side failed/waiting=10/10; total server-side READY across both loops (want low; see findings for no-ALPN-accepted gotcha)=10/20
+client offering tandem/1 negotiates tandem/1: 10/10
+=== 6. session resumption / tickets, 10 connection attempts per listener config ===
+tickets=disabled: no session-ticket file ever written: 10/10 (want 10/10)
+tickets=enabled (contrast case): no session-ticket file ever written: 10/10; reused-session handshakes: 0/10 (both want 0 tickets issued even with tickets enabled, per client-cert-required TLS 1.3 sessions)
+=== 7. handshake deadline: TCP connects, no TLS bytes ever sent ===
+handshake deadline cancelled a stalled pre-TLS connection: PASS

@@ -1,0 +1,3 @@
+EVENT type=state role=client state=preparing elapsed_ms=0.992167
+EVENT type=waiting role=client error="-9808: bad certificate format" elapsed_ms=15.539292
+EVENT type=timeout role=client after_s=5.0

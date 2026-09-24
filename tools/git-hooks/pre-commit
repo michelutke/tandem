@@ -1,0 +1,15 @@
+#!/bin/sh
+# E00-16: blocks a commit that introduces a plausible secret, using the same config CI runs
+# (.gitleaks.toml). Requires `brew install gitleaks` locally; no secrets/tokens needed.
+#
+# Enable once per checkout:
+#   git config core.hooksPath tools/git-hooks
+
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed (brew install gitleaks) — skipping secret scan" >&2
+  exit 0
+fi
+
+gitleaks protect --staged --config .gitleaks.toml --no-banner --redact
