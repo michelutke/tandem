@@ -1,0 +1,28 @@
+version: v2
+
+# E00-09: generates protobuf-kotlin-lite (Android) and swift-protobuf (macOS) sources from
+# protocol/proto via pinned buf.build remote plugins. Run via tools/protocol/generate.sh, which
+# both a Gradle and an Xcode pre-build phase can call. Requires network access to resolve the
+# pinned plugins (buf caches results locally after the first run); generated output is committed
+# so builds never require network by themselves. Never hand-edit the generated files: change the
+# .proto and regenerate.
+#
+# Plugin versions are pinned to the exact release published on Maven Central
+# (protobuf-javalite / protobuf-kotlin-lite 4.35.0) and the exact swift-protobuf GitHub release
+# (1.38.1) so the generated code's embedded runtime-version check matches the runtime
+# dependencies declared in android/gradle/libs.versions.toml and
+# macos/Packages/TandemProtocol/Package.swift.
+inputs:
+  - directory: proto
+
+plugins:
+  # protocolbuffers/kotlin depends on protocolbuffers/java; opt "lite" makes the Java output
+  # extend GeneratedMessageLite (protobuf-javalite/protobuf-kotlin-lite runtime), the
+  # `protobuf-kotlin-lite` runtime named in E00-09.
+  - remote: buf.build/protocolbuffers/java:v35.0
+    out: ../android/core/protocol/src/main/java
+    opt: lite
+  - remote: buf.build/protocolbuffers/kotlin:v35.0
+    out: ../android/core/protocol/src/main/kotlin
+  - remote: buf.build/apple/swift:v1.38.1
+    out: ../macos/Packages/TandemProtocol/Sources/TandemProtocol

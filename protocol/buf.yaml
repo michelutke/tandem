@@ -1,0 +1,11 @@
+# buf module for the Tandem wire protocol (E00-09). Schemas live under proto/tandem/v1.
+# Breaking-change checks against main are wired in E01-15.
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// E00-09: placeholder message proving the buf generate -> protobuf-kotlin-lite (Android) and
+// swift-protobuf (macOS) codegen pipeline compiles end-to-end. Replaced by the real
+// envelope/pairing/control/status messages in E01-10..E01-13; delete this file once one of
+// them lands.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+message Placeholder {
+  string value = 1;
+}
