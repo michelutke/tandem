@@ -6,11 +6,15 @@ epics:
     prd: []
     use_cases: []
     summary: |
-      Stand up the monorepo exactly as PRD `<structural-decomposition>` lays it out, with a
-      working Gradle build, a working Xcode/SwiftPM build, generated-code hygiene, CI on both
-      platforms with path filters, and the repo-level guardrails (CLAUDE.md, module dependency
-      rules, secret scanning, release-log lint) that every later epic relies on. Nothing here
-      implements a PRD feature; it makes every later issue buildable, testable, and reviewable.
+      Stand up the monorepo exactly as PRD `<structural-decomposition>` lays it out, with a working Gradle
+      build, a working Xcode/SwiftPM build, generated-code hygiene, CI on both platforms with path
+      filters, and the repo-level guardrails (CLAUDE.md, module dependency rules, secret scanning,
+      release-log lint, test seams and harnesses, Android platform hardening, supply-chain controls and a
+      release test-code scan) that every later epic relies on. Nothing here implements a PRD feature; it
+      makes every later issue buildable, testable, and reviewable. Review cycle 5: infrastructure first
+      needed later stays in this epic (IDs are epic-bound) but is marked `lands_in_phase` and lands at the
+      start of that phase: E00-26, E00-29, E00-30 (Phase 1), E00-28 (Phase 2), E00-22 (Phase 3). Phase 0
+      exit does not wait for them.
     scope:
       - Directory layout matching the PRD tree (`android/`, `macos/`, `protocol/`, `tools/`, `docs/`).
       - Gradle convention plugins, version catalog, Hilt, JUnit5, Turbine, ktlint, detekt, Kover/Jacoco.
@@ -22,6 +26,10 @@ epics:
       - Module dependency rule enforcement (features never depend on each other; only
         core/transport touches sockets) on both platforms.
       - Secret scanning; release-log lint rule (no content logging in release builds).
+      - "Test seams and harnesses: android/core/testing (Clock, ElapsedRealtimeSource, InMemoryDuplexPipe), Robolectric + Compose, emulator CI via Gradle Managed Devices, companion notification app, macOS TandemTestSupport (ManualTestClock, InMemoryConnectionPair), XCUITest, device matrix and manual gates (E00-18..E00-26)."
+      - "Android platform-hardening baseline: backup off, no cleartext or user CAs, export allowlist, immutable explicit PendingIntents, tapjacking filter, denied permissions (E00-28)."
+      - "Supply-chain baseline: Gradle verification metadata + locking, SwiftPM resolved-only, SHA-pinned actions, update bot, license gate, docs/dependencies.md registry (E00-29)."
+      - "Release-artifact test-code scan on every release build (E00-30); dependency denylist for HTTP servers and third-party crash/analytics SDKs (E00-14, E00-15)."
     out_of_scope:
       - The actual `.proto` schemas and buf lint/breaking rules (E01).
       - Any feature module implementation (Layer 4+ epics).
@@ -36,9 +44,12 @@ epics:
       - "`CLAUDE.md` has a testing section listing the eight tdd layer prefixes and the seam rule (inject Clock/dispatchers/ByteStream/KeyStore/Keychain; no `System.currentTimeMillis()`/`Date()` in core)."
       - "`android/core/testing` (TestClock, FakeElapsedRealtime, InMemoryDuplexPipe) and `macos/Packages/TandemTestSupport` (ManualTestClock, InMemoryConnectionPair) exist; neither is on a release classpath/link map."
       - "Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 29 + 35) is a required check on `android/**` PRs."
-      - "`tools/companion-app` builds in CI and is installed on the managed devices before instrumented tests run."
-      - "`TandemUITests` XCUITest target runs on the macOS runner; Release binary contains no `UITestScenario` string."
+      - "Phase 3 start (E00-22): `tools/companion-app` builds in CI and is installed on the managed devices before instrumented tests run."
+      - "Phase 1 start (E00-26): `TandemUITests` XCUITest target runs on the macOS runner; Release binary contains no `UITestScenario` string."
+      - "Phase 1 start (E00-29, E00-30): supply-chain checks fail on a changed artifact checksum, a + version, a tag-referenced action, a changed Package.resolved, a GPL-3.0 dependency or one missing from docs/dependencies.md; the release test-code scan fails on fixtures containing SoftwareIdentityKeyStore, ManualTestClock or an extra executable in Tandem.app and passes on the current release build."
+      - "Phase 2 start (E00-28): the Android hardening check fails on fixtures with allowBackup=true, user trust anchors, a non-allowlisted export, a mutable or implicit PendingIntent, or QUERY_ALL_PACKAGES."
       - "`docs/testing/device-matrix.md` and `docs/testing/manual-gates.md` exist; the CI check that every `manual:` tdd entry has a matching manual-gates heading passes."
+      - "Adding an HTTP-server or third-party crash/analytics SDK dependency fails the build on both platforms (E00-14, E00-15)."
     issues:
       - id: E00-01
         title: "[docs] Create monorepo directory skeleton per PRD structural decomposition"
@@ -356,7 +367,7 @@ epics:
           - "ci: codeownersCheck_trackedPathWithoutOwner_exitsNonZero"
         notes: ""
       - id: E00-14
-        title: "[android] Module dependency rule enforcement (features never depend on each other; only core/transport touches sockets)"
+        title: "[android] Module rules: no feature-to-feature deps; only core/transport opens sockets"
         type: task
         platforms: [android]
         priority: P0
@@ -436,7 +447,7 @@ epics:
           - "ci: secretScan_allowlistedVectorFixture_notFlagged"
         notes: ""
       - id: E00-17
-        title: "[android] Release-log lint rule + shared sensitive-symbol list: no content logging in release builds"
+        title: "[android] Release-log lint + shared sensitive-symbol list"
         type: task
         platforms: [android]
         priority: P0
@@ -640,6 +651,7 @@ epics:
         type: task
         platforms: [tools, android]
         priority: P0
+        lands_in_phase: 3
         size: M
         prd: [F-5.1, F-5.2]
         use_cases: [UC-08, UC-09]
@@ -681,7 +693,7 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: [E00-01]
+        depends_on: []
         description: |
           `docs/testing/device-matrix.md`: the physical devices every `manual:` gate runs on
           (minimum: one StrongBox Pixel on current Android, one TEE-only device, one API 29
@@ -767,7 +779,8 @@ epics:
         title: "[macos] XCUITest target with DEBUG-only scenario seeding"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
+        lands_in_phase: 1
         size: M
         prd: []
         use_cases: []
@@ -797,10 +810,11 @@ epics:
           Cycle 4 resolved: the string check above is extended by E00-30 (Mach-O symbol scan plus bundle-contents allowlist).
 
       - id: E00-28
-        title: "[android] Platform-hardening baseline: backup, network security config, exports, PendingIntents, tapjacking"
+        title: "[android] Platform-hardening baseline: backup, NSC, exports, PendingIntents, tapjacking"
         type: task
         platforms: [android]
         priority: P0
+        lands_in_phase: 2
         size: M
         prd: []
         use_cases: [AC-16, AC-02]
@@ -850,10 +864,11 @@ epics:
           Added in review cycle 4. Consumers that add components cite this issue: E20-08, E30-02, E31-06, E31-12, E40-11, E62-02.
 
       - id: E00-29
-        title: "[ci] Supply-chain baseline: dependency verification, lockfiles, pinned actions, update bot, license gate"
+        title: "[ci] Supply-chain baseline: dependency verification, lockfiles, pinned actions, licenses"
         type: task
         platforms: [ci]
         priority: P0
+        lands_in_phase: 1
         size: M
         prd: []
         use_cases: [AC-18]
@@ -901,11 +916,12 @@ epics:
         type: task
         platforms: [ci]
         priority: P0
+        lands_in_phase: 1
         size: M
         prd: []
         use_cases: [AC-11]
         invariants: [2]
-        depends_on: [E00-02, E00-07, E00-11, E00-26]
+        depends_on: [E00-02, E00-07, E00-11]
         description: |
           Added in review cycle 4: test-only code must provably never ship. Runs on every CI release build
           (not only at Phase 7) against `tools/release-audit/test-only-symbols.txt`:
@@ -915,8 +931,8 @@ epics:
             Turbine, MockK; the merged release manifest has no `<queries>` or provider for the companion app.
           - macOS: `nm` + `swift demangle` over the Release Mach-O binaries (app and share extension) fails on
             TandemTestSupport types (ManualTestClock, FixedDateProvider, InMemoryKeychainStore,
-            InMemoryConnectionPair, FakeTandemSession), `UITestScenario` (E00-26) and the E15-15 harness
-            trust-seeding helper; the `.app` bundle contents must equal an allowlist (Contents/MacOS: the app
+            InMemoryConnectionPair, FakeTandemSession), `UITestScenario` (E00-26), the E15-22 `harness-seed`
+            helper and its `HarnessPairingPayloadOut` launch hook; the `.app` bundle contents must equal an allowlist (Contents/MacOS: the app
             binary only; Contents/PlugIns: the share extension only; no `.xctest`, no helper executables).
         acceptance:
           - "A fixture release APK containing SoftwareIdentityKeyStore fails the dex scan naming the class; the current release APK passes."
@@ -932,6 +948,8 @@ epics:
           - "ci: macReleaseBundle_unexpectedExecutableOrXctest_exitsNonZero"
         notes: |
           Added in review cycle 4. Generalizes E10-15 (`releaseApk_softwareKeyStoreClass_absentFromDex`) and E00-26 (`releaseBinary_uiTestScenarioHook_stringAbsent`); E71-09 re-runs it on the signed release artifacts.
+          Cycle 5: no longer depends on E00-26 (the symbol list names `UITestScenario` whether or not the target
+          exists yet); lands at Phase 1 start, before E15-22 needs it.
 
   - id: E01
     title: "Wire protocol: SPEC.md, .proto schema, test vectors"
@@ -945,15 +963,11 @@ epics:
       (E10-E14) implement against and E15 runs in CI. Nothing here writes Kotlin or Swift codec
       implementations; it defines what those implementations must do and proves it with vectors.
     scope:
-      - SPEC.md sections (handshake/TLS profile, pairing, framing+envelope, channels+flow control,
-        errors+close codes, versioning/capability negotiation, heartbeat, discovery TXT, media ticket).
+      - "SPEC.md sections: handshake/TLS profile (AEAD suites, ALPN tandem/1, CertificateVerify + pin, RFC 9266 channel binding), pairing (length-prefixed channel-bound transcript, confirmation code, mutual confirmation, collapsed PairRejected), framing+envelope, channels+flow control, errors+close codes (incl. PROTOCOL_TIMEOUT, LIMIT_EXCEEDED), versioning/capability negotiation, heartbeat, discovery TXT, media ticket, timeouts/connection limits/resource caps (E01-22), untrusted peer strings (E01-23)."
       - "`protocol/proto/tandem/v1/{envelope,pairing,control,status}.proto` for phase-0 scope."
-      - A written placeholder plan for later-phase proto domains (notify, clipboard, files, sms,
-        contacts, calls, input) so E01 does not block on features not yet designed.
+      - "A written placeholder plan for later-phase proto domains (notify, clipboard, files, photos, sms, contacts, calls, media, input, rotation, status extension) so E01 does not block on features not yet designed."
       - "`buf.yaml` lint configuration and `buf breaking` baseline against `main`."
-      - Test-vector file format, a Python reference generator, and vectors for SPKI fingerprint,
-        pairing proof HMAC, frame encoding (valid and invalid), Bonjour rotating ID, and QR payload
-        parsing (valid and malformed).
+      - "Test-vector file format, a Python reference generator, and vectors for SPKI fingerprint, pairing proof HMAC and confirmation code, frame encoding (valid and invalid), Bonjour rotating ID, QR payload parsing (valid and malformed), and display-string sanitization (E01-24)."
     out_of_scope:
       - Kotlin/Swift codec implementations that consume these vectors (E11).
       - The conformance runner that executes vectors in CI (E15).
@@ -963,8 +977,9 @@ epics:
       - "`buf lint` and `buf breaking --against '.git#branch=main'` both pass on `protocol/`."
       - Every SPEC.md section referenced above exists, uses RFC 2119 keywords, and is cross-linked
         from the relevant `.proto` file's comments.
-      - All five vector categories exist under `protocol/vectors/`, are regenerable from the
-        reference generator, and have been reviewed (PR approval recorded).
+      - "All six vector categories (SPKI fingerprint, pairing proof + confirmation code, frames, rotating ID, QR payload, display strings) exist under protocol/vectors/, are regenerable from the reference generator, and have been reviewed (PR approval recorded)."
+      - "The E01-22 section states every timeout, connection cap and feature cap as a MUST with its close code or typed error and implementing issue."
+      - "The channel-binding derivation in E01-01 / E01-02 matches the E03-04 outcome (exporter or in-band challenge fallback)."
     issues:
       - id: E01-01
         title: "[docs] SPEC.md section: handshake & TLS profile"
@@ -975,7 +990,7 @@ epics:
         prd: [F-3.1]
         use_cases: [AC-01, AC-04, AC-13, AC-15]
         invariants: [1, 2, 5, 6]
-        depends_on: []
+        depends_on: [E03-04]
         description: |
           Normative section: TLS 1.3 only, no session resumption, no 0-RTT, client cert required,
           verify-callback semantics (pin against trust store; unknown key fails except inside an
@@ -1017,7 +1032,9 @@ epics:
           proofs and signatures to the exact TLS session with no extra round trip. Fallback, only if a platform
           spike (E03-01 / E03-03 / E03-04) cannot export keying material: the verifier sends a 32-byte CSPRNG
           challenge in-band (`PairChallenge` from the Mac before PairRequest; `RotationChallenge` from the
-          rotation receiver) and E01-02 / E70-01 use it in place of `cb`.
+          rotation receiver) and E01-02 / E70-01 use it in place of `cb`. Weaker than the exporter (binds to
+          the nonce exchange, not the TLS keys) but acceptable because both ends are pinned. Cycle 5: this
+          issue depends on E03-04, which records which variant applies.
       - id: E01-02
         title: "[docs] SPEC.md section: pairing"
         type: doc
@@ -1027,7 +1044,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, AC-03, AC-14, AC-17, AC-20]
         invariants: [3, 5, 6]
-        depends_on: []
+        depends_on: [E03-04]
         description: |
           Normative section for the QR payload grammar (`tandem://pair?v=1&fp=...&s=...&a=...&p=...&n=...`),
           the pairing window (expiry 120 s, max 3 attempts, single use), the exact proof
@@ -1064,13 +1081,14 @@ epics:
             sanitized before display (E01-23).
         acceptance:
           - "Section specifies the QR payload grammar in ABNF: fields `v`, `fp`, `s`, `a`, `p`, `n` in that order, base64url without padding for `fp` (32 bytes) and `s` (16 bytes), `p` a decimal port 1..65535, `a` a non-empty comma-separated address list; a parser MUST reject a payload with any field missing, duplicated, mis-encoded or out of range, and MUST reject `v` other than `1`."
-          - "Section states the proof formula byte-for-byte: `HMAC-SHA256(secret, ASCII(\"tandem-pair-v1\") || macSpkiDer || phoneSpkiDer)` stating explicitly whether the two SPKI DER values are raw-concatenated or length-prefixed (and the prefix width/byte order if so), where `phoneSpkiDer` is taken from the certificate seen in the TLS handshake, never from the PairRequest body."
+          - "Section states that `phoneSpkiDer` in the proof transcript is taken from the certificate seen in the TLS handshake, never from the PairRequest body."
           - "Section contains these MUST statements: the window MUST expire 120 s after opening; the Mac MUST reject the 4th attempt without evaluating its proof; a successful pairing MUST close the window and destroy the secret (single use); proof comparison MUST be constant time; each failed attempt MUST burn one of the 3 attempts; the Mac MUST NOT send `PairAccepted` before the owner confirms on the Mac."
           - "Section states byte-for-byte the length-prefixed transcript, the proof formula and the confirmation-code formula, including the `LP` width and byte order, the 91-byte P-256 SPKI DER requirement and the `cb` input from E01-01, and states that it supersedes the raw concatenation in PRD F-2.1."
           - "Section contains these MUST statements: at most one pairing-candidate connection at a time; the only application payload accepted on it after the hellos is a single PairRequest within 10 s; PairRejected carries only `REJECTED_BY_OWNER` or `PAIRING_UNAVAILABLE`; the phone commits trust only after PairAccepted and an on-phone code confirmation; the Mac dialog default action is Don't Pair."
           - "Section restricts QR `a` to 1..8 literal IP addresses (no hostnames, unspecified, multicast or broadcast addresses) and `n` to at most 64 UTF-8 bytes, each violation a MUST-reject."
         tdd: []
         notes: |
+          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`).
           Cycle 4 fallback: if channel binding is infeasible on a platform (E03-01 / E03-03 / E03-04), `cb` is
           replaced by a 32-byte challenge the Mac sends in a `PairChallenge` CONTROL message before PairRequest;
           E01-11, E01-18, E10-12 / E10-13 and E14-06 / E14-07 change accordingly before Phase 1 starts.
@@ -1296,7 +1314,7 @@ epics:
         prd: [F-2.1, F-2.3]
         use_cases: [UC-03, UC-07, AC-03, AC-14]
         invariants: [3, 6]
-        depends_on: [E01-02]
+        depends_on: [E01-02, E03-04]
         description: |
           `protocol/proto/tandem/v1/pairing.proto` defining `PairRequest { deviceInfo, proof }`,
           `PairAccepted`, `PairRejected { reason }` (UC-03 alternate: owner declines on the Mac;
@@ -1324,7 +1342,10 @@ epics:
           - "ci: pairingProtoScan_pairRequestFields_containNoKeyOrFingerprint"
           - "ci: pairingProtoScan_revokeMessage_hasNoFields"
           - "ci: pairingProtoScan_deviceInfoFields_containNoHardwareIdentifiers"
-        notes: ""
+        notes: |
+          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
+          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
+          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and pairing.proto gains `PairChallenge` before Phase 1 starts.
       - id: E01-12
         title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance"
         type: task
@@ -1381,7 +1402,7 @@ epics:
         title: "[protocol] Proto placeholder plan for later-phase domains"
         type: doc
         platforms: [protocol]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-5.1, F-6.1, F-7.1, F-8.1, F-9.1]
         use_cases: []
@@ -1441,7 +1462,7 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: [E01-01, E01-02, E01-03, E01-08]
+        depends_on: [E01-05]
         description: |
           Define the vector file format under `protocol/vectors/` (one JSON manifest per category
           plus binary fixture files where the payload is not text-safe), and a
@@ -1476,7 +1497,7 @@ epics:
         prd: [F-1.1]
         use_cases: [AC-01]
         invariants: [3]
-        depends_on: [E01-16]
+        depends_on: [E01-16, E01-01]
         description: |
           Vectors covering SHA-256 over DER-encoded SubjectPublicKeyInfo for a handful of known
           P-256 test keys, including edge cases (compressed vs. uncompressed point encoding
@@ -1568,7 +1589,7 @@ epics:
         prd: [F-3.5]
         use_cases: [AC-05]
         invariants: [3]
-        depends_on: [E01-16]
+        depends_on: [E01-16, E01-08]
         description: |
           Vectors covering `HMAC(macSpki, dayIndex)` for several `(spki, dayIndex)` pairs, including
           a UTC day-boundary edge case (23:59:59 vs 00:00:00) to catch timezone bugs early, plus
@@ -1749,14 +1770,14 @@ epics:
       - ADR-001 (native Swift+Kotlin vs KMP/CMP), ADR-002 (phone-client/Mac-server), ADR-003
         (mTLS vs Noise), ADR-004 (QR-only pairing v1), ADR-005 (two connections vs one
         multiplexed), ADR-006 (MediaProjection+Accessibility vs ADB/scrcpy, decision deferred).
+      - "Threat model part 2 (E02-08): Android IPC, Mac local surfaces, storage, logs/crash reports, CI/release secrets and supply chain; one row per cycle-4 decision with its residual risk (E02-01)."
     out_of_scope:
       - Implementing any mitigation identified by the threat model (tracked back to the owning
         epic per finding).
       - The Phase 0 spikes that inform ADR-003/ADR-006 (E03); this epic records decision criteria,
         E03 supplies empirical input.
     exit_criteria:
-      - "`docs/threat-model.md` covers every arrow in the PRD data-flow diagram with STRIDE
-        categories and at least one mitigation reference per identified threat."
+      - "docs/threat-model.md covers every arrow in the PRD data-flow diagram (E02-01) and every local surface in E02-08 with STRIDE categories and at least one mitigation reference per threat; every cycle-4 decision has a row with its residual risk; AC-01..AC-20 are each referenced at least once."
       - Six ADR files exist under `docs/adr/`, each accepted (or, for ADR-006 only, explicitly
         marked "options recorded, decision deferred to Phase 6") via PR review.
     issues:
@@ -1774,13 +1795,13 @@ epics:
           `docs/threat-model.md`: for every arrow in the PRD `<architecture>` data-flow diagram
           (control mTLS, media mTLS, and each on-device data source feeding the mux), enumerate
           Spoofing/Tampering/Repudiation/Information disclosure/Denial of service/Elevation of
-          privilege threats, map each to an existing abuse case (AC-01..AC-10) where one applies,
+          privilege threats, map each to an existing abuse case (AC-01..AC-20) where one applies,
           and cite the invariant or future epic that mitigates it.
           Cycle 4 scope split: this document covers the network and protocol flows plus the on-device data
           sources feeding the mux; local platform surfaces, storage, logs, CI and supply chain are E02-08.
         acceptance:
           - Every arrow in the architecture diagram has at least one STRIDE row.
-          - Every AC-01..AC-10 abuse case is referenced from at least one threat-model row.
+          - Every AC-01..AC-20 abuse case is referenced from at least one threat-model row (E02-01 or E02-08).
           - Any threat with no existing mitigation is flagged as an open risk and cross-referenced
             into PRD `<risks>` or a new backlog issue.
           - Every mitigation reference is an invariant number (1-8), a backlog issue ID or a tdd test name that exists in `docs/planning/backlog/*.yaml`.
@@ -1907,10 +1928,10 @@ epics:
         tdd: []
         notes: ""
       - id: E02-07
-        title: "[docs] ADR-006: mirroring via MediaProjection+Accessibility vs. ADB wireless + scrcpy-server (options recorded, decision by Phase 6)"
+        title: "[docs] ADR-006: MediaProjection+Accessibility vs. ADB + scrcpy (decision in Phase 6)"
         type: adr
         platforms: [docs]
-        priority: P1
+        priority: P0
         size: S
         prd: []
         use_cases: [UC-22, UC-23, AC-06]
@@ -1992,6 +2013,7 @@ epics:
       - End-to-end handshake Android↔Mac hello-world spike tying the two platform spikes together.
       - swift-nio-ssl fallback evaluation, only if the Network.framework spike fails its
         acceptance bar.
+      - "Cycle-4 TLS profile checks on both stacks: RFC 9266 exporter (EXPORTER-Channel-Binding, 32 bytes) byte-equal to openssl and across stacks, CertificateVerify enforced for a pinned cert without its key, ALPN tandem/1, Android fresh SSLContext with no PSK offer, Mac pre-TLS cancel and 10 s handshake deadline (input to E12-18)."
     out_of_scope:
       - Production `core/transport` / `TandemTransport` implementations (E12).
       - Any UI.
@@ -2000,9 +2022,10 @@ epics:
       - The fallback decision criteria doc (E03-06) exists regardless of whether the fallback spike
         (E03-05) ran, so Phase 1 has an unambiguous trigger for revisiting ADR-003 if
         `core/transport`/`TandemTransport` hits the same wall in production code.
+      - "docs/spikes/channel-binding.md (E03-04) records the channel-binding outcome: exporter on both stacks, or the in-band challenge fallback, which E01-01/E01-02/E01-11/E14-06/E14-07/E70-01 adopt before Phase 1 starts."
     issues:
       - id: E03-01
-        title: "[macos] Spike: NWListener mTLS with required client cert, verify block, TLS 1.3-only, no resumption"
+        title: "[macos] Spike: NWListener mTLS with client cert, verify block, TLS 1.3 only"
         type: spike
         platforms: [macos]
         priority: P0
@@ -2032,7 +2055,7 @@ epics:
         title: "[macos] Spike: Secure Enclave key as sec_identity for the Mac TLS listener"
         type: spike
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.1]
         use_cases: [AC-01]
@@ -2052,7 +2075,7 @@ epics:
         tdd: []
         notes: ""
       - id: E03-03
-        title: "[android] Spike: SSLSocket client auth via AndroidKeyStore P-256, custom X509KeyManager + pinning TrustManager, StrongBox vs. TEE device matrix"
+        title: "[android] Spike: SSLSocket client auth with AndroidKeyStore P-256 (StrongBox/TEE)"
         type: spike
         platforms: [android]
         priority: P0
@@ -2102,8 +2125,11 @@ epics:
           - "Go criteria: 20/20 handshakes from a StrongBox device and 20/20 from a TEE device complete with mutual pin verification and a round-tripped hello payload; handshake p95 <= 1000 ms (StrongBox) / <= 300 ms (TEE) on the same 5 GHz AP; the pcap shows only TLS 1.3 records after ClientHello and the hello payload never in cleartext; swapping either side's key makes 20/20 handshakes fail with 0 application bytes exchanged."
           - Explicit go/no-go recommendation for ADR-003 (E02-04).
           - "Both sides derive byte-identical channel-binding values in 20/20 handshakes (the findings doc records the SHA-256 of each value, never the value itself)."
+          - "Channel-binding outcome recorded in `docs/spikes/channel-binding.md` as exactly one of: `exporter` (RFC 9266 on both platforms, E03-01 (a) and E03-03 pass and the values match here) or `fallback` (in-band challenge per E01-01 notes), naming the failing platform check. E01-01, E01-02, E01-11, E14-06, E14-07 and E70-01 depend on this issue."
         tdd: []
-        notes: ""
+        notes: |
+          Cycle 5: this is the single outcome issue for session binding. The Phase 1 pairing and rotation
+          issues consume its decision, so the fallback switch (if any) happens before Phase 1 starts.
       - id: E03-05
         title: "[macos] Spike: swift-nio-ssl fallback evaluation (only if Network.framework spike fails)"
         type: spike
@@ -2137,7 +2163,7 @@ epics:
         prd: []
         use_cases: []
         invariants: []
-        depends_on: [E03-01, E03-05]
+        depends_on: [E03-01]
         description: |
           `docs/spikes/tls-stack-decision-criteria.md`: independent of whether E03-05 ran, write
           down the concrete, checkable conditions that would force Phase 1 to revisit ADR-003

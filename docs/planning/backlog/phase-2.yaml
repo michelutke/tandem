@@ -94,7 +94,7 @@ epics:
           - "instrumented: tandemService_processKilled_restartedWithin15s"
           - "manual: oemBatteryKiller_screenOff60minUnrestricted_serviceStillConnected"
       - id: E20-03
-        title: "Spike: CompanionDeviceManager association/presence feasibility for a Wi-Fi-only Mac peer"
+        title: "[android] Spike: CompanionDeviceManager presence feasibility for a Wi-Fi-only Mac peer"
         type: spike
         platforms: [android]
         priority: P0
@@ -208,7 +208,7 @@ epics:
         prd: [F-3.4]
         use_cases: [UC-04]
         invariants: [3, 1]
-        depends_on: [E20-15, E21-05, E12-08, E00-18, E15-15]
+        depends_on: [E21-05, E12-08, E00-18, E15-15]
         description: |
           Reconnect address-selection state machine, started when E20-15 (or the E12-08 state
           machine) reports the peer dead or disconnected: try the last-working address first, then
@@ -262,10 +262,10 @@ epics:
           - "unit: networkReconnectTrigger_alreadyConnected_noAttempt"
           - "unit: connectivityNetworkMonitor_onAvailableCallback_emitsNetworkAvailable"
       - id: E20-08
-        title: "[android] BOOT_COMPLETED restart"
+        title: "[android] Service restart on BOOT_COMPLETED and MY_PACKAGE_REPLACED"
         type: task
         platforms: [android]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-4.1]
         use_cases: [UC-04, AC-16]
@@ -273,7 +273,9 @@ epics:
         depends_on: [E20-02, E00-20, E00-23, E00-28]
         description: |
           Register a BOOT_COMPLETED broadcast receiver (RECEIVE_BOOT_COMPLETED) that starts the
-          foreground service via `ServiceStarter` (E20-02) when a paired Mac exists. BOOT_COMPLETED
+          foreground service via `ServiceStarter` (E20-02) when a paired Mac exists. Cycle 5 (owner
+          default, open-questions.md Q13): the same receiver also handles MY_PACKAGE_REPLACED so an app
+          update does not silently stop the connection until the user opens the app. BOOT_COMPLETED
           is delivered after first unlock (the app is not direct-boot aware); connectedDevice is not
           among the FGS types Android 15 forbids from BOOT_COMPLETED.
           Seam: the receiver is tested under Robolectric (E00-20) with the paired-peer fake; a real
@@ -282,13 +284,15 @@ epics:
           - Merged manifest declares RECEIVE_BOOT_COMPLETED and the receiver for android.intent.action.BOOT_COMPLETED
           - BOOT_COMPLETED with a paired Mac starts the foreground service; with no paired Mac nothing is started
           - "Manual gate: after a physical reboot and unlock, the service is running and connected to the Mac within 60 s without opening the app"
-          - "The receiver ignores any intent whose action is not BOOT_COMPLETED: an explicit intent from another app with another action starts nothing (the receiver must be exported, E00-28 allowlist)."
+          - "The receiver ignores any intent whose action is not BOOT_COMPLETED or MY_PACKAGE_REPLACED: an explicit intent from another app with another action starts nothing (the receiver must be exported, E00-28 allowlist)."
+          - MY_PACKAGE_REPLACED with a paired Mac starts the foreground service; with no paired Mac nothing is started
         tdd:
           - "ci: mergedManifest_bootReceiver_declaresReceiveBootCompleted"
           - "unit: bootReceiver_bootCompletedWithPairedMac_startsForegroundService"
           - "unit: bootReceiver_bootCompletedNoPairedMac_startsNothing"
           - "manual: phoneReboot_pairedMac_connectedWithin60sOfUnlock"
           - "unit: bootReceiver_explicitIntentOtherAction_startsNothing"
+          - "unit: bootReceiver_myPackageReplacedWithPairedMac_startsForegroundService"
       - id: E20-09
         title: "[android] Connection state UI on phone"
         type: story
@@ -298,7 +302,7 @@ epics:
         prd: [F-4.1]
         use_cases: [UC-05]
         invariants: [5]
-        depends_on: [E20-15, E20-06, E12-16, E00-18, E00-20]
+        depends_on: [E20-06, E12-16, E00-18, E00-20]
         description: |
           Phone UI surfaces connection state sourced from the E12-08 state machine, with error text
           from E12-16 (Android fail-closed error mapping), updated live.
@@ -470,7 +474,7 @@ epics:
           - "ui: scanScreen_rendered_noSkipButtonAndCameraRequestedOnScanTap"
           - "ui: deniedFeatureRow_tapped_launchesMatchingSettingsIntent"
       - id: E20-15
-        title: "[android] Heartbeat responder, Doze-aware unsolicited timer, sleep-inclusive dead-peer detection"
+        title: "[android] Heartbeat responder, Doze-aware timer, sleep-inclusive dead-peer detection"
         type: task
         platforms: [android]
         priority: P0
@@ -789,7 +793,7 @@ epics:
       - MenuBarExtra scaffold and state binding
       - Quick actions (placeholders wired to later features)
       - Launch at login via SMAppService
-      - App Sandbox entitlements
+      - "App Sandbox entitlements (network server/client only), hardened runtime, no com.apple.security.cs.* or get-task-allow, no ATS exception keys (E22-04)"
       - Settings window (Paired Devices tab hosts the E14-14 list)
       - Visible error surfacing
     out_of_scope:
@@ -800,6 +804,7 @@ epics:
       - Menu bar view model reflects the live connection state within 1 s of a transition (E22-01)
       - Launch at login brings the menu bar icon back within 60 s of login after a full reboot (E22-03 manual gate)
       - A pin-mismatch or version-mismatch error is shown as a persistent banner until acknowledged, not only logged (E22-07)
+      - "codesign on the Release build shows exactly app-sandbox, network.server and network.client, the hardened-runtime flag, and no cs.* or get-task-allow entitlement (E22-04)."
     issues:
       - id: E22-01
         title: "[macos] MenuBarExtra scaffold with connection state and battery"
@@ -835,7 +840,7 @@ epics:
         title: "[macos] Quick actions menu"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-4.2]
         use_cases: [UC-05]
@@ -860,7 +865,7 @@ epics:
         title: "[macos] Launch at login via SMAppService"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-4.2]
         use_cases: [UC-01]
@@ -1216,7 +1221,7 @@ epics:
         title: "[cross] Status throttle and ring round-trip tests"
         type: test
         platforms: [android, macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-4.3, F-4.4]
         use_cases: [UC-05, UC-06]

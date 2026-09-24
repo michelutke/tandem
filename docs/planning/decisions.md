@@ -1,0 +1,53 @@
+# Tandem — planning decisions log
+
+Every planning decision from review cycles 1–5 that fixes behaviour, a number, or scope. **Where
+this log or `docs/protocol/SPEC.md` conflicts with `docs/PRD.md`, SPEC and this log win**; the PRD
+text is deliberately left unchanged (last column says which PRD section is refined or superseded).
+Open owner questions live in [`open-questions.md`](open-questions.md). E71-12 (release checklist)
+has one row per entry here.
+
+Cycle 1 created the backlog from the PRD (epic/phase structure only; no behaviour decisions beyond
+the PRD). IDs are stable; add new entries at the end.
+
+| ID | Cy | Decision | Rationale | Owning issue(s) | PRD |
+|---|---|---|---|---|---|
+| D-01 | 2 | No PHOTOS channel; photo messages ride FILES with per-stream interleaving. | F-3.2 lists nine channels; one more channel adds no isolation. | E01-04, E41-01 | — |
+| D-02 | 2 | No test-only / debug / echo wire message or build flag; canaries use production paths (Phase 1: PairRequest display name). | A debug path could ship (AC-11). | E01-04, E15-07, E71-09 | Refines test-strategy canary |
+| D-03 | 2 | Media uses a second mTLS connection on the same single listener port; no separate media port. | Invariant 2, one audited listener. | E60-03, E60-06 | Refines F-3.3 |
+| D-04 | 2 | Per-app notification allow/deny is managed on the phone only; the Mac shows no list in v1. | Phone owns the permission and app list; avoids divergent state. | E30-04 | Refines F-5.1 |
+| D-05 | 2 | Accessibility-based clipboard auto-capture is ADR-only, off by default. | High-privilege surface (PRD risk). | E31-09 | Refines F-6.2 |
+| D-06 | 2 | v1 SMS is text only; MMS deferred to v2 pending the real-mix spike; RCS out (no third-party API). | Appendix C.4. | E50-12 | Refines F-8.1 |
+| D-07 | 2 | Call log view deferred to v2. | Scope. | E52 (out of scope) | Refines F-8.4 |
+| D-08 | 2 | Mac-initiated reconnect hint (Appendix C.3) is decided by ADR from measured reconnect data; no phone listener in any option. | Invariant 4. | E20-13 (data: E20-12) | Resolves App. C.3 process |
+| D-09 | 3 | Every story/task/test lists `layer: unit_condition_expectedResult` tests; eight layers; seams injected (Clock, ByteStream, KeyStore, Keychain). | TDD readiness; validator-enforced. | SCHEMA.md, `sync_issues.rb` | — |
+| D-10 | 3 | The Mac drives liveness: Mac sends Heartbeat after 15 s idle and declares dead after 45 s; the phone answers within 1 s, suspends its own timer in Doze and measures silence on elapsedRealtime. | Phone timers do not fire in Doze. | E01-07, E20-05, E20-15, E20-12 | Supersedes F-3.4 "heartbeat every 15 s" for the phone side |
+| D-11 | 3 | CompanionDeviceManager presence is a spike plus conditional P1 issue; phase exit does not need CDM. | Feasibility over Wi-Fi unclear. | E20-03, E20-16 | Refines F-4.1 |
+| D-12 | 3 | Mac SMS and contacts stores are GRDB SQLite, 0600, backup-excluded, no app-level encryption (FileVault assumed); trust stays in the Keychain; unpair purges. | Query needs; single-user Mac. | E50-09, E51-04, E14-13 | Refines F-8.1 / F-8.3 |
+| D-13 | 3 | One `MALFORMED_FRAME` wire close code; detailed reason is local only. | No parser oracle on the wire. | E01-05, E01-19, E11-02, E11-04 | Refines F-3.2 |
+| D-14 | 4 | Pairing proof over a length-prefixed transcript `"tandem-pair-v1" \|\| LP(macSpkiDer) \|\| LP(phoneSpkiDer) \|\| LP(cb)`, 91-byte P-256 SPKI only. | Unambiguous encoding; session binding. | E01-02, E01-18, E10-12, E10-13 | Supersedes F-2.1 step 3 formula |
+| D-15 | 4 | Channel binding `cb` = RFC 9266 TLS exporter (32 bytes) on `TandemSession`; fallback in-band challenge if a stack cannot export. | Binds proofs/signatures to one TLS session. | E01-01, E03-01, E03-03, E03-04, E12-01, E12-04 | Extends F-3.1 |
+| D-16 | 4 | 6-digit confirmation code on both screens; Mac default Don't Pair; phone commits only after "Codes match". | Evil-QR defence (AC-20). | E01-02, E14-05, E14-08, E14-16 | Extends F-2.1 steps 4–5 |
+| D-17 | 4 | PairRejected on the wire is only `REJECTED_BY_OWNER` or `PAIRING_UNAVAILABLE`. | No oracle distinguishing bad proof / expired / exhausted. | E01-02, E01-11, E14-09, E15-09 | Refines F-2.1 |
+| D-18 | 4 | Pairing window: one in-flight candidate, PairRequest within 10 s, QR window not capturable/copyable, QR `a` ≤ 8 literal IPs, `n` ≤ 64 bytes. | Local attacker, DoS. | E01-02, E01-21, E14-01, E14-02, E14-11 | Refines F-2.1 |
+| D-19 | 4 | TLS profile: AEAD suites, ecdsa_secp256r1_sha256, no PSK / 0-RTT / post-handshake auth, ALPN `tandem/1`, no SNI, leaf-only P-256 check, CertificateVerify always enforced. | Minimal, testable profile. | E01-01, E12-01, E12-04, E12-05, E15-10, E15-11 | Refines F-3.1 |
+| D-20 | 4 | Pre-auth limits: TLS 10 s, Hello 5 s, PairRequest 10 s, MediaHello 5 s; ≤ 8 pre-auth connections, ≤ 2 per IP; per-IP throttle never a trust input; close codes `PROTOCOL_TIMEOUT`, `LIMIT_EXCEEDED`. | AC-13. | E01-22, E12-18, E15-20 | New (not in PRD) |
+| D-21 | 4 | Feature caps: files 64 GiB, ≤ 4 pending offers, ≤ 2 active, auto-accept ≤ 1 GiB; ≤ 8 thumbs in flight; SMS 1 sync in flight, ≤ 1600 chars, ≤ 10/min; calls digits only; notification string/icon caps. | AC-19 paired-peer abuse. | E01-22, E30-01, E40-07, E40-18, E41-04, E50-04, E52-05 | New |
+| D-22 | 4 | One untrusted-string rule (strip bidi/control/zero-width, NFC, caps, plain-text rendering), vector-tested; homoglyphs out of scope because no trust decision uses names. | AC-14. | E01-23, E01-24, E14-21, E14-22 | New |
+| D-23 | 4 | Revoke has no fields, affects only the sender's record, accepted only on a trusted Ready session; "no longer paired" never auto-deletes trust. | No remote trust deletion by an impostor. | E01-11, E14-15, E14-19, E12-16 | Refines F-2.3 |
+| D-24 | 4 | KeyRotation signs `"tandem-rotate-v1" \|\| LP(old) \|\| LP(new) \|\| LP(cb)` with old and new key; DUPLICATE_KEY, ROTATION_UNAVAILABLE; atomic pin swap via migration; grace pin ≤ 7 days; rotation is not compromise recovery. | Replay, key-claim and stuck-grace risks. | E70-01 … E70-05, E70-08, E70-13 | Supersedes F-1.3 message and "one grace session" |
+| D-25 | 4 | Media ticket never logged or persisted; MediaHello deadline; MediaHello on a pairing candidate rejected. | AC-08. | E01-09, E60-03, E60-08 | Refines F-3.3 |
+| D-26 | 4 | MediaFrame fragments ≤ 960 KiB, ≤ 8 per access unit, contiguous, ≤ 8 MiB reassembled; violations `MALFORMED_FRAME`; fuzzed. | Parser DoS. | E61-01, E61-14, E71-13 | New |
+| D-27 | 4 | Remote input has no raw key events (TextEdit ops), field ranges, 120 events/s, accessibility-overlay indicator above app overlays. | Invariant 8; AccessibilityService limits. | E62-01 … E62-08 | Refines F-9.3 |
+| D-28 | 4 | Android: backup off, no cleartext / user CAs, export allowlist, immutable explicit PendingIntents, tapjacking filter, URI validation; FLAG_SECURE not used. | AC-16. | E00-28, E20-08, E31-06, E40-11, E71-09 | New |
+| D-29 | 4 | macOS: hardened runtime, no cs.* exceptions, data-protection keychain own group, share extension without network/keychain, sensitive phone clips written Concealed + Transient, unpair purges caches. | AC-12, AC-17. | E22-04, E10-05, E13-06, E40-22, E31-13 | New |
+| D-30 | 4 | Test-only code never ships: dex / Mach-O symbol / bundle-contents scan on every release build. | AC-11. | E00-30, E71-09 | New |
+| D-31 | 4 | Logging: shared sensitive-symbol list, R8 strips Log.v/d/i, no `.public` values, canary kinds incl. encoded forms; no third-party crash SDK. | Invariant 7, AC-10. | E00-14, E00-17, E00-27, E15-17 | Refines invariant 7 enforcement |
+| D-32 | 4 | Supply chain: Gradle verification + locking, SwiftPM resolved-only, SHA-pinned actions, license gate; QR decoder chosen by spike (ML Kit only if zero egress, else zxing-cpp); release egress audit. | AC-18. | E00-29, E14-23, E14-10, E71-10, E71-14 | Supersedes stack line "CameraX + ML Kit" (pending E14-23) |
+| D-33 | 4 | Threat model split: E02-01 network/protocol flows; E02-08 local surfaces, storage, lost Mac, logs, CI secrets, supply chain. | Coverage. | E02-01, E02-08 | — |
+| D-34 | 5 | Mac-initiated rotation is two-phase: phones store the new Mac key as *pending* and ack; the Mac switches its listener identity only after every paired phone acked; a phone promotes the pending pin when a handshake presents it (grace rule starts then); pending pins unseen for 30 days are purged; after 7 days the Mac offers Finish (unpair pending phones) or Cancel. Rejected: SNI/ALPN-selected certificate (no-SNI profile, cleartext hint, one identity per NWListener); single-phone-only rotation. | Avoids lockout with several phones. | E70-01, E70-03, E70-04, E70-11, E70-13 | Supersedes F-1.3 "keep the old one for one grace session" for Mac keys |
+| D-35 | 5 | E03-04 is the single session-binding outcome issue (`docs/spikes/channel-binding.md`: exporter or fallback); E01-01, E01-02, E01-11, E14-06, E14-07, E70-01 depend on it; a fallback switch happens before Phase 1 starts. | Pairing/rotation specs must not assume an unproven API. | E03-04 | — |
+| D-36 | 5 | Infra first needed later stays in E00 but lands at that phase's start (`lands_in_phase`): E00-26, E00-29, E00-30 → Phase 1; E00-28 → Phase 2; E00-22 → Phase 3. Earlier phases may not depend on them. | Shorter Phase 0; IDs are epic-bound. | E00-22, E00-26, E00-28, E00-29, E00-30 | — |
+| D-37 | 5 | A P0 issue never depends on a P1/P2 issue, and every phase-exit row cites a P0 issue (validator + `critical_path.rb --check`); 19 issues raised to P0. | P0 means "needed for exit". | `sync_issues.rb`, `critical_path.rb` | — |
+| D-38 | 5 | The JVM harness opens the Mac pairing window through a Debug-only launch argument (`-HarnessPairingPayloadOut`), not the pairing UI; the release scan proves it absent. | Removes UI from the Phase 1 critical path without a shipping test path. | E15-22, E14-16, E00-30 | — |
+| D-39 | 5 | The audit runner discovers `tools/<tool>/audit-step.sh` by convention; the all-steps check is a separate Phase 1 gate. | Removes an 11-way fan-in from the runner. | E15-18, E15-23 | — |
+| D-40 | 5 | `docs/PRD.md` is not edited for planning decisions; SPEC.md and this log override it where they conflict. | Keeps the PRD as the owner's original intent. | — | All rows above |

@@ -19,14 +19,18 @@ epics:
       - Platform entry points and destination folders
       - Progress UI and received-file notification
       - 4 GB forced-disconnect and flow-control tests
+      - "Cycle-4 caps: size <= 64 GiB (TOO_LARGE), raw name <= 1024 bytes, <= 4 unanswered offers and <= 2 active transfers per direction (BUSY), auto-accept only for offers <= 1 GiB."
+      - "Entry-point hardening: content:// only (no file:// or Tandem-own authority, <= 20 streams); share extension with no network or keychain entitlement, App Group queue entries validated, payload-free Darwin wake (E40-11, E40-22)."
+      - "Sanitized names in prompts (E14-21/E14-22); unpair deletes retained .part files."
     out_of_scope:
       - Photo browser / thumbnails (E41, reuses this epic's transfer for originals)
       - Storage browser / WebDAV-free Finder integration (v2, F-7.5)
     exit_criteria:
       - A 4 GB file transfers successfully in both directions with a forced disconnect midway,
         and the SHA-256 matches after resume
-      - A large file transfer in progress does not delay NOTIFY channel delivery beyond its
-        normal latency budget
+      - "With a saturating FILES transfer, NOTIFY p95 < 100 ms and max < 500 ms over >= 200 frames on the E15-15 harness, and p95 < 500 ms on real Wi-Fi during a 4 GB transfer (E40-15)."
+      - "During the 4 GB manual run peak memory stays <= 64 MiB above idle and no .part file remains (E40-14)."
+      - "Over-cap offers are rejected BUSY / TOO_LARGE without a prompt on both platforms (E40-07, E40-18)."
     issues:
       - id: E40-01
         title: "[protocol] files.proto: offer/accept/chunk/complete/cancel/resume"
@@ -301,7 +305,7 @@ epics:
           - Auto-accept off shows the prompt; Accept sends FileAccept, Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and cancels the prompt
           - The prompt notification shows the sanitized name and size and has exactly two actions
-          - "Auto-accept applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "Auto-accept is off by default (open-questions.md Q4) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
           - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
           - "The prompt shows the E14-21-sanitized name."
         tdd:
@@ -632,7 +636,7 @@ epics:
           - Auto-accept on sends FileAccept with no prompt
           - Auto-accept off presents a prompt with Accept and Decline; Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and removes the prompt
-          - "Auto-accept applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "Auto-accept is off by default (open-questions.md Q4) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
           - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
           - "The prompt shows the E14-22-sanitized name."
         tdd:
@@ -834,12 +838,12 @@ epics:
       - MediaStore cursor paging and thumbnail generation
       - Mac grid UI and LRU thumbnail disk cache
       - Original download reusing file transfer
+      - "Outstanding-request caps: <= 8 ThumbRequests and <= 1 PhotoPage per peer (PhotoError BUSY); untrusted cursor -> INVALID_CURSOR; unpair deletes the phone's cached thumbnails; 10k-library tests (E41-09, E41-11)."
     out_of_scope:
       - File transfer mechanics themselves (E40)
       - Video playback (browsing lists videos, but no in-app video preview in v1)
     exit_criteria:
-      - The Mac grid pages through the full photo library without loading everything into
-        memory at once
+      - "A 10 000-item library pages in exactly 100 PhotoPage requests with <= 300 decoded thumbnails in memory, disk cache within its cap and < 150 MiB peak memory growth (E41-09); Android reads <= limit + 1 rows per page (E41-11)."
       - Selecting partial access on Android 14+ re-triggers a photo re-selection prompt when
         more photos are requested
       - An original download completes and matches the source file's hash via the E40 pipeline
@@ -1011,7 +1015,7 @@ epics:
         title: "[macos] LRU disk thumbnail cache with size cap"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: M
         prd: [F-7.4]
         use_cases: [UC-17, AC-12]
@@ -1091,7 +1095,7 @@ epics:
           - "manual: partialAccess_selectTwoMoreOnPhone_macListsExactlyFiveItems"
 
       - id: E41-09
-        title: "[macos] 10k-library scroll test: thumbnails only for visible cells, bounded cache and memory"
+        title: "[macos] 10k-library scroll test: visible-cell thumbnails, bounded cache and memory"
         type: test
         platforms: [macos]
         priority: P0

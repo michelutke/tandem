@@ -13,6 +13,9 @@ are generated from it by `tools/planning/sync_issues.rb`. Edit YAML here, then r
 | Use case / abuse case | `use-cases.md` (`UC-xx`, `AC-xx`) | Referenced from issue bodies |
 | PRD feature | `../PRD.md` (`F-x.y`) | Referenced from issue bodies |
 | Traceability | `traceability.md` (PRD / use cases → issues) | Not synced; regenerate with `ruby tools/planning/traceability.rb` |
+| Critical path | `roadmap.md` generated sections | Not synced; regenerate with `ruby tools/planning/critical_path.rb --write` (`--check` in CI) |
+| Decisions | `decisions.md` (D-xx, cycles 1–5) | Not synced. **SPEC.md and decisions.md override the PRD where they conflict.** |
+| Owner questions | `open-questions.md` (Q-xx with defaults) | Not synced |
 
 ## Epic catalogue
 
@@ -52,7 +55,11 @@ are generated from it by `tools/planning/sync_issues.rb`. Edit YAML here, then r
 - **ID:** `E<epic>-<nn>` (e.g. `E12-03`). Stable; referenced by `depends_on`.
 - **Title prefix:** `[android]`, `[macos]`, `[protocol]`, `[tools]`, `[docs]`, `[ci]`, `[cross]` (touches both apps).
 - **Types:** `story` (user-visible behaviour), `task` (technical), `spike` (time-boxed research, output = findings doc), `adr`, `test` (security/integration harness or scenario), `doc`.
-- **Priority:** `P0` must for phase exit, `P1` should, `P2` could.
+- **Priority:** `P0` must for phase exit, `P1` should, `P2` could. A P0 issue never depends on a
+  P1/P2 issue (validator), and every exit row in `traceability.md` (b) cites a P0 issue
+  (`critical_path.rb --check`).
+- **Landing phase:** an issue stays in its epic (IDs are epic-bound) but may set `lands_in_phase: N`
+  to land at the start of a later phase; it then uses that phase's milestone and exit.
 - **Size:** `S` ≤ ½ day, `M` 1–2 days, `L` 3–5 days. Anything bigger is split.
 - **TDD:** every `story`/`task`/`test` lists the failing tests to write first (`tdd:`), each as
   `"<layer>: unit_condition_expectedResult"` (format enforced by `sync_issues.rb validate`).
@@ -67,11 +74,11 @@ Prefix on every `tdd:` entry; tells the implementer which harness to use.
 |---|---|---|---|
 | `unit:` | JUnit5 + Turbine (Robolectric only for unavoidable framework types) / Swift Testing | E00-04, E00-18, E00-19, E00-20, E10-15 / E00-08, E00-24, E00-25, E10-16 | every PR |
 | `conformance:` | `tools/conformance` over `protocol/vectors/` on both codecs | E15-01, E15-02, E15-03 | every PR |
-| `integration:` | JVM client ↔ real Mac server on the macOS runner, or in-process loopback (two real sessions, localhost TLS) | E15-15 | every PR (macOS runner) |
+| `integration:` | JVM client ↔ real Mac server on the macOS runner, or in-process loopback (two real sessions, localhost TLS) | E15-15 (E15-21 client, E15-22 Mac driver) | every PR (macOS runner) |
 | `instrumented:` | Android emulator, Gradle Managed Devices (API 29 + 35) | E00-21, E00-22 | PRs touching `android/**`, nightly |
 | `ui:` | Compose UI tests under Robolectric / XCUITest with DEBUG-only scenario seeding | E00-20 / E00-26 | every PR |
 | `manual:` | Physical-device gate, procedure + sign-off in `docs/testing/manual-gates.md` | E00-23 | phase exit |
-| `security:` | mitm-lab, pcap-audit, nmap, log-audit | E15-04…E15-18 | core/* PRs (subset), phase exit |
+| `security:` | mitm-lab, pcap-audit, nmap, log-audit | E15-04…E15-20, runner E15-18, gate E15-23 | core/* PRs (subset), phase exit |
 | `ci:` | Lint-rule fixtures, buf lint/breaking, schema/manifest/link checks | E00-05, E00-10, E00-11, E01-15 | every PR |
 
 Test seams (production code must accept these so tests can inject fakes): Android `Clock` +
@@ -99,7 +106,8 @@ Test seams (production code must accept these so tests can inject fakes): Androi
 
 ## TDD workflow
 
-1. Pick the next unblocked issue in the current milestone.
+1. Pick the next unblocked issue in the current milestone (first sprint: `roadmap.md` → Start here;
+   prefer zero-slack issues from the Critical path section).
 2. Branch `e12-03-short-name`.
 3. Write the `tdd:` tests; see them fail for the right reason.
 4. Implement minimum to go green; refactor.

@@ -101,12 +101,23 @@ def validate(epics)
     check_refs(errors, id, i, uc_ids, prd_ids)
   end
 
-  phase_of = issues.to_h { |i| [i['id'], epics.find { |e| e['id'] == i['epic'] }['phase']] }
+  epic_phase = epics.to_h { |e| [e['id'], e['phase']] }
+  issues.each do |i|
+    next unless i.key?('lands_in_phase')
+    next if PHASES.key?(i['lands_in_phase']) && i['lands_in_phase'] > epic_phase[i['epic']].to_i
+
+    errors << "#{i['id']}: lands_in_phase must be a phase after its epic's (#{epic_phase[i['epic']]})"
+  end
+  phase_of = issues.to_h { |i| [i['id'], effective_phase(i, epic_phase[i['epic']])] }
+  priority_of = issues.to_h { |i| [i['id'], i['priority']] }
   issues.each do |i|
     Array(i['depends_on']).each do |d|
-      next unless phase_of[d] && phase_of[d] > phase_of[i['id']]
-
-      errors << "#{i['id']} (phase #{phase_of[i['id']]}) depends on later-phase #{d} (phase #{phase_of[d]})"
+      if phase_of[d] && phase_of[d] > phase_of[i['id']]
+        errors << "#{i['id']} (phase #{phase_of[i['id']]}) depends on later-phase #{d} (phase #{phase_of[d]})"
+      end
+      if priority_of[d].to_s > priority_of[i['id']].to_s
+        errors << "#{i['id']} (#{i['priority']}) depends on lower-priority #{d} (#{priority_of[d]})"
+      end
     end
   end
 
@@ -138,6 +149,9 @@ def check_refs(errors, id, obj, uc_ids, prd_ids)
   Array(obj['use_cases']).each { |u| errors << "#{id}: unknown use case #{u}" unless uc_ids.include?(u) }
   Array(obj['prd']).each { |f| errors << "#{id}: unknown PRD ref #{f}" unless prd_ids.include?(f) }
 end
+
+# An issue stays in its epic (IDs are epic-bound) but may land at the start of a later phase.
+def effective_phase(issue, epic_phase) = issue['lands_in_phase'] || epic_phase
 
 def blank?(value) = value.nil? || (value.respond_to?(:empty?) && value.empty?)
 
@@ -183,7 +197,7 @@ def issue_body(issue, epic, numbers)
   inv = Array(issue['invariants'])
   <<~MD
     <!-- tandem-id: #{issue['id']} -->
-    **Epic:** #{ref_issue(epic['id'], numbers)} #{epic['title']} · **Type:** #{issue['type']} · **Priority:** #{issue['priority']} · **Size:** #{issue['size']}
+    **Epic:** #{ref_issue(epic['id'], numbers)} #{epic['title']} · **Type:** #{issue['type']} · **Priority:** #{issue['priority']} · **Size:** #{issue['size']}#{issue['lands_in_phase'] ? " · **Lands:** start of Phase #{issue['lands_in_phase']}" : ''}
     **Refs:** #{refs(issue).then { |r| r.empty? ? '—' : r }} · **Security invariants:** #{inv.empty? ? '—' : inv.join(', ')}
     **Blocked by:** #{deps.empty? ? '—' : deps.map { |d| ref_issue(d, numbers) }.join(', ')}
 
@@ -208,7 +222,8 @@ def render_markdown(epics)
       out << "**Exit criteria**\n\n#{checklist(e['exit_criteria'])}\n\n"
       out << "| ID | Title | Type | Pri | Size | Depends on |\n|---|---|---|---|---|---|\n"
       Array(e['issues']).each do |i|
-        out << "| #{i['id']} | #{i['title'].to_s.gsub('|', '\\|')} | #{i['type']} | #{i['priority']} | " \
+        lands = i['lands_in_phase'] ? " *(lands Phase #{i['lands_in_phase']})*" : ''
+        out << "| #{i['id']} | #{i['title'].to_s.gsub('|', '\\|')}#{lands} | #{i['type']} | #{i['priority']} | " \
                "#{i['size']} | #{Array(i['depends_on']).join(', ')} |\n"
       end
       out << "\n"
@@ -304,7 +319,7 @@ def sync(epics, issues, dry_run:)
 
   # Pass 2: full bodies, labels, milestones.
   items.each do |id, obj, epic|
-    phase = (epic || obj)['phase']
+    phase = epic ? effective_phase(obj, epic['phase']) : obj['phase']
     body, labels, title =
       if epic
         [issue_body(obj, epic, numbers), labels_for_issue(obj, epic), "#{id} #{obj['title']}"]

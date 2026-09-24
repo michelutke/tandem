@@ -6,29 +6,37 @@ epics:
     prd: [F-1.3]
     use_cases: [UC-24]
     summary: |
-      Replace a device's long-term identity key without re-pairing: over an already-authenticated
-      control session, a device sends KeyRotation{newSpki, sigOldKey(newSpki||nonce)}; the peer
-      verifies the signature against the currently pinned key, pins the new key, and keeps the
-      old one valid for exactly one grace session before purging it. Covers both user-initiated
-      and scheduled rotation, failure/rollback handling, and a mitm-lab scenario proving rotation
-      over an unauthenticated channel is rejected.
+      Replace a device's long-term identity key without re-pairing, as key hygiene, not compromise
+      recovery (a suspected compromise is unpair + re-pair). Over an authenticated control session a
+      device sends KeyRotation{newSpkiDer, sigOldKey, sigNewKey}, both ECDSA P-256 signatures over
+      "tandem-rotate-v1" || LP(oldSpkiDer) || LP(newSpkiDer) || LP(cb), bound to the session channel
+      binding (the new-key signature is proof of possession). The peer verifies against its current
+      primary pin, rejects DUPLICATE_KEY and (while the Mac pairing window is open or a rotation is
+      pending) ROTATION_UNAVAILABLE, swaps pins atomically in one trust-store record (grace fields added
+      by migration), and keeps the old key as a grace pin until the grace session ends or 7 days pass.
+      The initiator keeps its old key until RotationAck and retries with the pending key. A Mac
+      rotation is two-phase (decision D-34): the listener switches only after every paired phone has
+      acked, and each phone keeps the old Mac pin until a handshake presents the new one. Covers
+      user-initiated and scheduled rotation, failure/rollback, an end-to-end harness test and mitm-lab
+      scenarios (unauthenticated channel, cross-session replay, duplicate key).
     scope:
       - rotation.proto messages and SPEC.md section.
-      - "Android and macOS: initiate rotation (generate + sign), receive + verify + pin with
-        grace period."
+      - "Android and macOS: initiate rotation (generate, sign with old and new key over the channel-bound transcript), receive + verify + atomic single-record pin swap with grace pin (grace session or 7 days); two-phase Mac switch across several paired phones (D-34)."
       - User-initiated rotation UI, scheduled rotation, failure/rollback handling.
       - End-to-end rotation over the E15-15 JVM client to real Mac server harness.
-      - mitm-lab coverage for rotation over an unauthenticated channel.
+      - "mitm-lab coverage for rotation over an unauthenticated channel, cross-session replay and duplicate key."
     out_of_scope:
       - Initial device identity generation and the first pairing (E10, E14).
       - Manual pairing (E73) -- unrelated mechanism.
+      - "Compromise recovery with a stolen old key -- unpair and re-pair (E14, AC-15)."
     exit_criteria:
-      - A user-triggered rotation on either platform completes and both peers pin the new
-        fingerprint while the old one is purged after one grace session.
+      - "A user-triggered rotation on either platform completes; both peers pin the new fingerprint via an atomic single-record swap, and the old pin is purged after one grace session or 7 days, whichever comes first."
       - A scheduled rotation fires automatically only over an authenticated session and defers
         cleanly when offline.
       - mitm-lab confirms rotation attempted outside an authenticated session is rejected with
         no trust-store change.
+      - "A KeyRotation replayed from another session is rejected INVALID_SIGNATURE, a newSpki equal to any existing pin DUPLICATE_KEY, and any rotation while the Mac pairing window is open ROTATION_UNAVAILABLE, trust stores unchanged (E70-04, E70-05, E70-09)."
+      - "With two paired phones, a Mac rotation switches the listener only after both acked, and neither phone is ever locked out (E70-03, E70-04)."
     issues:
       - id: E70-01
         title: "[protocol] rotation.proto: KeyRotation, RotationAck, RotationReject"
@@ -39,7 +47,7 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24, AC-15]
         invariants: [1, 3, 6]
-        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02]
+        depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02, E03-04]
         description: |
           protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpkiDer,
           sigOldKey, sigNewKey} (cycle-4 transcript below), RotationAck{}, RotationReject{reason}. Write
@@ -77,6 +85,7 @@ epics:
           - SPEC.md rotation section states the grace-session purge triggers, idempotent re-send
             rule and 30 s ack timeout.
           - "RotationReject.reason also enumerates DUPLICATE_KEY and ROTATION_UNAVAILABLE, and SPEC.md states the transcript, both signatures, the 7-day grace TTL and that rotation is not a compromise-recovery mechanism."
+          - "SPEC.md states the two-phase Mac-initiated rule (D-34): pending Mac pin on the phone, Mac switches only after every paired phone acked, phone grace timer starts at the first handshake presenting the new key, 30-day purge of a never-presented pending pin, 7-day Finish/Cancel prompt."
           - "Vectors additionally cover a signature made with another session channel binding and an invalid new-key signature, both failing verification."
         tdd:
           - "ci: rotationProto_bufLint_exitsZero"
@@ -87,7 +96,20 @@ epics:
           - "conformance: keyRotationVector_roundTrip_matchesGoldenBytes"
           - "conformance: keyRotationVector_otherSessionChannelBinding_verificationFails"
           - "conformance: keyRotationVector_invalidNewKeyProofOfPossession_verificationFails"
-        notes: ""
+        notes: |
+          Cycle 5: depends on E03-04 (channel-binding outcome); if it is "fallback", `cb` is the in-band
+          `RotationChallenge` from the rotation receiver (E01-01 notes).
+          Cycle 5 decision D-34 (Mac-initiated rotation with several paired phones): the listener presents one
+          identity before it knows which phone connects (no SNI in the TLS profile, fixed ALPN), so SPEC defines
+          a two-phase Mac rotation: (1) the Mac sends KeyRotation to each paired phone as it connects; the phone
+          stores newSpki as a *pending* Mac pin and acks, keeping the old pin primary; (2) the Mac switches its
+          listener identity only after every paired phone has acked; the phone promotes the pending pin when a
+          handshake presents it and only then starts the grace rule (grace session or 7 days). A pending pin
+          never presented within 30 days is purged. If not every phone acks within 7 days the Mac offers
+          Finish (non-acked phones are unpaired and must re-pair) or Cancel (pending key deleted).
+          Rejected: per-connection certificate selection from an SNI/ALPN hint (contradicts the no-SNI profile,
+          leaks a key-epoch hint in the cleartext ClientHello, and NWListener has one identity per listener);
+          single-phone-only Mac rotation (the two-phase rule already reduces to it).
       - id: E70-02
         title: "[android] Initiate rotation: generate new key + sign with old key"
         type: task
@@ -100,8 +122,8 @@ epics:
         depends_on: [E70-01, E10-01, E10-02, E10-03, E10-15, E12-11, E00-21]
         description: |
           Generate a new P-256 keypair under a new alias with the same StrongBox/TEE preference as
-          the original identity (F-1.1); compute the signature over newSpki||nonce (fresh 32-byte
-          SecureRandom nonce) with the current private key; send KeyRotation only over an
+          the original identity (F-1.1); sign the E70-01 transcript (old SPKI, new SPKI, session channel
+          binding) with the current private key and with the new key; send KeyRotation only over an
           authenticated control session (mTLS with pinned peer and Hello completed, not a
           pairing-in-progress session), refusing to send otherwise. On RotationAck the new alias
           becomes the active identity (new self-signed cert via E10-02) and the old key is
@@ -114,8 +136,8 @@ epics:
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing in progress) no KeyRotation frame is written.
-          - Over an authenticated session the sent signature verifies with the old public key
-            over newSpki||nonce.
+          - Over an authenticated session sigOldKey verifies with the old public key over the E70-01
+            transcript.
           - The old key remains in the IdentityKeyStore and is the active identity until
             RotationAck arrives.
           - After RotationAck the next handshake's certificate carries newSpki and the old alias
@@ -143,9 +165,12 @@ epics:
         depends_on: [E70-01, E10-05, E10-06, E10-08, E10-16, E12-12, E14-02]
         description: |
           Mirrors E70-02 for macOS: generate a new Keychain-backed P-256 keypair per F-1.1's
-          storage policy, sign newSpki||nonce with the current private key, send only over an
-          authenticated control session, switch the active identity and delete the old key only
-          after RotationAck.
+          storage policy, sign the E70-01 transcript with the current and the new private key, send
+          only over an authenticated control session. Two-phase switch (D-34, several paired phones):
+          KeyRotation is sent to each paired phone as it connects; the listener identity switches to the
+          new key and the old key item is deleted only after every paired phone has acked. After 7 days
+          with phones still pending, the Settings UI (E70-11) offers Finish (unpair the pending phones,
+          then switch) or Cancel (delete the pending key).
           Key storage goes through `KeychainStore` (E10-16) so unit tests use
           `InMemoryKeychainStore`; session state comes from `TandemSession` (E12-12 fake). Real
           Keychain behaviour is covered by one hosted integration test on the macOS runner.
@@ -153,12 +178,13 @@ epics:
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing window session) no KeyRotation frame is written.
-          - Over an authenticated session the sent signature verifies with the old public key
-            over newSpki||nonce.
-          - The old key remains in the Keychain and is the active identity until RotationAck
-            arrives.
-          - After RotationAck the listener's identity carries newSpki and the old key item is
-            deleted.
+          - Over an authenticated session sigOldKey verifies with the old public key over the E70-01
+            transcript.
+          - The old key remains in the Keychain and is the active identity until every paired phone
+            has sent RotationAck.
+          - With two paired phones, one ack leaves the listener on the old identity; the second ack
+            switches the listener to newSpki and deletes the old key item.
+          - "Finish after 7 days with one phone pending unpairs that phone, then switches; Cancel deletes the pending key and keeps the old identity."
           - The new key item is stored with the same accessibility class as the original
             identity.
           - "Both signatures cover the transcript including this session channel binding; no rotation starts while the pairing window is open."
@@ -171,7 +197,10 @@ epics:
           - "integration: macRotationInitiator_hostedKeychain_newKeyStoredWithOriginalAccessibility"
           - "unit: macRotationInitiator_sentFrame_bothSignaturesCoverSessionChannelBinding"
           - "unit: macRotationInitiator_pairingWindowOpen_noRotationStarted"
-        notes: ""
+          - "unit: macRotationInitiator_oneOfTwoPhonesAcked_listenerKeepsOldIdentity"
+          - "unit: macRotationInitiator_allPhonesAcked_listenerSwitchesAndOldItemDeleted"
+          - "unit: macRotationInitiator_finishWithPendingPhone_unpairsPendingThenSwitches"
+        notes: "Cycle 5: two-phase multi-phone switch per decision D-34 (E70-01 notes)."
       - id: E70-04
         title: "[android] Receive + verify KeyRotation, pin new key with grace period"
         type: task
@@ -197,8 +226,13 @@ epics:
           `graceExpiresAt` via a trust-store migration (E13-03) so the pin swap is one atomic record write; lookup
           by fingerprint matches the primary pin or an unexpired grace pin. The grace pin is purged after the
           grace session or 7 days (injected Clock, E00-18), whichever comes first.
+          Cycle 5 (D-34): a rotation of the Mac's key is stored as a pending Mac pin; the old pin stays primary
+          until a handshake presents the pending key, which promotes it and starts the grace rule; a pending pin
+          never presented within 30 days is purged.
         acceptance:
           - A valid rotation pins newSpki as primary and retains the old SPKI flagged grace-only.
+          - "A valid Mac rotation stores newSpki as pending: the old Mac pin stays primary across any number of sessions until a handshake presents newSpki, which promotes it and starts the grace rule."
+          - "A pending Mac pin never presented within 30 days is purged and the old pin stays primary."
           - The old pin is purged when the grace session closes or when a session authenticated
             with newSpki completes Hello, whichever comes first.
           - An invalid signature returns RotationReject(INVALID_SIGNATURE) and the trust store
@@ -225,6 +259,8 @@ epics:
           - "unit: androidRotationReceiver_newSpkiEqualsExistingPin_rejectDuplicateKey"
           - "unit: androidRotationReceiver_faultInjectedPinSwap_stateOldOrNewNeverPartial"
           - "unit: androidRotationReceiver_gracePinOlderThan7Days_purgedWithoutSession"
+          - "unit: androidRotationReceiver_macRotationAcked_oldMacPinPrimaryUntilNewKeyPresented"
+          - "unit: androidRotationReceiver_pendingMacPinUnseen30Days_purgedOldPinKept"
         notes: ""
       - id: E70-05
         title: "[macos] Receive + verify KeyRotation, pin new key with grace period"
@@ -279,7 +315,7 @@ epics:
         title: "[android] User-initiated rotation UI"
         type: story
         platforms: [android]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.3]
         use_cases: [UC-24]
@@ -310,7 +346,7 @@ epics:
         title: "[android] Scheduled rotation"
         type: task
         platforms: [android]
-        priority: P1
+        priority: P0
         size: M
         prd: [F-1.3]
         use_cases: [UC-24]
@@ -426,7 +462,7 @@ epics:
         title: "[macos] User-initiated rotation UI"
         type: story
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.3]
         use_cases: [UC-24]
@@ -444,18 +480,20 @@ epics:
           - An initiator failure shows Failed with the reason and the old fingerprint remains
             displayed as current.
           - Cancelling the confirmation starts no rotation.
+          - "While phones are pending (D-34) the view shows \"Waiting for <n> phone(s) to confirm the new key\" with their sanitized names; after 7 days it offers Finish (warning that pending phones will need to pair again) and Cancel."
         tdd:
+          - "unit: macRotationSettingsViewModel_phonesPendingOver7Days_offersFinishAndCancel"
           - "unit: macRotationSettingsViewModel_noAuthenticatedSession_actionDisabled"
           - "unit: macRotationSettingsViewModel_userConfirms_reachesSuccessWithNewFingerprint"
           - "unit: macRotationSettingsViewModel_initiatorRejected_showsFailedAndOldFingerprint"
           - "unit: macRotationSettingsViewModel_userCancels_initiatorNeverCalled"
           - "ui: macRotationSettings_seededSuccessScenario_rendersNewFingerprint"
-        notes: "Split from E70-06 in review cycle 3."
+        notes: "Split from E70-06 in review cycle 3. Cycle 5: pending-phones state per D-34."
       - id: E70-12
         title: "[macos] Scheduled rotation"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: M
         prd: [F-1.3]
         use_cases: [UC-24]
@@ -506,7 +544,9 @@ epics:
           - "unit: macRotationRollback_appRelaunch_pendingRotationResent"
         notes: |
           Split from E70-08 in review cycle 3.
-          Cycle 4 open item for cycle 5: Mac-initiated rotation with several paired phones. The listener presents one identity before it knows which phone is connecting, so a phone that missed the RotationAck exchange and already purged the old Mac pin cannot be served the right key. Proposed: the Mac switches identity only after every paired phone acked (or after the 7-day grace TTL), otherwise keeps the old key; decide in cycle 5.
+          Cycle 4 open item (Mac-initiated rotation with several paired phones) resolved in cycle 5 as decision
+          D-34 (E70-01 notes): two-phase switch after every paired phone acked; rollback here also covers the
+          7-day Finish/Cancel path (E70-03).
 
   - id: E71
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
@@ -514,18 +554,16 @@ epics:
     prd: []
     use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-07, UC-25, AC-11]
     summary: |
-      Final security hardening pass before release: 24-hour fuzz campaigns per parser target
-      with a fix-found-crashes process, an external review of docs/protocol/SPEC.md, and the
-      full release security audit -- a full-feature canary pcap-audit run, nmap plus the
-      complete mitm-lab suite, an entitlement/manifest review, a dependency/SBOM scan, and
-      signed release builds.
+      Final security hardening pass before release: 24-hour fuzz campaigns per parser target with a
+      fix-found-crashes process, an external review of docs/protocol/SPEC.md, and the full release
+      security audit -- a full-feature canary pcap-audit run, nmap plus the complete mitm-lab suite, an
+      entitlement/manifest review, a dependency/SBOM scan, signed release builds, and a network egress
+      audit proving the apps talk only to each other.
     scope:
-      - "Fuzz targets: frame parser, Envelope decoder, QR payload parser, and each domain message
-        decoder (sms, contacts, calls, media, input, rotation), each run for 24 hours."
+      - "Fuzz targets: frame parser, Envelope decoder, QR payload parser, and each domain message decoder (status, notify, clipboard, files, photos, sms, contacts, calls, media incl. fragment reassembly, input, rotation), each run for 24 hours."
       - Fix-found-crashes triage process.
       - External SPEC.md review.
-      - "Full release audit: pcap-audit, nmap + mitm-lab, entitlement/manifest review,
-        dependency/SBOM scan, release build signing."
+      - "Full release audit: pcap-audit, nmap + mitm-lab (incl. E15-20 DoS), entitlement/manifest review with E00-28/E22-04 hardening checks and the E00-30 test-code scan on signed artifacts, dependency/SBOM scan, release build signing, network egress audit (E71-14), log-audit with encoded canaries, release checklist (E71-12)."
     out_of_scope:
       - New feature work of any kind -- this epic only hardens what already exists.
     exit_criteria:
@@ -533,6 +571,10 @@ epics:
       - The full-feature pcap-audit canary run and the complete mitm-lab suite both pass.
       - nmap against the phone shows zero open ports.
       - Release builds are signed for both platforms.
+      - "The egress audit shows only phone<->Mac flows on the Tandem port on both platforms (E71-14)."
+      - "SBOM scan has zero unwaived high/critical findings and the license gate passes on the release trees (E71-10)."
+      - "The entitlement/manifest audit and the E00-30 scan pass on the signed artifacts (E71-09)."
+      - "The release audit checklist (every PRD security-test row, invariants 1-8, AC-01..AC-20 and every decision in docs/planning/decisions.md, each with linked evidence) is approved before the v1 tag (E71-12)."
     issues:
       - id: E71-01
         title: "[tools] Fuzz target: frame length-prefix parser (24 h campaign)"
@@ -745,7 +787,8 @@ epics:
           entries later phases justify); Info.plist has no NSAllowsLocalNetworking /
           NSAllowsArbitraryLoads. Each check has a failing fixture. AC-11: debug and release
           builds embed byte-identical generated protocol descriptors, and the proto schema scan
-          (E15-07) finds no debug/echo/test message or channel.
+          (`tools/protocol/proto-schema-scan.sh`, E01-15; also run by E15-07) finds no debug/echo/test
+          message or channel.
           Cycle 4 additions to the release audit: Android — allowBackup false and dataExtractionRules excluding
           all domains, network security config without user anchors or debug-overrides, the E00-28 exported
           allowlist (each service guarded by its BIND_* permission) and denied-permission list, PendingIntent lint
@@ -848,7 +891,7 @@ epics:
         prd: []
         use_cases: [UC-25, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19, AC-20]
         invariants: [1, 2, 3, 4, 5, 6, 7, 8]
-        depends_on: [E15-18, E71-05, E71-06, E71-07, E71-08, E71-09, E71-10, E71-11, E71-14, E15-20, E00-29, E00-30]
+        depends_on: [E71-05, E71-06, E71-07, E71-08, E71-09, E71-10, E71-11, E71-14, E15-20, E00-29, E00-30, E15-23]
         description: |
           Roadmap Phase 7 "release security audit checklist signed off (UC-25)" had no owner.
           `docs/security/release-audit.md`: one row per PRD security-test row, the canary procedure,
@@ -859,7 +902,7 @@ epics:
             linked evidence; a CI check fails on any row without a link.
           - Every evidence link resolves.
           - The checklist is approved in a PR before the v1 release tag.
-          - "The checklist has one row per review-cycle-4 decision listed in traceability.md (\"Review cycle 4\"), each linked to its evidence."
+          - "The checklist has one row per decision in docs/planning/decisions.md (cycles 1-5), each linked to its evidence."
         tdd:
           - "ci: releaseAuditChecklist_rowWithoutEvidenceLink_exitsNonZero"
           - "ci: releaseAuditLinkCheck_allEvidenceLinks_resolve"
@@ -932,6 +975,7 @@ epics:
     scope:
       - Design notes / ADRs for media control, Focus/DND sync, USB transport, and multi-Mac.
       - P2 implementation issues for media control, Focus/DND sync, and USB transport.
+      - "Follow-up issues for a BLE reconnect hint, only if ADR E20-13 accepts option (b)."
     out_of_scope:
       - Any implementation issue proceeding before its own design note or ADR is accepted.
       - Multi-Mac implementation itself -- this epic only resolves the ADR (Appendix C.2);

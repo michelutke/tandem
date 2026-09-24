@@ -24,6 +24,7 @@ epics:
         type: task                    # story | task | spike | adr | test | doc
         platforms: [macos]            # android | macos | protocol | tools | docs | ci
         priority: P0                  # P0 | P1 | P2
+        lands_in_phase: 2             # optional: land at the start of a later phase (> epic's phase)
         size: M                       # S | M | L
         prd: [F-3.1]
         use_cases: [UC-03]
@@ -41,7 +42,9 @@ epics:
 
 Rules:
 - Valid YAML (quote titles containing `:` or `[`). Use `|` block scalars for prose.
-- `depends_on` must reference existing issue IDs. No cycles.
+- `depends_on` must reference existing issue IDs. No cycles. No dependency on a later phase
+  (effective phase = `lands_in_phase` if set, else the epic's phase). No dependency on a
+  lower-priority issue (a P0 never depends on P1/P2).
 - Split per platform when Android and macOS work are independent; use `[cross]` only for
   work that must land together (e.g. end-to-end tests).
 - `tdd` entries are concrete, falsifiable test names that fail before the implementation

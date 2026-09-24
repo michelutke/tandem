@@ -17,19 +17,19 @@ epics:
       behavior itself; it proves the behavior other epics (E10-E14) implement is correct and fails
       closed.
     scope:
-      - tools/conformance runner (Kotlin + Swift codecs), CI-blocking.
+      - "tools/conformance runner (Kotlin + Swift codecs, incl. display-string and confirmation-code vectors), CI-blocking."
       - tools/pcap-audit (tshark-based), covering the TLS-1.3-only assertion, canary-string scan, and
         canary injection procedure script.
-      - tools/mitm-lab scripted scenarios covering every PRD Phase 1 exit-criterion attack and the
-        abuse cases (AC-01, AC-03, AC-04); media-ticket abuse scenarios are owned by E60-05.
+      - "tools/mitm-lab scripted scenarios covering every PRD Phase 1 exit-criterion attack and abuse cases AC-01, AC-03, AC-04 and AC-13, incl. cycle-4 cases (cross-session PairRequest replay, PairRejected oracle, concurrent candidate, CertificateVerify without key, PSK/ALPN) and pre-auth DoS (slowloris, floods, stalled hellos, idle pairing candidates, E15-20); media-ticket abuse scenarios are owned by E60-05."
       - nmap phone-listener check.
-      - log-audit tool (runtime canary scan of both apps' logs).
+      - "log-audit tool (runtime canary scan of both apps' logs; per-kind canary manifest, canaries matched raw and hex/base64/base64url-encoded)."
       - Fuzz scaffolding, covering a Jazzer target for the Kotlin frame/envelope parser and a
         libFuzzer target for the Swift frame/envelope parser, both wired as short CI smoke runs
         (not full campaigns).
       - JVM test client reusing Android `core/*` modules to run integration tests against the real
         Mac server on macOS CI.
-      - Security audit suite runner (one command, one report) (E15-18) with the automatable subset as a required check on core/* PRs (E15-19, UC-25).
+      - Security audit suite runner (one command, one report) (E15-18) with the automatable subset as a required check on core/* PRs (E15-19, UC-25) and the Phase 1 all-steps gate (E15-23).
+      - JVM harness halves built in parallel per track (E15-21 Android client, E15-22 Mac app driver), joined by E15-15.
     out_of_scope:
       - Full multi-hour/multi-day fuzz campaigns (E71, Phase 7).
       - The codec, transport, and pairing implementations themselves (E10-E14).
@@ -43,6 +43,8 @@ epics:
       - "`tools/conformance/run.sh` is a required CI check on both the android and macos workflows."
       - Fuzz smoke runs complete in CI within a bounded time budget (documented per-issue) with zero
         crashes on the phase-0 vector corpus.
+      - "E15-20 passes against the real Mac app: silent TCP closed within 11 s, missing VersionHello closed with PROTOCOL_TIMEOUT within 6 s, over-cap connections closed on accept, a flooding IP refused for 60 s, while a paired client still reaches Ready."
+      - "E15-23: one `tools/audit/run.sh --subset full` run reports every expected Phase 1 step (device-only steps pending with a manual-gate reference)."
     issues:
       - id: E15-01
         title: "[android] Conformance runner: execute protocol/vectors against the Kotlin codec"
@@ -238,7 +240,7 @@ epics:
         prd: []
         use_cases: [AC-02, AC-11]
         invariants: [7, 1, 2]
-        depends_on: [E15-04, E15-06, E14-16, E15-15, E00-22, E00-23]
+        depends_on: [E15-04, E15-06, E15-15, E00-23, E14-05, E14-06, E14-08]
         description: |
           `tools/pcap-audit/canary.sh` automates the PRD test-strategy canary procedure: generate a
           fresh `TANDEM-CANARY-<random>` (128-bit random suffix), run the enabled injection steps
@@ -287,6 +289,9 @@ epics:
           so it travels in PairRequest.deviceInfo during a fresh pairing, followed by a
           restart-reconnect in the same capture. Invariants 1/2 are therefore exercised, not bypassed.
           Cycle 3: automated vs manual split made explicit; notification injection via E00-22.
+          Cycle 5: depends on the pairing implementation (E14-05/E14-06/E14-08), not on the E14-16 test, and
+          not on E00-22 (lands Phase 3): the notification step is enabled and exercised by E30-13, which
+          depends on E00-22.
       - id: E15-08
         title: "[tools] mitm-lab: scenario harness scaffolding + scripted-scenario runner"
         type: task
@@ -321,7 +326,7 @@ epics:
           - "unit: mitmLabRunner_emptyScenarioDirectory_exitsNonZero"
         notes: ""
       - id: E15-09
-        title: "[tools] mitm-lab: pairing-abuse scenarios (replayed PairRequest, expired secret, 4th attempt, proof for different phone key)"
+        title: "[tools] mitm-lab: pairing-abuse scenarios (replay, expiry, 4th attempt, wrong key)"
         type: test
         platforms: [tools]
         priority: P0
@@ -331,7 +336,7 @@ epics:
         invariants: [6]
         depends_on: [E15-08, E15-15, E14-07, E14-09, E01-18, E01-21, E14-15, E14-02]
         description: |
-          Four scenarios on the E15-08 scaffold against the real Mac app launched by the E15-15
+          Eight scenarios (four base, four cycle 4) on the E15-08 scaffold against the real Mac app launched by the E15-15
           harness, using vectors from E01-18/E01-21 where applicable: (1) replay a previously valid
           `PairRequest` after the original pairing completed; (2) attempt pairing after the secret's
           120 s expiry (real wall-clock wait of 121 s, since the real app runs on the system clock);
@@ -343,7 +348,7 @@ epics:
           phone key (channel binding); (7) a second concurrent pairing candidate; (8) a bad proof, asserting the
           wire reason is PAIRING_UNAVAILABLE only.
         acceptance:
-          - All four scenarios end without a `PairAccepted` and with the Mac trust-store record count
+          - All eight scenarios end without a `PairAccepted` and with the Mac trust-store record count
             unchanged.
           - Scenario (3) confirms the window is exhausted after the 4th attempt — a subsequent correct
             proof in the same window is also rejected.
@@ -360,7 +365,7 @@ epics:
           - "security: mitmLab_badProofRejection_wireReasonPairingUnavailableOnly"
         notes: ""
       - id: E15-10
-        title: "[tools] mitm-lab: certificate-abuse scenarios (unknown client cert, wrong server cert, swapped cert)"
+        title: "[tools] mitm-lab: certificate-abuse scenarios (unknown, wrong, swapped cert)"
         type: test
         platforms: [tools]
         priority: P0
@@ -381,7 +386,7 @@ epics:
           within 5 s of the ClientHello.
           Cycle 4 adds: (5) a client presenting the paired phone's genuine certificate while signing CertificateVerify with another key; (6) an impostor server presenting the Mac's genuine certificate without its key, against the JVM client.
         acceptance:
-          - All four scenarios fail the handshake; the peer under test receives 0 decrypted
+          - Scenarios (1)-(4) fail the handshake; the peer under test receives 0 decrypted
             application bytes and the connection is closed within 5 s.
           - Scenario (4) covers AC-09 (revoked while offline).
           - "Scenarios (5) and (6) fail the handshake with 0 application bytes delivered (pin alone never authenticates)."
@@ -407,7 +412,7 @@ epics:
         invariants: [1, 5]
         depends_on: [E15-08, E12-01, E12-03, E12-07, E12-10, E15-15]
         description: |
-          Four scenarios using `openssl s_client` (or an equivalent scripted client) against the real
+          Six scenarios (four base, two cycle 4) using `openssl s_client` (or an equivalent scripted client) against the real
           Mac listener launched by the E15-15 harness: (1) a TLS 1.2-only ClientHello; (2) a full
           handshake followed by a resumption attempt (saved session / forged PSK identity); (3) a
           client sending 0-RTT early data; (4) a peer completing mTLS but sending a Hello with an
@@ -466,7 +471,7 @@ epics:
           - "manual: nmapPhoneCheck_pairedPhysicalPhone_zeroOpenTcpPorts"
         notes: ""
       - id: E15-13
-        title: "[android] Fuzz scaffolding: Jazzer target for the Kotlin frame/envelope parser + CI smoke run"
+        title: "[android] Fuzz scaffolding: Jazzer target for the frame/envelope parser + CI smoke run"
         type: task
         platforms: [android]
         priority: P0
@@ -498,7 +503,7 @@ epics:
           - "ci: jazzerSmokeJob_parserPr_finishesUnderTenMinutes"
         notes: ""
       - id: E15-14
-        title: "[macos] Fuzz scaffolding: libFuzzer target for the Swift frame/envelope parser + CI smoke run"
+        title: "[macos] Fuzz scaffolding: libFuzzer target for the frame/envelope parser + CI smoke run"
         type: task
         platforms: [macos]
         priority: P0
@@ -527,35 +532,26 @@ epics:
           - "ci: libFuzzerSmokeJob_parserPr_finishesUnderTenMinutes"
         notes: ""
       - id: E15-15
-        title: "[cross] JVM integration-test harness: Android core/* modules against the real Mac server on macOS CI"
+        title: "[cross] JVM integration-test harness: JVM client against the real Mac server on macOS CI"
         type: task
         platforms: [android, macos]
         priority: P0
-        size: L
+        size: M
         prd: [F-3.1]
         use_cases: [UC-03, UC-04]
         invariants: [1, 3, 5]
-        depends_on: [E12-01, E12-02, E12-04, E12-05, E12-06, E10-15, E13-06, E00-30]
+        depends_on: [E12-01, E12-02, E15-21, E15-22]
         description: |
-          Reusable harness (owner of the JVM-client infrastructure): a JVM test client that links the
-          real Android `core/protocol`, `core/crypto`, `core/transport`, and `core/pairing` modules
-          (not a reimplementation), and is built so later phases can add pure-Kotlin/JVM
-          `feature/*` source sets to its classpath (protocol mapping + sync logic of e.g.
-          feature/files, feature/messaging behind their framework seams) for the E40/E50/E51
-          `integration:` tests — a `jvmIntegrationTest` convention that any module may opt into
-          (Android-framework code stays behind interfaces with JVM fakes), plus macOS CI plumbing that builds, launches, stops, and restarts
-          the real macOS server app, seeds or clears its trust store, and injects a simulated QR
-          payload. It removes the need for a physical Android device in CI. Concrete scenarios live
-          with the epics that own the behavior: E12-13 (handshake + Hello + frame round trip) and
-          E14-16 (QR pairing, restart both processes, reconnect — the Phase 1 exit criterion).
-          The JVM client's phone identity uses `SoftwareIdentityKeyStore` (E10-15), since
-          AndroidKeyStore does not exist on the JVM; the key is persisted to a harness temp file so
-          it survives a client-process restart.
-          The Mac side runs the real app with its real `SecItemKeychainStore` against a dedicated,
-          throwaway CI keychain; trust records are seeded/cleared by a small harness helper that
-          links TandemStore's trust-store API (E13-06). It deliberately does not use
-          `InMemoryKeychainStore` (E10-16) or `ManualTestClock` (E00-24): those are unit-test fakes,
-          and the harness exists to exercise the real app.
+          Reusable harness (owner of the JVM-client infrastructure) that joins the two halves built in
+          parallel: the JVM test client over Android's real `core/*` modules (E15-21) and the Mac app
+          driver with CI keychain and trust seeding (E15-22). This issue wires them into one
+          `jvm-harness` job on the macOS runner and proves the join: handshake against the real Mac
+          listener (E12-01/E12-02) with a seeded trust record, rejection once the record is cleared,
+          and a restart of both processes. It removes the need for a physical Android device in CI.
+          Concrete scenarios live with the epics that own the behavior: E12-13 (handshake + Hello +
+          frame round trip) and E14-16 (QR pairing, restart both processes, reconnect — the Phase 1
+          exit criterion). The harness deliberately does not use `InMemoryKeychainStore` (E10-16) or
+          `ManualTestClock` (E00-24): those are unit-test fakes, and the harness exercises the real app.
         acceptance:
           - The harness launches the real Mac server app on a macOS CI runner and a JVM client
             completes an mTLS handshake against it using a seeded trust record.
@@ -566,17 +562,15 @@ epics:
             succeeds again.
           - The harness job runs in the macos workflow with no physical device or emulator and
             completes in < 15 min wall time.
-          - A sample `feature/*` module applying the `jvmIntegrationTest` convention compiles into the harness classpath with no Android framework classes on it.
-          - "The trust-record seeding helper is a separate executable target that is never part of the TandemApp product; the E00-30 bundle and symbol scans of the Release .app find neither the helper nor its symbols."
         tdd:
           - "integration: jvmHarness_seededTrustRecord_clientCompletesHandshake"
           - "integration: jvmHarness_clearedTrustStore_handshakeRejected"
           - "integration: jvmHarness_restartBothProcesses_sameIdentityAndHandshakeSucceeds"
           - "ci: jvmHarnessJob_macosRunner_completesUnderFifteenMinutes"
-          - "ci: jvmIntegrationConvention_sampleFeatureModuleOptIn_compilesIntoHarnessClasspath"
         notes: |
-          Scenario tests E12-13 and E14-16 depend on this issue. Size M -> L in cycle 3 (JVM client
-          assembly + app lifecycle driver + CI keychain seeding).
+          Scenario tests E12-13 and E14-16 depend on this issue. Size M -> L in cycle 3; cycle 5 split the
+          L into E15-21 (JVM client, Android track) and E15-22 (Mac app driver, macOS track), which run in
+          parallel with the Mac identity/listener chain, leaving this M join on the Phase 1 critical path.
       - id: E15-17
         title: "[tools] log-audit: canary scan over captured app logs (logcat + macOS unified log)"
         type: task
@@ -624,17 +618,20 @@ epics:
         prd: [F-3.1, F-3.2]
         use_cases: [UC-25, AC-01, AC-02, AC-04]
         invariants: [1, 2, 4, 7]
-        depends_on: [E15-03, E15-05, E15-06, E15-07, E15-08, E15-12, E15-13, E15-14, E15-15, E15-17, E15-20]
+        depends_on: []
         description: |
-          UC-25 had no owner. `tools/audit/run.sh` runs conformance, pcap-audit (+ canary), mitm-lab,
-          nmap, downgrade checks, fuzz smoke, and log-audit, each also invocable alone
-          (`run.sh --only <tool>`), and writes a single pass/fail report (`report.json` +
-          `report.md`). Device-only steps (nmap, live canary) appear in the report as
-          "manual gate: pending" and are required at every phase exit from Phase 1 (PRD "required
-          per phase"). Runner self-tests use stub tools that exit 0/1. CI wiring of the automatable
-          subset is E15-19.
-          Cycle 4: the mitm-lab step includes the E15-20 DoS scenarios.
+          UC-25 had no owner. `tools/audit/run.sh` is the runner framework: it discovers audit steps by
+          convention (each tool ships `tools/<tool>/audit-step.sh` with `--subset ci|full` and a
+          `manual` marker) and runs conformance, pcap-audit (+ canary), mitm-lab (incl. the E15-20 DoS
+          scenarios), nmap, downgrade checks, fuzz smoke and log-audit as they land, each also
+          invocable alone (`run.sh --only <tool>`), writing a single pass/fail report (`report.json` +
+          `report.md`). Device-only steps (nmap, live canary) appear as "manual gate: pending" and are
+          required at every phase exit from Phase 1 (PRD "required per phase"). Runner self-tests use
+          stub tools that exit 0/1, so the framework has no dependencies and lands early. CI wiring of
+          the automatable subset is E15-19; the Phase 1 gate that every expected step is registered and
+          green is E15-23.
         acceptance:
+          - A stub tool dropped in as `tools/<stub>/audit-step.sh` is run without editing the runner.
           - With one stub tool exiting 1, `run.sh` exits non-zero and both reports mark overall FAIL
             naming that tool.
           - With all stubs exiting 0, `report.json` and `report.md` are both written and list the same
@@ -646,7 +643,10 @@ epics:
           - "unit: auditRunner_allStubsPass_jsonAndMarkdownReportsAgree"
           - "unit: auditRunner_onlyFlag_invokesExactlyOneTool"
           - "unit: auditReport_manualGateSteps_listedPendingNotPassed"
-        notes: "Cycle 3: CI subset wiring split out to E15-19."
+          - "unit: auditRunner_stepDiscovery_runsEveryAuditStepScript"
+        notes: |
+          Cycle 3: CI subset wiring split out to E15-19. Cycle 5: tool dependencies dropped (steps are
+          discovered by convention); the all-tools fan-in moved to the S gate E15-23.
       - id: E15-19
         title: "[ci] Security audit CI subset: required check on core/* PRs"
         type: task
@@ -676,7 +676,7 @@ epics:
         notes: "Split from E15-18 in review cycle 3."
 
       - id: E15-20
-        title: "[tools] mitm-lab: pre-auth DoS and timeout scenarios (slowloris, floods, stalled hellos, idle pairing candidates)"
+        title: "[tools] mitm-lab: pre-auth DoS and timeout scenarios (slowloris, floods, idle candidates)"
         type: test
         platforms: [tools]
         priority: P0
@@ -705,3 +705,92 @@ epics:
           - "security: mitmLabDos_threeIdlePairingCandidates_windowExhaustedNoPairAccepted"
         notes: |
           Added in review cycle 4. Included in the full-suite release run (E71-08) and the E15-18 runner.
+      - id: E15-21
+        title: "[android] JVM harness client: core/* modules on the JVM + jvmIntegrationTest convention"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-3.1]
+        use_cases: [UC-03, UC-04]
+        invariants: [1, 3]
+        depends_on: [E12-04, E12-05, E12-06, E10-15, E00-19]
+        description: |
+          Split from E15-15 in review cycle 5 (Android track). A JVM test client executable that links the
+          real Android `core/protocol`, `core/crypto`, `core/transport` and `core/pairing` modules (not a
+          reimplementation) and is driven by the harness over a small CLI (connect, pair with an injected QR
+          payload, confirm code, disconnect, exit). Its phone identity uses `SoftwareIdentityKeyStore`
+          (E10-15), persisted to a harness temp file so it survives a process restart. Adds the
+          `jvmIntegrationTest` Gradle convention so later phases can put pure-Kotlin `feature/*` source sets
+          (protocol mapping + sync logic behind framework seams, e.g. feature/files, feature/messaging) on the
+          harness classpath for E40/E50/E51 `integration:` tests. Developed against an `openssl s_server`
+          peer until the Mac side (E15-22) exists.
+        acceptance:
+          - The client completes a TLS 1.3 mTLS handshake with `openssl s_server -Verify 1 -tls1_3` pinned to
+            a test key, using its software identity.
+          - Restarting the client process loads the same identity (identical SPKI fingerprint).
+          - A sample `feature/*` module applying the `jvmIntegrationTest` convention compiles into the harness
+            classpath with no Android framework classes on it.
+        tdd:
+          - "integration: jvmHarnessClient_opensslServerPeer_completesMutualTls13Handshake"
+          - "unit: jvmHarnessClient_restartProcess_sameSoftwareIdentityLoaded"
+          - "ci: jvmIntegrationConvention_sampleFeatureModuleOptIn_compilesIntoHarnessClasspath"
+        notes: ""
+      - id: E15-22
+        title: "[macos] Harness Mac app driver: launch/restart, CI keychain, trust seeding, pairing hook"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-3.1, F-2.1]
+        use_cases: [UC-03, UC-04, AC-11]
+        invariants: [2, 3]
+        depends_on: [E13-06, E00-30, E00-24]
+        description: |
+          Split from E15-15 in review cycle 5 (macOS track). CI plumbing that builds, launches, stops and
+          restarts the real Tandem.app (Debug) against a dedicated, throwaway CI keychain with the real
+          `SecItemKeychainStore`; a separate `harness-seed` executable target that links TandemStore's
+          trust-store API (E13-06) to seed or clear trust records; and a Debug-only launch argument
+          `-HarnessPairingPayloadOut <path>` that opens the pairing window through the E14-02 state machine
+          and writes the E14-01 payload to the path, so E14-16 needs no pairing UI (E14-11). The launch
+          argument follows the E00-26 pattern: compiled only under `#if DEBUG`; the E00-30 scans prove
+          neither the hook nor `harness-seed` ships.
+        acceptance:
+          - The driver launches, kills and relaunches Tandem.app on the macOS runner unattended; a seeded
+            trust record is identical after relaunch.
+          - Clearing via `harness-seed` leaves the trust store empty as read back by the same helper.
+          - "`harness-seed` is never part of the TandemApp product; the E00-30 bundle and symbol scans of the
+            Release .app find neither the helper, its symbols, nor the `HarnessPairingPayloadOut` string."
+        tdd:
+          - "integration: macAppDriver_relaunchApp_seededTrustRecordIdentical"
+          - "integration: harnessSeed_clearTrustStore_readBackEmpty"
+          - "ci: releaseApp_harnessSeedAndPairingHook_absentFromBundleAndSymbols"
+        notes: |
+          The pairing-payload hook is exercised end-to-end by E14-16 once E14-01/E14-02 exist; until then
+          the driver is tested with trust seeding only.
+      - id: E15-23
+        title: "[tools] Phase 1 security audit gate: every Phase 1 step green in one report"
+        type: test
+        platforms: [tools]
+        priority: P0
+        size: S
+        prd: [F-3.1, F-3.2]
+        use_cases: [UC-25, AC-01, AC-02, AC-03, AC-04]
+        invariants: [1, 2, 4, 7]
+        depends_on: [E15-18, E15-03, E15-05, E15-06, E15-07, E15-09, E15-10, E15-11, E15-12, E15-13, E15-14, E15-17, E15-20]
+        description: |
+          Split from E15-18 in review cycle 5: the runner framework lands early with no dependencies; this
+          small gate proves that at Phase 1 exit every expected tool exposes its audit step and the full run
+          produces one report. The expected-step list lives in `tools/audit/expected-steps.txt` (conformance,
+          pcap-tls13, pcap-canary, canary-procedure, mitm-pairing, mitm-cert, mitm-downgrade, mitm-dos, nmap,
+          fuzz-smoke-kotlin, fuzz-smoke-swift, log-audit); later phases append to it (E71-12 checks the
+          release list).
+        acceptance:
+          - "`tools/audit/run.sh --subset full` against the E15-15 harness lists every step in
+            expected-steps.txt; automatable steps pass and device-only steps (nmap, live canary) are `pending`
+            with a manual-gate reference."
+          - A step named in expected-steps.txt but not discovered fails the run naming the step.
+        tdd:
+          - "security: auditGate_phase1FullRun_everyExpectedStepReported"
+          - "unit: auditGate_expectedStepMissing_runFailsNamingStep"
+        notes: ""

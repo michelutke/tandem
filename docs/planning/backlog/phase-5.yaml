@@ -24,18 +24,20 @@ epics:
         (0600, backup-excluded, no app-level encryption in v1)."
       - Cross-platform end-to-end sync+send integration test and an invariant-7 log audit.
       - MMS/RCS scope spike resolving Appendix C.4 (E50-12).
+      - "Cycle-4 caps: <= 1 SmsSyncRequest in flight (a new one supersedes), body <= 1600 chars (TOO_LONG), <= 10 sends per 60 s (RATE_LIMITED); Mac display strings through E14-22; unpair purges the SMS store (PeerDataPurging, E14-13)."
     out_of_scope:
       - MMS (images/attachments) -- v2 (PRD Capability 8, PRD Appendix C.4).
       - RCS -- not accessible to third-party apps on Android (PRD Appendix C.4).
       - Making Tandem the default SMS app (documented decision in E50-06, revisit v2).
       - Mark-as-read / delete on the phone from the Mac (needs default-SMS-app role, v2).
-      - Call log and contacts sync (E51, E52).
+      - "Contacts sync (E51) and call control (E52); call log UI is v2 (PRD F-8.4 note)."
     exit_criteria:
       - Send and receive SMS from the Mac (roadmap Phase 5 exit criterion).
       - A 5k-message fixture completes initial sync in pages of <= 200 messages with no gaps or
         duplicates across a forced mid-sync disconnect (E50-10).
       - "A log audit (tools/log-audit, E15-17) over a canary SMS session finds zero occurrences of
         the canary body or number in logs (invariant 7)."
+      - "A body over 1600 characters fails TOO_LONG and an 11th send within 60 s fails RATE_LIMITED, without calling SmsManager (E50-04)."
     issues:
       - id: E50-01
         title: "[protocol] sms.proto: threads, messages, sync cursors, send, SIM list"
@@ -220,7 +222,7 @@ epics:
         title: "[android] Multi-SIM subscription chooser for send + SimList"
         type: task
         platforms: [android]
-        priority: P1
+        priority: P0
         size: M
         prd: [F-8.2]
         use_cases: [UC-19]
@@ -581,13 +583,13 @@ epics:
       - "macOS: GRDB contacts cache + lookup API + sync client, Swift-side normalization for
         numbers that arrive without an exact cache match."
       - Cross-platform phone-number-normalization parity vectors.
+      - "Unpair purges the contacts cache (PeerDataPurging, E14-13); thumbnails <= 96 px and <= 32768 bytes."
     out_of_scope:
       - Writing/editing contacts on the phone from the Mac.
       - Contact groups/labels beyond phone numbers and emails.
-      - Call log (E52) and SMS thread UI (E50) themselves -- this epic only supplies lookups.
+      - "Call log (v2, PRD F-8.4 note), call alerts (E52) and SMS thread UI (E50) themselves -- this epic only supplies lookups."
     exit_criteria:
-      - A 500-contact fixture's initial sync matches on the Mac; a subsequent edit and a delete
-        are both reflected within the incremental sync window.
+      - "A 500-contact fixture's initial sync matches on the Mac; a subsequent edit and a delete are both reflected within 2 s, as one updated record plus one tombstone with no full resync (E51-07)."
       - Phone-number-normalization vectors produce identical E.164 output on both platforms.
       - A log audit over a full contacts sync session finds zero occurrences of canary contact
         PII (invariant 7).
@@ -873,6 +875,7 @@ epics:
         detection, answer/decline/hangup, outgoing placement with background-start handling."
       - "macOS: incoming-call alert UI, place-call UI with SIM picker."
       - Cross-platform / device-level latency and control test.
+      - "PlaceCallRequest hardening: address must match ^\\+?[0-9]{3,20}$ after removing spaces and dashes (no MMI/USSD * #, no , ;) -> INVALID_NUMBER; <= 1 request per 5 s -> RATE_LIMITED; caller names sanitized (E14-22)."
     out_of_scope:
       - Call audio on the Mac (Bluetooth HFP) -- PRD non-goal.
       - Call log UI -- v2 (PRD F-8.4 note).
@@ -882,6 +885,7 @@ epics:
       - Answer, decline, hang up, and place-call all work from the Mac in a device-level test.
       - A log audit over a call-control session finds zero occurrences of canary caller identity
         (invariant 7).
+      - "An MMI/USSD string (e.g. **21*123#) returns INVALID_NUMBER and a second PlaceCallRequest within 5 s returns RATE_LIMITED, with no call placed (E52-05)."
     issues:
       - id: E52-01
         title: "[protocol] calls.proto: call events, actions, place call"
@@ -1095,7 +1099,7 @@ epics:
         title: "[macos] Place call UI"
         type: story
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-8.4]
         use_cases: [UC-21]

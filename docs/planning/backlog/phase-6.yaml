@@ -19,6 +19,7 @@ epics:
       - "macOS: second mTLS acceptor + ticket binding validation."
       - Lifecycle tying the media connection to its control session; mitm-lab and pcap-audit
         coverage for the media path.
+      - "MediaHello 5 s deadline (PROTOCOL_TIMEOUT); MediaHello on a pairing-candidate connection rejected without consulting the ticket table; tickets never logged or persisted, compared in constant time; one media connection per control session (E60-03, E60-04, E60-08)."
     out_of_scope:
       - Mirroring codec, capture, and rendering (E61).
       - Remote input framing and authorization (E62).
@@ -27,8 +28,8 @@ epics:
         ticket) all fail closed.
       - pcap-audit shows only TLS 1.3 records for both the control and the media connection on
         the single Tandem port during a mirror session (no second listener).
-      - Saturating the control connection with a large transfer does not measurably increase
-        media-frame latency.
+      - "With the control connection saturated by a 500 MB FILES transfer, p95 MediaFrame delivery on the E15-15 harness is within 10 ms of baseline and < 120 ms, and mirroring during a 1 GB transfer keeps p95 < 120 ms on 5 GHz Wi-Fi (E60-07)."
+      - "A media connection that sends no MediaHello within 5 s is closed with PROTOCOL_TIMEOUT (E60-05)."
     issues:
       - id: E60-01
         title: "[protocol] media.proto: ticket issuance + MediaHello binding"
@@ -332,13 +333,13 @@ epics:
       pcap-audit coverage during an active mirror session. ADR-006 (mirroring path) is finalized
       here using this phase's real measurements, gating E62's optional scrcpy alternative.
     scope:
-      - MediaFrame/MediaFormat/KeyframeRequest/RotationChanged messages (media.proto, extends
-        E60-01) and their SPEC.md coverage.
+      - "MediaFrame/MediaFormat/KeyframeRequest/RotationChanged and MirrorRequest/MirrorDeclined messages (media.proto, extends E60-01) and SPEC.md coverage, incl. the fragmentation rule: access units > 960 KiB split into <= 8 contiguous fragments, <= 8 MiB reassembled, violations MALFORMED_FRAME."
       - Android capture/encode pipeline, HEVC negotiation, rotation/resolution handling, resource
         teardown.
       - macOS decode/render pipeline, resizable mirror window, rotation handling.
       - Performance harness and pcap-audit canary coverage during mirroring.
       - ADR-006 finalization.
+      - "Mirror quick action sends MirrorRequest only; the phone start prompt (30 s timeout -> MirrorDeclined) gates MediaProjection consent (E61-12, E61-15, E61-16); FragmentReassembler with an 8 MiB hard cap (E61-14)."
     out_of_scope:
       - Remote input (E62).
       - Media connection/ticket mechanics themselves (E60).
@@ -348,6 +349,8 @@ epics:
         Wi-Fi (roadmap Phase 6 exit criterion / PRD success metric).
       - pcap-audit with an on-screen canary during mirroring shows zero plaintext occurrences.
       - ADR-006 is marked Accepted with a final decision informed by this phase's measurements.
+      - "The fragment rule holds on both sides: a 3-fragment unit is accepted; index gap, count change, count 9, interleaved pts and > 8 MiB are rejected with MALFORMED_FRAME (E61-01, E61-03, E61-14)."
+      - "A MirrorRequest alone never starts capture or issues a ticket (E61-12, E61-16)."
     issues:
       - id: E61-01
         title: "[protocol] MediaFrame/MediaFormat/KeyframeRequest/RotationChanged messages"
@@ -715,7 +718,7 @@ epics:
           Split from [cross] in review cycle 3: this issue keeps the macOS half (E22-02 points here
           as the Mirror quick-action owner); messages/vectors are E61-15, the phone prompt is E61-16.
       - id: E61-13
-        title: "[android] Encoder configuration builder (CBR, low latency, profile/level, keyframe interval)"
+        title: "[android] Encoder configuration builder (CBR, low latency, profile/level, GOP)"
         type: task
         platforms: [android]
         priority: P0
@@ -839,18 +842,18 @@ epics:
     prd: [F-9.3, F-9.4]
     use_cases: [UC-23, AC-06]
     summary: |
-      Mac mouse, keyboard, and scroll events, mapped to phone screen coordinates (including
-      rotation and letterboxing) and injected on the phone via AccessibilityService gestures,
-      global actions, and text insertion. Input is only ever accepted while a user-started
-      mirror session is active, with a persistent on-phone indicator (invariant 8); frames
-      arriving without an active, bound session are dropped and logged, never injected (AC-06).
-      Includes the P2, ADR-006-gated scrcpy alternative input path.
+      Mac mouse, scroll and keystroke input, mapped to phone screen coordinates (rotation,
+      letterboxing) and injected via AccessibilityService gestures, global actions and text edits
+      (TextEdit insert/deleteBackward/imeEnter and SetText; no raw key events). Input is accepted only
+      while a user-started, bound mirror session is active, within field ranges and a 120 events/s
+      token bucket (burst 240), and only while the on-phone indicator (ongoing notification plus a
+      TYPE_ACCESSIBILITY_OVERLAY badge above app overlays) is attached (invariant 8); anything else is
+      dropped and logged without content, never injected (AC-06, AC-19). Includes the P2,
+      ADR-006-gated scrcpy alternative input path.
     scope:
-      - input.proto messages (gestures, global actions, text insertion, Mac-side pointer/key
-        events) and SPEC.md section.
-      - "Android: AccessibilityService opt-in flow, coordinate mapping, gesture/global-action/
-        text dispatch, session-authorization gate, on-phone indicator."
-      - "macOS: mouse/keyboard/scroll capture in the mirror window, key mapping."
+      - "input.proto messages (Tap, Swipe, Scroll, GlobalAction, SetText, TextEdit; no raw key-code message), field ranges and the 120 events/s rate, and SPEC.md section."
+      - "Android: AccessibilityService opt-in flow, coordinate mapping, gesture/global-action/text dispatch, session-authorization gate, on-phone indicator, rate limiter, accessibility-overlay indicator."
+      - "macOS: mouse/keyboard/scroll capture in the mirror window, keystroke-to-TextEdit mapping and pointer-move coalescing to <= 120 events/s."
       - Security test for input authorization (AC-06) and an end-to-end device test.
     out_of_scope:
       - Mirroring capture/encode/decode itself (E61).
@@ -861,6 +864,7 @@ epics:
         logged, never injected (roadmap Phase 6 exit criterion).
       - A scripted device-level sequence of taps, swipes, text entry, and global actions all
         succeed on physical hardware from the Mac mirror window.
+      - "A 1000 events/s flood injects at most 240 events in any second, out-of-range coordinates are dropped (never clamped), and frames are dropped while the indicator overlay is detached (E62-06, E62-08)."
     issues:
       - id: E62-01
         title: "[protocol] input.proto: gestures, global actions, text, session binding"

@@ -6,25 +6,25 @@ epics:
     prd: [F-1.1]
     use_cases: [UC-01, UC-02, UC-03, UC-05]
     summary: |
-      Each device owns a long-term, non-exportable P-256 key pair and a self-signed X.509
-      certificate used purely as a TLS identity; the only thing ever trusted is the SHA-256
-      hash of the certificate's SubjectPublicKeyInfo (invariant 3). This epic generates and
-      stores that identity on both platforms, computes and vector-tests the fingerprint,
-      handles the lifecycle case where the key is missing or corrupted (a new identity is
-      generated and the device must be re-paired), and provides the small crypto primitives
-      (constant-time compare, HMAC-SHA256 pairing proof) that transport (E12) and pairing
-      (E14) build on. Only core/crypto (Android) / TandemCrypto (macOS) may touch key material.
+      Each device owns a long-term, non-exportable P-256 key pair and a self-signed X.509 certificate used
+      purely as a TLS identity; the only thing ever trusted is the SHA-256 hash of the certificate's
+      SubjectPublicKeyInfo (invariant 3). This epic generates and stores that identity on both platforms,
+      computes and vector-tests the fingerprint, handles the lifecycle case where the key is missing or
+      corrupted (a new identity is generated and the device must be re-paired), and provides the small
+      crypto primitives (constant-time compare, HMAC-SHA256 pairing proof and 6-digit confirmation code)
+      that transport (E12) and pairing (E14) build on. Only core/crypto (Android) / TandemCrypto (macOS)
+      may touch key material.
     scope:
       - AndroidKeyStore P-256 key generation, StrongBox preferred, TEE fallback, never exportable
-      - macOS CryptoKit/Security P-256 key generation in Keychain
-        (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
+      - "macOS CryptoKit/Security P-256 key generation in Keychain (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly), in the data-protection keychain, app's own access group only"
       - Self-signed X.509 certificate generation on both platforms (swift-certificates on macOS)
       - SecIdentity construction for Network.framework consumption
       - SPKI SHA-256 fingerprint computation, vector-tested against protocol/vectors
       - "Identity lifecycle: first-launch bootstrap; corrupted/missing-key recovery = new
         identity + requires re-pair"
       - Constant-time byte-compare helper
-      - HMAC-SHA256 pairing-proof helper, vector-tested
+      - "HMAC-SHA256 pairing-proof and confirmation-code helpers over the E01-02 length-prefixed, channel-bound transcript (91-byte SPKI and 32-byte cb inputs enforced), vector-tested"
+      - "Testability seams IdentityKeyStore/SoftwareIdentityKeyStore (E10-15) and KeychainStore/InMemoryKeychainStore (E10-16); key-material boundary check (E10-14)."
     out_of_scope:
       - Key rotation (F-1.3) — Phase 7, epic E70
       - Meaningful certificate subject/identity claims — never added, by design
@@ -33,15 +33,14 @@ epics:
     exit_criteria:
       - Android identity generation succeeds on a StrongBox-capable and a StrongBox-unavailable
         device profile, never falling back to an exportable key
-      - macOS identity key is created in the Keychain with
-        kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly and is usable as a SecIdentity in
-        Network.framework
+      - "macOS identity key is created in the Keychain with kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, in the data-protection keychain and the app's own access group only, and is usable as a SecIdentity in Network.framework"
       - SPKI fingerprint vectors in protocol/vectors pass on both platforms
       - A corrupted or missing key on either platform yields a fresh identity and an explicit
         "re-pair required" state, never a crash or silent reuse of stale key material
+      - "Pairing-proof and confirmation-code vectors (E01-18) pass on both platforms; a non-91-byte SPKI or non-32-byte cb is rejected before any HMAC is computed."
     issues:
       - id: E10-01
-        title: "[android] AndroidKeyStore P-256 key generation (StrongBox to TEE fallback, non-exportable)"
+        title: "[android] AndroidKeyStore P-256 key generation (StrongBox, TEE fallback, non-exportable)"
         type: task
         platforms: [android]
         priority: P0
@@ -528,10 +527,9 @@ epics:
       design, with conformance and starvation regression tests on each side.
     scope:
       - Envelope encode/decode on both platforms
-      - Fail-closed handling of oversize (>1 MiB), truncated, and garbage frames
+      - "Fail-closed handling of oversize (>1 MiB), zero-length, truncated, undecodable, unknown-channel and unknown-payload frames (single MALFORMED_FRAME close code, local reason only)"
       - "Channel multiplexer: routing by channel, seq/ack bookkeeping"
-      - Credit-based flow control per channel with a suspending backpressure API
-        (Kotlin Flow / Swift AsyncSequence)
+      - "Credit-based flow control per channel with a suspending backpressure API (Kotlin Flow / Swift AsyncSequence), per-channel credit cap, CREDIT_VIOLATION close on over-grant"
       - Starvation regression test (FILES must not delay NOTIFY)
       - Conformance against protocol/vectors frame fixtures
     out_of_scope:
@@ -542,8 +540,8 @@ epics:
       - Both codecs pass every protocol/vectors frame vector, valid and invalid
       - Oversize, truncated, and garbage input close the connection with close code `MALFORMED_FRAME` (E01-05)
         on both platforms
-      - The starvation test demonstrates a NOTIFY frame delivered within a fixed latency bound
-        while a large FILES transfer is in-flight, on both platforms
+      - "Every one of 100 NOTIFY frames is delivered within 50 ms of virtual time while a 50 MiB FILES stream saturates a 10 MiB/s link, on both platforms (E11-09, E11-10)."
+      - "A peer sending past its granted credit is closed with CREDIT_VIOLATION on both platforms (E11-07, E11-08)."
     issues:
       - id: E11-01
         title: "[android] Envelope frame encode: u32 BE length plus protobuf"
@@ -928,22 +926,29 @@ epics:
     prd: [F-3.1]
     use_cases: [UC-03, UC-04, UC-05, AC-01, AC-04, UC-02, UC-07]
     summary: |
-      Establishes the mutually authenticated TLS 1.3 transport (F-3.1): a macOS NWListener as
-      the sole listening endpoint on one port, an Android SSLSocket client that always dials,
-      both pinned to the trust store (E13) with an open-pairing-window exception (E14), a
-      CONTROL-channel Hello for version/capability negotiation, a connection state machine,
-      fail-closed error surfacing (invariant 5), and a session abstraction over the multiplexer
-      (E11) designed so a future USB transport (F-10.3) can implement the same interface.
+      Establishes the mutually authenticated TLS 1.3 transport (F-3.1): a macOS NWListener as the sole
+      listening endpoint on one port, an Android SSLSocket client that always dials, both pinned to the
+      trust store (E13) with an open-pairing-window exception (E14), a CONTROL-channel Hello for
+      version/capability negotiation, a connection state machine, fail-closed error surfacing (invariant
+      5), and a session abstraction over the multiplexer (E11) designed so a future USB transport (F-10.3)
+      can implement the same interface. It also enforces the cycle-4 TLS profile (ALPN tandem/1, no SNI,
+      no PSK/0-RTT/post-handshake auth, leaf-only P-256 check, CertificateVerify always enforced), exposes
+      the RFC 9266 channel binding on TandemSession, and applies pre-auth admission control on the Mac
+      listener (E12-18).
     scope:
       - macOS NWListener, TLS 1.3-only, client-cert-required, single port
       - Android SSLSocket (Conscrypt) client, custom TrustManager/KeyManager
       - Verify-block / TrustManager pin check against trust store OR open pairing window
-      - No session resumption, no 0-RTT
+      - "No session resumption, PSK, 0-RTT or post-handshake auth on either side (Android: fresh SSLContext, session tickets off)"
       - CONTROL channel Hello (version/capability handshake)
       - Connection state machine on both sides
       - Fail-closed error reporting surfaced to the UI
       - Session object / transport abstraction interface exposing channels
       - JVM-client-to-Mac-server integration test
+      - "TLS profile: AEAD suites, ecdsa_secp256r1_sha256, ALPN tandem/1, no SNI, leaf-only 91-byte P-256 SPKI check, validity/KU ignored."
+      - "Channel binding exposed as TandemSession.channelBinding (32 bytes) on both platforms."
+      - "Mac listener admission control: <= 8 pre-auth connections, <= 2 per IP, 10 s TLS deadline, per-IP throttle (>= 10 failures in 60 s -> 60 s refusal), never a trust input (E12-18)."
+      - "VersionHello 5 s deadline (PROTOCOL_TIMEOUT); lastSeen/capabilities recorded on Ready (E12-14, E12-17)."
     out_of_scope:
       - Trust store persistence itself — E13
       - Pairing window state machine and QR flow — E14
@@ -956,6 +961,10 @@ epics:
         its Keystore identity
       - The JVM-test-client-to-Mac-server integration test passes in CI
       - A version-mismatched Hello fails closed with a visible error on both sides
+      - "A client without ALPN tandem/1, a leaf that is not a 91-byte P-256 SPKI, or a pinned certificate without its private key fails the handshake with 0 application bytes; the Android client's second ClientHello carries no pre_shared_key or early_data (E12-01, E12-02, E12-04, E12-05)."
+      - "Client and server channel-binding values are equal 32-byte exporter outputs (E12-01, E12-04), or the E03-04 fallback challenge if the spike chose it."
+      - "With 8 pre-auth connections a 9th (or a 3rd from one IP) is closed before TLS, an idle TCP connection is closed within 11 s, and a throttled IP never affects a trusted peer from another IP (E12-18)."
+      - "No peer VersionHello within 5 s closes with PROTOCOL_TIMEOUT on both sides (E12-07, E12-15)."
     issues:
       - id: E12-01
         title: "[macos] NWListener: TLS 1.3-only mTLS options, single port"
@@ -966,13 +975,13 @@ epics:
         prd: [F-3.1]
         use_cases: [UC-01, UC-05, AC-04]
         invariants: [1, 2, 4]
-        depends_on: [E10-07, E10-09, E03-01, E00-07, E01-01]
+        depends_on: [E10-07, E03-01, E00-07, E01-01]
         description: |
           Configure NWListener with NWProtocolTLS.Options: min and max TLS version 1.3, local
           identity = the SecIdentity from E10-07, and
           sec_protocol_options_set_peer_authentication_required(true). Bind to a single fixed
           port per SPEC.md; no other listener exists anywhere in the app.
-          Seams: `ListenerController` takes the identity bootstrap state (E10-09) and a
+          Seams: `ListenerController` takes an `IdentityState` input (ready / missing / error; protocol declared here, E10-09 conforms) and a
           feature-local `ListenerFactory` protocol (recording fake in tests) so "never listens
           without identity" is a `unit:` test. Real TLS behaviour is an `integration:` test: the
           listener on 127.0.0.1 and an in-process NWConnection client with real Network.framework
@@ -1547,10 +1556,12 @@ epics:
       - Schema migrations
       - Settings store for non-trust user preferences
       - Immediate local deletion on unpair
+      - "macOS trust records in the data-protection keychain, app's own access group, via KeychainStore (E10-16); a locked keychain surfaces as KeychainError.locked, never \"unknown\"."
     out_of_scope:
       - Sending or receiving the Revoke wire message — E14
       - Consuming the trust store inside the TLS verify block — E12 (depends on this epic)
       - Paired-devices list UI — E14
+      - "Grace-pin and pending-pin fields for key rotation -- added by E70-04/E70-05 through the E13-03/E13-07 migration runners."
     exit_criteria:
       - CRUD operations on both platforms are keyed only by spkiSha256; no API accepts an IP
         address, hostname, or bare deviceId as a trust key
@@ -1558,6 +1569,7 @@ epics:
         with no network round-trip required
       - A schema migration test proves a v1-to-v2 change (simulated) does not lose existing
         peer records
+      - "macOS trust items are written with kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly to the data-protection keychain in the app's own access group, and a locked keychain makes get throw KeychainError.locked (E13-06)."
     issues:
       - id: E13-01
         title: "[android] spike: DataStore vs Room for trust store persistence"
@@ -1614,7 +1626,7 @@ epics:
         title: "[android] Trust store migrations scaffold"
         type: task
         platforms: [android]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.2]
         use_cases: []
@@ -1715,7 +1727,7 @@ epics:
         title: "[macos] Trust store migrations scaffold"
         type: task
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.2]
         use_cases: []
@@ -1778,7 +1790,7 @@ epics:
         title: "[android] Trust-store invariant test: fingerprint-only keying"
         type: test
         platforms: [android]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.2]
         use_cases: [AC-04, AC-09]
@@ -1802,7 +1814,7 @@ epics:
         title: "[macos] Trust-store invariant test: fingerprint-only keying"
         type: test
         platforms: [macos]
-        priority: P1
+        priority: P0
         size: S
         prd: [F-1.2]
         use_cases: [AC-04, AC-09]
@@ -1828,30 +1840,35 @@ epics:
     use_cases: [UC-03, UC-04, UC-07, AC-03, AC-09]
     summary: |
       Implements F-2.1 QR pairing end to end and F-2.3 unpair/revoke: Mac-side QR generation and
-      pairing-window state machine, Android-side scanner and pairing state machine, constant-time
-      proof verification bound to the certificate actually seen in the TLS handshake, a
-      confirmation dialog on the Mac, a scanning UI on Android, and the unpair/revoke flow on
-      both sides culminating in the Phase 1 exit criterion: pair via QR, then reconnect after
-      restarting both apps.
+      pairing-window state machine (one in-flight candidate, 10 s PairRequest deadline), Android-side
+      scanner (decoder chosen by spike E14-23) and pairing state machine, constant-time proof
+      verification bound to the handshake certificate and the session channel binding, a 6-digit
+      confirmation code with mutual confirmation (Mac defaults to Don't Pair; phone commits only after
+      "Codes match", AC-20), wire PairRejected collapsed to REJECTED_BY_OWNER / PAIRING_UNAVAILABLE,
+      vector-tested DisplayStringSanitizer on both platforms, and unpair/revoke with per-peer data purge
+      hooks, culminating in the Phase 1 exit criterion: pair via QR, then reconnect after restarting
+      both apps.
     scope:
-      - Mac QR payload generation and pairing-window state machine (120 s expiry, 3 attempts,
-        single use, secret regeneration)
+      - "Mac QR payload generation and pairing-window state machine (120 s expiry, 3 attempts, single use, secret regeneration), one in-flight candidate, 10 s PairRequest deadline burns an attempt, no key rotation while open"
       - Android QR parsing/validation and pairing state machine
-      - PairRequest/PairAccepted flow, proof computation and verification
-      - Mac confirmation dialog; Android CameraX + ML Kit scanner UI; Mac QR display UI
+      - "PairRequest/PairAccepted flow; proof over the length-prefixed channel-bound transcript; phone AwaitingUserConfirm (Codes match / Cancel -> Revoke); PairRejected reasons collapsed on the wire"
+      - "Mac confirmation dialog with sanitized name, model and 6-digit code (default and Escape = Don't Pair); Android CameraX scanner UI with the QR decoder chosen by spike E14-23 (ML Kit only if zero egress is proven, else zxing-cpp); Mac QR display UI (sharingType none, no copy/save, attempts-used-up state)."
       - Unpair and Revoke on both sides; Mac paired-devices list with last-seen and revoke
       - End-to-end pairing-then-reconnect test (Phase 1 exit criterion)
+      - "DisplayStringSanitizer (E14-21, E14-22); QR decoder spike (E14-23); Keystore client-auth device matrix (E14-18); PeerDataPurging registries on both platforms; revoke integration on the JVM harness (E14-20)."
     out_of_scope:
       - TLS transport mechanics themselves — E12
       - Trust store persistence mechanics — E13
       - Manual pairing (F-2.2) — Phase 7, epic E73
     exit_criteria:
       - A phone pairs with a Mac via QR and reconnects after restarting both apps
-      - Every pairing failure path (bad proof, malformed message, window expiry) fails closed
-        and burns exactly one attempt where applicable
+      - "Every pairing failure path (bad proof, malformed message, window expiry, candidate idle > 10 s) fails closed, burns exactly one attempt where applicable and sends only PairRejected(PAIRING_UNAVAILABLE) (owner deny: REJECTED_BY_OWNER); a second concurrent candidate is rejected without burning an attempt."
       - Revoke removes trust on both sides when the peer is reachable; local unpair is immediate
         regardless of reachability
       - Every UC-03 alternate flow (declined, expired/used QR, Mac unreachable) shows a distinct phone message (E14-17)
+      - "The phone commits the Mac pin only after PairAccepted and \"Codes match\"; Cancel or 120 s sends Revoke and commits nothing; the Mac dialog defaults to Don't Pair and both sides show the same code (E14-05, E14-08, E14-16)."
+      - "Both DisplayStringSanitizers pass every E01-24 vector (E14-21, E14-22)."
+      - "E14-23 selects a decoder with 0 observed network connections and p95 decode <= 3 s."
     issues:
       - id: E14-01
         title: "[macos] QR payload generation: secret and payload encode"
@@ -2046,7 +2063,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03]
         invariants: [6]
-        depends_on: [E10-12, E10-03, E10-15, E14-05, E12-11]
+        depends_on: [E10-12, E10-03, E10-15, E14-05, E12-11, E03-04]
         description: |
           proof = HMAC-SHA256 over the E01-02 transcript (both SPKI DERs + session channel binding) via the
           core/crypto helper (E10-12); macSpki comes from the scanned invite, phoneSpki from the
@@ -2065,6 +2082,10 @@ epics:
           - "unit: pairRequest_differentInviteFp_proofChanges"
           - "unit: pairRequest_differentChannelBinding_proofChanges"
           - "unit: pairRequest_deviceInfo_containsNoHardwareIdentifiers"
+        notes: |
+          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
+          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
+          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and this issue changes before Phase 1 starts.
 
       - id: E14-07
         title: "[macos] Constant-time proof verification bound to handshake cert"
@@ -2075,7 +2096,7 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, AC-03, AC-15]
         invariants: [6]
-        depends_on: [E14-02, E10-11, E10-13, E12-02]
+        depends_on: [E14-02, E10-11, E10-13, E12-02, E03-04]
         description: |
           On receiving PairRequest over a connection classified `.pairingCandidate` by E12-02,
           recompute the expected proof using the phoneSpki taken from the certificate actually
@@ -2097,6 +2118,10 @@ epics:
           - "unit: verifyProof_comparison_invokesConstantTimeComparatorOnce"
           - "unit: verifyProof_trustedConnection_rejectedWithoutComputing"
           - "unit: verifyProof_otherSessionChannelBinding_rejected"
+        notes: |
+          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
+          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
+          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and this issue changes before Phase 1 starts.
 
       - id: E14-08
         title: "[macos] Pairing confirmation dialog and PairAccepted/reject"
@@ -2415,10 +2440,11 @@ epics:
         prd: [F-2.1]
         use_cases: [UC-03, UC-04, AC-20]
         invariants: [1, 3, 5, 6]
-        depends_on: [E15-15, E14-05, E14-06, E14-08, E14-11, E12-13]
+        depends_on: [E15-15, E14-05, E14-06, E14-08]
         description: |
           Phase 1 exit-criterion test on the E15-15 harness: open a pairing window on the real
-          macOS server, inject its QR payload into the JVM client reusing core/pairing (camera
+          macOS server through the E15-22 Debug launch hook (no pairing UI needed; E14-11 is covered by
+          its own `ui:` test and on device by E14-18), inject its QR payload into the JVM client reusing core/pairing (camera
           scanning is out of scope here; on-device scanning is E14-10/E14-18), auto-accept the
           confirmation through the harness, kill and restart both processes, and verify the
           connection re-establishes to Ready using only the persisted trust stores.
@@ -2441,7 +2467,7 @@ epics:
           - "integration: e2eHarness_pairing_macDialogCodeEqualsClientCode"
 
       - id: E14-17
-        title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable (network hint)"
+        title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable"
         type: story
         platforms: [android]
         priority: P0
@@ -2456,7 +2482,7 @@ epics:
           secret-free string resources:
           - Mac rejected our certificate during a pairing attempt (window expired, exhausted, or QR
             already used) -> `pairing_error_qr_expired`: "QR expired, refresh on Mac" (UC-03 wording)
-          - PairRejected(REJECTED_BY_OWNER) -> `pairing_error_declined`; PairRejected(PAIRING_UNAVAILABLE) -> `pairing_error_qr_expired`: "Pairing declined on Mac"
+          - PairRejected(REJECTED_BY_OWNER) -> `pairing_error_declined`: "Pairing declined on Mac"; PairRejected(PAIRING_UNAVAILABLE) -> `pairing_error_qr_expired`: "QR expired, refresh on Mac"
           - Failed(AllAddressesUnreachable) -> `pairing_error_network`: "Can't reach your Mac. Make sure both devices are on the same Wi-Fi. Guest and office networks often block devices from reaching each other (client isolation)."
           - Pin mismatch during pairing -> the E12-16 `error_pin_mismatch` text
           No failure path retries with a relaxed pin or an address not in the QR (invariant 2).
@@ -2488,7 +2514,7 @@ epics:
         prd: [F-1.1, F-3.1, F-2.1]
         use_cases: [UC-02, UC-03]
         invariants: [1, 3]
-        depends_on: [E10-01, E10-15, E12-04, E12-06, E12-13, E14-10, E14-16, E00-21, E00-23]
+        depends_on: [E10-01, E10-15, E12-04, E12-06, E14-10, E00-21, E00-23, E14-05, E14-06, E14-08, E14-11]
         description: |
           PRD risk "Keystore-backed keys with SSLSocket client auth behave differently across OEMs"
           requires an early device-matrix test in Phase 1 (E03-03 only covered the throwaway spike).

@@ -1,8 +1,13 @@
 # Tandem — agent guide
 
 - Read `docs/PRD.md` and `docs/protocol/SPEC.md` before any change to transport, pairing, or crypto.
+  **`SPEC.md` and `docs/planning/decisions.md` override the PRD where they conflict** (e.g. pairing
+  proof encoding, key-rotation message, heartbeat direction); owner questions still open are in
+  `docs/planning/open-questions.md`.
 - Backlog lives in `docs/planning/backlog/*.yaml`; GitHub issues are generated from it
-  (`ruby tools/planning/sync_issues.rb validate|render|sync`). Edit YAML, not issues.
+  (`ruby tools/planning/sync_issues.rb validate|render|sync`). Edit YAML, not issues. After editing
+  dependencies or priorities run `ruby tools/planning/critical_path.rb --write` (roadmap sections)
+  and `ruby tools/planning/traceability.rb`. Start work from `docs/planning/roadmap.md` → Start here.
 - Work is TDD: write the `tdd:` tests listed on the issue first, see them fail, then implement.
 - Never edit generated protocol code; change `protocol/proto` and regenerate.
 

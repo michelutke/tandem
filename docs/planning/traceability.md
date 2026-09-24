@@ -22,11 +22,11 @@ Scope column is judgment; the issue list is generated from each issue's `prd:` f
 | F-1.1 | v1 | E01-17, E03-02, E03-03, E10-01, E10-02, E10-03, E10-04, E10-05, E10-06, E10-07, E10-08, E10-09, E10-14, E10-15, E10-16, E14-18, E20-14 |
 | F-1.2 | v1 | E10-16, E12-14, E12-17, E13-01, E13-02, E13-03, E13-04, E13-05, E13-06, E13-07, E13-08, E13-09, E13-10, E13-11 |
 | F-1.3 | v1 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08, E70-09, E70-10, E70-11, E70-12, E70-13 |
-| F-2.1 | v1 | E01-02, E01-11, E01-18, E01-21, E01-23, E01-24, E15-09, E15-20, E10-10, E10-11, E10-12, E10-13, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-09, E14-10, E14-11, E14-16, E14-17, E14-18, E14-21, E14-22, E14-23, E71-03 |
+| F-2.1 | v1 | E01-02, E01-11, E01-18, E01-21, E01-23, E01-24, E15-09, E15-20, E15-22, E10-10, E10-11, E10-12, E10-13, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-09, E14-10, E14-11, E14-16, E14-17, E14-18, E14-21, E14-22, E14-23, E71-03 |
 | F-2.2 | deferred (v2+): ADR E73-01; implementation P2, gated (E73-02..E73-05) | E73-01, E73-02, E73-03, E73-04, E73-05 |
 | F-2.3 | v1 | E01-11, E12-14, E12-17, E13-05, E13-09, E14-12, E14-13, E14-14, E14-15, E14-19, E14-20, E50-09, E51-04 |
-| F-3.1 | v1 | E01-01, E01-06, E01-12, E01-22, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E15-19, E15-20, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E12-11, E12-12, E12-13, E12-18, E14-18, E21-06 |
-| F-3.2 | v1 | E01-03, E01-04, E01-05, E01-10, E01-19, E01-22, E15-13, E15-14, E15-18, E15-19, E11-01, E11-02, E11-03, E11-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E11-09, E11-10, E11-11, E11-12, E40-15, E71-01, E71-02 |
+| F-3.1 | v1 | E01-01, E01-06, E01-12, E01-22, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E15-19, E15-20, E15-21, E15-22, E15-23, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E12-11, E12-12, E12-13, E12-18, E14-18, E21-06 |
+| F-3.2 | v1 | E01-03, E01-04, E01-05, E01-10, E01-19, E01-22, E15-13, E15-14, E15-18, E15-19, E15-23, E11-01, E11-02, E11-03, E11-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E11-09, E11-10, E11-11, E11-12, E40-15, E71-01, E71-02 |
 | F-3.3 | v1 | E01-09, E01-12, E01-22, E60-01, E60-02, E60-03, E60-04, E60-05, E60-06, E60-07, E60-08, E60-09, E61-12 |
 | F-3.4 | v1 | E01-07, E01-12, E20-01, E20-05, E20-06, E20-07, E20-10, E20-11, E20-12, E20-13, E20-15 |
 | F-3.5 | v1 | E01-08, E01-20, E21-02, E21-03, E21-04, E21-05, E21-06, E21-07 |
@@ -94,7 +94,10 @@ Owner notes for items the review lead flagged:
 | Vectors (fingerprint, HMAC, frames, Bonjour id, QR) reviewed | E01-16 (format + review gate), E01-17, E01-18, E01-19, E01-20, E01-21 |
 | Threat model + ADR-001…006 accepted | E02-01, E02-02 … E02-07 (ADR-006 "deferred" by design; finalised E61-10) |
 | Spikes answered | E03-01, E03-02, E03-03, E03-04 (fallback E03-05, E03-06) |
-| Test infrastructure and seams ready (added cycle 3) | E00-18, E00-19, E00-20, E00-21, E00-22, E00-23, E00-24, E00-25, E00-26; release-log lint E00-17 / E00-27 |
+| Channel-binding outcome recorded and adopted (cycle 5) | E03-04 → E01-01, E01-02, E01-11 |
+| SPEC timeouts/limits/caps and untrusted strings; display-string vectors (cycle 4) | E01-22, E01-23, E01-24 |
+| Threat model part 2: local surfaces (cycle 4) | E02-08 |
+| Test infrastructure and seams ready (added cycle 3) | E00-18, E00-19, E00-20, E00-21, E00-23, E00-24, E00-25; release-log lint E00-17 / E00-27 (E00-26 lands Phase 1, E00-22 lands Phase 3; cycle 5) |
 
 ### Phase 1
 
@@ -112,7 +115,11 @@ Owner notes for items the review lead flagged:
 | Conformance vectors green on both platforms in CI | E15-01, E15-02, E15-03 |
 | Fuzz smoke in CI | E15-13, E15-14 |
 | Keystore client-auth device matrix (PRD risk, added cycle 2) | E14-18 *(device)* |
-| One-command audit report, CI subset on `core/*` PRs (UC-25, added cycle 2) | E15-18, E15-19 |
+| One-command audit report, CI subset on `core/*` PRs (UC-25, added cycle 2) | E15-18 (runner), E15-23 (all Phase 1 steps, cycle 5), E15-19 |
+| Phone commits trust only after "Codes match"; Mac defaults to Don't Pair (AC-20, cycle 4) | E14-05, E14-08, E14-16 |
+| Pre-auth DoS fails closed, paired peers unaffected (AC-13, cycle 4) | E15-20, E12-18 |
+| QR decoder chosen with zero egress (cycle 4) | E14-23, E14-10 |
+| Landed at Phase 1 start: XCUITest, supply chain, release test-code scan (cycle 5) | E00-26, E00-29, E00-30 |
 | Unpair / revoke both sides (UC-07) | E14-12, E14-13, E14-15 (macOS), E14-19 (Android), E14-20 (JVM harness) |
 | Key-material test seams (JVM fake keystore, Keychain abstraction; added cycle 3) | E10-15, E10-16 |
 
@@ -125,6 +132,8 @@ Owner notes for items the review lead flagged:
 | Rotating id recognised by paired phone only (AC-05) | E21-05, E21-07, E21-02 (no name in instance), E01-20 |
 | Menu bar shows state, battery, errors; launch at login (UC-05) | E22-01, E23-04, E22-07, E22-03, E23-08 |
 | Find my phone rings through DND (UC-06) | E23-05, E23-08 |
+| Service restarts after process death and reboot | E20-02, E20-08 |
+| Android hardening baseline landed (cycle 5, lands Phase 2) | E00-28 |
 
 ### Phase 3
 
@@ -132,6 +141,7 @@ Owner notes for items the review lead flagged:
 |---|---|
 | Reply to WhatsApp and Signal from the Mac (UC-09) | E30-13 *(device)*; categories/reply E30-17 |
 | Dismiss sync both ways (UC-10) | E30-10 (Android), E30-18 (macOS), E30-13 |
+| Companion test app landed (cycle 5, lands Phase 3) | E00-22 |
 | Notification p95 < 500 ms (UC-08) | E30-14 *(device)* (added cycle 2) |
 | No clipboard echo loops; concealed never leaves the Mac (UC-12) | E31-10 (rewritten cycle 2), E31-08 / E31-14, E31-03, E31-13 |
 
@@ -149,6 +159,7 @@ Owner notes for items the review lead flagged:
 |---|---|
 | Send and receive SMS from the Mac (UC-18, UC-19) | E50-10; sync E50-13 / E50-14 |
 | Incoming call on the Mac < 1 s; answer and hang up (UC-20) | E52-08 *(device)* |
+| Place a call from the Mac, SIM choice, background-start fallback (UC-21) | E52-05, E52-07, E50-05, E52-08 |
 
 ### Phase 6
 
@@ -164,11 +175,13 @@ Owner notes for items the review lead flagged:
 
 | Criterion | Verify |
 |---|---|
-| Key rotation (UC-24) | E70-04, E70-05, E70-08, E70-13, E70-09, E70-10 |
+| Key rotation (UC-24), incl. two-phase Mac rotation (D-34, cycle 5) | E70-04, E70-05, E70-08, E70-13, E70-09, E70-10; D-34: E70-01, E70-03, E70-04, E70-11 |
 | 24 h fuzz per target, no crashes (AC-07) | E71-01, E71-02, E71-03, E71-04, E71-13 (+ triage E71-05) |
 | External review of `SPEC.md` | E71-06 |
-| Release security audit signed off (UC-25) | E71-12 (evidence E71-07 … E71-11, E15-18) |
-| F-10.x as prioritised; F-2.2 ADR | E72-01 … E72-10; E73-01 |
+| Egress audit: apps talk only to each other (AC-18) | E71-14 |
+| SBOM / license scan clean | E71-10 |
+| Release security audit signed off, one row per `decisions.md` entry (UC-25) | E71-12 (evidence E71-07 … E71-11, E15-23) |
+| F-10.x as prioritised; F-2.2 ADR (optional) | E72-01 … E72-10; E73-01 |
 
 ---
 
@@ -328,7 +341,7 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | UC-23 | Coordinates correct portrait / landscape / letterboxed | E62-03 |
 | UC-24 | Rotation on unauthenticated connection rejected | E70-02, E70-03, E70-09 |
 | UC-24 | Old key stops after grace session | E70-04, E70-05, E70-10 |
-| UC-25 | One command per tool; CI subset on `core/*` PRs | E15-18, E15-19 |
+| UC-25 | One command per tool; CI subset on `core/*` PRs | E15-18, E15-23, E15-19 |
 | AC-01 | MITM wrong/swapped cert | E15-10 |
 | AC-02 | Passive eavesdropping | E15-05, E15-06, E15-07 |
 | AC-03 | Replay, brute force, expired, other key | E15-09 |
@@ -355,17 +368,17 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 <!-- BEGIN GENERATED: use-cases -->
 | ID | Count | Issues citing it (`use_cases:`) |
 |---|---|---|
-| AC-01 | 19 | E01-01, E01-17, E02-01, E02-04, E03-01, E03-02, E03-03, E03-05, E15-08, E15-10, E15-18, E12-03, E12-05, E12-10, E12-16, E14-04, E22-07, E71-07, E71-08 |
-| AC-02 | 14 | E00-28, E02-01, E02-04, E15-04, E15-05, E15-06, E15-07, E15-18, E30-13, E31-10, E60-06, E61-09, E71-07, E71-14 |
-| AC-03 | 14 | E01-02, E01-11, E01-18, E01-21, E02-01, E02-05, E15-08, E15-09, E14-02, E14-07, E14-09, E71-03, E71-08, E73-05 |
-| AC-04 | 28 | E01-01, E01-05, E01-06, E01-22, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E15-20, E12-01, E12-02, E12-03, E12-05, E12-07, E12-15, E12-10, E12-13, E12-18, E13-10, E13-11, E21-06, E22-07, E71-08 |
+| AC-01 | 20 | E01-01, E01-17, E02-01, E02-04, E03-01, E03-02, E03-03, E03-05, E15-08, E15-10, E15-18, E15-23, E12-03, E12-05, E12-10, E12-16, E14-04, E22-07, E71-07, E71-08 |
+| AC-02 | 15 | E00-28, E02-01, E02-04, E15-04, E15-05, E15-06, E15-07, E15-18, E15-23, E30-13, E31-10, E60-06, E61-09, E71-07, E71-14 |
+| AC-03 | 15 | E01-02, E01-11, E01-18, E01-21, E02-01, E02-05, E15-08, E15-09, E15-23, E14-02, E14-07, E14-09, E71-03, E71-08, E73-05 |
+| AC-04 | 29 | E01-01, E01-05, E01-06, E01-22, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E15-20, E15-23, E12-01, E12-02, E12-03, E12-05, E12-07, E12-15, E12-10, E12-13, E12-18, E13-10, E13-11, E21-06, E22-07, E71-08 |
 | AC-05 | 6 | E01-08, E01-20, E02-01, E21-02, E21-05, E21-07 |
 | AC-06 | 10 | E02-01, E02-07, E61-10, E61-12, E61-16, E62-01, E62-06, E62-08, E62-09, E62-10 |
 | AC-07 | 18 | E01-03, E01-05, E01-10, E01-19, E02-01, E15-01, E15-02, E15-13, E15-14, E11-02, E11-04, E11-11, E11-12, E61-01, E71-01, E71-02, E71-04, E71-13 |
 | AC-08 | 6 | E01-09, E02-01, E60-01, E60-03, E60-05, E60-08 |
 | AC-09 | 12 | E02-01, E02-08, E15-10, E13-05, E13-09, E13-10, E13-11, E14-12, E14-13, E14-15, E14-19, E14-20 |
 | AC-10 | 10 | E00-17, E00-27, E02-01, E02-08, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
-| AC-11 | 7 | E00-30, E01-04, E02-01, E02-08, E15-07, E71-09, E71-12 |
+| AC-11 | 8 | E00-30, E01-04, E02-01, E02-08, E15-07, E15-22, E71-09, E71-12 |
 | AC-12 | 9 | E02-08, E14-12, E14-13, E14-20, E30-06, E30-07, E40-05, E41-06, E71-12 |
 | AC-13 | 13 | E01-01, E01-05, E01-22, E02-01, E03-01, E15-09, E15-20, E12-02, E12-18, E14-02, E14-11, E60-03, E71-12 |
 | AC-14 | 14 | E01-02, E01-11, E01-23, E01-24, E02-01, E14-03, E14-08, E14-21, E14-22, E30-01, E30-07, E50-07, E52-06, E71-12 |
@@ -377,8 +390,8 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | AC-20 | 9 | E01-02, E01-18, E02-01, E10-12, E10-13, E14-05, E14-08, E14-16, E71-12 |
 | UC-01 | 12 | E10-01, E10-02, E10-04, E10-05, E10-06, E10-07, E10-09, E10-16, E12-01, E12-04, E22-01, E22-03 |
 | UC-02 | 11 | E10-01, E10-04, E10-15, E12-04, E14-10, E14-18, E20-02, E20-03, E20-04, E20-14, E20-16 |
-| UC-03 | 41 | E01-02, E01-08, E01-11, E01-21, E02-05, E03-04, E15-15, E10-03, E10-08, E10-12, E10-13, E12-02, E12-04, E12-05, E12-06, E12-07, E12-15, E12-13, E13-02, E13-06, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-10, E14-11, E14-16, E14-17, E14-18, E14-23, E20-16, E21-02, E73-01, E73-02, E73-03, E73-04, E73-05 |
-| UC-04 | 27 | E01-07, E01-12, E03-04, E15-15, E12-02, E12-04, E12-05, E12-07, E12-15, E12-08, E12-09, E12-13, E14-16, E20-02, E20-03, E20-05, E20-06, E20-07, E20-08, E20-10, E20-11, E20-12, E20-13, E20-15, E21-04, E21-05, E21-06 |
+| UC-03 | 43 | E01-02, E01-08, E01-11, E01-21, E02-05, E03-04, E15-15, E15-21, E15-22, E10-03, E10-08, E10-12, E10-13, E12-02, E12-04, E12-05, E12-06, E12-07, E12-15, E12-13, E13-02, E13-06, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-10, E14-11, E14-16, E14-17, E14-18, E14-23, E20-16, E21-02, E73-01, E73-02, E73-03, E73-04, E73-05 |
+| UC-04 | 29 | E01-07, E01-12, E03-04, E15-15, E15-21, E15-22, E12-02, E12-04, E12-05, E12-07, E12-15, E12-08, E12-09, E12-13, E14-16, E20-02, E20-03, E20-05, E20-06, E20-07, E20-08, E20-10, E20-11, E20-12, E20-13, E20-15, E21-04, E21-05, E21-06 |
 | UC-05 | 25 | E01-13, E15-11, E15-12, E10-03, E10-08, E12-01, E12-08, E12-09, E12-10, E12-16, E12-14, E12-17, E13-02, E13-06, E14-14, E20-09, E22-01, E22-02, E22-07, E22-08, E23-01, E23-02, E23-03, E23-04, E23-08 |
 | UC-06 | 6 | E01-13, E23-01, E23-05, E23-06, E23-07, E23-08 |
 | UC-07 | 18 | E01-11, E15-10, E12-16, E12-14, E12-17, E13-02, E13-05, E13-06, E13-09, E14-12, E14-13, E14-14, E14-15, E14-19, E14-20, E22-05, E50-09, E51-04 |
@@ -399,7 +412,7 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | UC-22 | 26 | E01-09, E01-12, E02-06, E02-07, E60-01, E60-02, E60-03, E60-04, E60-07, E60-09, E61-01, E61-02, E61-03, E61-04, E61-05, E61-06, E61-07, E61-08, E61-09, E61-10, E61-11, E61-12, E61-13, E61-14, E61-15, E61-16 |
 | UC-23 | 12 | E02-07, E61-10, E61-16, E62-01, E62-02, E62-03, E62-04, E62-05, E62-06, E62-07, E62-09, E62-10 |
 | UC-24 | 13 | E70-01, E70-02, E70-03, E70-04, E70-05, E70-06, E70-07, E70-08, E70-09, E70-10, E70-11, E70-12, E70-13 |
-| UC-25 | 3 | E15-18, E15-19, E71-12 |
+| UC-25 | 4 | E15-18, E15-19, E15-23, E71-12 |
 <!-- END GENERATED: use-cases -->
 
 ---
@@ -557,4 +570,26 @@ Decisions (owning issue in brackets; each is a row in the E71-12 release checkli
 
 Open items carried to cycle 5: Mac-initiated rotation with several phones (E70-13 note); PRD
 F-1.3 / F-2.1 formulas and the "CameraX + ML Kit" stack line are superseded by SPEC / E14-23 but
-the PRD text itself is unchanged.
+the PRD text itself is unchanged. Both resolved in cycle 5 (D-34; `decisions.md` supersession column).
+
+## Review cycle 5 (sequencing, critical path, priorities)
+
+- **Tooling:** `tools/planning/critical_path.rb` (longest P0 chain per phase, hotspots, per-track effort,
+  generated roadmap sections; `--check` fails on priority inversions, rows of section (b) with no P0 issue,
+  or a stale roadmap). `sync_issues.rb validate` now also rejects priority inversions and supports
+  `lands_in_phase`.
+- **Critical path (P0, days):** Phase 0 8.0 → 7.0, Phase 1 21.5 → 15.5, Phase 2 8.5 → 7.5; others
+  unchanged. Details and the changed dependencies are in `roadmap.md` → Critical path.
+- **Splits / new issues:** E15-15 → E15-21 (JVM client) + E15-22 (Mac app driver) + E15-15 (join, M);
+  E15-18 → E15-18 (runner, no deps) + E15-23 (Phase 1 all-steps gate).
+- **Phase placement:** E00-26, E00-29, E00-30 land at Phase 1 start; E00-28 at Phase 2; E00-22 at
+  Phase 3 (`lands_in_phase`).
+- **Priority fixes (P1 → P0, 19):** E00-26, E01-14, E02-07, E03-02, E13-03, E13-07, E13-10, E13-11,
+  E20-08, E22-02, E22-03, E23-08, E41-06, E50-05, E52-07, E70-06, E70-07, E70-11, E70-12. Dropped the
+  inverted dependency E03-06 → E03-05 (P2).
+- **Session binding:** E03-04 is the outcome issue (`docs/spikes/channel-binding.md`); E01-01, E01-02,
+  E01-11, E14-06, E14-07, E70-01 depend on it, with the in-band challenge as the recorded fallback.
+- **Decisions:** all cycle 1–5 planning decisions are logged in `decisions.md` (D-01 … D-40); owner
+  questions in `open-questions.md`.
+- **Epic drift:** summary / scope / exit criteria of 23 epics re-aligned with their issues (cycle 3/4
+  additions, E70 superseded by SPEC decisions, E62 no raw key events, E14 confirmation code).

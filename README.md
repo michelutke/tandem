@@ -19,8 +19,10 @@ tools/       conformance, pcap-audit, mitm-lab, fuzz, planning scripts
 ## Documents
 
 - [PRD](docs/PRD.md) — requirements, architecture, security invariants
+- [Decisions](docs/planning/decisions.md) — planning decisions; **SPEC.md and decisions.md override the PRD where they conflict**
+- [Open questions](docs/planning/open-questions.md) — owner decisions pending, with the defaults the backlog assumes
 - [Use cases](docs/planning/use-cases.md) — UC-xx and abuse cases AC-xx
-- [Roadmap](docs/planning/roadmap.md) — phases, exit checklists, epic graph
+- [Roadmap](docs/planning/roadmap.md) — start-here sprint, critical path, phases, exit checklists, epic graph
 - [Backlog](docs/planning/BACKLOG.md) — generated overview of all epics and issues
 
 ## Planning workflow
@@ -28,6 +30,8 @@ tools/       conformance, pcap-audit, mitm-lab, fuzz, planning scripts
 ```sh
 ruby tools/planning/sync_issues.rb validate   # schema, references, dependency cycles
 ruby tools/planning/sync_issues.rb render     # regenerate docs/planning/BACKLOG.md
+ruby tools/planning/critical_path.rb --write  # regenerate critical path / graph sections in roadmap.md
+ruby tools/planning/traceability.rb           # regenerate traceability tables
 ruby tools/planning/sync_issues.rb sync       # push epics/issues/milestones/labels to GitHub
 ```
 
