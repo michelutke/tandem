@@ -1,0 +1,5 @@
+client: using identity=good-client spki_sha256=10692ffad74b2f5e9af2ef4b9db1a7376147535510e860881fbb526cc804abd6
+EVENT type=state role=client state=preparing elapsed_ms=0.7645
+LOG[client] verify_block: peer_spki=f72e81490c5742c5... match=true elapsed_us=1606.959
+EVENT type=ready role=client tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=1a90195f137a9f077cf58de51fd5b751117e66a9b158fe58c32648b0cf27f5df elapsed_ms=10.077958
+EVENT type=app-data role=client bytes=4 text="ack"

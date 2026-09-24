@@ -1,0 +1,55 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4506 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56690
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1278.791
+EVENT type=ready role=server remote=127.0.0.1:56690 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=02663d7494396a1784e5cd6bd21b6b5af7e61e3f50e8dd96f7f045a0793e307c elapsed_ms=25.139416
+EVENT type=app-data role=server remote=127.0.0.1:56690 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56690 elapsed_ms=28.342083
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56691
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=850.416
+EVENT type=ready role=server remote=127.0.0.1:56691 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=0c6899012424b7c8bec11b83df0c2decc7ee9e129b5a44eba02b4b9f4c7ebc59 elapsed_ms=9.549708
+EVENT type=app-data role=server remote=127.0.0.1:56691 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56691 elapsed_ms=9.916125
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56692
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1208.333
+EVENT type=ready role=server remote=127.0.0.1:56692 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=b2ed6dbe3ea79822d811255543b788f6aca601355e5bd7d7664b0e2ced88be23 elapsed_ms=30.047625
+EVENT type=app-data role=server remote=127.0.0.1:56692 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56692 elapsed_ms=30.39675
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56693
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=929.833
+EVENT type=ready role=server remote=127.0.0.1:56693 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=3717e3e70385fff86513a62218d093a5617b8dd359ad52983d534b76379f7f37 elapsed_ms=22.107625
+EVENT type=app-data role=server remote=127.0.0.1:56693 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56693 elapsed_ms=22.547625
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56694
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=841.667
+EVENT type=ready role=server remote=127.0.0.1:56694 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=1a90195f137a9f077cf58de51fd5b751117e66a9b158fe58c32648b0cf27f5df elapsed_ms=9.537666
+EVENT type=app-data role=server remote=127.0.0.1:56694 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56694 elapsed_ms=9.88375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56695
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=10191.5
+EVENT type=ready role=server remote=127.0.0.1:56695 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=2f4fb84626153910dc30d9dbbb44484945b6683c065e38c5bba43da8fd7f652f elapsed_ms=40.683708
+EVENT type=app-data role=server remote=127.0.0.1:56695 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56695 elapsed_ms=40.98375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56696
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1071.583
+EVENT type=ready role=server remote=127.0.0.1:56696 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=440a7c24196abba9f4fbf347cef278b9233c5c045cdff7e9d5352c7fd37a7044 elapsed_ms=29.159875
+EVENT type=app-data role=server remote=127.0.0.1:56696 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56696 elapsed_ms=29.592042
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56697
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=10188.25
+EVENT type=ready role=server remote=127.0.0.1:56697 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=02e3081fb74093f092313ecebc0434c5440f2003297d0d299220f21e26a1bece elapsed_ms=30.140291
+EVENT type=app-data role=server remote=127.0.0.1:56697 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56697 elapsed_ms=30.678916
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56700
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=970.834
+EVENT type=ready role=server remote=127.0.0.1:56700 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=3eab73e2a66a015e7691e06ed0785311df816cbd31cdaf6a8d0ab091ab9415d0 elapsed_ms=52.135791
+EVENT type=app-data role=server remote=127.0.0.1:56700 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56700 elapsed_ms=52.494916
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56701
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1041.958
+EVENT type=ready role=server remote=127.0.0.1:56701 tls_version=tls_protocol_version_t(rawValue: 772) alpn=tandem/1 exporter_sha256=65b6b7af272ac9a3f4dbe153dc94a7ef799ded666e9fb3ef64235322dd194b67 elapsed_ms=23.665625
+EVENT type=app-data role=server remote=127.0.0.1:56701 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56701 elapsed_ms=23.973459
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled

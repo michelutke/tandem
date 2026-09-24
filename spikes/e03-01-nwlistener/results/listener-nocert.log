@@ -1,0 +1,25 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4503 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56297
+EVENT type=failed role=server remote=127.0.0.1:56297 error="-9808: bad certificate format" elapsed_ms=53.654666
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56314
+EVENT type=failed role=server remote=127.0.0.1:56314 error="-9808: bad certificate format" elapsed_ms=16.56925
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56329
+EVENT type=failed role=server remote=127.0.0.1:56329 error="-9808: bad certificate format" elapsed_ms=22.248458
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56352
+EVENT type=failed role=server remote=127.0.0.1:56352 error="-9808: bad certificate format" elapsed_ms=16.065375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56370
+EVENT type=failed role=server remote=127.0.0.1:56370 error="-9808: bad certificate format" elapsed_ms=18.594167
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56395
+EVENT type=failed role=server remote=127.0.0.1:56395 error="-9808: bad certificate format" elapsed_ms=13.830167
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56423
+EVENT type=failed role=server remote=127.0.0.1:56423 error="-9808: bad certificate format" elapsed_ms=16.342833
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56450
+EVENT type=failed role=server remote=127.0.0.1:56450 error="-9808: bad certificate format" elapsed_ms=22.498375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56497
+EVENT type=failed role=server remote=127.0.0.1:56497 error="-9808: bad certificate format" elapsed_ms=14.37375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56522
+EVENT type=failed role=server remote=127.0.0.1:56522 error="-9808: bad certificate format" elapsed_ms=14.66225
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled

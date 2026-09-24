@@ -1,0 +1,4 @@
+setup: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+setup: good-client spki_sha256=10692ffad74b2f5e9af2ef4b9db1a7376147535510e860881fbb526cc804abd6
+setup: attacker-client spki_sha256=63aa78687944009b1cecba4f20eda23e525f77b815cc17a7d96e26fe45c898ec
+setup: complete workdir=/tmp/nwl-experiment.nr22sc

@@ -1,0 +1,25 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4504 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56545
+EVENT type=failed role=server remote=127.0.0.1:56545 error="-9836: bad protocol version" elapsed_ms=0.771875
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56548
+EVENT type=failed role=server remote=127.0.0.1:56548 error="-9836: bad protocol version" elapsed_ms=0.603584
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56551
+EVENT type=failed role=server remote=127.0.0.1:56551 error="-9836: bad protocol version" elapsed_ms=0.715417
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56552
+EVENT type=failed role=server remote=127.0.0.1:56552 error="-9836: bad protocol version" elapsed_ms=0.56325
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56555
+EVENT type=failed role=server remote=127.0.0.1:56555 error="-9836: bad protocol version" elapsed_ms=0.552834
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56556
+EVENT type=failed role=server remote=127.0.0.1:56556 error="-9836: bad protocol version" elapsed_ms=0.580709
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56559
+EVENT type=failed role=server remote=127.0.0.1:56559 error="-9836: bad protocol version" elapsed_ms=0.463792
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56564
+EVENT type=failed role=server remote=127.0.0.1:56564 error="-9836: bad protocol version" elapsed_ms=0.436
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56565
+EVENT type=failed role=server remote=127.0.0.1:56565 error="-9836: bad protocol version" elapsed_ms=0.657
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56570
+EVENT type=failed role=server remote=127.0.0.1:56570 error="-9836: bad protocol version" elapsed_ms=0.474375
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled
