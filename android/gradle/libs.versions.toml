@@ -10,6 +10,8 @@ ktlint = "1.8.0"
 detekt = "1.23.8"
 # Kotlin version detekt 1.23.8 is built against; its tool classpath is pinned to it.
 detekt-kotlin = "2.0.21"
+androidx-test-runner = "1.6.2"
+androidx-test-ext-junit = "1.2.1"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -23,6 +25,8 @@ protobuf-kotlin-lite = { group = "com.google.protobuf", name = "protobuf-kotlin-
 ktlint-gradlePlugin = { group = "org.jlleitschuh.gradle", name = "ktlint-gradle", version.ref = "ktlint-gradle" }
 detekt-gradlePlugin = { group = "io.gitlab.arturbosch.detekt", name = "detekt-gradle-plugin", version.ref = "detekt" }
 detekt-api = { group = "io.gitlab.arturbosch.detekt", name = "detekt-api", version.ref = "detekt" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidx-test-runner" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
