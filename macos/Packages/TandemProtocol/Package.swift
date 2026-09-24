@@ -7,9 +7,14 @@ let package = Package(
     products: [
         .library(name: "TandemProtocol", targets: ["TandemProtocol"])
     ],
+    dependencies: [
+        // Must match the buf.build/apple/swift plugin version in protocol/buf.gen.yaml.
+        .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.38.1")
+    ],
     targets: [
         .target(
             name: "TandemProtocol",
+            dependencies: [.product(name: "SwiftProtobuf", package: "swift-protobuf")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
