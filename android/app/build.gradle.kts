@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("tandem.android.test-fixtures")
+    id("tandem.android.robolectric")
     id("tandem.quality")
 }
 
@@ -17,4 +19,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
 }
