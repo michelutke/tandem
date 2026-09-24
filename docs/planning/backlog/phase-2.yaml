@@ -274,7 +274,7 @@ epics:
         description: |
           Register a BOOT_COMPLETED broadcast receiver (RECEIVE_BOOT_COMPLETED) that starts the
           foreground service via `ServiceStarter` (E20-02) when a paired Mac exists. Cycle 5 (owner
-          default, open-questions.md Q13): the same receiver also handles MY_PACKAGE_REPLACED so an app
+          D-53): the same receiver also handles MY_PACKAGE_REPLACED so an app
           update does not silently stop the connection until the user opens the app. BOOT_COMPLETED
           is delivered after first unlock (the app is not direct-boot aware); connectedDevice is not
           among the FGS types Android 15 forbids from BOOT_COMPLETED.

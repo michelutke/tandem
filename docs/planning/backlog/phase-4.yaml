@@ -305,7 +305,7 @@ epics:
           - Auto-accept off shows the prompt; Accept sends FileAccept, Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and cancels the prompt
           - The prompt notification shows the sanitized name and size and has exactly two actions
-          - "Auto-accept is off by default (open-questions.md Q4) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "Auto-accept is off by default (D-44) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
           - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
           - "The prompt shows the E14-21-sanitized name."
         tdd:
@@ -636,7 +636,7 @@ epics:
           - Auto-accept on sends FileAccept with no prompt
           - Auto-accept off presents a prompt with Accept and Decline; Decline sends FileReject DECLINED
           - No answer after 300 s of virtual time sends FileReject TIMEOUT and removes the prompt
-          - "Auto-accept is off by default (open-questions.md Q4) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
+          - "Auto-accept is off by default (D-44) and applies only to offers <= 1 GiB (setting, default 1 GiB); larger offers always prompt."
           - "A 5th unanswered offer, or an offer while 2 transfers are active, is rejected BUSY with no prompt; an offer over 64 GiB is rejected TOO_LARGE."
           - "The prompt shows the E14-22-sanitized name."
         tdd:

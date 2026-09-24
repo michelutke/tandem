@@ -135,8 +135,7 @@ is on: state changes become instant, pulses stop.
 
 ## 6. Home ring (Android)
 
-Decision (default, see [open questions](../planning/open-questions.md)): **idle shows items synced
-today; while a task runs the ring shows that task.**
+Decision (D-55): **idle shows items synced today; while a task runs the ring shows that task.**
 
 | Ring state | Numeral | Label | Dots |
 |---|---|---|---|
@@ -300,10 +299,9 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 - Screen readers: title pairs are read as one heading ("Pixel 9, connected").
 - Reduce Motion / Remove animations and Reduce Transparency are honoured (§4, #414, #415).
 
-## 12. Open design questions
+## 12. Resolved design questions
 
-- Should the Mac popover show phone battery at all, or the same "synced today" count as Android?
-  (Default: phone battery — it's the phone's most-asked status.)
-- Wi-Fi signal strength in status: omitted for minimalism (Q11 in open-questions.md).
+- Mac popover hero shows phone battery (D-56); Android home uses the synced-today ring (D-55).
+- Wi-Fi signal strength is not shown; only network type and cellular level (D-51).
 - Mac notification text uses the system banner; custom glass styling applies only to Tandem's own
   windows.
