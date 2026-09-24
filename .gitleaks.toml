@@ -1,0 +1,18 @@
+title = "tandem gitleaks config"
+
+# E00-16: extends gitleaks' built-in rule set (private keys, cloud provider keys, generic
+# high-entropy secrets, etc.) and adds a repo-specific allowlist so known-safe test fixtures
+# (e.g. fake HMAC/PEM material used as protocol conformance vectors) don't fail the scan.
+#
+#   gitleaks detect --source . --config .gitleaks.toml   # full history, run in CI and locally
+#   gitleaks protect --staged --config .gitleaks.toml     # pre-commit, staged changes only
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "known-safe test fixtures with fake secrets, and encrypted binary assets whose high-entropy content trips generic-api-key false positives"
+paths = [
+  '''^protocol/vectors/.*''',
+  '''^ui-design\.pen$''',
+]

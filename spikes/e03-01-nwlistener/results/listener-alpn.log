@@ -1,0 +1,75 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4505 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56571
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=862.5
+EVENT type=ready role=server remote=127.0.0.1:56571 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=4d753983cbb93392d994d12313fc024af03b62f162fb78879297e990e6b8bdcc elapsed_ms=22.473875
+EVENT type=app-data role=server remote=127.0.0.1:56571 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56571 elapsed_ms=32.686125
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56572
+EVENT type=failed role=server remote=127.0.0.1:56572 error="-9810: Internal error" elapsed_ms=0.3955
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56583
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=858.25
+EVENT type=ready role=server remote=127.0.0.1:56583 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=86cc39c476d7d77fdf75258bb87b90b6f94d5fd242fefa1387a6b0e451f22199 elapsed_ms=26.025333
+EVENT type=app-data role=server remote=127.0.0.1:56583 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56583 elapsed_ms=26.321583
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56584
+EVENT type=failed role=server remote=127.0.0.1:56584 error="-9810: Internal error" elapsed_ms=0.347083
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56599
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1221.833
+EVENT type=ready role=server remote=127.0.0.1:56599 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=70da73f6adcb37ddeab076ec9d9cfcde9213221e188801c3c3bbed0ff26646c4 elapsed_ms=28.283792
+EVENT type=app-data role=server remote=127.0.0.1:56599 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56599 elapsed_ms=28.560875
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56600
+EVENT type=failed role=server remote=127.0.0.1:56600 error="-9810: Internal error" elapsed_ms=0.398709
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56607
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=956.25
+EVENT type=ready role=server remote=127.0.0.1:56607 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=fc9567cca3718bbba9ce7c7b75a1c2dc00b72990c171abb43f5b641519df435d elapsed_ms=28.523834
+EVENT type=app-data role=server remote=127.0.0.1:56607 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56607 elapsed_ms=28.843459
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56608
+EVENT type=failed role=server remote=127.0.0.1:56608 error="-9810: Internal error" elapsed_ms=0.489833
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56624
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=8961.417
+EVENT type=ready role=server remote=127.0.0.1:56624 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=a233b32ee06ad94a908242dbf76bc39fd7cb8ae002214215e77d928bf0878bfd elapsed_ms=49.878834
+EVENT type=app-data role=server remote=127.0.0.1:56624 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56624 elapsed_ms=50.316834
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56627
+EVENT type=failed role=server remote=127.0.0.1:56627 error="-9810: Internal error" elapsed_ms=0.844917
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56635
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=2623.25
+EVENT type=ready role=server remote=127.0.0.1:56635 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=c70b7510636b3386c4dd468c96ad2e20d891c6c3178edc653c400139d89e878e elapsed_ms=12.666208
+EVENT type=app-data role=server remote=127.0.0.1:56635 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56635 elapsed_ms=13.057042
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56638
+EVENT type=failed role=server remote=127.0.0.1:56638 error="-9810: Internal error" elapsed_ms=0.424708
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56651
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=11178.125
+EVENT type=ready role=server remote=127.0.0.1:56651 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=a51ef2b291d30a605ed0fb631127399ae70247bd870ac4a1fdfb6c0175a08d78 elapsed_ms=48.5865
+EVENT type=app-data role=server remote=127.0.0.1:56651 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56651 elapsed_ms=48.942917
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56652
+EVENT type=failed role=server remote=127.0.0.1:56652 error="-9810: Internal error" elapsed_ms=0.545417
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56660
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=10391.667
+EVENT type=ready role=server remote=127.0.0.1:56660 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=37530c1914cc599d2283a14fb7918bac700da4728e9dcb0e6e69493a1719c35d elapsed_ms=33.629333
+EVENT type=app-data role=server remote=127.0.0.1:56660 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56660 elapsed_ms=34.031541
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56661
+EVENT type=failed role=server remote=127.0.0.1:56661 error="-9810: Internal error" elapsed_ms=0.367917
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56670
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1417.458
+EVENT type=ready role=server remote=127.0.0.1:56670 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=5adf6c0c81883d73853bbc8e202b3f49832e229f2cd40e4ad343e8472b25bc8f elapsed_ms=31.496959
+EVENT type=app-data role=server remote=127.0.0.1:56670 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56670 elapsed_ms=31.821084
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56671
+EVENT type=failed role=server remote=127.0.0.1:56671 error="-9810: Internal error" elapsed_ms=0.458834
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56678
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=9809.084
+EVENT type=ready role=server remote=127.0.0.1:56678 tls_version=tls_protocol_version_t(rawValue: 772) alpn=none exporter_sha256=b217f61f31cad2ff8fe4b19e80cefdb7a891b982b860499f1241048519af2100 elapsed_ms=19.017375
+EVENT type=app-data role=server remote=127.0.0.1:56678 bytes=6 text="hello"
+EVENT type=cancelled role=server remote=127.0.0.1:56678 elapsed_ms=19.373375
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56679
+EVENT type=failed role=server remote=127.0.0.1:56679 error="-9810: Internal error" elapsed_ms=0.620542
+EVENT type=exit-after-reached count=20
+EVENT type=listener-state state=cancelled

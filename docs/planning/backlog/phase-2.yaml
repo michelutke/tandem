@@ -184,6 +184,7 @@ epics:
           - 45 s without receiving any frame sets the E12-09 state to Dead and cancels the connection
           - A non-Heartbeat frame received at t=44 s keeps the connection up past t=45 s
           - Timers are per connection; one connection going Dead does not affect another
+          - "D-61: non-Heartbeat CONTROL-channel frames from the peer are capped at 60/s per session; the 61st frame within a rolling 1 s window closes the connection with LIMIT_EXCEEDED."
         tdd:
           - "unit: macHeartbeat_idle15sWithoutSend_sendsHeartbeat"
           - "unit: macHeartbeat_frameSentAt10s_noHeartbeatBefore25s"
@@ -191,6 +192,7 @@ epics:
           - "unit: macDeadPeer_silent45sWithoutReceive_stateDead"
           - "unit: macDeadPeer_nonHeartbeatFrameAt44s_staysConnected"
           - "unit: macDeadPeer_oneConnectionDead_otherConnectionUnaffected"
+          - "unit: macControlChannel_peerControlFloodOver60FramesPerSecond_closesLimitExceeded"
         notes: |
           Split from E20-05 ([cross]) in review cycle 3; Android half is E20-15.
           Decision (E01-07, review cycle 3): the Mac drives liveness. Mac sends Heartbeat after 15 s
@@ -506,6 +508,7 @@ epics:
           - A 1 h forward wall-clock jump with frames still arriving does not emit PeerDead
           - The DeviceIdleSource adapter emits the new idle state on ACTION_DEVICE_IDLE_MODE_CHANGED
           - "Manual gate: under adb force-idle for 30 min, every Mac Heartbeat is answered within 1 s (Mac-side log)"
+          - "D-60: the responder answers at most one Heartbeat per second; Heartbeats received faster than that are dropped silently (no reply, no error, no connection close)."
         tdd:
           - "unit: heartbeatResponder_macHeartbeatReceived_repliesWithin1s"
           - "unit: heartbeatResponder_nonHeartbeatFrame_noReplySent"
@@ -514,6 +517,7 @@ epics:
           - "unit: deadPeerDetector_silence46sIncludingSleep_marksDead"
           - "unit: deadPeerDetector_dozeExitAfterLongSilence_triggersReconnect"
           - "unit: deadPeerDetector_screenOnAfterLongSilence_triggersReconnect"
+          - "unit: heartbeatResponder_hundredHeartbeatsIn1s_atMostOneReplyPerSecond"
           - "unit: deadPeerDetector_wallClockJumpForward1h_staysConnected"
           - "unit: deviceIdleSource_idleModeChangedBroadcast_emitsNewIdleState"
           - "manual: forceIdle30min_macHeartbeats_everyHeartbeatAnsweredWithin1s"
@@ -635,6 +639,31 @@ epics:
         tdd:
           - "ui: settingsTab_batteryRestricted_showsFixAction"
           - "ui: settingsTab_unpairConfirmed_invokesUnpairAction"
+      - id: E20-20
+        title: "[tools] mitm-lab: authenticated heartbeat/CONTROL flood"
+        type: test
+        platforms: [tools]
+        priority: P1
+        size: S
+        prd: [F-3.4, F-3.2]
+        use_cases: []
+        invariants: []
+        depends_on: [E20-15, E20-05, E15-08]
+        description: |
+          mitm-lab scenario (E15-08 runner) where an already-paired, authenticated peer floods the
+          control connection: 1000 Heartbeats/s from a JVM client against the real Mac listener,
+          and the reverse direction (Mac test double flooding a JVM phone client). Proves D-60
+          (at most one Heartbeat reply per second, extras dropped) and D-61 (non-Heartbeat CONTROL
+          frames capped at 60/s, LIMIT_EXCEEDED beyond that) hold under an authenticated flood, not
+          just the pre-auth admission-control caps (E12-18) that stop an unauthenticated attacker.
+        acceptance:
+          - A flood of 1000 Heartbeats/s from an authenticated peer results in at most one reply
+            per second from the receiver; the session stays Ready throughout (no Dead/close).
+          - A flood of non-Heartbeat CONTROL frames past 60/s closes the connection with
+            LIMIT_EXCEEDED and the trust store / pin is unchanged.
+        tdd:
+          - "security: mitmLabDos_authenticatedHeartbeatFlood1000PerSecond_phoneRepliesCappedSessionStaysUp"
+        notes: "Added: verifies D-60/D-61 against an authenticated (not pre-auth) flood."
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
@@ -1283,10 +1312,13 @@ epics:
           - Phone dismissal stops playback and sends exactly one RingStop with origin phone
           - A received RingStop from the Mac stops playback and sends no RingStop
           - Tapping "Stop" on the ring notification on the emulator makes the alarm stream inactive within 1 s
+          - "D-62: Ring is idempotent while an alarm is already ringing (a second Ring is a no-op, not a second alarm); the alarm starts at most twice per rolling 10 s window (cooldown)."
         tdd:
           - "unit: ringController_phoneDismiss_stopsPlaybackAndSendsRingStopFromPhone"
           - "unit: ringController_macRingStopReceived_stopsPlaybackWithoutEcho"
           - "instrumented: ringNotification_stopActionTapped_alarmInactiveWithin1s"
+          - "unit: ringController_ringWhileAlreadyRinging_noSecondAlarmStart"
+          - "unit: ringController_tenRingsIn10s_alarmStartedAtMostTwice"
       - id: E23-07
         title: "[macos] Find my phone quick action wired to Ring/RingStop"
         type: story
@@ -1337,3 +1369,4 @@ epics:
           - "integration: ringRoundTrip_ringStopFromMac_phoneAlarmStoppedWithin1s"
           - "integration: statusChangeOutsideThrottleWindow_macViewModel_updatedWithin2s"
           - "manual: findPhoneFromMacMenu_silentDndPhone_stopSilencesWithin1s"
+          - "integration: ringFlood_macSends20RingsIn5s_phoneAlarmStartedAtMostTwice"

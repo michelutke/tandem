@@ -1,0 +1,9 @@
+# E00-13: single-owner repo, kept simple. The catch-all guarantees every tracked path has an
+# owner (checked by `ruby tools/planning/check_codeowners.rb`); the per-directory rules below it
+# are redundant with the catch-all today but document intent if the repo ever grows a second owner.
+* @michelutke
+
+/android/ @michelutke
+/macos/ @michelutke
+/protocol/ @michelutke
+/tools/ @michelutke

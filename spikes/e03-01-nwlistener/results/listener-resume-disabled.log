@@ -1,0 +1,35 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4507 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56702
+EVENT type=failed role=server remote=127.0.0.1:56702 error="-9816: server closed session with no notification" elapsed_ms=9.803333
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=10879.458
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56705
+EVENT type=failed role=server remote=127.0.0.1:56705 error="-9816: server closed session with no notification" elapsed_ms=8.87575
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1301.459
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56706
+EVENT type=failed role=server remote=127.0.0.1:56706 error="-9816: server closed session with no notification" elapsed_ms=13.4395
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=2663.667
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56709
+EVENT type=failed role=server remote=127.0.0.1:56709 error="-9816: server closed session with no notification" elapsed_ms=10.664042
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1231.0
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56710
+EVENT type=failed role=server remote=127.0.0.1:56710 error="-9816: server closed session with no notification" elapsed_ms=11.334583
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1446.541
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56711
+EVENT type=failed role=server remote=127.0.0.1:56711 error="-9816: server closed session with no notification" elapsed_ms=11.049125
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1386.666
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56712
+EVENT type=failed role=server remote=127.0.0.1:56712 error="-9816: server closed session with no notification" elapsed_ms=14.185541
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1254.584
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56713
+EVENT type=failed role=server remote=127.0.0.1:56713 error="-9816: server closed session with no notification" elapsed_ms=15.402
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1544.542
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56714
+EVENT type=failed role=server remote=127.0.0.1:56714 error="-9816: server closed session with no notification" elapsed_ms=12.239959
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1091.25
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56717
+EVENT type=failed role=server remote=127.0.0.1:56717 error="-9816: server closed session with no notification" elapsed_ms=12.70425
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled
+LOG[listener] verify_block: peer_spki=10692ffad74b2f5e... match=true elapsed_us=1152.583

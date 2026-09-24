@@ -1,0 +1,35 @@
+listen: server spki_sha256=f72e81490c5742c5c1a8d097d83c05b3479990fbbdf66533de466ead3287b6a7
+listen: starting on 127.0.0.1:4502 tickets=disabled resumption=false alpn=tandem/1 accept_unpinned=false
+EVENT type=listener-state state=ready
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56283
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=908.083
+EVENT type=failed role=server remote=127.0.0.1:56283 error="-9808: bad certificate format" elapsed_ms=24.076209
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56284
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=8166.333
+EVENT type=failed role=server remote=127.0.0.1:56284 error="-9808: bad certificate format" elapsed_ms=41.576167
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56287
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=778.75
+EVENT type=failed role=server remote=127.0.0.1:56287 error="-9808: bad certificate format" elapsed_ms=19.634
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56288
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=829.417
+EVENT type=failed role=server remote=127.0.0.1:56288 error="-9808: bad certificate format" elapsed_ms=9.695542
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56289
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=15059.958
+EVENT type=failed role=server remote=127.0.0.1:56289 error="-9808: bad certificate format" elapsed_ms=31.611208
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56290
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=749.166
+EVENT type=failed role=server remote=127.0.0.1:56290 error="-9808: bad certificate format" elapsed_ms=18.26575
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56291
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=792.625
+EVENT type=failed role=server remote=127.0.0.1:56291 error="-9808: bad certificate format" elapsed_ms=15.622666
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56292
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=852.75
+EVENT type=failed role=server remote=127.0.0.1:56292 error="-9808: bad certificate format" elapsed_ms=23.541458
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56293
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=16046.542
+EVENT type=failed role=server remote=127.0.0.1:56293 error="-9808: bad certificate format" elapsed_ms=36.515084
+EVENT type=pre-handshake-endpoint remote=127.0.0.1:56294
+LOG[listener] verify_block: peer_spki=63aa78687944009b... match=false elapsed_us=820.584
+EVENT type=failed role=server remote=127.0.0.1:56294 error="-9808: bad certificate format" elapsed_ms=37.799
+EVENT type=exit-after-reached count=10
+EVENT type=listener-state state=cancelled
