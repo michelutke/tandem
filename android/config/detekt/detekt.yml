@@ -11,6 +11,17 @@ tandem:
       - "**/test/**"
       - "**/androidTest/**"
       - "**/dev/tandem/core/transport/time/ElapsedRealtimeSource.kt"
+  NoSensitiveReleaseLog:
+    active: true
+    # tools/lint/sensitive-symbols.txt, resolved relative to the working directory `./gradlew`
+    # is invoked from (always `android/`, per CLAUDE.md's command list and CI).
+    sensitiveSymbolsFile: "../tools/lint/sensitive-symbols.txt"
+    # Not release-visible, so not covered by invariant 7's release-log guarantee.
+    excludes:
+      - "**/src/debug/**"
+      - "**/src/test/**"
+      - "**/src/androidTest/**"
+      - "**/src/testFixtures/**"
   SocketOnlyInTransport:
     active: true
     # Only core/transport may open raw sockets (PRD module rules; E00-14).
