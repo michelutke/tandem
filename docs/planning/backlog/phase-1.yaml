@@ -62,6 +62,7 @@ epics:
           no StrongBox, so the fallback path runs for real) and `manual:` on physical devices
           (E00-23) for StrongBox and `KeyInfo.isInsideSecureHardware`.
         acceptance:
+          - "Key spec declares `setDigests(DIGEST_SHA256, DIGEST_NONE)`: Conscrypt signs TLS 1.3 CertificateVerify via NONEwithECDSA, and without DIGEST_NONE every client-cert handshake fails (spike E03-03, docs/spikes/android-sslsocket-keystore.md)."
           - With `failNextGenerate(StrongBoxUnavailable)`, the provider issues exactly one retry with preferStrongBox=false and returns that key.
           - If both the StrongBox and the TEE request fail, the provider throws `IdentityKeyError.GenerationFailed` and no key from any other source (software/exportable) is created.
           - The StrongBox fallback writes one log line naming the resulting security level and containing no key bytes, alias-independent handle or certificate bytes (UC-02 alternate).
