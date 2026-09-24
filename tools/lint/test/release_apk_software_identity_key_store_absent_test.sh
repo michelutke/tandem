@@ -15,11 +15,17 @@ fi
 
 DEX_DIR="$(mktemp -d)"
 trap 'rm -rf "$DEX_DIR"' EXIT
-unzip -oq "$APK" '*.dex' -d "$DEX_DIR"
+unzip -oq "$APK" -d "$DEX_DIR"
+mapfile -t DEX_FILES < <(find "$DEX_DIR" -name '*.dex')
+if [ "${#DEX_FILES[@]}" -eq 0 ]; then
+  echo "FAIL: no .dex files inside $APK" >&2
+  unzip -l "$APK" >&2
+  exit 1
+fi
 
 # Class/type names are stored as contiguous MUTF-8 strings in the dex string pool, so a plain
 # binary grep on the extracted dex files finds them directly (no dexdump/d8 dependency needed).
-if grep -aq "SoftwareIdentityKeyStore" "$DEX_DIR"/*.dex; then
+if grep -aq "SoftwareIdentityKeyStore" "${DEX_FILES[@]}"; then
   echo "FAIL: SoftwareIdentityKeyStore class found in the release APK ($APK)" >&2
   exit 1
 fi
