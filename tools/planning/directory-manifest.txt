@@ -51,6 +51,7 @@ protocol/proto/tandem
 protocol/proto/tandem/v1
 protocol/vectors
 
+tools/audit
 tools/companion-app
 tools/conformance
 tools/fuzz
