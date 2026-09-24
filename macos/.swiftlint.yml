@@ -7,4 +7,13 @@ excluded:
 opt_in_rules:
   - force_unwrapping
 
+custom_rules:
+  injected_clock_only:
+    included: ".*\\.swift"
+    excluded: ".*/Packages/TandemTestSupport/.*|.*/TandemApp/.*"
+    name: "Injected Clock Only"
+    message: "Take an injected `any Clock<Duration>` and `DateProvider` via init instead of calling Date()/Date.now/Task.sleep directly (E00-24)."
+    regex: "(\\bDate\\(\\)|\\bDate\\.now\\b|\\bTask\\.sleep\\()"
+    severity: error
+
 reporter: "xcode"
