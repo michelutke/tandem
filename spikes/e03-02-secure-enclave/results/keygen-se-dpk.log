@@ -1,0 +1,1 @@
+ERROR: SecKeyCreateRandomKey failed: OSStatus=-34018 (A required entitlement isn't present.) cferror=Optional(Error Domain=NSOSStatusErrorDomain Code=-34018 "failed to add key to keychain: <SecKeyRef:('com.apple.setoken') 0x71d003d20>" UserInfo={numberOfErrorsDeep=0, NSDescription=failed to add key to keychain: <SecKeyRef:('com.apple.setoken') 0x71d003d20>})

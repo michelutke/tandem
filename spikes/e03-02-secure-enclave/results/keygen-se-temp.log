@@ -1,0 +1,1 @@
+ERROR: SecKeyCreateRandomKey failed: OSStatus=-50 (One or more parameters passed to a function were not valid.) cferror=Optional(Error Domain=NSOSStatusErrorDomain Code=-50 "inconsistent private key parameters for key generation" (paramErr: error in user parameter list) UserInfo={numberOfErrorsDeep=0, NSDescription=inconsistent private key parameters for key generation})
