@@ -1,0 +1,41 @@
+# Shared sensitive-symbol list for the release-log lint rules (E00-17 android, E00-27 macos).
+# One symbol name per line, matched against log-call arguments; blank lines and lines starting
+# with # are ignored. A log call that only derives a redacted/length-only value from a listed
+# symbol (e.g. `clipboardText.length`) is not flagged.
+
+# Notification text (E30).
+notificationTitle
+notificationText
+
+# Clipboard content (E31).
+clipboardText
+
+# Message bodies (E50 messaging).
+messageBody
+
+# Secrets and pairing material.
+secret
+token
+password
+apiKey
+privateKey
+sharedSecret
+sessionKey
+authToken
+
+# Cycle 4 additions (docs/planning/backlog/phase-0.yaml E00-17).
+pairingSecret
+qrPayload
+mediaTicket
+channelBinding
+fileName
+displayName
+deviceName
+replyText
+smsBody
+smsAddress
+contactName
+phoneNumber
+callerNumber
+inputText
+inputCoordinates

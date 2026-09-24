@@ -7,7 +7,10 @@ plugins {
     id("tandem.kotlin.jvm")
 }
 
-tasks.withType<KotlinCompile>().configureEach {
+// Only the rule classes themselves are loaded into detekt's own Kotlin 2.0 runtime at analysis
+// time (via ServiceLoader); the JUnit tests below run in the project's own Kotlin runtime, so
+// compileTestKotlin is intentionally left off this restriction.
+tasks.named<KotlinCompile>("compileKotlin") {
     compilerOptions {
         languageVersion.set(KotlinVersion.KOTLIN_2_0)
         apiVersion.set(KotlinVersion.KOTLIN_2_0)
@@ -16,4 +19,12 @@ tasks.withType<KotlinCompile>().configureEach {
 
 dependencies {
     compileOnly(libs.detekt.api)
+    testImplementation(libs.detekt.api)
+    testImplementation(libs.detekt.test)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

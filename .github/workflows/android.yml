@@ -35,5 +35,8 @@ jobs:
         run: |
           tools/lint/test/ktlint_wildcard_import_test.sh
           tools/lint/test/detekt_injected_clock_only_test.sh
+          tools/lint/test/detekt_no_sensitive_release_log_test.sh
+          tools/lint/test/sensitive_symbols_list_test.sh
+          tools/lint/test/release_dex_log_stripping_test.sh
           tools/lint/test/detekt_socket_only_in_transport_test.sh
           tools/lint/test/gradle_module_rules_test.sh
