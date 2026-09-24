@@ -13,6 +13,6 @@ final class ScenarioNotPairedUITests: XCTestCase {
 
         let label = app.staticTexts["notPairedStateLabel"]
         XCTAssertTrue(label.waitForExistence(timeout: 10), "seeded notPaired label never appeared")
-        XCTAssertEqual(label.title, "Not Paired")
+        XCTAssertEqual(label.label, "Not Paired")
     }
 }
