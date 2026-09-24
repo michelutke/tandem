@@ -200,6 +200,11 @@ epics:
           - "integration: identityKey_hostedKeychain_accessibilityReadsAfterFirstUnlockThisDeviceOnly"
           - "integration: identityKey_hostedKeychainExportPrivateKey_copyExternalRepresentationFails"
           - "unit: getOrCreateIdentityKey_addRequest_usesDataProtectionKeychainOwnGroup"
+        notes: |
+          Spike E03-02 (docs/spikes/secure-enclave-identity.md): the data-protection keychain
+          (and any Secure Enclave key) needs the `keychain-access-groups` entitlement, which AMFI only
+          allows in a provisioning-profile-signed app. Unit tests use the E10-16 in-memory KeychainStore;
+          the real-keychain path needs a signed build (manual gate / E71-11 signing).
 
       - id: E10-06
         title: "[macos] Self-signed certificate via swift-certificates"
