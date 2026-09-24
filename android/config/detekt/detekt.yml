@@ -2,3 +2,12 @@
 # (buildUponDefaultConfig = true); only deviations from the defaults are listed here.
 tandem:
   active: true
+  InjectedClockOnly:
+    active: true
+    # The only places allowed to touch the system clock or pick dispatchers.
+    excludes:
+      - "**/core/testing/**"
+      - "**/di/**"
+      - "**/test/**"
+      - "**/androidTest/**"
+      - "**/dev/tandem/core/transport/time/ElapsedRealtimeSource.kt"
