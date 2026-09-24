@@ -24,12 +24,14 @@ extensions.configure<LibraryExtension> {
                 create("api29") {
                     device = "Pixel 6"
                     apiLevel = 29
+                    require64Bit = true
                     // No ATD image exists below API 30, so API 29 uses the regular Google image.
                     systemImageSource = "google"
                 }
                 create("api35") {
                     device = "Pixel 6"
                     apiLevel = 35
+                    require64Bit = true
                     systemImageSource = "google_apis"
                 }
             }
