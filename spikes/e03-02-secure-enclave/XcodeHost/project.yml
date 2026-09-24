@@ -1,0 +1,21 @@
+name: SEIdentitySpikeHost
+options:
+  bundleIdPrefix: com.tandem
+targets:
+  se-identity-spike-host:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tandem.se-identity-spike-host
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        # DEVELOPMENT_TEAM: <redacted -- a locally available Apple Development team ID>.
+        # Per owner instruction, this spike does not sign with the owner's personal/work
+        # signing identity; substitute your own team ID (with a signed-in Xcode Apple ID
+        # account) to reproduce the "No Account for Team" experiment below.
+        CODE_SIGN_ENTITLEMENTS: entitlements.plist
+        SWIFT_VERSION: "5.10"

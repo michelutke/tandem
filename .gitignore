@@ -10,3 +10,7 @@ xcuserdata/
 *.xcuserstate
 .env
 .kotlin/
+tools/vectors/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
