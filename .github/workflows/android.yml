@@ -32,4 +32,6 @@ jobs:
         run: ./gradlew ktlintCheck detekt
       - name: Lint rule fixtures
         working-directory: .
-        run: tools/lint/test/ktlint_wildcard_import_test.sh
+        run: |
+          tools/lint/test/ktlint_wildcard_import_test.sh
+          tools/lint/test/detekt_injected_clock_only_test.sh
