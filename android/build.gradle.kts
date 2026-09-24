@@ -3,6 +3,9 @@
 // `android/app` is the one module that applies AGP/Kotlin directly (see app/build.gradle.kts);
 // these `apply false` declarations resolve their versions from the version catalog once for
 // the whole build.
+// `tandem.module-rules` (E00-14) inspects the whole project graph, so it is applied here rather
+// than by each module's own build script.
 plugins {
     alias(libs.plugins.android.application) apply false
+    id("tandem.module-rules")
 }

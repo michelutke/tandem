@@ -3,7 +3,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 
 // ktlint (formatting, driven by android/.editorconfig) and detekt (static analysis, config in
 // android/config/detekt/detekt.yml) for every Android module (E00-05). Custom detekt rules live in
-// :lint:detekt-rules (module-dependency rule E00-14, injected-clock rule E00-18).
+// :lint:detekt-rules (socket-usage rule E00-14, injected-clock rule E00-18).
 plugins {
     id("org.jlleitschuh.gradle.ktlint")
     id("io.gitlab.arturbosch.detekt")
