@@ -7,9 +7,13 @@ let package = Package(
     products: [
         .library(name: "TandemTestSupport", targets: ["TandemTestSupport"])
     ],
+    dependencies: [
+        .package(path: "../TandemTransport")
+    ],
     targets: [
         .target(
             name: "TandemTestSupport",
+            dependencies: ["TandemTransport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
