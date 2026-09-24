@@ -3,7 +3,7 @@ epics:
   - id: E40
     title: File transfer (both directions, resumable)
     labels: [area:files]
-    prd: [F-7.1, F-7.2, F-7.3]
+    prd: [F-7.1, F-7.2, F-7.3, F-4.2]
     use_cases: [UC-14, UC-15, UC-16]
     summary: |
       Move files in either direction with an explicit offer/accept handshake, chunked and
@@ -71,9 +71,12 @@ epics:
           - A name containing a path-traversal segment or an absolute path is sanitized to a
             safe base name on both platforms
           - A name with an embedded null byte is rejected
+          - A leading-dot (hidden) name is made visible and a reserved name (e.g. CON, NUL, .., empty) is replaced with a safe generated name (UC-14).
         tdd:
           - filenameSanitization_pathTraversalAttempt_sanitizedToSafeName
           - filenameSanitization_nullByteInName_rejected
+          - filenameSanitization_leadingDotHiddenName_madeVisible
+          - filenameSanitization_reservedOrEmptyName_replacedWithSafeName
       - id: E40-03
         title: "[android] Sender: chunked read, hashing, flow control"
         type: task
@@ -233,10 +236,10 @@ epics:
         platforms: [macos]
         priority: P1
         size: M
-        prd: [F-7.2]
+        prd: [F-7.2, F-4.2]
         use_cases: [UC-15]
         invariants: []
-        depends_on: [E40-04, E22-01]
+        depends_on: [E40-04, E22-01, E22-02]
         description: |
           Accept files dropped onto the menu bar window, add a Finder Services item "Send to
           phone", and a Share extension target, each starting a FileOffer.
@@ -244,10 +247,12 @@ epics:
           - Dropping a file onto the menu bar window starts a FileOffer to the connected phone
           - The Finder Services menu offers "Send to phone" for a selected file
           - The Share extension appears as a target from other apps' share sheets
+          - The menu bar Send File quick action (E22-02) opens a file picker and starts a FileOffer (F-4.2).
         tdd:
           - macEntryPoints_dragDrop_startsFileOffer
           - macEntryPoints_finderServices_visibleAndStartsOffer
           - macEntryPoints_shareExtension_visibleAndStartsOffer
+          - macEntryPoints_sendFileQuickAction_opensPickerAndStartsOffer
       - id: E40-11
         title: "[android] Share target and SAF picker entry points"
         type: story
@@ -337,9 +342,9 @@ epics:
         priority: P0
         size: M
         prd: [F-3.2]
-        use_cases: [UC-14, UC-15]
+        use_cases: [UC-14, UC-15, UC-16]
         invariants: []
-        depends_on: [E40-03, E40-04, E11-09, E11-10]
+        depends_on: [E40-03, E40-04, E11-09, E11-10, E30-14]
         description: |
           With a large file transfer saturating the FILES channel, concurrently send
           NOTIFY-channel traffic and assert its delivery latency stays within the normal
@@ -350,6 +355,7 @@ epics:
             normal p95 budget
           - FILES channel throughput remains non-zero throughout, so NOTIFY traffic does not
             starve it either
+          - "Measured with the E30-14 harness: NOTIFY p95 stays < 500 ms during a saturating 4 GB transfer (UC-16)."
         tdd:
           - flowControlTest_notifyDuringSaturatingFileTransfer_latencyWithinBudget
           - flowControlTest_filesChannel_stillMakesProgressDuringNotifyBursts
@@ -364,7 +370,7 @@ epics:
       download originals through the existing file-transfer machinery, respecting Android's
       scoped and partial media permissions.
     scope:
-      - photos.proto messages and SPEC.md PHOTOS channel section
+      - photos.proto messages and SPEC.md photo-browser section (messages ride the FILES channel; decision in E01-04)
       - Android media permission handling (full and partial access)
       - MediaStore cursor paging and thumbnail generation
       - Mac grid UI and LRU thumbnail disk cache
@@ -388,19 +394,21 @@ epics:
         prd: [F-7.4]
         use_cases: [UC-17]
         invariants: []
-        depends_on: [E01-05, E01-10, E01-14, E01-16]
+        depends_on: [E01-05, E01-10, E01-14, E01-16, E01-04]
         description: |
           Define `PhotoPage{cursor, limit}`, `PhotoPageResult{items: PhotoMeta{id, takenAt,
           width, height}, nextCursor}`, `ThumbRequest{id, maxPx}`, `ThumbResult{id, pngBytes}` on
-          PHOTOS. Document paging semantics (stable cursor, page-size bounds) in SPEC.md. Provide
+          FILES (no PHOTOS channel; decision recorded in E01-04). Document paging semantics (stable cursor, page-size bounds) in SPEC.md. Provide
           vectors for a page response and a thumb response.
         acceptance:
           - photos.proto compiles on both codegens
           - SPEC.md documents cursor paging semantics and bounds
           - Vectors cover a PhotoPageResult and a ThumbResult
+          - SPEC.md states photo messages ride FILES and that the FILES sender interleaves per stream (round-robin between active transfers and thumbnail/page responses) so an in-flight transfer never blocks a ThumbResult for more than one chunk.
         tdd:
           - conformance_photoPageResultVector_encodesAndDecodes
           - conformance_thumbResultVector_encodesAndDecodes
+          - filesChannelScheduler_transferInFlight_thumbResultInterleavedWithinOneChunk
       - id: E41-02
         title: "[android] Media permission handling (full and partial access)"
         type: story
@@ -483,9 +491,11 @@ epics:
           - Scrolling near the end of the currently loaded items triggers the next PhotoPage
             request
           - The grid never issues a duplicate request for a page already in flight
+          - Thumbnails are requested only for visible cells plus a bounded prefetch window (UC-17).
         tdd:
           - photoGridUi_scrollNearEnd_requestsNextPage
           - photoGridUi_pageAlreadyInFlight_neverDuplicateRequested
+          - photoGridUi_offscreenCells_neverRequestThumbnails
       - id: E41-06
         title: "[macos] LRU disk thumbnail cache with size cap"
         type: task
@@ -548,3 +558,26 @@ epics:
         tdd:
           - partialAccessTest_photoOutsideGrant_promptsAndBecomesRetrievable (device test)
           - pagingCorrectnessTest_largeLibrary_noDuplicatesOrGaps
+      - id: E41-09
+        title: "[cross] 10k-library scroll test: thumbnails only for visible cells, bounded cache and memory"
+        type: test
+        platforms: [android, macos]
+        priority: P0
+        size: M
+        prd: [F-7.4]
+        use_cases: [UC-17]
+        invariants: []
+        depends_on: [E41-03, E41-04, E41-05, E41-06]
+        description: |
+          Phase 4 checklist "photo browser pages a 10k library with bounded cache" and UC-17's
+          acceptance had no verifying test (E41-08 uses 500 items). Drive a 10 000-item fake MediaStore
+          through the real paging/thumbnail code into the Mac grid over a fake TandemSession; scroll
+          top to bottom and back.
+        acceptance:
+          - ThumbRequests are issued only for visible cells plus the configured prefetch window, never for the whole library
+          - The disk thumbnail cache never exceeds its size cap during the scroll
+          - Mac resident memory for the grid stays under a documented ceiling independent of library size
+        tdd:
+          - photoGrid10k_scrollFullLibrary_thumbRequestsOnlyVisiblePlusPrefetch
+          - photoGrid10k_scrollFullLibrary_diskCacheNeverExceedsCap
+          - photoGrid10k_scrollFullLibrary_residentMemoryBounded

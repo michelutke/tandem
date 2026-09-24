@@ -52,9 +52,12 @@ epics:
           - SPEC.md documents NOTIFY channel semantics, the default filter list, and
             secret-visibility handling
           - Vectors cover a MessagingStyle post and a reply action
+          - "notify.proto also defines NotificationActionResult{key, status: OK|GONE|FAILED} so the Mac can report \"no longer available\" (UC-09 alternate)."
+          - SPEC.md states the disconnected-phone buffer policy (bounded count and max age; oldest dropped first; nothing persisted to disk) (UC-08 alternate).
         tdd:
           - conformance_notificationPostedVector_encodesAndDecodes
           - conformance_notificationActionWithReplyVector_encodesAndDecodes
+          - conformance_notificationActionResultVector_encodesAndDecodes
       - id: E30-02
         title: "[android] NotificationListenerService capture"
         type: task
@@ -74,10 +77,12 @@ epics:
           - A plain notification and a MessagingStyle group notification both produce correct
             NotificationPosted payloads with sender names preserved for the latter
           - Release build logs never contain notification title or text
+          - While disconnected, posted notifications are held only up to the SPEC buffer limits (count and age), in memory, and flushed oldest-first on reconnect.
         tdd:
           - notificationListener_plainNotification_mapsToPostedMessage
           - notificationListener_messagingStyleGroup_preservesSenderNames
           - notificationListener_releaseLogging_neverContainsNotificationText
+          - notificationListener_disconnected_buffersWithinSpecLimitsDropsOldest
       - id: E30-03
         title: "[android] Default notification filter"
         type: task
@@ -96,10 +101,14 @@ epics:
           - Tandem's own notifications are never forwarded
           - Each package on the documented system-noise list is never forwarded by default
           - A notification from any other app is forwarded by default
+          - "The system-noise rule set is exactly: (1) Tandem's own package; (2) packages `android` and `com.android.systemui`; (3) notifications with FLAG_FOREGROUND_SERVICE from any app; (4) group-summary notifications (children still forwarded); (5) MediaStyle notifications (media control is F-10.1). The list is checked in as android/feature/notifications/SYSTEM_NOISE.md and referenced from the SPEC NOTIFY section (E30-01)."
         tdd:
           - defaultFilter_ownPackage_neverForwarded
           - defaultFilter_systemNoisePackage_neverForwarded
           - defaultFilter_ordinaryApp_forwardedByDefault
+          - defaultFilter_foregroundServiceFlag_neverForwarded
+          - defaultFilter_groupSummary_notForwardedChildrenForwarded
+          - defaultFilter_mediaStyle_neverForwarded
       - id: E30-04
         title: "[android] Per-app allow/deny settings"
         type: story
@@ -122,11 +131,12 @@ epics:
           - perAppFilterUi_toggleDeny_stopsForwarding
           - perAppFilterUi_toggleAllowOnDefaultDenied_forwards
           - perAppFilterUi_restart_settingPersists
+          - perAppFilterUi_toggleDeny_appliesToNextNotificationWithoutReconnect
         notes: |
           Decision: the allow/deny list is managed on the phone only. Android owns the
           notification-access permission and the authoritative installed-app list; the Mac
-          displays the phone's current allow list read-only (see E22 paired-device UI) rather
-          than duplicating editable state that could diverge.
+          does not display or edit the allow list in v1, rather than duplicating editable state
+          that could diverge.
       - id: E30-05
         title: "[android] Icon extraction, send once per version"
         type: task
@@ -207,9 +217,11 @@ epics:
           - A plain action tap sends NotificationAction with the correct actionIndex and no
             replyText
           - A text-input reply sends NotificationAction with the typed replyText
+          - A NotificationActionResult with status GONE shows "no longer available" on the Mac and removes the stale Mac notification (UC-09 alternate).
         tdd:
           - macActionForwarding_actionTap_sendsActionIndex
           - macActionForwarding_textInputReply_sendsReplyText
+          - macActionForwarding_resultGone_showsNoLongerAvailableAndRemoves
       - id: E30-09
         title: "[android] Fire PendingIntent from received NotificationAction"
         type: story
@@ -230,10 +242,12 @@ epics:
             the target app processes it as a normal reply
           - An action referencing an already-dismissed or expired notification key is ignored,
             not crashed
+          - Every received NotificationAction is answered with NotificationActionResult (OK, GONE for an unknown/expired key, FAILED if the PendingIntent throws).
         tdd:
           - actionForwarding_plainAction_firesPendingIntent
           - actionForwarding_replyAction_firesPendingIntentWithRemoteInput
           - actionForwarding_unknownOrExpiredKey_ignoredSafely
+          - actionForwarding_unknownKey_repliesResultGone
       - id: E30-10
         title: "[cross] Dismiss sync both ways"
         type: story
@@ -260,7 +274,7 @@ epics:
           - dismissSync_macDismiss_cancelsAndroidNotificationWithin1s
           - dismissSync_originTag_neverLoopsBack
       - id: E30-11
-        title: "[android] VISIBILITY_SECRET and lock-screen content hiding"
+        title: "[android] VISIBILITY_SECRET content handling (phone-side opt-in)"
         type: story
         platforms: [android]
         priority: P0
@@ -271,8 +285,9 @@ epics:
         depends_on: [E30-02, E30-04]
         description: |
           Notifications marked VISIBILITY_SECRET forward only the app name (no title, text, or
-          sender) unless the user opts in to "show content on Mac lock screen" in settings; add
-          the opt-in toggle.
+          sender) unless the user opts in to "show content of secret notifications on Mac" in
+          phone settings; add the opt-in toggle. The Mac-side "hide content on Mac lock screen"
+          option is E30-15.
         acceptance:
           - A VISIBILITY_SECRET notification without opt-in forwards app-name only
           - With opt-in enabled, the same notification forwards full content
@@ -310,9 +325,9 @@ epics:
         priority: P0
         size: M
         prd: [F-5.1, F-5.2, F-5.3, F-5.4]
-        use_cases: [UC-08, UC-09, UC-10]
+        use_cases: [UC-08, UC-09, UC-10, AC-10]
         invariants: [7]
-        depends_on: [E30-08, E30-09, E30-10, E30-11]
+        depends_on: [E30-08, E30-09, E30-10, E30-11, E15-17]
         description: |
           Device-level gate: receive a message in WhatsApp and in Signal, reply to each from the
           Mac, confirm delivery in the origin app; dismiss from each side and confirm sync;
@@ -327,11 +342,59 @@ epics:
           - phase3ExitTest_whatsAppReplyFromMac_deliveredToContact (device test)
           - phase3ExitTest_signalReplyFromMac_deliveredToContact (device test)
           - phase3ExitTest_logCapture_noNotificationContentPresent
+      - id: E30-14
+        title: "[tools] Notification latency harness: Android to Mac p95 < 500 ms"
+        type: test
+        platforms: [android, macos, tools]
+        priority: P0
+        size: M
+        prd: [F-5.1]
+        use_cases: [UC-08]
+        invariants: [7]
+        depends_on: [E30-02, E30-07, E20-02]
+        description: |
+          PRD success metric and Phase 3 checklist item "notification p95 latency < 500 ms" had no
+          measuring issue. A separate companion test APK (not Tandem, whose own notifications are
+          filtered) posts 200 notifications; latency = Mac presentation time minus
+          StatusBarNotification.postTime, corrected by a clock offset measured at session start (same
+          method as E61-08). Notification text carries only a sequence number. Manual device gate on
+          same Wi-Fi; report committed per run. E40-15 reuses this harness under a saturating transfer.
+        acceptance:
+          - Over 200 notifications on the same Wi-Fi, p95 Android-post to Mac-presentation latency is < 500 ms
+          - The clock-offset correction is applied and recorded in the report
+          - The harness logs only sequence numbers and timings, never notification content (invariant 7)
+        tdd:
+          - notificationLatencyHarness_200Posts_p95Under500ms (device test)
+          - notificationLatencyHarness_clockOffset_appliedFromSessionStart
+      - id: E30-15
+        title: "[macos] Hide notification content while the Mac is locked"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-5.4]
+        use_cases: [UC-11]
+        invariants: [7]
+        depends_on: [E30-07, E13-08]
+        description: |
+          F-5.4's optional "hide content on Mac lock screen" is Mac-side and distinct from the phone's
+          VISIBILITY_SECRET opt-in (E30-11). Mac setting, off by default: while the screen is locked
+          (observed via com.apple.screenIsLocked / screenIsUnlocked distributed notifications, behind
+          an injectable lock-state provider), NotificationPosted is presented with the app name only;
+          the category also sets hiddenPreviewsBodyPlaceholder. Content is not re-posted on unlock.
+        acceptance:
+          - With the option on and the screen locked, a presented notification contains the app name only
+          - With the option on and the screen unlocked, or the option off, full content is presented
+          - Toggling the option applies to the next notification without reconnecting (UC-11)
+        tdd:
+          - lockScreenHiding_enabledAndLocked_presentsAppNameOnly
+          - lockScreenHiding_enabledAndUnlocked_presentsFullContent
+          - lockScreenHiding_toggle_appliesToNextNotificationWithoutReconnect
 
   - id: E31
     title: Clipboard sync
     labels: [area:clipboard]
-    prd: [F-6.1, F-6.2, F-6.3]
+    prd: [F-6.1, F-6.2, F-6.3, F-4.2]
     use_cases: [UC-12, UC-13]
     summary: |
       Sync clipboard text Mac to phone by polling NSPasteboard, and phone to Mac through the
@@ -433,9 +496,11 @@ epics:
             contentHash
           - A qualifying text change over 1 MiB is not sent, and no partial or truncated send
             occurs
+          - An over-limit item shows a one-time Mac hint ("Clipboard too large to send, use file transfer") (UC-12 alternate).
         tdd:
           - sendClipboardText_underLimit_sentWithOriginAndHash
           - sendClipboardText_overLimit_notSent
+          - sendClipboardText_overLimit_showsSizeHint
       - id: E31-05
         title: "[android] Receive and write clipboard with sensitive flag"
         type: task
@@ -547,19 +612,44 @@ epics:
         priority: P0
         size: M
         prd: [F-6.1, F-6.3]
-        use_cases: [UC-12]
+        use_cases: [UC-12, AC-10]
         invariants: [7]
-        depends_on: [E31-08, E31-03]
+        depends_on: [E31-08, E31-03, E31-05, E15-17]
         description: |
           End-to-end test: sync a canary string Mac to phone, have it copied again, and assert
           no infinite loop occurs; separately, place a ConcealedType-flagged item on the Mac
-          pasteboard and assert a packet capture never shows it, reusing the PRD canary/
-          pcap-audit procedure.
+          pasteboard and assert it never reaches the phone and never appears in either app's
+          logs (E15-17). A pcap check alone proves nothing for the concealed case, because the
+          payload would be encrypted anyway; the pcap-audit canary run still covers AC-02.
         acceptance:
           - The round-trip canary test completes with a bounded number of sync events and no
             loop
-          - The pcap-audit capture taken during the concealed-item test never shows the
-            concealed canary content
+          - During the concealed-item test the phone clipboard never contains the concealed canary
+            and the phone's CLIPBOARD receive counter does not change
+          - log-audit (E15-17) over both apps' logs for the session finds zero occurrences of either canary
         tdd:
           - clipboardExitTest_roundTripCanary_noInfiniteLoop
-          - clipboardExitTest_concealedCanary_neverAppearsInCapture
+          - clipboardExitTest_concealedCanary_neverReachesPhone
+          - clipboardExitTest_logAudit_noCanaryInEitherAppLog
+      - id: E31-11
+        title: "[macos] Push Clipboard quick action"
+        type: story
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-4.2, F-6.1, F-6.3]
+        use_cases: [UC-12]
+        invariants: [7]
+        depends_on: [E22-02, E31-03, E31-04]
+        description: |
+          Wire the F-4.2 "clipboard push" quick action (stub in E22-02): send the current pasteboard
+          text now, through the same path as E31-04, so the concealed/transient skip (E31-03) and the
+          1 MiB limit apply identically. Useful when polling missed a change or the phone cleared its clip.
+        acceptance:
+          - Selecting Push Clipboard sends the current plain-text item as ClipboardText
+          - A concealed/transient item is not sent and the menu shows "Not sent: protected item"
+          - An item over 1 MiB is not sent and the menu shows the size hint
+        tdd:
+          - pushClipboardAction_plainText_sendsClipboardText
+          - pushClipboardAction_concealedItem_notSentAndExplains
+          - pushClipboardAction_overLimit_notSentShowsSizeHint

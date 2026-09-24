@@ -235,7 +235,7 @@ epics:
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
     labels: [area:security]
     prd: []
-    use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-07]
+    use_cases: [AC-01, AC-02, AC-03, AC-04, AC-05, AC-07, UC-25, AC-11]
     summary: |
       Final security hardening pass before release: 24-hour fuzz campaigns per parser target
       with a fix-found-crashes process, an external review of docs/protocol/SPEC.md, and the
@@ -388,7 +388,7 @@ epics:
           contacts, calls, and mirroring simultaneously, following the canary procedure
           (test-strategy) across every channel at once.
         acceptance:
-          - The full-session pcap-audit run shows only TLS 1.3 records on the Tandem port(s).
+          - The full-session pcap-audit run shows only TLS 1.3 records on the single Tandem port (control and media connections).
           - The canary bytes are absent from the entire capture.
         tdd:
           - pcapAudit_fullFeatureCanarySession_zeroPlaintextOccurrences
@@ -419,7 +419,7 @@ epics:
         priority: P0
         size: S
         prd: []
-        use_cases: []
+        use_cases: [AC-11]
         invariants: [2, 4]
         depends_on: []
         description: |
@@ -429,6 +429,7 @@ epics:
         acceptance:
           - The checklist completes with zero findings, or all findings are fixed and
             re-checked.
+          - Release and debug builds ship identical generated protocol descriptors, and no debug/echo/test message or channel exists (AC-11).
         tdd: []
         notes: ""
       - id: E71-10
@@ -472,6 +473,25 @@ epics:
           - "`releaseSigningCheck_apkSignedWithDebugKey_ciFails`"
           - "`releaseSigningCheck_macArtifact_codesignVerifyPasses`"
         notes: ""
+      - id: E71-12
+        title: "[docs] Release security audit checklist and sign-off"
+        type: doc
+        platforms: [docs]
+        priority: P0
+        size: S
+        prd: []
+        use_cases: [UC-25, AC-11]
+        invariants: [1, 2, 3, 4, 5, 6, 7, 8]
+        depends_on: [E15-18, E71-05, E71-06, E71-07, E71-08, E71-09, E71-10, E71-11]
+        description: |
+          Roadmap Phase 7 "release security audit checklist signed off (UC-25)" had no owner.
+          `docs/security/release-audit.md`: one row per PRD security-test row, the canary procedure,
+          each of the eight invariants, and AC-01..AC-11, each linked to its evidence (E15-18 report,
+          E71-07..E71-10 outputs, fuzz logs). Sign-off = PR approval before the v1 tag.
+        acceptance:
+          - Every PRD security-test row, invariant 1-8, and AC-01..AC-11 has a checklist row with linked evidence
+          - The checklist is approved in a PR before the v1 release tag
+        tdd: []
 
   - id: E72
     title: "Extras (F-10.x: media control, DND sync, USB, multi-Mac)"

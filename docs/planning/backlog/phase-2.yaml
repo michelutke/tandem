@@ -20,6 +20,7 @@ epics:
       - BOOT_COMPLETED restart
       - macOS sleep/wake and network-change listener handling
       - Reconnect latency measurement harness
+      - Onboarding flow with skip paths (E20-14); ADR for a Mac-initiated reconnect hint (E20-13, Appendix C.3)
     out_of_scope:
       - Bonjour advertise/browse mechanics (E21)
       - Menu bar UI presentation of connection state (E22)
@@ -153,7 +154,7 @@ epics:
         size: M
         prd: [F-3.4]
         use_cases: [UC-04]
-        invariants: [3]
+        invariants: [3, 1]
         depends_on: [E20-05, E21-05]
         description: |
           Reconnect address-selection state machine: try the last-working address first, then
@@ -165,10 +166,12 @@ epics:
           - Address order is last-working, then Bonjour, then pairing-time addresses
           - Backoff starts at 1 s, doubles, and caps at 30 s
           - A successful connection resets backoff to 1 s and records the working address
+          - A host now answering on the last-working address with a different key fails the pin check, receives no application data, and the strategy moves to the next candidate (UC-04).
         tdd:
           - reconnect_addressOrder_lastWorkingThenBonjourThenPairing
           - reconnect_backoff_doublesUpToCap
           - reconnect_success_resetsBackoffAndRecordsAddress
+          - reconnect_lastWorkingAddressNowDifferentKey_failsClosedAndTriesNextCandidate
       - id: E20-07
         title: "[android] Reconnect on ConnectivityManager network callback"
         type: task
@@ -226,9 +229,11 @@ epics:
           - UI reflects Connected, Connecting, Reconnecting, Disconnected, Error with distinct
             visuals
           - State updates within 1 s of an underlying state-machine transition
+          - After three full backoff cycles with every address unreachable, the UI shows the network-isolation hint (client isolation / different Wi-Fi / hotspot) instead of a bare "Disconnected" (PRD risk).
         tdd:
           - connectionStateUi_stateMachineTransition_reflectedWithin1s
           - connectionStateUi_errorState_showsVisibleMessage
+          - connectionStateUi_unreachableForThreeBackoffCycles_showsNetworkIsolationHint
       - id: E20-10
         title: "[macos] Sleep/wake handling via NSWorkspace"
         type: task
@@ -293,6 +298,58 @@ epics:
           - reconnectHarness_wifiSwitch_p95Under5s
           - reconnectHarness_macWake_p95Under5s
           - reconnectHarness_overnightDoze_manualGate (device test)
+      - id: E20-13
+        title: "[docs] ADR: Mac-initiated reconnect hint (PRD Appendix C.3)"
+        type: adr
+        platforms: [docs]
+        priority: P1
+        size: S
+        prd: [F-3.4, F-4.1]
+        use_cases: [UC-04]
+        invariants: [1, 4]
+        depends_on: [E20-12, E02-03, E20-03]
+        description: |
+          Resolves Appendix C.3: should the Mac be able to trigger a reconnect (e.g. via Bluetooth LE)?
+          Options: (a) no, rely on CDM presence (E20-03), network callbacks (E20-07), and backoff;
+          (b) the Mac emits a BLE advertisement (rotating, unlinkable across days like F-3.5) that
+          the phone observes via CDM/BLE scan and answers by dialing the Mac itself — the phone stays
+          the only dialer; (c) any phone-side GATT server or other inbound channel — rejected up front
+          as equivalent to a phone listener (invariant 4). BLE never carries application data or keys
+          (invariant 1). Decision is data-driven: if E20-12 meets reconnect < 5 s p95 after Mac wake,
+          v1 ships (a) and (b) is recorded as a v2 option.
+        acceptance:
+          - ADR in docs/adr/ records options (a)-(c), rejects (c) citing invariant 4, and states that BLE carries no application data or stable identifiers
+          - The decision cites E20-12's measured Mac-wake reconnect p95
+          - If (b) is accepted, follow-up issues are filed in E72 before Phase 7 starts
+        tdd: []
+      - id: E20-14
+        title: "[android] Onboarding flow: per-permission explanations with skip paths"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-4.1, F-1.1]
+        use_cases: [UC-02]
+        invariants: [4]
+        depends_on: [E20-04, E14-10, E10-04]
+        description: |
+          UC-02 onboarding had no owner beyond the battery screen (E20-04). Sequence: identity
+          bootstrap (E10-04), notification-listener access, POST_NOTIFICATIONS (API 33+), unrestricted
+          battery (E20-04), then "Scan Mac QR" (camera requested only when scanning, E14-10). Each
+          screen explains why; every screen except camera-during-scan has a skip. Later features
+          (SMS, contacts, phone, media, accessibility, notification policy) ask lazily from their own
+          epics, never in onboarding. A skipped or denied permission leaves its feature showing
+          "disabled, tap to enable", which deep-links to the right system screen.
+        acceptance:
+          - Every optional permission screen has a working skip path; camera is requested only on the scan screen
+          - With all optional permissions denied, QR pairing still completes
+          - A denied feature shows "disabled, tap to enable" and the tap opens the matching system settings screen
+          - No lazily-requested permission (SMS, contacts, phone, media, accessibility) is requested during onboarding
+        tdd:
+          - onboarding_everyOptionalPermissionScreen_hasSkipPath
+          - onboarding_allOptionalPermissionsDenied_pairingStillCompletes
+          - onboarding_deniedFeature_showsDisabledTapToEnableDeepLink
+          - onboarding_lazyPermissions_neverRequestedDuringOnboarding
 
   - id: E21
     title: Bonjour discovery with rotating ID
@@ -328,7 +385,7 @@ epics:
         priority: P0
         size: M
         prd: [F-3.5]
-        use_cases: [UC-03]
+        use_cases: [UC-03, AC-05]
         invariants: []
         depends_on: [E01-08, E01-20, E12-01]
         description: |
@@ -338,9 +395,15 @@ epics:
         acceptance:
           - Service advertises _tandem._tcp with TXT v=1 and the correct rotating id
           - The TXT record refreshes at the day boundary without dropping existing connections
+          - The Bonjour service instance name contains no Mac name, user name, or stable identifier (derived from the rotating id) (AC-05).
         tdd:
           - bonjourAdvertise_txtRecord_containsVAndCurrentId
           - bonjourAdvertise_dayBoundary_refreshesIdWithoutDisruption
+          - bonjourAdvertise_instanceName_containsNoMacNameOrStableId
+        notes: |
+          Residual risk: the mDNS SRV/A records carry the Mac's OS hostname, which Tandem does not
+          control. Record it in the threat model (E02-01) with the mitigation "rename the Mac's local
+          hostname" documented in the README.
       - id: E21-03
         title: "[macos] Local Network privacy entries and permission handling"
         type: task
@@ -389,7 +452,7 @@ epics:
         priority: P0
         size: M
         prd: [F-3.5]
-        use_cases: [UC-04]
+        use_cases: [UC-04, AC-05]
         invariants: [3]
         depends_on: [E21-04, E13-02, E01-20]
         description: |
@@ -502,7 +565,7 @@ epics:
         depends_on: [E22-01]
         description: |
           Add menu items for Send File, Push Clipboard, Find Phone, and Mirror; wire them to
-          stub handlers until the owning epics (E40, E31, E23, E60+) land, each disabled when no
+          stub handlers until the owning issues land (Send File E40-10, Push Clipboard E31-11, Find Phone E23-07, Mirror E61-12), each disabled when no
           device is connected.
         acceptance:
           - All four quick actions are present, disabled when disconnected, enabled when
@@ -518,7 +581,7 @@ epics:
         priority: P1
         size: S
         prd: [F-4.2]
-        use_cases: []
+        use_cases: [UC-01]
         invariants: []
         depends_on: [E22-01]
         description: |
@@ -528,9 +591,11 @@ epics:
           - Toggling the setting registers/unregisters the login item, verified via
             SMAppService status
           - The app auto-launches after a reboot when enabled
+          - The toggle reflects SMAppService status even when the login item is changed outside the app (System Settings) (UC-01).
         tdd:
           - launchAtLogin_toggleOn_registersViaSmAppService
           - launchAtLogin_toggleOff_unregisters
+          - launchAtLogin_changedInSystemSettings_toggleReflectsSmAppServiceStatus
       - id: E22-04
         title: "[macos] App Sandbox entitlements for network client/server"
         type: task
@@ -796,6 +861,8 @@ epics:
           - A burst of 20 changes in 5 s results in a bounded number of sends consistent with
             the 60 s rule
           - The end-to-end Ring round trip silences the phone within 1 s of RingStop receipt
+          - A battery or network change outside the throttle window is displayed on the Mac within 2 s (UC-05).
         tdd:
           - statusThrottleIntegration_burstOfChanges_boundedSendCount
           - ringRoundTripIntegration_ringStopReceived_silencedWithin1s
+          - statusIntegration_changeOutsideThrottleWindow_visibleOnMacWithin2s

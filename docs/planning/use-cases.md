@@ -129,8 +129,9 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
   - [ ] Dismiss on phone removes Mac notification < 1 s, and vice versa.
 
 ### UC-11 Configure per-app filter and privacy [F-5.1, F-5.4]
-- **Main flow:** Owner toggles apps on/off, toggles "hide content on Mac lock screen", toggles
-  "show secret notifications".
+- **Main flow:** Owner toggles apps on/off (phone), toggles "hide content on Mac lock screen"
+  (Mac: while the Mac is locked, notifications show the app name only), toggles "show secret
+  notifications" (phone: forward content of `VISIBILITY_SECRET` notifications).
 - **Acceptance:**
   - [ ] Filter change applies to the next notification without reconnect.
 
@@ -216,10 +217,14 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
 ### UC-22 Mirror phone screen on Mac [F-3.3, F-9.1, F-9.2]
 - **Main flow:** Owner clicks "Mirror" → phone shows MediaProjection consent → Owner accepts on
   phone → media ticket issued → media mTLS connection → H.264 stream → Mac window.
+- **Alternate:** Mac click only posts a "Mirror to <Mac>?" prompt on the phone; nothing is
+  captured and no ticket is issued until the Owner accepts on the phone. Owner declines or
+  ignores the prompt (30 s) → Mac shows "Mirroring declined on phone".
 - **Acceptance:**
   - [ ] 1080p ≥ 30 fps, e2e latency < 120 ms on 5 GHz.
   - [ ] pcap-audit passes during mirroring with canary on screen.
   - [ ] Rotation handled without restart.
+  - [ ] A Mac mirror request without an on-phone accept never starts capture or issues a ticket.
 
 ### UC-23 Control phone from Mac [F-9.3]
 - **Main flow:** During an active user-started mirror session with on-phone indicator, Owner
@@ -254,3 +259,4 @@ Acceptance checks are written so they can become tests. PRD feature IDs (`F-x.y`
 | AC-08 | Hijack media connection (missing/reused/expired ticket, other session's ticket) | Rejected | mitm-lab, unit tests |
 | AC-09 | Use a lost/stolen paired phone | Owner revokes on Mac; next handshake fails | integration test |
 | AC-10 | Harvest secrets/content from logs | Release logs contain no secrets, bodies, notification text, clipboard | log-lint rule, log audit |
+| AC-11 | Trigger a debug/test-only protocol path (echo, canary-injection, debug channel) in a release build | No such path exists: debug and release builds speak an identical protocol; an unknown payload type closes the connection | SPEC review, proto schema scan, release audit |

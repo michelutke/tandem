@@ -241,7 +241,7 @@ epics:
         size: M
         prd: [F-1.1]
         use_cases: [UC-01]
-        invariants: [3]
+        invariants: [3, 5]
         depends_on: [E10-05, E10-06, E10-08]
         description: |
           Mirror of E10-04: eager bootstrap on first launch; verify the Keychain item usable via
@@ -252,10 +252,12 @@ epics:
           - A missing or unusable Keychain item triggers IdentityReset and regenerates on next
             access
           - After reset, app state exposes requiresRePair=true until paired again
+          - Keychain unavailable or access denied yields a visible error state and no identity (no retry loop, no fallback to an in-memory key) (UC-01 alternate).
         tdd:
           - bootstrapIdentity_firstLaunch_generatesNewIdentity
           - bootstrapIdentity_missingKeychainItem_emitsIdentityResetAndRegenerates
           - bootstrapIdentity_afterReset_requiresRePairUntilPaired
+          - bootstrapIdentity_keychainAccessDenied_surfacesVisibleErrorAndNoIdentity
 
       - id: E10-10
         title: "[android] Constant-time byte-array compare helper"
@@ -661,7 +663,7 @@ epics:
     title: Secure transport (mTLS 1.3 client/server, pinning)
     labels: [area:transport]
     prd: [F-3.1]
-    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-04]
+    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-04, UC-02, UC-07]
     summary: |
       Establishes the mutually authenticated TLS 1.3 transport (F-3.1): a macOS NWListener as
       the sole listening endpoint on one port, an Android SSLSocket client that always dials,
@@ -711,10 +713,12 @@ epics:
           - openssl s_client -tls1_2 against the listener fails to complete a handshake
           - The listener requires a client certificate; a connection without one is rejected
           - Only one listening socket exists in the process (verified via lsof/netstat in test)
+          - No listening socket is created until a usable identity exists; if identity bootstrap failed (E10-09) the listener never starts and the UI shows the identity error (UC-01).
         tdd:
           - listener_tls12ClientHello_handshakeFails
           - listener_noClientCert_handshakeRejected
           - listener_processSockets_onlyOneListeningPort
+          - listener_noUsableIdentity_neverStartsListening
 
       - id: E12-02
         title: "[macos] Verify block: trust store check or open pairing window"
@@ -922,7 +926,7 @@ epics:
         priority: P0
         size: S
         prd: [F-3.1]
-        use_cases: [UC-05, AC-01, AC-04]
+        use_cases: [UC-05, AC-01, AC-04, UC-07]
         invariants: [5, 7]
         depends_on: [E12-08, E12-09]
         description: |
@@ -935,11 +939,13 @@ epics:
           - No failure path leaves the UI silently at "Connecting" or blank
           - Log output for a failure contains the reason category but never raw peer certificate
             bytes or secret material
+          - A handshake rejected by the Mac for an unknown client certificate (phone was revoked) maps on the phone to "This device is no longer paired with <Mac>", distinct from pin mismatch and network error (UC-07).
         tdd:
           - errorMapping_certMismatch_producesDistinctUserMessage
           - errorMapping_versionMismatch_producesDistinctUserMessage
           - errorMapping_anyFailure_neverLeavesUiBlank
           - errorLog_onFailure_excludesCertBytesAndSecrets
+          - errorMapping_peerRejectsOurCertificate_showsNoLongerPairedMessage
 
       - id: E12-11
         title: "[android] Transport session abstraction exposing channels"
@@ -1011,6 +1017,30 @@ epics:
         tdd:
           - integration_jvmClientAgainstMacListener_handshakeAndHelloSucceed
           - integration_jvmClientAgainstMacListener_frameRoundTripsIntact
+      - id: E12-14
+        title: "[cross] Record lastSeen and negotiated capabilities in the trust store on Ready"
+        type: task
+        platforms: [android, macos]
+        priority: P0
+        size: S
+        prd: [F-1.2, F-2.3]
+        use_cases: [UC-05, UC-07]
+        invariants: [3]
+        depends_on: [E12-07, E12-08, E12-09, E13-02, E13-06]
+        description: |
+          F-1.2's peer record carries `lastSeen` and `capabilities`, but nothing wrote them. On every
+          transition to Ready (after the Hello exchange, E12-07) both sides update the peer record,
+          looked up by the SPKI fingerprint seen in this handshake, with `lastSeen = now` and
+          `capabilities` = the peer's Hello capabilities. Failed or pairing-window connections never
+          touch an existing record. Feeds the Mac paired-devices list (E14-14) and feature gating.
+        acceptance:
+          - Reaching Ready updates lastSeen and capabilities of exactly the record matching the handshake SPKI
+          - A failed handshake, a failed Hello, or a pairing-window connection leaves every existing record unchanged
+          - The update never uses deviceId, IP, or hostname to locate the record (invariant 3)
+        tdd:
+          - peerRecord_onReady_updatesLastSeenAndCapabilities
+          - peerRecord_failedHandshakeOrHello_recordUnchanged
+          - peerRecord_update_locatedByHandshakeSpkiNotDeviceId
 
   - id: E13
     title: Trust store and settings storage
@@ -1276,6 +1306,7 @@ epics:
         and burns exactly one attempt where applicable
       - Revoke removes trust on both sides when the peer is reachable; local unpair is immediate
         regardless of reachability
+      - Every UC-03 alternate flow (declined, expired/used QR, Mac unreachable) shows a distinct phone message (E14-17)
     issues:
       - id: E14-01
         title: "[macos] QR payload generation: secret and payload encode"
@@ -1594,7 +1625,7 @@ epics:
         prd: [F-2.3]
         use_cases: [UC-05, UC-07]
         invariants: []
-        depends_on: [E13-06, E14-13]
+        depends_on: [E13-06, E14-13, E12-14]
         description: |
           List all trust-store entries (E13-06) with displayName and lastSeen (relative time); a
           revoke button per row invokes E14-13.
@@ -1650,7 +1681,67 @@ epics:
           - After restarting both processes, the connection reaches Ready again without any user
             pairing action
           - No pairing window is open during the restart-reconnect path (trust-store path only)
+          - After pairing, each trust store contains exactly one new record and the stored fingerprints match the other side's identity (UC-03).
+          - Harness pairing completes in < 10 s from QR payload injection to Paired (UC-03 proxy; on-device scan timing is recorded by E14-18).
         tdd:
           - e2e_qrPairingFlow_reachesReadyBothSides
           - e2e_restartBothProcesses_reconnectsToReadyViaTrustStoreOnly
           - e2e_restartReconnect_doesNotRequireOpenPairingWindow
+          - e2e_afterPairing_eachTrustStoreHasExactlyOneMatchingRecord
+          - e2e_qrInjectionToPaired_under10s
+      - id: E14-17
+        title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable (network hint)"
+        type: story
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [5]
+        depends_on: [E14-05, E12-10]
+        description: |
+          UC-03 alternate flows and the PRD client-isolation risk ("detect and explain") had no owner.
+          Map the pairing state machine's failure reasons (E14-05) to distinct, secret-free phone
+          messages: Mac rejected our certificate during a pairing attempt (window expired, exhausted,
+          or QR already used) → "QR expired or already used, refresh on Mac"; PairRejected → "Pairing
+          declined on Mac"; every QR address timed out → network hint (guest/office Wi-Fi client
+          isolation, different network, try phone hotspot or USB later). No failure path retries with
+          a relaxed pin or a non-QR address.
+        acceptance:
+          - A pairing handshake rejected by the Mac shows the QR-expired message
+          - An explicit PairRejected shows the declined message
+          - Connect timeouts on every QR address show the network-isolation hint, not a generic error
+          - No failure path retries with a different pin or an address not in the QR
+        tdd:
+          - pairingError_macRejectsHandshake_showsQrExpiredOrUsedMessage
+          - pairingError_pairRejected_showsDeclinedMessage
+          - pairingError_allQrAddressesUnreachable_showsNetworkIsolationHint
+          - pairingError_anyFailure_neverRetriesWithRelaxedPinOrForeignAddress
+      - id: E14-18
+        title: "[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)"
+        type: test
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-1.1, F-3.1, F-2.1]
+        use_cases: [UC-02, UC-03]
+        invariants: [1, 3]
+        depends_on: [E10-01, E12-04, E12-06, E12-13, E14-10, E14-16]
+        description: |
+          PRD risk "Keystore-backed keys with SSLSocket client auth behave differently across OEMs"
+          requires an early device-matrix test in Phase 1 (E03-03 only covered the throwaway spike).
+          Instrumented test on physical devices (at minimum: one StrongBox device, one TEE-only
+          device, one API 29 device, one Samsung) completing the production mTLS handshake and Hello
+          against a real Mac listener, plus one timed real QR scan-to-Paired run (UC-03 < 10 s).
+          Results table in `docs/testing/device-matrix.md`. Manual gate per PRD test strategy.
+        acceptance:
+          - Every matrix device completes the production handshake and Hello using its Keystore identity
+          - A StrongBox failure on any device falls back to TEE only, never to an exportable key
+          - One real scan-to-Paired run on the same Wi-Fi completes in < 10 s and is recorded
+          - Results are committed in docs/testing/device-matrix.md with device, API level, backing (StrongBox/TEE), and outcome
+        tdd:
+          - keystoreClientAuth_strongBoxDevice_handshakeAndHelloSucceed (device test)
+          - keystoreClientAuth_teeOnlyDevice_handshakeAndHelloSucceed (device test)
+          - keystoreClientAuth_api29Device_handshakeAndHelloSucceed (device test)
+          - identityGeneration_strongBoxFailure_neverFallsBackToExportableKey
+          - qrPairing_realScanSameWifi_pairedUnder10s (device test)

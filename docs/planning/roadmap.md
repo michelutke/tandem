@@ -52,25 +52,35 @@ flowchart LR
     E72[E72 Extras]
     E73[E73 Manual pairing ADR]
   end
-  E00 --> E10 & E11 & E15
-  E01 --> E10 & E11
-  E03 --> E12
-  E02 --> E12
-  E10 --> E13 --> E12
-  E11 --> E12 --> E14
-  E13 --> E14
-  E12 --> E15
-  E14 --> E20 & E22
-  E12 --> E21
-  E20 & E22 --> E23 & E30 & E31 & E50
-  E11 --> E40
-  E20 & E22 --> E40 --> E41
-  E51 --> E50
-  E51 --> E52
-  E20 & E22 --> E60 --> E61 --> E62
-  E12 --> E70
-  E15 --> E71
+  %% Edges derived from issue-level depends_on (cycle 2). Solid = hard dependency.
+  E00 --> E10 & E11 & E12 & E13 & E15
+  E01 --> E10 & E11 & E12 & E14 & E15
+  E01 -. "SPEC sections, vector format" .-> E20 & E21 & E23 & E30 & E31 & E40 & E41 & E50 & E51 & E52 & E60 & E70
+  E02 --> E20 & E60 & E61 & E73
+  E03 --> E10 & E12
+  E10 --> E12 & E13 & E14 & E15 & E20 & E70
+  E11 --> E12 & E15 & E40 & E50 & E60
+  E13 --> E12 & E14 & E21 & E30 & E70
+  E12 --> E14 & E15 & E20 & E21 & E22 & E60 & E70 & E72
+  E15 -- "E15-15 JVM harness blocks E12-13, E14-16" --> E12 & E14
+  E14 --> E15 & E20 & E22 & E71 & E73
+  E20 <--> E21
+  E20 --> E22 & E23 & E30 & E31 & E41 & E50 & E51 & E52 & E61
+  E22 --> E23 & E30 & E31 & E40 & E41 & E50 & E52 & E61
+  E15 -. "log-audit, mitm-lab, pcap-audit reused" .-> E30 & E31 & E50 & E51 & E52 & E60 & E61 & E62 & E70 & E71 & E73
+  E30 --> E40 & E52 & E72
+  E40 --> E41
+  E51 --> E50 & E52
+  E50 --> E52
+  E60 --> E61 --> E62
+  E60 --> E62
+  E23 & E30 & E31 & E40 & E41 & E50 & E51 & E52 & E60 & E61 & E62 & E70 --> E71
 ```
+
+Notes: E15 is not purely downstream of E12. The JVM harness (E15-15) is built on E12's listener
+and client and then blocks the E12-13 and E14-16 scenario tests, so E12 and E15 (and E14 and E15)
+are interleaved at issue level; there is no issue-level cycle (validator-checked). E20 and E21
+likewise interleave (E21-05 feeds E20-06, which E21-06 tests).
 
 ## Phase checklists
 
@@ -92,6 +102,8 @@ flowchart LR
 - [ ] `nmap` against phone: no Tandem listening ports
 - [ ] Conformance vectors green on both platforms in CI
 - [ ] Fuzz smoke runs in CI (frame + envelope parsers)
+- [ ] Keystore client-auth device matrix passes on physical devices (PRD risk; E14-18)
+- [ ] Security audit runner gives one report; automatable subset required on `core/*` PRs (UC-25; E15-18)
 
 ### Phase 2 — Lifecycle and reliability
 - [ ] Survives Mac sleep/wake, Wi-Fi switch, phone Doze overnight (UC-04)
@@ -133,4 +145,5 @@ flowchart LR
 
 Phase 0 is mostly documents and scaffolding; the first red/green cycles begin with the
 test vectors (E01) and the codec + fingerprint work in Phase 1 (E10, E11), which only need
-the vectors. The transport epics (E12) wait on the E03 spikes.
+the vectors. The transport epics (E12) wait on the E03 spikes. Requirement-to-issue coverage lives in
+[`traceability.md`](traceability.md).

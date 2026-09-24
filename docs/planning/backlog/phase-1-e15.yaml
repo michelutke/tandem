@@ -4,7 +4,7 @@ epics:
     title: "Security test harness (conformance, pcap-audit, log-audit, mitm-lab, fuzz scaffolding)"
     labels: [area:security, area:testing, area:tools]
     prd: [F-3.1, F-3.2]
-    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-02, AC-03, AC-04, AC-07, AC-10]
+    use_cases: [UC-03, UC-04, UC-05, AC-01, AC-02, AC-03, AC-04, AC-07, AC-10, AC-09, AC-11, UC-25]
     summary: |
       Build the security and interoperability test harness that Phase 1's exit criteria depend on,
       and that stays in continuous use through every later phase: a conformance runner executing
@@ -29,6 +29,7 @@ epics:
         (not full campaigns).
       - JVM test client reusing Android `core/*` modules to run integration tests against the real
         Mac server on macOS CI.
+      - Security audit suite runner (one command, one report) with the automatable subset required on core/* PRs (E15-18, UC-25).
     out_of_scope:
       - Full multi-hour/multi-day fuzz campaigns (E71, Phase 7).
       - The codec, transport, and pairing implementations themselves (E10-E14).
@@ -197,8 +198,8 @@ epics:
         priority: P0
         size: M
         prd: []
-        use_cases: [AC-02]
-        invariants: [7]
+        use_cases: [AC-02, AC-11]
+        invariants: [7, 1, 2]
         depends_on: [E15-04, E15-06, E14-16]
         description: |
           `tools/pcap-audit/canary.sh` automates the PRD test-strategy canary procedure: generate a
@@ -211,13 +212,24 @@ epics:
           - Running the script against a live paired phone+Mac produces one capture file and a
             pass/fail result from the canary scan.
           - Script is idempotent and generates a new random canary every run (no reuse across runs).
+          - The Phase 1 run injects the canary only through PairRequest.deviceInfo.displayName during a real pairing (no test-only message type exists; verified by grep over protocol/proto for Debug/Echo/Test messages returning nothing).
+          - Each later-phase step is enabled by a flag naming the owning feature issue and fails (not skips) once that feature is marked done.
         tdd:
           - "`canaryProcedure_freshRun_generatesUniqueCanaryEveryTime`"
           - "`canaryProcedure_endToEndAgainstLiveDevices_producesPassFailResult`"
+          - canaryProcedure_phase1Run_injectsOnlyViaPairRequestDisplayName
+          - protoSchemaScan_debugEchoOrTestMessage_absent
         notes: |
-          In Phase 1 no feature channel exists yet, so the Phase 1 exit run injects the canary via a
-          test-only CONTROL-channel payload; feature steps become live in Phases 3-6 (E61-09 owns
-          the mirror step, E71-07 the full-feature release run).
+          Decision (cycle 2): there is NO test-only wire payload, debug channel, or debug build flag
+          for canary injection (SPEC E01-04, AC-11); every step uses a production feature path with
+          test input. Phase 1 (no feature channels yet): the canary is set as the phone display name
+          (on device: Settings > About > Device name; in the E15-15 JVM harness: the production
+          DeviceInfo provider fed the canary) so it travels in PairRequest.deviceInfo during a fresh
+          pairing, followed by a restart-reconnect in the same capture. Later phases: clipboard via
+          E31-06 share target, file via E40-11 share target, notification posted by a separate
+          companion test APK (not Tandem, which filters its own notifications), mirror step = the
+          same notification/clipboard canary visible on the mirrored screen (E61-09). E71-07 runs all
+          steps in one capture. Invariants 1/2 are therefore exercised, not bypassed.
       - id: E15-08
         title: "[tools] mitm-lab: scenario harness scaffolding + scripted-scenario runner"
         type: task
@@ -233,7 +245,7 @@ epics:
           acts as a malicious or malformed peer against the real Mac listener or phone client), a
           runner that executes a directory of scenarios and reports pass (connection/handshake
           rejected as expected) or fail (anything accepted that should not have been) per scenario.
-          The concrete scenarios (E15-09/10/11/16) are separate issues built on this scaffold.
+          The concrete scenarios (E15-09/10/11, plus E60-05 media-ticket, E62-08 input, E70-09 rotation) are separate issues built on this scaffold.
         acceptance:
           - Runner discovers and executes every scenario file under `tools/mitm-lab/scenarios/`.
           - A scenario that expects rejection but observes acceptance is reported as a hard failure
@@ -276,9 +288,9 @@ epics:
         priority: P0
         size: M
         prd: [F-3.1]
-        use_cases: [AC-01]
+        use_cases: [AC-01, AC-09, UC-07]
         invariants: [1, 3, 5]
-        depends_on: [E15-08, E12-02, E12-05]
+        depends_on: [E15-08, E12-02, E12-05, E14-13]
         description: |
           Three scenarios: (1) a client presenting a certificate whose SPKI fingerprint is not in
           the Mac's trust store and no pairing window is open; (2) a client that pins a
@@ -288,13 +300,15 @@ epics:
         acceptance:
           - All three scenarios fail the handshake with no application data exchanged (verified via
             a companion pcap capture showing zero bytes past the TLS handshake).
+          - A phone revoked on the Mac while offline (Mac-side local delete, E14-13) fails its next handshake with no application data exchanged (AC-09).
         tdd:
           - "`mitmLab_unknownClientCertOutsidePairingWindow_handshakeRejectedNoAppData`"
           - "`mitmLab_wrongServerCertFingerprint_handshakeRejectedNoAppData`"
           - "`mitmLab_swappedCertsBetweenPairedDevices_handshakeRejectedNoAppData`"
+          - mitmLab_phoneRevokedWhileOffline_nextHandshakeRejectedNoAppData
         notes: ""
       - id: E15-11
-        title: "[tools] mitm-lab: downgrade & resumption scenarios (TLS 1.2 downgrade, session-resumption attempt)"
+        title: "[tools] mitm-lab: downgrade, resumption, 0-RTT and protocol-version scenarios"
         type: test
         platforms: [tools]
         priority: P0
@@ -302,7 +316,7 @@ epics:
         prd: [F-3.1]
         use_cases: [AC-04]
         invariants: [1, 5]
-        depends_on: [E15-08, E12-01, E12-03]
+        depends_on: [E15-08, E12-01, E12-03, E12-07, E12-10, E15-15]
         description: |
           Two scenarios using `openssl s_client -tls1_2` (or equivalent scripted client) against
           the Mac listener: (1) a TLS 1.2-only ClientHello; (2) a client attempting session
@@ -311,9 +325,13 @@ epics:
         acceptance:
           - Both scenarios are rejected at the handshake layer; the resumption attempt confirms no
             session ticket was issued in the first place (not merely that reuse fails).
+          - A client sending 0-RTT early data has it rejected; no early-data byte reaches the application layer.
+          - A peer completing mTLS but sending a Hello with an unsupported major version is closed with the VERSION_MISMATCH close code and the Mac records a user-visible error event (invariant 5), observed via the E15-15 harness state API.
         tdd:
           - "`mitmLab_tls12OnlyClientHello_rejected`"
           - "`mitmLab_sessionResumptionAttempt_noTicketIssuedAndReuseRejected`"
+          - mitmLab_zeroRttEarlyData_rejectedNoAppDataDelivered
+          - mitmLab_helloUnsupportedMajorVersion_closedWithVersionMismatchAndVisibleError
         notes: ""
       - id: E15-12
         title: "[tools] nmap phone-listener check script"
@@ -437,3 +455,32 @@ epics:
           - "`logAudit_canaryPresentInUnifiedLog_failsWithSourceAndLine`"
           - "`logAudit_redactedLengthOnlyEntries_passes`"
         notes: ""
+      - id: E15-18
+        title: "[tools] Security audit suite runner: one command, one report, CI subset on core/* PRs"
+        type: task
+        platforms: [tools, ci]
+        priority: P0
+        size: M
+        prd: [F-3.1, F-3.2]
+        use_cases: [UC-25, AC-01, AC-02, AC-04]
+        invariants: [1, 2, 4, 7]
+        depends_on: [E15-03, E15-05, E15-06, E15-07, E15-08, E15-12, E15-13, E15-14, E15-15, E15-17]
+        description: |
+          UC-25 had no owner. `tools/audit/run.sh` runs conformance, pcap-audit (+ canary), mitm-lab,
+          nmap, downgrade checks, fuzz smoke, and log-audit, each also invocable alone with one
+          command, and writes a single pass/fail report (JSON + Markdown). CI runs the automatable
+          subset (conformance, fuzz smoke, mitm-lab and a loopback pcap-audit against the E15-15
+          harness server) on every PR touching android/core/** or macos/Packages/Tandem*/**
+          (Appendix D). Device-only steps (nmap, live canary) appear in the report as "manual gate:
+          pending" and are required at every phase exit from Phase 1 (PRD "required per phase").
+        acceptance:
+          - One command runs every tool and produces one report; any single failure fails the overall result
+          - Each tool is also invocable individually with one documented command
+          - A PR touching a core module runs the automatable subset as a required check; other PRs skip it
+          - Manual-gate steps are reported as pending, never as passed
+        tdd:
+          - auditRunner_anyToolFails_overallReportFails
+          - auditRunner_eachToolInvocableIndividually
+          - auditCi_prTouchingCoreModule_runsAutomatableSubset
+          - auditCi_prNotTouchingCore_skipsSubset
+          - auditReport_manualGateSteps_listedAsPendingNotPassed

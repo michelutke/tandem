@@ -21,6 +21,7 @@ epics:
       - "macOS: thread list, message view, compose UI, local encrypted-at-rest decision and
         persisted store."
       - Cross-platform end-to-end sync+send integration test and an invariant-7 log audit.
+      - MMS/RCS scope spike resolving Appendix C.4 (E50-12).
     out_of_scope:
       - MMS (images/attachments) -- v2 (PRD Capability 8, PRD Appendix C.4).
       - RCS -- not accessible to third-party apps on Android (PRD Appendix C.4).
@@ -279,9 +280,11 @@ epics:
             with an observed SENT/DELIVERED status.
           - A new inbound SMS on the Android side is reflected on the Mac within the test's
             polling bound.
+          - A new inbound SMS is visible on the Mac < 2 s after it lands in the Telephony provider (UC-18).
         tdd:
           - e2eSms_sendFromMac_deliveredStatusObserved
           - e2eSms_inboundOnAndroid_syncedToMacWithinBound
+          - e2eSms_inboundOnAndroid_visibleOnMacUnder2s
         notes: ""
       - id: E50-11
         title: "[tools] Security test: SMS content never logged"
@@ -290,7 +293,7 @@ epics:
         priority: P0
         size: S
         prd: [F-8.1, F-8.2]
-        use_cases: []
+        use_cases: [AC-10]
         invariants: [7]
         depends_on: [E50-02, E50-04, E15-17]
         description: |
@@ -302,6 +305,25 @@ epics:
         tdd:
           - logAudit_smsCanarySession_zeroOccurrencesInLogs
         notes: ""
+      - id: E50-12
+        title: "[android] Spike: confirm MMS/RCS scope from the owner's real message mix (Appendix C.4)"
+        type: spike
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-8.1]
+        use_cases: [UC-18]
+        invariants: [7]
+        depends_on: []
+        description: |
+          Resolves Appendix C.4. Count (metadata only: row counts by type, never bodies or addresses)
+          SMS vs MMS rows over the last 30 days via content://sms and content://mms, and note RCS usage
+          (not readable by third-party apps). Recommend whether MMS stays v2 or is promoted.
+        acceptance:
+          - Findings doc docs/spikes/mms-rcs-scope.md records counts by type and a keep-v2 / promote recommendation for MMS
+          - Doc confirms RCS stays out of scope (no third-party API) and states the UX consequence on the Mac
+          - The counting script reads counts only and logs no body or address (invariant 7)
+        tdd: []
 
   - id: E51
     title: Contacts sync
@@ -500,7 +522,7 @@ epics:
         priority: P0
         size: S
         prd: [F-8.3]
-        use_cases: []
+        use_cases: [AC-10]
         invariants: [7]
         depends_on: [E51-02, E51-04, E15-17]
         description: |
@@ -733,7 +755,7 @@ epics:
         priority: P0
         size: S
         prd: [F-8.4]
-        use_cases: []
+        use_cases: [AC-10]
         invariants: [7]
         depends_on: [E52-03, E52-04, E15-17]
         description: |

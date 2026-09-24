@@ -12,6 +12,7 @@ are generated from it by `tools/planning/sync_issues.rb`. Edit YAML here, then r
 | Issue (story/task/spike/adr/test/doc) | `backlog/phase-*.yaml` → `issues:` | Issue, sub-issue of its epic, `blocked by` links from `depends_on` |
 | Use case / abuse case | `use-cases.md` (`UC-xx`, `AC-xx`) | Referenced from issue bodies |
 | PRD feature | `../PRD.md` (`F-x.y`) | Referenced from issue bodies |
+| Traceability | `traceability.md` (PRD / use cases → issues) | Not synced; regenerate with `ruby tools/planning/traceability.rb` |
 
 ## Epic catalogue
 

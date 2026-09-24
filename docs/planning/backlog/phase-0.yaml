@@ -324,7 +324,7 @@ epics:
         size: M
         prd: []
         use_cases: []
-        invariants: [1, 4]
+        invariants: [1, 4, 2]
         depends_on: [E00-02, E00-05]
         description: |
           Custom detekt rule (or Gradle `dependencies.all { }` inspection task) that fails the
@@ -335,10 +335,12 @@ epics:
           - A deliberately introduced `feature/clipboard -> feature/files` dependency fails the build.
           - A deliberately introduced raw `Socket` usage in `feature/notifications` fails the build.
           - The same check passing is required for CI green (wired into E00-11's android workflow).
+          - A dependency on an HTTP/WebDAV server library (e.g. NanoHTTPD, Ktor server, any artifact on the shared denylist) fails the build (invariant 2).
         tdd:
           - "`moduleDependencyRule_featureDependsOnFeature_buildFails`"
           - "`moduleDependencyRule_socketUsageOutsideTransport_buildFails`"
           - "`moduleDependencyRule_transportUsesSocket_buildPasses`"
+          - dependencyDenylist_httpServerLibraryAdded_buildFails
         notes: ""
       - id: E00-15
         title: "[macos] Swift package graph dependency rule check"
@@ -348,7 +350,7 @@ epics:
         size: M
         prd: []
         use_cases: []
-        invariants: [1]
+        invariants: [1, 2]
         depends_on: [E00-07, E00-08]
         description: |
           A small `tools/protocol` (or `tools/lint`) Swift script that parses
@@ -358,9 +360,11 @@ epics:
         acceptance:
           - A deliberately introduced `FeatureClipboard -> FeatureFiles` dependency fails the check.
           - A deliberately introduced `import Network` in `FeatureNotifications` fails the check.
+          - A package dependency on an HTTP/WebDAV server library (e.g. Swifter, Vapor, GCDWebServer, any artifact on the shared denylist) fails the check (invariant 2).
         tdd:
           - "`packageGraphCheck_featureDependsOnFeature_checkFails`"
           - "`packageGraphCheck_networkImportOutsideTransport_checkFails`"
+          - dependencyDenylist_httpServerPackageAdded_checkFails
         notes: ""
       - id: E00-16
         title: "[ci] Secret scanning setup"
@@ -519,8 +523,8 @@ epics:
         priority: P0
         size: M
         prd: [F-3.2]
-        use_cases: [UC-08, UC-09, UC-14, UC-15]
-        invariants: []
+        use_cases: [UC-08, UC-09, UC-14, UC-15, UC-17, AC-11]
+        invariants: [2]
         depends_on: []
         description: |
           Normative section enumerating the channel set (`CONTROL, NOTIFY, CLIPBOARD, FILES, SMS,
@@ -532,8 +536,15 @@ epics:
             replenishment message/trigger.
           - Section states the required behavior when a peer sends past its granted credit
             (connection error vs. silent drop) unambiguously.
+          - "Section states the channel set is closed and exactly the nine F-3.2 channels; there is no PHOTOS channel: photo-browser messages (E41-01) ride FILES (decision recorded here and in E41-01)."
+          - Section states, as a MUST NOT, that no debug, echo, loopback, or test-only message type or channel exists; debug and release builds speak an identical protocol, and an unknown payload type closes the connection (AC-11).
         tdd: []
-        notes: ""
+        notes: |
+          Decision (cycle 2): PHOTOS is not added. PRD F-3.2 enumerates nine channels and the module map
+          puts photos in feature/files, so photo listing/thumbnail messages are FILES payloads. Trade-off:
+          thumbnails share FILES credits with an in-flight transfer; the sender MUST interleave FILES
+          messages per stream (see E41-01) so a 4 GB transfer cannot block thumbnail responses. If that
+          proves insufficient, adding a channel is an additive enum change owned by a new SPEC issue.
       - id: E01-05
         title: "[docs] SPEC.md section: errors + close codes"
         type: doc
@@ -627,7 +638,7 @@ epics:
         size: S
         prd: [F-3.3]
         use_cases: [UC-22, AC-08]
-        invariants: [1]
+        invariants: [1, 3, 6]
         depends_on: []
         description: |
           Normative section for the media connection's binding to a control session: a random
@@ -640,6 +651,7 @@ epics:
             enforcement point (server-side, checked before any media data is accepted).
           - Section states the required rejection behavior for each of missing ticket, reused
             ticket, and expired ticket.
+          - Section states the ticket is bound to the issuing control session's peer SPKI, and a ticket presented on a media connection authenticated as any other peer MUST be rejected (AC-08 "other session's ticket").
         tdd: []
         notes: ""
       - id: E01-10
@@ -747,12 +759,14 @@ epics:
           later phase/epic is expected to add (`notify.proto` (E30-01), `clipboard.proto` (E31-01),
           `files.proto` (E40-01), `photos.proto` (E41-01), `sms.proto` (E50-01), `contacts.proto`
           (E51-01), `calls.proto` (E52-01), `media.proto` (E60-01/E61-01), `input.proto` (E62-01),
-          `rotation.proto` (E70-01), plus the `status.proto` extension (E23-01)), each pre-registered
-          with a reserved `Channel` enum value from E01-10 so adding a domain later never renumbers existing
-          channels (a `buf breaking` hazard).
+          `rotation.proto` (E70-01), plus the `status.proto` extension (E23-01)), each mapped to one of
+          the nine F-3.2 channels that E01-10 defines up front (notify→NOTIFY, clipboard→CLIPBOARD,
+          files+photos→FILES, sms→SMS, contacts→CONTACTS, calls→CALLS, input→INPUT, status→STATUS,
+          rotation + media-ticket request→CONTROL; media frames ride the media connection, which has
+          no channel), so adding a domain never adds or renumbers a channel (a `buf breaking` hazard).
         acceptance:
-          - Every `Channel` enum value used by a future domain is reserved (named but unimplemented,
-            or an explicit `reserved` range) in `envelope.proto` today.
+          - All nine F-3.2 `Channel` values exist in `envelope.proto` today; the doc maps every future
+            proto file to exactly one of them (photos.proto → FILES, per E01-04's decision).
           - Doc lists, for each future proto file, which epic owns writing it.
         tdd: []
         notes: ""
