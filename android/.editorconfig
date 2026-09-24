@@ -6,3 +6,5 @@ indent_size = 4
 max_line_length = 120
 ktlint_code_style = ktlint_official
 ktlint_standard_no-wildcard-imports = enabled
+# @Composable functions are PascalCase by Compose convention (E00-20).
+ktlint_function_naming_ignore_when_annotated_with = Composable

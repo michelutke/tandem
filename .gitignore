@@ -15,3 +15,5 @@ tools/pcap-audit/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+tools/audit/report.json
+tools/audit/report.md
