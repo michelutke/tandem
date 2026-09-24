@@ -9,3 +9,6 @@ lint:
 breaking:
   use:
     - FILE
+  # E00-09's placeholder was never released; its removal in E01-10 is intentional.
+  ignore:
+    - tandem/v1/placeholder.proto
