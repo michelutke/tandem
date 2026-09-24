@@ -11,8 +11,7 @@ Conventions used throughout:
   ahead of that file: D-60 (phone answers at most one Heartbeat per second, extras dropped
   silently), D-61 (CONTROL-channel non-Heartbeat frames capped at 60/s per session,
   `LIMIT_EXCEEDED` beyond that), and D-62 (`Ring` is idempotent while already ringing; the alarm
-  starts at most twice per rolling 10 s window) are pending addition to `decisions.md` by another
-  branch at the time of writing.
+  starts at most twice per rolling 10 s window) are recorded in `decisions.md`.
 - **E##-##** = an owning backlog issue in `docs/planning/backlog/*.yaml` (implements the
   mitigation or the verifying test).
 - **AC-##** = an abuse case in [`use-cases.md`](planning/use-cases.md).
