@@ -1,0 +1,30 @@
+name: macos
+
+# E00-11: SwiftPM package tests, app build and lint for the macOS tree.
+on:
+  push:
+    branches: [main]
+    paths: ["macos/**", "protocol/**", ".github/workflows/macos.yml"]
+  pull_request:
+    paths: ["macos/**", "protocol/**", ".github/workflows/macos.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: Package tests
+        run: macos/test-packages.sh
+      - name: App build
+        run: xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet
+      - name: SwiftLint
+        run: |
+          command -v swiftlint >/dev/null || brew install swiftlint
+          tools/lint/swiftlint-check.sh
+      - name: Package graph rules
+        run: ruby tools/lint/swift-package-rules.rb
