@@ -6,8 +6,8 @@ import io.gitlab.arturbosch.detekt.api.RuleSetProvider
 
 /**
  * Tandem custom detekt rules: InjectedClockOnly (E00-18), SocketOnlyInTransport (E00-14),
- * NoSensitiveReleaseLog (E00-17), PendingIntentImmutable, ImplicitInternalIntent and
- * TandemActivityBase (E00-28).
+ * NoSensitiveReleaseLog (E00-17), PendingIntentImmutable, ImplicitInternalIntent,
+ * TandemActivityBase (E00-28) and NoListenerSockets (invariant 4, E12-04).
  */
 class TandemRuleSetProvider : RuleSetProvider {
     override val ruleSetId: String = "tandem"
@@ -22,6 +22,7 @@ class TandemRuleSetProvider : RuleSetProvider {
                 PendingIntentImmutable(config),
                 ImplicitInternalIntent(config),
                 TandemActivityBase(config),
+                NoListenerSockets(config),
             ),
         )
 }

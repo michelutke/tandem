@@ -49,6 +49,7 @@ jobs:
           tools/lint/test/release_apk_software_identity_key_store_absent_test.sh
           tools/lint/test/detekt_pending_intent_immutable_test.sh
           tools/lint/test/detekt_tandem_activity_base_test.sh
+          tools/lint/test/detekt_no_listener_sockets_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh
