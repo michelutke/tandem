@@ -160,6 +160,7 @@ org.bouncycastle:bcprov-jdk18on:1.80.2=androidLintTool
 org.bouncycastle:bcutil-jdk18on:1.80.2=androidLintTool
 org.checkerframework:checker-compat-qual:2.5.3=_agp_internal_debug_kspClasspath,_agp_internal_release_kspClasspath,hiltAnnotationProcessorDebugAndroidTest,hiltAnnotationProcessorDebugUnitTest,kspDebugKotlinProcessorClasspath,kspReleaseKotlinProcessorClasspath
 org.checkerframework:checker-qual:3.43.0=androidLintTool
+org.conscrypt:conscrypt-openjdk-uber:2.7.0=debugUnitTestCompileClasspath,debugUnitTestLintChecksClasspath,debugUnitTestRuntimeClasspath
 org.ec4j.core:ec4j-core:1.1.1=ktlint,ktlintBaselineReporter,ktlintRuleset
 org.glassfish.jaxb:jaxb-runtime:2.3.2=androidLintTool
 org.glassfish.jaxb:txw2:2.3.2=androidLintTool
