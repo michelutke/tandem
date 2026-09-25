@@ -21,6 +21,8 @@ dependencies {
     implementation(libs.kotlin.composeCompiler.gradlePlugin)
     implementation(libs.ktlint.gradlePlugin)
     implementation(libs.detekt.gradlePlugin)
+    implementation(libs.ksp.gradlePlugin)
+    implementation(libs.hilt.gradlePlugin)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(gradleTestKit())
