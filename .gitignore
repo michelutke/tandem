@@ -21,3 +21,6 @@ tools/audit/report.md
 # Audit runner output (E15-18)
 /tools/audit/report.json
 /tools/audit/report.md
+
+# libFuzzer crash reproducers copied out by smoke.sh on a real finding (E15-14)
+/tools/fuzz/libfuzzer/artifacts/

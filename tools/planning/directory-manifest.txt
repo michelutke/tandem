@@ -57,6 +57,7 @@ tools/audit
 tools/companion-app
 tools/conformance
 tools/fuzz
+tools/fuzz/libfuzzer
 tools/log-audit
 tools/mitm-lab
 tools/pcap-audit
