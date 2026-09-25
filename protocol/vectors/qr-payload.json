@@ -1,0 +1,245 @@
+{
+  "$schema": "./schema.json",
+  "category": "qr-payload",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "qr-payload-single-address",
+      "description": "Well-formed payload with a single IPv4 address.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro"
+      },
+      "expected": {
+        "version": "1",
+        "fingerprintHex": "6c87b29f3efa8b2d39b002be6d5344579bdcac43b9b90bae610aba149853cd42",
+        "secretHex": "b3533814f5db2ad4591459fc767b6557",
+        "addresses": [
+          "192.168.1.10"
+        ],
+        "port": 54321,
+        "nameHex": "4d696368656c2773204d6163426f6f6b2050726f"
+      }
+    },
+    {
+      "id": "qr-payload-mixed-address-list",
+      "description": "Well-formed payload with a mixed IPv4/IPv6 address list, including a loopback address (SPEC.md §2: loopback is not one of the forbidden categories, only the Mac's own QR-rendering code chooses never to emit one).",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=127.0.0.1,2001:db8::1,fe80::abcd:1234:ffff:1&p=54321&n=Michel%27s%20MacBook%20Pro"
+      },
+      "expected": {
+        "version": "1",
+        "fingerprintHex": "6c87b29f3efa8b2d39b002be6d5344579bdcac43b9b90bae610aba149853cd42",
+        "secretHex": "b3533814f5db2ad4591459fc767b6557",
+        "addresses": [
+          "127.0.0.1",
+          "2001:db8::1",
+          "fe80::abcd:1234:ffff:1"
+        ],
+        "port": 54321,
+        "nameHex": "4d696368656c2773204d6163426f6f6b2050726f"
+      }
+    },
+    {
+      "id": "qr-payload-max-address-list",
+      "description": "Well-formed payload with the maximum 8 literal addresses.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5,10.0.0.6,10.0.0.7,2001:db8::10&p=54321&n=Michel%27s%20MacBook%20Pro"
+      },
+      "expected": {
+        "version": "1",
+        "fingerprintHex": "6c87b29f3efa8b2d39b002be6d5344579bdcac43b9b90bae610aba149853cd42",
+        "secretHex": "b3533814f5db2ad4591459fc767b6557",
+        "addresses": [
+          "10.0.0.1",
+          "10.0.0.2",
+          "10.0.0.3",
+          "10.0.0.4",
+          "10.0.0.5",
+          "10.0.0.6",
+          "10.0.0.7",
+          "2001:db8::10"
+        ],
+        "port": 54321,
+        "nameHex": "4d696368656c2773204d6163426f6f6b2050726f"
+      }
+    },
+    {
+      "id": "qr-payload-missing-field",
+      "description": "The `s` field is entirely absent from the query string.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&a=192.168.1.10&p=54321&n=Mac",
+        "invalidField": "s"
+      },
+      "expectedError": "missingRequiredField"
+    },
+    {
+      "id": "qr-payload-duplicated-field",
+      "description": "The `p` field appears twice in the query string.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro&p=1234",
+        "invalidField": "p"
+      },
+      "expectedError": "duplicatedField"
+    },
+    {
+      "id": "qr-payload-padded-base64url-fp",
+      "description": "`fp` is base64url-encoded with trailing `=` padding, which SPEC.md §2's grammar (`fp = 1*BASE64URL`, no padding character in the alphabet) forbids.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI=&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "fp"
+      },
+      "expectedError": "invalidEncoding"
+    },
+    {
+      "id": "qr-payload-fingerprint-wrong-length",
+      "description": "`fp` decodes to 31 bytes instead of the required 32.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzQ&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "fp"
+      },
+      "expectedError": "invalidFingerprint"
+    },
+    {
+      "id": "qr-payload-secret-wrong-length",
+      "description": "`s` decodes to 15 bytes instead of the required 16.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntl&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "s"
+      },
+      "expectedError": "invalidSecret"
+    },
+    {
+      "id": "qr-payload-port-zero",
+      "description": "`p` is 0, one below the 1..65535 range.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=0&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "p"
+      },
+      "expectedError": "invalidPort"
+    },
+    {
+      "id": "qr-payload-port-too-large",
+      "description": "`p` is 65536, one above the 1..65535 range.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=65536&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "p"
+      },
+      "expectedError": "invalidPort"
+    },
+    {
+      "id": "qr-payload-port-leading-zero",
+      "description": "`p` is `00080`, carrying a leading zero the grammar's `1*5DIGIT` forbids.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=00080&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "p"
+      },
+      "expectedError": "invalidPort"
+    },
+    {
+      "id": "qr-payload-empty-address-list",
+      "description": "`a` is the empty string: zero addresses, below the 1..8 minimum.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-unsupported-version",
+      "description": "`v=2`: any value other than the literal `1` MUST be rejected outright (unlike the discovery TXT record's `v`, which is silently ignored).",
+      "input": {
+        "uri": "tandem://pair?v=2&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "v"
+      },
+      "expectedError": "unsupportedVersion"
+    },
+    {
+      "id": "qr-payload-wrong-scheme",
+      "description": "The URI uses `https://pair` instead of the `tandem://` scheme.",
+      "input": {
+        "uri": "https://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Mac"
+      },
+      "expectedError": "invalidScheme"
+    },
+    {
+      "id": "qr-payload-wrong-host",
+      "description": "The URI uses `tandem://other` instead of `tandem://pair`.",
+      "input": {
+        "uri": "tandem://other?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=Mac"
+      },
+      "expectedError": "invalidHost"
+    },
+    {
+      "id": "qr-payload-hostname-in-address-list",
+      "description": "`a` contains a hostname (`example.com`) instead of a literal address.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=example.com&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-zone-id-in-address",
+      "description": "`a` contains an IPv6 literal with a zone ID (`%en0`), which SPEC.md §2's `literal-addr` production forbids.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=fe80::1%en0&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-nine-addresses",
+      "description": "`a` contains 9 literal addresses, one over the 8-address maximum.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4,10.0.0.5,10.0.0.6,10.0.0.7,10.0.0.8,2001:db8::10&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "tooManyAddresses"
+    },
+    {
+      "id": "qr-payload-unspecified-ipv4-address",
+      "description": "`a` contains the unspecified IPv4 address `0.0.0.0`.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=0.0.0.0&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-unspecified-ipv6-address",
+      "description": "`a` contains the unspecified IPv6 address `::`.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=::&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-broadcast-address",
+      "description": "`a` contains the IPv4 broadcast address `255.255.255.255`.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=255.255.255.255&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-multicast-address",
+      "description": "`a` contains a multicast IPv4 address (`224.0.0.1`).",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=224.0.0.1&p=54321&n=Michel%27s%20MacBook%20Pro",
+        "invalidField": "a"
+      },
+      "expectedError": "invalidAddress"
+    },
+    {
+      "id": "qr-payload-name-over-64-bytes",
+      "description": "`n` percent-decodes to 65 UTF-8 bytes, one over the 64-byte maximum.",
+      "input": {
+        "uri": "tandem://pair?v=1&fp=bIeynz76iy05sAK-bVNEV5vcrEO5uQuuYQq6FJhTzUI&s=s1M4FPXbKtRZFFn8dntlVw&a=192.168.1.10&p=54321&n=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "invalidField": "n"
+      },
+      "expectedError": "invalidName"
+    }
+  ]
+}

@@ -93,6 +93,73 @@ chosen here, following SPEC.md's prose definitions:
 payload bytes at all), per the E01-19 acceptance criterion that a decoder allocating a buffer
 before checking `length_prefix` would read past the end of the vector.
 
+### `spki-fingerprint.json` (E01-17)
+
+Vectors for SPEC.md `#handshake-and-tls-profile`'s leaf-key check and verify-callback fingerprint
+step: SHA-256 over a peer leaf certificate's DER-encoded `SubjectPublicKeyInfo`. Each entry's
+`input.spkiDerHex` is the exact SPKI DER bytes; positive entries' `expected.fingerprintHex` is
+`sha256(spkiDer)`. At least 5 positive vectors use real, deterministically-derived P-256 keys
+(`tools/vectors/spki_fingerprint.py` implements minimal P-256 scalar multiplication and ASN.1 DER
+encoding directly against the standard library, so no third-party crypto dependency is needed) and
+are cross-checked in the pytest suite against an independent `openssl pkey -pubin -outform DER |
+openssl dgst -sha256` pipeline. Negative vectors cover a compressed SEC1 point
+(`unsupportedPointEncoding`), a P-384 (secp384r1) key and an RSA-2048 key (both
+`unsupportedKeyType`), and DER truncated by one byte (`malformedSpki`) — each MUST be rejected
+before any fingerprint compare ever runs (SPEC.md, Certificate handling and the leaf-only check).
+
+### `pairing-proof.json` (E01-18)
+
+Vectors for SPEC.md `#2`'s pairing-proof HMAC (`proof = HMAC-SHA256(secret, ASCII("tandem-pair-v1")
+|| LP(macSpkiDer) || LP(phoneSpkiDer) || LP(cb))`) and confirmation code (`ASCII("tandem-pair-code-v1")`
+label, first 4 bytes of the HMAC-SHA256 output as `u32be` mod 1000000, zero-padded to 6 digits),
+where `LP(x) = u16be(len(x)) || x`. Each entry's `input.kind` is `"proof"` or `"code"`.
+
+`proof`-kind entries model the verifier side of the check: `input.secretHex`/`macSpkiDerHex`/
+`phoneSpkiDerHex`/`cbHex` are the verifier's own session state and `input.proofHex` is the
+candidate value under test. Positive entries' `expected` is `{"valid": true}`; negative entries use
+`expectedError: "proofMismatch"` (proof computed with a different phone key, a different secret,
+swapped `macSpkiDer`/`phoneSpkiDer` order, the `"tandem-pair-v1"` label omitted, no `LP` length
+prefixes at all, or a different session's `cb` replayed against this one), `"malformedProof"` (a
+31-byte proof where exactly 32 bytes are required), or `"malformedSpki"` (a 65-byte raw SEC1 point
+where the 91-byte `SubjectPublicKeyInfo` DER is required) — each with `closeCode:
+"PAIRING_FAILED"` and `localReason` `"BAD_PROOF"` (mismatch) or `"MALFORMED"` (structurally
+invalid), per SPEC.md's `PairRejected` wire-collapse table.
+
+`code`-kind entries' `expected.code` is the resulting 6-digit string, including one whose value has
+a leading zero and one showing a different `cb` yields a different code. One additional vector
+(`pairing-code-forwarded-challenge-relay`) has an identical `secret` and `cb` to
+`pairing-code-fixture-a` but a different `macSpkiDer`; its code MUST still differ, proving the
+forwarded-challenge evil-QR/relay detection property rests on the SPKI pair rather than on `cb`
+(`docs/planning/decisions.md` D-71). `tools/vectors/pairing_proof.py` reuses
+`spki_fingerprint.py`'s real P-256 SPKI DER derivation (distinct fixture labels, no collision with
+`spki-fingerprint.json`'s own fixtures) for `macSpkiDer`/`phoneSpkiDer`.
+
+### `qr-payload.json` (E01-21)
+
+Vectors for SPEC.md `#pairing`'s `pair-uri` ABNF grammar (`tandem://pair?v=1&fp=...&s=...&a=...
+&p=...&n=...`). Each entry's `input.uri` is the exact string a QR scanner would decode; valid
+entries' `expected` gives the parsed `version`/`fingerprintHex`/`secretHex`/`addresses`/`port`/
+`nameHex` (percent-decoded bytes, hex-encoded); malformed entries carry `expectedError` — one of
+`missingRequiredField`, `duplicatedField`, `invalidEncoding`, `invalidFingerprint`,
+`invalidSecret`, `invalidPort`, `invalidAddress`, `tooManyAddresses`, `invalidName`,
+`unsupportedVersion`, `invalidScheme`, `invalidHost` — plus `input.invalidField` naming the single
+query field responsible, where applicable. `tools/vectors/qr_payload.py`'s `parse_pair_uri` is the
+reference parser both platforms' decoders are validated against; it uses the standard library
+`ipaddress` module for the `a` field's literal-address rules (rejecting hostnames, zone IDs,
+unspecified/multicast/broadcast addresses) and `base64`/`urllib.parse` for `fp`/`s`/`n`.
+
+### `display-strings.json` (E01-24)
+
+Vectors for SPEC.md `#untrusted-peer-strings-display-sanitization`'s seven-step sanitization order,
+one vector per `kind` (`name` 64 / `title` 256 / `body` 4096 Unicode scalar values). Each entry's
+`input.rawUtf8Hex` is the raw, possibly-invalid UTF-8 bytes a peer supplied (hex, so an invalid
+byte sequence is representable) and `input.kind` selects the cap and single-line-vs-multi-line
+rules; `expected.sanitized` is the fully sanitized string. `tools/vectors/display_strings.py` is
+the reference sanitizer; grapheme-cluster-boundary vectors (an emoji ZWJ sequence, a flag emoji's
+regional-indicator pair) are covered by a minimal, self-contained subset of UAX #29 rather than a
+third-party/ICU grapheme-segmentation dependency — per the E01-24 backlog note, this vector suite
+is itself the cross-platform tie-breaker if a platform's own ICU/Swift segmentation disagrees.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

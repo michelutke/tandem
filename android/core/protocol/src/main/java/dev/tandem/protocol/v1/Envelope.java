@@ -29,6 +29,11 @@ public  final class Envelope extends
     HEARTBEAT(5),
     CREDIT_GRANT(6),
     MEDIA_TICKET_GRANT(7),
+    PAIR_CHALLENGE(10),
+    PAIR_REQUEST(11),
+    PAIR_ACCEPTED(12),
+    PAIR_REJECTED(13),
+    REVOKE(14),
     DEVICE_STATUS(20),
     RING(21),
     PAYLOAD_NOT_SET(0);
@@ -50,6 +55,11 @@ public  final class Envelope extends
         case 5: return HEARTBEAT;
         case 6: return CREDIT_GRANT;
         case 7: return MEDIA_TICKET_GRANT;
+        case 10: return PAIR_CHALLENGE;
+        case 11: return PAIR_REQUEST;
+        case 12: return PAIR_ACCEPTED;
+        case 13: return PAIR_REJECTED;
+        case 14: return REVOKE;
         case 20: return DEVICE_STATUS;
         case 21: return RING;
         case 0: return PAYLOAD_NOT_SET;
@@ -424,6 +434,286 @@ public  final class Envelope extends
    */
   private void clearMediaTicketGrant() {
     if (payloadCase_ == 7) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PAIR_CHALLENGE_FIELD_NUMBER = 10;
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPairChallenge() {
+    return payloadCase_ == 10;
+  }
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PairChallenge getPairChallenge() {
+    if (payloadCase_ == 10) {
+       return (dev.tandem.protocol.v1.PairChallenge) payload_;
+    }
+    return dev.tandem.protocol.v1.PairChallenge.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPairChallenge(dev.tandem.protocol.v1.PairChallenge value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 10;
+  }
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePairChallenge(dev.tandem.protocol.v1.PairChallenge value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 10 &&
+        payload_ != dev.tandem.protocol.v1.PairChallenge.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PairChallenge.newBuilder((dev.tandem.protocol.v1.PairChallenge) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 10;
+  }
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   */
+  private void clearPairChallenge() {
+    if (payloadCase_ == 10) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PAIR_REQUEST_FIELD_NUMBER = 11;
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPairRequest() {
+    return payloadCase_ == 11;
+  }
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PairRequest getPairRequest() {
+    if (payloadCase_ == 11) {
+       return (dev.tandem.protocol.v1.PairRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.PairRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPairRequest(dev.tandem.protocol.v1.PairRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 11;
+  }
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePairRequest(dev.tandem.protocol.v1.PairRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 11 &&
+        payload_ != dev.tandem.protocol.v1.PairRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PairRequest.newBuilder((dev.tandem.protocol.v1.PairRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 11;
+  }
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   */
+  private void clearPairRequest() {
+    if (payloadCase_ == 11) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PAIR_ACCEPTED_FIELD_NUMBER = 12;
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPairAccepted() {
+    return payloadCase_ == 12;
+  }
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PairAccepted getPairAccepted() {
+    if (payloadCase_ == 12) {
+       return (dev.tandem.protocol.v1.PairAccepted) payload_;
+    }
+    return dev.tandem.protocol.v1.PairAccepted.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPairAccepted(dev.tandem.protocol.v1.PairAccepted value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 12;
+  }
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePairAccepted(dev.tandem.protocol.v1.PairAccepted value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 12 &&
+        payload_ != dev.tandem.protocol.v1.PairAccepted.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PairAccepted.newBuilder((dev.tandem.protocol.v1.PairAccepted) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 12;
+  }
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   */
+  private void clearPairAccepted() {
+    if (payloadCase_ == 12) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PAIR_REJECTED_FIELD_NUMBER = 13;
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPairRejected() {
+    return payloadCase_ == 13;
+  }
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PairRejected getPairRejected() {
+    if (payloadCase_ == 13) {
+       return (dev.tandem.protocol.v1.PairRejected) payload_;
+    }
+    return dev.tandem.protocol.v1.PairRejected.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPairRejected(dev.tandem.protocol.v1.PairRejected value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 13;
+  }
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePairRejected(dev.tandem.protocol.v1.PairRejected value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 13 &&
+        payload_ != dev.tandem.protocol.v1.PairRejected.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PairRejected.newBuilder((dev.tandem.protocol.v1.PairRejected) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 13;
+  }
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   */
+  private void clearPairRejected() {
+    if (payloadCase_ == 13) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int REVOKE_FIELD_NUMBER = 14;
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRevoke() {
+    return payloadCase_ == 14;
+  }
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Revoke getRevoke() {
+    if (payloadCase_ == 14) {
+       return (dev.tandem.protocol.v1.Revoke) payload_;
+    }
+    return dev.tandem.protocol.v1.Revoke.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRevoke(dev.tandem.protocol.v1.Revoke value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 14;
+  }
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRevoke(dev.tandem.protocol.v1.Revoke value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 14 &&
+        payload_ != dev.tandem.protocol.v1.Revoke.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Revoke.newBuilder((dev.tandem.protocol.v1.Revoke) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 14;
+  }
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   */
+  private void clearRevoke() {
+    if (payloadCase_ == 14) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -1000,6 +1290,270 @@ public  final class Envelope extends
     }
 
     /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPairChallenge() {
+      return instance.hasPairChallenge();
+    }
+    /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PairChallenge getPairChallenge() {
+      return instance.getPairChallenge();
+    }
+    /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    public Builder setPairChallenge(dev.tandem.protocol.v1.PairChallenge value) {
+      copyOnWrite();
+      instance.setPairChallenge(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    public Builder setPairChallenge(
+        dev.tandem.protocol.v1.PairChallenge.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPairChallenge(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    public Builder mergePairChallenge(dev.tandem.protocol.v1.PairChallenge value) {
+      copyOnWrite();
+      instance.mergePairChallenge(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+     */
+    public Builder clearPairChallenge() {
+      copyOnWrite();
+      instance.clearPairChallenge();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPairRequest() {
+      return instance.hasPairRequest();
+    }
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PairRequest getPairRequest() {
+      return instance.getPairRequest();
+    }
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    public Builder setPairRequest(dev.tandem.protocol.v1.PairRequest value) {
+      copyOnWrite();
+      instance.setPairRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    public Builder setPairRequest(
+        dev.tandem.protocol.v1.PairRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPairRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    public Builder mergePairRequest(dev.tandem.protocol.v1.PairRequest value) {
+      copyOnWrite();
+      instance.mergePairRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+     */
+    public Builder clearPairRequest() {
+      copyOnWrite();
+      instance.clearPairRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPairAccepted() {
+      return instance.hasPairAccepted();
+    }
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PairAccepted getPairAccepted() {
+      return instance.getPairAccepted();
+    }
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    public Builder setPairAccepted(dev.tandem.protocol.v1.PairAccepted value) {
+      copyOnWrite();
+      instance.setPairAccepted(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    public Builder setPairAccepted(
+        dev.tandem.protocol.v1.PairAccepted.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPairAccepted(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    public Builder mergePairAccepted(dev.tandem.protocol.v1.PairAccepted value) {
+      copyOnWrite();
+      instance.mergePairAccepted(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+     */
+    public Builder clearPairAccepted() {
+      copyOnWrite();
+      instance.clearPairAccepted();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPairRejected() {
+      return instance.hasPairRejected();
+    }
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PairRejected getPairRejected() {
+      return instance.getPairRejected();
+    }
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    public Builder setPairRejected(dev.tandem.protocol.v1.PairRejected value) {
+      copyOnWrite();
+      instance.setPairRejected(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    public Builder setPairRejected(
+        dev.tandem.protocol.v1.PairRejected.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPairRejected(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    public Builder mergePairRejected(dev.tandem.protocol.v1.PairRejected value) {
+      copyOnWrite();
+      instance.mergePairRejected(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+     */
+    public Builder clearPairRejected() {
+      copyOnWrite();
+      instance.clearPairRejected();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRevoke() {
+      return instance.hasRevoke();
+    }
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Revoke getRevoke() {
+      return instance.getRevoke();
+    }
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    public Builder setRevoke(dev.tandem.protocol.v1.Revoke value) {
+      copyOnWrite();
+      instance.setRevoke(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    public Builder setRevoke(
+        dev.tandem.protocol.v1.Revoke.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRevoke(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    public Builder mergeRevoke(dev.tandem.protocol.v1.Revoke value) {
+      copyOnWrite();
+      instance.mergeRevoke(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+     */
+    public Builder clearRevoke() {
+      copyOnWrite();
+      instance.clearRevoke();
+      return this;
+    }
+
+    /**
      * <code>.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];</code>
      */
     @java.lang.Override
@@ -1120,12 +1674,18 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.Heartbeat.class,
             dev.tandem.protocol.v1.CreditGrant.class,
             dev.tandem.protocol.v1.MediaTicketGrant.class,
+            dev.tandem.protocol.v1.PairChallenge.class,
+            dev.tandem.protocol.v1.PairRequest.class,
+            dev.tandem.protocol.v1.PairAccepted.class,
+            dev.tandem.protocol.v1.PairRejected.class,
+            dev.tandem.protocol.v1.Revoke.class,
             dev.tandem.protocol.v1.DeviceStatus.class,
             dev.tandem.protocol.v1.Ring.class,
           };
           java.lang.String info =
-              "\u0000\t\u0001\u0000\u0001\u0015\t\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
-              "\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\u0014<\u0000\u0015<\u0000";
+              "\u0000\u000e\u0001\u0000\u0001\u0015\u000e\u0000\u0000\u0000\u0001\f\u0002\u0003" +
+              "\u0003\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<" +
+              "\u0000\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

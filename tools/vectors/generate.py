@@ -36,7 +36,11 @@ VECTORS_DIR = REPO_ROOT / "protocol" / "vectors"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
+from display_strings import generate_display_string_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
+from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
+from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
+from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
 
 Manifest = dict[str, Any]
 CategoryGenerator = Callable[[], Manifest]
@@ -46,6 +50,10 @@ CategoryGenerator = Callable[[], Manifest]
 CATEGORIES: list[tuple[str, CategoryGenerator]] = []
 CATEGORIES.append(("discovery-id.json", generate_discovery_id_vectors))  # E01-20
 CATEGORIES.append(("frame-encoding.json", generate_frame_encoding_vectors))  # E01-19
+CATEGORIES.append(("spki-fingerprint.json", generate_spki_fingerprint_vectors))  # E01-17
+CATEGORIES.append(("pairing-proof.json", generate_pairing_proof_vectors))  # E01-18
+CATEGORIES.append(("qr-payload.json", generate_qr_payload_vectors))  # E01-21
+CATEGORIES.append(("display-strings.json", generate_display_string_vectors))  # E01-24
 
 
 def render(manifest: Manifest) -> str:

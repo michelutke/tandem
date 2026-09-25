@@ -2,6 +2,7 @@ package dev.tandem.core.crypto
 
 import java.security.KeyPairGenerator
 import java.security.spec.ECGenParameterSpec
+import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 
 /** Which exception `failNextGenerate` arms on the next [SoftwareIdentityKeyStore.getOrCreate] call. */
@@ -16,8 +17,12 @@ enum class InjectedKeyStoreFailure {
  * the TLS `X509KeyManager` (E12-06), pairing proof (E14-06) and the E15-15 JVM harness all run
  * against this instead of the real Keystore. Test-only: this class lives in `testFixtures` and
  * must never appear on a release classpath (see `tools/lint/test/release_apk_software_identity_key_store_absent_test.sh`).
+ * [clock] is the injected time seam (E00-18) used to compute the self-signed certificate's
+ * `notBefore` (E10-02).
  */
-class SoftwareIdentityKeyStore : IdentityKeyStore {
+class SoftwareIdentityKeyStore(
+    private val clock: Clock,
+) : IdentityKeyStore {
     private val keys = ConcurrentHashMap<String, KeyHandle>()
     private var nextFailure: InjectedKeyStoreFailure? = null
 
@@ -46,6 +51,9 @@ class SoftwareIdentityKeyStore : IdentityKeyStore {
                 .apply { initialize(ECGenParameterSpec("secp256r1")) }
                 .generateKeyPair()
 
+        val certificate =
+            buildSelfSignedCertificate(keyPair.public, keyPair.private, IdentityCertSpec.generate(clock))
+
         val handle =
             KeyHandle(
                 alias = alias,
@@ -53,6 +61,7 @@ class SoftwareIdentityKeyStore : IdentityKeyStore {
                 privateKey = keyPair.private,
                 securityLevel = SecurityLevel.SOFTWARE,
                 isHardwareBacked = false,
+                certificate = certificate,
             )
         keys[alias] = handle
         return handle

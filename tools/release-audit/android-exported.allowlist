@@ -1,0 +1,22 @@
+# E00-28: components that may declare android:exported="true", one per line:
+#   <fully-qualified component name> <required android:permission, or "-" for none>
+#
+# Blank lines and lines starting with # are ignored. A component is checked against the *merged*
+# release manifest (build/intermediates/merged_manifests/release/AndroidManifest.xml), resolving
+# a name starting with "." against the manifest's package attribute.
+
+# Injected by the androidx.profileinstaller library (pulled in transitively by Compose tooling),
+# not a Tandem component; DUMP is a signature|privileged permission only the system/shell can hold.
+androidx.profileinstaller.ProfileInstallReceiver android.permission.DUMP
+
+# Launcher activity (E00-03); must be exported for the home screen, needs no permission.
+dev.tandem.app.MainActivity -
+
+# Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
+# components exist in the app module today):
+#   - the launcher activity                                                    -
+#   - the share-target activity (ACTION_SEND) and PROCESS_TEXT activity        -
+#   - the quick-settings TileService (E31-12)           android.permission.BIND_QUICK_SETTINGS_TILE
+#   - the NotificationListenerService (E40-11)      android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+#   - the AccessibilityService (E31-06, remote input)   android.permission.BIND_ACCESSIBILITY_SERVICE
+#   - the BOOT_COMPLETED receiver (E20-08, action-checked)                     -
