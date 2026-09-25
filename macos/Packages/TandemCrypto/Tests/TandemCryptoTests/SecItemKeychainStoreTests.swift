@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import Testing
 @testable import TandemCrypto
 
@@ -34,5 +35,44 @@ struct SecItemKeychainStoreTests {
         #expect(throws: KeychainError.itemNotFound) {
             try store.copyGenericPassword(service: service, account: account)
         }
+    }
+
+    @Test
+    func identityKey_hostedKeychain_accessibilityReadsAfterFirstUnlockThisDeviceOnly() throws {
+        let store = SecItemKeychainStore()
+        let provider = IdentityKeyProvider(keychainStore: store)
+        defer { try? store.deleteKey(tag: identityKeyApplicationTag) }
+
+        _ = try provider.getOrCreateIdentityKey()
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassKey,
+            kSecAttrApplicationTag as String: Data(identityKeyApplicationTag.utf8),
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecReturnAttributes as String: true
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        #expect(status == errSecSuccess)
+
+        let attributes = result as? [String: Any]
+        #expect(
+            attributes?[kSecAttrAccessible as String] as? String
+                == (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
+        )
+    }
+
+    @Test
+    func identityKey_hostedKeychainExportPrivateKey_copyExternalRepresentationFails() throws {
+        let store = SecItemKeychainStore()
+        let provider = IdentityKeyProvider(keychainStore: store)
+        defer { try? store.deleteKey(tag: identityKeyApplicationTag) }
+
+        let key = try provider.getOrCreateIdentityKey()
+
+        var error: Unmanaged<CFError>?
+        let exported = SecKeyCopyExternalRepresentation(key, &error)
+        #expect(exported == nil)
     }
 }
