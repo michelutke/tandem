@@ -131,6 +131,45 @@ struct TrustStoreTests {
 
         #expect(try store.get(record.fingerprint) == nil)
     }
+
+    @Test
+    func unpair_thenGetSameProcess_returnsNil() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let record = Self.makeRecord(fingerprint: try Self.fingerprint(0x0A))
+        try store.put(record)
+
+        try store.unpair(record.fingerprint)
+
+        #expect(try store.get(record.fingerprint) == nil)
+    }
+
+    @Test
+    func unpair_thenNewStoreInstance_recordStillAbsent() throws {
+        let keychain = InMemoryKeychainStore()
+        let store = TrustStore(keychainStore: keychain)
+        let record = Self.makeRecord(fingerprint: try Self.fingerprint(0x0B))
+        try store.put(record)
+
+        try store.unpair(record.fingerprint)
+
+        let newStore = TrustStore(keychainStore: keychain)
+        #expect(try newStore.get(record.fingerprint) == nil)
+    }
+
+    @Test
+    func unpair_otherPeerRecords_remainUnchanged() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let first = Self.makeRecord(fingerprint: try Self.fingerprint(0x0C), displayName: "MacBook")
+        let second = Self.makeRecord(fingerprint: try Self.fingerprint(0x0D), displayName: "iPhone")
+
+        try store.put(first)
+        try store.put(second)
+
+        try store.unpair(first.fingerprint)
+
+        #expect(try store.get(first.fingerprint) == nil)
+        #expect(try store.get(second.fingerprint) == second)
+    }
 }
 
 /// Manual gate: only runs with `TANDEM_KEYCHAIN_INTEGRATION_TESTS=1` set (see

@@ -1,9 +1,11 @@
 package dev.tandem.core.protocol.multiplex
 
 import app.cash.turbine.test
+import dev.tandem.core.protocol.CloseCode
 import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
+import dev.tandem.core.protocol.MalformedFrameReason
 import dev.tandem.core.protocol.flowcontrol.CreditCaps
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
@@ -12,7 +14,9 @@ import dev.tandem.protocol.v1.EnvelopeKt
 import dev.tandem.protocol.v1.Heartbeat
 import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.envelope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -181,6 +185,91 @@ class ChannelMultiplexerFlowControlTest {
             }
         }
 
+    @Test
+    fun writer_frameQueuedAfterClose_neverWrittenToSink() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val gatedSink = GatedSink(pipe.sinkA)
+            val a = ChannelMultiplexer(pipe.sourceA, gatedSink)
+            backgroundScope.launch { a.start() }
+
+            a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            withTimeout(5.seconds) { gatedSink.awaitFirstWriteStarted() }
+
+            // Queued while the writer is still blocked mid-write on the frame above: this backlog
+            // must never reach the sink once the multiplexer closes below.
+            a.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            a.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
+
+            pipe.injectTowardsA(
+                rawFrame(Channel.CHANNEL_CLIPBOARD, seq = 0) { deviceStatus = DeviceStatus.getDefaultInstance() },
+            )
+            withTimeout(5.seconds) { a.closeReason.await() }
+
+            gatedSink.release()
+            advanceUntilIdle()
+
+            assertTrue(
+                gatedSink.writes.none { it.channel == Channel.CHANNEL_NOTIFY },
+                "queued NOTIFY frames must never be written once the multiplexer has closed, got: ${gatedSink.writes}",
+            )
+        }
+
+    @Test
+    fun flowControl_suspendedSendAfterClose_throwsMultiplexerClosedException() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            backgroundScope.launch { a.start() }
+
+            repeat(CreditCaps.PROTOCOL_MAX) {
+                a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            }
+
+            val blocked =
+                async {
+                    runCatching {
+                        a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+                    }
+                }
+            advanceTimeBy(1.seconds)
+            assertTrue(blocked.isActive, "still suspended: FILES credit is exhausted")
+
+            pipe.injectTowardsA(
+                rawFrame(Channel.CHANNEL_NOTIFY, seq = 0) { deviceStatus = DeviceStatus.getDefaultInstance() },
+            )
+
+            val result = withTimeout(5.seconds) { blocked.await() }
+            assertTrue(
+                result.exceptionOrNull() is MultiplexerClosedException,
+                "expected a suspended send() to fail once closed, got: $result",
+            )
+        }
+
+    @Test
+    fun flowControl_peerGrantNamesControlChannel_closesMalformedFrameUnknownChannel() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            backgroundScope.launch { a.start() }
+
+            pipe.injectTowardsA(
+                rawFrame(Channel.CHANNEL_CONTROL, seq = 1) {
+                    this.creditGrant =
+                        creditGrant {
+                            this.channel = Channel.CHANNEL_CONTROL
+                            this.amount = 1
+                        }
+                },
+            )
+
+            val close = withTimeout(5.seconds) { a.closeReason.await() }
+            assertEquals(
+                MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, MalformedFrameReason.UNKNOWN_CHANNEL),
+                close,
+            )
+        }
+
     private companion object {
         fun rawFrame(
             channel: Channel,
@@ -256,6 +345,38 @@ class ChannelMultiplexerFlowControlTest {
             frames += envelope
             received.trySend(envelope)
             delegate?.write(bytes)
+        }
+
+        private companion object {
+            const val LENGTH_PREFIX_BYTES = 4
+        }
+    }
+
+    /**
+     * Wraps [delegate], letting a test hold the writer mid-write: the first call to [write]
+     * records that it started (so a test can wait until the writer has actually popped a frame
+     * off its outbound queue, via [awaitFirstWriteStarted]) and then suspends until the test calls
+     * [release] — simulating a write already "in flight" when [ChannelMultiplexer] closes, so a
+     * test can queue a backlog behind it and assert that backlog is never written.
+     */
+    private class GatedSink(
+        private val delegate: FrameSink,
+    ) : FrameSink {
+        val writes = mutableListOf<Envelope>()
+        private val firstWriteStarted = CompletableDeferred<Unit>()
+        private val proceed = CompletableDeferred<Unit>()
+
+        suspend fun awaitFirstWriteStarted() = firstWriteStarted.await()
+
+        fun release() {
+            proceed.complete(Unit)
+        }
+
+        override suspend fun write(bytes: ByteArray) {
+            firstWriteStarted.complete(Unit)
+            proceed.await()
+            writes += Envelope.parseFrom(bytes.copyOfRange(LENGTH_PREFIX_BYTES, bytes.size))
+            delegate.write(bytes)
         }
 
         private companion object {

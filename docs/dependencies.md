@@ -31,7 +31,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.junit.platform:junit-platform-launcher` | EPL-2.0 | JUnit Platform test launcher | E00-05 |
 | `app.cash.turbine:turbine` | Apache-2.0 | Kotlin Flow testing (`unit` layer, CLAUDE.md) | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-test` | Apache-2.0 | Coroutine test dispatchers | E00-05 |
-| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | `Flow`/`Mutex`/`Channel`/`Deferred` for `ChannelMultiplexer` | E11-05 |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | `Flow`/`Mutex`/`Channel`/`Deferred` for `ChannelMultiplexer` and the settings store's writer scope | E11-05, E13-04 |
 | `org.jetbrains.kotlinx:kotlinx-serialization-json` | Apache-2.0 | Test-only: parse `protocol/vectors` JSON in frame codec tests | E11-01 |
 | `androidx.activity:activity` | Apache-2.0 | `ComponentActivity` base for `TandemActivity` (tapjacking filter) | E00-28 |
 | `com.google.devtools.ksp:symbol-processing-gradle-plugin` | Apache-2.0 | KSP annotation processing for Hilt (kapt unsupported with AGP 9 built-in Kotlin) | E00-03 |
@@ -40,6 +40,9 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `com.google.dagger:hilt-compiler` | Apache-2.0 | Hilt/Dagger code generator (KSP, build-time only) | E00-03 |
 | `androidx.activity:activity-compose` | Apache-2.0 | `setContent` for Compose activities | E00-03 |
 | `androidx.test:core` | Apache-2.0 | Test-only: `ActivityScenario`/`ApplicationProvider` in instrumented tests | E00-03 |
+| `androidx.room:room-runtime` | Apache-2.0 | Trust store persistence (peer record CRUD) | E13-02 |
+| `androidx.room:room-compiler` | Apache-2.0 | Room code generator (KSP, build-time only) | E13-02 |
+| `androidx.sqlite:sqlite-framework` | Apache-2.0 | `AndroidSQLiteDriver` (wraps the OS's built-in SQLite) for Room | E13-02 |
 | `com.google.protobuf:protobuf-javalite` | BSD-3-Clause | Protobuf runtime (Java, lite) | E00-09 |
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
@@ -60,6 +63,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
 | `androidx.compose.ui:ui-test-manifest` | Apache-2.0 | Compose UI test manifest activity | E00-20 |
 | `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
+| `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
 
 `jazzer-junit` pulls in `com.code-intelligence:jazzer` and `com.code-intelligence:jazzer-api`
 transitively (both Apache-2.0, both left un-pinned in `[libraries]` since only `jazzer-junit` is a
