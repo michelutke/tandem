@@ -35,6 +35,7 @@ macos/Packages/FeatureMessaging
 macos/Packages/FeatureMirror
 macos/Packages/FeatureNotifications
 macos/Packages/TandemCrypto
+macos/Packages/TandemDesign
 macos/Packages/TandemPairing
 macos/Packages/TandemProtocol
 macos/Packages/TandemStore

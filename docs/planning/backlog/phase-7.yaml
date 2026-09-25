@@ -39,7 +39,7 @@ epics:
       - "With two paired phones, a Mac rotation switches the listener only after both acked, and neither phone is ever locked out (E70-03, E70-04)."
     issues:
       - id: E70-01
-        title: "[protocol] rotation.proto: KeyRotation, RotationAck, RotationReject"
+        title: "[protocol] rotation.proto: RotationChallenge, KeyRotation, RotationAck, RotationReject"
         type: task
         platforms: [protocol]
         priority: P0
@@ -49,7 +49,8 @@ epics:
         invariants: [1, 3, 6]
         depends_on: [E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02, E03-04]
         description: |
-          protocol/proto/tandem/v1/rotation.proto: KeyRotation{newSpkiDer,
+          protocol/proto/tandem/v1/rotation.proto: RotationChallenge{challenge} (D-67 — the receiving
+          side's 32-byte CSPRNG in-band challenge, mirroring pairing.proto's `PairChallenge`), KeyRotation{newSpkiDer,
           sigOldKey, sigNewKey} (cycle-4 transcript below), RotationAck{}, RotationReject{reason}. Write
           docs/protocol/SPEC.md rotation section covering the grace-session semantics: the old
           SPKI stays accepted for at most one subsequent session and is purged as soon as either
@@ -86,7 +87,9 @@ epics:
             rule and 30 s ack timeout.
           - "RotationReject.reason also enumerates DUPLICATE_KEY and ROTATION_UNAVAILABLE, and SPEC.md states the transcript, both signatures, the 7-day grace TTL and that rotation is not a compromise-recovery mechanism."
           - "SPEC.md states the two-phase Mac-initiated rule (D-34): pending Mac pin on the phone, Mac switches only after every paired phone acked, phone grace timer starts at the first handshake presenting the new key, 30-day purge of a never-presented pending pin, 7-day Finish/Cancel prompt."
-          - "Vectors additionally cover a signature made with another session channel binding and an invalid new-key signature, both failing verification."
+          - "Vectors additionally cover a signature made with another rotation attempt's RotationChallenge value and an invalid new-key signature, both failing verification."
+          - "`RotationChallenge` declares exactly one field, `challenge` (bytes, documented as exactly 32), matching `pairing.proto`'s `PairChallenge` shape."
+          - "SPEC.md states the D-74 `RotationChallenge` trigger explicitly: each side sends exactly one, unsolicited, immediately once its control session reaches Ready, valid only for that session and for exactly one KeyRotation, and never legal on a pairing-candidate connection before PairAccepted."
         tdd:
           - "ci: rotationProto_bufLint_exitsZero"
           - "conformance: keyRotationVector_oldKeySignatureOverNewSpki_verifies"
@@ -94,11 +97,20 @@ epics:
           - "conformance: keyRotationVector_signedByNewKeyInsteadOfOld_verificationFails"
           - "conformance: keyRotationVector_truncatedDerSignature_verificationFails"
           - "conformance: keyRotationVector_roundTrip_matchesGoldenBytes"
-          - "conformance: keyRotationVector_otherSessionChannelBinding_verificationFails"
+          - "conformance: keyRotationVector_otherRotationChallengeValue_verificationFails"
           - "conformance: keyRotationVector_invalidNewKeyProofOfPossession_verificationFails"
+          - "ci: protoSpecAnchorCheck_rotationChallengeTriggerRule_documentedInSpec"
+          - "conformance: rotationChallengeOnPairingCandidate_afterHellos_pairRejectedUnavailableThenPairingFailed"
+          - "unit: rotationReceiver_resendAfterChallengeConsumed_ackedIdempotently"
         notes: |
-          Cycle 5: depends on E03-04 (channel-binding outcome); if it is "fallback", `cb` is the in-band
-          `RotationChallenge` from the rotation receiver (E01-01 notes).
+          Cycle 5: depended on E03-04 (channel-binding outcome).
+          Cycle 8 (D-67): `cb` is the in-band `RotationChallenge` from the rotation receiver
+          unconditionally, on every platform and API level — not a fallback. The receiving side (the
+          side that will verify the signatures, E70-04/E70-05) generates a fresh 32-byte CSPRNG
+          challenge and sends it as `RotationChallenge` over `CONTROL` before the initiator (E70-02/
+          E70-03) transmits its signed `KeyRotation`; both sides hold this value themselves for the
+          duration of the rotation attempt — neither reads it from `TandemSession`, which exposes no
+          channel-binding/exporter property at all (E12-11, E12-12).
           Cycle 5 decision D-34 (Mac-initiated rotation with several paired phones): the listener presents one
           identity before it knows which phone connects (no SNI in the TLS profile, fixed ALPN), so SPEC defines
           a two-phase Mac rotation: (1) the Mac sends KeyRotation to each paired phone as it connects; the phone
@@ -122,17 +134,25 @@ epics:
         depends_on: [E70-01, E10-01, E10-02, E10-03, E10-15, E12-11, E00-21]
         description: |
           Generate a new P-256 keypair under a new alias with the same StrongBox/TEE preference as
-          the original identity (F-1.1); sign the E70-01 transcript (old SPKI, new SPKI, session channel
-          binding) with the current private key and with the new key; send KeyRotation only over an
-          authenticated control session (mTLS with pinned peer and Hello completed, not a
-          pairing-in-progress session), refusing to send otherwise. On RotationAck the new alias
-          becomes the active identity (new self-signed cert via E10-02) and the old key is
+          the original identity (F-1.1). Per D-74, the Mac already sent this session its own
+          `RotationChallenge{challenge}` unsolicited, immediately once the session reached Ready — not
+          just-in-time for this rotation — so this initiator holds that already-received 32 bytes as
+          `cb` whenever it decides to rotate; sign the E70-01
+          transcript (old SPKI, new SPKI, `cb`) with the current private key and with the new key; send
+          KeyRotation only over an authenticated control session (mTLS with pinned peer and Hello
+          completed, not a pairing-in-progress session), refusing to send otherwise. On RotationAck the
+          new alias becomes the active identity (new self-signed cert via E10-02) and the old key is
           deleted.
           Key generation goes through `IdentityKeyStore` (E10-15) so JVM unit tests use
           `SoftwareIdentityKeyStore`; the initiator lives in core/crypto so the E15-15 harness
-          links it. Session state comes from `TandemSession` (E12-11, `FakeTandemSession` in
-          tests). Real AndroidKeyStore properties are asserted only in the instrumented test.
-          Cycle 4: signs the E70-01 transcript (both SPKIs and this session channel binding) with the old key and with the new key (proof of possession); never initiates while a pairing attempt is in progress.
+          links it. `TandemSession` (E12-11, `FakeTandemSession` in tests) carries frames only —
+          it exposes no channel-binding/exporter property; `cb` is held by this initiator's own
+          rotation-attempt state. Real AndroidKeyStore properties are asserted only in the
+          instrumented test.
+          Cycle 8 (D-67; supersedes the original Cycle 4 "session channel binding" text): signs the
+          E70-01 transcript (both SPKIs and the received `RotationChallenge` value) with the old key
+          and with the new key (proof of possession); never initiates while a pairing attempt is in
+          progress.
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing in progress) no KeyRotation frame is written.
@@ -143,7 +163,7 @@ epics:
           - After RotationAck the next handshake's certificate carries newSpki and the old alias
             is absent from the store.
           - On the emulator the new key is non-exportable and stored under the new alias.
-          - "Both signatures cover the transcript including this session channel binding, and sigNewKey verifies with newSpki."
+          - "Both signatures cover the transcript including the received RotationChallenge value as cb, and sigNewKey verifies with newSpki."
         tdd:
           - "unit: androidRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
           - "unit: androidRotationInitiator_pairingInProgressSession_noKeyRotationFrameSent"
@@ -151,7 +171,7 @@ epics:
           - "unit: androidRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
           - "unit: androidRotationInitiator_ackReceived_newKeyActiveAndOldAliasDeleted"
           - "instrumented: androidRotationInitiator_realKeyStore_newKeyNonExportableUnderNewAlias"
-          - "unit: androidRotationInitiator_sentFrame_bothSignaturesCoverSessionChannelBinding"
+          - "unit: androidRotationInitiator_sentFrame_bothSignaturesCoverReceivedRotationChallenge"
         notes: ""
       - id: E70-03
         title: "[macos] Initiate rotation: generate new key + sign with old key"
@@ -165,16 +185,24 @@ epics:
         depends_on: [E70-01, E10-05, E10-06, E10-08, E10-16, E12-12, E14-02]
         description: |
           Mirrors E70-02 for macOS: generate a new Keychain-backed P-256 keypair per F-1.1's
-          storage policy, sign the E70-01 transcript with the current and the new private key, send
-          only over an authenticated control session. Two-phase switch (D-34, several paired phones):
-          KeyRotation is sent to each paired phone as it connects; the listener identity switches to the
-          new key and the old key item is deleted only after every paired phone has acked. After 7 days
-          with phones still pending, the Settings UI (E70-11) offers Finish (unpair the pending phones,
-          then switch) or Cancel (delete the pending key).
+          storage policy. Per D-74, every paired phone's session already carries a
+          `RotationChallenge{challenge}` that phone sent unsolicited, immediately once its session
+          reached Ready — not just-in-time for this rotation — so this initiator holds that
+          already-received 32 bytes as `cb` per phone whenever it decides to rotate that phone's pin;
+          sign the E70-01 transcript with the current and the new
+          private key, send only over an authenticated control session. Two-phase switch (D-34,
+          several paired phones): KeyRotation is sent to each paired phone as it connects; the listener
+          identity switches to the new key and the old key item is deleted only after every paired
+          phone has acked. After 7 days with phones still pending, the Settings UI (E70-11) offers
+          Finish (unpair the pending phones, then switch) or Cancel (delete the pending key).
           Key storage goes through `KeychainStore` (E10-16) so unit tests use
-          `InMemoryKeychainStore`; session state comes from `TandemSession` (E12-12 fake). Real
-          Keychain behaviour is covered by one hosted integration test on the macOS runner.
-          Cycle 4: signs the E70-01 transcript (both SPKIs and this session channel binding) with the old and the new key; never initiates while the Mac pairing window is open.
+          `InMemoryKeychainStore`; `TandemSession` (E12-12 fake) carries frames only — it exposes no
+          channel-binding/exporter property; `cb` is held per-phone by this initiator's own
+          rotation-attempt state. Real Keychain behaviour is covered by one hosted integration test on
+          the macOS runner.
+          Cycle 8 (D-67; supersedes the original Cycle 4 "session channel binding" text): signs the
+          E70-01 transcript (both SPKIs and the `RotationChallenge` value received from that phone)
+          with the old and the new key; never initiates while the Mac pairing window is open.
         acceptance:
           - Over a session that is not fully authenticated (no pinned peer, Hello not complete,
             or pairing window session) no KeyRotation frame is written.
@@ -187,7 +215,7 @@ epics:
           - "Finish after 7 days with one phone pending unpairs that phone, then switches; Cancel deletes the pending key and keeps the old identity."
           - The new key item is stored with the same accessibility class as the original
             identity.
-          - "Both signatures cover the transcript including this session channel binding; no rotation starts while the pairing window is open."
+          - "Both signatures cover the transcript including that phone's received RotationChallenge value; no rotation starts while the pairing window is open."
         tdd:
           - "unit: macRotationInitiator_unauthenticatedSession_noKeyRotationFrameSent"
           - "unit: macRotationInitiator_pairingWindowSession_noKeyRotationFrameSent"
@@ -195,7 +223,7 @@ epics:
           - "unit: macRotationInitiator_beforeAck_oldKeyRemainsActiveIdentity"
           - "unit: macRotationInitiator_ackReceived_newKeyActiveAndOldItemDeleted"
           - "integration: macRotationInitiator_hostedKeychain_newKeyStoredWithOriginalAccessibility"
-          - "unit: macRotationInitiator_sentFrame_bothSignaturesCoverSessionChannelBinding"
+          - "unit: macRotationInitiator_sentFrame_bothSignaturesCoverReceivedRotationChallenge"
           - "unit: macRotationInitiator_pairingWindowOpen_noRotationStarted"
           - "unit: macRotationInitiator_oneOfTwoPhonesAcked_listenerKeepsOldIdentity"
           - "unit: macRotationInitiator_allPhonesAcked_listenerSwitchesAndOldItemDeleted"
@@ -212,8 +240,14 @@ epics:
         invariants: [1, 3, 6]
         depends_on: [E70-01, E13-02, E12-11, E13-03, E00-18]
         description: |
-          Verify the signature against the SPKI of the peer authenticated in this session (its
-          current primary pin), never against a key named in the message. On success, pin newSpki
+          Per D-74: immediately once this control session reaches Ready (`VersionHello` exchange
+          complete), unconditionally generate a fresh 32-byte CSPRNG challenge and send it as
+          `RotationChallenge{challenge}` on this session's CONTROL channel — unsolicited, on every
+          Ready session, whether or not the peer ever actually rotates on it — and hold it as `cb`
+          for this session, valid for exactly one `KeyRotation` (an idempotent re-send for the already-pinned `newSpki` is the same use, D-74). Verify each signature against the SPKI of the peer authenticated in this session
+          (its current primary pin), never against a key named in the message, and against this
+          held `cb` — not against anything read from `TandemSession`, which exposes no
+          channel-binding/exporter property (E12-11). On success, pin newSpki
           in the trust store while retaining the old SPKI flagged grace-only per SPEC's
           grace-session rule (E70-01), then purge it. An invalid signature, an unauthenticated
           session or a non-primary signing key leaves the trust store unchanged, returns
@@ -221,7 +255,9 @@ epics:
           (reason only, no key material). A re-sent KeyRotation for the already-pinned newSpki
           returns RotationAck without a trust-store change. Lives in core/crypto (JVM-testable,
           linked by the E15-15 harness); tests use `FakeTandemSession` (E12-11).
-          Cycle 4: verifies both signatures against this session's channel binding; rejects DUPLICATE_KEY when
+          Cycle 8 (D-67; supersedes the original Cycle 4 "session channel binding" text): verifies
+          both signatures against the `RotationChallenge` value this receiver itself generated and
+          sent, above; rejects DUPLICATE_KEY when
           newSpki equals any existing primary or grace pin. The peer record gains `graceSpkiSha256` and
           `graceExpiresAt` via a trust-store migration (E13-03) so the pin swap is one atomic record write; lookup
           by fingerprint matches the primary pin or an unexpired grace pin. The grace pin is purged after the
@@ -246,12 +282,14 @@ epics:
           - "A KeyRotation replayed from another session is rejected INVALID_SIGNATURE; a newSpki equal to an existing pin is rejected DUPLICATE_KEY."
           - "With a fault-injecting store, an interrupted pin swap leaves the record in either the old or the new state, never partially updated."
           - "A grace pin older than 7 days is purged even if no further session happens."
+          - "Reaching Ready sends exactly one RotationChallenge on that session, unconditionally, whether or not a KeyRotation ever follows on it (D-74)."
         tdd:
           - "unit: androidRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
           - "unit: androidRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
           - "unit: androidRotationReceiver_graceSessionClosed_oldPinPurged"
           - "unit: androidRotationReceiver_invalidSignature_rejectInvalidSignatureTrustStoreUnchanged"
           - "unit: androidRotationReceiver_unauthenticatedSession_rejectUnauthenticatedTrustStoreUnchanged"
+          - "unit: androidRotationReceiver_sessionReachesReady_sendsExactlyOneRotationChallengeUnconditionally"
           - "unit: androidRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
           - "unit: androidRotationReceiver_resendSameNewSpki_acksWithoutTrustStoreChange"
           - "unit: androidRotationReceiver_rejection_logsReasonWithoutKeyBytes"
@@ -273,10 +311,18 @@ epics:
         invariants: [1, 3, 6]
         depends_on: [E70-01, E13-06, E12-12, E13-07, E14-02, E00-24]
         description: |
-          Mirrors E70-04 for macOS against TandemStore's trust store (E13-06). The Mac may hold
-          several paired phones: a rotation only ever modifies the record of the peer
-          authenticated in the current session. Tests use the `TandemSession` fake (E12-12).
-          Cycle 4: verifies both signatures against this session's channel binding; rejects DUPLICATE_KEY when
+          Mirrors E70-04 for macOS against TandemStore's trust store (E13-06). Per D-74: immediately
+          once each phone's control session reaches Ready (`VersionHello` exchange complete),
+          unconditionally generate a fresh 32-byte CSPRNG challenge and send it as
+          `RotationChallenge{challenge}` on that session's CONTROL channel — unsolicited, on every
+          Ready session, whether or not that phone ever actually rotates on it — and hold it as `cb`
+          for that session, valid for exactly one `KeyRotation` (an idempotent re-send for the already-pinned `newSpki` is the same use, D-74). The
+          Mac may hold several paired phones: a rotation only ever modifies the record of the peer
+          authenticated in the current session. `TandemSession` (E12-12 fake) carries frames only —
+          it exposes no channel-binding/exporter property.
+          Cycle 8 (D-67; supersedes the original Cycle 4 "session channel binding" text): verifies
+          both signatures against the `RotationChallenge` value this receiver itself generated and
+          sent, above; rejects DUPLICATE_KEY when
           newSpki equals any existing primary or grace pin of any paired phone, and ROTATION_UNAVAILABLE while the
           pairing window is open (E14-02). Grace fields come via a trust-store migration (E13-07); the pin swap is
           one Keychain item update (atomic); the grace pin is purged after the grace session or 7 days.
@@ -296,12 +342,14 @@ epics:
           - "A KeyRotation replayed from another session is rejected INVALID_SIGNATURE; a newSpki equal to another paired phone's pin is rejected DUPLICATE_KEY; any rotation while the pairing window is open is rejected ROTATION_UNAVAILABLE."
           - "With a fault-injecting KeychainStore, an interrupted pin swap leaves the record in either the old or the new state, never partially updated."
           - "A grace pin older than 7 days is purged even if no further session happens."
+          - "Each paired phone's session reaching Ready sends exactly one RotationChallenge on that session, unconditionally, whether or not a KeyRotation ever follows on it (D-74)."
         tdd:
           - "unit: macRotationReceiver_validSignature_pinsNewKeyAndFlagsOldGraceOnly"
           - "unit: macRotationReceiver_newKeySessionCompletesHello_oldPinPurged"
           - "unit: macRotationReceiver_graceSessionClosed_oldPinPurged"
           - "unit: macRotationReceiver_invalidSignature_rejectInvalidSignatureTrustStoreUnchanged"
           - "unit: macRotationReceiver_pairingWindowSession_rejectUnauthenticatedTrustStoreUnchanged"
+          - "unit: macRotationReceiver_sessionReachesReady_sendsExactlyOneRotationChallengeUnconditionally"
           - "unit: macRotationReceiver_graceOnlyKeySignsDifferentSpki_rejectNotPrimaryPin"
           - "unit: macRotationReceiver_rotationFromPhoneA_otherPeerRecordsUnchanged"
           - "unit: macRotationReceiver_rejection_logsReasonWithoutKeyBytes"
