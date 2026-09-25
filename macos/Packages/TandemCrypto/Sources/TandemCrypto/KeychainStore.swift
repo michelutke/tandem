@@ -81,4 +81,7 @@ public protocol KeychainStore: Sendable {
 
     /// Throws `KeychainError.itemNotFound` if none exists.
     func copyCertificate(label: String) throws -> Data
+
+    /// Throws `KeychainError.itemNotFound` if none exists.
+    func deleteCertificate(label: String) throws
 }
