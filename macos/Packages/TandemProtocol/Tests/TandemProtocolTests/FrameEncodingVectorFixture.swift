@@ -18,6 +18,15 @@ enum FrameEncodingVectorFixture {
         let id: String
         let input: Input
         let expected: Expected?
+        /// Present only on invalid entries (E11-04): a stable, camelCase error name, e.g.
+        /// `"malformedFrame"` (protocol/vectors/README.md).
+        let expectedError: String?
+        /// Present only on invalid entries: one of the frozen close-code names from
+        /// docs/protocol/SPEC.md `#errors-and-close-codes`.
+        let closeCode: String?
+        /// Present only on invalid entries: the local diagnostic reason grouped under
+        /// `closeCode`, e.g. `"TOO_LARGE"` (never sent on the wire).
+        let localReason: String?
     }
 
     struct Input: Decodable {
@@ -57,7 +66,7 @@ enum FrameEncodingVectorFixture {
 
     /// Channel name -> wire value, `protocol/proto/tandem/v1/envelope.proto`. Mirrors
     /// `tools/vectors/frame_encoding.py`'s `CHANNEL_VALUES`.
-    private static let channelValues: [String: Int] = [
+    static let channelValues: [String: Int] = [
         "CHANNEL_UNSPECIFIED": 0,
         "CHANNEL_CONTROL": 1,
         "CHANNEL_NOTIFY": 2,
@@ -85,10 +94,15 @@ enum FrameEncodingVectorFixture {
         return try JSONDecoder().decode(Manifest.self, from: data)
     }
 
-    /// The vectors this issue (E11-03, encode-only) exercises: valid entries with an `expected`
-    /// (not `expectedError`) result.
+    /// The vectors E11-03 (encode-only) exercises: valid entries with an `expected` (not
+    /// `expectedError`) result.
     static func validEntries(in manifest: Manifest) -> [Entry] {
         manifest.vectors.filter { $0.expected != nil }
+    }
+
+    /// The vectors E11-04 (decode rejection) exercises: invalid entries with an `expectedError`.
+    static func invalidEntries(in manifest: Manifest) -> [Entry] {
+        manifest.vectors.filter { $0.expectedError != nil }
     }
 
     /// Reconstructs the full frame (4-byte length prefix + serialized Envelope) an entry's
