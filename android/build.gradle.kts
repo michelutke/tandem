@@ -9,3 +9,11 @@ plugins {
     alias(libs.plugins.android.application) apply false
     id("tandem.module-rules")
 }
+
+// E00-29: freeze every module's resolved dependency graph; `gradle.lockfile` per project is
+// regenerated with `./gradlew <task> --write-locks` and reviewed like any other checked-in file.
+subprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+}
