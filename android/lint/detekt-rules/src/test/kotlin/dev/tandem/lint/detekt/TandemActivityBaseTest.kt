@@ -71,4 +71,61 @@ class TandemActivityBaseTest {
 
         assertTrue(findings.isEmpty())
     }
+
+    @Test
+    fun activityBaseClassLint_fullyQualifiedSupertype_lintFails() {
+        val findings =
+            TandemActivityBase().compileAndLint(
+                """
+                class RogueActivity : android.app.Activity()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("TandemActivityBase", findings.single().id)
+    }
+
+    @Test
+    fun activityBaseClassLint_fragmentActivityDirectly_lintFails() {
+        val findings =
+            TandemActivityBase().compileAndLint(
+                """
+                import androidx.fragment.app.FragmentActivity
+
+                class RogueActivity : FragmentActivity()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("TandemActivityBase", findings.single().id)
+    }
+
+    @Test
+    fun activityBaseClassLint_aliasedImport_lintFails() {
+        val findings =
+            TandemActivityBase().compileAndLint(
+                """
+                import androidx.fragment.app.FragmentActivity as FA
+
+                class RogueActivity : FA()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("TandemActivityBase", findings.single().id)
+    }
+
+    @Test
+    fun activityBaseClassLint_unrelatedSupertype_lintPasses() {
+        val findings =
+            TandemActivityBase().compileAndLint(
+                """
+                open class Base
+
+                class NotAnActivity : Base()
+                """.trimIndent(),
+            )
+
+        assertTrue(findings.isEmpty())
+    }
 }

@@ -137,6 +137,139 @@ class PendingIntentImmutableTest {
         assertTrue(findings.isEmpty())
     }
 
+    @Test
+    fun pendingIntentLint_getActivitiesAllExplicit_lintPasses() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import android.app.PendingIntent
+                import android.content.Context
+                import android.content.Intent
+
+                fun build(context: Context) {
+                    PendingIntent.getActivities(
+                        context,
+                        0,
+                        arrayOf(Intent(context, MainActivity::class.java)),
+                        PendingIntent.FLAG_IMMUTABLE,
+                    )
+                }
+                """.trimIndent(),
+            )
+
+        assertTrue(findings.isEmpty())
+    }
+
+    @Test
+    fun pendingIntentLint_getActivitiesOneImplicit_lintFails() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import android.app.PendingIntent
+                import android.content.Context
+                import android.content.Intent
+
+                fun build(context: Context) {
+                    PendingIntent.getActivities(
+                        context,
+                        0,
+                        arrayOf(Intent(context, MainActivity::class.java), Intent("dev.tandem.app.ACTION_FOO")),
+                        PendingIntent.FLAG_IMMUTABLE,
+                    )
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("PendingIntentImmutable", findings.single().id)
+    }
+
+    @Test
+    fun pendingIntentLint_pendingIntentCompatMutableWithoutAllowlist_lintFails() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import androidx.core.app.PendingIntentCompat
+                import android.content.Context
+                import android.content.Intent
+
+                fun build(context: Context) {
+                    PendingIntentCompat.getActivity(
+                        context,
+                        0,
+                        Intent(context, MainActivity::class.java),
+                        0,
+                        true,
+                    )
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("PendingIntentImmutable", findings.single().id)
+    }
+
+    @Test
+    fun pendingIntentLint_pendingIntentCompatImmutable_lintPasses() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import androidx.core.app.PendingIntentCompat
+                import android.content.Context
+                import android.content.Intent
+
+                fun build(context: Context) {
+                    PendingIntentCompat.getActivity(
+                        context,
+                        0,
+                        Intent(context, MainActivity::class.java),
+                        0,
+                        false,
+                    )
+                }
+                """.trimIndent(),
+            )
+
+        assertTrue(findings.isEmpty())
+    }
+
+    @Test
+    fun pendingIntentLint_taskStackBuilderMutableFlag_lintFails() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import android.app.PendingIntent
+                import android.app.TaskStackBuilder
+                import android.content.Context
+
+                fun build(context: Context) {
+                    TaskStackBuilder.create(context).getPendingIntent(0, PendingIntent.FLAG_MUTABLE)
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("PendingIntentImmutable", findings.single().id)
+    }
+
+    @Test
+    fun pendingIntentLint_taskStackBuilderImmutableFlag_lintPasses() {
+        val findings =
+            rule().compileAndLint(
+                """
+                import android.app.PendingIntent
+                import android.app.TaskStackBuilder
+                import android.content.Context
+
+                fun build(context: Context) {
+                    TaskStackBuilder.create(context).getPendingIntent(0, PendingIntent.FLAG_IMMUTABLE)
+                }
+                """.trimIndent(),
+            )
+
+        assertTrue(findings.isEmpty())
+    }
+
     private fun rule(vararg allowlistEntries: String): PendingIntentImmutable {
         val file = Files.createTempFile("pending-intent-mutable", ".allowlist")
         file.writeText(allowlistEntries.joinToString("\n"))

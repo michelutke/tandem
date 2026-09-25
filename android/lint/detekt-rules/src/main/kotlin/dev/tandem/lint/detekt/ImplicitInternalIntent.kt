@@ -22,6 +22,11 @@ import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
  * in a separate `apply {}`/`also {}` block, or on a later statement of a `val`, is not tracked and
  * will not be flagged; such call sites should inline the `.setPackage`/`.setClass`/`.setComponent`
  * call or otherwise make the explicit target visible in the same expression.
+ *
+ * A genuinely external implicit Intent (`Intent(Intent.ACTION_VIEW)`, `Intent.ACTION_SEND`
+ * sharing, `Intent(Settings.ACTION_*)`, ...) is expected to have no explicit target — suppress the
+ * finding at the function with `@Suppress("ImplicitInternalIntent")` rather than adding a
+ * meaningless `.setPackage(...)`.
  */
 class ImplicitInternalIntent(config: Config = Config.empty) : Rule(config) {
     override val issue =
