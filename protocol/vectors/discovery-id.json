@@ -1,0 +1,244 @@
+{
+  "$schema": "./schema.json",
+  "category": "discovery-id",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "discovery-id-epoch-day-0",
+      "description": "id for MAC A at dayIndex 0 (Unix epoch, 1970-01-01T00:00:00Z)",
+      "input": {
+        "kind": "computeId",
+        "macSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "unixSecondsUtc": 0
+      },
+      "expected": {
+        "dayIndex": 0,
+        "idHex": "6c964bef0d08e2cd"
+      }
+    },
+    {
+      "id": "discovery-id-epoch-day-1",
+      "description": "id for MAC A at dayIndex 1 (1970-01-02T00:00:00Z), rotated from dayIndex 0",
+      "input": {
+        "kind": "computeId",
+        "macSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "unixSecondsUtc": 86400
+      },
+      "expected": {
+        "dayIndex": 1,
+        "idHex": "e58c6524bfb55a78"
+      }
+    },
+    {
+      "id": "discovery-id-future-day",
+      "description": "id for MAC A at an arbitrary far-future UTC instant (2030-03-15T12:00:00Z)",
+      "input": {
+        "kind": "computeId",
+        "macSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "unixSecondsUtc": 1899806400
+      },
+      "expected": {
+        "dayIndex": 21988,
+        "idHex": "4e89df5789e63610"
+      }
+    },
+    {
+      "id": "discovery-id-day-boundary-before-midnight",
+      "description": "id for MAC A one second before the UTC day boundary (2025-06-30T23:59:59Z)",
+      "input": {
+        "kind": "computeId",
+        "macSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "unixSecondsUtc": 1751327999
+      },
+      "expected": {
+        "dayIndex": 20269,
+        "idHex": "f5dd6f276aec8456"
+      }
+    },
+    {
+      "id": "discovery-id-day-boundary-at-midnight",
+      "description": "id for MAC A exactly at the following UTC day boundary (2025-07-01T00:00:00Z): dayIndex increments by exactly 1 from discovery-id-day-boundary-before-midnight and the id differs, catching local-timezone-instead-of-UTC bugs",
+      "input": {
+        "kind": "computeId",
+        "macSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "unixSecondsUtc": 1751328000
+      },
+      "expected": {
+        "dayIndex": 20270,
+        "idHex": "ecbacfde1fed43f3"
+      }
+    },
+    {
+      "id": "discovery-id-skew-minus-one-recognized",
+      "description": "advertised id computed at dayIndex-1 (yesterday) is within the receiver's +/-1 day skew window and MUST be recognized",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "advertisedDayIndex": 20097
+      },
+      "expected": {
+        "receiverDayIndex": 20098,
+        "candidateIdsHex": [
+          "943f89c637cdf760",
+          "d945b5db4e0204cf",
+          "d89ea5a106986050"
+        ],
+        "advertisedIdHex": "943f89c637cdf760",
+        "recognized": true
+      }
+    },
+    {
+      "id": "discovery-id-skew-zero-recognized",
+      "description": "advertised id computed at the receiver's own dayIndex MUST be recognized",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "advertisedDayIndex": 20098
+      },
+      "expected": {
+        "receiverDayIndex": 20098,
+        "candidateIdsHex": [
+          "943f89c637cdf760",
+          "d945b5db4e0204cf",
+          "d89ea5a106986050"
+        ],
+        "advertisedIdHex": "d945b5db4e0204cf",
+        "recognized": true
+      }
+    },
+    {
+      "id": "discovery-id-skew-plus-one-recognized",
+      "description": "advertised id computed at dayIndex+1 (tomorrow) is within the receiver's +/-1 day skew window and MUST be recognized",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "advertisedDayIndex": 20099
+      },
+      "expected": {
+        "receiverDayIndex": 20098,
+        "candidateIdsHex": [
+          "943f89c637cdf760",
+          "d945b5db4e0204cf",
+          "d89ea5a106986050"
+        ],
+        "advertisedIdHex": "d89ea5a106986050",
+        "recognized": true
+      }
+    },
+    {
+      "id": "discovery-id-skew-minus-two-not-recognized",
+      "description": "advertised id computed at dayIndex-2 is outside the +/-1 day skew window and MUST NOT be recognized",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "advertisedDayIndex": 20096
+      },
+      "expectedError": "notRecognized"
+    },
+    {
+      "id": "discovery-id-skew-plus-two-not-recognized",
+      "description": "advertised id computed at dayIndex+2 is outside the +/-1 day skew window and MUST NOT be recognized",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "advertisedDayIndex": 20100
+      },
+      "expectedError": "notRecognized"
+    },
+    {
+      "id": "discovery-id-other-mac-spki-not-recognized",
+      "description": "advertised id computed at the receiver's own dayIndex but with a different Mac's SPKI fingerprint (MAC B) MUST NOT be recognized against MAC A's candidates",
+      "input": {
+        "kind": "recognition",
+        "pairedMacSpkiFingerprintHex": "c563e74651ee96a430e0feaddf74042f66aee37f5ccc94794dc7de59fe6a9b2d",
+        "receiverUnixSecondsUtc": 1736496000,
+        "advertisedSpkiFingerprintHex": "26cf9f9c95c0abcb0ac47eaf49d0f41467a258a404169c0d8fa169aac0fa3f4a",
+        "advertisedDayIndex": 20098
+      },
+      "expectedError": "notRecognized"
+    },
+    {
+      "id": "discovery-txt-extra-key-malformed",
+      "description": "TXT record with an extra key beyond `v` and `id` MUST be treated as malformed and ignored",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1",
+        "idHex": "d945b5db4e0204cf",
+        "extraKeys": {
+          "name": "Michel's MacBook Pro"
+        }
+      },
+      "expectedError": "malformedTxtRecord"
+    },
+    {
+      "id": "discovery-txt-id-too-short-malformed",
+      "description": "id of 7 bytes (14 lowercase hex characters, one short of the required 16) MUST be treated as malformed and ignored",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1",
+        "idHex": "d945b5db4e0204"
+      },
+      "expectedError": "malformedTxtRecord"
+    },
+    {
+      "id": "discovery-txt-id-too-long-malformed",
+      "description": "id of 9 bytes (18 lowercase hex characters, one over the required 16) MUST be treated as malformed and ignored",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1",
+        "idHex": "d945b5db4e0204cfab"
+      },
+      "expectedError": "malformedTxtRecord"
+    },
+    {
+      "id": "discovery-txt-id-non-hex-malformed",
+      "description": "id containing non-hexadecimal characters at the correct length MUST be treated as malformed and ignored",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1",
+        "idHex": "gg45b5db4e0204cf"
+      },
+      "expectedError": "malformedTxtRecord"
+    },
+    {
+      "id": "discovery-txt-missing-id-key-malformed",
+      "description": "TXT record missing the required `id` key entirely MUST be treated as malformed and ignored",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1"
+      },
+      "expectedError": "malformedTxtRecord"
+    },
+    {
+      "id": "discovery-txt-unsupported-version",
+      "description": "TXT record with `v=2` MUST be ignored without raising an exception, since only `v=1` is recognized",
+      "input": {
+        "kind": "txtRecord",
+        "v": "2",
+        "idHex": "d945b5db4e0204cf"
+      },
+      "expectedError": "unsupportedVersion"
+    },
+    {
+      "id": "discovery-txt-id-uppercase-not-recognized",
+      "description": "an advertised id that is an uppercase-hex re-encoding of a byte-for-byte-correct candidate id MUST NOT be canonicalized before comparison, so it is treated as non-matching, not as a match",
+      "input": {
+        "kind": "txtRecord",
+        "v": "1",
+        "idHex": "D945B5DB4E0204CF",
+        "candidateIdHex": "d945b5db4e0204cf"
+      },
+      "expectedError": "notRecognized"
+    }
+  ]
+}
