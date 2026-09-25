@@ -8,13 +8,16 @@ let package = Package(
         .library(name: "TandemTransport", targets: ["TandemTransport"])
     ],
     dependencies: [
-        .package(path: "../TandemCrypto")
+        .package(path: "../TandemCrypto"),
+        .package(path: "../TandemStore"),
+        .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "TandemTransport",
             dependencies: [
-                .product(name: "TandemCrypto", package: "TandemCrypto")
+                .product(name: "TandemCrypto", package: "TandemCrypto"),
+                .product(name: "TandemStore", package: "TandemStore")
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -22,7 +25,9 @@ let package = Package(
             name: "TandemTransportTests",
             dependencies: [
                 "TandemTransport",
-                .product(name: "TandemCrypto", package: "TandemCrypto")
+                .product(name: "TandemCrypto", package: "TandemCrypto"),
+                .product(name: "TandemStore", package: "TandemStore"),
+                .product(name: "TandemTestSupport", package: "TandemTestSupport")
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )

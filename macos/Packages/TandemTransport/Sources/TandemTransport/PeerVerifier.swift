@@ -5,27 +5,44 @@ import TandemCrypto
 /// Builds the real `sec_protocol_verify_t` closure for the Mac's mTLS listener (E12-01),
 /// implementing SPEC.md §1's verify-callback algorithm: extract the peer's leaf certificate (chain
 /// index 0 only -- any additional certificates a peer sends are ignored and never used for trust
-/// in any way, "Certificate handling and the leaf-only check"), reconstruct its candidate SPKI DER,
+/// in any way, "Certificate handling and the leaf-only check"), read its actual candidate SPKI DER,
 /// and hand the trust decision to ``PeerAuthorizer`` (E12-02) -- a pure function, so the actual
 /// trust-store/pairing-window logic stays unit-testable without a real TLS handshake. This type is
 /// exercised by `integration:` loopback tests instead.
 public enum PeerVerifier {
+    /// - Parameter onDecision: Called once per invocation of the returned block, after
+    ///   ``PeerAuthorizer/decide(spki:trustStore:window:)`` has run and before `complete` is
+    ///   called, with the connection's metadata, the decision reached, and the candidate
+    ///   fingerprint (`nil` only if the leaf's SPKI never parsed at all). Surfaces `.trusted` /
+    ///   `.pairingCandidate` (and which fingerprint) to the connection that owns this handshake --
+    ///   e.g. E14-07's "connection classified `.pairingCandidate` by E12-02" -- without that caller
+    ///   re-deriving the decision itself from live trust-store/window state after the fact (a
+    ///   TOCTOU risk: that state may have already moved on by `.ready`). Defaults to a no-op.
     public static func makeVerifyBlock(
         trustStore: any TrustStoreReader,
-        window: any PairingWindowState
+        window: any PairingWindowState,
+        onDecision: @escaping @Sendable (
+            sec_protocol_metadata_t,
+            PeerAuthorizationDecision,
+            SpkiFingerprint?
+        ) -> Void = { _, _, _ in }
     ) -> TandemVerifyBlock {
-        { _, secTrust, complete in
+        { metadata, secTrust, complete in
             let trust = sec_trust_copy_ref(secTrust).takeRetainedValue()
             guard
                 let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
                 let leaf = chain.first,
                 let spkiDer = spkiDer(fromLeaf: leaf)
             else {
+                onDecision(metadata, .rejected, nil)
                 complete(false)
                 return
             }
 
-            switch PeerAuthorizer.decide(spki: spkiDer, trustStore: trustStore, window: window) {
+            let decision = PeerAuthorizer.decide(spki: spkiDer, trustStore: trustStore, window: window)
+            onDecision(metadata, decision, try? SpkiFingerprint.of(spkiDer: spkiDer))
+
+            switch decision {
             case .trusted, .pairingCandidate:
                 complete(true)
             case .rejected:
@@ -34,33 +51,15 @@ public enum PeerVerifier {
         }
     }
 
-    /// Reconstructs the leaf's candidate SPKI DER from its raw EC public key bytes (spike E03-01
-    /// §2): only an uncompressed P-256 key -- exactly a 65-byte `0x04 ‖ X ‖ Y`
-    /// `SecKeyCopyExternalRepresentation` of a 256-bit `kSecAttrKeyTypeECSECPrimeRandom` key --
-    /// reconstructs to a value ``TandemCrypto/SpkiFingerprint`` will ever accept; any other key
-    /// type or size returns `nil` here, before anything is ever hashed (SPEC.md §1: "a leaf key of
-    /// any other type, curve, or point encoding... MUST fail... before the pin compare ever runs").
+    /// Reads the leaf's actual candidate SPKI DER from its own certificate encoding
+    /// (`SecCertificateCopyData`, ``TandemCrypto/LeafSpkiExtractor``) -- never reconstructed from a
+    /// decoded key's canonical representation, so a compressed point or explicit EC parameters
+    /// reach ``TandemCrypto/SpkiFingerprint/of(spkiDer:)`` as they actually are on the wire and are
+    /// rejected there (SPEC.md §1: "a leaf key of any other type, curve, or point encoding... MUST
+    /// fail... before the pin compare ever runs"), rather than being silently canonicalized away
+    /// before validation ever sees them.
     static func spkiDer(fromLeaf certificate: SecCertificate) -> Data? {
-        guard
-            let key = SecCertificateCopyKey(certificate),
-            let attributes = SecKeyCopyAttributes(key) as? [CFString: Any],
-            (attributes[kSecAttrKeyType] as? String) == (kSecAttrKeyTypeECSECPrimeRandom as String),
-            (attributes[kSecAttrKeySizeInBits] as? Int) == 256,
-            let externalRepresentation = SecKeyCopyExternalRepresentation(key, nil) as Data?
-        else {
-            return nil
-        }
-        return uncompressedP256SpkiHeader + externalRepresentation
+        let certificateDer = SecCertificateCopyData(certificate) as Data
+        return try? LeafSpkiExtractor.subjectPublicKeyInfoDER(certificateDER: certificateDer)
     }
-
-    /// The fixed 26-byte DER prefix preceding a raw 65-byte uncompressed P-256 point in a
-    /// `SubjectPublicKeyInfo` -- outer SEQUENCE, `AlgorithmIdentifier` SEQUENCE (OIDs
-    /// `ecPublicKey`, `prime256v1`), and the BIT STRING header (tag, length, zero unused bits).
-    /// 26 + 65 = 91 = ``TandemCrypto/SpkiFingerprint/expectedSpkiDerByteCount``.
-    private static let uncompressedP256SpkiHeader: Data = Data([
-        0x30, 0x59, 0x30, 0x13,
-        0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01,
-        0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
-        0x03, 0x42, 0x00
-    ])
 }

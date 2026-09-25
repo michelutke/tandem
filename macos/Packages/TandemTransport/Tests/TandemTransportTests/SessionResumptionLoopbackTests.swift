@@ -11,6 +11,17 @@ import Testing
 /// requires a PSK from a previously issued ticket, is never possible either. Real
 /// Network.framework/Security.framework behaviour via `TemporaryKeychain` (E10-07b, D-75); no
 /// login keychain.
+///
+/// These tests cannot themselves distinguish "no ticket was ever issued" from "a ticket was issued
+/// but early data still isn't accepted": spike E03-01 §6 observed 0 of 10 tickets even with
+/// `sec_protocol_options_set_tls_tickets_enabled(true)` once client-certificate auth is in play, and
+/// there is no public Network.framework/Security.framework API to force-inspect ticket issuance or
+/// early-data offer/accept independently of that. `sec_protocol_metadata_get_early_data_accepted` is
+/// the only observable here, so a listener that (incorrectly) left resumption on could still pass
+/// this suite if the client simply never got a ticket to offer. The real gate against that gap is
+/// E15-11's `tools/pcap-audit` (`docs/protocol/SPEC.md` D-19/D-20 wire-level checks) run against a
+/// captured handshake -- these hosted tests only assert the two public settings this type controls,
+/// never a full guarantee that no ticket-bearing session could ever be resumed in practice.
 @Suite("Session resumption disabled (hosted)", .serialized)
 struct SessionResumptionLoopbackTests {
 

@@ -4,7 +4,7 @@ import TandemCrypto
 /// The verify-callback pin decision (`docs/protocol/SPEC.md` §1 "Verify-callback algorithm").
 /// Only the Mac, as the listening side, ever produces ``pairingCandidate`` -- the phone has no
 /// equivalent relaxation (invariant 4).
-public enum PeerAuthorizationDecision: Sendable, Equatable {
+public enum PeerAuthorizationDecision: Sendable, Hashable {
     /// The candidate fingerprint matched an entry in the trust store.
     case trusted
     /// No trust-store match, but a pairing window is open with no other candidate in flight
@@ -25,15 +25,30 @@ public protocol TrustStoreReader: Sendable {
     func contains(_ fingerprint: SpkiFingerprint) throws -> Bool
 }
 
-/// The pairing window's read surface, as ``PeerAuthorizer`` needs it (`docs/protocol/SPEC.md` §2
-/// "Pairing"). E14-02's pairing-window state machine conforms in production; tests use a
-/// fixed-value fake.
+/// The pairing window's read/claim surface, as ``PeerAuthorizer`` needs it (`docs/protocol/SPEC.md`
+/// §2 "Pairing"). E14-02's pairing-window state machine conforms in production; tests use a
+/// counting/fixed-value fake.
 public protocol PairingWindowState: Sendable {
     /// Whether a pairing window is currently open.
     var isOpen: Bool { get }
-    /// Whether another unknown-certificate connection is already occupying the single
-    /// pairing-candidate slot (`docs/planning/decisions.md` D-18).
-    var candidateInFlight: Bool { get }
+
+    /// Atomically attempts to occupy the single pairing-candidate slot (`docs/planning/decisions.md`
+    /// D-18, `docs/protocol/SPEC.md` §2 "Concurrency"): succeeds -- returns `true`, and claims the
+    /// slot for the caller -- only if no other candidate is already in flight; otherwise leaves the
+    /// slot untouched and returns `false`. This single call MUST be the entire test-and-set: a
+    /// separate "is a candidate in flight" read followed by a later claim would reopen the race this
+    /// method exists to close (two concurrent verify callbacks could both read "no candidate" before
+    /// either claims the slot).
+    func admitCandidate() -> Bool
+
+    /// Frees the slot a prior ``admitCandidate()`` call claimed. SPEC.md §2 "Concurrency": "The
+    /// candidate slot ... is occupied from the moment the verify callback accepts the unknown
+    /// certificate until that connection closes" -- so the real pairing-window state machine
+    /// (E14-02) calls this from the candidate connection's own close/lifecycle handling, once it
+    /// closes for any reason. Never called by ``PeerAuthorizer``/``PeerVerifier`` themselves, which
+    /// only ever claim the slot, never release it -- release is a connection-lifecycle concern
+    /// outside this pure decision function's scope.
+    func releaseCandidate()
 }
 
 /// SPEC.md §1's verify-callback pin decision, factored out as a pure function (E12-02) so the
@@ -49,9 +64,11 @@ public enum PeerAuthorizer {
     ///    used internally by `trustStore.contains`), against every fingerprint the trust store
     ///    holds. A match is always `.trusted`, regardless of window state.
     /// 3. A trust-store read error is always `.rejected`, never `.trusted`.
-    /// 4. Otherwise: an open window with no candidate already in flight is `.pairingCandidate`;
-    ///    everything else (window closed, or the single candidate slot already occupied, D-18) is
-    ///    `.rejected`.
+    /// 4. Otherwise: an open window claims the single candidate slot (D-18,
+    ///    ``PairingWindowState/admitCandidate()``) -- a successful claim is `.pairingCandidate`;
+    ///    everything else (window closed, or the claim fails because the slot is already occupied)
+    ///    is `.rejected`. The slot is claimed only here, after the store miss, and only while the
+    ///    window is open -- never speculatively before either is known.
     public static func decide(
         spki: Data,
         trustStore: any TrustStoreReader,
@@ -72,10 +89,10 @@ public enum PeerAuthorizer {
             return .trusted
         }
 
-        if window.isOpen, !window.candidateInFlight {
-            return .pairingCandidate
+        guard window.isOpen else {
+            return .rejected
         }
 
-        return .rejected
+        return window.admitCandidate() ? .pairingCandidate : .rejected
     }
 }

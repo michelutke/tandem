@@ -84,7 +84,116 @@ struct VerifyBlockLoopbackTests {
         #expect(reachedReady)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func peerAuthorizer_extraChainCertificates_onlyLeafPinned() async throws {
+        let serverKeychain = try TemporaryKeychain()
+        defer { serverKeychain.cleanup() }
+        let clientKeychain = try TemporaryKeychain()
+        defer { clientKeychain.cleanup() }
+        let extraKeychain = try TemporaryKeychain()
+        defer { extraKeychain.cleanup() }
+
+        let clientIdentity = try clientKeychain.makeSecIdentity()
+        let clientFingerprint = try Self.fingerprint(for: clientIdentity)
+        let extraIdentity = try extraKeychain.makeSecIdentity()
+        let extraFingerprint = try Self.fingerprint(for: extraIdentity)
+        let extraCertificate = try Self.certificate(for: extraIdentity)
+
+        // Leaf pinned, an unknown extra certificate riding along in the chain: MUST succeed --
+        // only the leaf (chain index 0) is ever compared against the trust store, so the extra
+        // certificate's own (non-)trust status is irrelevant.
+        let (leafPinnedReady, leafPinnedConnection) = try await Self.attemptHandshake(
+            serverKeychain: serverKeychain,
+            clientIdentity: clientIdentity,
+            extraCertificate: extraCertificate,
+            trustStore: FixedTrustStoreReader(fingerprints: [clientFingerprint])
+        )
+        defer { leafPinnedConnection.cancel() }
+        #expect(leafPinnedReady)
+
+        // Only the extra certificate pinned, the leaf itself unknown: MUST fail -- pinning the
+        // extra certificate must never substitute for pinning the leaf.
+        let (extraPinnedReady, extraPinnedConnection) = try await Self.attemptHandshake(
+            serverKeychain: serverKeychain,
+            clientIdentity: clientIdentity,
+            extraCertificate: extraCertificate,
+            trustStore: FixedTrustStoreReader(fingerprints: [extraFingerprint])
+        )
+        defer { extraPinnedConnection.cancel() }
+        // As with the "no client certificate" case (gotcha 5, `docs/spikes/nwlistener-mtls.md`),
+        // the client can reach `.ready` transiently before discovering, on its next read, that the
+        // server rejected its certificate and closed -- assert that disjunction rather than
+        // `!extraPinnedReady` alone.
+        let extraPinnedClosed = extraPinnedReady
+            ? await Self.waitForReceiveEOFOrError(extraPinnedConnection, timeout: 5)
+            : true
+        #expect(!extraPinnedReady || extraPinnedClosed)
+    }
+
     // MARK: - Harness
+
+    private static func attemptHandshake(
+        serverKeychain: TemporaryKeychain,
+        clientIdentity: SecIdentity,
+        extraCertificate: SecCertificate,
+        trustStore: FixedTrustStoreReader
+    ) async throws -> (reachedReady: Bool, connection: NWConnection) {
+        let verify = PeerVerifier.makeVerifyBlock(
+            trustStore: trustStore,
+            window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
+        )
+        let listener = try NWListenerFactory().makeListener(
+            identity: try serverKeychain.makeSecIdentity(),
+            port: .any,
+            verify: verify
+        )
+        defer { listener.cancel() }
+        let port = try await Self.waitForListenerPort(listener)
+
+        let observer = ConnectionObserver()
+        let connection = Self.makeClientConnectionWithExtraChainCertificate(
+            port: port,
+            identity: clientIdentity,
+            extraCertificate: extraCertificate,
+            observer: observer
+        )
+        connection.start(queue: .global())
+
+        let reachedReady = await observer.waitForReady(timeout: 5)
+        return (reachedReady, connection)
+    }
+
+    private static func certificate(for identity: SecIdentity) throws -> SecCertificate {
+        var certificate: SecCertificate?
+        let status = SecIdentityCopyCertificate(identity, &certificate)
+        guard status == errSecSuccess, let certificate else {
+            throw VerifyBlockLoopbackTestError.certificateCopyFailed(status)
+        }
+        return certificate
+    }
+
+    private static func makeClientConnectionWithExtraChainCertificate(
+        port: NWEndpoint.Port,
+        identity: SecIdentity,
+        extraCertificate: SecCertificate,
+        observer: ConnectionObserver
+    ) -> NWConnection {
+        let options = NWProtocolTLS.Options()
+        let sec = options.securityProtocolOptions
+
+        sec_protocol_options_set_min_tls_protocol_version(sec, .TLSv13)
+        sec_protocol_options_set_max_tls_protocol_version(sec, .TLSv13)
+        if let secIdentity = sec_identity_create_with_certificates(identity, [extraCertificate] as CFArray) {
+            sec_protocol_options_set_local_identity(sec, secIdentity)
+        }
+        sec_protocol_options_add_tls_application_protocol(sec, tandemALPN)
+        sec_protocol_options_set_verify_block(sec, { _, _, complete in complete(true) }, .global())
+
+        let parameters = NWParameters(tls: options, tcp: NWProtocolTCP.Options())
+        let connection = NWConnection(host: "127.0.0.1", port: port, using: parameters)
+        observer.attach(to: connection)
+        return connection
+    }
 
     private static func fingerprint(for identity: SecIdentity) throws -> SpkiFingerprint {
         var certificate: SecCertificate?
@@ -175,9 +284,29 @@ private struct FixedTrustStoreReader: TrustStoreReader {
     }
 }
 
-private struct FixedPairingWindowState: PairingWindowState {
+private final class FixedPairingWindowState: PairingWindowState, @unchecked Sendable {
     let isOpen: Bool
-    let candidateInFlight: Bool
+    private let lock = NSLock()
+    private var claimed: Bool
+
+    init(isOpen: Bool, candidateInFlight: Bool) {
+        self.isOpen = isOpen
+        self.claimed = candidateInFlight
+    }
+
+    func admitCandidate() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !claimed else { return false }
+        claimed = true
+        return true
+    }
+
+    func releaseCandidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        claimed = false
+    }
 }
 
 /// Lock-protected "resume this continuation exactly once" latch (duplicated from

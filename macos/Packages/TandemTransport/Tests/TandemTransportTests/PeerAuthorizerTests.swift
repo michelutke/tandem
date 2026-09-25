@@ -81,7 +81,7 @@ struct PeerAuthorizerTests {
     }
 
     @Test
-    func peerAuthorizer_candidateAlreadyInFlight_secondUnknownRejectedWithoutAttempt() throws {
+    func peerAuthorizer_secondUnknownCertWhileCandidateInFlight_rejected() throws {
         let spki = try Self.makeValidSpkiDer()
 
         let decision = PeerAuthorizer.decide(
@@ -91,6 +91,22 @@ struct PeerAuthorizerTests {
         )
 
         #expect(decision == .rejected)
+    }
+
+    @Test
+    func peerAuthorizer_concurrentUnknownCandidates_admitsExactlyOne() throws {
+        let spki = try Self.makeValidSpkiDer()
+        let trustStore = FixedTrustStoreReader(fingerprints: [])
+        let window = FixedPairingWindowState(isOpen: true, candidateInFlight: false)
+        let collector = DecisionCollector()
+        let iterations = 64
+
+        DispatchQueue.concurrentPerform(iterations: iterations) { _ in
+            collector.record(PeerAuthorizer.decide(spki: spki, trustStore: trustStore, window: window))
+        }
+
+        #expect(collector.count(of: .pairingCandidate) == 1)
+        #expect(collector.count(of: .rejected) == iterations - 1)
     }
 
     /// A real, structurally valid uncompressed P-256 SPKI DER: the fixed 26-byte
@@ -123,7 +139,48 @@ private struct ThrowingTrustStoreReader: TrustStoreReader {
     }
 }
 
-private struct FixedPairingWindowState: PairingWindowState {
+/// A ``PairingWindowState`` fake whose ``admitCandidate()`` is a real atomic test-and-set (`NSLock`),
+/// so it can stand in for E14-02's real state machine in a concurrency test -- `candidateInFlight`
+/// seeds whether the slot starts out already claimed.
+private final class FixedPairingWindowState: PairingWindowState, @unchecked Sendable {
     let isOpen: Bool
-    let candidateInFlight: Bool
+    private let lock = NSLock()
+    private var claimed: Bool
+
+    init(isOpen: Bool, candidateInFlight: Bool) {
+        self.isOpen = isOpen
+        self.claimed = candidateInFlight
+    }
+
+    func admitCandidate() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !claimed else { return false }
+        claimed = true
+        return true
+    }
+
+    func releaseCandidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        claimed = false
+    }
+}
+
+/// Thread-safe tally of ``PeerAuthorizationDecision`` values recorded from concurrent callers.
+private final class DecisionCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var counts: [PeerAuthorizationDecision: Int] = [:]
+
+    func record(_ decision: PeerAuthorizationDecision) {
+        lock.lock()
+        defer { lock.unlock() }
+        counts[decision, default: 0] += 1
+    }
+
+    func count(of decision: PeerAuthorizationDecision) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return counts[decision, default: 0]
+    }
 }
