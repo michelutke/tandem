@@ -35,6 +35,7 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
     private struct State {
         var genericPasswords: [ServiceAccount: GenericPasswordEntry] = [:]
         var keys: [String: KeyEntry] = [:]
+        var certificates: [String: Data] = [:]
         var pendingFailure: KeychainError?
     }
 
@@ -118,6 +119,41 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
         try state.withLock { state in
             guard state.keys.removeValue(forKey: tag) != nil else { throw KeychainError.itemNotFound }
         }
+    }
+
+    public func addCertificate(label: String, der: Data) throws {
+        try consumePendingFailure()
+        try state.withLock { state in
+            guard state.certificates[label] == nil else { throw KeychainError.duplicateItem }
+            state.certificates[label] = der
+        }
+    }
+
+    public func copyCertificate(label: String) throws -> Data {
+        try consumePendingFailure()
+        guard let data = state.withLock({ $0.certificates[label] }) else {
+            throw KeychainError.itemNotFound
+        }
+        return data
+    }
+
+    public func deleteCertificate(label: String) throws {
+        try consumePendingFailure()
+        try state.withLock { state in
+            guard state.certificates.removeValue(forKey: label) != nil else {
+                throw KeychainError.itemNotFound
+            }
+        }
+    }
+
+    /// A `SecIdentity` cannot be synthesised outside a real Keychain (spike E03-02,
+    /// docs/spikes/secure-enclave-identity.md) -- there is no public initializer for one -- so
+    /// this always throws `errSecUnimplemented`. Every path up to this step (`IdentityKeyProvider`,
+    /// `IdentityCertProvider`) is unit-tested against this store; the step itself is a hosted
+    /// `integration:`/`unit:` test against `SecItemKeychainStore` (E10-07/E10-07b).
+    public func copyIdentity(keyTag: String) throws -> SecIdentity {
+        try consumePendingFailure()
+        throw KeychainError.unhandled(status: errSecUnimplemented)
     }
 
     /// Accessibility recorded by the add for this generic-password item, or `nil` if absent.

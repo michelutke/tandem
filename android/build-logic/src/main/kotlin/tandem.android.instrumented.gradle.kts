@@ -7,6 +7,11 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 // android-instrumented workflow runs: `api29` (google) and `api35` (google_apis). See
 // android-instrumented.yml for known emulator limits (no StrongBox, emulated TEE, no camera QR
 // scan, telephony via `adb emu` only, MediaProjection consent needs UiAutomator).
+// `app` (a `com.android.application` module, not a `tandem.android.library` one) configures the
+// same `testInstrumentationRunner` and managed devices directly in its own `android {}` block
+// instead of applying this plugin: `testInstrumentationRunner`/`managedDevices` live on
+// `LibraryExtension`/`ApplicationExtension`, not on the shared `CommonExtension` supertype, so
+// there is no single generic type this plugin could configure for both.
 plugins {
     id("tandem.android.library")
 }

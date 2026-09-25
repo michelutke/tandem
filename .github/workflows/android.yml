@@ -4,9 +4,9 @@ name: android
 on:
   push:
     branches: [main]
-    paths: ["android/**", "protocol/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "protocol/**", "tools/fuzz/jazzer/**", ".github/workflows/android.yml"]
   pull_request:
-    paths: ["android/**", "protocol/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "protocol/**", "tools/fuzz/jazzer/**", ".github/workflows/android.yml"]
 
 permissions:
   contents: read
@@ -47,6 +47,38 @@ jobs:
           tools/lint/test/gradle_dynamic_version_test.sh
           tools/lint/test/gradle_dependency_verification_test.sh
           tools/lint/test/release_apk_software_identity_key_store_absent_test.sh
+          tools/lint/test/detekt_pending_intent_immutable_test.sh
+          tools/lint/test/detekt_tandem_activity_base_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh
+      - name: Android manifest hardening check (E00-28)
+        working-directory: .
+        run: tools/release-audit/test/android_manifest_check_test.sh
+
+  fuzz-smoke:
+    # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing
+    # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 10 min job wall-clock budget.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: corretto
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Install Android SDK platform
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Jazzer smoke wrapper self-tests
+        working-directory: .
+        run: |
+          tools/fuzz/jazzer/test/jazzer_smoke_planted_crasher_test.sh
+          tools/fuzz/jazzer/test/jazzer_smoke_budget_exhausted_test.sh
+      - name: Jazzer fuzz smoke (frame/envelope parser)
+        working-directory: .
+        run: tools/fuzz/jazzer/smoke.sh dev.tandem.core.protocol.fuzz.FrameDecoderFuzzTest 300 "$RUNNER_TEMP/jazzer-artifacts"

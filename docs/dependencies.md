@@ -32,6 +32,13 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `app.cash.turbine:turbine` | Apache-2.0 | Kotlin Flow testing (`unit` layer, CLAUDE.md) | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-test` | Apache-2.0 | Coroutine test dispatchers | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-serialization-json` | Apache-2.0 | Test-only: parse `protocol/vectors` JSON in frame codec tests | E11-01 |
+| `androidx.activity:activity` | Apache-2.0 | `ComponentActivity` base for `TandemActivity` (tapjacking filter) | E00-28 |
+| `com.google.devtools.ksp:symbol-processing-gradle-plugin` | Apache-2.0 | KSP annotation processing for Hilt (kapt unsupported with AGP 9 built-in Kotlin) | E00-03 |
+| `com.google.dagger:hilt-android-gradle-plugin` | Apache-2.0 | Hilt Gradle plugin (bytecode transform, aggregation) | E00-03 |
+| `com.google.dagger:hilt-android` | Apache-2.0 | Hilt dependency injection runtime | E00-03 |
+| `com.google.dagger:hilt-compiler` | Apache-2.0 | Hilt/Dagger code generator (KSP, build-time only) | E00-03 |
+| `androidx.activity:activity-compose` | Apache-2.0 | `setContent` for Compose activities | E00-03 |
+| `androidx.test:core` | Apache-2.0 | Test-only: `ActivityScenario`/`ApplicationProvider` in instrumented tests | E00-03 |
 | `com.google.protobuf:protobuf-javalite` | BSD-3-Clause | Protobuf runtime (Java, lite) | E00-09 |
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
@@ -47,14 +54,30 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.jetbrains.kotlin:compose-compiler-gradle-plugin` | Apache-2.0 | Jetpack Compose compiler plugin | E00-20 |
 | `androidx.compose:compose-bom` | Apache-2.0 | Compose version alignment (bill of materials) | E00-20 |
 | `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components | E00-20 |
+| `androidx.compose.ui:ui-tooling-preview` | Apache-2.0 | `@Preview` annotations for design-system components | E00-31 |
+| `androidx.compose.ui:ui-tooling` | Apache-2.0 | Debug-only preview rendering for design-system components | E00-31 |
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
 | `androidx.compose.ui:ui-test-manifest` | Apache-2.0 | Compose UI test manifest activity | E00-20 |
+| `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | Coroutine primitives (`CoroutineScope`/`CoroutineDispatcher`) for the settings store's DataStore writer scope | E13-04 |
+| `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
+
+`jazzer-junit` pulls in `com.code-intelligence:jazzer` and `com.code-intelligence:jazzer-api`
+transitively (both Apache-2.0, both left un-pinned in `[libraries]` since only `jazzer-junit` is a
+direct dependency here — see the license-gate rule above). Checked
+`https://repo1.maven.org/maven2/com/code-intelligence/jazzer/0.30.0/`: unlike `aapt2`, Jazzer
+publishes a single universal `jazzer-0.30.0.jar` per artifact/version (no `-linux`/`-windows`/`-osx`
+classifiers — it bundles its native libFuzzer/JVM-agent pieces as resources inside that one jar).
+So a normal `--write-verification-metadata` regeneration (even run on macOS) records one entry per
+artifact that's valid regardless of the CI runner's OS; no aapt2-style hand-added per-OS checksum
+entries were needed or added for Jazzer.
 
 ## macOS / Swift (`macos/Packages/*/Package.swift`)
 
 | Dependency | License | Purpose | Issue |
 |---|---|---|---|
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
+| `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
 
 ## Update bot
 

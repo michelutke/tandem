@@ -49,7 +49,7 @@ layout, period titles, dot-matrix visuals, one functional accent.
 | Token | Value | Use |
 |---|---|---|
 | `ink` | `#0A0A0A` | Primary text, lit dots, filled buttons |
-| `ink2` | `#8A8A8A` | Secondary text, state lines, units, row numbers (≥ 4.5:1 on paper at ≥ 14 pt; use `ink` for smaller body text) |
+| `ink2` | `#757575` | Secondary text, state lines, units, row numbers (≥ 4.5:1 on paper at ≥ 14 pt; use `ink` for smaller body text) |
 | `line` | `#0A0A0A1A` | Hairlines, unlit dots at 12 % (`#0A0A0A1F`) |
 | `paper` | `#FFFFFF` | Backgrounds (Android), glass tint base (macOS) |
 | `signal` | `#00D65A` | Connected, healthy, current position, "done" |

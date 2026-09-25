@@ -73,6 +73,47 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .mediaTicketGrant(newValue)}
   }
 
+  /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+  var pairChallenge: Tandem_V1_PairChallenge {
+    get {
+      if case .pairChallenge(let v)? = payload {return v}
+      return Tandem_V1_PairChallenge()
+    }
+    set {payload = .pairChallenge(newValue)}
+  }
+
+  var pairRequest: Tandem_V1_PairRequest {
+    get {
+      if case .pairRequest(let v)? = payload {return v}
+      return Tandem_V1_PairRequest()
+    }
+    set {payload = .pairRequest(newValue)}
+  }
+
+  var pairAccepted: Tandem_V1_PairAccepted {
+    get {
+      if case .pairAccepted(let v)? = payload {return v}
+      return Tandem_V1_PairAccepted()
+    }
+    set {payload = .pairAccepted(newValue)}
+  }
+
+  var pairRejected: Tandem_V1_PairRejected {
+    get {
+      if case .pairRejected(let v)? = payload {return v}
+      return Tandem_V1_PairRejected()
+    }
+    set {payload = .pairRejected(newValue)}
+  }
+
+  var revoke: Tandem_V1_Revoke {
+    get {
+      if case .revoke(let v)? = payload {return v}
+      return Tandem_V1_Revoke()
+    }
+    set {payload = .revoke(newValue)}
+  }
+
   var deviceStatus: Tandem_V1_DeviceStatus {
     get {
       if case .deviceStatus(let v)? = payload {return v}
@@ -97,6 +138,12 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     case heartbeat(Tandem_V1_Heartbeat)
     case creditGrant(Tandem_V1_CreditGrant)
     case mediaTicketGrant(Tandem_V1_MediaTicketGrant)
+    /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+    case pairChallenge(Tandem_V1_PairChallenge)
+    case pairRequest(Tandem_V1_PairRequest)
+    case pairAccepted(Tandem_V1_PairAccepted)
+    case pairRejected(Tandem_V1_PairRejected)
+    case revoke(Tandem_V1_Revoke)
     case deviceStatus(Tandem_V1_DeviceStatus)
     case ring(Tandem_V1_Ring)
 
@@ -111,7 +158,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Envelope"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{d}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{a}\u{a}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -172,6 +219,71 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
           self.payload = .mediaTicketGrant(v)
+        }
+      }()
+      case 10: try {
+        var v: Tandem_V1_PairChallenge?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .pairChallenge(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .pairChallenge(v)
+        }
+      }()
+      case 11: try {
+        var v: Tandem_V1_PairRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .pairRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .pairRequest(v)
+        }
+      }()
+      case 12: try {
+        var v: Tandem_V1_PairAccepted?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .pairAccepted(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .pairAccepted(v)
+        }
+      }()
+      case 13: try {
+        var v: Tandem_V1_PairRejected?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .pairRejected(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .pairRejected(v)
+        }
+      }()
+      case 14: try {
+        var v: Tandem_V1_Revoke?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .revoke(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .revoke(v)
         }
       }()
       case 20: try {
@@ -235,6 +347,26 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .mediaTicketGrant?: try {
       guard case .mediaTicketGrant(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .pairChallenge?: try {
+      guard case .pairChallenge(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 10)
+    }()
+    case .pairRequest?: try {
+      guard case .pairRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 11)
+    }()
+    case .pairAccepted?: try {
+      guard case .pairAccepted(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 12)
+    }()
+    case .pairRejected?: try {
+      guard case .pairRejected(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 13)
+    }()
+    case .revoke?: try {
+      guard case .revoke(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
     }()
     case .deviceStatus?: try {
       guard case .deviceStatus(let v)? = self.payload else { preconditionFailure() }
