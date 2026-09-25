@@ -42,12 +42,16 @@ jobs:
           tools/lint/swiftlint-check.sh
       - name: Package graph rules
         run: ruby tools/lint/swift-package-rules.rb
+      - name: Key material boundary check (E10-14)
+        run: tools/lint/test/swiftlint_key_material_only_in_crypto_rule_test.sh
       - name: SwiftPM resolved-only fixture (E00-29)
         run: tools/lint/test/swiftpm_resolved_only_test.sh
       - name: Release log lint
         run: |
           tools/lint/release-log-check.sh
           ruby tools/lint/test/release_log_check_test.rb
+      - name: Trust-store invariant (E13-11)
+        run: bash tools/lint/test/trust_store_invariant_test.sh
       - name: Literal color lint
         run: |
           tools/lint/literal-color-check.sh
