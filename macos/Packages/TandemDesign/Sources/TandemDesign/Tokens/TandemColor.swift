@@ -9,7 +9,7 @@ public enum TandemColor {
     public static let ink = Color(hex: 0x0A0A0A)
     /// Secondary text, state lines, units, row numbers. >= 4.5:1 on `paper` at >= 14 pt only;
     /// use `ink` for smaller body text (ui-spec §11).
-    public static let ink2 = Color(hex: 0x8A8A8A)
+    public static let ink2 = Color(hex: 0x757575)
     /// Backgrounds / glass tint base.
     public static let paper = Color(hex: 0xFFFFFF)
     /// Connected, healthy, current position, "done".
