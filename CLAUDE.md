@@ -38,6 +38,7 @@ macos/test-packages.sh
 xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet
 tools/lint/swiftlint-check.sh
 ruby tools/lint/swift-package-rules.rb
+tools/lint/release-log-check.sh
 (cd protocol && buf lint && buf breaking --against '../.git#branch=main,subdir=protocol')
 tools/protocol/check_generated.sh
 ```
