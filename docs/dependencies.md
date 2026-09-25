@@ -82,6 +82,12 @@ cd android
 ./gradlew build ktlintCheck detekt --write-locks
 ```
 
+Platform-classified artifacts resolve only for the host OS, so a macOS regeneration records only
+the `-osx` variant. `aapt2` is the known case: CI runs on Linux, so its `-linux` (and `-windows`)
+jar checksums are added by hand from Google Maven with the published `.sha1` cross-checked. After
+an AGP upgrade, add the new version's `-linux`/`-windows` entries the same way or CI fails
+verification.
+
 Review the diff to both `gradle/verification-metadata.xml` and every changed `gradle.lockfile`
 before committing — that diff is the actual code review for a new/updated dependency. Then add its
 row to this file (Android section above) with its license and issue ID.
