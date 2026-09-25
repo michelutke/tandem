@@ -120,6 +120,11 @@ public struct TrustStore: Sendable {
                 data: versionData
             )
         }
+
+    /// Unpairs the device identified by `fingerprint`, deleting its local trust record
+    /// synchronously and immediately (E13-09). No connection state is required.
+    public func unpair(_ fingerprint: SpkiFingerprint) throws {
+        try delete(fingerprint)
     }
 
     private static let encoder = JSONEncoder()
