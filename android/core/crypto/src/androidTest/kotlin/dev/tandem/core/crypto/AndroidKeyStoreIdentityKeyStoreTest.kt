@@ -1,0 +1,38 @@
+package dev.tandem.core.crypto
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.After
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.security.KeyStore
+
+/**
+ * E10-01 instrumented tests: the emulator has no StrongBox, so requesting it always throws the
+ * platform's `StrongBoxUnavailableException` and `IdentityKeyProvider`'s TEE fallback runs for
+ * real (see E00-21 notes on `tandem.android.instrumented`). StrongBox-granted security level and
+ * `KeyInfo.isInsideSecureHardware=true` are manual gates (E00-23) on physical hardware only.
+ */
+@RunWith(AndroidJUnit4::class)
+class AndroidKeyStoreIdentityKeyStoreTest {
+    @After
+    fun tearDown() {
+        KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(IDENTITY_KEY_ALIAS)
+    }
+
+    @Test
+    fun androidKeyStoreIdentity_emulatorWithoutStrongBox_generatesViaTeeFallback() {
+        val handle = IdentityKeyProvider(AndroidKeyStoreIdentityKeyStore()).getOrCreateIdentityKey()
+
+        assertNotNull(handle.publicKey)
+        assertNotNull(AndroidKeyStoreIdentityKeyStore().get(IDENTITY_KEY_ALIAS))
+    }
+
+    @Test
+    fun androidKeyStoreIdentity_privateKey_encodedReturnsNull() {
+        val handle = IdentityKeyProvider(AndroidKeyStoreIdentityKeyStore()).getOrCreateIdentityKey()
+
+        assertNull(handle.privateKey.encoded)
+    }
+}
