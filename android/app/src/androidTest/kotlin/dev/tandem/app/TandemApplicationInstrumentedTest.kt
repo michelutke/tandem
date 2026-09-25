@@ -25,7 +25,9 @@ class TandemApplicationInstrumentedTest {
 
     @Test
     fun tandemApplication_onCreate_isHiltComponentManager() {
-        val application = ApplicationProvider.getApplicationContext<TandemApplication>()
+        // Typed as Any: the Hilt Gradle plugin rewrites TandemApplication's superclass to the
+        // generated Hilt_TandemApplication in bytecode, which the compiler cannot see.
+        val application: Any = ApplicationProvider.getApplicationContext<TandemApplication>()
 
         assertTrue(application is GeneratedComponentManagerHolder)
     }
