@@ -59,6 +59,19 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
 | `androidx.compose.ui:ui-test-manifest` | Apache-2.0 | Compose UI test manifest activity | E00-20 |
 | `org.conscrypt:conscrypt-openjdk-uber` | Apache-2.0 | JVM-only TLS 1.3 stack for the E12-04 in-process loopback test server / session-ticket-disable test harness | E12-04 |
+| `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | Coroutine primitives (`CoroutineScope`/`CoroutineDispatcher`) for the settings store's DataStore writer scope | E13-04 |
+| `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
+
+`jazzer-junit` pulls in `com.code-intelligence:jazzer` and `com.code-intelligence:jazzer-api`
+transitively (both Apache-2.0, both left un-pinned in `[libraries]` since only `jazzer-junit` is a
+direct dependency here — see the license-gate rule above). Checked
+`https://repo1.maven.org/maven2/com/code-intelligence/jazzer/0.30.0/`: unlike `aapt2`, Jazzer
+publishes a single universal `jazzer-0.30.0.jar` per artifact/version (no `-linux`/`-windows`/`-osx`
+classifiers — it bundles its native libFuzzer/JVM-agent pieces as resources inside that one jar).
+So a normal `--write-verification-metadata` regeneration (even run on macOS) records one entry per
+artifact that's valid regardless of the CI runner's OS; no aapt2-style hand-added per-OS checksum
+entries were needed or added for Jazzer.
 
 ## macOS / Swift (`macos/Packages/*/Package.swift`)
 

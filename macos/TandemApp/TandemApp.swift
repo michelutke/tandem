@@ -1,4 +1,5 @@
 import SwiftUI
+import TandemCrypto
 
 @main
 struct TandemMenuBarApp: App {
@@ -21,6 +22,21 @@ struct TandemMenuBarApp: App {
     }
 }
 
+/// Ensures the Mac's mTLS identity (key + self-signed certificate + `SecIdentity`, E10-07) exists,
+/// over the `KeychainStoreFactory`-selected store, the first time `MenuContentView` is rendered --
+/// Swift globals are lazily and thread-safely initialized on first access. No silent fallback
+/// (D-75, invariant 5): a failure here (e.g. `-34018` on an unsigned dev build with no
+/// `keychain-access-groups` entitlement) is recorded and surfaced as a visible
+/// "Identity Unavailable" state instead of the ordinary menu content.
+private let identityBootstrapFailureReason: String? = {
+    do {
+        _ = try SecIdentityProvider(keychainStore: KeychainStoreFactory.make()).getOrCreateSecIdentity()
+        return nil
+    } catch {
+        return String(describing: error)
+    }
+}()
+
 #if DEBUG
 import AppKit
 
@@ -40,18 +56,32 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 
 /// The menu bar popover content. Normally empty scaffolding until the connection UI (F-4.2)
 /// lands; under a DEBUG `-UITestScenario` launch argument it renders the seeded scenario view
-/// instead, so XCUITest has a deterministic, accessibility-identified element to assert on.
+/// instead (identity bootstrap is never even evaluated in that case, so a seeded scenario never
+/// depends on real Keychain access), so XCUITest has a deterministic, accessibility-identified
+/// element to assert on. Otherwise, if identity bootstrap failed (E10-07b, D-75), that replaces
+/// the ordinary "Tandem" content with a visible error.
 struct MenuContentView: View {
     var body: some View {
         #if DEBUG
         if let scenario = UITestScenario.fromLaunchArguments() {
             ScenarioView(scenario: scenario)
         } else {
-            Text("Tandem")
+            defaultContent
         }
         #else
-        Text("Tandem")
+        defaultContent
         #endif
+    }
+
+    @ViewBuilder
+    private var defaultContent: some View {
+        if let reason = identityBootstrapFailureReason {
+            Text("Identity Unavailable")
+                .accessibilityIdentifier("identityUnavailableLabel")
+                .accessibilityLabel("Identity Unavailable: \(reason)")
+        } else {
+            Text("Tandem")
+        }
     }
 }
 
