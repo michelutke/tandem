@@ -13,3 +13,14 @@ breaking:
   # allowed. Remove this exception when protocol v1 ships.
   except:
     - FILE_NO_DELETE
+    # Channel (E01-10) moved from envelope.proto into its own channel.proto (E01-12) so
+    # control.proto could import it for CreditGrant.channel without envelope.proto and
+    # control.proto importing each other (envelope.proto's oneof embeds control.proto's message
+    # types; buf/protoc reject that file-level import cycle). Channel's full name and numbering
+    # are unchanged by the move.
+    - ENUM_NO_DELETE
+    # envelope.proto's per-domain payload ranges (E01-10) are `reserved` placeholders until each
+    # owning issue lands and turns its numbers into real oneof fields (this issue, E01-12,
+    # converts 4-7 for control.proto). Nothing ever used those numbers on the wire, so shrinking
+    # a reserved range this way is not a real break; every later domain issue does the same.
+    - RESERVED_MESSAGE_NO_DELETE
