@@ -40,6 +40,9 @@ class ChannelMultiplexerTest {
             val pipe = InMemoryDuplexPipe()
             val a = ChannelMultiplexer(sourceFor(pipe.endpointA), sinkFor(pipe.endpointA))
             val b = ChannelMultiplexer(sourceFor(pipe.endpointB), sinkFor(pipe.endpointB))
+            // E11-07: `send` only enqueues; `a`'s own writer loop (launched by `a.start()`) is
+            // what actually puts bytes on the wire for `b` to read.
+            launch { a.start() }
             launch { b.start() }
 
             b.inbound(Channel.CHANNEL_NOTIFY).test {
@@ -62,6 +65,7 @@ class ChannelMultiplexerTest {
             val pipe = InMemoryDuplexPipe()
             val a = ChannelMultiplexer(sourceFor(pipe.endpointA), sinkFor(pipe.endpointA))
             val b = ChannelMultiplexer(sourceFor(pipe.endpointB), sinkFor(pipe.endpointB))
+            launch { a.start() }
             launch { b.start() }
 
             repeat(3) { a.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() } }
@@ -83,23 +87,25 @@ class ChannelMultiplexerTest {
     fun multiplexer_receivedSeq1And3_ackIs1UntilSeq2Arrives() =
         muxTest {
             // Only B runs a multiplexer: frames are injected raw towards B, and B's outgoing acks
-            // are read back from the captured B→A bytes (a peer multiplexer would rightly close on
-            // an ack for seqs it never sent, D-57).
+            // are read back one frame at a time from a raw FrameSource over the B→A direction (not
+            // from a snapshot of captured bytes, since E11-07's writer loop delivers a `send`
+            // asynchronously: a snapshot taken immediately after `send` returns could race it).
             val pipe = InMemoryDuplexPipe()
             val b = ChannelMultiplexer(sourceFor(pipe.endpointB), sinkFor(pipe.endpointB))
             launch { b.start() }
+            val bOutgoing = sourceFor(pipe.endpointA)
 
             injectAndAwaitRouted(pipe, b, Channel.CHANNEL_NOTIFY, seq = 1)
             b.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
-            assertEquals(1L, lastAckSentByB(pipe), "ack after seq 1 arrives")
+            assertEquals(1L, nextAckSentByB(bOutgoing), "ack after seq 1 arrives")
 
             injectAndAwaitRouted(pipe, b, Channel.CHANNEL_NOTIFY, seq = 3)
             b.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
-            assertEquals(1L, lastAckSentByB(pipe), "ack unchanged: seq 3 is a held gap")
+            assertEquals(1L, nextAckSentByB(bOutgoing), "ack unchanged: seq 3 is a held gap")
 
             injectAndAwaitRouted(pipe, b, Channel.CHANNEL_NOTIFY, seq = 2)
             b.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
-            assertEquals(3L, lastAckSentByB(pipe), "ack folds in seq 3 once seq 2 fills the gap")
+            assertEquals(3L, nextAckSentByB(bOutgoing), "ack folds in seq 3 once seq 2 fills the gap")
         }
 
     @Test
@@ -197,35 +203,19 @@ class ChannelMultiplexerTest {
                 },
             )
 
+        /** Suspends until the next frame [source] delivers, returning its `ack`. */
+        suspend fun nextAckSentByB(source: FrameSource): Long =
+            when (val result = FrameDecoder.decodeFrame(source)) {
+                is DecodeResult.Frame -> result.envelope.ack
+                else -> error("B sent no frame: $result")
+            }
+
         /**
          * Injects a raw frame directly onto the wire toward [b] (bypassing [ChannelMultiplexer.send],
          * which never lets a caller pick a `seq` itself) and waits until [b]'s reader loop has routed
          * it — proving that frame's seq/ack bookkeeping has already been applied — before the caller
          * does anything that depends on that bookkeeping (E11-05 acceptance: seq 1 then 3 then 2).
          */
-        suspend fun lastAckSentByB(pipe: InMemoryDuplexPipe): Long {
-            val bytes = pipe.capturedBToA()
-            var position = 0
-            val source =
-                FrameSource { buffer, offset, length ->
-                    if (position == bytes.size) {
-                        -1
-                    } else {
-                        val n = minOf(length, bytes.size - position)
-                        bytes.copyInto(buffer, offset, position, position + n)
-                        position += n
-                        n
-                    }
-                }
-            var last: Long? = null
-            while (true) {
-                when (val result = FrameDecoder.decodeFrame(source)) {
-                    is DecodeResult.Frame -> last = result.envelope.ack
-                    else -> return last ?: error("B sent no frame: ${'$'}result")
-                }
-            }
-        }
-
         suspend fun injectAndAwaitRouted(
             pipe: InMemoryDuplexPipe,
             b: ChannelMultiplexer,
