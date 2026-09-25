@@ -47,6 +47,11 @@ jobs:
           tools/lint/test/gradle_dynamic_version_test.sh
           tools/lint/test/gradle_dependency_verification_test.sh
           tools/lint/test/release_apk_software_identity_key_store_absent_test.sh
+          tools/lint/test/detekt_pending_intent_immutable_test.sh
+          tools/lint/test/detekt_tandem_activity_base_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh
+      - name: Android manifest hardening check (E00-28)
+        working-directory: .
+        run: tools/release-audit/test/android_manifest_check_test.sh
