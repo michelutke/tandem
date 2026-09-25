@@ -39,6 +39,9 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `com.google.dagger:hilt-compiler` | Apache-2.0 | Hilt/Dagger code generator (KSP, build-time only) | E00-03 |
 | `androidx.activity:activity-compose` | Apache-2.0 | `setContent` for Compose activities | E00-03 |
 | `androidx.test:core` | Apache-2.0 | Test-only: `ActivityScenario`/`ApplicationProvider` in instrumented tests | E00-03 |
+| `androidx.room:room-runtime` | Apache-2.0 | Trust store persistence (peer record CRUD) | E13-02 |
+| `androidx.room:room-compiler` | Apache-2.0 | Room code generator (KSP, build-time only) | E13-02 |
+| `androidx.sqlite:sqlite-framework` | Apache-2.0 | `AndroidSQLiteDriver` (wraps the OS's built-in SQLite) for Room | E13-02 |
 | `com.google.protobuf:protobuf-javalite` | BSD-3-Clause | Protobuf runtime (Java, lite) | E00-09 |
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
