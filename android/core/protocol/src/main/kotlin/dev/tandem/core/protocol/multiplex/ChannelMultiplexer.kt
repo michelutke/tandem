@@ -263,6 +263,7 @@ class ChannelMultiplexer(
             inboundQueues.values.forEach { it.close() }
             closeResult.complete(result)
         }
+        flowControl.failWaiters(result)
     }
 
     /**
@@ -270,14 +271,22 @@ class ChannelMultiplexer(
      * a queued outbound frame, writing at most one frame per channel per pass, so a channel that
      * keeps producing frames can never fully starve another (E11-09 covers sustained-contention
      * guarantees; this is the round-robin mechanism itself).
+     *
+     * Once [closeResult] has completed, this loop stops writing anything: it never relies on
+     * [start]'s `writerJob.cancel()` alone, since Kotlin cancellation only takes effect at a
+     * suspension point and a frame already popped off a channel's outbound queue would otherwise
+     * still reach [sink] (mirroring the macOS twin's `drainLoop`/`finish`). A write already in
+     * flight when [closeResult] completes is unaffected — it already committed to going out —
+     * but every frame popped afterward is discarded by [failQueued] instead of written.
      */
     private inner class Writer {
         suspend fun run() {
             var startIndex = 0
-            while (true) {
+            while (!closeResult.isCompleted) {
                 val nextIndex = drainOnePass(startIndex)
-                startIndex = nextIndex ?: awaitAndWriteAny()
+                startIndex = nextIndex ?: awaitAndWriteAny() ?: continue
             }
+            failQueued()
         }
 
         /** Writes at most one frame per channel, starting at [startIndex]; `null` if nothing was queued. */
@@ -293,10 +302,15 @@ class ChannelMultiplexer(
             return null
         }
 
-        /** Suspends until any channel's outbound queue has a frame, writes it, and returns the next start index. */
-        private suspend fun awaitAndWriteAny(): Int {
+        /**
+         * Suspends until any channel's outbound queue has a frame, writes it, and returns the next
+         * start index — or `null` once [closeResult] completes first, so this never suspends
+         * forever waiting for a frame [send] will no longer enqueue.
+         */
+        private suspend fun awaitAndWriteAny(): Int? {
             val index =
                 select {
+                    closeResult.onAwait { CLOSED_INDEX }
                     for (channel in ROUTABLE_CHANNELS) {
                         outboundQueues.getValue(channel).onReceive { frame ->
                             sink.write(FrameEncoder.encodeFrame(frame))
@@ -304,7 +318,22 @@ class ChannelMultiplexer(
                         }
                     }
                 }
-            return (index + 1) % ROUTABLE_CHANNELS.size
+            return if (index == CLOSED_INDEX) null else (index + 1) % ROUTABLE_CHANNELS.size
+        }
+
+        /**
+         * Pops and discards every frame still sitting in every channel's outbound queue once
+         * [closeResult] has completed: SPEC.md/security invariant 1 — no frame reaches [sink]
+         * after this multiplexer has closed, so a queued backlog is failed rather than written.
+         */
+        private fun failQueued() {
+            for (channel in ROUTABLE_CHANNELS) {
+                while (outboundQueues.getValue(channel).tryReceive().isSuccess) {
+                    // Popped after close: never written to sink (MultiplexerClosedException is
+                    // what a concurrent send() caller already observes; there is no per-frame
+                    // continuation here to fail explicitly).
+                }
+            }
         }
     }
 
@@ -398,28 +427,53 @@ class ChannelMultiplexer(
         /**
          * SPEC.md D-64: applies a peer `CreditGrant` to this side's own send balance. `amount == 0`
          * is a well-formed no-op. A grant naming a channel this side does not track credit for
-         * (`CONTROL`, `CHANNEL_UNSPECIFIED`, or unrecognized) is silently ignored: rejecting it as
-         * `UNKNOWN_CHANNEL` is out of this issue's scope (E11-07 acceptance criteria).
+         * (`CONTROL`, `CHANNEL_UNSPECIFIED`, or unrecognized) never names a real credit ledger and
+         * closes with [CloseCode.MALFORMED_FRAME]/[MalformedFrameReason.UNKNOWN_CHANNEL] (SPEC.md
+         * #channels-and-flow-control-credits), matching the macOS twin's
+         * `applyIncomingCreditGrant`.
          */
         suspend fun applyIncomingGrant(grant: CreditGrant): MultiplexerClose? {
-            val credit = sendCredit[grant.channel]
-            if (grant.amount == 0 || credit == null) return null
+            val credit =
+                sendCredit[grant.channel]
+                    ?: return MultiplexerClose.Violation(
+                        CloseCode.MALFORMED_FRAME,
+                        MalformedFrameReason.UNKNOWN_CHANNEL,
+                    )
             val overflow =
-                credit.mutex.withLock {
-                    when (credit.ledger.applyGrant(grant.amount)) {
-                        is CreditLedger.GrantResult.Ok -> {
-                            val waiters = credit.waiters.toList()
-                            credit.waiters.clear()
-                            waiters.forEach { it.complete(Unit) }
-                            false
-                        }
+                grant.amount > 0 &&
+                    credit.mutex.withLock {
+                        when (credit.ledger.applyGrant(grant.amount)) {
+                            is CreditLedger.GrantResult.Ok -> {
+                                val waiters = credit.waiters.toList()
+                                credit.waiters.clear()
+                                waiters.forEach { it.complete(Unit) }
+                                false
+                            }
 
-                        CreditLedger.GrantResult.Overflow -> {
-                            true
+                            CreditLedger.GrantResult.Overflow -> {
+                                true
+                            }
                         }
                     }
-                }
             return if (overflow) MultiplexerClose.CreditViolation(grant.channel) else null
+        }
+
+        /**
+         * Wakes every [SendCredit.waiters] entry across every feature channel with
+         * [MultiplexerClosedException], so an [awaitSendCredit] caller currently suspended throws
+         * instead of hanging forever now that this multiplexer has closed (mirrors the macOS
+         * twin's `finish()` kicking the drain loop so every pending continuation resolves).
+         */
+        suspend fun failWaiters(close: MultiplexerClose) {
+            for (credit in sendCredit.values) {
+                val waiters =
+                    credit.mutex.withLock {
+                        val current = credit.waiters.toList()
+                        credit.waiters.clear()
+                        current
+                    }
+                waiters.forEach { it.completeExceptionally(MultiplexerClosedException(close)) }
+            }
         }
     }
 
@@ -467,5 +521,8 @@ class ChannelMultiplexer(
 
         /** [ROUTABLE_CHANNELS] minus `CONTROL`, which is exempt from credit accounting (SPEC.md D-64). */
         val FEATURE_CHANNELS: List<Channel> = ROUTABLE_CHANNELS.filter { it != Channel.CHANNEL_CONTROL }
+
+        /** [Writer.awaitAndWriteAny]'s sentinel return value for "[closeResult] completed first". */
+        const val CLOSED_INDEX = -1
     }
 }
