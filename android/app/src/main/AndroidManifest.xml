@@ -9,6 +9,7 @@
         Tandem's own TLS still goes through the pinning TrustManager (E12-05) regardless.
     -->
     <application
+        android:name=".TandemApplication"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -19,6 +20,14 @@
              entries (E00-28's activity-inheritance backstop) has at least one real entry to see. -->
         <activity android:name=".TandemActivity" android:exported="false" />
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

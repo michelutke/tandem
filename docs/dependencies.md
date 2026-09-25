@@ -33,6 +33,12 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.jetbrains.kotlinx:kotlinx-coroutines-test` | Apache-2.0 | Coroutine test dispatchers | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-serialization-json` | Apache-2.0 | Test-only: parse `protocol/vectors` JSON in frame codec tests | E11-01 |
 | `androidx.activity:activity` | Apache-2.0 | `ComponentActivity` base for `TandemActivity` (tapjacking filter) | E00-28 |
+| `com.google.devtools.ksp:symbol-processing-gradle-plugin` | Apache-2.0 | KSP annotation processing for Hilt (kapt unsupported with AGP 9 built-in Kotlin) | E00-03 |
+| `com.google.dagger:hilt-android-gradle-plugin` | Apache-2.0 | Hilt Gradle plugin (bytecode transform, aggregation) | E00-03 |
+| `com.google.dagger:hilt-android` | Apache-2.0 | Hilt dependency injection runtime | E00-03 |
+| `com.google.dagger:hilt-compiler` | Apache-2.0 | Hilt/Dagger code generator (KSP, build-time only) | E00-03 |
+| `androidx.activity:activity-compose` | Apache-2.0 | `setContent` for Compose activities | E00-03 |
+| `androidx.test:core` | Apache-2.0 | Test-only: `ActivityScenario`/`ApplicationProvider` in instrumented tests | E00-03 |
 | `com.google.protobuf:protobuf-javalite` | BSD-3-Clause | Protobuf runtime (Java, lite) | E00-09 |
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |

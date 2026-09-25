@@ -9,6 +9,9 @@
 # not a Tandem component; DUMP is a signature|privileged permission only the system/shell can hold.
 androidx.profileinstaller.ProfileInstallReceiver android.permission.DUMP
 
+# Launcher activity (E00-03); must be exported for the home screen, needs no permission.
+dev.tandem.app.MainActivity -
+
 # Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
 # components exist in the app module today):
 #   - the launcher activity                                                    -
