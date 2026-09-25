@@ -31,6 +31,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.junit.platform:junit-platform-launcher` | EPL-2.0 | JUnit Platform test launcher | E00-05 |
 | `app.cash.turbine:turbine` | Apache-2.0 | Kotlin Flow testing (`unit` layer, CLAUDE.md) | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-test` | Apache-2.0 | Coroutine test dispatchers | E00-05 |
+| `org.jetbrains.kotlinx:kotlinx-serialization-json` | Apache-2.0 | Test-only: parse `protocol/vectors` JSON in frame codec tests | E11-01 |
 | `com.google.protobuf:protobuf-javalite` | BSD-3-Clause | Protobuf runtime (Java, lite) | E00-09 |
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
