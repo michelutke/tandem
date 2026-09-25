@@ -73,4 +73,15 @@ public protocol KeychainStore: Sendable {
 
     /// Throws `KeychainError.itemNotFound` if none exists.
     func deleteKey(tag: String) throws
+
+    /// A DER-encoded X.509 certificate item, keyed by label (used by identity certificate
+    /// storage, E10-06). Throws `KeychainError.duplicateItem` if one already exists under
+    /// `label`.
+    func addCertificate(label: String, der: Data) throws
+
+    /// Throws `KeychainError.itemNotFound` if none exists.
+    func copyCertificate(label: String) throws -> Data
+
+    /// Throws `KeychainError.itemNotFound` if none exists.
+    func deleteCertificate(label: String) throws
 }

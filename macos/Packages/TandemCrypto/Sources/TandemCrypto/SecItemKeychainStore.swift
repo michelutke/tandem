@@ -111,6 +111,34 @@ public struct SecItemKeychainStore: KeychainStore, Sendable {
         guard status == errSecSuccess else { throw KeychainError(status) }
     }
 
+    public func addCertificate(label: String, der: Data) throws {
+        guard let certificate = SecCertificateCreateWithData(nil, der as CFData) else {
+            throw KeychainError.unhandled(status: errSecParam)
+        }
+        var query = certificateQuery(label: label)
+        query[kSecValueRef as String] = certificate
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainError(status) }
+    }
+
+    public func copyCertificate(label: String) throws -> Data {
+        var query = certificateQuery(label: label)
+        query[kSecReturnRef as String] = true
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else { throw KeychainError(status) }
+        guard let result else { throw KeychainError.itemNotFound }
+        // swiftlint:disable:next force_cast
+        let certificate = (result as! SecCertificate)
+        return SecCertificateCopyData(certificate) as Data
+    }
+
+    public func deleteCertificate(label: String) throws {
+        let query = certificateQuery(label: label)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess else { throw KeychainError(status) }
+    }
+
     private func genericPasswordBaseQuery(service: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
@@ -130,6 +158,14 @@ public struct SecItemKeychainStore: KeychainStore, Sendable {
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: Data(tag.utf8),
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecUseDataProtectionKeychain as String: true
+        ]
+    }
+
+    private func certificateQuery(label: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassCertificate,
+            kSecAttrLabel as String: label,
             kSecUseDataProtectionKeychain as String: true
         ]
     }
