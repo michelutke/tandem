@@ -11,3 +11,8 @@ android {
         enable = true
     }
 }
+
+dependencies {
+    // TestClock (E00-18) for IdentityCertSpec's injected-Clock unit tests.
+    testImplementation(project(":core:testing"))
+}

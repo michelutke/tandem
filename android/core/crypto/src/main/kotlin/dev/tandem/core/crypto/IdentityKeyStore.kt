@@ -2,6 +2,7 @@ package dev.tandem.core.crypto
 
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.cert.X509Certificate
 
 /**
  * Testability seam for the phone identity key (E10-15): a non-exportable P-256 signing key used
@@ -29,6 +30,9 @@ interface IdentityKeyStore {
  * (`X509ExtendedKeyManager.getPrivateKey()`, E12-06): it must work with both `SHA256withECDSA`
  * (certificate signing, E10-02) and `NONEwithECDSA` (TLS 1.3 `CertificateVerify` signs a
  * pre-computed transcript hash, not raw bytes — see docs/spikes/android-sslsocket-keystore.md).
+ * [certificate] is the self-signed identity certificate over [publicKey] (E10-02), built from
+ * `IdentityCertSpec`; it carries no meaningful identity (subject is always
+ * [IDENTITY_CERT_SUBJECT]) and exists purely as the TLS leaf certificate (E12-06).
  */
 data class KeyHandle(
     val alias: String,
@@ -36,6 +40,7 @@ data class KeyHandle(
     val privateKey: PrivateKey,
     val securityLevel: SecurityLevel,
     val isHardwareBacked: Boolean,
+    val certificate: X509Certificate,
 )
 
 /** Where the private key material is held. Real hardware properties are asserted only against the real impl. */
