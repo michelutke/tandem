@@ -13,6 +13,9 @@ let package = Package(
     targets: [
         .target(
             name: "TandemTransport",
+            dependencies: [
+                .product(name: "TandemCrypto", package: "TandemCrypto")
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
