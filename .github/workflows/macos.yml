@@ -39,5 +39,9 @@ jobs:
           tools/lint/swiftlint-check.sh
       - name: Package graph rules
         run: ruby tools/lint/swift-package-rules.rb
+      - name: Release log lint
+        run: |
+          tools/lint/release-log-check.sh
+          ruby tools/lint/test/release_log_check_test.rb
       - name: Release-artifact test-code scan
         run: tools/release-audit/test/macos_release_scan_test.sh
