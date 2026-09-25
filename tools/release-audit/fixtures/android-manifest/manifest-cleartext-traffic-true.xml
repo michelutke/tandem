@@ -4,8 +4,6 @@
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:usesCleartextTraffic="false"
-        android:networkSecurityConfig="@xml/network_security_config">
-        <service android:name=".TileService" android:exported="true" />
-    </application>
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>

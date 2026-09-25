@@ -9,6 +9,10 @@
 #   ci: networkSecurityConfig_userTrustAnchorsOrCleartextFixture_checkFails
 #   ci: exportedComponentCheck_unlistedExportedActivityFixture_checkFails
 #   ci: deniedPermissionCheck_queryAllPackagesFixture_checkFails
+#   ci: dataExtractionRules_rootOnlyFixture_checkFails
+#   ci: deniedPermissionCheck_usesPermissionSdk23QueryAllPackagesFixture_checkFails
+#   ci: allowlist_malformedLine_loadRaises
+#   ci: mergedManifest_missingNetworkSecurityConfigOrCleartextFixture_checkFails
 
 require 'minitest/autorun'
 require 'tmpdir'
@@ -35,6 +39,18 @@ class AndroidManifestCheckTest < Minitest::Test
     assert(violations.any? { |v| v.include?('dataExtractionRules') })
   end
 
+  def test_mergedManifest_missingNetworkSecurityConfigFixture_checkFails
+    violations = AndroidManifestCheck.check_manifest(fixture('manifest-missing-network-security-config.xml'))
+
+    assert(violations.any? { |v| v.include?('networkSecurityConfig') })
+  end
+
+  def test_mergedManifest_cleartextTrafficTrueFixture_checkFails
+    violations = AndroidManifestCheck.check_manifest(fixture('manifest-cleartext-traffic-true.xml'))
+
+    assert(violations.any? { |v| v.include?('usesCleartextTraffic') })
+  end
+
   def test_mergedManifest_validFixture_checkPasses
     violations = AndroidManifestCheck.check_manifest(
       fixture('manifest-valid.xml'),
@@ -48,6 +64,13 @@ class AndroidManifestCheckTest < Minitest::Test
     violations = AndroidManifestCheck.check_data_extraction_rules(fixture('data-extraction-rules-missing-exclusion.xml'))
 
     assert(violations.any? { |v| v.include?('cloud-backup') })
+  end
+
+  def test_dataExtractionRules_rootOnlyFixture_checkFails
+    violations = AndroidManifestCheck.check_data_extraction_rules(fixture('data-extraction-rules-root-only.xml'))
+
+    assert(violations.any? { |v| v.include?('cloud-backup') && v.include?('file') })
+    assert(violations.any? { |v| v.include?('device-transfer') && v.include?('sharedpref') })
   end
 
   def test_dataExtractionRules_validFixture_checkPasses
@@ -105,6 +128,12 @@ class AndroidManifestCheckTest < Minitest::Test
     assert(violations.any? { |v| v.include?('QUERY_ALL_PACKAGES') })
   end
 
+  def test_deniedPermissionCheck_usesPermissionSdk23QueryAllPackagesFixture_checkFails
+    violations = AndroidManifestCheck.check_manifest(fixture('manifest-uses-permission-sdk-23-query-all-packages.xml'))
+
+    assert(violations.any? { |v| v.include?('QUERY_ALL_PACKAGES') && v.include?('uses-permission-sdk-23') })
+  end
+
   def test_deniedPermissionCheck_allowlistedException_checkPasses
     violations = AndroidManifestCheck.check_manifest(
       fixture('manifest-query-all-packages.xml'),
@@ -130,5 +159,25 @@ class AndroidManifestCheckTest < Minitest::Test
 
   def test_loadAllowlist_missingFile_returnsEmpty
     assert_empty AndroidManifestCheck.load_allowlist('/nonexistent/allowlist')
+  end
+
+  def test_loadAllowlist_lineMissingPermissionColumn_raisesMalformed
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'allowlist')
+      File.write(path, "dev.tandem.app.TileService\n")
+
+      error = assert_raises(AndroidManifestCheck::MalformedAllowlistError) { AndroidManifestCheck.load_allowlist(path) }
+      assert_match(/expected exactly 2 whitespace-separated tokens/, error.message)
+      assert_match(/:1:/, error.message)
+    end
+  end
+
+  def test_loadAllowlist_lineWithTrailingComment_raisesMalformed
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'allowlist')
+      File.write(path, "dev.tandem.app.TileService android.permission.BIND_QUICK_SETTINGS_TILE # why\n")
+
+      assert_raises(AndroidManifestCheck::MalformedAllowlistError) { AndroidManifestCheck.load_allowlist(path) }
+    end
   end
 end

@@ -3,32 +3,54 @@
 
 # E00-28: platform-hardening baseline for the merged release manifest and its NSC / data
 # extraction resources (invariants 1, 2, 4). Checks:
-#   - <application> has allowBackup="false", fullBackupContent="false" and a
-#     dataExtractionRules reference.
-#   - the referenced dataExtractionRules resource excludes domain="root" (everything) from both
-#     <cloud-backup> and <device-transfer>.
+#   - <application> has allowBackup="false", fullBackupContent="false", a dataExtractionRules
+#     reference, usesCleartextTraffic="false" and a networkSecurityConfig reference.
+#   - the referenced dataExtractionRules resource excludes every domain (REQUIRED_EXCLUDED_DOMAINS
+#     below)
+#     from both <cloud-backup> and <device-transfer>: `domain="root"` alone is NOT everything —
+#     Android's full-backup agent runs one traversal per domain token, each rooted at its own
+#     directory (root/file/database/sharedpref/external, and their device_* transfer-only
+#     counterparts), so root only prunes the root traversal.
 #   - the networkSecurityConfig resource's <base-config> has cleartextTrafficPermitted="false",
 #     no <trust-anchors><certificates src="user"/> anywhere, and no <debug-overrides>.
 #   - every exported activity/activity-alias/service/receiver/provider is listed in
 #     tools/release-audit/android-exported.allowlist with its guarding permission (or is missing
 #     that permission despite being allowlisted for one).
-#   - no denied permission is declared, unless it is present in
-#     tools/release-audit/android-denied-permissions.allowlist.
+#   - no denied permission is declared via <uses-permission> or <uses-permission-sdk-23>, unless
+#     it is present in tools/release-audit/android-denied-permissions.allowlist.
 #
-#   ruby tools/release-audit/check-android-manifest.rb --manifest PATH
-#     [--data-extraction-rules PATH] [--nsc PATH]
+#   ruby tools/release-audit/check-android-manifest.rb --manifest PATH \
+#     --data-extraction-rules PATH --nsc PATH \
 #     [--allowlist PATH] [--denied-permissions-allowlist PATH]
 #
-# Callers are responsible for producing the merged manifest (a real `:app:assembleRelease`, or a
-# fixture file for tests); this tool has no Android SDK/Gradle dependency of its own.
+# --manifest, --data-extraction-rules and --nsc are all mandatory: dataExtractionRules and NSC
+# content can only be judged from the actual resource file (the manifest just carries an
+# `@xml/...` reference), and omitting either one silently skipped that half of the check.
+#
+# Callers are responsible for producing the merged manifest and the *packaged* release resources
+# (a real `:app:assembleRelease`, or fixture files for tests) — the packaged resources under
+# build/intermediates/packaged_res/release/..., not the src/main (or src/release) source files
+# directly, since a build-type-specific resource override wins resource merging and would
+# otherwise go unchecked; this tool has no Android SDK/Gradle dependency of its own.
 
 require 'rexml/document'
 require 'optparse'
 require 'set'
 
 module AndroidManifestCheck
+  class MalformedAllowlistError < StandardError; end
+
   DEFAULT_ALLOWLIST = File.expand_path('android-exported.allowlist', __dir__)
   DEFAULT_DENIED_PERMISSIONS_ALLOWLIST = File.expand_path('android-denied-permissions.allowlist', __dir__)
+
+  # Every documented dataExtractionRules domain token (developer.android.com/identity/data/autobackup
+  # XML config syntax): the non-device domains apply to both <cloud-backup> and <device-transfer>;
+  # the device_* domains are the device-to-device-transfer-specific counterparts. All must be
+  # excluded in both sections for "nothing leaves the device" to actually hold.
+  REQUIRED_EXCLUDED_DOMAINS = %w[
+    root file database sharedpref external
+    device_root device_file device_database device_sharedpref
+  ].freeze
 
   # D-28 / E00-28 denied-permission list. READ_CALL_LOG may be lifted per component via
   # android-denied-permissions.allowlist once E52-02 justifies it; the rest are never allowed.
@@ -53,16 +75,30 @@ module AndroidManifestCheck
 
   module_function
 
+  # Each non-comment, non-blank line must be exactly two whitespace-separated tokens: the
+  # component name, and its required android:permission or "-" for none. A line with only a name
+  # (the permission column forgotten) is a common way to silently allowlist a component with no
+  # guard at all, so it is rejected rather than defaulted to "-". Trailing inline comments are not
+  # supported: `name perm # why` is 4 tokens and fails closed rather than being misparsed.
   def load_allowlist(path)
     return {} unless File.exist?(path)
 
-    File.readlines(path).each_with_object({}) do |line, map|
-      line = line.strip
+    allowlist = {}
+    File.readlines(path).each_with_index do |raw_line, index|
+      line = raw_line.strip
       next if line.empty? || line.start_with?('#')
 
-      name, permission = line.split(/\s+/, 2)
-      map[name] = (permission == '-' ? nil : permission)
+      tokens = line.split(/\s+/)
+      if tokens.size != 2
+        raise MalformedAllowlistError,
+              "#{path}:#{index + 1}: expected exactly 2 whitespace-separated tokens " \
+              "(component name, permission or \"-\"), got #{tokens.size}: #{line.inspect}"
+      end
+
+      name, permission = tokens
+      allowlist[name] = (permission == '-' ? nil : permission)
     end
+    allowlist
   end
 
   def load_denied_permissions_allowlist(path)
@@ -108,17 +144,29 @@ module AndroidManifestCheck
     if data_extraction_rules.nil? || data_extraction_rules.empty?
       violations << 'android:dataExtractionRules is missing from <application>'
     end
+
+    uses_cleartext_traffic = application.attributes['android:usesCleartextTraffic']
+    unless uses_cleartext_traffic == 'false'
+      violations << "android:usesCleartextTraffic is #{uses_cleartext_traffic.inspect}, must be \"false\""
+    end
+
+    network_security_config = application.attributes['android:networkSecurityConfig']
+    if network_security_config.nil? || network_security_config.empty?
+      violations << 'android:networkSecurityConfig is missing from <application>'
+    end
     violations
   end
 
   def check_denied_permissions(doc, denied_permissions_allowlist)
     violations = []
-    doc.root.elements.each('uses-permission') do |element|
-      name = element.attributes['android:name']
-      next unless DENIED_PERMISSIONS.include?(name)
-      next if denied_permissions_allowlist.include?(name)
+    %w[uses-permission uses-permission-sdk-23].each do |tag|
+      doc.root.elements.each(tag) do |element|
+        name = element.attributes['android:name']
+        next unless DENIED_PERMISSIONS.include?(name)
+        next if denied_permissions_allowlist.include?(name)
 
-      violations << "denied permission #{name} is declared (not in android-denied-permissions.allowlist)"
+        violations << "denied permission #{name} is declared via <#{tag}> (not in android-denied-permissions.allowlist)"
+      end
     end
     violations
   end
@@ -173,8 +221,12 @@ module AndroidManifestCheck
         next
       end
 
-      excludes_everything = section.elements.to_a('exclude').any? { |e| e.attributes['domain'] == 'root' }
-      violations << "<#{tag}> does not exclude domain=\"root\" (all app data)" unless excludes_everything
+      excluded_domains = section.elements.to_a('exclude').filter_map { |e| e.attributes['domain'] }.to_set
+      missing_domains = REQUIRED_EXCLUDED_DOMAINS.reject { |domain| excluded_domains.include?(domain) }
+      unless missing_domains.empty?
+        violations << "<#{tag}> does not exclude domain(s) #{missing_domains.join(', ')} " \
+                      "(domain=\"root\" alone does not exclude file/database/sharedpref/external)"
+      end
     end
     violations
   end
@@ -210,9 +262,11 @@ if $PROGRAM_NAME == __FILE__
     allowlist: AndroidManifestCheck::DEFAULT_ALLOWLIST,
     denied_permissions_allowlist: AndroidManifestCheck::DEFAULT_DENIED_PERMISSIONS_ALLOWLIST,
   }
+  USAGE = 'usage: check-android-manifest.rb --manifest PATH --data-extraction-rules PATH --nsc PATH ' \
+          '[--allowlist PATH] [--denied-permissions-allowlist PATH]'
+
   OptionParser.new do |opts|
-    opts.banner = 'usage: check-android-manifest.rb --manifest PATH [--data-extraction-rules PATH] ' \
-                  '[--nsc PATH] [--allowlist PATH] [--denied-permissions-allowlist PATH]'
+    opts.banner = USAGE
     opts.on('--manifest PATH') { |v| options[:manifest] = v }
     opts.on('--data-extraction-rules PATH') { |v| options[:data_extraction_rules] = v }
     opts.on('--nsc PATH') { |v| options[:nsc] = v }
@@ -220,23 +274,28 @@ if $PROGRAM_NAME == __FILE__
     opts.on('--denied-permissions-allowlist PATH') { |v| options[:denied_permissions_allowlist] = v }
   end.parse!(ARGV)
 
-  if options[:manifest].nil?
-    warn 'usage: check-android-manifest.rb --manifest PATH [--data-extraction-rules PATH] [--nsc PATH]'
+  if options[:manifest].nil? || options[:data_extraction_rules].nil? || options[:nsc].nil?
+    warn USAGE
     exit 2
   end
 
-  violations = []
-  allowlist = AndroidManifestCheck.load_allowlist(options[:allowlist])
-  denied_permissions_allowlist = AndroidManifestCheck.load_denied_permissions_allowlist(options[:denied_permissions_allowlist])
-  violations.concat(
-    AndroidManifestCheck.check_manifest(
-      AndroidManifestCheck.read_xml(options[:manifest]),
-      allowlist: allowlist,
-      denied_permissions_allowlist: denied_permissions_allowlist,
-    ),
-  )
-  violations.concat(AndroidManifestCheck.check_data_extraction_rules(AndroidManifestCheck.read_xml(options[:data_extraction_rules]))) if options[:data_extraction_rules]
-  violations.concat(AndroidManifestCheck.check_network_security_config(AndroidManifestCheck.read_xml(options[:nsc]))) if options[:nsc]
+  begin
+    violations = []
+    allowlist = AndroidManifestCheck.load_allowlist(options[:allowlist])
+    denied_permissions_allowlist = AndroidManifestCheck.load_denied_permissions_allowlist(options[:denied_permissions_allowlist])
+    violations.concat(
+      AndroidManifestCheck.check_manifest(
+        AndroidManifestCheck.read_xml(options[:manifest]),
+        allowlist: allowlist,
+        denied_permissions_allowlist: denied_permissions_allowlist,
+      ),
+    )
+    violations.concat(AndroidManifestCheck.check_data_extraction_rules(AndroidManifestCheck.read_xml(options[:data_extraction_rules])))
+    violations.concat(AndroidManifestCheck.check_network_security_config(AndroidManifestCheck.read_xml(options[:nsc])))
+  rescue AndroidManifestCheck::MalformedAllowlistError => e
+    warn "android manifest check: FAILED\n  #{e.message}"
+    exit 1
+  end
 
   if violations.empty?
     puts 'android manifest check: OK'
