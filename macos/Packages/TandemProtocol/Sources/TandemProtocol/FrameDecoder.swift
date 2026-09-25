@@ -35,6 +35,13 @@ enum MalformedFrameReason: Sendable, Equatable {
     case decodeFailed
     case unknownChannel
     case unknownPayloadType
+    /// A `seq`/`ack` watermark violation (`docs/planning/decisions.md` D-57): a `seq` of 0, at or
+    /// below the current ack watermark for that channel, a duplicate of an already-received
+    /// above-watermark value, or an `ack` above the highest `seq` this side has itself sent on
+    /// that channel. Detected by ``ChannelMultiplexer`` (E11-06), not by ``FrameDecoder`` itself
+    /// -- framing decode has no notion of per-channel state -- but grouped under this same
+    /// `CloseCode.malformedFrame` per D-57, so it lives alongside the other local reasons here.
+    case seqRegression
 }
 
 /// The outcome of decoding one frame: either the `Envelope` it carried, or a rejection with its
