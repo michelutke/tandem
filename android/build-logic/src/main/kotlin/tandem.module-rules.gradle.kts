@@ -52,6 +52,16 @@ val verifyModuleRules = tasks.register("verifyModuleRules") {
                                             "matches denylisted pattern '$bad'"
                                 }
                             }
+
+                            // E00-29: no dynamic versions ("+" ranges or "latest.*"); every
+                            // resolved version must be exact so verification-metadata.xml and
+                            // dependency locking pin a single, reviewable artifact.
+                            val version = dependency.version
+                            if (version != null && (version.contains('+') || version.startsWith("latest."))) {
+                                errors +=
+                                    "${proj.path}: dependency '${dependency.group}:${dependency.name}' " +
+                                        "uses dynamic version '$version' (exact versions only)"
+                            }
                         }
                     }
                 }

@@ -1,7 +1,16 @@
+// E00-29: `google()` is restricted to the groups it actually publishes (androidx / com.android /
+// com.google); everything else resolves from mavenCentral. Narrows the supply-chain surface of
+// each repository to what it is expected to serve.
 pluginManagement {
     includeBuild("build-logic")
     repositories {
-        google()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -10,7 +19,13 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
     }
 }
