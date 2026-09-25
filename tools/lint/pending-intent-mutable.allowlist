@@ -1,0 +1,11 @@
+# E00-28: PendingIntentImmutable exceptions. FLAG_MUTABLE is denied by default; a call site that
+# genuinely needs it (e.g. a media-session callback PendingIntent the system must be able to fill
+# in extras on) gets one line here:
+#
+#   <containing file name>#<enclosing function name>  — <issue ID> — <reason>
+#
+# Matched by containing-file-name + enclosing-function-simple-name only (the rule has no
+# fully-qualified-name resolution); only the first whitespace-separated token is read, the rest is
+# a human-readable comment. Blank lines and lines starting with # are ignored.
+#
+# Nothing is allowlisted yet.
