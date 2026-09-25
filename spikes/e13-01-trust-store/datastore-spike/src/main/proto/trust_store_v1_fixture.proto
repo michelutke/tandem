@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option java_package = "dev.tandem.spike.trust.datastore.proto.v1fixture";
+option java_outer_classname = "TrustStoreV1FixtureProto";
+option java_multiple_files = true;
+
+// Frozen copy of trust_store.proto as it looked before the `pending_rotation` field (E13-03
+// migration test fixture only -- not read or written by production code, see
+// TrustStoreMigrationTest).
+message PeerRecordV1Proto {
+  string device_id = 1;
+  string display_name = 2;
+  string spki_sha256_hex = 3;
+  int64 paired_at_epoch_ms = 4;
+  int64 last_seen_epoch_ms = 5;
+  repeated string capabilities = 6;
+}
+
+message TrustStoreV1Fixture {
+  repeated PeerRecordV1Proto records = 1;
+}
