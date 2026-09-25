@@ -43,5 +43,9 @@ jobs:
         run: |
           tools/lint/release-log-check.sh
           ruby tools/lint/test/release_log_check_test.rb
+      - name: Literal color lint
+        run: |
+          tools/lint/literal-color-check.sh
+          ruby tools/lint/test/literal_color_check_test.rb
       - name: Release-artifact test-code scan
         run: tools/release-audit/test/macos_release_scan_test.sh
