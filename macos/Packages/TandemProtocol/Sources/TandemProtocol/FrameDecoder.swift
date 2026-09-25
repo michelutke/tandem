@@ -22,6 +22,13 @@ protocol FrameSource: Sendable {
 /// local placeholder scoped to the one code framing rejections ever produce.
 enum CloseCode: Sendable, Equatable {
     case malformedFrame
+    /// A peer violated the credit-flow-control contract (docs/protocol/SPEC.md
+    /// #channels-and-flow-control-credits; `docs/planning/decisions.md` D-64): it transmitted a
+    /// frame on a feature channel past the credit this side had granted it, or it sent a
+    /// `CreditGrant` naming an amount that would take this side's own send balance for that
+    /// channel above the channel's cap. Detected by ``ChannelMultiplexer`` (E11-08), never by
+    /// ``FrameDecoder`` itself -- framing decode has no notion of per-channel credit.
+    case creditViolation
 }
 
 /// Local diagnostic reason grouped under `CloseCode.malformedFrame`. Never sent on the wire
