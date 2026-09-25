@@ -1,6 +1,7 @@
 plugins {
     id("tandem.android.library")
     id("tandem.android.robolectric")
+    id("tandem.android.compose-ui-test")
 }
 
 android {
