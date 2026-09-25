@@ -135,7 +135,7 @@ issues (gates the phase checklist); **all** includes P1/P2.
 | Phase | P0 issues | Exit path | All issues | Sum of P0 effort |
 |---|---|---|---|---|
 | 0 | 60 | 7.0 d | 7.0 d | 60.5 d |
-| 1 | 106 | 15.5 d | 15.5 d | 117.5 d |
+| 1 | 107 | 15.5 d | 15.5 d | 118.0 d |
 | 2 | 34 | 7.5 d | 7.5 d | 38.5 d |
 | 3 | 27 | 8.0 d | 8.0 d | 25.5 d |
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
@@ -234,7 +234,7 @@ phases: 27.5 d (E00-01 → … → E40-14).
 
 | ID | Size | Title |
 |---|---|---|
-| E70-01 | M | [protocol] rotation.proto: KeyRotation, RotationAck, RotationReject |
+| E70-01 | M | [protocol] rotation.proto: RotationChallenge, KeyRotation, RotationAck, RotationReject |
 | E70-02 | M | [android] Initiate rotation: generate new key + sign with old key |
 | E70-08 | M | [android] Rotation failure and rollback handling |
 | E70-10 | M | [cross] End-to-end rotation: JVM client and real Mac server (E15-15) |
@@ -297,7 +297,7 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 | Phase | android | macos | shared (protocol, docs, tools, ci, cross) |
 |---|---|---|---|
 | 0 | 11.0 d | 8.0 d | 41.5 d |
-| 1 | 42.5 d | 49.0 d | 26.0 d |
+| 1 | 42.5 d | 49.5 d | 26.0 d |
 | 2 | 23.0 d | 12.0 d | 3.5 d |
 | 3 | 11.0 d | 6.5 d | 8.0 d |
 | 4 | 19.5 d | 19.0 d | 8.0 d |
@@ -318,7 +318,7 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 - [ ] Test vectors: fingerprint, pairing HMAC + code, frames valid/invalid, Bonjour ID, QR payload, display strings (E01)
 - [ ] Threat model (STRIDE per data flow + local surfaces, E02-08) and ADR-001 … ADR-006 accepted (E02)
 - [ ] Spikes answered: Network.framework mTLS, Secure Enclave identity, Android Keystore client auth, hello-world handshake (E03)
-- [ ] Channel-binding outcome recorded (exporter or in-band fallback) and adopted by SPEC (E03-04)
+- [ ] Channel-binding outcome recorded (in-band challenge, unconditional per D-67) and adopted by SPEC (E03-04)
 
 ### Phase 1 — Identity, pairing, secure transport
 **Entry:** Phase 0 checklist complete. **Lands at start:** E00-26 XCUITest, E00-29 supply chain, E00-30 release test-code scan.

@@ -25,7 +25,7 @@ Scope column is judgment; the issue list is generated from each issue's `prd:` f
 | F-2.1 | v1 | E01-02, E01-11, E01-18, E01-21, E01-23, E01-24, E15-09, E15-20, E15-22, E10-10, E10-11, E10-12, E10-13, E14-01, E14-02, E14-03, E14-04, E14-05, E14-06, E14-07, E14-08, E14-09, E14-10, E14-11, E14-16, E14-17, E14-18, E14-21, E14-22, E14-23, E71-03 |
 | F-2.2 | deferred (v2+): ADR E73-01; implementation P2, gated (E73-02..E73-05) | E73-01, E73-02, E73-03, E73-04, E73-05 |
 | F-2.3 | v1 | E01-11, E12-14, E12-17, E13-05, E13-09, E14-12, E14-13, E14-14, E14-15, E14-19, E14-20, E20-19, E50-09, E51-04 |
-| F-3.1 | v1 | E01-01, E01-06, E01-12, E01-22, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E15-19, E15-20, E15-21, E15-22, E15-23, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E12-11, E12-12, E12-13, E12-18, E14-18, E21-06 |
+| F-3.1 | v1 | E01-01, E01-06, E01-12, E01-22, E03-01, E03-03, E03-04, E03-05, E15-10, E15-11, E15-15, E15-18, E15-19, E15-20, E15-21, E15-22, E15-23, E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-15, E12-08, E12-09, E12-10, E12-16, E12-11, E12-12, E12-13, E12-18, E12-19, E14-18, E21-06 |
 | F-3.2 | v1 | E01-03, E01-04, E01-05, E01-10, E01-12, E01-19, E01-22, E15-13, E15-14, E15-18, E15-19, E15-23, E11-01, E11-02, E11-03, E11-04, E11-05, E11-06, E11-07, E11-13, E11-08, E11-14, E11-09, E11-10, E11-11, E11-12, E20-20, E40-15, E71-01, E71-02 |
 | F-3.3 | v1 | E01-09, E01-12, E01-22, E60-01, E60-02, E60-03, E60-04, E60-05, E60-06, E60-07, E60-08, E60-09, E61-12 |
 | F-3.4 | v1 | E01-07, E01-12, E20-01, E20-05, E20-06, E20-07, E20-10, E20-11, E20-12, E20-13, E20-15, E20-20 |
@@ -371,7 +371,7 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | AC-01 | 20 | E01-01, E01-17, E02-01, E02-04, E03-01, E03-02, E03-03, E03-05, E15-08, E15-10, E15-18, E15-23, E12-03, E12-05, E12-10, E12-16, E14-04, E22-07, E71-07, E71-08 |
 | AC-02 | 15 | E00-28, E02-01, E02-04, E15-04, E15-05, E15-06, E15-07, E15-18, E15-23, E30-13, E31-10, E60-06, E61-09, E71-07, E71-14 |
 | AC-03 | 15 | E01-02, E01-11, E01-18, E01-21, E02-01, E02-05, E15-08, E15-09, E15-23, E14-02, E14-07, E14-09, E71-03, E71-08, E73-05 |
-| AC-04 | 29 | E01-01, E01-05, E01-06, E01-22, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E15-20, E15-23, E12-01, E12-02, E12-03, E12-05, E12-07, E12-15, E12-10, E12-13, E12-18, E13-10, E13-11, E21-06, E22-07, E71-08 |
+| AC-04 | 30 | E01-01, E01-05, E01-06, E01-22, E02-01, E02-03, E03-01, E03-03, E15-05, E15-08, E15-11, E15-12, E15-18, E15-20, E15-23, E12-01, E12-02, E12-03, E12-05, E12-07, E12-15, E12-10, E12-13, E12-18, E12-19, E13-10, E13-11, E21-06, E22-07, E71-08 |
 | AC-05 | 6 | E01-08, E01-20, E02-01, E21-02, E21-05, E21-07 |
 | AC-06 | 10 | E02-01, E02-07, E61-10, E61-12, E61-16, E62-01, E62-06, E62-08, E62-09, E62-10 |
 | AC-07 | 18 | E01-03, E01-05, E01-10, E01-19, E02-01, E15-01, E15-02, E15-13, E15-14, E11-02, E11-04, E11-11, E11-12, E61-01, E71-01, E71-02, E71-04, E71-13 |
@@ -380,7 +380,7 @@ Every acceptance checkbox in `use-cases.md` and the issue whose `acceptance`/`td
 | AC-10 | 10 | E00-17, E00-27, E02-01, E02-08, E15-17, E30-13, E31-10, E50-11, E51-08, E52-09 |
 | AC-11 | 8 | E00-30, E01-04, E02-01, E02-08, E15-07, E15-22, E71-09, E71-12 |
 | AC-12 | 9 | E02-08, E14-12, E14-13, E14-20, E30-06, E30-07, E40-05, E41-06, E71-12 |
-| AC-13 | 13 | E01-01, E01-05, E01-22, E02-01, E03-01, E15-09, E15-20, E12-02, E12-18, E14-02, E14-11, E60-03, E71-12 |
+| AC-13 | 14 | E01-01, E01-05, E01-22, E02-01, E03-01, E15-09, E15-20, E12-02, E12-18, E12-19, E14-02, E14-11, E60-03, E71-12 |
 | AC-14 | 14 | E01-02, E01-11, E01-23, E01-24, E02-01, E14-03, E14-08, E14-21, E14-22, E30-01, E30-07, E50-07, E52-06, E71-12 |
 | AC-15 | 12 | E01-01, E02-01, E03-01, E03-03, E14-07, E70-01, E70-02, E70-03, E70-04, E70-05, E70-09, E71-12 |
 | AC-16 | 8 | E00-28, E02-08, E20-08, E31-06, E31-12, E40-11, E71-09, E71-12 |
@@ -508,10 +508,14 @@ Decisions (owning issue in brackets; each is a row in the E71-12 release checkli
 1. **Pairing proof encoding** — length-prefixed transcript `"tandem-pair-v1" || LP(macSpkiDer) ||
    LP(phoneSpkiDer) || LP(cb)`, `LP = u16be len || bytes`, 91-byte P-256 SPKI DER only; supersedes
    PRD F-2.1 raw concatenation [E01-02, vectors E01-18, helpers E10-12 / E10-13].
-2. **Channel binding** — RFC 9266 TLS exporter (`EXPORTER-Channel-Binding`, 32 bytes) exposed as
-   `TandemSession.channelBinding`; binds pairing proof, confirmation code and KeyRotation
-   signatures; spikes must confirm Network.framework / `SSLSockets.exportKeyingMaterial`; fallback =
-   in-band challenge [E01-01, E03-01, E03-03, E03-04, E12-01, E12-04, E12-11, E12-12].
+2. **Channel binding** (superseded by D-67, cycle 8 — see below) — as decided in cycle 4: RFC 9266
+   TLS exporter (`EXPORTER-Channel-Binding`, 32 bytes) exposed as `TandemSession.channelBinding`;
+   binds pairing proof, confirmation code and KeyRotation signatures; spikes must confirm
+   Network.framework / `SSLSockets.exportKeyingMaterial`; fallback = in-band challenge. **Cycle 8
+   update:** following the E03-04 spike, D-67 made the in-band `PairChallenge`/`RotationChallenge`
+   challenge the unconditional mechanism on every platform and API level; there is no exporter code
+   path and `TandemSession` exposes no `channelBinding` property at all [E01-01, E03-01, E03-03,
+   E03-04, E12-01, E12-04, E12-11, E12-12].
 3. **Confirmation code + mutual confirm** — 6-digit HMAC-derived code on Mac dialog and phone;
    Mac default button Don't Pair; phone commits only after "Codes match" (evil QR, AC-20)
    [E01-02, E14-05, E14-08, E14-16, E14-17].

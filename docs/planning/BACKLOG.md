@@ -81,7 +81,7 @@ implementations; it defines what those implementations must do and proves it wit
 - [ ] Every SPEC.md section referenced above exists, uses RFC 2119 keywords, and is cross-linked from the relevant `.proto` file's comments.
 - [ ] All six vector categories (SPKI fingerprint, pairing proof + confirmation code, frames, rotating ID, QR payload, display strings) exist under protocol/vectors/, are regenerable from the reference generator, and have been reviewed (PR approval recorded).
 - [ ] The E01-22 section states every timeout, connection cap and feature cap as a MUST with its close code or typed error and implementing issue.
-- [ ] The channel-binding derivation in E01-01 / E01-02 matches the E03-04 outcome (exporter or in-band challenge fallback).
+- [ ] The channel-binding derivation in E01-01 / E01-02 matches the E03-04 outcome and D-67: the in-band challenge (`PairChallenge`/`RotationChallenge`) unconditionally, on every platform and API level — no exporter code path.
 
 | ID | Title | Type | Pri | Size | Depends on |
 |---|---|---|---|---|---|
@@ -95,8 +95,8 @@ implementations; it defines what those implementations must do and proves it wit
 | E01-08 | [docs] SPEC.md section: discovery TXT record | doc | P0 | S |  |
 | E01-09 | [docs] SPEC.md section: media ticket | doc | P0 | S |  |
 | E01-10 | [protocol] envelope.proto: Envelope message with channel/seq/ack oneof | task | P0 | M | E01-03 |
-| E01-11 | [protocol] pairing.proto: PairRequest / PairAccepted / PairRejected / Revoke | task | P0 | M | E01-02, E03-04 |
-| E01-12 | [protocol] control.proto: heartbeat, capability negotiation, media ticket issuance | task | P0 | M | E01-06, E01-07, E01-09 |
+| E01-11 | [protocol] pairing.proto: PairChallenge / PairRequest / PairAccepted / PairRejected / Revoke | task | P0 | M | E01-02, E03-04 |
+| E01-12 | [protocol] control.proto: heartbeat, capability negotiation, media ticket issuance, credit grants | task | P0 | M | E01-04, E01-06, E01-07, E01-09 |
 | E01-13 | [protocol] status.proto: device status and ring messages | task | P0 | S | E01-03 |
 | E01-14 | [protocol] Proto placeholder plan for later-phase domains | doc | P0 | S | E01-10 |
 | E01-15 | [protocol] buf.yaml lint rules + buf breaking baseline | task | P0 | S | E01-10, E01-11, E01-12, E01-13 |
@@ -284,9 +284,11 @@ trust store (E13) with an open-pairing-window exception (E14), a CONTROL-channel
 version/capability negotiation, a connection state machine, fail-closed error surfacing (invariant
 5), and a session abstraction over the multiplexer (E11) designed so a future USB transport (F-10.3)
 can implement the same interface. It also enforces the cycle-4 TLS profile (ALPN tandem/1, no SNI,
-no PSK/0-RTT/post-handshake auth, leaf-only P-256 check, CertificateVerify always enforced), exposes
-the RFC 9266 channel binding on TandemSession, and applies pre-auth admission control on the Mac
-listener (E12-18).
+no PSK/0-RTT/post-handshake auth, leaf-only P-256 check, CertificateVerify always enforced) and
+applies pre-auth admission control on the Mac listener (E12-18). Per D-67, channel binding is not
+a transport-session property: `TandemSession` exposes no `channelBinding`/exporter API of any
+kind; `cb` is the in-band `PairChallenge`/`RotationChallenge` value generated and held entirely
+by the pairing (E14) and key-rotation (E70) layers.
 
 **Exit criteria**
 
@@ -295,9 +297,10 @@ listener (E12-18).
 - [ ] The JVM-test-client-to-Mac-server integration test passes in CI
 - [ ] A version-mismatched Hello fails closed with a visible error on both sides
 - [ ] A client without ALPN tandem/1, a leaf that is not a 91-byte P-256 SPKI, or a pinned certificate without its private key fails the handshake with 0 application bytes; the Android client's second ClientHello carries no pre_shared_key or early_data (E12-01, E12-02, E12-04, E12-05).
-- [ ] Client and server channel-binding values are equal 32-byte exporter outputs (E12-01, E12-04), or the E03-04 fallback challenge if the spike chose it.
+- [ ] TandemSession (E12-11, E12-12) exposes no channel-binding/exporter property on either platform (D-67); `cb` is produced and consumed entirely within E14 (pairing) / E70 (rotation) as the PairChallenge/RotationChallenge value.
 - [ ] With 8 pre-auth connections a 9th (or a 3rd from one IP) is closed before TLS, an idle TCP connection is closed within 11 s, and a throttled IP never affects a trusted peer from another IP (E12-18).
 - [ ] No peer VersionHello within 5 s closes with PROTOCOL_TIMEOUT on both sides (E12-07, E12-15).
+- [ ] A second connection reaching Ready for a peer SPKI that already has a Ready session closes the older one with LIMIT_EXCEEDED (E12-19).
 
 | ID | Title | Type | Pri | Size | Depends on |
 |---|---|---|---|---|---|
@@ -319,6 +322,7 @@ listener (E12-18).
 | E12-14 | [macos] Record lastSeen and negotiated capabilities in the trust store on Ready | task | P0 | S | E12-07, E12-09, E13-06, E00-24 |
 | E12-17 | [android] Record lastSeen and negotiated capabilities in the trust store on Ready | task | P0 | S | E12-15, E12-08, E13-02, E00-18 |
 | E12-18 | [macos] Listener admission control: pre-auth connection caps, deadlines, per-IP throttle | task | P0 | M | E12-01, E12-02, E12-09, E01-22, E00-24, E00-25, E03-01 |
+| E12-19 | [macos] Control-session registry: one Ready session per peer SPKI, newer replaces older | task | P0 | S | E12-09, E12-14, E01-22 |
 
 ### E13 — Trust store and settings storage
 
@@ -354,7 +358,8 @@ regardless of connectivity.
 Implements F-2.1 QR pairing end to end and F-2.3 unpair/revoke: Mac-side QR generation and
 pairing-window state machine (one in-flight candidate, 10 s PairRequest deadline), Android-side
 scanner (decoder chosen by spike E14-23) and pairing state machine, constant-time proof
-verification bound to the handshake certificate and the session channel binding, a 6-digit
+verification bound to the handshake certificate and the in-band `PairChallenge` value (`cb`,
+D-67 — not a TLS/session property), a 6-digit
 confirmation code with mutual confirmation (Mac defaults to Don't Pair; phone commits only after
 "Codes match", AC-20), wire PairRejected collapsed to REJECTED_BY_OWNER / PAIRING_UNAVAILABLE,
 vector-tested DisplayStringSanitizer on both platforms, and unpair/revoke with per-peer data purge
@@ -863,7 +868,7 @@ scenarios (unauthenticated channel, cross-session replay, duplicate key).
 
 | ID | Title | Type | Pri | Size | Depends on |
 |---|---|---|---|---|---|
-| E70-01 | [protocol] rotation.proto: KeyRotation, RotationAck, RotationReject | task | P0 | M | E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02, E03-04 |
+| E70-01 | [protocol] rotation.proto: RotationChallenge, KeyRotation, RotationAck, RotationReject | task | P0 | M | E01-10, E01-14, E01-16, E15-01, E15-02, E01-01, E01-02, E03-04 |
 | E70-02 | [android] Initiate rotation: generate new key + sign with old key | task | P0 | M | E70-01, E10-01, E10-02, E10-03, E10-15, E12-11, E00-21 |
 | E70-03 | [macos] Initiate rotation: generate new key + sign with old key | task | P0 | M | E70-01, E10-05, E10-06, E10-08, E10-16, E12-12, E14-02 |
 | E70-04 | [android] Receive + verify KeyRotation, pin new key with grace period | task | P0 | M | E70-01, E13-02, E12-11, E13-03, E00-18 |
@@ -961,4 +966,4 @@ Implementation issues are P2 and do not start before the ADR is accepted.
 
 ---
 
-**Totals:** 28 epics, 392 issues (P0: 341, P1: 35, P2: 16)
+**Totals:** 28 epics, 393 issues (P0: 342, P1: 35, P2: 16)
