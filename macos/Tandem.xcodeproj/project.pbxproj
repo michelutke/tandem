@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
 		73B62DA518FFEDCE79282EF0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9CCF1B115421D313E1D549EA /* README.md */; };
+		81161460331011F52C3D9494 /* TandemCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 12FE37962CD7F002672F2964 /* TandemCrypto */; };
 		9E3ECFF08B9545FFD864C988 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9ED3304BEEFB2EF47223CBA6 /* README.md */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
@@ -50,6 +52,7 @@
 
 /* Begin PBXFileReference section */
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
+		13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreFactory.swift; sourceTree = "<group>"; };
 		1ADF46FA55FCA2970CBE9E9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		32CDA13C3DF0DEB4E7DCD12B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,11 +62,23 @@
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9ED3304BEEFB2EF47223CBA6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		A5E30F71572BF267AF52CCFE /* UITestScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestScenario.swift; sourceTree = "<group>"; };
+		A98336DD4416DB2CBF0ED481 /* TandemCrypto */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemCrypto; path = Packages/TandemCrypto; sourceTree = SOURCE_ROOT; };
 		A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TandemShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4218F3F64192388F1889EF41 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81161460331011F52C3D9494 /* TandemCrypto in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0A6ACEE33F1C9E09EEC5E95C /* TandemShare */ = {
@@ -99,6 +114,7 @@
 		B4DBF71FB3128126612D5D3C = {
 			isa = PBXGroup;
 			children = (
+				E761C8EF00E9F7D6EF4C817D /* Packages */,
 				EF686EE77DBC985FA54C12E5 /* TandemApp */,
 				0A6ACEE33F1C9E09EEC5E95C /* TandemShare */,
 				826B8821B9D13CF8014B2982 /* TandemUITests */,
@@ -106,10 +122,19 @@
 			);
 			sourceTree = "<group>";
 		};
+		E761C8EF00E9F7D6EF4C817D /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				A98336DD4416DB2CBF0ED481 /* TandemCrypto */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
 		EF686EE77DBC985FA54C12E5 /* TandemApp */ = {
 			isa = PBXGroup;
 			children = (
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
+				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
 				5319BE92DEC9F94E1C83D1EC /* README.md */,
 				8A44A1216CFE5055E0699868 /* TandemApp.entitlements */,
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
@@ -145,6 +170,7 @@
 			buildPhases = (
 				9B61F966E94CF80254988195 /* Sources */,
 				F182F9806FA41F82E0997B5D /* Resources */,
+				4218F3F64192388F1889EF41 /* Frameworks */,
 				433EE791D885AE4A2DDBCBCD /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -154,6 +180,7 @@
 			);
 			name = TandemApp;
 			packageProductDependencies = (
+				12FE37962CD7F002672F2964 /* TandemCrypto */,
 			);
 			productName = TandemApp;
 			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
@@ -201,6 +228,9 @@
 			);
 			mainGroup = B4DBF71FB3128126612D5D3C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0218E04C3402C3090FADECBF /* XCLocalSwiftPackageReference "Packages/TandemCrypto" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 90B0D721ADB7BDABE34F39FF /* Products */;
 			projectDirPath = "";
@@ -253,6 +283,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 			);
@@ -545,6 +576,20 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		0218E04C3402C3090FADECBF /* XCLocalSwiftPackageReference "Packages/TandemCrypto" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TandemCrypto;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		12FE37962CD7F002672F2964 /* TandemCrypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemCrypto;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 65C5B6802EBC009E346053A9 /* Project object */;
 }

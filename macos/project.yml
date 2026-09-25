@@ -4,6 +4,12 @@ options:
   deploymentTarget:
     macOS: "15.0"
 
+packages:
+  # E10-07b: identity Keychain access (FileKeychain/KeychainTarget/SecItemKeychainStore) for
+  # TandemApp's Debug composition root.
+  TandemCrypto:
+    path: Packages/TandemCrypto
+
 targets:
   TandemApp:
     type: application
@@ -28,6 +34,7 @@ targets:
       - target: TandemShare
         embed: true
         codeSign: true
+      - package: TandemCrypto
 
   TandemShare:
     type: app-extension

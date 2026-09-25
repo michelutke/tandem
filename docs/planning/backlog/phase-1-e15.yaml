@@ -745,29 +745,38 @@ epics:
         prd: [F-3.1, F-2.1]
         use_cases: [UC-03, UC-04, AC-11]
         invariants: [2, 3]
-        depends_on: [E13-06, E00-30, E00-24]
+        depends_on: [E13-06, E00-30, E00-24, E10-07]
         description: |
           Split from E15-15 in review cycle 5 (macOS track). CI plumbing that builds, launches, stops and
-          restarts the real Tandem.app (Debug) against a dedicated, throwaway CI keychain with the real
-          `SecItemKeychainStore`; a separate `harness-seed` executable target that links TandemStore's
-          trust-store API (E13-06) to seed or clear trust records; and a Debug-only launch argument
-          `-HarnessPairingPayloadOut <path>` that opens the pairing window through the E14-02 state machine
-          and writes the E14-01 payload to the path, so E14-16 needs no pairing UI (E14-11). The launch
-          argument follows the E00-26 pattern: compiled only under `#if DEBUG`; the E00-30 scans prove
-          neither the hook nor `harness-seed` ships.
+          restarts the real Tandem.app (Debug) against a dedicated, throwaway CI keychain (E10-07b's
+          `FileKeychain`/`KeychainTarget.file`, D-75) with the real `SecItemKeychainStore`, driven over a
+          `-HarnessKeychainPath <path>` launch argument and a `TANDEM_HARNESS_KEYCHAIN_PASSWORD` env var
+          (never argv, so the password never appears in `ps`); Debug-only launch arguments
+          `-HarnessSeedTrust <json-path>` and `-HarnessClearTrust` in Tandem.app itself (the app links
+          TandemStore's trust-store API, E13-06, seeds or clears trust records, then exits) rather than a
+          separate `harness-seed` executable, since a file-keychain item's ACL is bound to the creating
+          application and a different binary reading an item Tandem.app created would trigger a Keychain
+          confirmation prompt (D-75); and a Debug-only launch argument `-HarnessPairingPayloadOut <path>`
+          that opens the pairing window through the E14-02 state machine and writes the E14-01 payload to
+          the path, so E14-16 needs no pairing UI (E14-11). Every launch argument follows the E00-26
+          pattern: compiled only under `#if DEBUG`; the E00-30 scans prove none of them ship.
         acceptance:
           - The driver launches, kills and relaunches Tandem.app on the macOS runner unattended; a seeded
             trust record is identical after relaunch.
-          - Clearing via `harness-seed` leaves the trust store empty as read back by the same helper.
-          - "`harness-seed` is never part of the TandemApp product; the E00-30 bundle and symbol scans of the
-            Release .app find neither the helper, its symbols, nor the `HarnessPairingPayloadOut` string."
+          - Clearing via `-HarnessClearTrust` leaves the trust store empty as read back by a subsequent
+            `-HarnessSeedTrust`/read, all against the same on-disk file keychain.
+          - "Neither a `harness-seed` binary nor the `HarnessKeychainPath`, `HarnessSeedTrust`,
+            `HarnessClearTrust` or `HarnessPairingPayloadOut` strings are ever part of the TandemApp
+            product; the E00-30 bundle and symbol scans of the Release `.app` find none of them."
         tdd:
           - "integration: macAppDriver_relaunchApp_seededTrustRecordIdentical"
-          - "integration: harnessSeed_clearTrustStore_readBackEmpty"
-          - "ci: releaseApp_harnessSeedAndPairingHook_absentFromBundleAndSymbols"
+          - "integration: harnessClearTrust_launchHook_readBackEmpty"
+          - "ci: releaseApp_harnessTrustAndPairingHooks_absentFromBundleAndSymbols"
         notes: |
           The pairing-payload hook is exercised end-to-end by E14-16 once E14-01/E14-02 exist; until then
-          the driver is tested with trust seeding only.
+          the driver is tested with trust seeding only. Split from an earlier separate `harness-seed`
+          executable design in review cycle 8 (D-75): file-keychain item ACLs are bound to the creating
+          application, so seeding/clearing now happens as a same-binary Debug launch hook instead.
       - id: E15-23
         title: "[tools] Phase 1 security audit gate: every Phase 1 step green in one report"
         type: test
