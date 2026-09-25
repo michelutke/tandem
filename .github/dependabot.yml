@@ -1,0 +1,31 @@
+# E00-29 / D-32: Dependabot over Renovate — see docs/dependencies.md "Update bot" for the
+# justification. Weekly, grouped by ecosystem so each run opens one PR per tree instead of one
+# per dependency; a grouped PR still needs android/build ktlintCheck detekt (gradle),
+# macos/test-packages.sh + xcodebuild (swift) and the pinned-actions check (github-actions) to
+# merge, so an update that breaks verification-metadata.xml, a lockfile or a pin doesn't land
+# silently.
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+    groups:
+      gradle:
+        patterns: ["*"]
+
+  - package-ecosystem: "swift"
+    directories: ["/macos/Packages/*"]
+    schedule:
+      interval: "weekly"
+    groups:
+      swift:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns: ["*"]

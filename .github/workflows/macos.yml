@@ -22,15 +22,18 @@ jobs:
       - name: Package tests
         run: macos/test-packages.sh
       - name: App build
-        run: xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet
+        # E00-29: fail if resolving the app's packages would change any Package.resolved.
+        run: xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile -quiet
       - name: UI tests
         run: |
           xcodebuild -project macos/Tandem.xcodeproj -scheme TandemUITests -destination 'platform=macOS' test \
+            -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=
       - name: Release build
         run: |
           xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -configuration Release -destination 'platform=macOS' \
-            -derivedDataPath macos/build/release build CODE_SIGNING_ALLOWED=NO -quiet
+            -derivedDataPath macos/build/release -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            build CODE_SIGNING_ALLOWED=NO -quiet
       - name: Release binary has no UI-test scenario hook
         run: ruby tools/ci/check_release_binary_no_ui_test_scenario.rb macos/build/release/Build/Products/Release/TandemApp.app/Contents/MacOS/TandemApp
       - name: SwiftLint
@@ -39,5 +42,7 @@ jobs:
           tools/lint/swiftlint-check.sh
       - name: Package graph rules
         run: ruby tools/lint/swift-package-rules.rb
+      - name: SwiftPM resolved-only fixture (E00-29)
+        run: tools/lint/test/swiftpm_resolved_only_test.sh
       - name: Release-artifact test-code scan
         run: tools/release-audit/test/macos_release_scan_test.sh
