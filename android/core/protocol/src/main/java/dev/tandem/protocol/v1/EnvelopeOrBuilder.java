@@ -45,6 +45,58 @@ public interface EnvelopeOrBuilder extends
   long getAck();
 
   /**
+   * <pre>
+   * control.proto (E01-12) — CONTROL channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.VersionHello version_hello = 4 [json_name = "versionHello"];</code>
+   * @return Whether the versionHello field is set.
+   */
+  boolean hasVersionHello();
+  /**
+   * <pre>
+   * control.proto (E01-12) — CONTROL channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.VersionHello version_hello = 4 [json_name = "versionHello"];</code>
+   * @return The versionHello.
+   */
+  dev.tandem.protocol.v1.VersionHello getVersionHello();
+
+  /**
+   * <code>.tandem.v1.Heartbeat heartbeat = 5 [json_name = "heartbeat"];</code>
+   * @return Whether the heartbeat field is set.
+   */
+  boolean hasHeartbeat();
+  /**
+   * <code>.tandem.v1.Heartbeat heartbeat = 5 [json_name = "heartbeat"];</code>
+   * @return The heartbeat.
+   */
+  dev.tandem.protocol.v1.Heartbeat getHeartbeat();
+
+  /**
+   * <code>.tandem.v1.CreditGrant credit_grant = 6 [json_name = "creditGrant"];</code>
+   * @return Whether the creditGrant field is set.
+   */
+  boolean hasCreditGrant();
+  /**
+   * <code>.tandem.v1.CreditGrant credit_grant = 6 [json_name = "creditGrant"];</code>
+   * @return The creditGrant.
+   */
+  dev.tandem.protocol.v1.CreditGrant getCreditGrant();
+
+  /**
+   * <code>.tandem.v1.MediaTicketGrant media_ticket_grant = 7 [json_name = "mediaTicketGrant"];</code>
+   * @return Whether the mediaTicketGrant field is set.
+   */
+  boolean hasMediaTicketGrant();
+  /**
+   * <code>.tandem.v1.MediaTicketGrant media_ticket_grant = 7 [json_name = "mediaTicketGrant"];</code>
+   * @return The mediaTicketGrant.
+   */
+  dev.tandem.protocol.v1.MediaTicketGrant getMediaTicketGrant();
+
+  /**
    * <code>.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];</code>
    * @return Whether the deviceStatus field is set.
    */
