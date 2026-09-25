@@ -8,15 +8,17 @@ import Security
 /// touches sockets"), so this package, which owns key material (E10-14), never imports it.
 ///
 /// `SecItemCopyMatching(kSecClassIdentity)` pairs a private key with a certificate sharing its
-/// public key directly out of Security.framework's own Keychain state -- it is not reachable
-/// through `KeychainStore`, and there is no way to fake it, since `SecIdentity` has no public
-/// initializer for a synthetic value (spike E03-02, docs/spikes/secure-enclave-identity.md).
-/// Ensuring the underlying key and certificate exist goes through `IdentityCertProvider` (E10-06,
-/// which itself ensures the key via `IdentityKeyProvider`, E10-05), both `KeychainStore`-backed
-/// (E10-16) -- so a failure there is a genuine unit-testable path against `InMemoryKeychainStore`
-/// that never reaches the Keychain-dependent step below. The identity-construction step itself is
-/// a hosted `integration:` test against `SecItemKeychainStore`, gated behind
-/// `TANDEM_KEYCHAIN_INTEGRATION_TESTS`.
+/// public key directly out of Security.framework's own Keychain state -- reachable through
+/// `KeychainStore.copyIdentity(keyTag:)` (E10-07b), but there is still no way to fake it, since
+/// `SecIdentity` has no public initializer for a synthetic value (spike E03-02,
+/// docs/spikes/secure-enclave-identity.md); `InMemoryKeychainStore` always throws. Ensuring the
+/// underlying key and certificate exist goes through `IdentityCertProvider` (E10-06, which itself
+/// ensures the key via `IdentityKeyProvider`, E10-05), both `KeychainStore`-backed (E10-16) -- so
+/// a failure there is a genuine unit-testable path against `InMemoryKeychainStore` that never
+/// reaches the Keychain-dependent step below. The identity-construction step itself is a hosted
+/// `integration:` test against `SecItemKeychainStore` (data-protection target, gated behind
+/// `TANDEM_KEYCHAIN_INTEGRATION_TESTS`) and an ungated `unit:` test against a file-target
+/// `SecItemKeychainStore` (E10-07b).
 public struct SecIdentityProvider: Sendable {
 
     private let keychainStore: any KeychainStore
@@ -35,26 +37,6 @@ public struct SecIdentityProvider: Sendable {
             dateProvider: dateProvider
         ).getOrCreateIdentityCertificate()
 
-        return try Self.copySecIdentity(keyTag: identityKeyApplicationTag)
-    }
-
-    /// Searches the data-protection keychain for the `SecIdentity` pairing the private key under
-    /// `keyTag` with a certificate sharing its public key (both added by `IdentityKeyProvider` /
-    /// `IdentityCertProvider` through `SecItemKeychainStore`).
-    private static func copySecIdentity(keyTag: String) throws -> SecIdentity {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassIdentity,
-            kSecAttrApplicationTag as String: Data(keyTag.utf8),
-            kSecUseDataProtectionKeychain as String: true,
-            kSecReturnRef as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let result else {
-            throw KeychainError(status)
-        }
-        // swiftlint:disable:next force_cast
-        return (result as! SecIdentity)
+        return try keychainStore.copyIdentity(keyTag: identityKeyApplicationTag)
     }
 }
