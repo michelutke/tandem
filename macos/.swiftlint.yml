@@ -20,7 +20,11 @@ custom_rules:
     excluded: ".*/Packages/TandemCrypto/.*|.*/Packages/TandemTestSupport/.*"
     name: "Key Material Only In Crypto"
     message: "Only TandemCrypto (and its TandemTestSupport fakes) may reference SecKey*/SecItem* or compute HMAC-SHA256 directly -- reach the Keychain through the KeychainStore protocol instead (E10-14)."
-    regex: "(\\bSecKey\\w*|\\bSecItem\\w*|HMAC<SHA256>)"
+    # Identifiers only (comments ignored); SecItemKeychainStore is Tandem's own KeychainStore type.
+    regex: "(\\bSecKey\\w*|\\bSecItem(?!KeychainStore)\\w*|HMAC<SHA256>)"
+    match_kinds:
+      - identifier
+      - typeidentifier
     severity: error
 
 reporter: "xcode"
