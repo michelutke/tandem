@@ -32,3 +32,18 @@ tandem:
     # Only core/transport may open raw sockets (PRD module rules; E00-14).
     excludes:
       - "**/core/transport/**"
+  PendingIntentImmutable:
+    active: true
+    # tools/lint/pending-intent-mutable.allowlist: FLAG_MUTABLE exceptions, one per line
+    # ("<file>#<function> — <issue> — <reason>"), resolved relative to the working directory
+    # `./gradlew` is invoked from (always `android/`).
+    mutableAllowlistFile: "../tools/lint/pending-intent-mutable.allowlist"
+  ImplicitInternalIntent:
+    active: true
+  TandemActivityBase:
+    active: true
+  KeyMaterialOnlyInCrypto:
+    active: true
+    # Only core/crypto may reference AndroidKeyStore or compute HMAC-SHA256 directly (E10-14).
+    excludes:
+      - "**/core/crypto/**"

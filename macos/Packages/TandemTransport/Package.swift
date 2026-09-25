@@ -7,6 +7,9 @@ let package = Package(
     products: [
         .library(name: "TandemTransport", targets: ["TandemTransport"])
     ],
+    dependencies: [
+        .package(path: "../TandemCrypto")
+    ],
     targets: [
         .target(
             name: "TandemTransport",
@@ -14,7 +17,10 @@ let package = Package(
         ),
         .testTarget(
             name: "TandemTransportTests",
-            dependencies: ["TandemTransport"],
+            dependencies: [
+                "TandemTransport",
+                .product(name: "TandemCrypto", package: "TandemCrypto")
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

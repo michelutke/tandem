@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+// E01-11: pairing.proto — PairChallenge, PairRequest, PairAccepted, PairRejected, and Revoke,
+// the pairing-candidate-connection messages defined by docs/protocol/SPEC.md #pairing (E01-02).
+// All five ride the CONTROL channel and are embedded directly in envelope.proto's
+// Envelope.payload oneof (E01-10), which reserves field numbers 10-19 for this file. KeyRotation
+// (PRD F-1.3) is deliberately not defined here: it lives in rotation.proto, owned by E70-01.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// PairChallenge: docs/protocol/SPEC.md #pairing "Frame order on a pairing-candidate connection"
+// (docs/planning/decisions.md D-67). The Mac's in-band channel-binding challenge, sent
+// unconditionally as the first CONTROL frame after the VersionHello exchange completes on every
+// pairing-candidate connection, on every platform and API level — never a fallback gated on the
+// E03-04 exporter spike outcome (D-67 supersedes D-15).
+message PairChallenge {
+  // Exactly 32 bytes (256 bits) from a CSPRNG, generated fresh per pairing-candidate connection.
+  // This is the `cb` input to both the proof and confirmation-code formulas (#pairing "Proof
+  // computation", "Confirmation code").
+  bytes challenge = 1;
+}
+
+// DeviceInfo: the phone's self-reported identity shown to the owner in the Mac's mutual-
+// confirmation dialog (#pairing "Mutual confirmation"), sanitized for display before use
+// (#untrusted-peer-strings-display-sanitization, E01-23) and never trusted for any decision.
+// Cycle 4: no IMEI, serial, ANDROID_ID, account, or other stable hardware identifier.
+message DeviceInfo {
+  // At most 64 UTF-8 bytes.
+  string display_name = 1;
+  // At most 64 UTF-8 bytes.
+  string model = 2;
+  string app_version = 3;
+}
+
+// PairRequest: docs/protocol/SPEC.md #pairing "Frame order on a pairing-candidate connection".
+// The phone's reply to PairChallenge, due within 10 s of the VersionHello exchange completing.
+// Carries no public key or fingerprint field: the phone's key comes only from the client
+// certificate actually seen on this connection's TLS handshake (#pairing "Proof computation"),
+// never from any field here.
+message PairRequest {
+  DeviceInfo device_info = 1;
+  // HMAC-SHA256(secret, transcript) per #pairing "Proof computation"; the Mac recomputes and
+  // compares this in constant time (invariant 6).
+  bytes proof = 2;
+}
+
+// PairAccepted: docs/protocol/SPEC.md #pairing "Mutual confirmation". Sent by the Mac only after
+// the owner explicitly clicks Pair; no fields.
+message PairAccepted {}
+
+// PairRejectedReason: the wire-collapsed reason carried by PairRejected
+// (docs/planning/decisions.md D-72, cycle 4 oracle collapse). No wire value distinguishes a bad
+// proof from an expired window from a malformed request (D-17); the E01-05 local reasons
+// (EXPIRED, BAD_PROOF, MALFORMED) never appear on the wire, and local reason TIMEOUT sends no
+// PairRejected at all (D-72).
+enum PairRejectedReason {
+  // Never legal on the wire; fatal for a receiver, like any other proto3 zero-value default
+  // relied on as a real signal.
+  PAIR_REJECTED_REASON_UNSPECIFIED = 0;
+  // The owner explicitly declined (clicked Don't Pair, pressed Escape, or closed the dialog).
+  PAIR_REJECTED_REASON_REJECTED_BY_OWNER = 1;
+  // Every other local rejection reason a connection can actually receive: EXPIRED, BAD_PROOF, or
+  // MALFORMED.
+  PAIR_REJECTED_REASON_PAIRING_UNAVAILABLE = 2;
+}
+
+// PairRejected: docs/protocol/SPEC.md #pairing "PairRejected wire collapse". Sent immediately
+// before the PAIRING_FAILED close (#errors-and-close-codes).
+message PairRejected {
+  PairRejectedReason reason = 1;
+}
+
+// Revoke: docs/protocol/SPEC.md #pairing "Mutual confirmation". Always means "delete the record
+// of the peer authenticated on this session"; can never name another peer, so it has no fields.
+message Revoke {}

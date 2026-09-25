@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+E00-28: cleartext is never permitted, and only system trust anchors are honored (no `user`
+anchors, no debug-overrides in a release build — this file is shared by every build type; a
+debug-only override, if ever needed, must live in a src/debug-scoped resource, never here).
+Tandem's own TLS uses the pinning TrustManager (E12-05) regardless of this config.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
