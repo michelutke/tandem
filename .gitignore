@@ -24,6 +24,8 @@ tools/audit/report.md
 
 # libFuzzer crash reproducers copied out by smoke.sh on a real finding (E15-14)
 /tools/fuzz/libfuzzer/artifacts/
+# Conformance runner output (E11-12)
+tools/conformance/reports/
 
 # Jazzer's generated-corpus directory (E15-13): coverage-interesting inputs discovered during
 # fuzzing mode, not committed regression fixtures (crash reproducers are handled separately, see

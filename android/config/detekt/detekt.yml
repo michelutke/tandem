@@ -42,3 +42,8 @@ tandem:
     active: true
   TandemActivityBase:
     active: true
+  KeyMaterialOnlyInCrypto:
+    active: true
+    # Only core/crypto may reference AndroidKeyStore or compute HMAC-SHA256 directly (E10-14).
+    excludes:
+      - "**/core/crypto/**"

@@ -6,3 +6,8 @@ plugins {
 android {
     namespace = "dev.tandem.core.storage"
 }
+
+dependencies {
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.datastore.preferences.core)
+}
