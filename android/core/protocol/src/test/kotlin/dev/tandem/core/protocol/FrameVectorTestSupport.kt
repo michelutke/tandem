@@ -1,7 +1,9 @@
 package dev.tandem.core.protocol
 
+import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
+import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
@@ -15,8 +17,9 @@ import java.security.MessageDigest
 /**
  * Shared helpers for reading `protocol/vectors/frame-encoding.json` (E01-19) and reconstructing
  * the exact bytes an `envelopeRecipe` describes (protocol/vectors/README.md's "Compact recipes"
- * section) — used by both [FrameEncoderTest] (E11-01) and [FrameDecoderTest] (E11-02) so the
- * loading and recipe-reconstruction logic exists in exactly one place.
+ * section) — used by [FrameEncoderTest] (E11-01), [FrameDecoderTest] (E11-02) and
+ * [FrameCodecConformanceTest] (E11-11) so the loading and recipe-reconstruction logic exists in
+ * exactly one place.
  */
 const val LENGTH_PREFIX_BYTES = 4
 const val CHANNEL_FIELD_NUMBER = 1
@@ -25,12 +28,36 @@ const val ACK_FIELD_NUMBER = 3
 const val RING_FIELD_NUMBER = 21
 const val FILLER_FIELD_NUMBER = 500_000
 const val RECIPE_SOLVE_ITERATIONS = 16
+private const val FRAME_ENCODING_MANIFEST = "frame-encoding.json"
 
+/** Reads the manifest from the `tandem.vectorsDir` system property (android/core/protocol/build.gradle.kts). */
 fun loadVectorsFile(): JsonObject {
     val vectorsDir =
         System.getProperty("tandem.vectorsDir") ?: error("tandem.vectorsDir system property not set")
-    val file = File(vectorsDir, "frame-encoding.json")
+    return loadVectorsFile(File(vectorsDir))
+}
+
+/**
+ * Reads `frame-encoding.json` from [vectorsDir] at runtime: whatever `vectors[]` entries the file
+ * on disk holds are what gets returned, so a fixture added to the manifest is picked up without
+ * any code change here (E11-11's `frameVectorLoader_extraFixtureInDirectory_discoveredWithoutCodeChange`).
+ */
+fun loadVectorsFile(vectorsDir: File): JsonObject {
+    val file = File(vectorsDir, FRAME_ENCODING_MANIFEST)
     return Json.parseToJsonElement(file.readText()).jsonObject
+}
+
+/** A [FrameSource] reading from [pipe]'s B endpoint, suspending until bytes arrive. */
+fun sourceFor(pipe: InMemoryDuplexPipe): FrameSource =
+    FrameSource { buffer, offset, length ->
+        runInterruptible { pipe.endpointB.input.read(buffer, offset, length) }
+    }
+
+/** A [FrameSource] over exactly [frameBytes], with no trailing EOF marker. */
+fun sourceFor(frameBytes: ByteArray): FrameSource {
+    val pipe = InMemoryDuplexPipe(capacity = frameBytes.size)
+    pipe.endpointA.output.write(frameBytes)
+    return sourceFor(pipe)
 }
 
 fun payloadCaseFor(kind: String): Envelope.PayloadCase =

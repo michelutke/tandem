@@ -24,3 +24,8 @@ tools/audit/report.md
 
 # Conformance runner output (E11-12)
 tools/conformance/reports/
+
+# Jazzer's generated-corpus directory (E15-13): coverage-interesting inputs discovered during
+# fuzzing mode, not committed regression fixtures (crash reproducers are handled separately, see
+# the *Inputs/ directories' own .gitignore under android/core/protocol/src/test/resources/).
+.cifuzz-corpus/

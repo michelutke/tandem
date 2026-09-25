@@ -133,6 +133,12 @@ public struct SecItemKeychainStore: KeychainStore, Sendable {
         return SecCertificateCopyData(certificate) as Data
     }
 
+    public func deleteCertificate(label: String) throws {
+        let query = certificateQuery(label: label)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess else { throw KeychainError(status) }
+    }
+
     private func genericPasswordBaseQuery(service: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
