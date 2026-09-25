@@ -9,10 +9,18 @@ import TandemCrypto
 /// the data-protection keychain in the app's own access group only (`SecItemKeychainStore`'s own
 /// guarantee) -- `TrustStore` never has a way to override that, since the protocol exposes no
 /// access-group parameter.
+/// Schema version and migration support (E13-07).
 public struct TrustStore: Sendable {
     /// Fixed Keychain service every peer record is stored under, analogous to
     /// `identityKeyApplicationTag` (E10-05).
     public static let peerRecordService = "com.tandem.trust.peer.v1"
+
+    /// Fixed Keychain service for schema version metadata.
+    private static let schemaVersionService = "com.tandem.trust.schema"
+    private static let schemaVersionAccount = "version"
+
+    /// Current schema version.
+    private static let currentSchemaVersion: Int = 1
 
     private let keychainStore: any KeychainStore
 
@@ -60,6 +68,58 @@ public struct TrustStore: Sendable {
     /// Removes the record for `fingerprint`. Throws `KeychainError.itemNotFound` if none exists.
     public func delete(_ fingerprint: SpkiFingerprint) throws {
         try keychainStore.deleteGenericPassword(service: Self.peerRecordService, account: fingerprint.hexString)
+    }
+
+    /// Returns the current schema version. Defaults to 1 if no version is set.
+    public func schemaVersion() throws -> Int {
+        do {
+            let data = try keychainStore.copyGenericPassword(
+                service: Self.schemaVersionService,
+                account: Self.schemaVersionAccount
+            )
+            let decoded = try Self.decoder.decode([String: Int].self, from: data)
+            return decoded["version"] ?? 1
+        } catch KeychainError.itemNotFound {
+            // No version stored yet; assume v1 for backward compatibility
+            return 1
+        }
+    }
+
+    /// Runs the v1-to-v2 migration: reads all v1 records, updates schema version to 2.
+    /// In this initial scaffold, all records are preserved as-is; future migrations can
+    /// transform record fields as needed.
+    public static func runMigrationV1ToV2(keychainStore: any KeychainStore) throws {
+        // Read all current records (which are v1 format)
+        let items = try keychainStore.listGenericPasswords(service: Self.peerRecordService)
+        let records: [PeerRecord] = try items.map { try Self.decoder.decode(PeerRecord.self, from: $0.data) }
+
+        // Re-write records as-is (in this scaffold, no transformation needed)
+        for record in records {
+            let data = try Self.encoder.encode(record)
+            let account = record.fingerprint.hexString
+            try keychainStore.updateGenericPassword(
+                service: Self.peerRecordService,
+                account: account,
+                data: data
+            )
+        }
+
+        // Update schema version to 2
+        let versionData = try Self.encoder.encode(["version": 2])
+        do {
+            try keychainStore.addGenericPassword(
+                service: Self.schemaVersionService,
+                account: Self.schemaVersionAccount,
+                data: versionData,
+                accessibility: .afterFirstUnlockThisDeviceOnly
+            )
+        } catch KeychainError.duplicateItem {
+            try keychainStore.updateGenericPassword(
+                service: Self.schemaVersionService,
+                account: Self.schemaVersionAccount,
+                data: versionData
+            )
+        }
     }
 
     private static let encoder = JSONEncoder()
