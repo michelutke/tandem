@@ -1,0 +1,36 @@
+# Test-only types, packages and strings that must never reach a release build (D-30, E00-30).
+#
+# One entry per line; blank lines and lines starting with `#` are ignored. An entry containing a
+# `.` is also matched with dots replaced by `/`, so a package like `dev.tandem.core.testing`
+# catches both the slash-separated form dexdump prints and the dot-separated form manifests and
+# demangled Mach-O symbols use.
+
+# Android test seams (android/core/testing) and fakes.
+dev.tandem.core.testing
+TestClock
+FakeElapsedRealtime
+InMemoryDuplexPipe
+MainDispatcherExtension
+SoftwareIdentityKeyStore
+FakeTandemSession
+
+# Companion notification app: never a dependency of android/app.
+dev.tandem.companion
+
+# Third-party test frameworks that must never be on a release classpath.
+Robolectric
+androidx.test
+org.junit
+app.cash.turbine
+io.mockk
+
+# macOS test seams (TandemTestSupport) and fakes.
+TandemTestSupport
+ManualTestClock
+FixedDateProvider
+InMemoryKeychainStore
+InMemoryConnectionPair
+
+# XCUITest scenario seeding (E00-26) and the Debug-only JVM harness pairing hook (D-38).
+UITestScenario
+HarnessPairingPayloadOut
