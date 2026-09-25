@@ -29,6 +29,9 @@ Each downstream vector-category issue (E01-17 SPKI fingerprints, E01-18 pairing 
 E01-19 frame encoding, E01-20 Bonjour rotating ID, E01-21 QR payload parsing) adds its own
 generator function and registers it with `CATEGORIES.append(("<category>.json", generate_fn))`.
 E01-20 registers `discovery-id.json` via `discovery_id.generate_discovery_id_vectors`.
+E01-19 registers `frame-encoding.json` via `frame_encoding.generate_frame_encoding_vectors`; that
+module also doubles as a minimal reference protobuf encoder/decoder for `Envelope` frames (see its
+module docstring and `protocol/vectors/README.md`'s `frame-encoding.json` section).
 
 ## Determinism
 
@@ -44,8 +47,11 @@ the committed manifests, catching hand-edits as well as generator non-determinis
 - `vector_schema.py` — thin `jsonschema` wrapper shared by `generate.py --validate` and the
   pytest suite.
 - `discovery_id.py` — E01-20 `discovery-id` category generator (Bonjour rotating id).
+- `frame_encoding.py` — E01-19 `frame-encoding.json` generator plus its reference frame
+  encoder/decoder.
 - `requirements.txt` — pinned `jsonschema` / `pytest` versions.
-- `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_discovery_id.py`).
+- `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_discovery_id.py`,
+  `test_frame_encoding.py`).
 
 ## CI
 

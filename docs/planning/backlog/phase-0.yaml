@@ -628,7 +628,7 @@ epics:
         invariants: []
         depends_on: [E00-04, E00-11]
         description: |
-          Runner for every `instrumented:` tdd entry. Gradle Managed Devices `api29` (aosp-atd)
+          Runner for every `instrumented:` tdd entry. Gradle Managed Devices `api29` (google — no ATD image exists below API 30)
           and `api35` (google_apis) on ubuntu-latest with KVM, workflow `android-instrumented.yml`:
           required check on PRs touching `android/**`, plus nightly on `main`. Emulator limits are
           documented next to the workflow: no StrongBox, TEE is emulated (no hardware-backed
