@@ -62,6 +62,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | Dependency | License | Purpose | Issue |
 |---|---|---|---|
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
+| `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
 
 ## Update bot
 

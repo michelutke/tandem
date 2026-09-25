@@ -35,6 +35,7 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
     private struct State {
         var genericPasswords: [ServiceAccount: GenericPasswordEntry] = [:]
         var keys: [String: KeyEntry] = [:]
+        var certificates: [String: Data] = [:]
         var pendingFailure: KeychainError?
     }
 
@@ -118,6 +119,22 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
         try state.withLock { state in
             guard state.keys.removeValue(forKey: tag) != nil else { throw KeychainError.itemNotFound }
         }
+    }
+
+    public func addCertificate(label: String, der: Data) throws {
+        try consumePendingFailure()
+        try state.withLock { state in
+            guard state.certificates[label] == nil else { throw KeychainError.duplicateItem }
+            state.certificates[label] = der
+        }
+    }
+
+    public func copyCertificate(label: String) throws -> Data {
+        try consumePendingFailure()
+        guard let data = state.withLock({ $0.certificates[label] }) else {
+            throw KeychainError.itemNotFound
+        }
+        return data
     }
 
     /// Accessibility recorded by the add for this generic-password item, or `nil` if absent.
