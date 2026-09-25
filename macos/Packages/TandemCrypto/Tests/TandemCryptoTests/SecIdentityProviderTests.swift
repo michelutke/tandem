@@ -4,30 +4,22 @@ import Security
 import Testing
 @testable import TandemCrypto
 
-/// Manual gate: only runs with `TANDEM_KEYCHAIN_INTEGRATION_TESTS=1` set (see
-/// `SecItemKeychainStoreTests`).
-private let keychainIntegrationTestsEnabled =
-    ProcessInfo.processInfo.environment["TANDEM_KEYCHAIN_INTEGRATION_TESTS"] == "1"
-
 /// `sec_identity_create` (over the `SecIdentity` `SecIdentityProvider` returns) needs the identity
 /// key and certificate to already be paired in a real Keychain (spike E03-02,
 /// docs/spikes/secure-enclave-identity.md); there is no way to fake a `SecIdentity`/`sec_identity_t`
-/// value, so both tests here are hosted `integration:` tests, gated behind an explicit opt-in env
-/// var -- `swift test` never runs this by default, and it must not be run outside a signed host
-/// with the `keychain-access-groups` entitlement. `Network` is otherwise off-limits in this package
-/// (E00-15's package-graph rule), but that rule only covers `Sources/`, not `Tests/`; the production
-/// `SecIdentityProvider` type never imports it.
-@Suite("SecIdentityProvider (hosted)", .enabled(if: keychainIntegrationTestsEnabled))
+/// value. Both tests here run against a throwaway file-target `SecItemKeychainStore`
+/// (`TemporaryKeychain`, E10-07b, D-75) -- never the login keychain, and no signed host or
+/// entitlement needed -- so they run unconditionally in plain `swift test`. `Network` is otherwise
+/// off-limits in this package (E00-15's package-graph rule), but that rule only covers `Sources/`,
+/// not `Tests/`; the production `SecIdentityProvider` type never imports it.
+@Suite("SecIdentityProvider (hosted)")
 struct SecIdentityProviderHostedTests {
 
     @Test
     func secIdentity_hostedKeychainCertAndKey_secIdentityCreateReturnsNonNil() throws {
-        let store = SecItemKeychainStore()
-        let provider = SecIdentityProvider(keychainStore: store)
-        defer {
-            try? store.deleteCertificate(label: identityCertLabel)
-            try? store.deleteKey(tag: identityKeyApplicationTag)
-        }
+        let keychain = try TemporaryKeychain()
+        defer { keychain.cleanup() }
+        let provider = SecIdentityProvider(keychainStore: keychain.store)
 
         let secIdentity = try provider.getOrCreateSecIdentity()
 
@@ -36,12 +28,9 @@ struct SecIdentityProviderHostedTests {
 
     @Test(.timeLimit(.minutes(1)))
     func secIdentity_loopbackListenerAndClient_tls13HandshakeCompletes() async throws {
-        let store = SecItemKeychainStore()
-        let provider = SecIdentityProvider(keychainStore: store)
-        defer {
-            try? store.deleteCertificate(label: identityCertLabel)
-            try? store.deleteKey(tag: identityKeyApplicationTag)
-        }
+        let keychain = try TemporaryKeychain()
+        defer { keychain.cleanup() }
+        let provider = SecIdentityProvider(keychainStore: keychain.store)
         let secIdentity = try provider.getOrCreateSecIdentity()
         let identity = try #require(sec_identity_create(secIdentity))
 
