@@ -1,0 +1,258 @@
+{
+  "$schema": "./schema.json",
+  "category": "pairing-proof",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "pairing-proof-correct-a",
+      "description": "HMAC-SHA256 pairing proof over the correctly length-prefixed transcript, fixture combo a (SPEC.md #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "cfe75e3c9effce115479d2adccf64cd7e3a1027909a454384e40248093b7d5ad"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "pairing-proof-correct-b",
+      "description": "HMAC-SHA256 pairing proof over the correctly length-prefixed transcript, fixture combo b (SPEC.md #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "04cc45b74c2940976e59ce01987ccd9f",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004c9e1c1ea4c73b9d7c8f632d48da51f0d186e96c4637ae10bcd48399efa76392f6283d67a9e39e238826e9123ad6a76726902e51816c4b5ce83f71cc1f9d3becd",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200041eb56b96f0add801dfd1f14f044b5eed22ac3fc7595a72f7b06a82d8739511ff6ae54e123a0e3d463ab1944bd991d284a986400251eafcdfc9afd87e9fd04435",
+        "cbHex": "a16f90d1056e41701fcfe53f16c5f212d5320b3d89070c1fda47780c189e7a7b",
+        "proofHex": "1f52543fa82e50baca712f665ce128ea9b470369281ad1144de95e584b239a80"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "pairing-proof-correct-c",
+      "description": "HMAC-SHA256 pairing proof over the correctly length-prefixed transcript, fixture combo c (SPEC.md #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "e4f6623977010fc7ea570c718d364ba3",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a99e5f50d7053f3d22533e07d0cded5ae429a1aa88cb37a7a3b8eba159e50e07bd879434f482705b42f64847c6f6fbc575d804606b6c6fc37d5fecc49b86d3e2",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042a59c50e745daa4c245961dc1ac55c82bf9c2e97e2329e836f9a6f9a4e45d2292beded0c79a2fa8ba7d13beb4441d13ffafe70785273d6e449cc23f203c11a5c",
+        "cbHex": "681bad7f1429fe3629083c0fb77479e117367a6b9d8ca806234c02c263f5bc23",
+        "proofHex": "ac0b8104ff541f7629fb059517cf62e14f5732e1d2dd5a081bb01dc29016a411"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "pairing-proof-correct-d",
+      "description": "HMAC-SHA256 pairing proof over the correctly length-prefixed transcript, fixture combo d (SPEC.md #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "b194db717b504f061d13fc2c00c9ad23",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200046637824ac4ed5d49c5ae0ce8f7d48a48adaed21ef3ae7615e53c1e4ba2455b0c16fafced5c03fbd5bff409a74c59445cfa2bda19bb3921669f23d7ab1bc2cac5",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004568eb6f891e221a33c7678cd859371e607125d5f3a6c0778350d9d38b61d8c834a1f5c34a121aa310cfef4e43edfbd6ac0ee7ff8d48482e32754e1f89df2edf7",
+        "cbHex": "328b64025468fb193229726182414ed4c88375536c93293105fba6c5a6c1e281",
+        "proofHex": "bdd3c84ee8ed38e7fb91394a1d47513beb51470e14e9b850d952bee9decc2e74"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "pairing-proof-correct-e",
+      "description": "HMAC-SHA256 pairing proof over the correctly length-prefixed transcript, fixture combo e (SPEC.md #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "413fee9cabd96ee454a6b7855e461278",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000447c0dbb3359b3e0fbe7c306bea6123bfcf23a17d294c1b177e2645b236b6ab2b89549671ee5b2e49b4335300ebd801ed4ade057f244bb7e347dd32c1803b964f",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200048b2ad13b0a4baf16b02008bb5bde10ac7a4653351806d5dd57d28dd8957a5fe88c625a9daf312594d2d6b549c51d163b1e965d609a6feef66a850a197f006169",
+        "cbHex": "2f802f0a4b155ed58a007d69c8ebd1946bbdeeaac8601952bec86f1c97bf9a88",
+        "proofHex": "e35fb15e03ea9ec7410a517e1bfc0f2884a90581894a10bb99dd68f6cf23a415"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "pairing-proof-wrong-phone-key",
+      "description": "proof computed by the attacker with a different phoneSpkiDer than the one actually observed on this session's TLS handshake; the verifier recomputes with its own observed phoneSpkiDer and MUST reject (SPEC.md #2, for use by mitm-lab E15-09).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "b96728a85063c9f6f13ba98f798188b5f5d743736f50dc7654daedc3781a704f"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-wrong-secret",
+      "description": "proof computed with a different 16-byte pairing secret than the one from the QR `s` field; the verifier recomputes with the correct secret and MUST reject.",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "77e65443371f5910979dd3c2edb908286c346c2f201e15b0ad1a29da56f74eb8"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-swapped-spki-order",
+      "description": "proof computed with macSpkiDer and phoneSpkiDer swapped in the transcript (LP(phoneSpkiDer) || LP(macSpkiDer) instead of the required order); MUST reject.",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "4fa6451e108a4114d06d515ac7acced4f3028bef2a6b0659a30e496b1315cf2c"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-missing-label",
+      "description": "proof computed over the transcript with the ASCII(\"tandem-pair-v1\") label omitted entirely; MUST reject.",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "5a19f581f54f68de072788ae5ad3867396857c65c3b02cfc8605d72e2369e059"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-raw-concatenation-no-length-prefix",
+      "description": "proof computed by raw-concatenating macSpkiDer/phoneSpkiDer/cb with no 2-byte length prefixes at all, instead of the required LP(x) = u16be(len(x)) || x encoding; MUST reject.",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "114d6423146bce5883eb396a53bff05d8b93a2164be012c18f4a493d9692a6b8"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-different-channel-binding",
+      "description": "proof valid for a different session's `cb` (same secret and keys), replayed against this session whose actual `cb` differs -- a cross-session replay; the verifier recomputes with its own session's `cb` and MUST reject (SPEC.md #1 Channel binding, #2 Proof computation).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "6b721c97dd37c0395050a0d2f5b99ba89f0eeca4bd197b7e5087cdf83678d42a"
+      },
+      "expectedError": "proofMismatch",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "BAD_PROOF"
+    },
+    {
+      "id": "pairing-proof-raw-point-instead-of-spki-der",
+      "description": "phoneSpkiDer replaced by the 65-byte raw SEC1 uncompressed point (0x04 || X || Y) for the same key, instead of the required 91-byte SubjectPublicKeyInfo DER; MUST be rejected as malformed before any HMAC compare runs (SPEC.md #2).",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "cfe75e3c9effce115479d2adccf64cd7e3a1027909a454384e40248093b7d5ad"
+      },
+      "expectedError": "malformedSpki",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "MALFORMED"
+    },
+    {
+      "id": "pairing-proof-31-byte-proof",
+      "description": "an otherwise-correct 32-byte HMAC-SHA256 proof with its last byte cut off (31 of 32 bytes delivered); MUST be rejected as malformed before any HMAC compare runs.",
+      "input": {
+        "kind": "proof",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96",
+        "proofHex": "cfe75e3c9effce115479d2adccf64cd7e3a1027909a454384e40248093b7d5"
+      },
+      "expectedError": "malformedProof",
+      "closeCode": "PAIRING_FAILED",
+      "localReason": "MALFORMED"
+    },
+    {
+      "id": "pairing-code-fixture-a",
+      "description": "6-digit confirmation code for fixture combo a (SPEC.md #2 Confirmation code).",
+      "input": {
+        "kind": "code",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96"
+      },
+      "expected": {
+        "code": "225789"
+      }
+    },
+    {
+      "id": "pairing-code-leading-zero",
+      "description": "confirmation code '004066' has a leading zero and MUST still be rendered as exactly 6 digits (SPEC.md #2, e.g. `007042`).",
+      "input": {
+        "kind": "code",
+        "secretHex": "353a9199a52cb933f2e322ab70bc567f",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96"
+      },
+      "expected": {
+        "code": "004066"
+      }
+    },
+    {
+      "id": "pairing-code-different-channel-binding",
+      "description": "same secret and keys as pairing-code-fixture-a but a different `cb`: the resulting code MUST differ from pairing-code-fixture-a's.",
+      "input": {
+        "kind": "code",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004405a9ef39f6fa9344fc391b37e9af91ce7de69ebb0ca38c5d42e23d19b8233e451cd65d30c3c54100e2427bafd64be9f9c084214bd2b66d5724d04dd18dacc79",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "58e9a16e70d3f66f6fc6ba5f28e55703a556bad4ad1b7c5c227d72c939fb5efd"
+      },
+      "expected": {
+        "code": "672665"
+      }
+    },
+    {
+      "id": "pairing-code-forwarded-challenge-relay",
+      "description": "the forwarded-challenge evil-QR/relay case (`docs/planning/decisions.md` D-71): identical `secret` and `cb` to pairing-code-fixture-a, but a different macSpkiDer (the attacker's own key on this side of the relay). The resulting code MUST still differ from pairing-code-fixture-a's, proving detection rests on the SPKI pair, not on `cb` (SPEC.md #2 Confirmation code).",
+      "input": {
+        "kind": "code",
+        "secretHex": "c00cfdcf0eafd84361794f980a688157",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000456136703699514b931a7182ae8ec9d2a1efd6f93d8e9472b945e7e5ef7efcf13a644ca3ca09366818640d60f2e87717b2f347233a134d4fde600436312d02a96",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040680ce82b4232a0150b95909aec7fad7aac320ac498875331566dab9a5c9e79a77d45c35c83d9aec406a2be4f340194acb3ab91dd2b31d6575e1c846e9c8e3c0",
+        "cbHex": "83f7523553c91d478b4a6809c3864afc28d8b061bcaa6e5c148509b6cc2caa96"
+      },
+      "expected": {
+        "code": "048569"
+      }
+    }
+  ]
+}

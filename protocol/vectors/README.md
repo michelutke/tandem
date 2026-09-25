@@ -107,6 +107,33 @@ openssl dgst -sha256` pipeline. Negative vectors cover a compressed SEC1 point
 `unsupportedKeyType`), and DER truncated by one byte (`malformedSpki`) — each MUST be rejected
 before any fingerprint compare ever runs (SPEC.md, Certificate handling and the leaf-only check).
 
+### `pairing-proof.json` (E01-18)
+
+Vectors for SPEC.md `#2`'s pairing-proof HMAC (`proof = HMAC-SHA256(secret, ASCII("tandem-pair-v1")
+|| LP(macSpkiDer) || LP(phoneSpkiDer) || LP(cb))`) and confirmation code (`ASCII("tandem-pair-code-v1")`
+label, first 4 bytes of the HMAC-SHA256 output as `u32be` mod 1000000, zero-padded to 6 digits),
+where `LP(x) = u16be(len(x)) || x`. Each entry's `input.kind` is `"proof"` or `"code"`.
+
+`proof`-kind entries model the verifier side of the check: `input.secretHex`/`macSpkiDerHex`/
+`phoneSpkiDerHex`/`cbHex` are the verifier's own session state and `input.proofHex` is the
+candidate value under test. Positive entries' `expected` is `{"valid": true}`; negative entries use
+`expectedError: "proofMismatch"` (proof computed with a different phone key, a different secret,
+swapped `macSpkiDer`/`phoneSpkiDer` order, the `"tandem-pair-v1"` label omitted, no `LP` length
+prefixes at all, or a different session's `cb` replayed against this one), `"malformedProof"` (a
+31-byte proof where exactly 32 bytes are required), or `"malformedSpki"` (a 65-byte raw SEC1 point
+where the 91-byte `SubjectPublicKeyInfo` DER is required) — each with `closeCode:
+"PAIRING_FAILED"` and `localReason` `"BAD_PROOF"` (mismatch) or `"MALFORMED"` (structurally
+invalid), per SPEC.md's `PairRejected` wire-collapse table.
+
+`code`-kind entries' `expected.code` is the resulting 6-digit string, including one whose value has
+a leading zero and one showing a different `cb` yields a different code. One additional vector
+(`pairing-code-forwarded-challenge-relay`) has an identical `secret` and `cb` to
+`pairing-code-fixture-a` but a different `macSpkiDer`; its code MUST still differ, proving the
+forwarded-challenge evil-QR/relay detection property rests on the SPKI pair rather than on `cb`
+(`docs/planning/decisions.md` D-71). `tools/vectors/pairing_proof.py` reuses
+`spki_fingerprint.py`'s real P-256 SPKI DER derivation (distinct fixture labels, no collision with
+`spki-fingerprint.json`'s own fixtures) for `macSpkiDer`/`phoneSpkiDer`.
+
 ### `qr-payload.json` (E01-21)
 
 Vectors for SPEC.md `#pairing`'s `pair-uri` ABNF grammar (`tandem://pair?v=1&fp=...&s=...&a=...
