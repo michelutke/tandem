@@ -1,0 +1,89 @@
+{
+  "$schema": "./schema.json",
+  "category": "spki-fingerprint",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "spki-fingerprint-p256-fixture-1",
+      "description": "SHA-256 fingerprint of a fixed, deterministically-derived P-256 SPKI DER (fixture key 1).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042873bd16831c891ac61fe810a8f5bfb97b0d23809a1ad0a3b868d2215899738ddbecd0803b2f947802ccac4852dff0d82360ea74d0c89f9aab2b3d1f7e07703c"
+      },
+      "expected": {
+        "fingerprintHex": "e074ba0582666ce51c9b50e45d3e43629a7ac9462786494094233684658a4fa9"
+      }
+    },
+    {
+      "id": "spki-fingerprint-p256-fixture-2",
+      "description": "SHA-256 fingerprint of a fixed, deterministically-derived P-256 SPKI DER (fixture key 2).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004884677ada9e2c165208a6304360ec26d999d6f042834d20ccfe160da4546a41aef051656264394e329fd5d48c341cb774bb8047fa2a06f9fb499ffb8685cc6ad"
+      },
+      "expected": {
+        "fingerprintHex": "8cfe64a9f1999a63dab9596c882a0dd507e793904222f95de71fad6c9c9d6d11"
+      }
+    },
+    {
+      "id": "spki-fingerprint-p256-fixture-3",
+      "description": "SHA-256 fingerprint of a fixed, deterministically-derived P-256 SPKI DER (fixture key 3).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200049e8d78e75279b3504f43286aa8cecf9b32218b29015b8eaa35bdad7907bd86303e80b9b8aec85f0ed218a09eda5565120daa1ad6b36aaf040bdc15338fbd68ff"
+      },
+      "expected": {
+        "fingerprintHex": "d50e0e9c312f598800571e6b5d23b45dd4a2409aab961b7c6c1e413ab3523545"
+      }
+    },
+    {
+      "id": "spki-fingerprint-p256-fixture-4",
+      "description": "SHA-256 fingerprint of a fixed, deterministically-derived P-256 SPKI DER (fixture key 4).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000430adc636b3582af60f78e5b6e473e2db61698f947aafe87456b160eb0f6556826103c0574e296bfed979ca83c6b0c3e8cb2e955e16bd7403e1f1536266a28d12"
+      },
+      "expected": {
+        "fingerprintHex": "5dc96f88c4cf00e1242c45e0d8421504790d5115af657e0664b37c29af5c1490"
+      }
+    },
+    {
+      "id": "spki-fingerprint-p256-fixture-5",
+      "description": "SHA-256 fingerprint of a fixed, deterministically-derived P-256 SPKI DER (fixture key 5).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000456262d6931e66afcc6f57c93bfda3c3db12959e2e6f1ea61b4bc8c8834c1bf548c40c580a96f4f1caf605a99d1862f59f89b505c692756295d71bd29cd65fa48"
+      },
+      "expected": {
+        "fingerprintHex": "dbd1c27d9d3e3636f1c2318ba96b479bf485ce67bc247ba0aa8b3ad2c2a466d8"
+      }
+    },
+    {
+      "id": "spki-fingerprint-compressed-point",
+      "description": "Same P-256 key as spki-fingerprint-p256-fixture-1, encoded as a compressed SEC1 point (0x02/0x03 prefix, X only) instead of the required uncompressed 0x04 prefix point; MUST be rejected before any fingerprint compare (SPEC.md #1, Certificate handling).",
+      "input": {
+        "spkiDerHex": "3039301306072a8648ce3d020106082a8648ce3d030107032200022873bd16831c891ac61fe810a8f5bfb97b0d23809a1ad0a3b868d2215899738d"
+      },
+      "expectedError": "unsupportedPointEncoding"
+    },
+    {
+      "id": "spki-fingerprint-p384-curve",
+      "description": "An uncompressed EC public key on P-384 (secp384r1) rather than P-256: the AlgorithmIdentifier names the wrong curve OID, so this MUST be rejected as an unsupported key type before any fingerprint compare (SPEC.md #1).",
+      "input": {
+        "spkiDerHex": "3076301006072a8648ce3d020106052b810400220362000438c92c324a137bb8dd8518f3c7effdcced64309f9cb82022ac6bedb6a381f3257ef09f50efe1de71fc9ebf629d2532b77cf9e2b6c697e62935a8b5446dd542481ab5d0d327b90cf3daa749509d5a8cdeb34ebafc2ca105e306288bd4b07de19f"
+      },
+      "expectedError": "unsupportedKeyType"
+    },
+    {
+      "id": "spki-fingerprint-rsa-2048",
+      "description": "An RSA-2048 SubjectPublicKeyInfo (rsaEncryption OID, 2048-bit modulus, exponent 65537): MUST be rejected as an unsupported key type before any fingerprint compare (SPEC.md #1). The modulus is deterministic filler shaped like a real 2048-bit RSA modulus (top bit set, odd); this vector exercises key-type rejection, not RSA validity, so the modulus need not be a genuine product of two primes.",
+      "input": {
+        "spkiDerHex": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100f3b41565b056f360eb938f79f389daa6efa6b2894ccd4e556cafeb0445707060d32c68c0bb40ff299a014e204457d8a064947de39b3b40670567ea97d26513068cdcad0d5c16c6436af6cc572cb42c3ef9a220869003134a20fd5757f16e5ed0e3851d2f78a1dec9bce0b80d6c7c18fc6693d1587c0562f63f95e8a5341ca3366b58d34901e0eed891c119d0a26f7086d2760a86c6e454bfdb20e1ddb0dcab71efe3d33f6792aa74e2a7de6837245c74d53f24381d1fb9390f2681f3a84ad357da8d91ef970219636e1cf31325cd324a5a12ca461043bb051d5392224c925248d06e828af5a14933634986a89c66f3b07ffd394a8b37a48898e9e4bc55c1527f0203010001"
+      },
+      "expectedError": "unsupportedKeyType"
+    },
+    {
+      "id": "spki-fingerprint-truncated-der",
+      "description": "The same P-256 SPKI DER as spki-fingerprint-p256-fixture-1 with its final byte cut off (90 of 91 bytes delivered): MUST be rejected as malformed DER before any fingerprint compare (SPEC.md #1).",
+      "input": {
+        "spkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042873bd16831c891ac61fe810a8f5bfb97b0d23809a1ad0a3b868d2215899738ddbecd0803b2f947802ccac4852dff0d82360ea74d0c89f9aab2b3d1f7e0770"
+      },
+      "expectedError": "malformedSpki"
+    }
+  ]
+}
