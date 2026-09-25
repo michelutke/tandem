@@ -43,11 +43,55 @@ directory, instead of inlining the bytes. Everything that *is* text-safe (hex st
 base64url, UTF-8 with an explicit encoding note) is inlined directly so the manifest stays
 diffable.
 
+### Compact recipes for large payloads
+
+A vector whose wire bytes are large (e.g. `frame-encoding.json`'s exactly-1-MiB `Envelope`) is
+not inlined as a hex blob and does not get a committed binary fixture either, to avoid bloating
+the repo with a megabyte-scale file that carries no information beyond its size. Instead its
+`input` is an `envelopeRecipe` — a small, human-readable description (channel/seq/ack, the real
+payload, and a `filler` field: an unrecognized field number carrying `fillLength` repeats of a
+single `fillByte`) that a generator function reconstructs byte-for-byte
+(`tools/vectors/frame_encoding.py`'s `build_envelope_from_recipe`/`solve_filler`), together with
+an `envelopeLength` and (in `expected`) a `frameSha256` so an independent implementation can
+verify it reconstructed the identical bytes without either side committing them.
+
 ## Generating and validating
 
 See `tools/vectors/README.md` for how to run the generator, the pytest suite, and the schema /
 regeneration checks that CI (the `protocol` workflow) runs on every change under `protocol/vectors/`
 or `tools/vectors/`.
+
+## Categories
+
+### `frame-encoding.json` (E01-19)
+
+Frame-level valid/invalid vectors for SPEC.md `#framing-and-envelope`'s `frame = length_prefix
+envelope_bytes` format and its rejection-cases table. Each entry's `input.frameHex` (or, for the
+1-MiB vector, `input.envelopeRecipe` — see "Compact recipes" above) is the exact bytes a receiver
+sees on the wire, including the 4-byte big-endian `length_prefix`; `input.lengthPrefix` and
+`input.suppliedEnvelopeLength` restate the claimed vs. actually-delivered envelope byte counts for
+human review. Valid entries' `expected` gives the decoded `channel`/`seq`/`ack`/`payload`; invalid
+entries use `expectedError: "malformedFrame"` with `closeCode: "MALFORMED_FRAME"` and one of the
+`localReason`s from SPEC.md's table (`TOO_LARGE`, `BAD_LENGTH`, `TRUNCATED`, `DECODE_FAILED`,
+`UNKNOWN_CHANNEL`, `UNKNOWN_PAYLOAD_TYPE`).
+
+Two encodings were not fully pinned down by SPEC.md/decisions.md at the wire-byte level and were
+chosen here, following SPEC.md's prose definitions:
+
+- **Unknown channel**: `channel` (field 1) set to `99`, a value the varint wire format accepts
+  but that is outside the nine enumerated `Channel` values (0-9) — an otherwise well-formed
+  Envelope.
+- **Unknown payload type**: the `oneof payload` left unset by omitting fields 20 (`device_status`)
+  and 21 (`ring`) entirely and instead writing field 25 — a number inside `envelope.proto`'s
+  `reserved 22 to 29` status.proto range, not yet assigned to any payload. A protobuf-lite
+  decoder treats an unrecognized field number as an ordinary skippable unknown field regardless
+  of whether the `.proto` marks that range `reserved`; the oneof stays unset, matching SPEC.md's
+  "the `oneof payload` is unset, or set to a payload type this receiver's protocol version does
+  not define."
+
+`frame-oversize-plus-one` and `frame-bad-length-0xffffffff` both supply only the 4-byte prefix (no
+payload bytes at all), per the E01-19 acceptance criterion that a decoder allocating a buffer
+before checking `length_prefix` would read past the end of the vector.
 
 ## Authoritativeness
 

@@ -35,12 +35,17 @@ VECTORS_DIR = REPO_ROOT / "protocol" / "vectors"
 # imported (e.g. from tools/vectors/tests/).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
+from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
+
 Manifest = dict[str, Any]
 CategoryGenerator = Callable[[], Manifest]
 
 # Downstream issues append their (filename, generator) pair here, e.g.:
 #   CATEGORIES.append(("spki-fingerprint.json", generate_spki_fingerprint_vectors))
 CATEGORIES: list[tuple[str, CategoryGenerator]] = []
+CATEGORIES.append(("discovery-id.json", generate_discovery_id_vectors))  # E01-20
+CATEGORIES.append(("frame-encoding.json", generate_frame_encoding_vectors))  # E01-19
 
 
 def render(manifest: Manifest) -> str:

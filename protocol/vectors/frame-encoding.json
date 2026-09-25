@@ -1,0 +1,153 @@
+{
+  "$schema": "./schema.json",
+  "category": "frame-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "frame-min-size",
+      "description": "Smallest legal Envelope: channel and seq set, ack omitted at its proto3 default (0), payload an empty Ring message.",
+      "input": {
+        "frameHex": "0000000708091001aa0100",
+        "lengthPrefix": 7,
+        "suppliedEnvelopeLength": 7
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "ring",
+        "envelopeLength": 7
+      }
+    },
+    {
+      "id": "frame-typical-size",
+      "description": "Typical Envelope: a populated DeviceStatus payload on the STATUS channel.",
+      "input": {
+        "frameHex": "000000110809102a1829a20108084c100118022003",
+        "lengthPrefix": 17,
+        "suppliedEnvelopeLength": 17
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 42,
+        "ack": 41,
+        "payload": "deviceStatus",
+        "envelopeLength": 17
+      }
+    },
+    {
+      "id": "frame-max-size-exact",
+      "description": "Envelope at exactly the 1 MiB (1 048 576 byte) maximum: the same minimal Ring payload as frame-min-size, padded to the boundary with one unrecognized high-numbered field carrying repeated fill bytes (see the compact-recipe note in protocol/vectors/README.md) so this manifest does not embed a 1 MiB blob.",
+      "input": {
+        "envelopeRecipe": {
+          "channel": "CHANNEL_STATUS",
+          "seq": 1,
+          "ack": 0,
+          "payload": {
+            "kind": "ring"
+          },
+          "filler": {
+            "fieldNumber": 500000,
+            "wireType": "LENGTH_DELIMITED",
+            "fillByte": "00",
+            "fillLength": 1048562
+          }
+        },
+        "envelopeLength": 1048576,
+        "lengthPrefix": 1048576
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "ring",
+        "envelopeLength": 1048576,
+        "frameSha256": "ddf41fe2b907a86107ff4712d41b4529d82fbe03c2253d56ce3629db407ad5ab"
+      }
+    },
+    {
+      "id": "frame-oversize-plus-one",
+      "description": "length_prefix = 1 MiB + 1 (1 048 577): rejected using only the 4 prefix bytes, before any payload byte is read or buffered (SPEC.md #framing-and-envelope).",
+      "input": {
+        "frameHex": "00100001",
+        "lengthPrefix": 1048577,
+        "suppliedEnvelopeLength": 0
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "TOO_LARGE"
+    },
+    {
+      "id": "frame-bad-length-0xffffffff",
+      "description": "length_prefix = 0xFFFFFFFF, the maximum representable u32: also oversize, but exercises the unsigned-overflow boundary distinct from the 1 MiB + 1 vector.",
+      "input": {
+        "frameHex": "ffffffff",
+        "lengthPrefix": 4294967295,
+        "suppliedEnvelopeLength": 0
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "TOO_LARGE"
+    },
+    {
+      "id": "frame-bad-length-zero",
+      "description": "length_prefix = 0: never valid, rejected as BAD_LENGTH regardless of any following bytes.",
+      "input": {
+        "frameHex": "00000000",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "BAD_LENGTH"
+    },
+    {
+      "id": "frame-truncated",
+      "description": "length_prefix matches a well-formed Envelope (frame-typical-size's), but the connection delivers one byte fewer than that before closing.",
+      "input": {
+        "frameHex": "000000110809102a1829a20108084c1001180220",
+        "lengthPrefix": 17,
+        "suppliedEnvelopeLength": 16
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "TRUNCATED"
+    },
+    {
+      "id": "frame-decode-failed",
+      "description": "The length_prefix bytes are fully delivered but fail to decode as a well-formed Envelope: an unterminated varint (continuation bit set on the last available byte).",
+      "input": {
+        "frameHex": "000000020896",
+        "lengthPrefix": 2,
+        "suppliedEnvelopeLength": 2
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "DECODE_FAILED"
+    },
+    {
+      "id": "frame-unknown-channel",
+      "description": "channel = 99, a value outside the nine enumerated channels (SPEC.md #channels-and-flow-control-credits); otherwise a well-formed Envelope.",
+      "input": {
+        "frameHex": "0000000708631001aa0100",
+        "lengthPrefix": 7,
+        "suppliedEnvelopeLength": 7
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "UNKNOWN_CHANNEL"
+    },
+    {
+      "id": "frame-unknown-payload-type",
+      "description": "The payload oneof is unset: field 25 (in envelope.proto's reserved 22-29 status.proto range, not yet assigned to device_status or ring) is present instead of a recognized payload field.",
+      "input": {
+        "frameHex": "0000000708091001c80107",
+        "lengthPrefix": 7,
+        "suppliedEnvelopeLength": 7
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "UNKNOWN_PAYLOAD_TYPE"
+    }
+  ]
+}
