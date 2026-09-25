@@ -7,6 +7,7 @@ import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
 import dev.tandem.core.protocol.MalformedFrameReason
+import dev.tandem.core.protocol.flowcontrol.CreditCaps
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
@@ -125,12 +126,12 @@ class ChannelMultiplexer(
     private suspend fun closeFor(result: DecodeResult): MultiplexerClose? =
         when (result) {
             is DecodeResult.Frame -> {
-                val accepted = writeLock.withLock { acceptAndAdvanceAck(result.envelope) }
-                if (accepted) {
+                val violation = writeLock.withLock { acceptAndAdvanceAck(result.envelope) }
+                if (violation == null) {
                     routeToInbound(result.envelope)
                     null
                 } else {
-                    MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, MalformedFrameReason.SEQ_REGRESSION)
+                    MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, violation)
                 }
             }
 
@@ -150,12 +151,15 @@ class ChannelMultiplexer(
 
     /**
      * D-57's per-channel seq/ack contract. Caller holds [writeLock] (shared with [send], since this
-     * reads the same per-channel outgoing-seq state that [send] mutates). Returns `false` — a
-     * violation — without mutating any state, on any of: `seq = 0`; `seq` at or below this
-     * channel's ack watermark; `seq` repeating an already-received above-watermark value; or `ack`
-     * above the highest `seq` this side has itself sent on this channel.
+     * reads the same per-channel outgoing-seq state that [send] mutates). Returns the violation
+     * reason — without mutating any state — on any of: `seq = 0`; `seq` at or below this channel's
+     * ack watermark; `seq` repeating an already-received above-watermark value; `ack` above the
+     * highest `seq` this side has itself sent on this channel; or the channel's above-watermark
+     * pending set already holding [CreditCaps.PROTOCOL_MAX] entries (D-64: a legitimate,
+     * credit-bound peer can never make this many `seq` values pending at once). Returns `null` on
+     * success.
      */
-    private fun acceptAndAdvanceAck(envelope: Envelope): Boolean {
+    private fun acceptAndAdvanceAck(envelope: Envelope): MalformedFrameReason? {
         val channel = envelope.channel
         val seq = envelope.seq
         val watermark = incomingAck.getValue(channel)
@@ -163,7 +167,13 @@ class ChannelMultiplexer(
 
         val violatesSeq = seq == 0L || seq <= watermark || seq in pending
         val violatesAck = envelope.ack > outgoingSeq.getValue(channel)
-        if (!violatesSeq && !violatesAck) {
+        val violation =
+            when {
+                violatesSeq || violatesAck -> MalformedFrameReason.SEQ_REGRESSION
+                pending.size >= CreditCaps.PROTOCOL_MAX -> MalformedFrameReason.SEQ_GAP_TOO_LARGE
+                else -> null
+            }
+        if (violation == null) {
             pending += seq
             var newWatermark = watermark
             while (pending.remove(newWatermark + 1)) {
@@ -171,7 +181,7 @@ class ChannelMultiplexer(
             }
             incomingAck[channel] = newWatermark
         }
-        return !violatesSeq && !violatesAck
+        return violation
     }
 
     private suspend fun finish(result: MultiplexerClose) {

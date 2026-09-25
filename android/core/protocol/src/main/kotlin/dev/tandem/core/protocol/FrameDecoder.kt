@@ -180,4 +180,14 @@ enum class MalformedFrameReason {
      * since it is a per-channel stateful check rather than a stateless framing check.
      */
     SEQ_REGRESSION,
+
+    /**
+     * A channel's above-watermark `seq` gap grew past
+     * [dev.tandem.core.protocol.flowcontrol.CreditCaps.PROTOCOL_MAX] (D-64): a legitimate peer,
+     * bound by its receive credit, can never have this many `seq` values outstanding above the
+     * watermark at once, so this is a fatal violation rather than another accepted gap-fill.
+     * Detected by [dev.tandem.core.protocol.multiplex.ChannelMultiplexer] (E11-05) alongside
+     * [SEQ_REGRESSION].
+     */
+    SEQ_GAP_TOO_LARGE,
 }

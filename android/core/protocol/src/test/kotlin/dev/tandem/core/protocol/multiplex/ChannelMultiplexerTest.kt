@@ -8,6 +8,7 @@ import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
 import dev.tandem.core.protocol.MalformedFrameReason
+import dev.tandem.core.protocol.flowcontrol.CreditCaps
 import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
@@ -116,6 +117,33 @@ class ChannelMultiplexerTest {
 
             assertEquals(
                 MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, MalformedFrameReason.SEQ_REGRESSION),
+                close,
+            )
+            b.inbound(Channel.CHANNEL_NOTIFY).test { awaitComplete() }
+            readerJob.join()
+        }
+
+    @Test
+    fun multiplexer_seqGapExceedsProtocolMax_closesWithSeqGapTooLarge() =
+        muxTest {
+            val pipe = InMemoryDuplexPipe()
+            val b = ChannelMultiplexer(sourceFor(pipe.endpointB), sinkFor(pipe.endpointB))
+            val readerJob = launch { b.start() }
+
+            // Never sends seq 1, so every one of these stays pending above the watermark (a
+            // legitimate gap-fill per D-57) until the pending set holds exactly PROTOCOL_MAX
+            // entries (seq 2..PROTOCOL_MAX+1).
+            for (seq in 2..(CreditCaps.PROTOCOL_MAX + 1)) {
+                injectAndAwaitRouted(pipe, b, Channel.CHANNEL_NOTIFY, seq = seq.toLong())
+            }
+            // One more above-watermark seq would push the pending set past PROTOCOL_MAX: no
+            // legitimate, credit-bound peer can reach this (D-64), so it is fatal.
+            pipe.injectTowardsB(rawFrame(Channel.CHANNEL_NOTIFY, seq = (CreditCaps.PROTOCOL_MAX + 2).toLong()))
+
+            val close = withTimeout(5.seconds) { b.closeReason.await() }
+
+            assertEquals(
+                MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, MalformedFrameReason.SEQ_GAP_TOO_LARGE),
                 close,
             )
             b.inbound(Channel.CHANNEL_NOTIFY).test { awaitComplete() }
