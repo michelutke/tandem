@@ -15,6 +15,10 @@ dependencies {
     // protocol/vectors/frame-encoding.json manifest; test-only, never on a release classpath.
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.serialization.json)
+
+    // Jazzer JUnit fuzz target for FrameDecoder/Envelope (E15-13); test-only, never on a release
+    // classpath.
+    testImplementation(libs.jazzer.junit)
 }
 
 // E11-01: FrameEncoderTest reads the E01-19 vectors committed at protocol/vectors/ (outside this
