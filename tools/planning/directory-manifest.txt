@@ -57,6 +57,8 @@ tools/audit
 tools/companion-app
 tools/conformance
 tools/fuzz
+tools/fuzz/jazzer
+tools/fuzz/jazzer/test
 tools/fuzz/libfuzzer
 tools/log-audit
 tools/mitm-lab
