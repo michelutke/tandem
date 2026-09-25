@@ -13,6 +13,12 @@
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="false"
-        android:networkSecurityConfig="@xml/network_security_config" />
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- Not launchable and not exported; declared so tooling that enumerates <activity>
+             entries (E00-28's activity-inheritance backstop) has at least one real entry to see. -->
+        <activity android:name=".TandemActivity" android:exported="false" />
+
+    </application>
 
 </manifest>
