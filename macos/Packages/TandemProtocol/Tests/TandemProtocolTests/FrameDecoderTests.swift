@@ -156,6 +156,10 @@ struct FrameDecoderTests {
 
     private func payloadLabel(_ envelope: Tandem_V1_Envelope) -> String {
         switch envelope.payload {
+        case .versionHello?: return "versionHello"
+        case .heartbeat?: return "heartbeat"
+        case .creditGrant?: return "creditGrant"
+        case .mediaTicketGrant?: return "mediaTicketGrant"
         case .ring?: return "ring"
         case .deviceStatus?: return "deviceStatus"
         case nil: return "unset"
