@@ -1,0 +1,8 @@
+# Allowlist for os.Logger `privacy: .public` interpolations of non-literal values (E00-27).
+# One source expression per line, matched verbatim against the logged value's text; blank lines
+# and lines starting with # are ignored. Only enum/category values belong here (e.g. a log
+# category or a state-machine case name) — never raw content, identifiers holding user data, or
+# free-form strings. A literal (string/number/bool) is always allowed and does not need an entry.
+
+# tools/lint/fixtures/swift/ReleaseLogPublicPrivacyAllowlistedFixture.swift
+category
