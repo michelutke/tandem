@@ -1,5 +1,6 @@
 package dev.tandem.core.transport.tls
 
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import javax.net.ssl.SSLContext
@@ -10,6 +11,11 @@ import javax.net.ssl.X509TrustManager
 
 /** The single ALPN identifier this protocol's client ever offers (SPEC.md, "TLS version and cipher profile"). */
 const val TANDEM_ALPN_PROTOCOL = "tandem/1"
+
+/** Thrown when the peer completes the TLS handshake but does not select [TANDEM_ALPN_PROTOCOL]. */
+class AlpnMismatchException(
+    message: String,
+) : SSLHandshakeException(message)
 
 /**
  * Builds the phone's TLS 1.3-only client connection (E12-04). A fresh [SSLContext] is created per
@@ -50,31 +56,56 @@ class SslClientFactory(
 
     /**
      * Connects [socket] to [address] by literal IP (no SNI, per SPEC.md) and runs the TLS 1.3
-     * handshake, then wraps the connected socket as a [dev.tandem.core.transport.ByteStream].
+     * handshake, then wraps the connected socket as a [dev.tandem.core.transport.ByteStream]. The
+     * hostname on [address], if any, is stripped before dialing (`InetAddress.getByAddress`), so a
+     * caller passing a hostname-bearing address (e.g. from `InetAddress.getByName`) can never make
+     * Conscrypt emit a `server_name` extension.
      *
      * `SSLParameters.setApplicationProtocols` only declares what this client offers; it does not,
      * by itself, make the underlying TLS stack fail a handshake whose peer selected a different
      * (or no) protocol — mirroring the explicit ALPN check SPEC.md requires on the macOS listener
      * side, this method verifies the negotiated protocol itself and fails closed if it isn't
      * exactly [TANDEM_ALPN_PROTOCOL].
+     *
+     * [handshakeTimeoutMillis] is applied as `socket.soTimeout` around `startHandshake()` only (SPEC.md
+     * §10 assigns the phone's 10 s TLS handshake deadline; this is the seam that deadline is enforced
+     * through, since a blocking `startHandshake()` cannot otherwise be unblocked). On any failure —
+     * connect, handshake, or ALPN mismatch — [socket] is closed before the exception propagates.
      */
     fun connect(
         socket: SSLSocket,
         address: InetAddress,
         port: Int,
-        connectTimeoutMillis: Int = 0,
+        connectTimeoutMillis: Int = DEFAULT_CONNECT_TIMEOUT_MILLIS,
+        handshakeTimeoutMillis: Int = DEFAULT_HANDSHAKE_TIMEOUT_MILLIS,
     ): SslSocketByteStream {
-        socket.connect(InetSocketAddress(address, port), connectTimeoutMillis)
-        socket.startHandshake()
+        try {
+            val noSniAddress = InetSocketAddress(InetAddress.getByAddress(address.address), port)
+            socket.connect(noSniAddress, connectTimeoutMillis)
 
-        if (socket.applicationProtocol != TANDEM_ALPN_PROTOCOL) {
-            val negotiated = socket.applicationProtocol
+            socket.soTimeout = handshakeTimeoutMillis
+            socket.startHandshake()
+            socket.soTimeout = 0
+
+            if (socket.applicationProtocol != TANDEM_ALPN_PROTOCOL) {
+                val negotiated = socket.applicationProtocol
+                throw AlpnMismatchException(
+                    "Server did not select ALPN protocol \"$TANDEM_ALPN_PROTOCOL\" (negotiated: \"$negotiated\")",
+                )
+            }
+        } catch (e: IOException) {
             runCatching { socket.close() }
-            throw SSLHandshakeException(
-                "Server did not select ALPN protocol \"$TANDEM_ALPN_PROTOCOL\" (negotiated: \"$negotiated\")",
-            )
+            throw e
         }
 
         return SslSocketByteStream(socket)
+    }
+
+    private companion object {
+        /** SPEC.md §10 / E12-08: the phone's TLS handshake deadline when dialing. */
+        const val DEFAULT_HANDSHAKE_TIMEOUT_MILLIS = 10_000
+
+        // D-68: 3 s per-address dial timeout.
+        const val DEFAULT_CONNECT_TIMEOUT_MILLIS = 3_000
     }
 }

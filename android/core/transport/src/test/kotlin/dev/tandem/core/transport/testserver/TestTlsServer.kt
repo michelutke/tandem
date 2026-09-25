@@ -31,7 +31,7 @@ data class TestTlsConnectionResult(
  * A JVM-only Conscrypt `SSLServerSocket` on `127.0.0.1` (E12-04 test harness): the peer the
  * `integration:` tests dial to exercise a real TLS 1.3 handshake against `SslClientFactory`. Test
  * source set only — never a main source set (invariant 4: the Android app opens no listening
- * sockets; the no-listener lint, `NoListener.kt`, excludes test sources the same way).
+ * sockets; the no-listener lint, `NoListenerSockets.kt`, excludes test sources the same way).
  */
 class TestTlsServer(
     keyManager: X509KeyManager,

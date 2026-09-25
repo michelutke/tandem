@@ -23,6 +23,7 @@ androidx.test
 org.junit
 app.cash.turbine
 io.mockk
+org.conscrypt
 
 # macOS test seams (TandemTestSupport) and fakes.
 TandemTestSupport

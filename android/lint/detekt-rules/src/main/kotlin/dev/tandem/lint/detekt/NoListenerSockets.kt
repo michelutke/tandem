@@ -7,6 +7,7 @@ import io.gitlab.arturbosch.detekt.api.Entity
 import io.gitlab.arturbosch.detekt.api.Issue
 import io.gitlab.arturbosch.detekt.api.Rule
 import io.gitlab.arturbosch.detekt.api.Severity
+import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtImportDirective
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
@@ -23,7 +24,8 @@ class NoListenerSockets(config: Config = Config.empty) : Rule(config) {
             id = "NoListenerSockets",
             severity = Severity.Defect,
             description = "No main-source code may open a listening socket (java.net.ServerSocket, " +
-                "javax.net.ssl.SSLServerSocket, java.nio.channels.ServerSocketChannel) — invariant 4.",
+                "javax.net.ssl.SSLServerSocket, java.nio.channels.ServerSocketChannel, and related " +
+                "server-socket/listener APIs) — invariant 4.",
             debt = Debt.TWENTY_MINS,
         )
 
@@ -38,10 +40,25 @@ class NoListenerSockets(config: Config = Config.empty) : Rule(config) {
     override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
         super.visitDotQualifiedExpression(expression)
         if (expression.getParentOfType<KtImportDirective>(strict = true) != null) return
+
         val text = expression.text
-        val match = BANNED_FQ_NAMES.firstOrNull { text.startsWith(it) } ?: return
-        report(CodeSmell(issue, Entity.from(expression), "`$match` opens a listening socket (invariant 4)."))
+        val fqMatch = BANNED_FQ_NAMES.firstOrNull { text.startsWith(it) }
+        if (fqMatch != null) {
+            report(CodeSmell(issue, Entity.from(expression), "`$fqMatch` opens a listening socket (invariant 4)."))
+            return
+        }
+
+        val memberName = selectorMemberName(expression) ?: return
+        if (memberName in BANNED_MEMBER_NAMES) {
+            report(CodeSmell(issue, Entity.from(expression), "`$memberName` opens a listening socket (invariant 4)."))
+        }
     }
+
+    private fun selectorMemberName(expression: KtDotQualifiedExpression): String? =
+        when (val selector = expression.selectorExpression) {
+            is KtCallExpression -> selector.calleeExpression?.text
+            else -> selector?.text
+        }
 
     private companion object {
         val BANNED_FQ_NAMES =
@@ -49,6 +66,25 @@ class NoListenerSockets(config: Config = Config.empty) : Rule(config) {
                 "java.net.ServerSocket",
                 "javax.net.ssl.SSLServerSocket",
                 "java.nio.channels.ServerSocketChannel",
+                "javax.net.ServerSocketFactory",
+                "javax.net.ssl.SSLServerSocketFactory",
+                "java.nio.channels.AsynchronousServerSocketChannel",
+                "android.net.LocalServerSocket",
+                "java.net.DatagramSocket",
+                "java.nio.channels.DatagramChannel",
+            )
+
+        /**
+         * Member names matched regardless of the (often inferred) receiver type, so e.g.
+         * `SSLContext.getInstance("TLS").serverSocketFactory.createServerSocket(0)` is caught even
+         * though `serverSocketFactory`'s static type is never spelled out at the call site.
+         */
+        val BANNED_MEMBER_NAMES =
+            setOf(
+                "createServerSocket",
+                "openServerSocketChannel",
+                "serverSocketFactory",
+                "registerService",
             )
     }
 }

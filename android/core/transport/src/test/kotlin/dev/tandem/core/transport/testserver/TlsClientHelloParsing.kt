@@ -1,5 +1,8 @@
 package dev.tandem.core.transport.testserver
 
+/** `server_name` (SNI) extension type (RFC 6066 §3). */
+const val EXTENSION_TYPE_SERVER_NAME = 0x0000
+
 /** TLS 1.3 `pre_shared_key` extension type (RFC 8446 §4.2.11). */
 const val EXTENSION_TYPE_PRE_SHARED_KEY = 0x0029
 

@@ -47,6 +47,115 @@ class NoListenerSocketsTest {
     }
 
     @Test
+    fun noListenerLint_serverSocketFactoryInferredTypeFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import javax.net.ssl.SSLContext
+
+                fun listen() = SSLContext.getInstance("TLS").serverSocketFactory.createServerSocket(0).accept()
+                """.trimIndent(),
+            )
+
+        assertTrue(findings.isNotEmpty())
+        assertTrue(findings.all { it.id == "NoListenerSockets" })
+    }
+
+    @Test
+    fun noListenerLint_asynchronousServerSocketChannelImportFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import java.nio.channels.AsynchronousServerSocketChannel
+
+                fun listen(): AsynchronousServerSocketChannel = AsynchronousServerSocketChannel.open()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
+    fun noListenerLint_selectorProviderOpenServerSocketChannelFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import java.nio.channels.spi.SelectorProvider
+
+                fun listen() = SelectorProvider.provider().openServerSocketChannel()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
+    fun noListenerLint_localServerSocketImportFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import android.net.LocalServerSocket
+
+                fun listen(name: String): LocalServerSocket = LocalServerSocket(name)
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
+    fun noListenerLint_datagramSocketImportFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import java.net.DatagramSocket
+
+                fun listen(port: Int): DatagramSocket = DatagramSocket(port)
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
+    fun noListenerLint_datagramChannelImportFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import java.nio.channels.DatagramChannel
+
+                fun listen(): DatagramChannel = DatagramChannel.open()
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
+    fun noListenerLint_nsdManagerRegisterServiceFixture_fails() {
+        val findings =
+            NoListenerSockets().compileAndLint(
+                """
+                import android.net.nsd.NsdManager
+                import android.net.nsd.NsdServiceInfo
+                import android.net.nsd.NsdManager.RegistrationListener
+
+                fun advertise(manager: NsdManager, info: NsdServiceInfo, listener: RegistrationListener) {
+                    manager.registerService(info, NsdManager.PROTOCOL_DNS_SD, listener)
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(1, findings.size)
+        assertEquals("NoListenerSockets", findings.single().id)
+    }
+
+    @Test
     fun noListenerLint_currentTree_passes() {
         val findings =
             NoListenerSockets().compileAndLint(
