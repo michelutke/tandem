@@ -9,7 +9,11 @@ let package = Package(
     ],
     dependencies: [
         // Must match the buf.build/apple/swift plugin version in protocol/buf.gen.yaml.
-        .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.38.1")
+        .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.38.1"),
+        // Test-only: FrameEncoder tests send into InMemoryConnectionPair (E00-25) and read the
+        // per-direction capture, since TandemProtocol itself may not depend on TandemTransport
+        // (PRD module rules: transport depends on protocol, never the reverse).
+        .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
@@ -19,7 +23,7 @@ let package = Package(
         ),
         .testTarget(
             name: "TandemProtocolTests",
-            dependencies: ["TandemProtocol"],
+            dependencies: ["TandemProtocol", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
