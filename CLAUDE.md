@@ -39,6 +39,7 @@ xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform
 tools/lint/swiftlint-check.sh
 ruby tools/lint/swift-package-rules.rb
 tools/lint/release-log-check.sh
+tools/lint/literal-color-check.sh
 (cd protocol && buf lint && buf breaking --against '../.git#branch=main,subdir=protocol')
 tools/protocol/check_generated.sh
 ```
