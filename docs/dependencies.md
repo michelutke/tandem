@@ -31,6 +31,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.junit.platform:junit-platform-launcher` | EPL-2.0 | JUnit Platform test launcher | E00-05 |
 | `app.cash.turbine:turbine` | Apache-2.0 | Kotlin Flow testing (`unit` layer, CLAUDE.md) | E00-05 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-test` | Apache-2.0 | Coroutine test dispatchers | E00-05 |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | `Flow`/`Mutex`/`Channel`/`Deferred` for `ChannelMultiplexer` | E11-05 |
 | `org.jetbrains.kotlinx:kotlinx-serialization-json` | Apache-2.0 | Test-only: parse `protocol/vectors` JSON in frame codec tests | E11-01 |
 | `androidx.activity:activity` | Apache-2.0 | `ComponentActivity` base for `TandemActivity` (tapjacking filter) | E00-28 |
 | `com.google.devtools.ksp:symbol-processing-gradle-plugin` | Apache-2.0 | KSP annotation processing for Hilt (kapt unsupported with AGP 9 built-in Kotlin) | E00-03 |

@@ -10,6 +10,10 @@ android {
 dependencies {
     api(libs.protobuf.javalite)
     api(libs.protobuf.kotlin.lite)
+    // ChannelMultiplexer (E11-05) exposes Flow/Deferred in its public API, so this is api(), not
+    // implementation(): kotlinx-coroutines-core already ships pinned at this exact version via
+    // kotlinx-coroutines-test (see docs/dependencies.md), so this adds no new verified artifact.
+    api(libs.kotlinx.coroutines.core)
 
     // FrameEncoderTest (E11-01) writes into InMemoryDuplexPipe and parses the committed
     // protocol/vectors/frame-encoding.json manifest; test-only, never on a release classpath.

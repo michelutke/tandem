@@ -170,4 +170,14 @@ enum class MalformedFrameReason {
 
     /** The `oneof payload` is unset, or set to a payload type this receiver's protocol version does not define. */
     UNKNOWN_PAYLOAD_TYPE,
+
+    /**
+     * SPEC.md #framing-and-envelope "Sequence and acknowledgement violations" (`docs/planning/decisions.md`
+     * D-57): a `seq` of 0, a `seq` at or below the current per-channel ack watermark, a duplicate of an
+     * already-received above-watermark `seq`, or an `ack` above the highest `seq` this side has itself
+     * sent on that channel. Detected by
+     * [dev.tandem.core.protocol.multiplex.ChannelMultiplexer] (E11-05), never by [FrameDecoder] itself,
+     * since it is a per-channel stateful check rather than a stateless framing check.
+     */
+    SEQ_REGRESSION,
 }
