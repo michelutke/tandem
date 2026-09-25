@@ -34,8 +34,8 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 
 | # | Section | Anchor | Status |
 |---|---|---|---|
-| 1 | Handshake and TLS profile | `#handshake-and-tls-profile` | TBD in E01-01 |
-| 2 | Pairing | `#pairing` | TBD in E01-02 |
+| 1 | Handshake and TLS profile | [`#handshake-and-tls-profile`](#handshake-and-tls-profile) | Written (E01-01) |
+| 2 | Pairing | [`#pairing`](#pairing) | Written (E01-02) |
 | 3 | Framing and envelope | [`#framing-and-envelope`](#framing-and-envelope) | Written (this issue, E01-03) |
 | 4 | Channels and flow-control credits | [`#channels-and-flow-control-credits`](#channels-and-flow-control-credits) | Written (E01-04) |
 | 5 | Errors and close codes | [`#errors-and-close-codes`](#errors-and-close-codes) | Written (this issue, E01-05) |
@@ -43,8 +43,8 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 7 | Heartbeat | [`#heartbeat`](#heartbeat) | Written (E01-07) |
 | 8 | Discovery TXT record | [`#discovery-txt-record`](#discovery-txt-record) | Written (E01-08) |
 | 9 | Media ticket | [`#media-ticket`](#media-ticket) | Written (E01-09) |
-| 10 | Timeouts, connection limits and resource caps | `#timeouts-connection-limits-and-resource-caps` | TBD in E01-22 |
-| 11 | Untrusted peer strings (display sanitization) | `#untrusted-peer-strings-display-sanitization` | TBD in E01-23 |
+| 10 | Timeouts, connection limits and resource caps | [`#timeouts-connection-limits-and-resource-caps`](#timeouts-connection-limits-and-resource-caps) | Written (E01-22) |
+| 11 | Untrusted peer strings (display sanitization) | [`#untrusted-peer-strings-display-sanitization`](#untrusted-peer-strings-display-sanitization) | Written (E01-23) |
 | 12 | Media frame semantics | `#media-frame-semantics` | TBD in E61-01 (extends §9, Phase 6) |
 | 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
 | 14 | SMS channel | `#sms-channel` | TBD (Phase 5, epic E50) |
@@ -56,6 +56,433 @@ Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
 anchors never change; new sections are always appended after the last row in this table, never
 inserted between existing rows.
+
+---
+
+## Handshake and TLS profile
+
+*(E01-01 · PRD F-3.1 · AC-01, AC-04, AC-13, AC-15 · invariants 1, 2, 5, 6)*
+
+This section defines the TLS profile every connection (control and media, §9) MUST negotiate, the
+verify-callback algorithm each side runs to turn a bare TLS handshake into a trust decision bound to
+a pinned SPKI (invariant 3), and the channel-binding value `cb` that later sections (§2 pairing,
+E70-01 key rotation) bind higher-layer proofs to one specific TLS session. Deadlines and connection
+counts that bound the handshake (TLS 10 s, `VersionHello` 5 s, pre-authentication connection caps)
+are defined once, in §10 (`#timeouts-connection-limits-and-resource-caps`, E01-22), not here.
+
+### TLS version and cipher profile
+
+- Both sides MUST negotiate TLS 1.3 only and MUST reject a TLS 1.2-or-lower `ClientHello` or
+  `ServerHello`.
+- The negotiated cipher suite MUST be one of the TLS 1.3 AEAD suites: `TLS_AES_128_GCM_SHA256`,
+  `TLS_AES_256_GCM_SHA384`, or `TLS_CHACHA20_POLY1305_SHA256`. This protocol does not restrict which
+  key-exchange group is offered or selected; implementations MAY offer any group their platform TLS
+  stack supports (X25519, secp256r1, and hybrid post-quantum groups where available).
+- The certificate signature scheme MUST be `ecdsa_secp256r1_sha256` only.
+- ALPN: the client MUST offer exactly the protocol identifier `tandem/1` and no other value; the
+  server MUST select it. A `ClientHello` offering a missing or different ALPN value, or a `ServerHello`
+  selecting anything other than `tandem/1`, MUST fail the handshake.
+- No SNI is sent by the client: the phone always dials a literal IP address (from the trust store, or
+  from the QR `a` field during pairing, §2), never a hostname, so there is no hostname to place in SNI.
+- No session resumption: the server MUST NOT issue a usable session ticket, and both sides MUST NOT
+  resume a session (new or abbreviated) on a subsequent connection. The Android client MUST use a
+  fresh `SSLContext` per connection and MUST disable session tickets on it
+  (`SSLSockets.setUseSessionTickets(socket, false)`), so it never even offers a PSK identity.
+- No 0-RTT: both sides MUST NOT send or accept 0-RTT (early) application data.
+- No post-handshake authentication: neither side re-authenticates a peer after the initial handshake
+  completes; a peer's identity for the lifetime of a connection is exactly the leaf certificate seen
+  during that one handshake.
+- The Mac (the sole TLS listener, ADR-002) MUST require a client certificate on every connection to
+  its listener; a `ClientHello`/handshake that completes with no client certificate presented MUST
+  fail — there is no server-only-authenticated mode anywhere in this protocol.
+
+### Certificate handling and the leaf-only check
+
+- Both sides use self-signed identity certificates (there is no CA in this protocol). Only the peer's
+  leaf certificate is ever examined; any additional certificates a peer sends MUST be ignored and MUST
+  NOT be used for trust in any way.
+- Certificate validity dates, subject, SAN, extended key usage, and key usage extensions are NOT
+  checked — trust is the SPKI pin (below), never any X.509 field designed for CA-issued certificates.
+- The leaf's public key MUST be an uncompressed P-256 `SubjectPublicKeyInfo`, exactly 91 bytes of DER
+  encoding. A leaf key of any other type, curve, or point encoding (including a compressed P-256
+  point) MUST fail the handshake before the pin compare (below) ever runs: no fingerprint computed
+  from a non-conforming key could ever equal a pinned value, so this check is a precondition of the
+  verify callback, not a separate failure path — its failure is reported through the same TLS
+  handshake-failure signal as an ordinary pin mismatch (§5, `#errors-and-close-codes`, `PIN_MISMATCH`).
+
+### Verify-callback algorithm
+
+Each side's verify callback (`sec_protocol_options_set_verify_block` on macOS, `X509TrustManager` on
+Android — `X509ExtendedKeyManager` is the Android client-certificate *selector*, a distinct role from
+the trust-verification callback this algorithm describes) runs the following steps, in order, for the
+peer certificate seen on this handshake:
+
+1. Extract the peer's leaf certificate.
+2. Check the leaf's public key is an uncompressed P-256 SPKI, exactly 91 bytes of DER (§ Certificate
+   handling, above); if not, fail the handshake now, before step 3.
+3. Compute SHA-256 over the leaf's DER-encoded `SubjectPublicKeyInfo` — the candidate fingerprint.
+4. Compare the candidate fingerprint, in constant time (invariant 6), against every fingerprint this
+   side's trust store holds.
+5. On a match: accept. The connection proceeds as an ordinary session for the peer identity the
+   matched trust-store entry names.
+6. On no match:
+   - **The Mac only** MAY still accept the connection, but only while a pairing window (§2,
+     `#pairing`) is open and only for the pairing exchange on that one connection (D-18: at most one
+     such pairing-candidate connection at a time; a second unknown client certificate while one is
+     already in flight MUST be rejected here, without evaluating anything else, and MUST NOT burn a
+     pairing attempt — §10, `#timeouts-connection-limits-and-resource-caps`).
+   - Otherwise (no pairing window open, the pairing-candidate slot already occupied, or this is the
+     phone verifying the Mac's certificate — the phone has no equivalent relaxation, invariant 4), the
+     handshake MUST fail inside the callback, before any application data is exchanged.
+- **The phone** MUST pin the Mac's SPKI — from its trust store for an already-paired Mac, or from the
+  QR `fp` field (§2) while a pairing scan is in progress — and MUST NOT accept any other server key,
+  even during its own in-progress pairing scan. There is no "unknown server key" relaxation anywhere
+  on the phone side; only the Mac, as the listening side, ever accepts an unpinned peer, and only
+  under the pairing-window carve-out above.
+- Every fingerprint comparison in this algorithm MUST be constant time (invariant 6).
+- The pin check above is in addition to, never instead of, the TLS stack's own `CertificateVerify`
+  validation: a peer presenting a pinned certificate without possessing the matching private key MUST
+  still fail the handshake, since `CertificateVerify` is enforced by the native TLS stack independently
+  of this callback (confirmed on both platforms, E03-01, E03-03).
+- Every failure in this algorithm MUST close the connection with no plaintext or reduced-security
+  retry of any kind (invariant 2), and MUST be surfaced as a close code from §5
+  (`#errors-and-close-codes`) with a visible error wherever §5's UI rules require one (invariant 5).
+
+### Channel binding (`cb`)
+
+Per `docs/planning/decisions.md` D-67, channel binding in this protocol is derived by an **in-band
+challenge on every platform and API level** — there is no RFC 9266 TLS-exporter code path anywhere in
+this version of the protocol.
+
+- Two typed CONTROL messages carry a channel-binding challenge: `PairChallenge { challenge }`
+  (`pairing.proto`, E01-11, consumed by §2 below) and `RotationChallenge { challenge }`
+  (`rotation.proto`, E70-01, Phase 7 — named here only; key rotation itself is defined in a later
+  SPEC section). Both carry exactly one field, `challenge`, exactly 32 bytes generated by a CSPRNG for
+  every issuance.
+- **Mechanism.** For that session, `cb = challenge`: the 32 bytes themselves, unmodified — no
+  signature, hash, or further derivation is applied to produce `cb`. A consumer that additionally
+  needs to prove key possession signs material that includes `cb` as one of its inputs (e.g. the
+  Phase 7 `KeyRotation` signature); the challenge itself is never re-signed to derive `cb`. The two
+  consumers trigger issuance differently:
+  - **Pairing (§2).** Once a pairing-candidate connection's `VersionHello` exchange (§6) completes,
+    the Mac — the verifying side — MUST generate a fresh 32-byte CSPRNG challenge and send it as
+    `PairChallenge` before sending or accepting any other payload on that connection (§2, Frame
+    order). This is the only trigger for `PairChallenge`; it is never sent again on that connection.
+  - **Key rotation (E70-01, Phase 7; `docs/planning/decisions.md` D-74).** Each side MUST send
+    exactly one unsolicited `RotationChallenge` on every control session immediately once that
+    session reaches Ready (its `VersionHello` exchange has completed) — not only when a rotation is
+    imminent, and regardless of whether either side ever actually rotates on that session. The value
+    is valid only on that one session and only for exactly one `KeyRotation`; a session's own
+    `RotationChallenge` is never resent on that same session. A `RotationChallenge` is never legal on
+    a pairing-candidate connection before `PairAccepted`: such a connection never reaches Ready until
+    that point, and any payload other than the pairing sequence itself is already rejected as
+    `UNKNOWN_PAYLOAD_TYPE` (closing `MALFORMED_FRAME`) per §2's frame-order rule.
+- **What `cb` binds, and what it does not.** The 32 bytes are fresh per session and never reused, and
+  reachable at all only once this session's verify-callback pin check has already passed (above), so
+  the challenge exchange adds no new trust decision. This gives `cb` **replay** protection: a proof or
+  signature computed against one session's `cb` is never valid replayed onto a different session
+  between the same two keys, because the challenge simply never repeats. `cb` does **not**, by itself,
+  detect a **relay**: an attacker who terminates TLS separately with each honest party is a party to
+  both resulting sessions and can simply forward the challenge value it receives on one session as the
+  challenge it sends on the other, so `cb` can be identical on both sides of a relay. Relay/evil-QR
+  detection instead comes from `LP(macSpkiDer) || LP(phoneSpkiDer)` in the proof transcript (§2,
+  Proof computation) together with TLS `CertificateVerify` (§ Verify-callback algorithm, above): an
+  attacker relaying between two honest parties must use its own key on at least one side of the relay —
+  it holds neither the real Mac's nor the real phone's private key — so the two sessions' SPKI pairs,
+  and therefore both the proof and the confirmation code that are keyed on them, differ even when the
+  relayed `cb` is identical. §2's confirmation code relies on this SPKI-pair difference, not on `cb`,
+  for evil-QR detection (`docs/planning/decisions.md` D-71; see §2, Confirmation code). This corrects an
+  earlier draft of this section, which claimed the relay case produces two distinct `cb` values — it
+  does not under this in-band-challenge design, since the attacker chooses what to forward; the
+  `docs/spikes/channel-binding.md` "Relay/MITM given pinning" analysis this earlier draft leaned on
+  assumes both sides are already honestly pinned to each other, which is a narrower premise than the
+  evil-QR scenario here, where the phone has not yet pinned anything and is deciding whether to trust
+  the QR it scanned.
+- `cb` MUST NOT be logged or persisted; a session that needs a channel-binding value always receives a
+  freshly generated challenge, never a cached or reused one.
+- The consumers of `cb` defined so far are the pairing proof and confirmation code (§2, `#pairing`,
+  E01-02) and the Phase 7 `KeyRotation` signature (E70-01); both are defined against this general `cb`
+  primitive, not against session-specific detail — this section is the single normative definition of
+  `cb`. No transport session exposes or derives `cb`: `TandemSession` (E12-11, E12-12) carries frames
+  only and has no channel-binding or exporter property of any kind; each consumer above generates,
+  sends, and holds its own challenge value entirely within its own layer (E14 for pairing, E70 for
+  rotation).
+- **History note.** Backlog text from review cycles 4–5 (`docs/planning/backlog/phase-0.yaml`,
+  `phase-1.yaml`, `phase-7.yaml`) originally described the RFC 9266 TLS exporter as the primary
+  channel-binding mechanism, with this in-band challenge only as a fallback for a platform that could
+  not export keying material (the original D-15 decision). `docs/planning/decisions.md` D-67
+  superseded this following the E03-04 end-to-end spike, and the backlog text was updated to match in
+  review cycle 8: the in-band challenge above applies unconditionally, on every platform and API
+  level; there is no exporter code path and no `Build.VERSION.SDK_INT` branch anywhere in this
+  design.
+
+### Platform implementation notes
+
+These are normative MUSTs for the two platform implementations, recorded here because each was found
+by a Phase 0 spike to be necessary for the TLS profile above to actually work, not merely an
+implementation preference (`docs/adr/ADR-003-mtls-vs-noise.md`, Consequences):
+
+- **Android.** The `IdentityKeyStore` (E10-15) MUST generate its P-256 identity key with
+  `setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_NONE)`. Omitting `DIGEST_NONE`
+  produces a key that generates and presents a certificate normally but fails every handshake with an
+  opaque I/O error: Conscrypt signs the TLS 1.3 `CertificateVerify` over the already-computed
+  transcript hash directly, using a `NONEwithECDSA` JCA `Signature` engine (the digest is pre-computed
+  by the TLS stack itself, not by the `Signature` engine), and `NONEwithECDSA` against a key whose
+  `setDigests()` list does not include `DIGEST_NONE` fails inside `AndroidKeyStore`
+  (`docs/spikes/android-sslsocket-keystore.md`, E03-03 critical finding).
+- **macOS.** The Mac listener (`core/transport`, E12-04) MUST add an explicit application-level ALPN
+  check in its ready handler — `negotiatedALPN == "tandem/1"`, else cancel the connection — because
+  `Network.framework` enforces a *mismatched* ALPN offer but silently accepts a client that offers *no*
+  ALPN extension at all (`docs/spikes/nwlistener-mtls.md` §5, E03-01). Relying on `Network.framework`'s
+  own enforcement alone would let a client that omits the ALPN extension complete a handshake this
+  section's ALPN requirement (above) requires rejecting.
+
+### Failure behavior
+
+Every handshake failure defined in this section MUST close the connection with no plaintext or
+reduced-security retry of any kind (invariant 2), and MUST surface a visible error mapped to a close
+code from §5 (`#errors-and-close-codes`). The same underlying event — an unrecognized client
+certificate — maps to three different close codes depending on which of three distinct circumstances
+applies, and implementations MUST NOT conflate them:
+
+- `PIN_MISMATCH` for an unknown key rejected in the verify callback with no pairing window open
+  (§ Verify-callback algorithm, step 6) — or `REVOKED`, per §5 row 7, if this side had previously
+  pinned the peer;
+- `LIMIT_EXCEEDED` when an unknown key is rejected specifically because the single pairing-candidate
+  slot is already occupied by another in-flight candidate (§10,
+  `#timeouts-connection-limits-and-resource-caps`; §2's Concurrency rule) — a distinct rejection reason
+  from an ordinary pin mismatch even though both are decided inside the same verify callback; and
+- on the phone only, a TLS handshake-failure alert received while dialing a pairing-candidate
+  connection maps to `PAIRING_FAILED`, not `PIN_MISMATCH` (§5, `docs/planning/decisions.md` D-58) —
+  scoped to a pairing dial specifically because the phone's own pin check against the QR `fp` has
+  already passed by the time such an alert could arrive, so the Mac's identity is not in question.
+
+`VERSION_MISMATCH` is a separate case, for the post-handshake `VersionHello` comparison (§6, which
+necessarily runs after this section's handshake has already succeeded). Deadlines and connection-count
+caps governing this handshake — the TLS 10 s deadline, the `VersionHello` 5 s deadline, and the
+pre-authentication connection caps — are defined once, in §10
+(`#timeouts-connection-limits-and-resource-caps`, E01-22).
+
+---
+
+## Pairing
+
+*(E01-02 · PRD F-2.1 · UC-03, AC-03, AC-14, AC-17, AC-20 · invariants 3, 5, 6)*
+
+This section defines how a phone and a Mac that have never met establish their first mutual trust:
+the QR code the Mac displays, the pairing-candidate mTLS connection §1's verify callback admits while
+a pairing window is open, the proof and confirmation-code formulas bound to that connection's channel
+binding (§1), and the mutual-confirmation flow that defends against a substituted ("evil") QR code.
+
+### QR payload grammar
+
+The Mac renders one QR code per open pairing window, encoding a `tandem://pair` URI:
+
+```
+pair-uri     = "tandem://pair?v=1&fp=" fp "&s=" s "&a=" addr-list "&p=" port "&n=" name
+fp           = 1*BASE64URL          ; base64url, no padding; decodes to exactly 32 bytes
+s            = 1*BASE64URL          ; base64url, no padding; decodes to exactly 16 bytes
+addr-list    = literal-addr *7("," literal-addr)   ; 1 to 8 literal addresses, no hostnames
+literal-addr = IPv4address / IPv6address   ; RFC 3986 §3.2.2 productions, no zone ID
+port         = 1*5DIGIT             ; decimal, 1..65535, no leading zeros
+name         = *(unreserved / pct-encoded)  ; RFC 3986 §2.3 unreserved, or percent-encoded UTF-8;
+                                     ; decodes to at most 64 bytes
+BASE64URL    = ALPHA / DIGIT / "-" / "_"
+```
+
+`literal-addr` is exactly RFC 3986's `IPv4address` or `IPv6address` production (§3.2.2); no zone
+identifier (e.g. a trailing `%25en0`) is permitted on an IPv6 literal, and one present anywhere in `a`
+MUST be rejected. `port`'s `1*5DIGIT` MUST NOT carry a leading zero (`00080` MUST be rejected) except
+for the single digit `0` itself, which is separately out of the 1..65535 range and therefore already
+rejected on that basis. A loopback address (`127.0.0.1`, `::1`) is not one of the forbidden categories
+below (unspecified, multicast, broadcast) and so is not itself rejected by this grammar; the Mac's own
+QR-rendering implementation (E14-01) simply never emits one, since a loopback address is never a
+useful address for the phone to dial.
+
+Fields, in this order, and every field's parse/reject rule:
+
+- `v` MUST equal the literal `1`; any other value MUST be rejected (unlike the discovery TXT record's
+  `v`, §8, which is silently ignored — this is the pairing URI itself being scanned, not a background
+  advertisement, so an unrecognized version is a hard parse failure, not something to skip past).
+- `fp` — base64url (no padding) encoding of the Mac's 32-byte SPKI SHA-256 fingerprint, the same value
+  §1's verify callback computes and compares.
+- `s` — base64url (no padding) encoding of the 16-byte, CSPRNG-generated, single-use pairing secret.
+- `a` — a comma-separated list of 1 to 8 literal IPv4 or IPv6 addresses. A hostname anywhere in the
+  list, more than 8 addresses, or an address that is unspecified (`0.0.0.0`, `::`), multicast, or the
+  broadcast address (`255.255.255.255`) MUST be rejected.
+- `p` — a decimal TCP port, 1–65535: the Mac's single listener (`docs/planning/decisions.md` D-03).
+- `n` — a percent-encoded, UTF-8 device/owner-supplied display name for the Mac, at most 64 bytes after
+  percent-decoding; sanitized before display per §11
+  (`#untrusted-peer-strings-display-sanitization`, E01-23) and never trusted for any decision.
+
+A parser MUST reject a payload with any field missing, duplicated, mis-encoded, or out of the
+range/grammar stated above, and MUST reject any `v` other than `1`. These restrictions on `a` and `n`
+exist specifically so a malformed or substituted QR payload cannot smuggle a DNS lookup, an oversized
+allocation, or a display-spoofing string into the pairing flow (`docs/threat-model.md` §4.3).
+
+### Pairing window
+
+- The window MUST expire 120 s after opening; the secret and the window expire together.
+- At most 3 attempts are permitted; the Mac MUST reject a 4th attempt without evaluating its proof.
+  Attempt exhaustion closes the window entirely, exactly like a success or an expiry: a 4th candidate
+  connection is rejected in the verify callback (§1) — because the window is already closed, there is
+  no in-flight pairing-candidate slot for it to occupy — and it never reaches proof evaluation.
+- The secret is single-use: a successful pairing MUST close the window and destroy the secret; the
+  same secret MUST NOT be reused for a second phone, even within the 120 s / 3-attempt budget.
+- **Secret handling.** The secret is 16 bytes from a CSPRNG. It MUST NOT be logged, persisted, or
+  placed on any pasteboard/clipboard, and MUST be zeroed on window close (success, expiry, or attempt
+  exhaustion). The QR window is excluded from screen capture where the OS allows it (implementation
+  detail owned by E14-11).
+- **Concurrency.** At most one pairing-candidate connection is processed at a time
+  (`docs/planning/decisions.md` D-18; §1's verify callback). A second unknown client certificate
+  arriving while one candidate is already in flight MUST be rejected in the verify callback itself,
+  before any pairing message is ever processed, and MUST NOT burn one of the 3 attempts: only a
+  `PairRequest` (valid or not), a wrong payload arriving after the hellos (§ Frame order, below), or a
+  candidate connection closing before `PairAccepted` for any other reason (next bullet) burns an
+  attempt; a rejection inside the verify callback itself never does.
+- **A pairing-candidate connection burns one attempt whenever it closes for any reason other than
+  `PairAccepted`** (`docs/planning/decisions.md` D-70) — including a `VersionHello`-deadline miss
+  (`PROTOCOL_TIMEOUT`, §5 row 8; this is the one place that close code does burn a pairing attempt),
+  the peer closing the connection, or a transport error. The candidate slot (§1's verify callback) is
+  occupied from the moment the verify callback accepts the unknown certificate until that connection
+  closes, so an attacker who occupies the slot and then goes silent — rather than sending a wrong
+  payload or missing the 10 s `PairRequest` deadline — still burns the attempt and frees the slot for
+  the legitimate phone, instead of denying it for the rest of the 120 s window at no cost. Each
+  candidate connection burns **at most one** attempt in total, regardless of how many of the events
+  above it triggers before closing — e.g. a `BAD_PROOF` rejection followed immediately by the
+  connection dropping is one candidate closing once, not two separate attempts.
+
+### Dialing the QR addresses (phone side)
+
+The phone MUST attempt each literal address in the QR `a` field in order, with a 3 s connect timeout
+per address (`docs/planning/decisions.md` D-68). A connect timeout on one address MUST advance to the
+next address in the list; if every address times out, the pairing attempt MUST fail
+(`Failed(AllAddressesUnreachable)`, E14-05) without the phone ever having reached the point of
+completing a TLS handshake — and therefore without ever occupying a Mac-side pairing-candidate slot —
+for an address it never reached.
+
+### Frame order on a pairing-candidate connection
+
+1. Both sides exchange `VersionHello` (§6, `#versioning-and-capability-negotiation`) — exactly as on
+   any other connection, this is the only legal payload before the exchange completes (§3, §6).
+2. Once both hellos are exchanged, the Mac MUST send `PairChallenge { challenge }` (§1,
+   `#handshake-and-tls-profile`) as the very next `CONTROL` frame, before any other payload, without
+   waiting on anything from the phone.
+3. The phone MUST reply with exactly one `PairRequest { deviceInfo, proof }` within 10 s of the hello
+   exchange completing (§10, `#timeouts-connection-limits-and-resource-caps`, E01-22). The Mac's
+   `PairChallenge` send is expected to be near-instantaneous, so this single 10 s deadline covers both
+   the challenge and the request; a `PairRequest` arriving more than 10 s after the hellos complete is
+   rejected exactly as case 4 below.
+4. Any of the following closes the connection with `PAIRING_FAILED` (§5) and burns one of the 3
+   attempts: a payload other than the expected next message in this sequence (including a second
+   `PairChallenge`, a `PairRequest` arriving before `PairChallenge`, a duplicate `PairRequest`, or any
+   other payload type — local reason `MALFORMED`); or the phone failing to send any `PairRequest`
+   within the 10 s deadline (local reason `TIMEOUT` — the one case where a §10 deadline maps to
+   `PAIRING_FAILED` rather than `PROTOCOL_TIMEOUT`, per §5). `Heartbeat` frames are exempt from this
+   rule in both directions: §7's (`#heartbeat`) liveness contract applies to a pairing-candidate
+   connection exactly as to any other control connection (the owner may take up to 120 s to act on
+   the confirmation dialog, § Mutual confirmation, below, so the Mac's 15 s idle `Heartbeat` MUST NOT
+   be treated as a wrong payload here), and a `Heartbeat` received at any point on a pairing-candidate
+   connection is never a pairing failure — it remains subject only to §10's `CONTROL` rate caps
+   (`docs/planning/decisions.md` D-69).
+5. Once the Mac sends `PairAccepted` (§ Mutual confirmation, below), the connection is an ordinary
+   trusted session: no further pairing-only message is legal on it.
+6. After sending `PairRequest`, the phone MUST wait up to 120 s — the same duration as the pairing
+   window's own expiry, § Pairing window, above — for either `PairAccepted` or `PairRejected`; if
+   neither arrives within that time, or the connection ends first, the phone MUST treat this pairing
+   attempt as failed and MUST NOT assume any pairing outcome (`Failed(Timeout)` /
+   `Failed(ConnectionLost)`, E14-05).
+
+### Proof computation
+
+- `macSpkiDer` and `phoneSpkiDer` are both 91-byte uncompressed P-256 `SubjectPublicKeyInfo` DER (§1).
+  `macSpkiDer` is the SPKI of the Mac's own certificate (its SHA-256 equals the QR `fp` the phone
+  scanned); `phoneSpkiDer` is taken from the client certificate seen on *this* TLS handshake — never
+  from any field of the `PairRequest` body — so a `PairRequest` can never claim a different key than
+  the one that actually authenticated this connection.
+- `LP(x) = u16be(len(x)) || x`: a 2-byte big-endian length prefix followed by the raw bytes (this
+  document's default big-endian convention, Conventions).
+- `transcript = ASCII("tandem-pair-v1") || LP(macSpkiDer) || LP(phoneSpkiDer) || LP(cb)`, where `cb` is
+  this session's channel-binding value (§1) — exactly the 32 bytes of the `PairChallenge` the Mac sent
+  on this connection (§ Frame order, above).
+- `proof = HMAC-SHA256(secret, transcript)`, where `secret` is the 16-byte pairing secret from the QR
+  `s` field.
+- The Mac MUST recompute `proof` using its own `macSpkiDer`, the `phoneSpkiDer` it observed on this
+  connection's handshake, and the `cb` it itself generated and sent, then compare it against
+  `PairRequest.proof` in constant time (invariant 6). A mismatch MUST be rejected, local reason
+  `BAD_PROOF`, burning one attempt.
+- This formula — including the `LP` width/byte order, the 91-byte SPKI DER requirement, and the `cb`
+  input defined in §1 — supersedes the raw-concatenation proof formula in `docs/PRD.md` F-2.1 step 3
+  (`docs/planning/decisions.md` D-14, D-40): this document is normative.
+
+### Confirmation code
+
+- `code = (u32be(first 4 bytes of HMAC-SHA256(secret, ASCII("tandem-pair-code-v1") ||
+  LP(macSpkiDer) || LP(phoneSpkiDer) || LP(cb)))) mod 1000000`, rendered zero-padded to exactly 6
+  digits (e.g. `007042`, shown as `007 042`) on both the Mac dialog and the phone.
+- Both sides compute this independently from the same `secret`, `macSpkiDer`, `phoneSpkiDer` and `cb`
+  already used for `proof` above; no separate message carries the code itself.
+- Evil-QR detection does **not** rely on `cb` differing across a relay: an attacker relaying between
+  the phone and the Mac (terminating TLS separately with each) can simply forward the challenge value
+  it receives on one session as the `PairChallenge` it sends on the other, so `cb` can be identical on
+  both sides of a relay (§1, Channel binding). What actually differs is `macSpkiDer`/`phoneSpkiDer`:
+  the attacker must use its own key on at least one side of the relay — it holds neither the real
+  Mac's nor the real phone's private key, which `CertificateVerify` enforces (§1, Verify-callback
+  algorithm) — so the SPKI pair, and therefore `code`, differs between the session the phone sees and
+  the session the Mac sees, even when `cb` is identical on both. This SPKI-pair difference is the
+  evil-QR detection property the owner is asked to check (`docs/planning/decisions.md` D-16, D-71,
+  AC-20).
+- `deviceInfo.displayName`/`.model` (both attacker-controlled, sanitized per §11 before display) are
+  never an input to `code` or `proof`, and are never the basis of the pairing decision.
+
+### Mutual confirmation
+
+- The Mac shows the owner the phone's (sanitized, §11) device name and model, and the 6-digit code,
+  with two actions: Pair, and Don't Pair. Both the dialog's default button and the Escape key MUST map
+  to Don't Pair (`docs/planning/decisions.md` D-16).
+- The Mac MUST NOT send `PairAccepted` until the owner explicitly clicks Pair. An explicit owner
+  decline (clicking Don't Pair, pressing Escape, or closing the window) is a deliberate, terminal
+  decision, not a retriable proof failure: the Mac MUST send `PairRejected { reason = REJECTED_BY_OWNER
+  }` (§ PairRejected wire collapse, below) and close with `PAIRING_FAILED`, and MUST destroy the
+  secret and close the window entirely (as a successful pairing does), rather than merely burning one
+  of the 3 attempts and leaving the window open for a retry.
+- If the candidate connection closes (peer disconnect, transport error, or the window/attempt budget
+  being exhausted, § Pairing window, above) while this confirmation dialog is still pending, the Mac
+  MUST dismiss the dialog and MUST NOT commit trust; clicking Pair afterward, on a connection that is
+  no longer open, commits nothing (`docs/planning/decisions.md` D-73). A pending dialog is resolved
+  only by an owner action (Pair or Don't Pair) taken while the underlying connection is still open.
+- On Pair, the Mac commits the phone's SPKI to its trust store and sends `PairAccepted`.
+- The phone, on receiving `PairAccepted`, MUST show the owner the same 6-digit code and the
+  (sanitized) Mac name, with two actions: "Codes match" and Cancel. The phone MUST commit the Mac's
+  SPKI pin only after both (a) `PairAccepted` has been received and (b) the owner taps "Codes match"
+  (`docs/planning/decisions.md` D-16, AC-20) — receiving `PairAccepted` alone is never sufficient.
+- On phone-side Cancel, or a 120 s timeout without the owner tapping "Codes match", the phone MUST
+  send `Revoke {}` over this connection (which is, by this point, an ordinary trusted session from the
+  Mac's perspective — the Mac already committed and accepted it) and MUST commit nothing to its own
+  trust store. From the phone's perspective pairing never happened, even though the Mac-side trust
+  record exists, with a `lastSeen` time and revocable, until that `Revoke` is processed (dangling-record
+  residual, `docs/threat-model.md` §4.3).
+
+### `PairRejected` wire collapse
+
+`PairRejected.reason` (`pairing.proto`, E01-11) carries on the wire exactly one of two values:
+`REJECTED_BY_OWNER` (the Mac-side decline above) or `PAIRING_UNAVAILABLE` (every other local rejection
+reason a connection can actually receive: `EXPIRED`, `BAD_PROOF`, `MALFORMED`; local reason `TIMEOUT`
+closes without sending a `PairRejected` at all, since no `PairRequest` was ever received to reject it —
+`TIMEOUT` is the one `PAIRING_FAILED` local reason with no wire signal, exactly like `MALFORMED_FRAME`,
+`CREDIT_VIOLATION`, `TICKET_REJECTED`, `PROTOCOL_TIMEOUT` and `LIMIT_EXCEEDED` in §5
+(`docs/planning/decisions.md` D-72). No
+wire value distinguishes a bad proof from an expired window from a malformed request
+(`docs/planning/decisions.md` D-17) — this denies an attacker any oracle for which specific defense
+stopped their attempt. Every case above also closes the pairing-candidate connection with the
+`PAIRING_FAILED` close code (§5, `#errors-and-close-codes`).
+
+`attemptsExhausted` is a distinct, **local-only** window state (§ Pairing window, above), not a
+`PairRejected`/`PAIRING_FAILED` local reason: no connection ever receives it, because the window
+already closes as soon as the 3rd failed attempt's own rejection (one of `EXPIRED`, `BAD_PROOF`,
+`MALFORMED`, or `TIMEOUT`) is sent, and a subsequent 4th connection attempt is rejected in the verify
+callback (§1) — with no open pairing window, it never becomes a pairing candidate at all, so it is
+never a `PAIRING_FAILED` close and never carries a `PairRejected`.
 
 ---
 
@@ -366,16 +793,21 @@ this protocol's test vectors (E01-16, E01-19). Several close codes additionally 
 finer-grained local reasons that are diagnostic only and are never sent to the peer in any form
 (`docs/planning/decisions.md` D-13, D-17): `MALFORMED_FRAME` (reasons `TOO_LARGE`, `BAD_LENGTH`,
 `TRUNCATED`, `DECODE_FAILED`, `UNKNOWN_CHANNEL`, `UNKNOWN_PAYLOAD_TYPE`, `SEQ_REGRESSION`,
-`FRAGMENT_VIOLATION`, §3, §12), `PAIRING_FAILED` (reasons `EXPIRED`, `ATTEMPTS_EXHAUSTED`,
-`BAD_PROOF`, `REJECTED_BY_OWNER`, `TIMEOUT`, `MALFORMED`, §2), and `TICKET_REJECTED` (reasons
-`MISSING`, `REUSED`, `EXPIRED`, `OTHER_SESSION`, §9).
+`FRAGMENT_VIOLATION`, §3, §12), `PAIRING_FAILED` (reasons `EXPIRED`,
+`BAD_PROOF`, `REJECTED_BY_OWNER`, `TIMEOUT`, `MALFORMED`, §2 — `attemptsExhausted` is a related but
+distinct *local window state*, never itself a connection's close reason, see §2 `PairRejected` wire
+collapse), and `TICKET_REJECTED` (reasons `MISSING`, `REUSED`, `EXPIRED`, `OTHER_SESSION`, §9).
 
 There is no dedicated close-notice message in this version of the protocol: no message type
 carries a generic `closeCode` field to the peer. A close code is inferred by the peer only through
 one of four existing signals:
 
 1. **`PairRejected.reason`** — sent immediately before the close on a pairing-candidate connection
-   (§2, E01-11), collapsing the six `PAIRING_FAILED` local reasons above per the rule below.
+   (§2, E01-11), collapsing four of the five `PAIRING_FAILED` local reasons above per the rule below.
+   The fifth, `TIMEOUT`, sends no `PairRejected` at all (see below and §2's `PairRejected` wire
+   collapse) — it is grouped with the five "no signal" close codes in the next paragraph instead.
+   (`attemptsExhausted` is not in this count at all: it is a local window state, never a connection's
+   own close reason, § above.)
 2. **`Revoke`** — received on an already-trusted session, the receiver deletes its trust record for
    the sender (the peer authenticated on that session) and closes that session with `REVOKED` (§2,
    E01-11; `docs/planning/decisions.md` D-23).
@@ -397,19 +829,24 @@ one of four existing signals:
 
 No other close code in the table below has any wire signal at all: for `MALFORMED_FRAME`,
 `CREDIT_VIOLATION`, `TICKET_REJECTED`, `PROTOCOL_TIMEOUT`, and `LIMIT_EXCEEDED`, the peer observes
-only that the connection closed, with nothing to distinguish which of these five occurred. This is
-a deliberate generalization of "no parser oracle on the wire" (`docs/planning/decisions.md` D-13)
-beyond `MALFORMED_FRAME` to every close code that has no signal above. A future protocol revision
-MAY add a wire-transmitted signal for one of these five; until it does, they MUST NOT be inferred
-by the peer from anything other than the four signals above.
+only that the connection closed, with nothing to distinguish which of these five occurred. The same
+is true of `PAIRING_FAILED`'s `TIMEOUT` local reason specifically (the `PairRequest` 10 s deadline,
+§2): no `PairRequest` was ever received for the Mac to reject, so no `PairRejected` is sent and the
+peer again observes only a closed connection (`docs/planning/decisions.md` D-72). This is a deliberate
+generalization of "no parser oracle on the wire" (`docs/planning/decisions.md` D-13) beyond
+`MALFORMED_FRAME` to every close code — and every local reason within a close code — that has no
+signal above. A future protocol revision MAY add a wire-transmitted signal for one of these; until it
+does, the peer MUST NOT infer any of them from anything other than the four signals above.
 
-`PairRejected.reason` collapses the six `PAIRING_FAILED` local reasons onto exactly two wire
-values: local reason `REJECTED_BY_OWNER` maps to wire value `REJECTED_BY_OWNER`; every other local
-reason (`EXPIRED`, `ATTEMPTS_EXHAUSTED`, `BAD_PROOF`, `TIMEOUT`, `MALFORMED`) maps to wire value
-`PAIRING_UNAVAILABLE`. The rejecting Mac MAY show its own owner the specific local reason in its
-pairing UI (that detail never leaves the Mac); the rejected phone MUST derive its pairing-failure
-text only from whichever of the two wire values it received, never from an assumption about which
-local reason caused it.
+`PairRejected.reason` collapses four of the five `PAIRING_FAILED` local reasons onto exactly two wire
+values: local reason `REJECTED_BY_OWNER` maps to wire value `REJECTED_BY_OWNER`; `EXPIRED`,
+`BAD_PROOF` and `MALFORMED` each map to wire value `PAIRING_UNAVAILABLE`. The
+fifth local reason, `TIMEOUT`, sends no `PairRejected` at all (above) — the connection simply closes,
+since no `PairRequest` was ever received to reject. The rejecting Mac MAY show its own owner the
+specific local reason in its pairing UI (that detail never leaves the Mac); the rejected phone MUST
+derive its pairing-failure text only from whichever of the two wire values it received (or, for
+`TIMEOUT`, from the bare close with no `PairRejected`), never from an assumption about which local
+reason caused it.
 
 ### Close-code table
 
@@ -426,10 +863,10 @@ it as an explicit `UNSPECIFIED` default consistent with every other enum in this
 | 2 | `PIN_MISMATCH` | The TLS verify callback (§1, E01-01) computes a peer SPKI fingerprint that does not match the trust store: on the Mac, this fires outside an open pairing window (during an open window an unrecognized key is accepted only for the pairing exchange, §2); on the phone, which has no inbound connections at all (invariant 4) and therefore never opens a pairing window, this fires on every connection whose peer key does not match the trust-store pin or, during pairing, the QR `fp`. | Security-relevant: MUST be shown in the UI (subject to the pre-pin-check scoping above), not only logged (UC-05). Text MUST be specific ("this device's identity changed / is not trusted"), never a generic error, and MUST NOT suggest retrying without re-pairing. |
 | 3 | `MALFORMED_FRAME` | Any framing-level rejection in §3 (oversize, bad length, truncated, decode failure, unknown channel, unknown payload type, seq/ack regression), or a §12 `MediaFrame` fragmentation violation on the media connection — index gap, fragment-count change, count greater than 8, interleaving with another `pts`, or a reassembled size over 8 MiB (local reason `FRAGMENT_VIOLATION`, `docs/planning/decisions.md` D-26). | Generic connection-error message; MUST NOT be presented as a pin or version problem. |
 | 4 | `CREDIT_VIOLATION` | A sender transmits on a channel with zero remaining credit, or a receiver's outstanding grant would exceed its cap (§4, E01-04). | Generic connection-error message; MUST NOT be presented as a pin or version problem. |
-| 5 | `PAIRING_FAILED` | Any pairing-window rejection in §2 (expired, attempts exhausted, bad proof, rejected by owner, malformed request), including the `PairRequest` 10 s deadline of §10/E01-22 (local reason `TIMEOUT`), which burns one pairing attempt like any other failed attempt (E01-02, E14-02). | MUST be shown in the pairing UI (it is the direct result of a user-initiated pairing attempt); text MUST NOT distinguish which of the six local reasons occurred. |
+| 5 | `PAIRING_FAILED` | Any pairing-window rejection in §2 (expired, bad proof, rejected by owner, malformed request), including the `PairRequest` 10 s deadline of §10/E01-22 (local reason `TIMEOUT`), which burns one pairing attempt like any other failed attempt (E01-02, E14-02). A 4th candidate connection, once the 3rd failed attempt has already closed the window (local window state `attemptsExhausted`, §2), is refused in the verify callback (§1) before it ever becomes a pairing candidate — it is never a `PAIRING_FAILED` close. | MUST be shown in the pairing UI (it is the direct result of a user-initiated pairing attempt); text MUST NOT distinguish which of the five local reasons occurred. |
 | 6 | `TICKET_REJECTED` | The media connection's `mediaTicket` (§9, E01-09) is missing, already consumed (reused), expired, or was issued to a different control session's peer. | Generic connection-error message on the media connection only; MUST NOT affect or close the control session, and MUST NOT be presented as a pin or version problem. |
 | 7 | `REVOKED` | This side processes a valid `Revoke` on an already-trusted session and deletes its trust record for that peer (§2, E01-11; `docs/planning/decisions.md` D-23), closing that session with `REVOKED`; or this side dials a peer that no longer recognizes its client key and the resulting TLS alert is mapped, per E12-16, to `REVOKED` — but only if this side had previously pinned that peer (otherwise the same alert maps to `PIN_MISMATCH`, since there is no persistent "revoked" record: an unrecognized key is indistinguishable from a never-known one, `docs/planning/decisions.md` D-23). | Security-relevant: MUST be shown in the UI (subject to the pre-pin-check scoping above), not only logged (UC-05). Text MUST be specific ("this device was unpaired"), distinct from `PIN_MISMATCH`'s "not trusted" wording. |
-| 8 | `PROTOCOL_TIMEOUT` | Any deadline in §10 (E01-22) elapses without the required message: TLS handshake (10 s), `VersionHello` (5 s), or `MediaHello` on a media connection (5 s). The `PairRequest` 10 s deadline on a pairing-candidate connection is deliberately excluded here: exceeding it closes with `PAIRING_FAILED` (local reason `TIMEOUT`, row 5) instead, because it also burns one of the three pairing attempts — a `PROTOCOL_TIMEOUT` close never burns a pairing attempt. Heartbeat-based dead-connection detection (§7, E01-07: 45 s of silence on an established control session) is a separate, local transport-liveness event, not a close code: it triggers the phone's reconnect flow (E20-06) directly and MUST NOT be reported as `PROTOCOL_TIMEOUT`. | Generic connection-error message; MUST NOT be presented as a pin or version problem. If this occurs on a connection whose peer already passed the pin check (e.g. a recognized Mac that stalls before sending `VersionHello`), it MAY additionally be surfaced in the status area (E12-10) rather than suppressed as pre-pin-check network noise. |
+| 8 | `PROTOCOL_TIMEOUT` | Any deadline in §10 (E01-22) elapses without the required message: TLS handshake (10 s), `VersionHello` (5 s), or `MediaHello` on a media connection (5 s). The `PairRequest` 10 s deadline on a pairing-candidate connection is deliberately excluded here: exceeding it closes with `PAIRING_FAILED` (local reason `TIMEOUT`, row 5) instead. A `VersionHello`-deadline miss on a connection the verify callback has already accepted as a pairing candidate (§2, Pairing window) is the one case where a `PROTOCOL_TIMEOUT` close *does* burn a pairing attempt (`docs/planning/decisions.md` D-70): it is a candidate-slot connection closing before `PairAccepted`, exactly like any other case under §2's concurrency rule. Every other `PROTOCOL_TIMEOUT` — a TLS-handshake-deadline miss, or a `VersionHello`/`MediaHello` deadline miss on a connection that was never accepted as a pairing candidate — never burns an attempt, since no candidate slot was ever occupied. Heartbeat-based dead-connection detection (§7, E01-07: 45 s of silence on an established control session) is a separate, local transport-liveness event, not a close code: it triggers the phone's reconnect flow (E20-06) directly and MUST NOT be reported as `PROTOCOL_TIMEOUT`. | Generic connection-error message; MUST NOT be presented as a pin or version problem. If this occurs on a connection whose peer already passed the pin check (e.g. a recognized Mac that stalls before sending `VersionHello`), it MAY additionally be surfaced in the status area (E12-10) rather than suppressed as pre-pin-check network noise. |
 | 9 | `LIMIT_EXCEEDED` | A peer or source address exceeds a connection-level cap in §10 (E01-22): more than 8 concurrent not-yet-Ready connections, or more than 2 from one source IP (excess sockets closed on accept, before the TLS handshake); a source IP with 10 or more failed handshakes within 60 s (refused for 60 s); a second concurrent pairing-candidate connection while one is already in flight (rejected in the verify callback without burning a pairing attempt, §2, E01-02); an older control session replaced by a newer Ready session for the same peer SPKI, closing the older one (E01-22); or a second media connection opened for a control session that already has one (E60-04). | Generic connection-error message; MUST NOT be presented as a pin or version problem. |
 
 ---
@@ -793,5 +1230,215 @@ therefore no ticket — was ever presented to reject.
   clock skew between the two devices. `expiresAt` remains useful only as a record of the issuer's own
   30 s deadline (§ Issuance, above); the requesting side's decision to still attempt the dial MUST use
   its own measurement instead.
+
+---
+
+## Timeouts, connection limits and resource caps
+
+*(E01-22 · PRD F-3.1, F-3.2, F-3.3 · AC-04, AC-13, AC-19 · invariants 1, 3, 5)*
+
+This section collects every timeout, concurrency cap, and size/rate limit in the protocol into one
+place, so both platforms enforce identical numbers and so the mitm-lab/pcap-audit test suites (E15-20,
+E71-08) can attack them directly. Three rules govern every row below:
+
+- Over-cap input MUST be rejected before any allocation or side effect it would otherwise cause — §3
+  already states this for the 1 MiB frame-length prefix; every other cap in this section follows the
+  same rule.
+- No limit in this section ever relaxes the TLS profile (§1), the SPKI pin check (§1), the pairing
+  protocol (§2), or media-ticket validation (§9): these are resource/DoS bounds only, never a way to
+  skip or weaken a trust decision.
+- A source IP address is used only as a throttling key anywhere in this section; it is never a trust
+  input (invariant 3) — passing a per-IP cap grants no trust, and failing one never revokes any.
+
+### Pre-authentication deadlines and connection caps
+
+Enforced by the Mac's listener (E12-18) unless noted otherwise:
+
+| Item | Value | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| TLS handshake deadline | 10 s from TCP accept (Mac); 10 s from `connect()` (phone, dialing) | `PROTOCOL_TIMEOUT` (§5) | E12-18 (Mac), E12-08 (phone) |
+| `VersionHello` deadline | 5 s after TLS completion, both sides | `PROTOCOL_TIMEOUT` (§5) | E12-07 (Mac), E12-15 (Android) |
+| `PairRequest` deadline | 10 s after both `VersionHello`s are exchanged on a pairing-candidate connection (§2) | `PAIRING_FAILED`, local reason `TIMEOUT` — not `PROTOCOL_TIMEOUT` (§5); burns one pairing attempt like any other failed attempt | E14-02 |
+| `MediaHello` deadline | 5 s after TLS completion on a media connection (§9) | `PROTOCOL_TIMEOUT` (§5) | E60-03 |
+| Concurrent not-yet-`Ready` connections | ≤ 8 total | excess sockets closed on accept, before the TLS handshake starts — not a close code, since no protocol session ever begins | E12-18 |
+| Concurrent not-yet-`Ready` connections, per source IP | ≤ 2 | same as above | E12-18 |
+| Failed-handshake throttle | a source IP with ≥ 10 failed handshakes within a rolling 60 s window is refused for 60 s; peers on other addresses are unaffected | new connection attempts from that IP refused at accept, not a close code | E12-18 |
+| Concurrent pairing-candidate connections | ≤ 1 | a second unknown client certificate while one is in flight is rejected in the verify callback (§1) without burning a pairing attempt; if this is instead observed as a connection close, it is `LIMIT_EXCEEDED` (§5 row 9) | E12-02, E14-02 |
+
+A **failed handshake**, for the throttle above, is any of: a TLS handshake that does not complete
+within its 10 s deadline (the row above) — this includes an idle TCP connection that never sends a
+`ClientHello` at all, which counts once its 10 s deadline elapses, not merely once actively rejected;
+a completed handshake rejected by the verify callback (§1) for any reason (pin mismatch, a
+non-conforming leaf key, or a pairing-candidate rejected only because the candidate slot was already
+occupied, `LIMIT_EXCEEDED`); or a TCP connection that closes or resets before a `ClientHello` is ever
+received. This throttle is a per-source-IP counter and is therefore weak against an attacker who
+rotates across several source addresses on the same network (e.g. several IPv6 privacy addresses) —
+an accepted residual noted alongside the related pre-auth-budget residual in `docs/threat-model.md`
+§4.1.
+
+### Pairing-specific deadlines (§2)
+
+| Item | Value | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| Pairing window duration / attempt budget | 120 s open, ≤ 3 attempts (§2, Pairing window) | past 120 s: window closes, in-flight candidate (if any) closed `PAIRING_FAILED` local reason `EXPIRED`; after the 3rd failed attempt: window closes (local state `attemptsExhausted`) and a 4th candidate is refused in the verify callback (§1), never reaching `PAIRING_FAILED` | E14-02 |
+| Per-address pairing dial timeout | 3 s per QR address (§2, Dialing the QR addresses; `docs/planning/decisions.md` D-68) | dial advances to the next QR address; `Failed(AllAddressesUnreachable)` if every address times out | E14-05 |
+| Phone-side wait for `PairAccepted`/`PairRejected` after sending `PairRequest` | 120 s (§2, Frame order, step 6) | phone treats the attempt as `Failed(Timeout)` (or `Failed(ConnectionLost)` if the connection ends first) | E14-05 |
+| Phone-side "Codes match" confirmation wait | 120 s after receiving `PairAccepted` (§2, Mutual confirmation) | phone sends `Revoke {}` over the now-trusted session and commits nothing | E14-05 |
+
+### Post-authentication caps
+
+| Item | Value | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| Control sessions per peer SPKI | 1 (a newer `Ready` session for the same peer replaces — closes — the older one) | older session closed `LIMIT_EXCEEDED` (§5 row 9) | E12-19 |
+| Media connections per control session | ≤ 1 | second media connection for a session that already has one closes `LIMIT_EXCEEDED` (§5 row 9) | E60-04 |
+| Frame size | ≤ 1 MiB (§3) | `MALFORMED_FRAME` | E11-02, E11-04 |
+| Per-channel credit cap | ≤ 64 credits, receiver's own choice per channel (§4) | `CREDIT_VIOLATION` | E11-07, E11-08, E11-13, E11-14 |
+| Media access unit | ≤ 8 fragments, ≤ 8 MiB reassembled (§12, TBD in E61-01) | `MALFORMED_FRAME`, local reason `FRAGMENT_VIOLATION` | E61-01 |
+| Media ticket validity | 30 s from issuance (§9, Issuance) | `TICKET_REJECTED`, local reason `EXPIRED` | E01-09, E60-08 |
+
+### `CONTROL` channel caps
+
+`CONTROL` is exempt from the per-channel credit cap above — control/heartbeat traffic MUST never be
+backpressured (§4) — and instead has its own fixed-rate caps
+(`docs/planning/decisions.md` D-60, D-61, D-66):
+
+| Item | Value | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| `Heartbeat` send interval (Mac, idle trigger) | 15 s since the Mac last sent any frame (§7, Interval and dead-peer threshold) | Mac sends `Heartbeat` | E20-05 |
+| Dead-peer threshold (both sides) | 45 s of silence since the last received frame (§7) | local transport-liveness event, not a close code — MUST NOT be reported as `PROTOCOL_TIMEOUT` (§5 row 8, `docs/planning/decisions.md` D-58) | E20-05 (Mac), E20-15 (phone) |
+| `Heartbeat` reply deadline (phone) | 1 s of receiving a `Heartbeat` (§7, Reply obligation) | phone sends its reply | E20-15 |
+| `Heartbeat` replies (phone → Mac) | ≤ 1 per second | excess dropped silently: no reply, no error, no close | E20-15 |
+| Non-`Heartbeat` `CONTROL` frames received, either side | ≤ 60 per second per session | `LIMIT_EXCEEDED` | E20-05 (Mac), E20-15 (phone) |
+| All `CONTROL` frames received at the Mac, including every `Heartbeat` (reply or unsolicited) | counted toward the same 60/s cap above | `LIMIT_EXCEEDED` | E20-05, E20-20 |
+
+### `Ring`/`RingStop` cooldown
+
+`docs/planning/decisions.md` D-62:
+
+| Item | Value | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| `Ring` while already ringing | idempotent: a second `Ring` is a no-op, not a second alarm | no error | E23-06 |
+| Alarm starts | ≤ 2 per rolling 10 s window, regardless of how many `Ring` frames arrive in that window | excess `Ring` frames are accepted but do not start a new alarm; no error, no close | E23-06, E23-08 |
+
+### Feature caps
+
+These numbers are recorded here as the single source of truth (`docs/planning/decisions.md` D-21,
+D-44); the owning feature's own SPEC section, once written, restates the same number rather than
+redefining it.
+
+| Feature | Cap | Violation behavior | Implementing issue(s) |
+|---|---|---|---|
+| Notifications: title | ≤ 256 characters | rejected/truncated | E30-01 |
+| Notifications: text/body | ≤ 4096 characters | rejected/truncated | E30-01 |
+| Notifications: `MessagingStyle` sender names | ≤ 25 names, ≤ 64 characters each | rejected/truncated | E30-06 |
+| Notifications: icon | PNG ≤ 64 KiB, ≤ 256×256 px | rejected | E30-07 |
+| Notifications: Mac-retained delivered notifications | ≤ 50 | oldest dropped | E30-01 |
+| Notifications: `NotificationAction.replyText` | ≤ 4096 characters | rejected/truncated | E30-09 |
+| Files: raw name | ≤ 1024 UTF-8 bytes | rejected | E40-01 |
+| Files: mime type | ≤ 255 bytes | rejected | E40-01 |
+| Files: size | ≤ 64 GiB | `TOO_LARGE` | E40-01 |
+| Files: unanswered offers | ≤ 4 | `BUSY` | E40-07 |
+| Files: active transfers, per direction | ≤ 2 | `BUSY` | E40-18 |
+| Files: auto-accept | only offers ≤ 1 GiB; opt-in setting, off by default | offers over the cap always require a manual accept regardless of the setting | E40-07, E40-18 |
+| Photos: outstanding `ThumbRequest`s per peer | ≤ 8 | `BUSY` | E41-04 |
+| Photos: outstanding `PhotoPage` per peer | ≤ 1 | `BUSY` | E41-01 |
+| SMS: `SmsSyncRequest` in flight | ≤ 1 (a new one supersedes the old) | — | E50-01 |
+| SMS: `SendSmsRequest` body | ≤ 1600 characters | `TOO_LONG` | E50-04 |
+| SMS: sends | ≤ 10 per rolling 60 s | `RATE_LIMITED` | E50-13 |
+| Calls: `PlaceCallRequest.address` | MUST match `^\+?[0-9]{3,20}$` after removing spaces and dashes (no `*`, `#`, `,`, `;`) | `INVALID_NUMBER` | E52-01 |
+| Calls: request rate | ≤ 1 per 5 s | `RATE_LIMITED` | E52-05 |
+| Input: `InputEvent` rate | ≤ 120/s sustained, burst ≤ 240; excess dropped and counted | dropped, no close | E62-01 |
+| Input: `SetText`/`TextEdit.insert` | ≤ 4096 characters | rejected | E62-01 |
+| Input: `Swipe.durationMs` | 1..5000 | rejected | E62-01 |
+| Input: coordinates | within the reported window bounds | dropped, never clamped | E62-06 |
+| Clipboard | ≤ 1 MiB | no frame sent; sender-side "too large" toast | E31-06 |
+
+### Pairing-window DoS trade-off
+
+An attacker within radio range of an open pairing window can burn all 3 attempts, denying that
+specific window to the legitimate phone. This is visible to the owner on the Mac (the failed-attempt
+count, or a declined/failed pairing dialog) and is recovered by regenerating the QR, which opens a
+fresh window with a fresh secret and resets the attempt budget (E14-11). This is an accepted,
+annoyance-level denial of service (`docs/threat-model.md` §4.3) — it never grants the attacker trust,
+since burning attempts never bypasses the proof check or the owner's Mac-side confirmation (§2).
+
+---
+
+## Untrusted peer strings (display sanitization)
+
+*(E01-23 · PRD F-2.1, F-5.1, F-7.1, F-8.1, F-8.4 · AC-14 · no invariant references)*
+
+Every string one peer supplies that the other peer displays is untrusted input, regardless of which
+channel carried it or whether the sender is already an authenticated, paired identity — a
+compromised-but-still-pinned peer can supply a hostile string just as easily as an unpaired one. This
+section defines one sanitization rule, applied identically to every such surface.
+
+### Surfaces this rule applies to
+
+Each surface below is tagged with its length-cap category — `name` (64 characters), `title` (256
+characters), or `body` (4096 characters) — unless §10
+(`#timeouts-connection-limits-and-resource-caps`, E01-22) states a different cap for that specific
+field, in which case that cap applies instead of the default for its category:
+
+- Pairing (§2): `PairRequest.deviceInfo.displayName`, `.model` (`name`); the QR `n` field (`name`;
+  §2's 64-UTF-8-byte wire cap applies before decoding, this section's `name` cap applies again to what
+  is actually rendered).
+- Trust store: a peer's `displayName` recorded at pairing time (`name`).
+- Notifications (§ TBD, E30): app name (`name`), title (`title`, capped at 256 per §10), body/text
+  (`body`, capped at 4096 per §10), `MessagingStyle` sender names (`name` each, ≤ 25 of them per §10).
+- Files (§ TBD, E40): file names shown in accept/progress prompts, after E40-02's separate
+  path-safety filename rule has already run (`name`; the on-disk filename rule itself is out of scope
+  here).
+- SMS (§ TBD, E50): sender/recipient addresses (`name`); message snippets and *displayed incoming*
+  bodies (`body`, capped at 1600 characters — §10's SMS cap is defined there as an outgoing
+  `SendSmsRequest` *send* limit, `TOO_LONG`; this section applies that same 1600 number to an incoming
+  body as the display cap, since no larger displayed-body cap has been separately decided).
+- Contacts (§ TBD, E51): contact display names (`name`).
+- Calls (§ TBD, E52): caller display names and SIM display names (`name`).
+
+### Sanitization order
+
+Applied, in this exact order, to every surface above before the string is ever rendered:
+
+1. Decode the raw bytes as UTF-8; any byte sequence that is not valid UTF-8 MUST be decoded with each
+   invalid sequence replaced by U+FFFD (REPLACEMENT CHARACTER) — never silently dropped and never left
+   as raw bytes.
+2. Normalize the decoded text to Unicode Normalization Form C (NFC).
+3. Remove every bidirectional-control code point: U+202A–U+202E, U+2066–U+2069, U+200E, U+200F, and
+   U+061C.
+4. Remove every C0 and C1 control code point, except U+000A (line feed): U+000A MUST be preserved in a
+   multi-line `body` field, and MUST itself be removed in a single-line `name` or `title` field.
+5. In a single-line field (`name` or `title`), additionally remove every zero-width code point —
+   U+200B–U+200D, U+2060, U+FEFF — and collapse any run of whitespace to a single U+0020.
+6. Re-apply Unicode Normalization Form C (NFC) after step 5: removing a code point between a base
+   character and a combining mark in steps 3–5 can leave a result that is no longer normalized, so NFC
+   MUST be re-checked here even though step 2 already applied it once.
+7. Truncate the result to the surface's length cap, where the cap counts Unicode scalar values (code
+   points after normalization, not UTF-8/UTF-16 code units), breaking only on a grapheme-cluster
+   boundary (never mid-cluster or mid-code-point). If truncation occurred, append a single U+2026
+   (HORIZONTAL ELLIPSIS); the appended ellipsis itself does not count against the cap, so the rendered
+   result of a truncated string is at most the cap plus one scalar value.
+
+### Rendering rule
+
+Every sanitized string MUST be rendered as plain text only: no Markdown, no rich/attributed-string
+markup interpretation, and no OS data-detector pass that would turn any part of the text into a
+tappable link, phone number, or other action. A peer-supplied string is data, never a UI affordance.
+
+### Trust scope
+
+No trust decision anywhere in this protocol is ever based on a peer-supplied name, title, or body
+string: pairing's trust decision relies exclusively on the confirmation code (§2,
+`#pairing`), derived from cryptographic material, never on the displayed device name or model.
+Homoglyph/confusable-character detection is explicitly out of scope for this same reason — even a
+perfectly convincing confusable name changes nothing about which key the owner is trusting, so
+detecting it would not close any actual gap (residual risk recorded in `docs/threat-model.md` and in
+`docs/planning/decisions.md` D-22).
+
+### Conformance
+
+`protocol/vectors/` (E01-24) is the authoritative vector suite for this rule on both platforms: each
+vector gives an input string, a `kind` (`name`, `title`, or `body`), and the expected sanitized output.
+E14-21 (Android) and E14-22 (macOS) implement a shared sanitizer validated against these vectors.
 
 ---
