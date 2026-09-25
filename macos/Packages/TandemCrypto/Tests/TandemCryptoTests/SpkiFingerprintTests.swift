@@ -85,6 +85,44 @@ import Testing
     #expect(spkiDer.count == SpkiFingerprint.expectedSpkiDerByteCount)
 }
 
+@Test func spkiFingerprintKey_32Bytes_initSucceeds() throws {
+    let bytes = Data(repeating: 0xAB, count: SpkiFingerprint.byteCount)
+    let fingerprint = try SpkiFingerprint(bytes: bytes)
+    #expect(fingerprint.bytes == bytes)
+}
+
+@Test func spkiFingerprintKey_not32Bytes_initFails() {
+    let tooShort = Data(repeating: 0xAB, count: SpkiFingerprint.byteCount - 1)
+    #expect(throws: SpkiFingerprint.ValidationError.invalidByteCount(tooShort.count)) {
+        try SpkiFingerprint(bytes: tooShort)
+    }
+
+    let tooLong = Data(repeating: 0xAB, count: SpkiFingerprint.byteCount + 1)
+    #expect(throws: SpkiFingerprint.ValidationError.invalidByteCount(tooLong.count)) {
+        try SpkiFingerprint(bytes: tooLong)
+    }
+}
+
+@Test func spkiFingerprint_of_returnsSameBytesAsCompute() throws {
+    let manifest = try SpkiFingerprintVectorFixture.load()
+    let entry = try #require(manifest.vectors.first { $0.expected != nil })
+    let spkiDer = try SpkiFingerprintVectorFixture.spkiDer(for: entry)
+
+    let fingerprint = try SpkiFingerprint.of(spkiDer: spkiDer)
+
+    #expect(fingerprint.bytes == (try SpkiFingerprint.compute(spkiDer: spkiDer)))
+}
+
+@Test func spkiFingerprint_matches_trueForEqualBytesFalseForDifferentBytes() throws {
+    let bytes = Data(repeating: 0x01, count: SpkiFingerprint.byteCount)
+    let sameBytes = try SpkiFingerprint(bytes: bytes)
+    let same = try SpkiFingerprint(bytes: bytes)
+    let different = try SpkiFingerprint(bytes: Data(repeating: 0x02, count: SpkiFingerprint.byteCount))
+
+    #expect(sameBytes.matches(same))
+    #expect(!sameBytes.matches(different))
+}
+
 private func validationError(
     named name: String,
     vectorId: String

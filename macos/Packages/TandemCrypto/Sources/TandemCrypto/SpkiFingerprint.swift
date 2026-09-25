@@ -1,20 +1,26 @@
 import CryptoKit
 import Foundation
 
-/// SPKI SHA-256 fingerprint computation (E10-08, SPEC.md #1 "Certificate handling and the
-/// leaf-only check" / "Verify-callback algorithm"): trust is bound to the leaf certificate's
-/// SubjectPublicKeyInfo, never to IP addresses or device IDs (invariant 3). The leaf's public key
-/// MUST be an uncompressed P-256 SubjectPublicKeyInfo, exactly `expectedSpkiDerByteCount` bytes of
-/// DER; anything else is rejected before any fingerprint is computed or compared.
+/// The trust store's key (E10-08, E13-06, CLAUDE.md invariant 3): the leaf certificate's SPKI
+/// SHA-256 fingerprint, exactly `byteCount` bytes. Trust is bound to this value only -- never an
+/// IP address, hostname or device ID.
 ///
-/// The DER is parsed by hand (no swift-certificates/SwiftASN1 dependency yet -- E10-06 introduces
-/// that dependency on its own branch) with a small, strict TLV reader that never reads past the
-/// end of the buffer and rejects non-minimal length encodings.
-public enum SpkiFingerprint {
+/// `==`/`Hashable` (synthesized from `bytes`) are fine for dictionary keys and set membership, but
+/// are NOT constant-time -- never use them for a security-sensitive comparison (e.g. verifying a
+/// peer's presented fingerprint against a pinned one). Use ``matches(_:)`` for that instead.
+///
+/// SPEC.md #1 "Certificate handling and the leaf-only check" / "Verify-callback algorithm": the
+/// leaf's public key MUST be an uncompressed P-256 SubjectPublicKeyInfo, exactly
+/// `expectedSpkiDerByteCount` bytes of DER; anything else is rejected before any fingerprint is
+/// computed or compared. The DER is parsed by hand (no swift-certificates/SwiftASN1 dependency yet
+/// -- E10-06 introduces that dependency on its own branch) with a small, strict TLV reader that
+/// never reads past the end of the buffer and rejects non-minimal length encodings.
+public struct SpkiFingerprint: Sendable, Hashable {
     public enum ValidationError: Error, Equatable {
         case unsupportedPointEncoding
         case unsupportedKeyType
         case malformedSpki
+        case invalidByteCount(Int)
     }
 
     /// A valid uncompressed P-256 SPKI DER is always exactly this many bytes: 2-byte outer
@@ -22,6 +28,26 @@ public enum SpkiFingerprint {
     /// `ecPublicKey` OID + 2-byte + 8-byte `prime256v1` OID + 3-byte BIT STRING header (tag,
     /// length, unused-bits count) + 65-byte uncompressed point.
     public static let expectedSpkiDerByteCount = 91
+
+    /// A SHA-256 digest, and so every ``SpkiFingerprint``, is always exactly this many bytes.
+    public static let byteCount = 32
+
+    public let bytes: Data
+
+    /// Throws `ValidationError.invalidByteCount` unless `bytes` is exactly `byteCount` bytes.
+    public init(bytes: Data) throws {
+        guard bytes.count == Self.byteCount else {
+            throw ValidationError.invalidByteCount(bytes.count)
+        }
+        self.bytes = bytes
+    }
+
+    /// Validates `spkiDer` is an uncompressed P-256 SubjectPublicKeyInfo DER of exactly
+    /// `expectedSpkiDerByteCount` bytes, then returns its fingerprint. Throws `ValidationError`
+    /// before hashing anything that fails validation.
+    public static func of(spkiDer: Data) throws -> SpkiFingerprint {
+        try SpkiFingerprint(bytes: try compute(spkiDer: spkiDer))
+    }
 
     /// Validates `spkiDer` is an uncompressed P-256 SubjectPublicKeyInfo DER of exactly
     /// `expectedSpkiDerByteCount` bytes, then returns the 32-byte SHA-256 digest over it.
@@ -42,6 +68,18 @@ public enum SpkiFingerprint {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// Constant-time equality (invariant 6) -- use this, never `==`, for a security-sensitive
+    /// comparison such as verifying a peer's presented fingerprint against a pinned one.
+    public func matches(_ other: SpkiFingerprint) -> Bool {
+        constantTimeEquals(bytes, other.bytes)
+    }
+
+    /// Lowercase hex, e.g. for use as a Keychain generic-password `account` (E13-06) -- unambiguous
+    /// and free of characters that need escaping, unlike raw bytes or base64.
+    public var hexString: String {
+        bytes.map { String(format: "%02x", $0) }.joined()
     }
 
     /// 1.2.840.10045.2.1 (`ecPublicKey`), DER content bytes.
@@ -109,6 +147,18 @@ public enum SpkiFingerprint {
         guard point.count - 1 == 64 else {
             throw ValidationError.malformedSpki
         }
+    }
+}
+
+extension SpkiFingerprint: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        try self.init(bytes: try container.decode(Data.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(bytes)
     }
 }
 
