@@ -37,7 +37,7 @@ struct FrameDecoderTests {
         }
     }
 
-    @Test
+    @Test(.timeLimit(.minutes(1)))
     func decodeFrame_declaredLengthOver1MiB_closesTooLargeAfterPrefixOnly() async throws {
         let manifest = try FrameEncodingVectorFixture.load()
         for id in ["frame-oversize-plus-one", "frame-bad-length-0xffffffff"] {
@@ -45,15 +45,19 @@ struct FrameDecoderTests {
             let frame = try FrameEncodingVectorFixture.frameBytes(for: entry)
             #expect(frame.count == 4, "vector \(id) fixture should supply only the 4 prefix bytes")
 
+            // Trailing bytes follow and the stream stays open, so a decoder that read past the
+            // prefix would either consume them or block (caught by the time limit).
+            let trailing = Data([0xAA, 0xBB, 0xCC])
             let pair = InMemoryConnectionPair()
-            try await pair.endA.send(frame)
-            await pair.endA.close()
+            try await pair.endA.send(frame + trailing)
             let counting = CountingFrameSource(wrapping: InMemoryFrameSource(pair.endB))
 
             let result = try await FrameDecoder.decode(from: counting)
 
             #expect(result == .rejected(.malformedFrame, .tooLarge), "vector \(id)")
             #expect(counting.totalBytesRead == 4, "vector \(id) must not read past the length prefix")
+            let remaining = try await counting.read(exactly: trailing.count)
+            #expect(remaining == trailing, "vector \(id) trailing bytes must remain unread")
         }
     }
 
