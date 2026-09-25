@@ -5,7 +5,6 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -18,8 +17,9 @@ import org.junit.jupiter.api.Test
 
 /**
  * FrameDecoder tests (E11-02). Vectors come from the same committed E01-19 manifest
- * `protocol/vectors/frame-encoding.json` [FrameEncoderTest] (E11-01) uses; loading and
- * recipe-reconstruction helpers live in `FrameVectorTestSupport.kt`, shared between the two.
+ * `protocol/vectors/frame-encoding.json` [FrameEncoderTest] (E11-01) uses; loading,
+ * recipe-reconstruction and `FrameSource` helpers live in `FrameVectorTestSupport.kt`, shared
+ * between the two (and with [FrameCodecConformanceTest], E11-11).
  */
 class FrameDecoderTest {
     @Test
@@ -264,16 +264,5 @@ class FrameDecoderTest {
                     .getValue("frameHex")
                     .jsonPrimitive.content,
             )
-
-        fun sourceFor(pipe: InMemoryDuplexPipe): FrameSource =
-            FrameSource { buffer, offset, length ->
-                runInterruptible { pipe.endpointB.input.read(buffer, offset, length) }
-            }
-
-        fun sourceFor(frameBytes: ByteArray): FrameSource {
-            val pipe = InMemoryDuplexPipe(capacity = frameBytes.size)
-            pipe.endpointA.output.write(frameBytes)
-            return sourceFor(pipe)
-        }
     }
 }
