@@ -146,6 +146,16 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
         }
     }
 
+    /// A `SecIdentity` cannot be synthesised outside a real Keychain (spike E03-02,
+    /// docs/spikes/secure-enclave-identity.md) -- there is no public initializer for one -- so
+    /// this always throws `errSecUnimplemented`. Every path up to this step (`IdentityKeyProvider`,
+    /// `IdentityCertProvider`) is unit-tested against this store; the step itself is a hosted
+    /// `integration:`/`unit:` test against `SecItemKeychainStore` (E10-07/E10-07b).
+    public func copyIdentity(keyTag: String) throws -> SecIdentity {
+        try consumePendingFailure()
+        throw KeychainError.unhandled(status: errSecUnimplemented)
+    }
+
     /// Accessibility recorded by the add for this generic-password item, or `nil` if absent.
     public func recordedAccessibility(service: String, account: String) -> KeychainAccessibility? {
         let key = ServiceAccount(service: service, account: account)
