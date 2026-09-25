@@ -170,13 +170,16 @@ this version of the protocol.
     order). This is the only trigger for `PairChallenge`; it is never sent again on that connection.
   - **Key rotation (E70-01, Phase 7; `docs/planning/decisions.md` D-74).** Each side MUST send
     exactly one unsolicited `RotationChallenge` on every control session immediately once that
-    session reaches Ready (its `VersionHello` exchange has completed) — not only when a rotation is
-    imminent, and regardless of whether either side ever actually rotates on that session. The value
-    is valid only on that one session and only for exactly one `KeyRotation`; a session's own
+    session reaches Ready (hello exchange complete on a connection whose peer matched the trust
+    store; a pairing candidate reaches Ready only when `PairAccepted` is sent/received) — not only
+    when a rotation is imminent, and regardless of whether either side ever actually rotates on that
+    session. The value is valid only on that one session and only for exactly one `KeyRotation`; a
+    re-sent `KeyRotation` for the already-pinned `newSpki` (E70-01 idempotent rule) is the same use
+    and is acknowledged without re-verifying against the challenge. A session's own
     `RotationChallenge` is never resent on that same session. A `RotationChallenge` is never legal on
-    a pairing-candidate connection before `PairAccepted`: such a connection never reaches Ready until
-    that point, and any payload other than the pairing sequence itself is already rejected as
-    `UNKNOWN_PAYLOAD_TYPE` (closing `MALFORMED_FRAME`) per §2's frame-order rule.
+    a pairing-candidate connection before `PairAccepted`: any payload other than the pairing sequence
+    or `Heartbeat` there is a wrong payload under §2's frame-order rule (local reason `MALFORMED`:
+    `PairRejected(PAIRING_UNAVAILABLE)`, close `PAIRING_FAILED`, one attempt burned).
 - **What `cb` binds, and what it does not.** The 32 bytes are fresh per session and never reused, and
   reachable at all only once this session's verify-callback pin check has already passed (above), so
   the challenge exchange adds no new trust decision. This gives `cb` **replay** protection: a proof or

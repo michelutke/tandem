@@ -100,6 +100,8 @@ epics:
           - "conformance: keyRotationVector_otherRotationChallengeValue_verificationFails"
           - "conformance: keyRotationVector_invalidNewKeyProofOfPossession_verificationFails"
           - "ci: protoSpecAnchorCheck_rotationChallengeTriggerRule_documentedInSpec"
+          - "conformance: rotationChallengeOnPairingCandidate_afterHellos_pairRejectedUnavailableThenPairingFailed"
+          - "unit: rotationReceiver_resendAfterChallengeConsumed_ackedIdempotently"
         notes: |
           Cycle 5: depended on E03-04 (channel-binding outcome).
           Cycle 8 (D-67): `cb` is the in-band `RotationChallenge` from the rotation receiver
@@ -242,7 +244,7 @@ epics:
           complete), unconditionally generate a fresh 32-byte CSPRNG challenge and send it as
           `RotationChallenge{challenge}` on this session's CONTROL channel — unsolicited, on every
           Ready session, whether or not the peer ever actually rotates on it — and hold it as `cb`
-          for this session, valid for exactly one `KeyRotation`. Verify each signature against the SPKI of the peer authenticated in this session
+          for this session, valid for exactly one `KeyRotation` (an idempotent re-send for the already-pinned `newSpki` is the same use, D-74). Verify each signature against the SPKI of the peer authenticated in this session
           (its current primary pin), never against a key named in the message, and against this
           held `cb` — not against anything read from `TandemSession`, which exposes no
           channel-binding/exporter property (E12-11). On success, pin newSpki
@@ -314,7 +316,7 @@ epics:
           unconditionally generate a fresh 32-byte CSPRNG challenge and send it as
           `RotationChallenge{challenge}` on that session's CONTROL channel — unsolicited, on every
           Ready session, whether or not that phone ever actually rotates on it — and hold it as `cb`
-          for that session, valid for exactly one `KeyRotation`. The
+          for that session, valid for exactly one `KeyRotation` (an idempotent re-send for the already-pinned `newSpki` is the same use, D-74). The
           Mac may hold several paired phones: a rotation only ever modifies the record of the peer
           authenticated in the current session. `TandemSession` (E12-12 fake) carries frames only —
           it exposes no channel-binding/exporter property.
