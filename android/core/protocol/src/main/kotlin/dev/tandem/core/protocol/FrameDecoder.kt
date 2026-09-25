@@ -1,6 +1,7 @@
 package dev.tandem.core.protocol
 
 import com.google.protobuf.InvalidProtocolBufferException
+import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 
 /**
@@ -21,8 +22,6 @@ object FrameDecoder {
     private const val LENGTH_PREFIX_BYTES = 4
     private const val BYTE_BITS = 8
     private const val BYTE_MASK = 0xFFL
-    private const val MIN_CHANNEL_VALUE = 1
-    private const val MAX_CHANNEL_VALUE = 9
 
     /**
      * Reads and decodes one frame from [source]. Returns [DecodeResult.EndOfStream] only when the
@@ -75,7 +74,7 @@ object FrameDecoder {
 
     private fun validate(envelope: Envelope): DecodeResult =
         when {
-            envelope.channelValue !in MIN_CHANNEL_VALUE..MAX_CHANNEL_VALUE -> {
+            envelope.channel == Channel.UNRECOGNIZED || envelope.channel == Channel.CHANNEL_UNSPECIFIED -> {
                 rejected(MalformedFrameReason.UNKNOWN_CHANNEL)
             }
 
@@ -107,10 +106,8 @@ object FrameDecoder {
         val buffer = ByteArray(length)
         var offset = 0
         while (offset < length) {
-            val chunk = ByteArray(length - offset)
-            val n = source.read(chunk)
-            if (n == -1) return ReadOutcome.Eof(offset)
-            chunk.copyInto(destination = buffer, destinationOffset = offset, endIndex = n)
+            val n = source.read(buffer, offset, length - offset)
+            if (n <= 0) return ReadOutcome.Eof(offset)
             offset += n
         }
         return ReadOutcome.Complete(buffer)

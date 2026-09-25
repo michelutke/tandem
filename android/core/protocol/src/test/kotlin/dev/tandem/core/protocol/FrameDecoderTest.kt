@@ -1,8 +1,11 @@
 package dev.tandem.core.protocol
 
 import dev.tandem.core.testing.InMemoryDuplexPipe
+import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -214,6 +217,37 @@ class FrameDecoderTest {
             assertEquals(DecodeResult.EndOfStream, result)
         }
 
+    @Test
+    fun decodeFrame_sourceReturnsOneBytePerRead_decodesIntoSingleBuffer() =
+        runBlocking {
+            val envelope =
+                Envelope
+                    .newBuilder()
+                    .setChannel(Channel.CHANNEL_STATUS)
+                    .setSeq(1)
+                    .setDeviceStatus(DeviceStatus.getDefaultInstance())
+                    .build()
+            val frameBytes = FrameEncoder.encodeFrame(envelope)
+            var position = 0
+            val buffersSeen = mutableSetOf<Int>()
+            val trickle =
+                FrameSource { buffer, offset, _ ->
+                    buffersSeen += System.identityHashCode(buffer)
+                    if (position == frameBytes.size) {
+                        -1
+                    } else {
+                        buffer[offset] = frameBytes[position++]
+                        1
+                    }
+                }
+
+            val result = FrameDecoder.decodeFrame(trickle)
+
+            assertEquals(DecodeResult.Frame(envelope), result)
+            // One buffer for the 4-byte prefix, one for the payload; never one per read.
+            assertTrue(buffersSeen.size <= 2, "buffers allocated: ${buffersSeen.size}")
+        }
+
     private companion object {
         fun findVector(id: String): JsonObject =
             loadVectorsFile()
@@ -231,7 +265,10 @@ class FrameDecoderTest {
                     .jsonPrimitive.content,
             )
 
-        fun sourceFor(pipe: InMemoryDuplexPipe): FrameSource = FrameSource { buffer -> pipe.endpointB.read(buffer) }
+        fun sourceFor(pipe: InMemoryDuplexPipe): FrameSource =
+            FrameSource { buffer, offset, length ->
+                runInterruptible { pipe.endpointB.input.read(buffer, offset, length) }
+            }
 
         fun sourceFor(frameBytes: ByteArray): FrameSource {
             val pipe = InMemoryDuplexPipe(capacity = frameBytes.size)
