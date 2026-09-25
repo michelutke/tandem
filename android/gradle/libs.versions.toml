@@ -17,6 +17,14 @@ robolectric = "4.17"
 compose-bom = "2026.09.00"
 androidx-test-espresso = "3.7.0"
 androidx-test-ext-junit = "1.3.0"
+# KSP 2.3.10 with Kotlin 2.4.20 verified in docs/spikes/trust-store-persistence.md (Finding 6).
+ksp = "2.3.10"
+# Dagger/Hilt 2.60.1: first Dagger release line with stable AGP 9 support in the Hilt Gradle
+# plugin (dagger-2.59 added it, 2.59.1/2.59.2/2.60/2.60.1 fixed AGP-9-specific regressions) and
+# stable KSP support (dagger.dev/dev-guide/ksp.html: "stable as of Dagger 2.60+ and KSP 2.3.9+").
+hilt = "2.60.1"
+androidx-activity = "1.13.0"
+androidx-test-core = "1.7.0"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -45,6 +53,13 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 detekt-test = { group = "io.gitlab.arturbosch.detekt", name = "detekt-test", version.ref = "detekt" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "androidx-activity" }
+ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "symbol-processing-gradle-plugin", version.ref = "ksp" }
+hilt-gradlePlugin = { group = "com.google.dagger", name = "hilt-android-gradle-plugin", version.ref = "hilt" }
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

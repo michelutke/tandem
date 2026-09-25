@@ -67,22 +67,31 @@ public struct SecItemKeychainStore: KeychainStore, Sendable {
     }
 
     public func addKey(tag: String, accessibility: KeychainAccessibility) throws -> SecKey {
-        let privateKeyAttrs: [String: Any] = [
-            kSecAttrIsPermanent as String: true,
-            kSecAttrApplicationTag as String: Data(tag.utf8),
-            kSecAttrAccessible as String: accessibility.secAttrAccessible
-        ]
-        let attributes: [String: Any] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits as String: 256,
-            kSecUseDataProtectionKeychain as String: true,
-            kSecPrivateKeyAttrs as String: privateKeyAttrs
-        ]
+        let attributes = Self.keyAttributes(tag: tag, accessibility: accessibility)
         var error: Unmanaged<CFError>?
         guard let key = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
             throw KeychainError(error?.takeRetainedValue())
         }
         return key
+    }
+
+    /// The exact `SecKeyCreateRandomKey` attributes an `addKey` call passes: the data-protection
+    /// keychain, the app's own access group only (no `kSecAttrAccessGroup` override), and the
+    /// requested tag/accessibility on the private key. Factored out so E10-05's
+    /// `usesDataProtectionKeychainOwnGroup` unit test can assert on it without any real Keychain
+    /// access.
+    static func keyAttributes(tag: String, accessibility: KeychainAccessibility) -> [String: Any] {
+        let privateKeyAttrs: [String: Any] = [
+            kSecAttrIsPermanent as String: true,
+            kSecAttrApplicationTag as String: Data(tag.utf8),
+            kSecAttrAccessible as String: accessibility.secAttrAccessible
+        ]
+        return [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecUseDataProtectionKeychain as String: true,
+            kSecPrivateKeyAttrs as String: privateKeyAttrs
+        ]
     }
 
     public func copyKey(tag: String) throws -> SecKey {

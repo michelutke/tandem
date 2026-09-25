@@ -10,7 +10,8 @@ for package_dir in "$macos_dir"/Packages/*/; do
     continue
   fi
   echo "== swift test: $package_name =="
-  if ! (cd "$package_dir" && swift test); then
+  # E00-29: never let CI silently re-resolve a package to a version outside Package.resolved.
+  if ! (cd "$package_dir" && swift test --only-use-versions-from-resolved-file); then
     failures+=("$package_name")
   fi
 done

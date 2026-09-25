@@ -1,0 +1,5 @@
+[versions]
+fixture = "1.0.0"
+
+[libraries]
+fixture-unregistered = { group = "org.example", name = "unregistered-library", version.ref = "fixture" }

@@ -155,10 +155,38 @@ struct FrameDecoderTests {
     }
 
     private func payloadLabel(_ envelope: Tandem_V1_Envelope) -> String {
-        switch envelope.payload {
+        controlPayloadLabel(envelope.payload)
+            ?? pairingPayloadLabel(envelope.payload)
+            ?? statusPayloadLabel(envelope.payload)
+            ?? "unset"
+    }
+
+    private func controlPayloadLabel(_ payload: Tandem_V1_Envelope.OneOf_Payload?) -> String? {
+        switch payload {
+        case .versionHello?: return "versionHello"
+        case .heartbeat?: return "heartbeat"
+        case .creditGrant?: return "creditGrant"
+        case .mediaTicketGrant?: return "mediaTicketGrant"
+        default: return nil
+        }
+    }
+
+    private func pairingPayloadLabel(_ payload: Tandem_V1_Envelope.OneOf_Payload?) -> String? {
+        switch payload {
+        case .pairChallenge?: return "pairChallenge"
+        case .pairRequest?: return "pairRequest"
+        case .pairAccepted?: return "pairAccepted"
+        case .pairRejected?: return "pairRejected"
+        case .revoke?: return "revoke"
+        default: return nil
+        }
+    }
+
+    private func statusPayloadLabel(_ payload: Tandem_V1_Envelope.OneOf_Payload?) -> String? {
+        switch payload {
         case .ring?: return "ring"
         case .deviceStatus?: return "deviceStatus"
-        case nil: return "unset"
+        default: return nil
         }
     }
 
