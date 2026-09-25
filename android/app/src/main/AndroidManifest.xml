@@ -1,5 +1,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <application />
+    <!--
+    E00-28 platform-hardening baseline (invariants 1, 2, 4):
+      - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing
+        (trust store, settings, transfer temp files) ever leaves the device via cloud backup or
+        device transfer.
+      - usesCleartextTraffic off plus a networkSecurityConfig with system trust anchors only;
+        Tandem's own TLS still goes through the pinning TrustManager (E12-05) regardless.
+    -->
+    <application
+        android:name=".TandemApplication"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- Not launchable and not exported; declared so tooling that enumerates <activity>
+             entries (E00-28's activity-inheritance backstop) has at least one real entry to see. -->
+        <activity android:name=".TandemActivity" android:exported="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>

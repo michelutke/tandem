@@ -3,13 +3,14 @@ syntax = "proto3";
 // E01-10: Envelope, the message every frame on every mTLS connection carries once the TLS
 // handshake completes (docs/protocol/SPEC.md #framing-and-envelope, E01-03). Channel, the frozen
 // enumeration of the nine F-3.2 channels, lives in channel.proto (E01-12): control.proto's
-// CreditGrant also needs Channel, and this file's oneof below embeds control.proto's message
-// types directly, so Channel could not stay in this file without envelope.proto and
-// control.proto importing each other — a cyclic import protoc/buf reject.
+// CreditGrant also needs Channel, and this file's oneof below embeds control.proto's and
+// pairing.proto's message types directly, so Channel could not stay in this file without
+// envelope.proto and control.proto importing each other — a cyclic import protoc/buf reject.
 package tandem.v1;
 
 import "tandem/v1/channel.proto";
 import "tandem/v1/control.proto";
+import "tandem/v1/pairing.proto";
 import "tandem/v1/status.proto";
 
 option java_package = "dev.tandem.protocol.v1";
@@ -35,7 +36,7 @@ message Envelope {
   // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
   // MALFORMED_FRAME).
   reserved 8 to 9;     // control.proto (E01-12): remaining CONTROL payload slots
-  reserved 10 to 19;   // pairing.proto (E01-11): PairRequest, PairAccepted, PairRejected, Revoke — CONTROL channel
+  reserved 15 to 19;   // pairing.proto (E01-11): remaining CONTROL payload slots
   // 20-29: status.proto (E01-13, this issue). 22-29 held for RingStop, added when E23-01 writes
   // the STATUS SPEC.md section; do not assign those numbers before then.
   reserved 22 to 29;
@@ -57,6 +58,13 @@ message Envelope {
     Heartbeat heartbeat = 5;
     CreditGrant credit_grant = 6;
     MediaTicketGrant media_ticket_grant = 7;
+
+    // pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+    PairChallenge pair_challenge = 10;
+    PairRequest pair_request = 11;
+    PairAccepted pair_accepted = 12;
+    PairRejected pair_rejected = 13;
+    Revoke revoke = 14;
 
     DeviceStatus device_status = 20;
     Ring ring = 21;
