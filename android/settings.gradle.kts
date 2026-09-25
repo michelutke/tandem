@@ -35,6 +35,7 @@ rootProject.name = "tandem-android"
 include(
     ":app",
     ":core:crypto",
+    ":core:designsystem",
     ":core:pairing",
     ":core:protocol",
     ":core:storage",
