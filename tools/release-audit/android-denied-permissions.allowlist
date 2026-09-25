@@ -1,0 +1,4 @@
+# E00-28: exceptions to the denied-permissions check, one permission per line. Only
+# android.permission.READ_CALL_LOG is ever expected here, and only once E52-02 justifies it.
+#
+# Blank lines and lines starting with # are ignored. Nothing is allowlisted yet.

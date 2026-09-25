@@ -223,6 +223,138 @@ public object EnvelopeKt {
     }
 
     /**
+     * ```
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];`
+     */
+    public var pairChallenge: dev.tandem.protocol.v1.PairChallenge
+      @kotlin.jvm.JvmName("getPairChallenge")
+        get() = _builder.pairChallenge
+      @kotlin.jvm.JvmName("setPairChallenge")
+        set(value) {
+        _builder.pairChallenge = value
+      }
+    /**
+     * ```
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];`
+     */
+    public fun clearPairChallenge() {
+      _builder.clearPairChallenge()
+    }
+    /**
+     * ```
+     * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];`
+     * @return Whether the pairChallenge field is set.
+     */
+    public fun hasPairChallenge(): kotlin.Boolean {
+      return _builder.hasPairChallenge()
+    }
+
+    /**
+     * `.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];`
+     */
+    public var pairRequest: dev.tandem.protocol.v1.PairRequest
+      @kotlin.jvm.JvmName("getPairRequest")
+        get() = _builder.pairRequest
+      @kotlin.jvm.JvmName("setPairRequest")
+        set(value) {
+        _builder.pairRequest = value
+      }
+    /**
+     * `.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];`
+     */
+    public fun clearPairRequest() {
+      _builder.clearPairRequest()
+    }
+    /**
+     * `.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];`
+     * @return Whether the pairRequest field is set.
+     */
+    public fun hasPairRequest(): kotlin.Boolean {
+      return _builder.hasPairRequest()
+    }
+
+    /**
+     * `.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];`
+     */
+    public var pairAccepted: dev.tandem.protocol.v1.PairAccepted
+      @kotlin.jvm.JvmName("getPairAccepted")
+        get() = _builder.pairAccepted
+      @kotlin.jvm.JvmName("setPairAccepted")
+        set(value) {
+        _builder.pairAccepted = value
+      }
+    /**
+     * `.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];`
+     */
+    public fun clearPairAccepted() {
+      _builder.clearPairAccepted()
+    }
+    /**
+     * `.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];`
+     * @return Whether the pairAccepted field is set.
+     */
+    public fun hasPairAccepted(): kotlin.Boolean {
+      return _builder.hasPairAccepted()
+    }
+
+    /**
+     * `.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];`
+     */
+    public var pairRejected: dev.tandem.protocol.v1.PairRejected
+      @kotlin.jvm.JvmName("getPairRejected")
+        get() = _builder.pairRejected
+      @kotlin.jvm.JvmName("setPairRejected")
+        set(value) {
+        _builder.pairRejected = value
+      }
+    /**
+     * `.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];`
+     */
+    public fun clearPairRejected() {
+      _builder.clearPairRejected()
+    }
+    /**
+     * `.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];`
+     * @return Whether the pairRejected field is set.
+     */
+    public fun hasPairRejected(): kotlin.Boolean {
+      return _builder.hasPairRejected()
+    }
+
+    /**
+     * `.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];`
+     */
+    public var revoke: dev.tandem.protocol.v1.Revoke
+      @kotlin.jvm.JvmName("getRevoke")
+        get() = _builder.revoke
+      @kotlin.jvm.JvmName("setRevoke")
+        set(value) {
+        _builder.revoke = value
+      }
+    /**
+     * `.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];`
+     */
+    public fun clearRevoke() {
+      _builder.clearRevoke()
+    }
+    /**
+     * `.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];`
+     * @return Whether the revoke field is set.
+     */
+    public fun hasRevoke(): kotlin.Boolean {
+      return _builder.hasRevoke()
+    }
+
+    /**
      * `.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];`
      */
     public var deviceStatus: dev.tandem.protocol.v1.DeviceStatus
@@ -293,6 +425,21 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.creditGrantOrNull: dev.tande
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mediaTicketGrantOrNull: dev.tandem.protocol.v1.MediaTicketGrant?
   get() = if (hasMediaTicketGrant()) getMediaTicketGrant() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairChallengeOrNull: dev.tandem.protocol.v1.PairChallenge?
+  get() = if (hasPairChallenge()) getPairChallenge() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairRequestOrNull: dev.tandem.protocol.v1.PairRequest?
+  get() = if (hasPairRequest()) getPairRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairAcceptedOrNull: dev.tandem.protocol.v1.PairAccepted?
+  get() = if (hasPairAccepted()) getPairAccepted() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairRejectedOrNull: dev.tandem.protocol.v1.PairRejected?
+  get() = if (hasPairRejected()) getPairRejected() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.revokeOrNull: dev.tandem.protocol.v1.Revoke?
+  get() = if (hasRevoke()) getRevoke() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.deviceStatusOrNull: dev.tandem.protocol.v1.DeviceStatus?
   get() = if (hasDeviceStatus()) getDeviceStatus() else null
