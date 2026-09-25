@@ -53,15 +53,5 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-29;google_apis;x86_64" > /dev/null
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-      - name: Diagnose emulator boot
-        continue-on-error: true
-        run: |
-          df -h
-          ldd "$ANDROID_HOME/emulator/emulator" | grep "not found" || echo "all emulator shared libs resolved"
-          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n diag29 -k "system-images;android-29;google_apis;x86_64" --force
-          timeout 60 "$ANDROID_HOME/emulator/emulator" -avd diag29 -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim > /tmp/emulator-diag.log 2>&1 || true
-          echo "----- emulator diagnostic output -----"
-          cat /tmp/emulator-diag.log
-          echo "----- end emulator diagnostic output -----"
       - name: Run instrumented tests on managed devices
         run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
