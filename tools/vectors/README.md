@@ -36,6 +36,10 @@ module docstring and `protocol/vectors/README.md`'s `frame-encoding.json` sectio
 E01-17 registers `spki-fingerprint.json` via `spki_fingerprint.generate_spki_fingerprint_vectors`;
 that module also implements minimal stdlib-only P-256 scalar multiplication and ASN.1 DER encoding
 (see its module docstring).
+E01-18 registers `pairing-proof.json` via `pairing_proof.generate_pairing_proof_vectors`; that
+module reuses `spki_fingerprint.py`'s P-256 SPKI DER derivation under distinct fixture labels and
+implements the `LP`/HMAC-SHA256 pairing-proof and confirmation-code transcripts directly against
+`hmac`/`hashlib`.
 E01-21 registers `qr-payload.json` via `qr_payload.generate_qr_payload_vectors`; that module also
 doubles as the reference parser (`parse_pair_uri`) for the `tandem://pair` QR grammar.
 E01-24 registers `display-strings.json` via
@@ -61,14 +65,16 @@ the committed manifests, catching hand-edits as well as generator non-determinis
   encoder/decoder.
 - `spki_fingerprint.py` — E01-17 `spki-fingerprint.json` generator plus its stdlib-only P-256
   scalar multiplication and ASN.1 DER encoding.
+- `pairing_proof.py` — E01-18 `pairing-proof.json` generator for the pairing-proof HMAC and
+  confirmation-code vectors.
 - `qr_payload.py` — E01-21 `qr-payload.json` generator plus its reference `tandem://pair`
   QR-payload parser.
 - `display_strings.py` — E01-24 `display-strings.json` generator plus its reference
   untrusted-peer-string sanitizer.
 - `requirements.txt` — pinned `jsonschema` / `pytest` versions.
 - `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_discovery_id.py`,
-  `test_frame_encoding.py`, `test_spki_fingerprint.py`, `test_qr_payload.py`,
-  `test_display_strings.py`).
+  `test_frame_encoding.py`, `test_spki_fingerprint.py`, `test_pairing_proof.py`,
+  `test_qr_payload.py`, `test_display_strings.py`).
 
 ## CI
 
