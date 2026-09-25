@@ -42,6 +42,11 @@ enum MalformedFrameReason: Sendable, Equatable {
     /// -- framing decode has no notion of per-channel state -- but grouped under this same
     /// `CloseCode.malformedFrame` per D-57, so it lives alongside the other local reasons here.
     case seqRegression
+    /// A channel's above-watermark `seq` gap grew past ``CreditCaps/protocolMax`` (D-64): a
+    /// legitimate peer, bound by its receive credit, can never have this many `seq` values
+    /// outstanding above the watermark at once, so this is a fatal violation rather than another
+    /// accepted gap-fill. Detected by ``ChannelMultiplexer`` (E11-06) alongside `seqRegression`.
+    case seqGapTooLarge
 }
 
 /// The outcome of decoding one frame: either the `Envelope` it carried, or a rejection with its

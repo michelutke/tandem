@@ -39,9 +39,16 @@ enum MultiplexerError: Error, Sendable, Equatable {
 ///
 /// One reader task decodes frames from the injected ``FrameSource`` and dispatches each to the
 /// `AsyncStream` for its `Envelope.channel`, so a frame sent on one channel is never observed on
-/// another channel's stream. Outbound sends are serialized through this actor, so each channel's
-/// own `seq` counter increments independently and by exactly 1
-/// (docs/protocol/SPEC.md "Counters on different channels ... are entirely independent").
+/// another channel's stream. ``send(_:payload:)`` may be called concurrently from any number of
+/// tasks; a single internal FIFO write lock (not the actor's own reentrant exclusivity, which is
+/// not enough across an `await`) serializes every outgoing frame -- assigning a channel's next
+/// `seq` and writing the encoded frame is one atomic step -- so bytes for a given channel always
+/// reach the wire in the order their `seq` values were assigned, matching the Android twin's
+/// `Mutex`-guarded guarantee (`android/.../ChannelMultiplexer.kt`). ``finish(_:)`` takes the same
+/// lock, so it waits for any in-flight write before completing, and no write started after it can
+/// still land on the wire. Each channel's own `seq` counter increments independently and by
+/// exactly 1 (docs/protocol/SPEC.md "Counters on different channels ... are entirely
+/// independent").
 ///
 /// `TandemProtocol` may not depend on `TandemTransport` (PRD module rules: transport depends on
 /// protocol, never the reverse; see this package's `Package.swift`), and the wire types this type
@@ -85,6 +92,16 @@ actor ChannelMultiplexer {
     private var readerTask: Task<Void, Never>?
     private(set) var closeReason: MultiplexerClose?
 
+    /// Whether the FIFO write lock (below) is currently held. `send(_:payload:)` and `finish(_:)`
+    /// are this actor's only two critical sections that must never overlap in time (assigning a
+    /// `seq` + writing it, and completing the close, respectively); everything else may still run
+    /// interleaved between an acquire and its release, same as any other actor reentrancy.
+    private var writeLockHeld = false
+    /// Callers waiting to acquire the write lock, in arrival order (FIFO): `acquireWriteLock()`
+    /// suspends by appending a continuation here, and `releaseWriteLock()` resumes the oldest one
+    /// first, so callers reach their critical section in the order they asked for it.
+    private var writeLockWaiters: [CheckedContinuation<Void, Never>] = []
+
     init(source: FrameSource, sink: @escaping OutboundSink) {
         self.source = source
         self.sink = sink
@@ -126,6 +143,11 @@ actor ChannelMultiplexer {
     ///   otherwise.
     func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
         precondition(Self.routedChannels.contains(channel), "\(channel) is not a routable channel")
+        await acquireWriteLock()
+        defer { releaseWriteLock() }
+
+        // Checked only after acquiring the lock: a `finish(_:)` that completed while this call
+        // was waiting its turn must be observed here, and no write may start once it has run.
         if let closeReason {
             throw MultiplexerError.closed(closeReason)
         }
@@ -143,33 +165,58 @@ actor ChannelMultiplexer {
         try await sink(frame)
     }
 
+    /// Acquires the FIFO write lock, suspending until every earlier caller (of either `send` or
+    /// `finish`) has released it. Not actor reentrancy: the lock's own state (`writeLockHeld`/
+    /// `writeLockWaiters`) is only ever touched while holding the actor's exclusivity, but the
+    /// *suspension* while waiting is what makes the guarded section behave as a true non-reentrant
+    /// critical section across the `await sink(frame)` inside it.
+    private func acquireWriteLock() async {
+        if !writeLockHeld {
+            writeLockHeld = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            writeLockWaiters.append(continuation)
+        }
+    }
+
+    /// Releases the FIFO write lock: resumes the oldest waiter (which then holds the lock) or,
+    /// if none are waiting, marks the lock free.
+    private func releaseWriteLock() {
+        guard !writeLockWaiters.isEmpty else {
+            writeLockHeld = false
+            return
+        }
+        writeLockWaiters.removeFirst().resume()
+    }
+
     private func readLoop() async {
         do {
             while true {
                 guard let result = try await FrameDecoder.decode(from: source) else {
-                    finish(.peerClosed)
+                    await finish(.peerClosed)
                     return
                 }
                 switch result {
                 case .frame(let envelope):
-                    guard accept(envelope) else { return }
+                    guard await accept(envelope) else { return }
                 case .rejected(let closeCode, let reason):
-                    finish(.violation(closeCode, reason))
+                    await finish(.violation(closeCode, reason))
                     return
                 }
             }
         } catch {
-            finish(.sourceFailed)
+            await finish(.sourceFailed)
         }
     }
 
     /// Applies the seq/ack watermark rules (`docs/planning/decisions.md` D-57) to a decoded
     /// frame and, if it passes, yields it on its channel's stream. Returns `false` (having
     /// already called `finish(_:)`) on a violation.
-    private func accept(_ envelope: Tandem_V1_Envelope) -> Bool {
+    private func accept(_ envelope: Tandem_V1_Envelope) async -> Bool {
         let channel = envelope.channel
-        guard validateAndRecord(seq: envelope.seq, ack: envelope.ack, channel: channel) else {
-            finish(.violation(.malformedFrame, .seqRegression))
+        if let reason = validateAndRecord(seq: envelope.seq, ack: envelope.ack, channel: channel) {
+            await finish(.violation(.malformedFrame, reason))
             return false
         }
 
@@ -178,17 +225,20 @@ actor ChannelMultiplexer {
         return true
     }
 
-    /// - Returns: `false` if `seq` or `ack` violates D-57 (a `seq` of 0, at or below the current
-    ///   watermark, or a duplicate of an already-received above-watermark value; or an `ack`
-    ///   above the highest `seq` this side has itself sent on `channel`). On success, records
-    ///   `seq` and advances the watermark past any newly-contiguous run
+    /// - Returns: the violation reason if `seq` or `ack` violates D-57 (a `seq` of 0, at or below
+    ///   the current watermark, or a duplicate of an already-received above-watermark value; an
+    ///   `ack` above the highest `seq` this side has itself sent on `channel`; or `channel`'s
+    ///   above-watermark pending set already holding ``CreditCaps/protocolMax`` entries -- D-64: a
+    ///   legitimate, credit-bound peer can never make this many `seq` values pending at once). On
+    ///   success (`nil`), records `seq` and advances the watermark past any newly-contiguous run
     ///   (docs/protocol/SPEC.md "Sequence and acknowledgement violations").
-    private func validateAndRecord(seq: UInt64, ack: UInt64, channel: Tandem_V1_Channel) -> Bool {
-        guard ack <= (outgoingSeq[channel] ?? 0) else { return false }
+    private func validateAndRecord(seq: UInt64, ack: UInt64, channel: Tandem_V1_Channel) -> MalformedFrameReason? {
+        guard ack <= (outgoingSeq[channel] ?? 0) else { return .seqRegression }
 
         var watermark = inboundWatermark[channel] ?? 0
         var pending = inboundPendingAboveWatermark[channel] ?? []
-        guard seq > watermark, !pending.contains(seq) else { return false }
+        guard seq > watermark, !pending.contains(seq) else { return .seqRegression }
+        guard pending.count < Int(CreditCaps.protocolMax) else { return .seqGapTooLarge }
 
         pending.insert(seq)
         while pending.contains(watermark + 1) {
@@ -198,10 +248,16 @@ actor ChannelMultiplexer {
 
         inboundWatermark[channel] = watermark
         inboundPendingAboveWatermark[channel] = pending
-        return true
+        return nil
     }
 
-    private func finish(_ reason: MultiplexerClose) {
+    /// Completes this multiplexer's close exactly once. Takes the write lock first, so it waits
+    /// for any write already in flight (assigned a `seq` and now suspended in `sink`) to finish,
+    /// and so no `send(_:payload:)` waiting behind it can start a write afterwards -- it will
+    /// acquire the lock only once this has already set `closeReason`, and then throw.
+    private func finish(_ reason: MultiplexerClose) async {
+        await acquireWriteLock()
+        defer { releaseWriteLock() }
         guard closeReason == nil else { return }
         closeReason = reason
         for continuation in continuations.values {
