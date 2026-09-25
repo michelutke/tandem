@@ -31,4 +31,7 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)
+    // TandemActivity (E00-28) extends ComponentActivity; pinned explicitly even though it also
+    // resolves transitively via activity-compose (see the version catalog comment).
+    implementation(libs.androidx.activity)
 }
