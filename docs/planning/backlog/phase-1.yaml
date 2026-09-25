@@ -946,9 +946,11 @@ epics:
       version/capability negotiation, a connection state machine, fail-closed error surfacing (invariant
       5), and a session abstraction over the multiplexer (E11) designed so a future USB transport (F-10.3)
       can implement the same interface. It also enforces the cycle-4 TLS profile (ALPN tandem/1, no SNI,
-      no PSK/0-RTT/post-handshake auth, leaf-only P-256 check, CertificateVerify always enforced), exposes
-      the RFC 9266 channel binding on TandemSession, and applies pre-auth admission control on the Mac
-      listener (E12-18).
+      no PSK/0-RTT/post-handshake auth, leaf-only P-256 check, CertificateVerify always enforced) and
+      applies pre-auth admission control on the Mac listener (E12-18). Per D-67, channel binding is not
+      a transport-session property: `TandemSession` exposes no `channelBinding`/exporter API of any
+      kind; `cb` is the in-band `PairChallenge`/`RotationChallenge` value generated and held entirely
+      by the pairing (E14) and key-rotation (E70) layers.
     scope:
       - macOS NWListener, TLS 1.3-only, client-cert-required, single port
       - Android SSLSocket (Conscrypt) client, custom TrustManager/KeyManager
@@ -960,9 +962,10 @@ epics:
       - Session object / transport abstraction interface exposing channels
       - JVM-client-to-Mac-server integration test
       - "TLS profile: AEAD suites, ecdsa_secp256r1_sha256, ALPN tandem/1, no SNI, leaf-only 91-byte P-256 SPKI check, validity/KU ignored."
-      - "Channel binding exposed as TandemSession.channelBinding (32 bytes) on both platforms."
+      - "No channel-binding/exporter property anywhere on TandemSession (D-67); channel binding is owned entirely by E14 (pairing) / E70 (rotation) as the in-band PairChallenge/RotationChallenge value."
       - "Mac listener admission control: <= 8 pre-auth connections, <= 2 per IP, 10 s TLS deadline, per-IP throttle (>= 10 failures in 60 s -> 60 s refusal), never a trust input (E12-18)."
       - "VersionHello 5 s deadline (PROTOCOL_TIMEOUT); lastSeen/capabilities recorded on Ready (E12-14, E12-17)."
+      - "One Ready control session per peer SPKI; a newer Ready session replaces (closes LIMIT_EXCEEDED) an older one for the same peer (E12-19)."
     out_of_scope:
       - Trust store persistence itself — E13
       - Pairing window state machine and QR flow — E14
@@ -976,9 +979,10 @@ epics:
       - The JVM-test-client-to-Mac-server integration test passes in CI
       - A version-mismatched Hello fails closed with a visible error on both sides
       - "A client without ALPN tandem/1, a leaf that is not a 91-byte P-256 SPKI, or a pinned certificate without its private key fails the handshake with 0 application bytes; the Android client's second ClientHello carries no pre_shared_key or early_data (E12-01, E12-02, E12-04, E12-05)."
-      - "Client and server channel-binding values are equal 32-byte exporter outputs (E12-01, E12-04), or the E03-04 fallback challenge if the spike chose it."
+      - "TandemSession (E12-11, E12-12) exposes no channel-binding/exporter property on either platform (D-67); `cb` is produced and consumed entirely within E14 (pairing) / E70 (rotation) as the PairChallenge/RotationChallenge value."
       - "With 8 pre-auth connections a 9th (or a 3rd from one IP) is closed before TLS, an idle TCP connection is closed within 11 s, and a throttled IP never affects a trusted peer from another IP (E12-18)."
       - "No peer VersionHello within 5 s closes with PROTOCOL_TIMEOUT on both sides (E12-07, E12-15)."
+      - "A second connection reaching Ready for a peer SPKI that already has a Ready session closes the older one with LIMIT_EXCEEDED (E12-19)."
     issues:
       - id: E12-01
         title: "[macos] NWListener: TLS 1.3-only mTLS options, single port"
@@ -1001,24 +1005,26 @@ epics:
           listener on 127.0.0.1 and an in-process NWConnection client with real Network.framework
           TLS. The `openssl s_client -tls1_2` probe is the E15-11 mitm-lab scenario (E15-11
           depends on this issue).
-          Cycle 4: ALPN `tandem/1` is required (`sec_protocol_options_add_tls_application_protocol`); the session
-          exposes the E01-01 channel binding (`sec_protocol_metadata_create_secret`, label
-          `EXPORTER-Channel-Binding`, 32 bytes) as `TandemSession.channelBinding` (E12-12). Admission control
-          (pre-auth caps, deadlines, per-IP throttle) is E12-18.
+          Cycle 4: ALPN `tandem/1` is required (`sec_protocol_options_add_tls_application_protocol`).
+          Admission control (pre-auth caps, deadlines, per-IP throttle) is E12-18.
+          Cycle 8 (D-67): this listener/session exposes no channel-binding or exporter API of any
+          kind (no `sec_protocol_metadata_create_secret` call, no `TandemSession.channelBinding`
+          property) — channel binding is not a transport concern; see E14-02 (which generates and
+          sends `PairChallenge`) and E70 for where `cb` actually lives.
         acceptance:
           - A loopback NWConnection client restricted to max TLS 1.2 fails the handshake; no application byte reaches the listener
           - A loopback client presenting no certificate fails the handshake
           - While the listener runs, `lsof -a -p <pid> -iTCP -sTCP:LISTEN` reports exactly one socket, on the SPEC port
           - With identity state `identityError` (E10-09), `ListenerFactory` is never invoked and no socket is listening (UC-01)
           - "A loopback client offering no ALPN, or an ALPN other than `tandem/1`, fails the handshake with 0 application bytes."
-          - "After a loopback handshake the server-side channel binding equals the client exporter value (32 bytes)."
+          - "No public API of the listener, its session type, or ConnectionState exposes a channel-binding or exporter value (reflection/symbol check)."
         tdd:
           - "integration: listener_loopbackClientMaxTls12_handshakeFailsNoAppBytes"
           - "integration: listener_loopbackClientWithoutCertificate_handshakeFails"
           - "integration: listener_running_exactlyOneListeningTcpSocket"
           - "unit: listenerController_identityErrorState_listenerFactoryNeverInvoked"
           - "integration: listener_loopbackClientWithoutTandemAlpn_handshakeFails"
-          - "integration: listener_loopbackHandshake_channelBindingEqualsClientExporter"
+          - "unit: tandemSession_publicSurface_noChannelBindingOrExporterProperty"
 
       - id: E12-02
         title: "[macos] Verify block: trust store check or open pairing window"
@@ -1100,8 +1106,11 @@ epics:
           identity from `SoftwareIdentityKeyStore` (E10-15). The empirical nmap check is E15-12.
           Cycle 4: a fresh SSLContext per connection with no shared client session cache and
           `SSLSockets.setUseSessionTickets(socket, false)` (JVM harness: Conscrypt equivalents) so the client never
-          offers a PSK; ALPN `tandem/1` via `SSLParameters.setApplicationProtocols`; no SNI; channel binding via
-          `SSLSockets.exportKeyingMaterial` exposed on the `ByteStream` session (E12-11 `channelBinding`).
+          offers a PSK; ALPN `tandem/1` via `SSLParameters.setApplicationProtocols`; no SNI.
+          Cycle 8 (D-67): this client and its `ByteStream`-backed session call no exporter API
+          (`SSLSockets.exportKeyingMaterial` is never invoked anywhere in this issue) and expose no
+          `channelBinding` property — channel binding is not a transport concern; see E14-05/E14-06
+          (which receive and hold `PairChallenge`) and E70 for where `cb` actually lives.
         acceptance:
           - A created client socket's enabledProtocols is exactly ["TLSv1.3"]
           - Against a localhost server limited to TLSv1.2, connect fails with SSLHandshakeException and 0 application bytes are sent
@@ -1109,7 +1118,7 @@ epics:
           - The no-listener lint fails on a fixture that calls ServerSocket/bind in a main source set and passes on the current tree
           - "Against a localhost server that issues session tickets, the second connection offers no pre_shared_key or early_data extension and the server reports a full handshake."
           - "A server that does not select ALPN `tandem/1` fails the handshake."
-          - "The client channel binding equals the server exporter value (32 bytes)."
+          - "No public API of this client or its ByteStream session exposes a channel-binding or exporter value (reflection/symbol check)."
         tdd:
           - "unit: sslClientFactory_createdSocket_enabledProtocolsExactlyTls13"
           - "integration: sslClient_localhostServerTls12Only_handshakeFailsNoAppBytes"
@@ -1118,7 +1127,7 @@ epics:
           - "ci: noListenerLint_currentTree_passes"
           - "integration: sslClient_serverIssuesTickets_secondClientHelloHasNoPsk"
           - "integration: sslClient_serverSelectsNoAlpn_handshakeFails"
-          - "integration: sslClient_handshakeComplete_channelBindingEqualsServerExporter"
+          - "unit: byteStreamSession_publicSurface_noChannelBindingOrExporterProperty"
 
       - id: E12-05
         title: "[android] Custom X509TrustManager: pin check against trust store or pairing window"
@@ -1390,20 +1399,25 @@ epics:
           feature code. `FakeTandemSession` (records sent frames, lets tests emit incoming frames
           and states) lives in the core/transport `testFixtures` source set and is the seam every
           feature test uses.
-          Cycle 4: TandemSession exposes `channelBinding: ByteArray` (32 bytes): the TLS exporter in production, a fixed per-pair value from `InMemoryDuplexPipe` and a settable value on `FakeTandemSession`.
+          Cycle 8 (D-67; supersedes the original Cycle 4 `channelBinding` property below):
+          `TandemSession` exposes no `channelBinding` property and no exporter API of any kind —
+          channel binding is not a transport concern. `cb` is the in-band `PairChallenge`/
+          `RotationChallenge` value, generated, sent and held entirely by the pairing (E14-02,
+          E14-05/E14-06) and key-rotation (E70) layers, which read it from an ordinary received
+          `Envelope` like any other CONTROL message, never from this session interface.
         acceptance:
           - No public signature of TandemSession references a javax.net.ssl or org.conscrypt type (reflection test)
           - Two real sessions over an in-memory pipe round-trip a NOTIFY frame byte-identically
           - close() moves state to Disconnected and completes every receive Flow
           - FakeTandemSession records each send(channel, payload) in order and emits injected frames on receive(channel)
-          - "`channelBinding` is 32 bytes and identical on both ends of a session (pipe-backed pair) and settable on FakeTandemSession."
+          - "No public member of TandemSession or FakeTandemSession is named or typed as a channel-binding/exporter value (reflection test)."
         tdd:
           - "unit: tandemSessionInterface_reflectedSignatures_noSslOrConscryptTypes"
           - "unit: byteStreamSession_notifySendOverPipe_peerReceivesIdenticalEnvelope"
           - "unit: byteStreamSession_close_stateDisconnectedAndReceiveCompletes"
           - "unit: fakeTandemSession_sendCalls_recordedInOrder"
           - "unit: fakeTandemSession_injectedIncomingFrame_emittedOnReceiveFlow"
-          - "unit: byteStreamSession_channelBinding_equalOnBothEndsAndThirtyTwoBytes"
+          - "unit: tandemSessionInterface_reflectedSignatures_noChannelBindingOrExporterMember"
 
       - id: E12-12
         title: "[macos] Transport session abstraction exposing channels"
@@ -1421,20 +1435,26 @@ epics:
           `InMemoryConnectionPair` E00-25 in tests), kept transport-agnostic for future USB reuse.
           `FakeTandemSession` lives in TandemTestSupport (also used by the DEBUG-only E00-26
           scenario seeding).
-          Cycle 4: TandemSession exposes `channelBinding: Data` (32 bytes): the TLS exporter in production, a fixed per-pair value from `InMemoryConnectionPair` and a settable value on `FakeTandemSession`.
+          Cycle 8 (D-67; supersedes the original Cycle 4 `channelBinding` property below):
+          TandemSession exposes no `channelBinding` property and no exporter API of any kind
+          (no `sec_protocol_metadata_create_secret` call anywhere in this protocol or its
+          implementations) — channel binding is not a transport concern. `cb` is the in-band
+          `PairChallenge`/`RotationChallenge` value, generated, sent and held entirely by the
+          pairing (E14-02, E14-07) and key-rotation (E70) layers, which read it from an ordinary
+          received `Envelope` like any other CONTROL message, never from this session protocol.
         acceptance:
           - No public requirement of the TandemSession protocol mentions a Network framework type (compile-time check in a test target that does not import Network)
           - Two real sessions over an in-memory pair round-trip a NOTIFY frame byte-identically
           - close() moves state to disconnected and finishes every receive stream
           - FakeTandemSession records each send in order and yields injected frames on receive
-          - "`channelBinding` is 32 bytes and identical on both ends of a session (in-memory pair) and settable on FakeTandemSession."
+          - "No public requirement of TandemSession or member of FakeTandemSession is named or typed as a channel-binding/exporter value (compile-time check)."
         tdd:
           - "unit: tandemSessionProtocol_testTargetWithoutNetworkImport_compilesAgainstIt"
           - "unit: byteStreamSession_notifySendOverPair_peerReceivesIdenticalEnvelope"
           - "unit: byteStreamSession_close_stateDisconnectedAndReceiveFinishes"
           - "unit: fakeTandemSession_sendCalls_recordedInOrder"
           - "unit: fakeTandemSession_injectedIncomingFrame_yieldedOnReceiveStream"
-          - "unit: byteStreamSession_channelBinding_equalOnBothEndsAndThirtyTwoBytes"
+          - "unit: tandemSessionProtocol_publicRequirements_noChannelBindingOrExporterMember"
 
       - id: E12-13
         title: "[cross] Integration test: JVM client against macOS NWListener server"
@@ -1553,6 +1573,41 @@ epics:
           - "integration: listener_tenIdleLoopbackConnections_ninthAndTenthClosedOnAccept"
         notes: |
           Added in review cycle 4. Attacked end to end by E15-20. E03-01 finding (d) confirms the Network.framework hooks; if the listener cannot cancel before TLS, the cap is enforced at the first verify-block call instead and E01-22 is updated.
+
+      - id: E12-19
+        title: "[macos] Control-session registry: one Ready session per peer SPKI, newer replaces older"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-3.1]
+        use_cases: [AC-04, AC-13]
+        invariants: [3, 5]
+        depends_on: [E12-09, E12-14, E01-22]
+        description: |
+          Added in review cycle 8 (adversarial verifier on E01-22, L5: the SPEC.md rule "1 control
+          session per peer SPKI; a newer Ready session replaces — closes — the older one" had no
+          implementing issue). A `ControlSessionRegistry`, keyed strictly by the handshake SPKI
+          fingerprint (invariant 3, never an IP/deviceId), tracked by E12-09's connection state
+          machine: when a second connection for the same peer SPKI reaches Ready, the registry closes
+          the previously-registered Ready session for that same SPKI with `LIMIT_EXCEEDED` (E01-05
+          row 9) before registering the new one. A peer whose SPKI has no existing Ready entry simply
+          registers. Registration/replacement is a pure function of (current registry, new Ready
+          session's SPKI) so it is testable without a real socket.
+        acceptance:
+          - "A first connection for a given peer SPKI reaching Ready registers with no other session closed."
+          - "A second connection for the same peer SPKI reaching Ready closes the first (already-registered) session with LIMIT_EXCEEDED and registers the second as that SPKI's current session."
+          - "Two connections for two different peer SPKIs both remain registered and open (no cross-peer interference)."
+          - "The registry is keyed only by SPKI fingerprint; no lookup or registration path accepts an IP address, hostname, or deviceId (invariant 3)."
+        tdd:
+          - "unit: sessionRegistry_firstReadyForSpki_registeredNoneClosed"
+          - "unit: sessionRegistry_secondReadyForSameSpki_firstClosedLimitExceeded"
+          - "unit: sessionRegistry_readyForDifferentSpkis_bothRemainRegistered"
+          - "unit: sessionRegistry_lookupSignature_takesOnlySpkiFingerprint"
+        notes: |
+          Added in review cycle 8. Closes the gap the adversarial verifier found in E01-22/E01-05:
+          "Control sessions per peer SPKI" had a stated rule but no owning issue anywhere in the
+          backlog (`grep` across `docs/planning/backlog/*.yaml` found none before this issue).
 
   - id: E13
     title: Trust store and settings storage
@@ -1857,7 +1912,8 @@ epics:
       Implements F-2.1 QR pairing end to end and F-2.3 unpair/revoke: Mac-side QR generation and
       pairing-window state machine (one in-flight candidate, 10 s PairRequest deadline), Android-side
       scanner (decoder chosen by spike E14-23) and pairing state machine, constant-time proof
-      verification bound to the handshake certificate and the session channel binding, a 6-digit
+      verification bound to the handshake certificate and the in-band `PairChallenge` value (`cb`,
+      D-67 — not a TLS/session property), a 6-digit
       confirmation code with mutual confirmation (Mac defaults to Don't Pair; phone commits only after
       "Codes match", AC-20), wire PairRejected collapsed to REJECTED_BY_OWNER / PAIRING_UNAVAILABLE,
       vector-tested DisplayStringSanitizer on both platforms, and unpair/revoke with per-peer data purge
@@ -1938,10 +1994,33 @@ epics:
           old one. Conforms to the `PairingWindowState` protocol used by E12-02.
           The pairing window takes an injected `Clock` (E00-24) so the 120 s expiry is tested in
           virtual time with `ManualTestClock`.
+          Cycle 8 (D-67): once a candidate connection completes its `VersionHello` exchange, this
+          state machine generates a fresh 32-byte CSPRNG `challenge`, sends it as `PairChallenge` on
+          that connection (E01-11), and holds it for the lifetime of that one candidate — `cb` for
+          this pairing attempt is exactly this value; it is never read from or exposed by the
+          transport session (E12-12 exposes no `channelBinding` property). E14-07 reads this stored
+          challenge to verify the resulting `PairRequest.proof`.
           Cycle 4: the window tracks at most one in-flight pairing candidate (`candidateInFlight`, read by E12-02)
           and frees the slot when that connection closes. A candidate that sends no PairRequest within 10 s
           (E01-22) is closed and burns one attempt. While the window is open the Mac neither starts nor accepts a
           key rotation (E70-03 / E70-05).
+          Cycle 8 (adversarial verifier, D-69/D-70/D-73): a `Heartbeat` received on a pairing-candidate
+          connection, at any point including while a confirmation dialog is pending, is never treated as a
+          wrong payload and never decrements attemptsRemaining (D-69). Any candidate connection that closes
+          before `PairAccepted` for *any* reason — not only the 10 s silent-candidate case above — decrements
+          attemptsRemaining by exactly 1 and frees the candidate slot (D-70): this includes a candidate that
+          disconnects before completing its own `VersionHello` exchange, one that disconnects after
+          `PairChallenge` but before ever sending a `PairRequest`, and one that disconnects while its
+          confirmation dialog (E14-08) is still pending — in every one of these cases the *window itself*
+          stays `Open` with the reduced `attemptsRemaining` (unless that was the 3rd, which closes it per the
+          existing rule above), it is only the one candidate connection/slot that closes. An **owner-initiated**
+          decline (Deny) or dismiss of a confirmation dialog whose connection is still open closes the
+          *entire* window (`Closed(declined)`, secret destroyed) — the same outcome as a successful pairing,
+          not a mere attempt decrement (D-73). These two cases are mutually exclusive: if the candidate
+          connection has already closed before the dialog is resolved, that closure already ran the D-70
+          attempt-burn above (window stays `Open` unless attempts are now exhausted), and the dialog's own
+          auto-dismissal — along with any subsequent, now-stale Accept/Deny click on it — commits nothing and
+          decrements nothing a second time (E14-08).
         acceptance:
           - Opening yields attemptsRemaining=3 and expiresAt = now + 120 s
           - Each failed attempt decrements attemptsRemaining by exactly 1
@@ -1952,6 +2031,10 @@ epics:
           - Explicit cancel yields Closed(cancelled)
           - "While a candidate is in flight `candidateInFlight` is true, so a second unknown certificate is rejected by E12-02 without decrementing attemptsRemaining."
           - "A candidate that sends no PairRequest within 10 s of virtual time is closed with PAIRING_FAILED and burns exactly one attempt."
+          - "A Heartbeat received on a pairing-candidate connection, including while a confirmation dialog is pending, is accepted and never decrements attemptsRemaining (D-69)."
+          - "A candidate connection that disconnects before its own VersionHello exchange completes, or after PairChallenge but before any PairRequest, decrements attemptsRemaining by exactly 1 and frees candidateInFlight (D-70)."
+          - "A candidate connection that disconnects while its confirmation dialog is pending decrements attemptsRemaining by exactly 1 and leaves the window Open (not Closed) with the reduced budget, unless that was the 3rd attempt (D-70)."
+          - "An owner-initiated decline (Deny) or dismiss of a confirmation dialog whose connection is still open closes the entire window (Closed(declined)) with the secret destroyed, rather than only decrementing attemptsRemaining (D-73); this is distinct from a connection dropping first, which is the D-70 attempt-burn case above."
         tdd:
           - "unit: pairingWindow_open_threeAttemptsAndExpiresIn120s"
           - "unit: pairingWindow_failedAttempt_attemptsRemainingDecrementsByOne"
@@ -1964,6 +2047,11 @@ epics:
           - "unit: pairingWindow_explicitCancel_closedCancelled"
           - "unit: pairingWindow_candidateInFlight_secondCandidateRejectedNoAttemptBurned"
           - "unit: pairingWindow_candidateSilentFor10s_closedAndOneAttemptBurned"
+          - "unit: pairingCandidate_heartbeatWhileConfirmationPending_notAPairingFailure"
+          - "unit: pairingWindow_candidateClosesBeforeHellos_burnsOneAttempt"
+          - "unit: pairingWindow_peerClosesAfterChallenge_burnsOneAttempt"
+          - "unit: pairingWindow_candidateDropsWhileDialogPending_attemptBurnedWindowStaysOpen"
+          - "unit: pairingWindow_ownerDeclinesConfirmation_closedDeclinedSecretDestroyed"
 
       - id: E14-03
         title: "[android] QR payload parsing and validation"
@@ -2035,19 +2123,28 @@ epics:
         description: |
           States: Idle -> Connecting -> AwaitingProofSent -> AwaitingAccept -> AwaitingUserConfirm -> Paired |
           Rejected | Failed(reason). Connecting dials the QR addresses in order with the
-          per-address connect timeout from the SPEC pairing section (E01-02). On TLS ready,
-          computes and sends PairRequest{deviceInfo, proof} (proof from E14-06), then waits up to
-          120 s for PairAccepted or PairRejected.
+          per-address connect timeout from the SPEC pairing section (E01-02, D-68: 3 s per address).
+          On TLS ready and after both VersionHellos, the machine receives `PairChallenge{challenge}`
+          (E01-11) and holds its 32-byte `challenge` field as `cb` for this attempt — this state
+          machine, not the transport session, is what carries `cb` from here on — then computes and
+          sends PairRequest{deviceInfo, proof} (proof from E14-06), then waits up to
+          120 s for PairAccepted or PairRejected (E01-02 §Frame order step 6).
           The pairing state machine takes an injected `Clock` and dispatcher (E00-18) so timeouts
           run in virtual time, and a feature-local `PairingConnector` returning a
           `FakeTandemSession` (E12-11 testFixtures) in tests.
           Cycle 4 (evil-QR defence, AC-20): after PairAccepted the machine enters `AwaitingUserConfirm(code,
-          macName)` with the E01-02 confirmation code computed by the E10-12 helper from the session
-          `channelBinding` and the sanitized QR name. The Mac pin is committed only when the owner taps "Codes
-          match"; Cancel or 120 s without a tap sends Revoke over the session, closes it and commits nothing.
+          macName)` with the E01-02 confirmation code computed by the E10-12 helper from the `cb` this
+          attempt received in `PairChallenge` (above) and the sanitized QR name. The Mac pin is
+          committed only when the owner taps "Codes match"; Cancel or 120 s without a tap sends Revoke
+          over the session, closes it and commits nothing.
           If the owner walks away the Mac keeps a record the phone never uses; it is listed with its last-seen
           time and can be revoked (E14-14). The code is already shown from AwaitingAccept on (it only
           needs the secret, both SPKIs and cb), so the owner can compare it before clicking Pair on the Mac.
+          Cycle 8 (adversarial verifier / D-67 cleanup): `cb` was originally specified as
+          `TandemSession.channelBinding`, a property read from the TLS session (RFC 9266 exporter).
+          Per D-67 there is no exporter and `TandemSession` exposes no `channelBinding` property at
+          all (E12-11); `cb` is exclusively the `PairChallenge.challenge` value this state machine
+          itself received and stored, above.
         acceptance:
           - Every documented transition is exercised by a test
           - A timeout on the first QR address dials the next one; timeouts on all addresses yield Failed(AllAddressesUnreachable)
@@ -2080,27 +2177,30 @@ epics:
         invariants: [6]
         depends_on: [E10-12, E10-03, E10-15, E14-05, E12-11, E03-04]
         description: |
-          proof = HMAC-SHA256 over the E01-02 transcript (both SPKI DERs + session channel binding) via the
+          proof = HMAC-SHA256 over the E01-02 transcript (both SPKI DERs + `cb`) via the
           core/crypto helper (E10-12); macSpki comes from the scanned invite, phoneSpki from the
-          local identity (E10-03). Unit-tested with `SoftwareIdentityKeyStore` (E10-15) as the
+          local identity (E10-03), `cb` from the `PairChallenge.challenge` this pairing attempt
+          received and stored (E14-05) — nothing here reads a session-level channel-binding property.
+          Unit-tested with `SoftwareIdentityKeyStore` (E10-15) as the
           local identity. "No HMAC outside core/crypto" is enforced by E10-14.
-          Cycle 4: `cb` is `TandemSession.channelBinding` (E12-11); DeviceInfo carries only displayName, model and appVersion (E01-11).
         acceptance:
-          - PairRequest.proof equals pairingProof(invite.secret, macSpkiDer, localPhoneSpkiDer, session.channelBinding), macSpkiDer being the handshake SPKI that matched invite.fp, from the E10-12 helper
+          - "PairRequest.proof equals pairingProof(invite.secret, macSpkiDer, localPhoneSpkiDer, cb), macSpkiDer being the handshake SPKI that matched invite.fp and cb being the PairChallenge value this attempt received (E14-05), from the E10-12 helper"
           - The phoneSpki input is the SPKI fingerprint of the local identity cert (a different local key changes the proof)
           - The macSpki input is the invite fp (a different invite fp changes the proof)
-          - "A different session channel binding changes the proof."
+          - "A different cb (a different PairChallenge value) changes the proof."
           - "PairRequest.deviceInfo contains only displayName, model and appVersion (no ANDROID_ID, serial, IMEI or account)."
         tdd:
           - "unit: pairRequest_proofField_equalsCoreCryptoHelperOutput"
           - "unit: pairRequest_differentLocalIdentity_proofChanges"
           - "unit: pairRequest_differentInviteFp_proofChanges"
-          - "unit: pairRequest_differentChannelBinding_proofChanges"
+          - "unit: pairRequest_differentPairChallenge_proofChanges"
           - "unit: pairRequest_deviceInfo_containsNoHardwareIdentifiers"
         notes: |
-          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
-          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
-          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and this issue changes before Phase 1 starts.
+          Cycle 5: depended on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`).
+          Cycle 8 (D-67, D-71): `cb` is the in-band `PairChallenge` value unconditionally, on every platform
+          and API level — not a fallback, and never read from `TandemSession` (E12-11 exposes no
+          `channelBinding` property). This issue's original "Cycle 4" text describing `cb` as
+          `TandemSession.channelBinding` is superseded.
 
       - id: E14-07
         title: "[macos] Constant-time proof verification bound to handshake cert"
@@ -2118,25 +2218,32 @@ epics:
           presented in this TLS handshake, never from PairRequest.deviceInfo, and compare with the
           E10-11 constant-time helper (injected as a `ByteComparator` so a spy can count calls).
           Adversarial replay scenarios are E15-09 (depends on this issue).
-          Cycle 4: recompute with the channel binding of this TLS session (E12-12 `channelBinding`), so a PairRequest captured on one session and replayed on another fails.
+          Cycle 8 (D-67, superseding the original Cycle 4 "session channel binding" text): recompute
+          using the 32-byte `challenge` the Mac itself generated and sent as `PairChallenge` for this
+          candidate connection (held by E14-02's pairing-window/candidate state), so a `PairRequest`
+          computed against one candidate's challenge and replayed against another candidate — or on a
+          later connection after this one closed — fails. Nothing here reads a channel-binding value
+          from the transport session; `TandemSession`/`FakeTandemSession` (E12-12) expose no such
+          property.
         acceptance:
           - A proof valid for the handshake cert's SPKI is accepted
           - A proof computed for a different phone key, while deviceInfo claims that key, is rejected
           - A proof computed with a wrong secret is rejected
           - Each verification calls the constant-time comparator exactly once
           - A PairRequest on a `.trusted` (already paired) connection is rejected without computing a proof
-          - "A proof valid for the same keys and secret but computed with another session channel binding is rejected."
+          - "A proof valid for the same keys and secret but computed with a different candidate's PairChallenge value is rejected."
         tdd:
           - "unit: verifyProof_validForHandshakeCertSpki_accepted"
           - "unit: verifyProof_proofForDeviceInfoClaimedKey_rejected"
           - "unit: verifyProof_wrongSecret_rejected"
           - "unit: verifyProof_comparison_invokesConstantTimeComparatorOnce"
           - "unit: verifyProof_trustedConnection_rejectedWithoutComputing"
-          - "unit: verifyProof_otherSessionChannelBinding_rejected"
+          - "unit: verifyProof_otherCandidatesPairChallenge_rejected"
         notes: |
-          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
-          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
-          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and this issue changes before Phase 1 starts.
+          Cycle 5: depended on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`).
+          Cycle 8 (D-67, D-71): `cb` is the in-band `PairChallenge` value unconditionally on every platform
+          and API level, generated and held by this candidate connection's own pairing-window state
+          (E14-02) — not a fallback, and never read from `TandemSession`.
 
       - id: E14-08
         title: "[macos] Pairing confirmation dialog and PairAccepted/reject"
@@ -2151,29 +2258,44 @@ epics:
         description: |
           On proof success, show "Pair <deviceInfo.name>?" with accept/deny; on accept, send
           PairAccepted and commit the phone's fingerprint (from the handshake cert) to the trust
-          store (E13-06); on deny, send PairRejected, close the connection and burn an attempt; on
-          dismiss, close and burn an attempt. `PairConfirmationViewModel` is unit-tested with
-          `FakeTandemSession` (E12-12) and the trust store over `InMemoryKeychainStore`.
+          store (E13-06); on deny, send PairRejected and close the connection; on dismiss, close the
+          connection. `PairConfirmationViewModel` is unit-tested with `FakeTandemSession` (E12-12) and
+          the trust store over `InMemoryKeychainStore`.
           Cycle 4: the dialog shows the sanitized (E14-22) displayName in the title, and the sanitized model plus
-          the E01-02 confirmation code (E10-13 helper, this session's channel binding) in the body, e.g.
+          the E01-02 confirmation code (E10-13 helper, fed the candidate's `PairChallenge` value held by
+          E14-02 — not read from the session, D-67) in the body, e.g.
           "Google Pixel 8 · Make sure your phone shows 123 456". The default button and Escape map to Don't Pair;
           Pair needs an explicit click. Deny sends PairRejected(REJECTED_BY_OWNER).
+          Cycle 8 (adversarial verifier, M2/M3/N4, D-70/D-73): Deny and an **owner-initiated** Dismiss
+          (the owner closes the dialog window/button while its connection is still open) both close the
+          *entire* pairing window (secret destroyed, E14-02 `Closed(declined)`), not merely decrement
+          attemptsRemaining — the owner has made a deliberate terminal decision, the same as declining
+          reveals the shown device is not theirs. This is distinct from the candidate connection closing
+          on its own first (peer disconnect, transport error, or the window/attempt budget expiring) while
+          this dialog is still showing: that case already ran the D-70 attempt-burn in E14-02 (the window
+          stays `Open` with the reduced budget, unless attempts are now exhausted) before this view model
+          ever gets a chance to act, so the view model MUST instead dismiss the dialog itself as a no-op —
+          MUST NOT send PairAccepted, MUST NOT commit a trust record, and MUST NOT decrement
+          attemptsRemaining a second time — even if the owner then clicks Pair or Deny on the now-stale
+          dialog.
         acceptance:
           - For deviceInfo.name "Pixel 8", the dialog title is exactly "Pair Pixel 8?"
           - Accept sends PairAccepted and commits exactly one record with the handshake SPKI
-          - Deny sends PairRejected, closes the connection, commits nothing and decrements attemptsRemaining by 1 (UC-03 alternate)
-          - Dismiss closes the connection, commits nothing and decrements attemptsRemaining by 1
-          - "The dialog body shows the model and the 6-digit code computed from this session channel binding."
+          - "Deny sends PairRejected, closes the connection, commits nothing and closes the entire pairing window (Closed(declined), secret destroyed) rather than only decrementing attemptsRemaining (UC-03 alternate, D-73)."
+          - "An owner-initiated Dismiss, while the connection is still open, closes the connection, commits nothing and closes the entire pairing window the same way as Deny (D-73)."
+          - "The dialog body shows the model and the 6-digit code computed from this candidate's PairChallenge value (held by E14-02, not the session)."
           - "The default button and the Escape key both map to Don't Pair."
           - "A displayName containing a bidi override or control characters is displayed sanitized, and a name over 64 characters is truncated with an ellipsis."
+          - "If the candidate connection closes on its own (not an owner action) while the dialog is pending, that close already burned one attempt and left the window Open (D-70, E14-02); the dialog is dismissed automatically as a no-op, and a subsequent Pair or Deny click sends nothing and commits/decrements nothing further."
         tdd:
           - "unit: pairConfirmation_phoneNamePixel8_titleIsPairPixel8Question"
           - "unit: pairConfirmation_accept_sendsPairAcceptedAndCommitsHandshakeSpki"
-          - "unit: pairConfirmation_deny_sendsPairRejectedClosesAndBurnsAttempt"
-          - "unit: pairConfirmation_dismissed_closesWithoutTrustAndBurnsAttempt"
+          - "unit: pairConfirmation_deny_sendsPairRejectedAndClosesEntireWindow"
+          - "unit: pairConfirmation_ownerInitiatedDismissConnectionStillOpen_closesEntireWindow"
           - "unit: pairConfirmation_body_showsModelAndSixDigitCode"
           - "unit: pairConfirmation_defaultAndEscapeAction_isDontPair"
           - "unit: pairConfirmation_nameWithBidiOverride_displayedSanitized"
+          - "unit: pairConfirmation_connectionClosedBeforePair_commitsNothing"
 
       - id: E14-09
         title: "[macos] Failure handling: any pairing failure closes connection and burns attempt"
@@ -2191,12 +2313,18 @@ epics:
           connection with the E01-05 `PAIRING_FAILED` close code and decrements attemptsRemaining
           exactly once. Mid-flight expiry is driven with `ManualTestClock` (E00-24);
           connections are `FakeTandemSession` (E12-12).
+          Cycle 8 (adversarial verifier, M6, D-72): this issue's failure paths (bad proof, malformed
+          PairRequest, mid-flight expiry) all send `PairRejected(PAIRING_UNAVAILABLE)` before closing.
+          The `PairRequest` 10 s deadline (local reason `TIMEOUT`) is explicitly **not** one of this
+          issue's failure paths and sends no `PairRejected` at all — no `PairRequest` was ever received
+          for the Mac to reject — that case is owned by E14-02's silent-candidate handling, not this
+          issue; see SPEC.md §2 `PairRejected` wire collapse and §5 Local reason vs. wire code.
         acceptance:
           - Bad proof closes with pairing-failure and decrements attemptsRemaining by exactly 1
           - A malformed PairRequest closes with pairing-failure and decrements by exactly 1
           - Window expiry while the confirmation is pending closes the connection and commits no trust
           - A bad proof followed by the connection dropping decrements exactly once in total
-          - "Every failure path sends PairRejected(PAIRING_UNAVAILABLE), never a detailed reason, before closing; only an owner deny sends REJECTED_BY_OWNER."
+          - "Every failure path this issue covers (bad proof, malformed PairRequest, mid-flight expiry) sends PairRejected(PAIRING_UNAVAILABLE), never a detailed reason, before closing; only an owner deny sends REJECTED_BY_OWNER. The PairRequest-deadline TIMEOUT case sends no PairRejected at all and is E14-02's concern, not this issue's (D-72)."
         tdd:
           - "unit: pairingFailure_badProof_closesAndDecrementsByOne"
           - "unit: pairingFailure_malformedPairRequest_closesAndDecrementsByOne"

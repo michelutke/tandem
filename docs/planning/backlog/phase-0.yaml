@@ -1025,7 +1025,7 @@ epics:
       (E10-E14) implement against and E15 runs in CI. Nothing here writes Kotlin or Swift codec
       implementations; it defines what those implementations must do and proves it with vectors.
     scope:
-      - "SPEC.md sections: handshake/TLS profile (AEAD suites, ALPN tandem/1, CertificateVerify + pin, RFC 9266 channel binding), pairing (length-prefixed channel-bound transcript, confirmation code, mutual confirmation, collapsed PairRejected), framing+envelope, channels+flow control, errors+close codes (incl. PROTOCOL_TIMEOUT, LIMIT_EXCEEDED), versioning/capability negotiation, heartbeat, discovery TXT, media ticket, timeouts/connection limits/resource caps (E01-22), untrusted peer strings (E01-23)."
+      - "SPEC.md sections: handshake/TLS profile (AEAD suites, ALPN tandem/1, CertificateVerify + pin, in-band-challenge channel binding per D-67), pairing (length-prefixed channel-bound transcript, confirmation code, mutual confirmation, collapsed PairRejected), framing+envelope, channels+flow control, errors+close codes (incl. PROTOCOL_TIMEOUT, LIMIT_EXCEEDED), versioning/capability negotiation, heartbeat, discovery TXT, media ticket, timeouts/connection limits/resource caps (E01-22), untrusted peer strings (E01-23)."
       - "`protocol/proto/tandem/v1/{envelope,pairing,control,status}.proto` for phase-0 scope."
       - "A written placeholder plan for later-phase proto domains (notify, clipboard, files, photos, sms, contacts, calls, media, input, rotation, status extension) so E01 does not block on features not yet designed."
       - "`buf.yaml` lint configuration and `buf breaking` baseline against `main`."
@@ -1041,7 +1041,7 @@ epics:
         from the relevant `.proto` file's comments.
       - "All six vector categories (SPKI fingerprint, pairing proof + confirmation code, frames, rotating ID, QR payload, display strings) exist under protocol/vectors/, are regenerable from the reference generator, and have been reviewed (PR approval recorded)."
       - "The E01-22 section states every timeout, connection cap and feature cap as a MUST with its close code or typed error and implementing issue."
-      - "The channel-binding derivation in E01-01 / E01-02 matches the E03-04 outcome (exporter or in-band challenge fallback)."
+      - "The channel-binding derivation in E01-01 / E01-02 matches the E03-04 outcome and D-67: the in-band challenge (`PairChallenge`/`RotationChallenge`) unconditionally, on every platform and API level — no exporter code path."
     issues:
       - id: E01-01
         title: "[docs] SPEC.md section: handshake & TLS profile"
@@ -1073,12 +1073,12 @@ epics:
             handshake fails before the pin compare. The pin check never replaces the TLS stack's
             CertificateVerify validation: presenting a pinned certificate without its private key MUST fail
             (proved on both stacks by E03-01 / E03-03, attacked by E15-10).
-          - Channel binding: after the handshake each side derives
-            `cb = TLS-Exporter("EXPORTER-Channel-Binding", context = empty, 32)` (RFC 9266, RFC 8446 §7.5) and the
-            transport session exposes it (`TandemSession.channelBinding`, E12-11 / E12-12). The pairing proof and
-            confirmation code (E01-02) and KeyRotation signatures (E70-01) are bound to it. Platform APIs:
-            Network.framework `sec_protocol_metadata_create_secret`, Android `android.net.ssl.SSLSockets.exportKeyingMaterial`
-            (API 29), JVM harness Conscrypt `exportKeyingMaterial`; confirmed by E03-01 / E03-03 / E03-04.
+          - Channel binding (superseded by D-67, cycle 7 — see notes below): after the handshake and hello
+            exchange, the verifying side sends a fresh 32-byte CSPRNG challenge in-band on that session's
+            CONTROL channel (`PairChallenge` for pairing, `RotationChallenge` for key rotation) and `cb` is
+            exactly those 32 bytes. The pairing proof and confirmation code (E01-02) and KeyRotation
+            signatures (E70-01) are bound to it. There is no RFC 9266 TLS-exporter code path in this design
+            (D-67); confirmed equivalent under mutual pinning by E03-04.
           - Handshake / hello deadlines and connection caps live in the E01-22 section (TLS 10 s, VersionHello 5 s).
         acceptance:
           - "Section contains these MUST statements: both sides MUST negotiate TLS 1.3 only and MUST reject a TLS 1.2 or lower ClientHello/ServerHello; the server MUST NOT issue usable session tickets and both sides MUST NOT resume a session or send/accept 0-RTT early data; the Mac server MUST require a client certificate (no cert = handshake failure)."
@@ -1087,16 +1087,21 @@ epics:
           - "Section states that every handshake failure MUST close the connection with no plaintext or reduced-security retry and MUST surface a visible error mapped to a close code from E01-05 (invariant 5)."
           - "Section states the cycle-4 TLS profile MUSTs: TLS 1.3 AEAD suites only, ecdsa_secp256r1_sha256 certificate signatures only, no PSK resumption / early data / post-handshake auth, ALPN exactly `tandem/1`, no SNI, and a leaf-only check requiring a 91-byte uncompressed P-256 SPKI while validity dates, names and key usage are ignored."
           - "Section states the pin check is in addition to, never instead of, the TLS stack CertificateVerify validation, and that a peer presenting a pinned certificate without the matching private key MUST fail the handshake."
-          - "Section defines the channel-binding value `cb` (RFC 9266 exporter label `EXPORTER-Channel-Binding`, empty context, 32 bytes), requires both transport sessions to expose it, and names its consumers (E01-02 pairing proof and confirmation code, E70-01 KeyRotation)."
+          - "Section defines the channel-binding value `cb` (32-byte in-band CSPRNG challenge, `PairChallenge`/`RotationChallenge`, D-67), states that no transport session exposes or derives it (`TandemSession` carries frames only, D-67), and names its consumers (E01-02 pairing proof and confirmation code, E70-01 KeyRotation)."
         tdd: []
         notes: |
-          Cycle 4 decision: TLS-exporter channel binding was chosen over an in-band challenge because it binds
-          proofs and signatures to the exact TLS session with no extra round trip. Fallback, only if a platform
-          spike (E03-01 / E03-03 / E03-04) cannot export keying material: the verifier sends a 32-byte CSPRNG
-          challenge in-band (`PairChallenge` from the Mac before PairRequest; `RotationChallenge` from the
-          rotation receiver) and E01-02 / E70-01 use it in place of `cb`. Weaker than the exporter (binds to
-          the nonce exchange, not the TLS keys) but acceptable because both ends are pinned. Cycle 5: this
-          issue depends on E03-04, which records which variant applies.
+          Cycle 4 decision (superseded, see cycle 7/8 below): TLS-exporter channel binding was originally
+          chosen over an in-band challenge because it binds proofs and signatures to the exact TLS session
+          with no extra round trip, with the in-band challenge (`PairChallenge`/`RotationChallenge`) recorded
+          only as a fallback if a platform spike could not export keying material.
+          Cycle 7 (D-67, `docs/spikes/channel-binding.md`, E03-04): the in-band challenge is used
+          unconditionally on every platform and API level instead — there is no exporter code path and no
+          `Build.VERSION.SDK_INT` branch. The exporter stays documented in the spike as the stronger
+          primitive to revisit only if pinning assumptions change.
+          Cycle 8 (adversarial verifier, D-71): evil-QR/relay detection under the D-67 design comes from the
+          SPKI pair in the proof transcript plus `CertificateVerify`, not from `cb` differing across a relay
+          — an attacker relaying between two honest parties can forward the same challenge to both sessions,
+          so `cb` alone does not distinguish a relay. See SPEC.md §1 Channel binding.
       - id: E01-02
         title: "[docs] SPEC.md section: pairing"
         type: doc
@@ -1151,9 +1156,15 @@ epics:
         tdd: []
         notes: |
           Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`).
-          Cycle 4 fallback: if channel binding is infeasible on a platform (E03-01 / E03-03 / E03-04), `cb` is
-          replaced by a 32-byte challenge the Mac sends in a `PairChallenge` CONTROL message before PairRequest;
-          E01-11, E01-18, E10-12 / E10-13 and E14-06 / E14-07 change accordingly before Phase 1 starts.
+          Cycle 4 fallback (superseded, see cycle 7 below): if channel binding was infeasible on a platform,
+          `cb` would be replaced by a 32-byte challenge the Mac sends in a `PairChallenge` CONTROL message
+          before PairRequest.
+          Cycle 7 (D-67): the `PairChallenge`-based in-band challenge above is not a fallback — it is the
+          only channel-binding mechanism, used unconditionally on every platform and API level. E01-11,
+          E01-18, E10-12/E10-13 and E14-06/E14-07 all consume `cb = PairChallenge.challenge` directly.
+          Cycle 8 (adversarial verifier, D-71): the confirmation-code bullet above relies on the
+          `macSpkiDer`/`phoneSpkiDer` pair for evil-QR/relay detection, not on `cb` differing across a
+          relay — see SPEC.md §2 Confirmation code and D-71.
       - id: E01-03
         title: "[docs] SPEC.md section: framing + envelope"
         type: doc
@@ -1224,8 +1235,12 @@ epics:
           a local diagnostic reason only (`TOO_LARGE`, `BAD_LENGTH`, `TRUNCATED`, `DECODE_FAILED`,
           `UNKNOWN_CHANNEL`, `UNKNOWN_PAYLOAD_TYPE`), never sent on the wire and never a separate
           close code. Pairing sub-cases likewise share `PAIRING_FAILED` (local reasons `EXPIRED`,
-          `ATTEMPTS_EXHAUSTED`, `BAD_PROOF`, `REJECTED_BY_OWNER`), and ticket sub-cases share
+          `BAD_PROOF`, `REJECTED_BY_OWNER`), and ticket sub-cases share
           `TICKET_REJECTED`.
+          Cycle 8 (adversarial verifier, L-a): `attemptsExhausted` is a local pairing-window state
+          (E14-02), not a `PAIRING_FAILED` local reason — no connection is ever closed for that
+          reason, since a 4th candidate is refused in the verify callback before it ever becomes a
+          pairing candidate (SPEC.md §2 Pairing window).
           Cycle 4: adds `PROTOCOL_TIMEOUT` (TLS / VersionHello / MediaHello deadlines, E01-22; the
           PairRequest 10 s deadline on a pairing-candidate connection closes with `PAIRING_FAILED`
           / `TIMEOUT` instead, burning one pairing attempt like any other failed attempt, per
@@ -1233,7 +1248,7 @@ epics:
           local pairing reasons gain `TIMEOUT` and `MALFORMED`. On the wire, `PairRejected.reason`
           is collapsed per E01-02.
         acceptance:
-          - "Section has a table with, per close code, a stable numeric ID, a name and the required user-visible behavior, covering at least: version mismatch, pin mismatch, malformed frame (oversize/truncated/bad length/decode failure/unknown channel/unknown payload type), credit violation, pairing failure (expired, attempts exhausted, bad proof, rejected by owner), media ticket rejected (missing/reused/expired/other session), revoked peer."
+          - "Section has a table with, per close code, a stable numeric ID, a name and the required user-visible behavior, covering at least: version mismatch, pin mismatch, malformed frame (oversize/truncated/bad length/decode failure/unknown channel/unknown payload type), credit violation, pairing failure (expired, bad proof, rejected by owner), media ticket rejected (missing/reused/expired/other session), revoked peer."
           - "Section contains these MUST statements: a close code MUST NOT trigger a plaintext, reduced-security or unauthenticated retry (invariant 2, stated in the section intro); an implementation receiving an unknown close code MUST treat it as fatal and show a generic error; security-relevant closes (pin mismatch, version mismatch, revoked) MUST be shown in UI, not only logged (UC-05)."
           - "Numeric IDs are frozen: the section states IDs MUST NOT be reused or renumbered once released."
           - "The close-code table includes `PROTOCOL_TIMEOUT` and `LIMIT_EXCEEDED` with stable numeric IDs and their user-visible behaviour (generic connection error, never presented as a pin or version error)."
@@ -1371,7 +1386,7 @@ epics:
           - "ci: protoSpecAnchorCheck_envelopeProtoAnchors_allResolveInSpec"
         notes: ""
       - id: E01-11
-        title: "[protocol] pairing.proto: PairRequest / PairAccepted / PairRejected / Revoke"
+        title: "[protocol] pairing.proto: PairChallenge / PairRequest / PairAccepted / PairRejected / Revoke"
         type: task
         platforms: [protocol]
         priority: P0
@@ -1381,8 +1396,10 @@ epics:
         invariants: [3, 6]
         depends_on: [E01-02, E03-04]
         description: |
-          `protocol/proto/tandem/v1/pairing.proto` defining `PairRequest { deviceInfo, proof }`,
-          `PairAccepted`, `PairRejected { reason }` (UC-03 alternate: owner declines on the Mac;
+          `protocol/proto/tandem/v1/pairing.proto` defining `PairChallenge { challenge }` (D-67 — the
+          Mac's 32-byte CSPRNG in-band channel-binding challenge, sent unconditionally on every
+          pairing-candidate connection per SPEC.md §1/§2, not a fallback), `PairRequest { deviceInfo,
+          proof }`, `PairAccepted`, `PairRejected { reason }` (UC-03 alternate: owner declines on the Mac;
           reason enum `REJECTED_BY_OWNER` or `PAIRING_UNAVAILABLE` (collapsed in cycle 4), summarising
           the `PAIRING_FAILED` local reasons of E01-05; sent immediately before the
           `PAIRING_FAILED` close) and `Revoke` messages matching F-2.1/F-2.3 field-for-field. `KeyRotation`
@@ -1395,6 +1412,7 @@ epics:
           - "`buf lint` passes."
           - Message field names and types match the SPEC.md pairing section (E01-02) exactly;
             reviewed side by side in the PR description.
+          - "`PairChallenge` declares exactly one field, `challenge` (bytes, documented as exactly 32 bytes)."
           - "`PairRequest` carries no public key or fingerprint field (the phone key comes only from the TLS handshake, per E01-02)."
           - Generated Kotlin and Swift types compile with no manual edits.
           - "`PairRejected.reason` is an enum with exactly `UNSPECIFIED = 0` (fatal for receivers), `REJECTED_BY_OWNER` and `PAIRING_UNAVAILABLE`; the E01-05 local reasons never appear on the wire (cycle 4 oracle collapse)."
@@ -1404,13 +1422,14 @@ epics:
           - "ci: pairingProtoScan_pairRejectedReasonEnum_exactlyOwnerRejectedOrUnavailable"
           - "ci: pairingProto_codegen_kotlinAndSwiftTypesCompile"
           - "ci: protoSpecAnchorCheck_pairingProtoAnchors_allResolveInSpec"
+          - "ci: pairingProtoScan_pairChallengeMessage_exactlyOneChallengeField"
           - "ci: pairingProtoScan_pairRequestFields_containNoKeyOrFingerprint"
           - "ci: pairingProtoScan_revokeMessage_hasNoFields"
           - "ci: pairingProtoScan_deviceInfoFields_containNoHardwareIdentifiers"
         notes: |
-          Cycle 5: depends on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`). If the
-          outcome is "fallback", `cb` is the in-band challenge defined in E01-01 notes (`PairChallenge` /
-          `RotationChallenge`, 32 CSPRNG bytes from the verifier) and pairing.proto gains `PairChallenge` before Phase 1 starts.
+          Cycle 5: depended on E03-04, the channel-binding outcome issue (`docs/spikes/channel-binding.md`).
+          Cycle 8 (D-67): `PairChallenge` is unconditional — every pairing-candidate connection sends and
+          uses it, on every platform and API level; it is not a fallback gated on the E03-04 outcome.
       - id: E01-12
         title: "[protocol] control.proto: heartbeat, capability negotiation, media ticket issuance, credit grants"
         type: task
@@ -1600,11 +1619,17 @@ epics:
           several secret/fingerprint combinations, plus a negative vector (proof computed for a
           different phone key) for use by `mitm-lab` (E15-09).
           Cycle 4 adds confirmation-code vectors (`tandem-pair-code-v1`, E01-02): inputs secret, both SPKI DERs and cb; expected output is the 6-digit code string.
+          Cycle 8 (adversarial verifier, D-71) adds one more confirmation-code vector proving the
+          evil-QR/relay detection property actually rests on the SPKI pair, not on `cb`: same `secret` and
+          same `cb`, but a different `macSpkiDer` (the forwarded-challenge relay case, where the attacker
+          copies the real challenge across both of its sessions) — the resulting code MUST still differ
+          from the one computed with the original `macSpkiDer`.
         acceptance:
           - "At least 5 positive vectors and 4 negative vectors (wrong phone key, wrong secret, swapped macSpki/phoneSpki order, missing `tandem-pair-v1` label), each with the exact input byte sequence recorded and `expectedError` = `proofMismatch`."
           - "One malformed vector: proof of 31 bytes (`expectedError` = `malformedProof`)."
           - "Negative vectors additionally cover raw concatenation without length prefixes and a different `cb` with the same secret and keys (cross-session replay), each `expectedError` = `proofMismatch`, and a 65-byte raw point where the 91-byte SPKI DER is required (`expectedError` = `malformedSpki`)."
           - "At least 3 confirmation-code vectors, including one whose code has a leading zero (rendered as six digits) and one showing a different `cb` yields a different code."
+          - "One additional confirmation-code vector with an identical `secret` and `cb` but a different `macSpkiDer` (the forwarded-challenge evil-QR case, D-71): the expected code differs from the vector using the original `macSpkiDer`, proving detection rests on the SPKI pair rather than on `cb`."
         tdd:
           - "unit: pairingProofVector_correctInputs_matchesExpectedHmac"
           - "unit: pairingProofVector_wrongPhoneKey_expectedErrorProofMismatch"
@@ -1617,6 +1642,7 @@ epics:
           - "unit: pairingProofVector_rawPointInsteadOfSpkiDer_expectedErrorMalformedSpki"
           - "unit: pairingCodeVector_leadingZeroCode_renderedAsSixDigits"
           - "unit: pairingCodeVector_differentChannelBinding_codeDiffers"
+          - "unit: pairingCodeVector_sameChannelBindingDifferentMacSpki_codeDiffers"
         notes: ""
       - id: E01-19
         title: "[tools] Test vectors: frame encoding valid + invalid cases"
@@ -1888,7 +1914,7 @@ epics:
             into PRD `<risks>` or a new backlog issue.
           - Every mitigation reference is an invariant number (1-8), a backlog issue ID or a tdd test name that exists in `docs/planning/backlog/*.yaml`.
           - "The data-flow inventory enumerates at least: control mTLS per channel (CONTROL, NOTIFY, CLIPBOARD, FILES incl. photos, SMS, CONTACTS, CALLS, INPUT, STATUS), media mTLS, Bonjour/mDNS discovery (including the residual SRV/A hostname leak noted in E21-02) and any BLE hint E20-13 may add, QR pairing (optical channel, pairing window, confirmation dialog and code), key rotation, and each on-device source feeding the mux (NotificationListener, clipboard, MediaStore/SAF, SMS provider, Contacts, Telecom, MediaProjection, AccessibilityService)."
-          - "Rows exist for each cycle-4 decision with its residual risk: TLS-exporter channel binding (pairing proof, code, KeyRotation), CertificateVerify plus pin, ALPN, PairRejected oracle collapse, pre-auth DoS limits and pairing-attempt burning (E01-22, E12-18), untrusted peer strings and homoglyphs (E01-23), media fragment limits (E61-01), input rate/field limits and the indicator overlay (E62-06), rotation is not compromise recovery (stolen old key means unpair and re-pair), grace-pin TTL, evil QR (AC-20), and physical access during the pairing window."
+          - "Rows exist for each cycle-4 decision with its residual risk: in-band-challenge channel binding (D-67; pairing proof, code, KeyRotation), CertificateVerify plus pin, ALPN, PairRejected oracle collapse, pre-auth DoS limits and pairing-attempt burning (E01-22, E12-18), untrusted peer strings and homoglyphs (E01-23), media fragment limits (E61-01), input rate/field limits and the indicator overlay (E62-06), rotation is not compromise recovery (stolen old key means unpair and re-pair), grace-pin TTL, evil QR (AC-20), and physical access during the pairing window."
           - "Every abuse case AC-01..AC-20 is referenced from at least one row of E02-01 or E02-08."
         tdd: []
         notes: ""
