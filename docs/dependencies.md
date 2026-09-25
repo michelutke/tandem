@@ -62,6 +62,8 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
 | `androidx.compose.ui:ui-test-manifest` | Apache-2.0 | Compose UI test manifest activity | E00-20 |
 | `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-core` | Apache-2.0 | Coroutine primitives (`CoroutineScope`/`CoroutineDispatcher`) for the settings store's DataStore writer scope | E13-04 |
+| `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
 
 `jazzer-junit` pulls in `com.code-intelligence:jazzer` and `com.code-intelligence:jazzer-api`
 transitively (both Apache-2.0, both left un-pinned in `[libraries]` since only `jazzer-junit` is a

@@ -9,6 +9,8 @@ android {
 
 dependencies {
     implementation(project(":core:protocol"))
+    // PinSource/SpkiFingerprint for QrPairingPinSource (E14-04).
+    implementation(project(":core:crypto"))
 
     // QrPayloadParserTest (E14-03) parses the committed protocol/vectors/qr-payload.json manifest;
     // test-only, never on a release classpath.
