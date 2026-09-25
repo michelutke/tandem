@@ -24,15 +24,14 @@ python generate.py --check      # fail with a diff if committed manifests are st
 python generate.py --validate   # fail if any committed manifest fails schema.json
 ```
 
-`generate.py`'s category registry (`CATEGORIES` in `generate.py`) starts empty — E01-16 defines
-the file format and generator machinery only. Each downstream vector-category issue (E01-17 SPKI
-fingerprints, E01-18 pairing proof HMAC, E01-19 frame encoding, E01-20 Bonjour rotating ID, E01-21
-QR payload parsing) adds its own generator function and registers it with
-`CATEGORIES.append(("<category>.json", generate_fn))`. `frame_encoding.py` (E01-19) is the first:
-it also doubles as a minimal reference protobuf encoder/decoder for `Envelope` frames (see its
-module docstring and `protocol/vectors/README.md`'s `frame-encoding.json` section), used by
-`tools/vectors/tests/test_frame_encoding.py` to check every generated vector decodes to the
-outcome its manifest entry declares.
+E01-16 defines the file format and generator machinery only, with an empty category registry.
+Each downstream vector-category issue (E01-17 SPKI fingerprints, E01-18 pairing proof HMAC,
+E01-19 frame encoding, E01-20 Bonjour rotating ID, E01-21 QR payload parsing) adds its own
+generator function and registers it with `CATEGORIES.append(("<category>.json", generate_fn))`.
+E01-20 registers `discovery-id.json` via `discovery_id.generate_discovery_id_vectors`.
+E01-19 registers `frame-encoding.json` via `frame_encoding.generate_frame_encoding_vectors`; that
+module also doubles as a minimal reference protobuf encoder/decoder for `Envelope` frames (see its
+module docstring and `protocol/vectors/README.md`'s `frame-encoding.json` section).
 
 ## Determinism
 
@@ -47,10 +46,12 @@ the committed manifests, catching hand-edits as well as generator non-determinis
 - `generate.py` — category registry, deterministic JSON rendering, `--check` / `--validate` CLI.
 - `vector_schema.py` — thin `jsonschema` wrapper shared by `generate.py --validate` and the
   pytest suite.
+- `discovery_id.py` — E01-20 `discovery-id` category generator (Bonjour rotating id).
 - `frame_encoding.py` — E01-19 `frame-encoding.json` generator plus its reference frame
   encoder/decoder.
 - `requirements.txt` — pinned `jsonschema` / `pytest` versions.
-- `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_frame_encoding.py`).
+- `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_discovery_id.py`,
+  `test_frame_encoding.py`).
 
 ## CI
 

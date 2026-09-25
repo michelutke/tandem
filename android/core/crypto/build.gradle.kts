@@ -1,5 +1,5 @@
 plugins {
-    id("tandem.android.library")
+    id("tandem.android.instrumented")
 }
 
 android {
