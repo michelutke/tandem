@@ -28,3 +28,5 @@ jobs:
           tools/lint/swiftlint-check.sh
       - name: Package graph rules
         run: ruby tools/lint/swift-package-rules.rb
+      - name: Release-artifact test-code scan
+        run: tools/release-audit/test/macos_release_scan_test.sh
