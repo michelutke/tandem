@@ -34,3 +34,6 @@ InMemoryConnectionPair
 # XCUITest scenario seeding (E00-26) and the Debug-only JVM harness pairing hook (D-38).
 UITestScenario
 HarnessPairingPayloadOut
+
+# Debug-only E15-22 CI harness launch argument for the throwaway file keychain (E10-07b, D-75).
+HarnessKeychainPath
