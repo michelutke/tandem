@@ -84,4 +84,12 @@ public protocol KeychainStore: Sendable {
 
     /// Throws `KeychainError.itemNotFound` if none exists.
     func deleteCertificate(label: String) throws
+
+    /// The `SecIdentity` pairing the private key under `keyTag` with a certificate sharing its
+    /// public key (used by `SecIdentityProvider`, E10-07). `SecItemKeychainStore` builds a real
+    /// one straight out of Security.framework's own Keychain state; `InMemoryKeychainStore` always
+    /// throws `KeychainError.unhandled(status: errSecUnimplemented)`, since there is no public
+    /// initializer for a synthetic `SecIdentity` (spike E03-02,
+    /// docs/spikes/secure-enclave-identity.md).
+    func copyIdentity(keyTag: String) throws -> SecIdentity
 }
