@@ -54,4 +54,8 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-29;google_apis;x86_64" > /dev/null
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
       - name: Run instrumented tests on managed devices
-        run: ./gradlew :core:crypto:ciGroupDebugAndroidTest :app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+        run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      # Separate invocation: running both modules' device groups at once (4 emulators) exhausts
+      # the runner's memory and the job is killed.
+      - name: Run app instrumented tests on managed devices
+        run: ./gradlew :app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
