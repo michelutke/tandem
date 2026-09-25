@@ -208,14 +208,24 @@ class PinningTrustManagerTest {
     }
 
     @Test
-    fun trustManager_multiCertChain_throwsCertificateException() {
+    fun trustManager_extraCertsAfterPinnedLeaf_ignoredAndAccepted() {
         val keyPair = freshP256KeyPair()
-        val cert = certFor(keyPair)
-        val pin = spkiFingerprint(keyPair.public.encoded)
-        val trustManager = PinningTrustManager(pinSourceOf(pin))
+        val leaf = certFor(keyPair)
+        val extra = certFor(freshP256KeyPair())
+        val trustManager = PinningTrustManager(pinSourceOf(spkiFingerprint(keyPair.public.encoded)))
+
+        trustManager.checkServerTrusted(arrayOf(leaf, extra), AUTH_TYPE)
+    }
+
+    @Test
+    fun trustManager_pinnedCertBehindUnpinnedLeaf_throwsCertificateException() {
+        val pinnedKeyPair = freshP256KeyPair()
+        val unpinnedLeaf = certFor(freshP256KeyPair())
+        val pinnedExtra = certFor(pinnedKeyPair)
+        val trustManager = PinningTrustManager(pinSourceOf(spkiFingerprint(pinnedKeyPair.public.encoded)))
 
         assertThrows(CertificateException::class.java) {
-            trustManager.checkServerTrusted(arrayOf(cert, cert), AUTH_TYPE)
+            trustManager.checkServerTrusted(arrayOf(unpinnedLeaf, pinnedExtra), AUTH_TYPE)
         }
     }
 

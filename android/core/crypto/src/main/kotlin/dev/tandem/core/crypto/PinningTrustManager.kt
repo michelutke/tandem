@@ -12,11 +12,9 @@ import javax.net.ssl.X509ExtendedTrustManager
  * anywhere in this class.
  *
  * `checkServerTrusted`'s three overloads all funnel through [verifyServer] and
- * [requirePinnableLeafFingerprint]: leaf-only — this implementation requires the peer send exactly
- * one certificate and rejects any chain with zero or more than one, rather than examining only
- * `chain[0]` and silently ignoring the rest (SPEC.md §1 "Certificate handling and the leaf-only
- * check" only mandates the latter; rejecting outright is a stricter, still-conforming choice for
- * this issue) — then the leaf-key-shape precondition
+ * [requirePinnableLeafFingerprint]: leaf-only — an empty chain is rejected, only `chain[0]` is
+ * examined and any further certificates are ignored and never used for trust (SPEC.md §1
+ * "Certificate handling and the leaf-only check") — then the leaf-key-shape precondition
  * ([spkiFingerprint]'s own P-256/91-byte check, SPEC.md §1 step 2, which must fail before the pin
  * compare in step 3/4 ever runs), then a [constantTimeEquals] compare (invariant 6) against every
  * fingerprint [pinSource] currently returns. Certificate validity dates and every other X.509
@@ -80,8 +78,10 @@ class PinningTrustManager(
     }
 
     private fun requirePinnableLeafFingerprint(chain: Array<out X509Certificate>?): SpkiFingerprint {
-        if (chain == null || chain.size != 1) {
-            throw CertificateException("expected exactly one leaf certificate, got ${chain?.size ?: 0}")
+        // SPEC §1: only the leaf (chain[0]) is examined; any further certificates are ignored and
+        // never used for trust.
+        if (chain.isNullOrEmpty()) {
+            throw CertificateException("peer presented no certificate")
         }
         return try {
             spkiFingerprint(chain[0].publicKey.encoded)
