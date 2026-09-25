@@ -1,5 +1,7 @@
 package dev.tandem.core.crypto
 
+import dev.tandem.core.testing.TestClock
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
@@ -7,9 +9,11 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class IdentityKeyProviderTest {
+    private val clock = TestClock(TestCoroutineScheduler())
+
     @Test
     fun identityKeyProvider_strongBoxUnavailable_retriesOnceWithoutStrongBox() {
-        val software = SoftwareIdentityKeyStore()
+        val software = SoftwareIdentityKeyStore(clock)
         software.failNextGenerate(InjectedKeyStoreFailure.STRONGBOX_UNAVAILABLE)
         val counting = CountingIdentityKeyStore(software)
         val provider = IdentityKeyProvider(counting, logSecurityLevel = {})
@@ -34,7 +38,7 @@ class IdentityKeyProviderTest {
 
     @Test
     fun identityKeyProvider_strongBoxFallback_logsSecurityLevelWithoutKeyBytes() {
-        val software = SoftwareIdentityKeyStore()
+        val software = SoftwareIdentityKeyStore(clock)
         software.failNextGenerate(InjectedKeyStoreFailure.STRONGBOX_UNAVAILABLE)
         val loggedLevels = mutableListOf<SecurityLevel>()
         val provider = IdentityKeyProvider(software, logSecurityLevel = loggedLevels::add)
@@ -46,7 +50,7 @@ class IdentityKeyProviderTest {
 
     @Test
     fun identityKeyProvider_calledTwice_returnsSameKeyWithoutRegenerating() {
-        val provider = IdentityKeyProvider(SoftwareIdentityKeyStore())
+        val provider = IdentityKeyProvider(SoftwareIdentityKeyStore(clock))
 
         val first = provider.getOrCreateIdentityKey()
         val second = provider.getOrCreateIdentityKey()
