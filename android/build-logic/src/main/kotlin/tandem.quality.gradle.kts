@@ -14,8 +14,10 @@ val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 ktlint {
     version.set(libs.findVersion("ktlint").get().requiredVersion)
     filter {
-        // Generated protobuf sources are never hand-edited or reformatted (E00-09).
-        exclude { it.file.path.contains("/core/protocol/src/main/") }
+        // Generated protobuf sources (dev.tandem.protocol.v1) are never hand-edited or
+        // reformatted (E00-09); hand-written code elsewhere in core/protocol, e.g.
+        // dev.tandem.core.protocol.flowcontrol (E11-13), is linted like any other module.
+        exclude { it.file.path.contains("/dev/tandem/protocol/v1/") }
         exclude { it.file.path.contains("/build/") }
     }
 }
