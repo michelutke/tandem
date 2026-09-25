@@ -12,6 +12,10 @@ enum FrameEncodingVectorFixture {
 
     struct Manifest: Decodable {
         let vectors: [Entry]
+
+        init(vectors: [Entry]) {
+            self.vectors = vectors
+        }
     }
 
     struct Entry: Decodable {
@@ -81,17 +85,11 @@ enum FrameEncodingVectorFixture {
 
     private static let ringFieldNumber = 21
 
-    /// `#filePath` is this source file's on-disk path; walk up to the repo root
-    /// (.../macos/Packages/TandemProtocol/Tests/TandemProtocolTests/<file> -> repo root) rather
-    /// than copying the vectors into the package (see E01-19 / protocol/vectors/README.md).
+    /// Delegates to ``FrameVectorLoader`` (E11-12), which discovers `frame-encoding` category
+    /// manifests under `protocol/vectors` at runtime rather than hardcoding this one filename
+    /// (see E01-19 / protocol/vectors/README.md for why the vectors live outside the package).
     static func load() throws -> Manifest {
-        var url = URL(fileURLWithPath: #filePath)
-        for _ in 0..<6 {
-            url.deleteLastPathComponent()
-        }
-        url.appendPathComponent("protocol/vectors/frame-encoding.json")
-        let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode(Manifest.self, from: data)
+        try FrameVectorLoader.loadDefault()
     }
 
     /// The vectors E11-03 (encode-only) exercises: valid entries with an `expected` (not
