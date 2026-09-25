@@ -137,6 +137,15 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
         return data
     }
 
+    public func deleteCertificate(label: String) throws {
+        try consumePendingFailure()
+        try state.withLock { state in
+            guard state.certificates.removeValue(forKey: label) != nil else {
+                throw KeychainError.itemNotFound
+            }
+        }
+    }
+
     /// Accessibility recorded by the add for this generic-password item, or `nil` if absent.
     public func recordedAccessibility(service: String, account: String) -> KeychainAccessibility? {
         let key = ServiceAccount(service: service, account: account)
