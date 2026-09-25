@@ -1,0 +1,2 @@
+| Dependency | License | Purpose | Issue |
+|---|---|---|---|

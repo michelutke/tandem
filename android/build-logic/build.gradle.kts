@@ -4,6 +4,12 @@ plugins {
 
 group = "dev.tandem.buildlogic"
 
+// E00-29: lock build-logic's own dependency graph too; regenerate with
+// `./gradlew --write-locks` from android/build-logic.
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17

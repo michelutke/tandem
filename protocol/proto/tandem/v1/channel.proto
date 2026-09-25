@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+// E01-10/E01-12: Channel, the frozen enumeration of the nine F-3.2 channels
+// (docs/protocol/SPEC.md #channels-and-flow-control-credits, E01-04). Channel was originally
+// defined inline in envelope.proto (E01-10); it moved to its own file here so that control.proto
+// (E01-12) can import it for CreditGrant.channel without envelope.proto and control.proto
+// importing each other — envelope.proto's Envelope.payload oneof embeds control.proto's message
+// types directly, and protoc/buf reject a file-level import cycle. The enum's identity
+// (tandem.v1.Channel) and numbering are unchanged by the move.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// Channel: docs/protocol/SPEC.md #channels-and-flow-control-credits. CHANNEL_UNSPECIFIED = 0 is
+// never valid on the wire; receiving it (or any value outside this list) is rejected
+// UNKNOWN_CHANNEL (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at
+// exactly these nine values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no
+// PHOTOS channel, photo-browser messages ride FILES). Numbers are frozen once released: never
+// renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD
+// ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
+// names (CONTROL, NOTIFY, ...).
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_CONTROL = 1;
+  CHANNEL_NOTIFY = 2;
+  CHANNEL_CLIPBOARD = 3;
+  CHANNEL_FILES = 4;
+  CHANNEL_SMS = 5;
+  CHANNEL_CONTACTS = 6;
+  CHANNEL_CALLS = 7;
+  CHANNEL_INPUT = 8;
+  CHANNEL_STATUS = 9;
+}

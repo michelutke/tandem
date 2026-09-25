@@ -115,6 +115,114 @@ public object EnvelopeKt {
     }
 
     /**
+     * ```
+     * control.proto (E01-12) — CONTROL channel.
+     * ```
+     *
+     * `.tandem.v1.VersionHello version_hello = 4 [json_name = "versionHello"];`
+     */
+    public var versionHello: dev.tandem.protocol.v1.VersionHello
+      @kotlin.jvm.JvmName("getVersionHello")
+        get() = _builder.versionHello
+      @kotlin.jvm.JvmName("setVersionHello")
+        set(value) {
+        _builder.versionHello = value
+      }
+    /**
+     * ```
+     * control.proto (E01-12) — CONTROL channel.
+     * ```
+     *
+     * `.tandem.v1.VersionHello version_hello = 4 [json_name = "versionHello"];`
+     */
+    public fun clearVersionHello() {
+      _builder.clearVersionHello()
+    }
+    /**
+     * ```
+     * control.proto (E01-12) — CONTROL channel.
+     * ```
+     *
+     * `.tandem.v1.VersionHello version_hello = 4 [json_name = "versionHello"];`
+     * @return Whether the versionHello field is set.
+     */
+    public fun hasVersionHello(): kotlin.Boolean {
+      return _builder.hasVersionHello()
+    }
+
+    /**
+     * `.tandem.v1.Heartbeat heartbeat = 5 [json_name = "heartbeat"];`
+     */
+    public var heartbeat: dev.tandem.protocol.v1.Heartbeat
+      @kotlin.jvm.JvmName("getHeartbeat")
+        get() = _builder.heartbeat
+      @kotlin.jvm.JvmName("setHeartbeat")
+        set(value) {
+        _builder.heartbeat = value
+      }
+    /**
+     * `.tandem.v1.Heartbeat heartbeat = 5 [json_name = "heartbeat"];`
+     */
+    public fun clearHeartbeat() {
+      _builder.clearHeartbeat()
+    }
+    /**
+     * `.tandem.v1.Heartbeat heartbeat = 5 [json_name = "heartbeat"];`
+     * @return Whether the heartbeat field is set.
+     */
+    public fun hasHeartbeat(): kotlin.Boolean {
+      return _builder.hasHeartbeat()
+    }
+
+    /**
+     * `.tandem.v1.CreditGrant credit_grant = 6 [json_name = "creditGrant"];`
+     */
+    public var creditGrant: dev.tandem.protocol.v1.CreditGrant
+      @kotlin.jvm.JvmName("getCreditGrant")
+        get() = _builder.creditGrant
+      @kotlin.jvm.JvmName("setCreditGrant")
+        set(value) {
+        _builder.creditGrant = value
+      }
+    /**
+     * `.tandem.v1.CreditGrant credit_grant = 6 [json_name = "creditGrant"];`
+     */
+    public fun clearCreditGrant() {
+      _builder.clearCreditGrant()
+    }
+    /**
+     * `.tandem.v1.CreditGrant credit_grant = 6 [json_name = "creditGrant"];`
+     * @return Whether the creditGrant field is set.
+     */
+    public fun hasCreditGrant(): kotlin.Boolean {
+      return _builder.hasCreditGrant()
+    }
+
+    /**
+     * `.tandem.v1.MediaTicketGrant media_ticket_grant = 7 [json_name = "mediaTicketGrant"];`
+     */
+    public var mediaTicketGrant: dev.tandem.protocol.v1.MediaTicketGrant
+      @kotlin.jvm.JvmName("getMediaTicketGrant")
+        get() = _builder.mediaTicketGrant
+      @kotlin.jvm.JvmName("setMediaTicketGrant")
+        set(value) {
+        _builder.mediaTicketGrant = value
+      }
+    /**
+     * `.tandem.v1.MediaTicketGrant media_ticket_grant = 7 [json_name = "mediaTicketGrant"];`
+     */
+    public fun clearMediaTicketGrant() {
+      _builder.clearMediaTicketGrant()
+    }
+    /**
+     * `.tandem.v1.MediaTicketGrant media_ticket_grant = 7 [json_name = "mediaTicketGrant"];`
+     * @return Whether the mediaTicketGrant field is set.
+     */
+    public fun hasMediaTicketGrant(): kotlin.Boolean {
+      return _builder.hasMediaTicketGrant()
+    }
+
+    /**
      * `.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];`
      */
     public var deviceStatus: dev.tandem.protocol.v1.DeviceStatus
@@ -173,6 +281,18 @@ public object EnvelopeKt {
 @kotlin.jvm.JvmSynthetic
 public inline fun dev.tandem.protocol.v1.Envelope.copy(block: `dev.tandem.protocol.v1`.EnvelopeKt.Dsl.() -> kotlin.Unit): dev.tandem.protocol.v1.Envelope =
   `dev.tandem.protocol.v1`.EnvelopeKt.Dsl._create(this.toBuilder()).apply { block() }._build()
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.versionHelloOrNull: dev.tandem.protocol.v1.VersionHello?
+  get() = if (hasVersionHello()) getVersionHello() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.heartbeatOrNull: dev.tandem.protocol.v1.Heartbeat?
+  get() = if (hasHeartbeat()) getHeartbeat() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.creditGrantOrNull: dev.tandem.protocol.v1.CreditGrant?
+  get() = if (hasCreditGrant()) getCreditGrant() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mediaTicketGrantOrNull: dev.tandem.protocol.v1.MediaTicketGrant?
+  get() = if (hasMediaTicketGrant()) getMediaTicketGrant() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.deviceStatusOrNull: dev.tandem.protocol.v1.DeviceStatus?
   get() = if (hasDeviceStatus()) getDeviceStatus() else null

@@ -1,0 +1,5 @@
+[versions]
+fixture = "1.0.0"
+
+[libraries]
+fixture-gpl = { group = "org.example", name = "gpl-library", version.ref = "fixture" }

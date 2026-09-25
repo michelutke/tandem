@@ -1,37 +1,19 @@
 syntax = "proto3";
 
 // E01-10: Envelope, the message every frame on every mTLS connection carries once the TLS
-// handshake completes (docs/protocol/SPEC.md #framing-and-envelope, E01-03), and Channel, the
-// frozen enumeration of the nine F-3.2 channels. The channel name list and order below are the
-// ones committed in #framing-and-envelope's "Envelope fields" subsection and frozen by
-// docs/planning/backlog/phase-0.yaml E01-04 acceptance; #channels-and-flow-control-credits
-// (E01-04) is this enum's eventual normative home but is still TBD as of this issue landing.
+// handshake completes (docs/protocol/SPEC.md #framing-and-envelope, E01-03). Channel, the frozen
+// enumeration of the nine F-3.2 channels, lives in channel.proto (E01-12): control.proto's
+// CreditGrant also needs Channel, and this file's oneof below embeds control.proto's message
+// types directly, so Channel could not stay in this file without envelope.proto and
+// control.proto importing each other — a cyclic import protoc/buf reject.
 package tandem.v1;
 
+import "tandem/v1/channel.proto";
+import "tandem/v1/control.proto";
 import "tandem/v1/status.proto";
 
 option java_package = "dev.tandem.protocol.v1";
 option java_multiple_files = true;
-
-// Channel: docs/protocol/SPEC.md #framing-and-envelope. CHANNEL_UNSPECIFIED = 0 is never valid
-// on the wire; receiving it (or any value outside this list) is rejected UNKNOWN_CHANNEL
-// (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at exactly these nine
-// values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no PHOTOS channel,
-// photo-browser messages ride FILES). Numbers are frozen once released: never renumber or reuse.
-// Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD ENUM_VALUE_PREFIX rule; SPEC.md
-// and the backlog refer to the same channels by their unprefixed names (CONTROL, NOTIFY, ...).
-enum Channel {
-  CHANNEL_UNSPECIFIED = 0;
-  CHANNEL_CONTROL = 1;
-  CHANNEL_NOTIFY = 2;
-  CHANNEL_CLIPBOARD = 3;
-  CHANNEL_FILES = 4;
-  CHANNEL_SMS = 5;
-  CHANNEL_CONTACTS = 6;
-  CHANNEL_CALLS = 7;
-  CHANNEL_INPUT = 8;
-  CHANNEL_STATUS = 9;
-}
 
 // Envelope: docs/protocol/SPEC.md #framing-and-envelope. Every frame (length-prefixed per that
 // section) on every mTLS connection carries exactly one Envelope.
@@ -52,7 +34,7 @@ message Envelope {
   // (docs/planning/decisions.md AC-11); an unset oneof, or a payload type this receiver's
   // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
   // MALFORMED_FRAME).
-  reserved 4 to 9;     // control.proto (E01-12): Heartbeat, VersionHello, MediaTicketGrant — CONTROL channel
+  reserved 8 to 9;     // control.proto (E01-12): remaining CONTROL payload slots
   reserved 10 to 19;   // pairing.proto (E01-11): PairRequest, PairAccepted, PairRejected, Revoke — CONTROL channel
   // 20-29: status.proto (E01-13, this issue). 22-29 held for RingStop, added when E23-01 writes
   // the STATUS SPEC.md section; do not assign those numbers before then.
@@ -70,6 +52,12 @@ message Envelope {
   // channel and therefore no Envelope payload slot (E01-14).
 
   oneof payload {
+    // control.proto (E01-12) — CONTROL channel.
+    VersionHello version_hello = 4;
+    Heartbeat heartbeat = 5;
+    CreditGrant credit_grant = 6;
+    MediaTicketGrant media_ticket_grant = 7;
+
     DeviceStatus device_status = 20;
     Ring ring = 21;
   }
