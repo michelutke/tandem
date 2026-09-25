@@ -97,6 +97,69 @@ public interface EnvelopeOrBuilder extends
   dev.tandem.protocol.v1.MediaTicketGrant getMediaTicketGrant();
 
   /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   * @return Whether the pairChallenge field is set.
+   */
+  boolean hasPairChallenge();
+  /**
+   * <pre>
+   * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.PairChallenge pair_challenge = 10 [json_name = "pairChallenge"];</code>
+   * @return The pairChallenge.
+   */
+  dev.tandem.protocol.v1.PairChallenge getPairChallenge();
+
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   * @return Whether the pairRequest field is set.
+   */
+  boolean hasPairRequest();
+  /**
+   * <code>.tandem.v1.PairRequest pair_request = 11 [json_name = "pairRequest"];</code>
+   * @return The pairRequest.
+   */
+  dev.tandem.protocol.v1.PairRequest getPairRequest();
+
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   * @return Whether the pairAccepted field is set.
+   */
+  boolean hasPairAccepted();
+  /**
+   * <code>.tandem.v1.PairAccepted pair_accepted = 12 [json_name = "pairAccepted"];</code>
+   * @return The pairAccepted.
+   */
+  dev.tandem.protocol.v1.PairAccepted getPairAccepted();
+
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   * @return Whether the pairRejected field is set.
+   */
+  boolean hasPairRejected();
+  /**
+   * <code>.tandem.v1.PairRejected pair_rejected = 13 [json_name = "pairRejected"];</code>
+   * @return The pairRejected.
+   */
+  dev.tandem.protocol.v1.PairRejected getPairRejected();
+
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   * @return Whether the revoke field is set.
+   */
+  boolean hasRevoke();
+  /**
+   * <code>.tandem.v1.Revoke revoke = 14 [json_name = "revoke"];</code>
+   * @return The revoke.
+   */
+  dev.tandem.protocol.v1.Revoke getRevoke();
+
+  /**
    * <code>.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];</code>
    * @return Whether the deviceStatus field is set.
    */
