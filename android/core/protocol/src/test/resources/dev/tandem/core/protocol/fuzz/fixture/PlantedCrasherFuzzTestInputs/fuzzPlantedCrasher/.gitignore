@@ -1,0 +1,4 @@
+# E15-13: Jazzer JUnit's documented "inputs directory" for PlantedCrasherFuzzTest's self-test
+# fixture (see the sibling FrameDecoderFuzzTestInputs/.gitignore for the full rationale).
+*
+!.gitignore
