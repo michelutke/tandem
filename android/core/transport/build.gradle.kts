@@ -1,5 +1,6 @@
 plugins {
     id("tandem.android.library")
+    id("tandem.android.hilt")
 }
 
 android {
