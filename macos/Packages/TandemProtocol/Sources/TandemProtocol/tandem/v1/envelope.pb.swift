@@ -20,79 +20,6 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// Channel: docs/protocol/SPEC.md #framing-and-envelope. CHANNEL_UNSPECIFIED = 0 is never valid
-/// on the wire; receiving it (or any value outside this list) is rejected UNKNOWN_CHANNEL
-/// (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at exactly these nine
-/// values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no PHOTOS channel,
-/// photo-browser messages ride FILES). Numbers are frozen once released: never renumber or reuse.
-/// Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD ENUM_VALUE_PREFIX rule; SPEC.md
-/// and the backlog refer to the same channels by their unprefixed names (CONTROL, NOTIFY, ...).
-nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
-  typealias RawValue = Int
-  case unspecified // = 0
-  case control // = 1
-  case notify // = 2
-  case clipboard // = 3
-  case files // = 4
-  case sms // = 5
-  case contacts // = 6
-  case calls // = 7
-  case input // = 8
-  case status // = 9
-  case UNRECOGNIZED(Int)
-
-  init() {
-    self = .unspecified
-  }
-
-  init?(rawValue: Int) {
-    switch rawValue {
-    case 0: self = .unspecified
-    case 1: self = .control
-    case 2: self = .notify
-    case 3: self = .clipboard
-    case 4: self = .files
-    case 5: self = .sms
-    case 6: self = .contacts
-    case 7: self = .calls
-    case 8: self = .input
-    case 9: self = .status
-    default: self = .UNRECOGNIZED(rawValue)
-    }
-  }
-
-  var rawValue: Int {
-    switch self {
-    case .unspecified: return 0
-    case .control: return 1
-    case .notify: return 2
-    case .clipboard: return 3
-    case .files: return 4
-    case .sms: return 5
-    case .contacts: return 6
-    case .calls: return 7
-    case .input: return 8
-    case .status: return 9
-    case .UNRECOGNIZED(let i): return i
-    }
-  }
-
-  // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Tandem_V1_Channel] = [
-    .unspecified,
-    .control,
-    .notify,
-    .clipboard,
-    .files,
-    .sms,
-    .contacts,
-    .calls,
-    .input,
-    .status,
-  ]
-
-}
-
 /// Envelope: docs/protocol/SPEC.md #framing-and-envelope. Every frame (length-prefixed per that
 /// section) on every mTLS connection carries exactly one Envelope.
 nonisolated struct Tandem_V1_Envelope: Sendable {
@@ -113,6 +40,39 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
 
   var payload: Tandem_V1_Envelope.OneOf_Payload? = nil
 
+  /// control.proto (E01-12) — CONTROL channel.
+  var versionHello: Tandem_V1_VersionHello {
+    get {
+      if case .versionHello(let v)? = payload {return v}
+      return Tandem_V1_VersionHello()
+    }
+    set {payload = .versionHello(newValue)}
+  }
+
+  var heartbeat: Tandem_V1_Heartbeat {
+    get {
+      if case .heartbeat(let v)? = payload {return v}
+      return Tandem_V1_Heartbeat()
+    }
+    set {payload = .heartbeat(newValue)}
+  }
+
+  var creditGrant: Tandem_V1_CreditGrant {
+    get {
+      if case .creditGrant(let v)? = payload {return v}
+      return Tandem_V1_CreditGrant()
+    }
+    set {payload = .creditGrant(newValue)}
+  }
+
+  var mediaTicketGrant: Tandem_V1_MediaTicketGrant {
+    get {
+      if case .mediaTicketGrant(let v)? = payload {return v}
+      return Tandem_V1_MediaTicketGrant()
+    }
+    set {payload = .mediaTicketGrant(newValue)}
+  }
+
   var deviceStatus: Tandem_V1_DeviceStatus {
     get {
       if case .deviceStatus(let v)? = payload {return v}
@@ -132,6 +92,11 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   nonisolated enum OneOf_Payload: Equatable, Sendable {
+    /// control.proto (E01-12) — CONTROL channel.
+    case versionHello(Tandem_V1_VersionHello)
+    case heartbeat(Tandem_V1_Heartbeat)
+    case creditGrant(Tandem_V1_CreditGrant)
+    case mediaTicketGrant(Tandem_V1_MediaTicketGrant)
     case deviceStatus(Tandem_V1_DeviceStatus)
     case ring(Tandem_V1_Ring)
 
@@ -144,13 +109,9 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
 
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
-nonisolated extension Tandem_V1_Channel: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CHANNEL_UNSPECIFIED\0\u{1}CHANNEL_CONTROL\0\u{1}CHANNEL_NOTIFY\0\u{1}CHANNEL_CLIPBOARD\0\u{1}CHANNEL_FILES\0\u{1}CHANNEL_SMS\0\u{1}CHANNEL_CONTACTS\0\u{1}CHANNEL_CALLS\0\u{1}CHANNEL_INPUT\0\u{1}CHANNEL_STATUS\0")
-}
-
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Envelope"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{4}\u{11}device_status\0\u{1}ring\0\u{c}\u{4}\u{6}\u{c}\u{a}\u{a}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{d}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{a}\u{a}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -161,6 +122,58 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
       case 1: try { try decoder.decodeSingularEnumField(value: &self.channel) }()
       case 2: try { try decoder.decodeSingularUInt64Field(value: &self.seq) }()
       case 3: try { try decoder.decodeSingularUInt64Field(value: &self.ack) }()
+      case 4: try {
+        var v: Tandem_V1_VersionHello?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .versionHello(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .versionHello(v)
+        }
+      }()
+      case 5: try {
+        var v: Tandem_V1_Heartbeat?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .heartbeat(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .heartbeat(v)
+        }
+      }()
+      case 6: try {
+        var v: Tandem_V1_CreditGrant?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .creditGrant(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .creditGrant(v)
+        }
+      }()
+      case 7: try {
+        var v: Tandem_V1_MediaTicketGrant?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .mediaTicketGrant(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .mediaTicketGrant(v)
+        }
+      }()
       case 20: try {
         var v: Tandem_V1_DeviceStatus?
         var hadOneofValue = false
@@ -207,6 +220,22 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
       try visitor.visitSingularUInt64Field(value: self.ack, fieldNumber: 3)
     }
     switch self.payload {
+    case .versionHello?: try {
+      guard case .versionHello(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }()
+    case .heartbeat?: try {
+      guard case .heartbeat(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }()
+    case .creditGrant?: try {
+      guard case .creditGrant(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 6)
+    }()
+    case .mediaTicketGrant?: try {
+      guard case .mediaTicketGrant(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
     case .deviceStatus?: try {
       guard case .deviceStatus(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 20)
