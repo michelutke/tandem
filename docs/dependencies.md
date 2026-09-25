@@ -54,6 +54,8 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.jetbrains.kotlin:compose-compiler-gradle-plugin` | Apache-2.0 | Jetpack Compose compiler plugin | E00-20 |
 | `androidx.compose:compose-bom` | Apache-2.0 | Compose version alignment (bill of materials) | E00-20 |
 | `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components | E00-20 |
+| `androidx.compose.ui:ui-tooling-preview` | Apache-2.0 | `@Preview` annotations for design-system components | E00-31 |
+| `androidx.compose.ui:ui-tooling` | Apache-2.0 | Debug-only preview rendering for design-system components | E00-31 |
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
 | `androidx.compose.ui:ui-test-manifest` | Apache-2.0 | Compose UI test manifest activity | E00-20 |
 
@@ -62,6 +64,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | Dependency | License | Purpose | Issue |
 |---|---|---|---|
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
+| `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
 
 ## Update bot
 

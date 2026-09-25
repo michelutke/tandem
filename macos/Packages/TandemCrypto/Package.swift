@@ -7,9 +7,15 @@ let package = Package(
     products: [
         .library(name: "TandemCrypto", targets: ["TandemCrypto"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-certificates.git", exact: "1.21.0")
+    ],
     targets: [
         .target(
             name: "TandemCrypto",
+            dependencies: [
+                .product(name: "X509", package: "swift-certificates")
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
