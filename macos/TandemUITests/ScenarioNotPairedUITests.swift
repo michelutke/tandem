@@ -13,6 +13,8 @@ final class ScenarioNotPairedUITests: XCTestCase {
 
         let label = window.staticTexts["notPairedStateLabel"]
         XCTAssertTrue(label.waitForExistence(timeout: 10), "seeded notPaired label never appeared")
-        XCTAssertEqual(label.label, "Not Paired")
+        // macOS exposes SwiftUI Text content as AXValue; label can be empty on headless runners.
+        let value = label.value as? String ?? ""
+        XCTAssertEqual(value.isEmpty ? label.label : value, "Not Paired")
     }
 }
