@@ -8,7 +8,10 @@ import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
+import java.security.cert.X509Certificate
 import java.security.spec.ECGenParameterSpec
+import java.time.Clock
+import java.util.Date
 import android.security.keystore.StrongBoxUnavailableException as PlatformStrongBoxUnavailableException
 
 private const val ANDROID_KEY_STORE_PROVIDER = "AndroidKeyStore"
@@ -22,8 +25,16 @@ private const val ANDROID_KEY_STORE_PROVIDER = "AndroidKeyStore"
  * Conscrypt signs the TLS 1.3 `CertificateVerify` via `NONEwithECDSA` over a pre-computed
  * transcript hash, and without `DIGEST_NONE` every client-cert handshake fails with an opaque I/O
  * error (spike E03-03, docs/spikes/android-sslsocket-keystore.md; normative in SPEC.md §1).
+ *
+ * The self-signed identity certificate (E10-02) is built by AndroidKeyStore itself at
+ * key-generation time from the `setCertificateSubject`/`setCertificateSerialNumber`/
+ * `setCertificateNotBefore`/`setCertificateNotAfter` below (`IdentityCertSpec`); its
+ * `basicConstraints CA:false` / `keyUsage digitalSignature` come from AndroidKeyStore's own
+ * defaults for a `PURPOSE_SIGN` key, not from anything set here.
  */
-class AndroidKeyStoreIdentityKeyStore : IdentityKeyStore {
+class AndroidKeyStoreIdentityKeyStore(
+    private val clock: Clock,
+) : IdentityKeyStore {
     private val keyStore: KeyStore =
         KeyStore.getInstance(ANDROID_KEY_STORE_PROVIDER).apply { load(null) }
 
@@ -33,12 +44,17 @@ class AndroidKeyStoreIdentityKeyStore : IdentityKeyStore {
     ): KeyHandle {
         get(alias)?.let { return it }
 
+        val certSpec = IdentityCertSpec.generate(clock)
         val spec =
             KeyGenParameterSpec
                 .Builder(alias, KeyProperties.PURPOSE_SIGN)
                 .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
                 .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_NONE)
                 .setIsStrongBoxBacked(preferStrongBox)
+                .setCertificateSubject(certSpec.subject)
+                .setCertificateSerialNumber(certSpec.serialNumber)
+                .setCertificateNotBefore(Date.from(certSpec.notBefore))
+                .setCertificateNotAfter(Date.from(certSpec.notAfter))
                 .build()
 
         try {
@@ -56,8 +72,8 @@ class AndroidKeyStoreIdentityKeyStore : IdentityKeyStore {
 
     override fun get(alias: String): KeyHandle? {
         val privateKey = keyStore.getKey(alias, null) as? PrivateKey
-        val publicKey = keyStore.getCertificate(alias)?.publicKey
-        if (privateKey == null || publicKey == null) return null
+        val certificate = keyStore.getCertificate(alias) as? X509Certificate
+        if (privateKey == null || certificate == null) return null
 
         val keyInfo =
             KeyFactory
@@ -66,10 +82,11 @@ class AndroidKeyStoreIdentityKeyStore : IdentityKeyStore {
 
         return KeyHandle(
             alias = alias,
-            publicKey = publicKey,
+            publicKey = certificate.publicKey,
             privateKey = privateKey,
             securityLevel = keyInfo.toSecurityLevel(),
             isHardwareBacked = keyInfo.isInsideSecureHardware,
+            certificate = certificate,
         )
     }
 

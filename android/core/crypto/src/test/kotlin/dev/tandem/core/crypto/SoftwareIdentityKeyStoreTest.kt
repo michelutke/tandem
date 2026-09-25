@@ -1,5 +1,8 @@
 package dev.tandem.core.crypto
 
+import dev.tandem.core.testing.TestClock
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -17,6 +20,7 @@ import java.security.spec.ECGenParameterSpec
 import java.security.spec.ECParameterSpec
 
 class SoftwareIdentityKeyStoreTest {
+    private val clock = TestClock(TestCoroutineScheduler())
     private val secp256r1: ECParameterSpec =
         AlgorithmParameters
             .getInstance("EC")
@@ -25,7 +29,7 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_generateP256_publicKeyIsSecp256r1() {
-        val handle = SoftwareIdentityKeyStore().getOrCreate("alias", preferStrongBox = true)
+        val handle = SoftwareIdentityKeyStore(clock).getOrCreate("alias", preferStrongBox = true)
 
         val params = (handle.publicKey as ECPublicKey).params
         assertEquals(secp256r1.curve, params.curve)
@@ -37,7 +41,7 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_signThenVerifyWithPublicKey_verifies() {
-        val handle = SoftwareIdentityKeyStore().getOrCreate("alias", preferStrongBox = false)
+        val handle = SoftwareIdentityKeyStore(clock).getOrCreate("alias", preferStrongBox = false)
         val data = "tandem".toByteArray()
 
         val sha256Signature =
@@ -74,7 +78,7 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_failNextGenerateStrongBox_throwsStrongBoxUnavailable() {
-        val store = SoftwareIdentityKeyStore()
+        val store = SoftwareIdentityKeyStore(clock)
         store.failNextGenerate(InjectedKeyStoreFailure.STRONGBOX_UNAVAILABLE)
 
         assertThrows(StrongBoxUnavailableException::class.java) {
@@ -88,7 +92,7 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_failNextGenerateKeystoreCorrupted_throwsKeystoreCorrupted() {
-        val store = SoftwareIdentityKeyStore()
+        val store = SoftwareIdentityKeyStore(clock)
         store.failNextGenerate(InjectedKeyStoreFailure.KEYSTORE_CORRUPTED)
 
         assertThrows(KeystoreCorruptedException::class.java) {
@@ -100,7 +104,7 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_getOrCreateCalledTwice_returnsSameKeyWithoutRegenerating() {
-        val store = SoftwareIdentityKeyStore()
+        val store = SoftwareIdentityKeyStore(clock)
         val first = store.getOrCreate("alias", preferStrongBox = true)
         val second = store.getOrCreate("alias", preferStrongBox = true)
         assertSame(first, second)
@@ -108,15 +112,29 @@ class SoftwareIdentityKeyStoreTest {
 
     @Test
     fun softwareKeyStore_getMissingAlias_returnsNull() {
-        assertNull(SoftwareIdentityKeyStore().get("missing"))
+        assertNull(SoftwareIdentityKeyStore(clock).get("missing"))
     }
 
     @Test
     fun softwareKeyStore_deleteThenGetOrCreate_generatesDifferentKey() {
-        val store = SoftwareIdentityKeyStore()
+        val store = SoftwareIdentityKeyStore(clock)
         val first = store.getOrCreate("alias", preferStrongBox = true)
         store.delete("alias")
         val second = store.getOrCreate("alias", preferStrongBox = true)
         assertNotEquals(first.publicKey, second.publicKey)
+    }
+
+    @Test
+    fun selfSignedCert_softwareKeyStore_publicKeyEqualsKeyHandlePublicKey() {
+        val handle = SoftwareIdentityKeyStore(clock).getOrCreate("alias", preferStrongBox = true)
+
+        assertEquals(handle.publicKey, handle.certificate.publicKey)
+    }
+
+    @Test
+    fun selfSignedCert_signature_verifiesWithOwnPublicKey() {
+        val handle = SoftwareIdentityKeyStore(clock).getOrCreate("alias", preferStrongBox = true)
+
+        assertDoesNotThrow { handle.certificate.verify(handle.publicKey) }
     }
 }
