@@ -40,6 +40,7 @@ jobs:
           tools/lint/test/release_dex_log_stripping_test.sh
           tools/lint/test/detekt_socket_only_in_transport_test.sh
           tools/lint/test/gradle_module_rules_test.sh
+          tools/lint/test/release_apk_software_identity_key_store_absent_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh

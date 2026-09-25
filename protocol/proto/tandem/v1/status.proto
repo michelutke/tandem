@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+// E01-13: DeviceStatus and Ring, carried on the STATUS channel (Channel.STATUS,
+// envelope.proto) per PRD F-4.3 (device status) and F-4.4 (find my phone). The normative
+// STATUS section of docs/protocol/SPEC.md is written by E23-01, which also extends this file
+// with RingStop; field numbers 22-29 are held for that extension (see envelope.proto's
+// reserved-range comment). Do not add speculative fields ahead of that section landing.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// DeviceStatus: PRD F-4.3 — the phone publishes this on the STATUS channel on change and at
+// most every 60 s. Sent directly as the Envelope payload (no wrapper message needed).
+message DeviceStatus {
+  // Battery charge percentage, 0-100.
+  int32 battery_level = 1;
+  bool is_charging = 2;
+  NetworkType network_type = 3;
+  // Signal strength, 0 (none) to 4 (full bars); meaningless (0) when network_type is
+  // NETWORK_TYPE_OFFLINE.
+  int32 signal_level = 4;
+}
+
+// NetworkType: the phone's current network connectivity, part of DeviceStatus (PRD F-4.3).
+enum NetworkType {
+  NETWORK_TYPE_UNSPECIFIED = 0;
+  NETWORK_TYPE_WIFI = 1;
+  NETWORK_TYPE_CELLULAR = 2;
+  NETWORK_TYPE_OFFLINE = 3;
+}
+
+// Ring: PRD F-4.4 — the Mac sends this to make the phone play an alarm at max volume,
+// overriding DND, until dismissed. No fields: ringing is idempotent while already in progress,
+// and the alarm starts at most twice per 10 s (docs/planning/decisions.md D-62), so repeated
+// delivery of this same empty message is intentionally indistinguishable from the first.
+message Ring {}

@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Tool self-tests
-        run: for t in tools/planning/test/*_test.rb tools/ci/test/*_test.rb tools/release-audit/test/*_test.rb; do ruby "$t"; done
+        run: for t in tools/planning/test/*_test.rb tools/ci/test/*_test.rb tools/audit/test/*_test.rb tools/release-audit/test/*_test.rb; do ruby "$t"; done
       - name: Backlog and planning docs
         run: |
           ruby tools/planning/sync_issues.rb validate

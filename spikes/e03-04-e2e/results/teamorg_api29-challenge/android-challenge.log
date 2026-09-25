@@ -1,0 +1,73 @@
+--------- beginning of main
+--------- beginning of system
+09-24 23:58:39.668  3950  3971 I E0304Spike: CLIENT_PIN=fbe64030c7fb52e91bb84fab4f3ffdb12707b04b92cc6eb469ee9e8dd276a66b
+09-24 23:58:40.956  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:40.956  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:40.959  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:40.959  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:40.960  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:40.966  4002  4023 I E0304Spike: run=0 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:40.990  4002  4023 I E0304Spike: run=0 challenge_sha256=65a9fd2ddc4491b15c7ae2bce31e09679951f95b2b186d1135122d3921f99009 ackOk=true latencyMs=22
+09-24 23:58:41.004  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.004  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.006  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.006  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.007  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.011  4002  4023 I E0304Spike: run=1 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.023  4002  4023 I E0304Spike: run=1 challenge_sha256=f91e22a96812826229746899b3899508c91c874721fc0d5e585241bc708f7b3f ackOk=true latencyMs=10
+09-24 23:58:41.033  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.033  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.034  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.034  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.035  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.038  4002  4023 I E0304Spike: run=2 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.051  4002  4023 I E0304Spike: run=2 challenge_sha256=c0e22885dafcbda25653ece03e4e149ab42c11125ac6d014c2dfae5ff3f4349b ackOk=true latencyMs=10
+09-24 23:58:41.060  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.061  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.063  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.063  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.064  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.069  4002  4023 I E0304Spike: run=3 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.082  4002  4023 I E0304Spike: run=3 challenge_sha256=574c13f7707a2c21186b04b41ca6255eca836f9a695445aeb9eb5652d9f8df32 ackOk=true latencyMs=11
+09-24 23:58:41.091  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.092  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.094  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.094  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.095  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.098  4002  4023 I E0304Spike: run=4 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.111  4002  4023 I E0304Spike: run=4 challenge_sha256=edb45a56a2428921f5eaa4ba20a93217df0c81ccf9af7b8d63d82f28d6dfaf4f ackOk=true latencyMs=11
+09-24 23:58:41.121  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.121  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.123  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.123  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.124  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.128  4002  4023 I E0304Spike: run=5 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.139  4002  4023 I E0304Spike: run=5 challenge_sha256=4d187f0685e825a7f61ac6f95be8ab73b7651006f3b971f646a7dee29e766d3d ackOk=true latencyMs=10
+09-24 23:58:41.149  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.150  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.152  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.152  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.153  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.155  4002  4023 I E0304Spike: run=6 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.169  4002  4023 I E0304Spike: run=6 challenge_sha256=49f83144ba8b3c92a6b960e197c6b78bee77265ab13e37ae0d275e7777559e03 ackOk=true latencyMs=12
+09-24 23:58:41.180  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.181  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.182  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.182  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.183  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.185  4002  4023 I E0304Spike: run=7 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.199  4002  4023 I E0304Spike: run=7 challenge_sha256=e9aac76f8607841bdb33f174ceca387bc701c6a0afb6c8541fcd28c3c24237a9 ackOk=true latencyMs=12
+09-24 23:58:41.210  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.211  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.212  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.212  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.213  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.216  4002  4023 I E0304Spike: run=8 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.228  4002  4023 I E0304Spike: run=8 challenge_sha256=ab394d702121b47b11f46843dbc6cdbf8320f952816b70b1eb110b8942cf7f1f ackOk=true latencyMs=11
+09-24 23:58:41.239  4002  4023 I E0304Spike: checkServerTrusted authType=GENERIC chainLen=1 expected=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3 actual=772acd482d83c69afb7eb8cd744e5b8d5be9423d21a6da0792bef9ac4bea3ed3
+09-24 23:58:41.239  4002  4023 I E0304Spike: getPrivateKey(alias=e03-04-e2e-identity)
+09-24 23:58:41.240  4002  4023 I E0304Spike: getPrivateKey -> algorithm=EC class=android.security.keystore.AndroidKeyStoreECPrivateKey
+09-24 23:58:41.240  4002  4023 I E0304Spike: getCertificateChain(alias=e03-04-e2e-identity)
+09-24 23:58:41.242  4002  4023 I E0304Spike: getCertificateChain -> 1 certs, leaf sigAlg=SHA256withECDSA
+09-24 23:58:41.245  4002  4023 I E0304Spike: run=9 handshake ok sdkInt=29 protocol=TLSv1.3 alpn=tandem/1
+09-24 23:58:41.258  4002  4023 I E0304Spike: run=9 challenge_sha256=6c7a49bd06a0563543b01036139b690681ccbe11d4291d9fada3af355f75f642 ackOk=true latencyMs=12
