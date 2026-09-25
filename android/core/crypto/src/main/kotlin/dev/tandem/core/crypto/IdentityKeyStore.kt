@@ -47,10 +47,13 @@ enum class SecurityLevel {
 
 sealed class IdentityKeyStoreException(
     message: String,
-) : Exception(message)
+    cause: Throwable? = null,
+) : Exception(message, cause)
 
 /** Mirrors `android.security.keystore.StrongBoxUnavailableException` (E10-01's fallback trigger). */
-class StrongBoxUnavailableException : IdentityKeyStoreException("StrongBox requested but unavailable")
+class StrongBoxUnavailableException(
+    cause: Throwable? = null,
+) : IdentityKeyStoreException("StrongBox requested but unavailable", cause)
 
 /** Mirrors a corrupted/unreadable Keystore alias (E10-04's recovery trigger). */
 class KeystoreCorruptedException : IdentityKeyStoreException("Keystore is corrupted or unreadable")
