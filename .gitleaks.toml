@@ -15,4 +15,6 @@ description = "known-safe test fixtures with fake secrets, and encrypted binary 
 paths = [
   '''^protocol/vectors/.*''',
   '''^ui-design\.pen$''',
+  # E15-17: log-audit fixtures deliberately contain fake canary/secret strings.
+  '''^tools/log-audit/test/fixtures/.*''',
 ]
