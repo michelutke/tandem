@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Connection status errors (E12-16, invariant 5: fail closed with visible error) -->
+    <string name="error_timeout">Connection timed out. Check your network and try again.</string>
+    <string name="error_pin_mismatch">The PIN doesn\'t match. This device is not trusted.</string>
+    <string name="error_version_mismatch">Version mismatch. Check for app updates.</string>
+    <string name="error_network">Connection failed. Please try again.</string>
+    <string name="error_no_longer_paired">This device is no longer paired with %1$s.</string>
+    <string name="error_no_longer_paired_unknown">This device is no longer paired.</string>
+</resources>
