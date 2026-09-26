@@ -44,6 +44,11 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
     private var scenarioWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // E15-22: one-shot trust seeding/clearing hooks exit the process immediately; the listener
+        // hook (if requested) keeps it running as the ordinary menu bar app.
+        HarnessHooks.runOneShotHooksIfRequested()
+        HarnessHooks.startListenerIfRequested()
+
         guard UITestScenario.fromLaunchArguments() != nil else { return }
         let window = NSWindow(contentViewController: NSHostingController(rootView: MenuContentView()))
         window.title = "Tandem UI Test Scenario"
