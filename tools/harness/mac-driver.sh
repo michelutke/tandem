@@ -57,17 +57,21 @@ harness_init() {
 }
 
 # Launches Tandem.app in the background against the harness keychain, with its listener on $1.
-# Sets $HARNESS_PID. Never rebuilds -- always the same binary `harness_init` built.
+# Any further arguments ($2...) are passed through as additional launch arguments (E14-16:
+# `-HarnessOpenPairingWindow YES`/`-HarnessAutoConfirmPairing YES`). Sets $HARNESS_PID. Never
+# rebuilds -- always the same binary `harness_init` built.
 harness_launch() {
   local port="$1"
+  shift
   : > "$HARNESS_LOG_PATH"
   TANDEM_HARNESS_KEYCHAIN_PASSWORD="$HARNESS_KEYCHAIN_PASSWORD" \
     "$HARNESS_APP_BINARY" \
     -HarnessKeychainPath "$HARNESS_KEYCHAIN_PATH" \
     -HarnessListenerPort "$port" \
+    "$@" \
     >>"$HARNESS_LOG_PATH" 2>&1 &
   HARNESS_PID=$!
-  harness_log "launched pid $HARNESS_PID on port $port"
+  harness_log "launched pid $HARNESS_PID on port $port ($*)"
 }
 
 # Waits (up to $2 seconds, default 10) for the harness listener to actually be accepting
@@ -117,6 +121,17 @@ harness_clear_trust() {
     "$HARNESS_APP_BINARY" \
     -HarnessKeychainPath "$HARNESS_KEYCHAIN_PATH" \
     -HarnessClearTrust YES
+}
+
+# Runs `-HarnessListTrust` to completion, printing one `harness-trust-record: <fingerprintHex>`
+# line per record currently in the trust store (E14-16). Callers should stop the listener first
+# (same concurrent-keychain-access concern `harness_seed_trust`/`harness_clear_trust` already
+# document).
+harness_list_trust() {
+  TANDEM_HARNESS_KEYCHAIN_PASSWORD="$HARNESS_KEYCHAIN_PASSWORD" \
+    "$HARNESS_APP_BINARY" \
+    -HarnessKeychainPath "$HARNESS_KEYCHAIN_PATH" \
+    -HarnessListTrust YES
 }
 
 # Kills the app if still running and deletes the temp dir (keychain file included). Always safe to

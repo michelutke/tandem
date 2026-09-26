@@ -3,6 +3,7 @@ import Foundation
 import Network
 import Security
 import TandemCrypto
+import TandemPairing
 import TandemProtocol
 import TandemStore
 import TandemTransport
@@ -19,8 +20,9 @@ import TandemTransport
 /// falls through to the ordinary menu bar UI.
 enum HarnessHooks {
 
-    /// Checks `-HarnessSeedTrust <path>` and `-HarnessClearTrust`; if either is present, performs
-    /// the action and terminates the process. Returns normally (does nothing) if neither is set.
+    /// Checks `-HarnessSeedTrust <path>`, `-HarnessClearTrust` and `-HarnessListTrust`; if any is
+    /// present, performs the action and terminates the process. Returns normally (does nothing) if
+    /// none is set.
     static func runOneShotHooksIfRequested() {
         if let path = UserDefaults.standard.string(forKey: "HarnessSeedTrust") {
             seedTrust(fromFixtureAt: path)
@@ -30,14 +32,22 @@ enum HarnessHooks {
             clearTrust()
             exit(0)
         }
+        if UserDefaults.standard.bool(forKey: "HarnessListTrust") {
+            listTrust()
+            exit(0)
+        }
     }
 
     /// Starts the mTLS listener on `-HarnessListenerPort <port>` against the harness keychain's
     /// identity and trust store (E15-22). Does nothing if the argument isn't set. The listener
-    /// keeps running for the life of the process, admitting only connections whose presented SPKI
-    /// fingerprint matches a trust record seeded by `-HarnessSeedTrust` -- there is no pairing
-    /// window in the harness (the live pairing state machine, E14-02, is exercised by its own
-    /// harness hook once E14-01/E14-02 land).
+    /// keeps running for the life of the process, admitting connections whose presented SPKI
+    /// fingerprint matches a trust record seeded by `-HarnessSeedTrust`.
+    ///
+    /// `-HarnessOpenPairingWindow YES` additionally opens a real ``TandemPairing/PairingWindow``
+    /// (E14-16) instead of a ``NeverOpenPairingWindow``, prints the QR URI immediately and the
+    /// confirmation code once a candidate's proof verifies, and -- only with
+    /// `-HarnessAutoConfirmPairing YES`, also set -- auto-clicks "Pair" the moment that happens, so
+    /// a CI driver script never has to reach into this process to drive a real dialog.
     static func startListenerIfRequested() {
         guard let portString = UserDefaults.standard.string(forKey: "HarnessListenerPort"),
               let rawPort = UInt16(portString),
@@ -58,10 +68,16 @@ enum HarnessHooks {
         // `.ready`, so a seeded, trusted client's control session is registered under its real
         // SPKI fingerprint rather than re-deriving it after the fact.
         let decisionCorrelator = PeerDecisionCorrelator()
+        let (window, pairingCandidateDriver) = resolvePairingWindow(
+            identity: identity,
+            keychainStore: keychainStore,
+            rawPort: rawPort
+        )
+
         let verify = PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
-            window: NeverOpenPairingWindow(),
-            onDecision: { metadata, decision, fingerprint in
+            window: window,
+            onDecision: { metadata, decision, fingerprint, spkiDer in
                 // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
                 // returns control to Network.framework and the connection races ahead to `.ready`
                 // (`PeerDecisionCorrelator`'s own kdoc).
@@ -69,7 +85,8 @@ enum HarnessHooks {
                 decisionCorrelator.record(
                     metadataIdentifier: metadataIdentifier,
                     decision: decision,
-                    fingerprint: fingerprint
+                    fingerprint: fingerprint,
+                    spkiDer: spkiDer
                 )
             }
         )
@@ -77,7 +94,8 @@ enum HarnessHooks {
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
                 sessionRegistry: ControlSessionRegistry(),
-                decisionCorrelator: decisionCorrelator
+                decisionCorrelator: decisionCorrelator,
+                pairingCandidateDriver: pairingCandidateDriver
             ),
             port: port,
             verify: verify
@@ -89,9 +107,68 @@ enum HarnessHooks {
         }
     }
 
+    /// Resolves the `PairingWindowState`/`PairingCandidateDriver` pair `startListenerIfRequested()`
+    /// wires into the listener: a real, QR-printing ``TandemPairing/PairingCoordinator`` if
+    /// `-HarnessOpenPairingWindow YES` was passed, else the harness's usual
+    /// ``NeverOpenPairingWindow``.
+    private static func resolvePairingWindow(
+        identity: SecIdentity,
+        keychainStore: any KeychainStore,
+        rawPort: UInt16
+    ) -> (window: any PairingWindowState, driver: (any PairingCandidateDriver)?) {
+        guard UserDefaults.standard.bool(forKey: "HarnessOpenPairingWindow") else {
+            return (NeverOpenPairingWindow(), nil)
+        }
+        let coordinator = makePairingCoordinator(
+            identity: identity,
+            keychainStore: keychainStore,
+            port: Int(rawPort),
+            autoConfirm: UserDefaults.standard.bool(forKey: "HarnessAutoConfirmPairing")
+        )
+        print("harness-pairing-qr-uri: \(coordinator.viewModel.currentPayload.uri)")
+        fflush(stdout)
+        retainedPairingCoordinator = coordinator
+        return (coordinator.window, coordinator)
+    }
+
+    /// Builds the real ``TandemPairing/PairingCoordinator`` `-HarnessOpenPairingWindow` opens,
+    /// printing the confirmation code (and, with `autoConfirm`, auto-accepting) the moment a
+    /// candidate's proof verifies.
+    private static func makePairingCoordinator(
+        identity: SecIdentity,
+        keychainStore: any KeychainStore,
+        port: Int,
+        autoConfirm: Bool
+    ) -> PairingCoordinator {
+        guard let macSpkiDer = spkiDer(for: identity),
+              let fingerprint = try? SpkiFingerprint.of(spkiDer: macSpkiDer) else {
+            fatalError("-HarnessOpenPairingWindow requested but the harness identity's SPKI could not be read")
+        }
+        return PairingCoordinator(
+            fingerprint: fingerprint,
+            macSpkiDerProvider: { macSpkiDer },
+            port: port,
+            name: "Tandem Harness",
+            trustStore: TrustStore(keychainStore: keychainStore),
+            dateProvider: { Date() },
+            onConfirmationPending: { code, viewModel in
+                print("harness-pairing-confirmation-code: \(code)")
+                fflush(stdout)
+                if autoConfirm {
+                    Task { await viewModel.pair() }
+                }
+            }
+        )
+    }
+
     /// Keeps the started `NWListener` alive for the process lifetime -- nothing else retains it
     /// once `startListenerIfRequested()` returns.
     nonisolated(unsafe) private static var retainedListener: NWListener?
+
+    /// Keeps the `-HarnessOpenPairingWindow` coordinator (and the `PairConfirmationViewModel`s it
+    /// hands to `onConfirmationPending`) alive for the process lifetime, the same way
+    /// `retainedListener` does for the `NWListener` itself.
+    nonisolated(unsafe) private static var retainedPairingCoordinator: PairingCoordinator?
 
     private static func seedTrust(fromFixtureAt path: String) {
         do {
@@ -115,6 +192,22 @@ enum HarnessHooks {
         }
     }
 
+    /// Prints `harness-trust-record: <fingerprintHex>` for every record currently in the trust
+    /// store (E14-16), one per line, so a CI driver script can assert on what got committed
+    /// without reaching into the Keychain itself (the same cross-binary ACL-prompt concern
+    /// `-HarnessSeedTrust`/`-HarnessClearTrust` avoid, D-75).
+    private static func listTrust() {
+        do {
+            let trustStore = TrustStore(keychainStore: KeychainStoreFactory.make())
+            for record in try trustStore.list() {
+                print("harness-trust-record: \(record.fingerprint.hexString)")
+            }
+            fflush(stdout)
+        } catch {
+            fatalError("-HarnessListTrust failed: \(error)")
+        }
+    }
+
     /// Prints the harness identity's SPKI fingerprint to stdout so the CI driver script can
     /// confirm, across a kill/relaunch of the same on-disk keychain, that the identity is
     /// unchanged -- without any second binary reading the keychain itself (the same cross-binary
@@ -131,6 +224,18 @@ enum HarnessHooks {
         }
         print("harness-identity-spki: \(fingerprint.hexString)")
         fflush(stdout)
+    }
+
+    /// `identity`'s own certificate's SPKI DER, exactly as ``PairingCoordinator`` needs it for its
+    /// `macSpkiDerProvider` -- the same extraction ``printIdentitySpkiFingerprint(identity:)`` uses,
+    /// just returning the DER itself rather than only its fingerprint.
+    private static func spkiDer(for identity: SecIdentity) -> Data? {
+        var certificate: SecCertificate?
+        guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
+            return nil
+        }
+        let certificateDER = SecCertificateCopyData(certificate) as Data
+        return try? LeafSpkiExtractor.subjectPublicKeyInfoDER(certificateDER: certificateDER)
     }
 }
 

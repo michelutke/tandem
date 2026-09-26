@@ -10,6 +10,7 @@
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */; };
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
+		4E5798DFC9A62A92CDBAFCCC /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 4403433E9D4CD101110A322E /* TandemPairing */; };
 		55DA94E9B145DF8C20B83397 /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC38B9F617CD19FE902E745 /* ErrorPresenterTests.swift */; };
 		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
 		714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = 1988BC0B564CCF8C41148DCF /* TandemProtocol */; };
@@ -77,6 +78,7 @@
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		D4D890067B09F0862A11DF58 /* TandemProtocol */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemProtocol; path = Packages/TandemProtocol; sourceTree = SOURCE_ROOT; };
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF086E83EB78D3A58BA035B6 /* TandemPairing */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemPairing; path = Packages/TandemPairing; sourceTree = SOURCE_ROOT; };
 		EC03814D9752C7029BBEB1C2 /* TandemStore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemStore; path = Packages/TandemStore; sourceTree = SOURCE_ROOT; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -90,6 +92,7 @@
 				58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */,
 				9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */,
 				714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */,
+				4E5798DFC9A62A92CDBAFCCC /* TandemPairing in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,6 +149,7 @@
 				D4D890067B09F0862A11DF58 /* TandemProtocol */,
 				EC03814D9752C7029BBEB1C2 /* TandemStore */,
 				39581A17C108C4B4F78C2DD1 /* TandemTransport */,
+				DF086E83EB78D3A58BA035B6 /* TandemPairing */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -205,6 +209,7 @@
 				9198B05ADBA40A7A02B76C74 /* TandemTransport */,
 				84D30D39F94B2E8AE9912DBD /* TandemStore */,
 				1988BC0B564CCF8C41148DCF /* TandemProtocol */,
+				4403433E9D4CD101110A322E /* TandemPairing */,
 			);
 			productName = TandemApp;
 			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
@@ -257,6 +262,7 @@
 				7F7D28370B22FFA6B9153614 /* XCLocalSwiftPackageReference "Packages/TandemProtocol" */,
 				465E8D8E5336455AEFFF2E07 /* XCLocalSwiftPackageReference "Packages/TandemStore" */,
 				FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "Packages/TandemTransport" */,
+				CF0D102408FD45D20ABB4884 /* XCLocalSwiftPackageReference "Packages/TandemPairing" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 90B0D721ADB7BDABE34F39FF /* Products */;
@@ -624,6 +630,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemTransport;
 		};
+		CF0D102408FD45D20ABB4884 /* XCLocalSwiftPackageReference "Packages/TandemPairing" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TandemPairing;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -642,6 +652,10 @@
 		9198B05ADBA40A7A02B76C74 /* TandemTransport */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TandemTransport;
+		};
+		4403433E9D4CD101110A322E /* TandemPairing */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemPairing;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

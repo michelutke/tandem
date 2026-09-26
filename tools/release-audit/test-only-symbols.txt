@@ -44,3 +44,9 @@ HarnessKeychainPath
 HarnessSeedTrust
 HarnessClearTrust
 HarnessListenerPort
+HarnessListTrust
+
+# Debug-only E14-16 CI harness launch hooks: opening a real pairing window (prints its QR URI and
+# confirmation code) and auto-confirming "Pair" the moment a candidate's proof verifies.
+HarnessOpenPairingWindow
+HarnessAutoConfirmPairing
