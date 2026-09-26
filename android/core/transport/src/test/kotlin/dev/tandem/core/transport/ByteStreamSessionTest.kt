@@ -8,12 +8,15 @@ import dev.tandem.protocol.v1.DeviceStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
 import java.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * [ByteStreamSession] tests (E12-11; `docs/planning/backlog/phase-1.yaml` E12-11's `tdd:` list).
@@ -62,6 +65,28 @@ class ByteStreamSessionTest {
             assertInstanceOf(ConnectionState.Disconnected::class.java, a.state.value)
 
             b.close()
+        }
+
+    @Test
+    fun byteStreamSession_connectionResetWhileAwaitingPeerHello_stateBecomesFailed() =
+        sessionTest {
+            // E12-13: reproduced against the real Mac listener rejecting an unseeded client's
+            // certificate -- the connection resets after this side's own hello is already sent but
+            // before the peer's arrives, so `VersionHandshake.perform()`'s `awaitPeerHello()` sees
+            // its `inbound` flow close and throws, instead of a peer hello ever showing up.
+            val pipe = InMemoryDuplexPipe()
+            val client = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+
+            withTimeout(5.seconds) {
+                while (pipe.capturedAToB().isEmpty()) delay(10)
+            }
+            pipe.endpointA.closeAbruptly()
+
+            withTimeout(5.seconds) {
+                client.state.first { it is ConnectionState.Failed }
+            }
+
+            client.close()
         }
 
     private companion object {

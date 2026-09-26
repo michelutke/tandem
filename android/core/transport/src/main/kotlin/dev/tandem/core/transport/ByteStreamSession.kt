@@ -11,6 +11,7 @@ import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -62,10 +63,28 @@ class ByteStreamSession(
         scope.launch { performHandshake() }
     }
 
+    /**
+     * [VersionHandshake.perform] can throw rather than return a [HandshakeOutcome.Failed] --
+     * e.g. its own [ChannelMultiplexer.send] of this side's hello racing a peer-triggered
+     * [ChannelMultiplexer] close (a rejected peer's connection reset arriving before this side's
+     * hello is sent) throws [dev.tandem.core.protocol.multiplex.MultiplexerClosedException].
+     * Uncaught, that would crash this coroutine silently and leave [connection] stuck in
+     * [ConnectionState.HelloExchange] forever (E12-13: reproduced against the real Mac listener
+     * rejecting an unseeded client's certificate) -- every exception here is instead reported the
+     * same way a [HandshakeOutcome.Failed] already is, per [ConnectionEvent.HandshakeError]'s own
+     * "legal from any state" contract.
+     */
     private suspend fun performHandshake() {
-        when (val outcome = handshake.perform()) {
-            is HandshakeOutcome.Ready -> connection.handle(ConnectionEvent.CompatibleHelloReceived)
-            is HandshakeOutcome.Failed -> connection.handle(ConnectionEvent.HandshakeError(outcome.reason.toString()))
+        try {
+            when (val outcome = handshake.perform()) {
+                is HandshakeOutcome.Ready -> connection.handle(ConnectionEvent.CompatibleHelloReceived)
+                is HandshakeOutcome.Failed ->
+                    connection.handle(ConnectionEvent.HandshakeError(outcome.reason.toString()))
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (e: Exception) {
+            connection.handle(ConnectionEvent.HandshakeError(e.message ?: e.toString()))
         }
     }
 
