@@ -9,6 +9,7 @@ final class FakePairingCandidateSink: PairingCandidateSink, @unchecked Sendable 
         case pairChallenge(Data)
         case pairRejected(PairRejectedWireReason)
         case closePairingFailed
+        case pairAccepted
     }
 
     private let lock = NSLock()
@@ -30,6 +31,10 @@ final class FakePairingCandidateSink: PairingCandidateSink, @unchecked Sendable 
 
     func closePairingFailed() async {
         record(.closePairingFailed)
+    }
+
+    func sendPairAccepted() async throws {
+        record(.pairAccepted)
     }
 
     private func record(_ call: Call) {
