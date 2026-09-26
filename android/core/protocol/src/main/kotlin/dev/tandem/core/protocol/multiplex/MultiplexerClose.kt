@@ -2,6 +2,7 @@ package dev.tandem.core.protocol.multiplex
 
 import dev.tandem.core.protocol.CloseCode
 import dev.tandem.core.protocol.MalformedFrameReason
+import dev.tandem.protocol.v1.Channel
 
 /**
  * How [ChannelMultiplexer]'s single reader loop ended (E11-05; aligned with the macOS twin,
@@ -21,6 +22,17 @@ sealed class MultiplexerClose {
     data class Violation(
         val closeCode: CloseCode,
         val reason: MalformedFrameReason,
+    ) : MultiplexerClose()
+
+    /**
+     * A flow-control violation on [channel] (SPEC.md #channels-and-flow-control-credits, D-64;
+     * E11-07): either the peer transmitted a frame on [channel] past the credit it was actually
+     * granted, or the peer's own `CreditGrant` for [channel] would have taken this side's balance
+     * above that channel's cap. Always closes with [CloseCode.CREDIT_VIOLATION]; unlike
+     * [Violation], never [CloseCode.MALFORMED_FRAME], so it does not carry a [MalformedFrameReason].
+     */
+    data class CreditViolation(
+        val channel: Channel,
     ) : MultiplexerClose()
 
     /**
