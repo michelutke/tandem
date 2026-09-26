@@ -2,9 +2,10 @@ import Foundation
 
 /// Minimal async byte-source abstraction ``FrameDecoder`` reads from. `TandemProtocol` must not
 /// depend on `TandemTransport` (PRD module rules: transport depends on protocol, never the
-/// reverse), so this is not `ByteStreamConnection` (E00-25) itself; tests adapt
-/// `InMemoryConnectionPair` (`TandemTestSupport`) to this protocol instead.
-protocol FrameSource: Sendable {
+/// reverse), so this is not `ByteStreamConnection` (E00-25) itself; `TandemTransport`'s real
+/// `NWConnection` adapter (E12-12) and tests' `InMemoryConnectionPair` (`TandemTestSupport`) both
+/// adapt to this protocol instead of this package depending on either.
+public protocol FrameSource: Sendable {
     /// Reads until exactly `count` bytes have been collected, or until the underlying stream
     /// closes first — in which case it returns everything collected so far for this call, which
     /// may be fewer than `count` bytes, including zero. ``FrameDecoder`` distinguishes a clean
@@ -22,7 +23,7 @@ protocol FrameSource: Sendable {
 /// `CloseCode` type to reuse yet (`protocol/proto/tandem/v1/status.proto` does not define one as
 /// of this issue); this local enum is grown one case at a time, only as the issue implementing
 /// that row needs it -- it is not yet the full nine-row table.
-enum CloseCode: Sendable, Equatable {
+public enum CloseCode: Sendable, Equatable {
     case malformedFrame
     /// A peer violated the credit-flow-control contract (docs/protocol/SPEC.md
     /// #channels-and-flow-control-credits; `docs/planning/decisions.md` D-64): it transmitted a

@@ -3,11 +3,11 @@ import Foundation
 /// One decoded frame routed to its channel's inbound stream (``ChannelMultiplexer/inbound(_:)``).
 /// `channel` is redundant with which stream it arrived on, but is kept so a consumer (or a test)
 /// can assert routing without depending on which stream instance it read from.
-struct InboundFrame: Sendable, Equatable {
-    let channel: Tandem_V1_Channel
-    let seq: UInt64
-    let ack: UInt64
-    let payload: Tandem_V1_Envelope.OneOf_Payload?
+public struct InboundFrame: Sendable, Equatable {
+    public let channel: Tandem_V1_Channel
+    public let seq: UInt64
+    public let ack: UInt64
+    public let payload: Tandem_V1_Envelope.OneOf_Payload?
 }
 
 /// Why a ``ChannelMultiplexer`` stopped routing frames. Every case is a fail-closed stop: the
@@ -57,8 +57,8 @@ extension ChannelMultiplexer {
     }
 }
 
-struct InboundFrameStream: AsyncSequence, Sendable {
-    typealias Element = InboundFrame
+public struct InboundFrameStream: AsyncSequence, Sendable {
+    public typealias Element = InboundFrame
 
     fileprivate let base: AsyncStream<InboundFrame>
     fileprivate let onConsumed: @Sendable () async -> Void
@@ -68,18 +68,18 @@ struct InboundFrameStream: AsyncSequence, Sendable {
         self.onConsumed = onConsumed
     }
 
-    struct AsyncIterator: AsyncIteratorProtocol {
+    public struct AsyncIterator: AsyncIteratorProtocol {
         fileprivate var base: AsyncStream<InboundFrame>.AsyncIterator
         fileprivate let onConsumed: @Sendable () async -> Void
 
-        mutating func next() async -> InboundFrame? {
+        public mutating func next() async -> InboundFrame? {
             guard let frame = await base.next() else { return nil }
             await onConsumed()
             return frame
         }
     }
 
-    func makeAsyncIterator() -> AsyncIterator {
+    public func makeAsyncIterator() -> AsyncIterator {
         AsyncIterator(base: base.makeAsyncIterator(), onConsumed: onConsumed)
     }
 }

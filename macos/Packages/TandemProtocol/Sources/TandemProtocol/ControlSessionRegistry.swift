@@ -4,12 +4,14 @@ import TandemCrypto
 /// for the same peer SPKI reaches Ready, the registry closes the previously-registered session with
 /// `limitExceeded` before registering the new one. Keyed strictly by SPKI fingerprint; no lookup
 /// or registration path accepts an IP address, hostname, or device ID.
-actor ControlSessionRegistry {
+public actor ControlSessionRegistry {
     private var sessions: [SpkiFingerprint: any TandemSession] = [:]
+
+    public init() {}
 
     /// Registers `session` for the given `spkiFingerprint`. If a session already exists for this
     /// fingerprint, closes it with `limitExceeded` before registering the new one.
-    func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
+    public func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
         if let oldSession = sessions[spkiFingerprint] {
             await oldSession.close()
         }
@@ -17,7 +19,7 @@ actor ControlSessionRegistry {
     }
 
     /// Closes and removes the session for the given SPKI fingerprint, if one exists.
-    func unregister(_ spkiFingerprint: SpkiFingerprint) async {
+    public func unregister(_ spkiFingerprint: SpkiFingerprint) async {
         if let session = sessions.removeValue(forKey: spkiFingerprint) {
             await session.close()
         }

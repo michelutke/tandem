@@ -16,10 +16,10 @@ import Foundation
 /// observing the real listener/handshake (E12-01, E12-02, E12-07) -- and `TandemProtocol` may not
 /// depend on `TandemTransport` (PRD module rules: transport depends on protocol, never the
 /// reverse).
-actor ConnectionStateMachine {
+public actor ConnectionStateMachine {
 
     /// Every state this machine's connection can be in.
-    enum ConnectionState: Sendable, Equatable {
+    public enum ConnectionState: Sendable, Equatable {
         /// Before this connection was ever accepted (`reason == nil`, the only value ``handle(_:)``
         /// ever starts from), or after a `Ready` connection's socket closed (`reason` is then the
         /// close description).
@@ -35,7 +35,7 @@ actor ConnectionStateMachine {
     }
 
     /// Inputs this machine reacts to.
-    enum Event: Sendable, Equatable {
+    public enum Event: Sendable, Equatable {
         case incomingConnection
         case handshakeStarted
         case handshakeCompleted
@@ -59,9 +59,9 @@ actor ConnectionStateMachine {
     /// ``ConnectionState/disconnected(reason:)`` (`reason == nil`) at construction. Finishes once
     /// this connection reaches a terminal state (``ConnectionState/failed(_:)`` or a `Ready`
     /// connection's ``ConnectionState/disconnected(reason:)``).
-    nonisolated let states: AsyncStream<ConnectionState>
+    public nonisolated let states: AsyncStream<ConnectionState>
 
-    init(clock: any Clock<Duration>) {
+    public init(clock: any Clock<Duration>) {
         self.clock = clock
         let (states, continuation) = AsyncStream<ConnectionState>.makeStream(bufferingPolicy: .unbounded)
         self.states = states
@@ -76,7 +76,7 @@ actor ConnectionStateMachine {
     ///   which is then left unchanged (acceptance: "An illegal event leaves the state unchanged
     ///   and is reported as rejected").
     @discardableResult
-    func handle(_ event: Event) -> Bool {
+    public func handle(_ event: Event) -> Bool {
         guard let next = Self.transition(from: state, event: event) else { return false }
         state = next
         continuation.yield(next)

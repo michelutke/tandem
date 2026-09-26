@@ -38,11 +38,11 @@ import Foundation
 /// existing ``FrameSource`` seam (E11-04) for inbound bytes and an injected outbound sink closure
 /// for outbound bytes -- never through `ByteStreamConnection` directly, though its own `send(_:)`
 /// already matches this sink's signature, so no adapter is needed on that side.
-actor ChannelMultiplexer {
+public actor ChannelMultiplexer {
     /// Sends one already-framed (length-prefixed) frame's bytes to the peer, suspending under
     /// backpressure exactly like `ByteStreamConnection.send(_:)` -- which satisfies this
     /// signature directly.
-    typealias OutboundSink = @Sendable (Data) async throws -> Void
+    public typealias OutboundSink = @Sendable (Data) async throws -> Void
 
     /// The channel set this type routes: every `Tandem_V1_Channel` except `.unspecified`
     /// (`FrameDecoder` already rejects `.unspecified`/`.UNRECOGNIZED` as `UNKNOWN_CHANNEL` before
@@ -108,7 +108,7 @@ actor ChannelMultiplexer {
     /// to run the loop themselves.
     private var isDraining = false
 
-    init(source: FrameSource, sink: @escaping OutboundSink) {
+    public init(source: FrameSource, sink: @escaping OutboundSink) {
         self.source = source
         self.sink = sink
         for channel in Self.routedChannels {
@@ -125,7 +125,7 @@ actor ChannelMultiplexer {
 
     /// Starts the single reader task that decodes frames from `source` and routes them. Calling
     /// this more than once, or after the multiplexer has already stopped, is a no-op.
-    func start() {
+    public func start() {
         guard readerTask == nil, closeReason == nil else { return }
         readerTask = Task { [weak self] in
             await self?.readLoop()

@@ -17,7 +17,7 @@ import Foundation
 /// `PairChallenge`/`RotationChallenge` value, generated, sent and held entirely by the pairing
 /// (E14) and key-rotation (E70) layers, which read it from an ordinary received frame like any
 /// other CONTROL payload, never from this protocol.
-protocol TandemSession: Sendable {
+public protocol TandemSession: Sendable {
     /// Sends `payload` on `channel` (``ChannelMultiplexer/send(_:payload:)``).
     func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws
 

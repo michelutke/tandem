@@ -14,7 +14,7 @@ import Foundation
 /// while ``session`` is still ``NegotiatedSession/pending``, so no application frame is ever
 /// written before both hellos have been exchanged (SPEC.md "Exchange rule"), and throws once
 /// ``session`` has resolved to ``NegotiatedSession/failed(_:)``.
-actor VersionHandshake {
+public actor VersionHandshake {
     /// This protocol revision's own `VersionHello` fields (docs/protocol/SPEC.md
     /// #versioning-and-capability-negotiation): `major = 1`, `minor = 0`; `capabilities` is left
     /// at its wire default of 0 (no bit assigned yet).
@@ -26,7 +26,7 @@ actor VersionHandshake {
 
     /// Outcome of the handshake, exposed so other callers can gate their own sends on it. Swift
     /// counterpart to the Android `NegotiatedSession` (E12-15).
-    enum NegotiatedSession: Sendable, Equatable {
+    public enum NegotiatedSession: Sendable, Equatable {
         /// Neither this side's own hello has resolved against the peer's yet -- no non-`.control`
         /// send may reach the wire while this holds.
         case pending
@@ -41,7 +41,7 @@ actor VersionHandshake {
     }
 
     /// Why a handshake failed (docs/protocol/SPEC.md #errors-and-close-codes).
-    enum HandshakeFailure: Sendable, Equatable {
+    public enum HandshakeFailure: Sendable, Equatable {
         /// The peer's `major` differs from ``ownMajor`` -- always fatal regardless of `minor`
         /// (SPEC.md "Version mismatch"). Wire close code `VERSION_MISMATCH`.
         case versionMismatch
@@ -53,17 +53,17 @@ actor VersionHandshake {
     /// Thrown by ``send(_:payload:)`` once ``session`` has resolved to
     /// ``NegotiatedSession/failed(_:)``, whether it already had when called or resolved to that
     /// while the call was suspended.
-    enum HandshakeError: Error, Sendable, Equatable {
+    public enum HandshakeError: Error, Sendable, Equatable {
         case failed(HandshakeFailure)
     }
 
     private let multiplexer: ChannelMultiplexer
     private let clock: any Clock<Duration>
 
-    private(set) var session: NegotiatedSession = .pending
+    public private(set) var session: NegotiatedSession = .pending
     private var readyWaiters: [CheckedContinuation<Void, Error>] = []
 
-    init(multiplexer: ChannelMultiplexer, clock: any Clock<Duration>) {
+    public init(multiplexer: ChannelMultiplexer, clock: any Clock<Duration>) {
         self.multiplexer = multiplexer
         self.clock = clock
     }
@@ -75,7 +75,7 @@ actor VersionHandshake {
     /// ``send(_:payload:)`` call suspended on ``session`` still being ``NegotiatedSession/pending``
     /// resumes once this returns. Callers should invoke this exactly once per connection, after
     /// the multiplexer has started reading (``ChannelMultiplexer/start()``).
-    func run() async {
+    public func run() async {
         var ownHello = Tandem_V1_VersionHello()
         ownHello.major = Self.ownMajor
         ownHello.minor = Self.ownMinor

@@ -28,8 +28,8 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD
 /// ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
 /// names (CONTROL, NOTIFY, ...).
-nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
-  typealias RawValue = Int
+public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
   case unspecified // = 0
   case control // = 1
   case notify // = 2
@@ -42,11 +42,11 @@ nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
   case status // = 9
   case UNRECOGNIZED(Int)
 
-  init() {
+  public init() {
     self = .unspecified
   }
 
-  init?(rawValue: Int) {
+  public init?(rawValue: Int) {
     switch rawValue {
     case 0: self = .unspecified
     case 1: self = .control
@@ -62,7 +62,7 @@ nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
     }
   }
 
-  var rawValue: Int {
+  public var rawValue: Int {
     switch self {
     case .unspecified: return 0
     case .control: return 1
@@ -79,7 +79,7 @@ nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
   }
 
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Tandem_V1_Channel] = [
+  public static let allCases: [Tandem_V1_Channel] = [
     .unspecified,
     .control,
     .notify,
@@ -97,5 +97,5 @@ nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 nonisolated extension Tandem_V1_Channel: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CHANNEL_UNSPECIFIED\0\u{1}CHANNEL_CONTROL\0\u{1}CHANNEL_NOTIFY\0\u{1}CHANNEL_CLIPBOARD\0\u{1}CHANNEL_FILES\0\u{1}CHANNEL_SMS\0\u{1}CHANNEL_CONTACTS\0\u{1}CHANNEL_CALLS\0\u{1}CHANNEL_INPUT\0\u{1}CHANNEL_STATUS\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CHANNEL_UNSPECIFIED\0\u{1}CHANNEL_CONTROL\0\u{1}CHANNEL_NOTIFY\0\u{1}CHANNEL_CLIPBOARD\0\u{1}CHANNEL_FILES\0\u{1}CHANNEL_SMS\0\u{1}CHANNEL_CONTACTS\0\u{1}CHANNEL_CALLS\0\u{1}CHANNEL_INPUT\0\u{1}CHANNEL_STATUS\0")
 }
