@@ -27,6 +27,10 @@ dependencies {
     // BundledSQLiteDriver the E13-01 spike used cannot load in this module -- its native library
     // is packaged for on-device extraction, not for a host JVM's `java.library.path`).
     implementation(libs.sqlite.framework)
+
+    // Settings store (E13-04).
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.datastore.preferences.core)
 }
 
 // E13-01/E13-02: Room schema export feeds the migration fixture E13-03 commits under test

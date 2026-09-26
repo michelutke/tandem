@@ -42,3 +42,16 @@ tandem:
     active: true
   TandemActivityBase:
     active: true
+  NoListenerSockets:
+    active: true
+    # Invariant 4: the Android app opens no listening sockets, anywhere — no module exclusion.
+    # The E12-04 JVM test-only TLS server legitimately binds an SSLServerSocket in test sources.
+    excludes:
+      - "**/src/test/**"
+      - "**/src/androidTest/**"
+      - "**/src/testFixtures/**"
+  KeyMaterialOnlyInCrypto:
+    active: true
+    # Only core/crypto may reference AndroidKeyStore or compute HMAC-SHA256 directly (E10-14).
+    excludes:
+      - "**/core/crypto/**"
