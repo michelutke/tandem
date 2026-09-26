@@ -32,7 +32,7 @@ enum ConformanceRunner {
         let description: String
     }
 
-    static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
+    static let deferredCategories: [String: String] = ["discovery-id": "E21-02", "status-encoding": "E23-01"]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
         "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings"

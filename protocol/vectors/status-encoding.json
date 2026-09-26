@@ -1,0 +1,115 @@
+{
+  "$schema": "./schema.json",
+  "category": "status-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "device-status-minimal",
+      "description": "Minimal DeviceStatus with all fields at proto3 defaults (omitted).",
+      "input": {
+        "kind": "deviceStatus",
+        "battery_level": 0,
+        "is_charging": false,
+        "network_type": 0,
+        "signal_level": 0
+      },
+      "expected": {
+        "bytesHex": "",
+        "battery_level": 0,
+        "is_charging": false,
+        "network_type": 0,
+        "signal_level": 0
+      }
+    },
+    {
+      "id": "device-status-typical",
+      "description": "Typical DeviceStatus: 82% battery, charging, Wi-Fi, 3 bars signal.",
+      "input": {
+        "kind": "deviceStatus",
+        "battery_level": 82,
+        "is_charging": true,
+        "network_type": 1,
+        "signal_level": 3
+      },
+      "expected": {
+        "bytesHex": "0852100118012003",
+        "battery_level": 82,
+        "is_charging": true,
+        "network_type": 1,
+        "signal_level": 3
+      }
+    },
+    {
+      "id": "device-status-cellular",
+      "description": "DeviceStatus with cellular network and full signal.",
+      "input": {
+        "kind": "deviceStatus",
+        "battery_level": 100,
+        "is_charging": false,
+        "network_type": 2,
+        "signal_level": 4
+      },
+      "expected": {
+        "bytesHex": "086418022004",
+        "battery_level": 100,
+        "is_charging": false,
+        "network_type": 2,
+        "signal_level": 4
+      }
+    },
+    {
+      "id": "device-status-offline",
+      "description": "DeviceStatus with offline network (signal_level becomes meaningless, set to 0).",
+      "input": {
+        "kind": "deviceStatus",
+        "battery_level": 15,
+        "is_charging": false,
+        "network_type": 3,
+        "signal_level": 0
+      },
+      "expected": {
+        "bytesHex": "080f1803",
+        "battery_level": 15,
+        "is_charging": false,
+        "network_type": 3,
+        "signal_level": 0
+      }
+    },
+    {
+      "id": "ring-stop-unspecified",
+      "description": "RingStop with origin UNSPECIFIED (0): encodes as empty message.",
+      "input": {
+        "kind": "ringStop",
+        "origin": 0
+      },
+      "expected": {
+        "bytesHex": "",
+        "origin": 0
+      }
+    },
+    {
+      "id": "ring-stop-mac",
+      "description": "RingStop from Mac side (origin=1).",
+      "input": {
+        "kind": "ringStop",
+        "origin": 1
+      },
+      "expected": {
+        "bytesHex": "0801",
+        "origin": 1
+      }
+    },
+    {
+      "id": "ring-stop-phone",
+      "description": "RingStop from phone side (origin=2).",
+      "input": {
+        "kind": "ringStop",
+        "origin": 2
+      },
+      "expected": {
+        "bytesHex": "0802",
+        "origin": 2
+      }
+    }
+  ]
+}

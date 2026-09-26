@@ -36,6 +36,7 @@ public  final class Envelope extends
     REVOKE(14),
     DEVICE_STATUS(20),
     RING(21),
+    RING_STOP(22),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -62,6 +63,7 @@ public  final class Envelope extends
         case 14: return REVOKE;
         case 20: return DEVICE_STATUS;
         case 21: return RING;
+        case 22: return RING_STOP;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -818,6 +820,58 @@ public  final class Envelope extends
    */
   private void clearRing() {
     if (payloadCase_ == 21) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int RING_STOP_FIELD_NUMBER = 22;
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRingStop() {
+    return payloadCase_ == 22;
+  }
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RingStop getRingStop() {
+    if (payloadCase_ == 22) {
+       return (dev.tandem.protocol.v1.RingStop) payload_;
+    }
+    return dev.tandem.protocol.v1.RingStop.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRingStop(dev.tandem.protocol.v1.RingStop value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 22;
+  }
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRingStop(dev.tandem.protocol.v1.RingStop value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 22 &&
+        payload_ != dev.tandem.protocol.v1.RingStop.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RingStop.newBuilder((dev.tandem.protocol.v1.RingStop) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 22;
+  }
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   */
+  private void clearRingStop() {
+    if (payloadCase_ == 22) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -1649,6 +1703,54 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRingStop() {
+      return instance.hasRingStop();
+    }
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RingStop getRingStop() {
+      return instance.getRingStop();
+    }
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    public Builder setRingStop(dev.tandem.protocol.v1.RingStop value) {
+      copyOnWrite();
+      instance.setRingStop(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    public Builder setRingStop(
+        dev.tandem.protocol.v1.RingStop.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRingStop(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    public Builder mergeRingStop(dev.tandem.protocol.v1.RingStop value) {
+      copyOnWrite();
+      instance.mergeRingStop(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+     */
+    public Builder clearRingStop() {
+      copyOnWrite();
+      instance.clearRingStop();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -1681,11 +1783,12 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.Revoke.class,
             dev.tandem.protocol.v1.DeviceStatus.class,
             dev.tandem.protocol.v1.Ring.class,
+            dev.tandem.protocol.v1.RingStop.class,
           };
           java.lang.String info =
-              "\u0000\u000e\u0001\u0000\u0001\u0015\u000e\u0000\u0000\u0000\u0001\f\u0002\u0003" +
+              "\u0000\u000f\u0001\u0000\u0001\u0016\u000f\u0000\u0000\u0000\u0001\f\u0002\u0003" +
               "\u0003\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<" +
-              "\u0000\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000";
+              "\u0000\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

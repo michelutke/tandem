@@ -130,6 +130,14 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .ring(newValue)}
   }
 
+  var ringStop: Tandem_V1_RingStop {
+    get {
+      if case .ringStop(let v)? = payload {return v}
+      return Tandem_V1_RingStop()
+    }
+    set {payload = .ringStop(newValue)}
+  }
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -146,6 +154,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     case revoke(Tandem_V1_Revoke)
     case deviceStatus(Tandem_V1_DeviceStatus)
     case ring(Tandem_V1_Ring)
+    case ringStop(Tandem_V1_RingStop)
 
   }
 
@@ -158,7 +167,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Envelope"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -312,6 +321,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .ring(v)
         }
       }()
+      case 22: try {
+        var v: Tandem_V1_RingStop?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .ringStop(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .ringStop(v)
+        }
+      }()
       default: break
       }
     }
@@ -375,6 +397,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .ring?: try {
       guard case .ring(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
+    }()
+    case .ringStop?: try {
+      guard case .ringStop(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
     }()
     case nil: break
     }

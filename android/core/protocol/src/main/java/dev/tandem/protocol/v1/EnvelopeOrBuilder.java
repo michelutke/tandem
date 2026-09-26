@@ -181,5 +181,16 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.Ring getRing();
 
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   * @return Whether the ringStop field is set.
+   */
+  boolean hasRingStop();
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   * @return The ringStop.
+   */
+  dev.tandem.protocol.v1.RingStop getRingStop();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

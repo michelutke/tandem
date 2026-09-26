@@ -51,6 +51,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 15 | Contacts channel | `#contacts-channel` | TBD (Phase 5, epic E51) |
 | 16 | Calls channel | `#calls-channel` | TBD (Phase 5, epic E52) |
 | 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
+| 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -1443,5 +1444,45 @@ detecting it would not close any actual gap (residual risk recorded in `docs/thr
 `protocol/vectors/` (E01-24) is the authoritative vector suite for this rule on both platforms: each
 vector gives an input string, a `kind` (`name`, `title`, or `body`), and the expected sanitized output.
 E14-21 (Android) and E14-22 (macOS) implement a shared sanitizer validated against these vectors.
+
+---
+
+## STATUS channel
+
+*(E23-01 · PRD F-4.3, F-4.4 · UC-05, UC-06 · no invariant references)*
+
+The STATUS channel carries two message types: `DeviceStatus` (the phone sends this to report battery,
+network, and signal state) and `Ring`/`RingStop` (the Mac sends `Ring` to make the phone ring; either
+side sends `RingStop` to stop it). The semantics below govern publish rate and direction:
+
+### DeviceStatus publish rule
+
+- **Direction:** Phone → Mac only. The phone publishes on every change of `battery_level`, 
+  `is_charging`, `network_type`, or `signal_level`.
+- **Throttle:** At most one `DeviceStatus` per 60 seconds. If a change occurs within 60 s of the
+  previous send, the new values are coalesced (the latest values overwrite earlier ones in that window)
+  and sent exactly once at 60 s after the last send. If no change occurs for 60+ seconds, nothing is
+  sent until the next actual change.
+- **Session Ready:** Immediately upon the session reaching Ready, the phone sends the current 
+  `DeviceStatus` once, applying the same publish rule: if a change occurred within the last 60 s of
+  session negotiation, the latest values are sent; otherwise, the current values at Ready time are
+  sent.
+
+### Ring/RingStop flow
+
+- **Ring (Mac → Phone):** The Mac sends `Ring` to make the phone play an alarm at max volume,
+  overriding Do Not Disturb, until dismissed. See §10 (`#timeouts-connection-limits-and-resource-caps`,
+  E01-22) for the cooldown cap: the alarm starts at most twice per rolling 10 s regardless of how many
+  `Ring` frames arrive.
+- **RingStop (either direction):** Either side may send `RingStop` to stop the ringing alarm. The
+  `origin` field records which side initiated the stop (mac or phone), answering the question "did the
+  phone dismiss this, or did the Mac cancel it?" on the receiving side, so each side's UI can reflect
+  the appropriate cause.
+
+### Conformance
+
+`protocol/vectors/` (E01-16) includes encode/decode and round-trip vectors for a full `DeviceStatus`
+and a `Ring`/`RingStop` pair; both Kotlin and Swift codecs produce byte-identical encodings for these
+vectors (E15-01, E15-02).
 
 ---

@@ -60,7 +60,7 @@ class ConformanceFailure(
  * existing dependency graph instead of adding a new Gradle module (KISS).
  */
 object ConformanceRunner {
-    val deferredCategories: Map<String, String> = mapOf("discovery-id" to "E21-05")
+    val deferredCategories: Map<String, String> = mapOf("discovery-id" to "E21-05", "status-encoding" to "E23-01")
     private val handledCategories: Set<String> =
         setOf("frame-encoding", "spki-fingerprint", "pairing-proof", "qr-payload", "display-strings")
 

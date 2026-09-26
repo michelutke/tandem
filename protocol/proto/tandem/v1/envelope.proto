@@ -37,9 +37,8 @@ message Envelope {
   // MALFORMED_FRAME).
   reserved 8 to 9;     // control.proto (E01-12): remaining CONTROL payload slots
   reserved 15 to 19;   // pairing.proto (E01-11): remaining CONTROL payload slots
-  // 20-29: status.proto (E01-13, this issue). 22-29 held for RingStop, added when E23-01 writes
-  // the STATUS SPEC.md section; do not assign those numbers before then.
-  reserved 22 to 29;
+  // 20-29: status.proto (E01-13). 22 is RingStop (E23-01); 23-29 held for future extensions.
+  reserved 23 to 29;   // status.proto (E01-13): future STATUS channel extensions
   reserved 30 to 39;   // notify.proto (E30-01) — NOTIFY channel
   reserved 40 to 49;   // clipboard.proto (E31-01) — CLIPBOARD channel
   reserved 50 to 59;   // files.proto (E40-01) — FILES channel
@@ -68,5 +67,6 @@ message Envelope {
 
     DeviceStatus device_status = 20;
     Ring ring = 21;
+    RingStop ring_stop = 22;
   }
 }

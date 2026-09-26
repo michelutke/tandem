@@ -401,6 +401,30 @@ public object EnvelopeKt {
     public fun hasRing(): kotlin.Boolean {
       return _builder.hasRing()
     }
+
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     */
+    public var ringStop: dev.tandem.protocol.v1.RingStop
+      @kotlin.jvm.JvmName("getRingStop")
+        get() = _builder.ringStop
+      @kotlin.jvm.JvmName("setRingStop")
+        set(value) {
+        _builder.ringStop = value
+      }
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     */
+    public fun clearRingStop() {
+      _builder.clearRingStop()
+    }
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     * @return Whether the ringStop field is set.
+     */
+    public fun hasRingStop(): kotlin.Boolean {
+      return _builder.hasRingStop()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -446,4 +470,7 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.deviceStatusOrNull: dev.tand
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.ringOrNull: dev.tandem.protocol.v1.Ring?
   get() = if (hasRing()) getRing() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.ringStopOrNull: dev.tandem.protocol.v1.RingStop?
+  get() = if (hasRingStop()) getRingStop() else null
 
