@@ -6,9 +6,9 @@ import TandemCrypto
 @Suite("ControlSessionRegistry")
 struct ControlSessionRegistryTests {
     @Test("sessionRegistry_firstReadyForSpki_registeredNoneClosed")
-    func firstReadyForSpkiRegisteredNoneClosed() async {
+    func firstReadyForSpkiRegisteredNoneClosed() async throws {
         let registry = ControlSessionRegistry()
-        let fingerprint = try! SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
         let session = FakeTandemSession()
 
         await registry.register(fingerprint, session: session)
@@ -19,9 +19,9 @@ struct ControlSessionRegistryTests {
     }
 
     @Test("sessionRegistry_secondReadyForSameSpki_firstClosedLimitExceeded")
-    func secondReadyForSameSpkiFirstClosedLimitExceeded() async {
+    func secondReadyForSameSpkiFirstClosedLimitExceeded() async throws {
         let registry = ControlSessionRegistry()
-        let fingerprint = try! SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
         let firstSession = FakeTandemSession()
         let secondSession = FakeTandemSession()
 
@@ -47,10 +47,10 @@ struct ControlSessionRegistryTests {
     }
 
     @Test("sessionRegistry_readyForDifferentSpkis_bothRemainRegistered")
-    func readyForDifferentSpkisRemainRegistered() async {
+    func readyForDifferentSpkisRemainRegistered() async throws {
         let registry = ControlSessionRegistry()
-        let fingerprint1 = try! SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
-        let fingerprint2 = try! SpkiFingerprint(bytes: Data(repeating: 0x02, count: 32))
+        let fingerprint1 = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let fingerprint2 = try SpkiFingerprint(bytes: Data(repeating: 0x02, count: 32))
         let session1 = FakeTandemSession()
         let session2 = FakeTandemSession()
 
@@ -64,11 +64,11 @@ struct ControlSessionRegistryTests {
     }
 
     @Test("sessionRegistry_lookupSignature_takesOnlySpkiFingerprint")
-    func lookupSignatureTakesOnlySpkiFingerprint() async {
+    func lookupSignatureTakesOnlySpkiFingerprint() async throws {
         // This test verifies that the API only accepts SpkiFingerprint
         // The compiler enforces this, but we document it here
         let registry = ControlSessionRegistry()
-        let fingerprint = try! SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
         let session = FakeTandemSession()
 
         // This should compile - only SpkiFingerprint accepted
