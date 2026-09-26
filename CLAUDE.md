@@ -44,8 +44,10 @@ tools/lint/literal-color-check.sh
 tools/protocol/check_generated.sh
 ```
 
-Not wired yet: conformance vectors (`tools/conformance/run.sh`, E15-01…E15-03) and `tools/pcap-audit`
-(E15-04). Once they exist, every PR touching `core/*` must include or update tests and pass
+`tools/conformance/run.sh` (E15-01, E15-02) runs the Kotlin and Swift codec/crypto conformance
+suites against `protocol/vectors/` and merges their reports; it is not yet wired into CI as a
+required check (E15-03). `tools/pcap-audit` (E15-04) is also not wired yet. Once E15-03 lands,
+every PR touching `core/*` must include or update tests and pass `tools/conformance/run.sh` and
 `tools/pcap-audit` locally.
 
 ## Testing

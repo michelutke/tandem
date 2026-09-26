@@ -27,7 +27,8 @@ struct VerifyBlockLoopbackTests {
         let listener = try NWListenerFactory().makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
-            verify: verify
+            verify: verify,
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
         defer { listener.cancel() }
         let port = try await Self.waitForListenerPort(listener)
@@ -70,7 +71,8 @@ struct VerifyBlockLoopbackTests {
         let listener = try NWListenerFactory().makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
-            verify: verify
+            verify: verify,
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
         defer { listener.cancel() }
         let port = try await Self.waitForListenerPort(listener)
@@ -145,7 +147,8 @@ struct VerifyBlockLoopbackTests {
         let listener = try NWListenerFactory().makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
-            verify: verify
+            verify: verify,
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
         defer { listener.cancel() }
         let port = try await Self.waitForListenerPort(listener)

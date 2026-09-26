@@ -16,6 +16,9 @@ enum UITestScenario: String {
     /// `nm`/`strings` on the Release product, when a scenario first needs it.
     case notPaired
 
+    /// Fail-closed error state: version mismatch (E12-10).
+    case failClosedError
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }
