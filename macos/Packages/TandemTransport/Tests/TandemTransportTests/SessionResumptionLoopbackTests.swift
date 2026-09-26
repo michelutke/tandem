@@ -2,6 +2,7 @@ import Foundation
 import Network
 import Security
 import Testing
+import TandemProtocol
 @testable import TandemTransport
 
 /// E12-03: `NWListenerFactory` explicitly disables TLS session-ticket issuance
@@ -33,7 +34,7 @@ struct SessionResumptionLoopbackTests {
         defer { clientKeychain.cleanup() }
 
         let verifyInvocationCount = InvocationCounter()
-        let listener = try NWListenerFactory().makeListener(
+        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: { _, _, complete in
@@ -70,7 +71,7 @@ struct SessionResumptionLoopbackTests {
         let clientKeychain = try TemporaryKeychain()
         defer { clientKeychain.cleanup() }
 
-        let listener = try NWListenerFactory().makeListener(
+        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: { _, _, complete in complete(true) },

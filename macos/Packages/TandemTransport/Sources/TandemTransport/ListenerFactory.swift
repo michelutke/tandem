@@ -1,5 +1,6 @@
 import Network
 import Security
+import TandemProtocol
 
 /// The single ALPN identifier this protocol negotiates (`docs/protocol/SPEC.md`
 /// `#handshake-and-tls-profile`). No other value is ever offered or accepted.
@@ -62,8 +63,25 @@ public protocol ListenerFactory: Sendable {
 /// selection itself is out of scope here (the pairing QR's `p` field, `docs/protocol/SPEC.md`
 /// `#pairing`); this type just listens on whatever port it is given.
 public struct NWListenerFactory: ListenerFactory {
+    /// Where a connection that reaches `.ready` is registered under its peer's SPKI fingerprint
+    /// (E12-19). Shared across every connection this listener ever accepts.
+    private let sessionRegistry: ControlSessionRegistry
+    /// Recovers the fingerprint `PeerVerifier`'s `onDecision` hook already computed for a
+    /// connection's own verify callback (E12-02), keyed by that connection's TLS metadata object.
+    private let decisionCorrelator: PeerDecisionCorrelator
+    /// Drives `ConnectionStateMachine`'s handshake deadline and `VersionHandshake`'s hello
+    /// deadline for every session this listener wires up (E00-24 seam rule).
+    private let clock: any Clock<Duration>
 
-    public init() {}
+    public init(
+        sessionRegistry: ControlSessionRegistry,
+        decisionCorrelator: PeerDecisionCorrelator,
+        clock: any Clock<Duration> = ContinuousClock()
+    ) {
+        self.sessionRegistry = sessionRegistry
+        self.decisionCorrelator = decisionCorrelator
+        self.clock = clock
+    }
 
     public func makeListener(
         identity: SecIdentity,
@@ -97,7 +115,7 @@ public struct NWListenerFactory: ListenerFactory {
             }
 
             Task {
-                await Self.admitAndStart(connection: connection, ipAddress: ipAddress, admission: admission)
+                await admitAndStart(connection: connection, ipAddress: ipAddress, admission: admission)
             }
         }
 
@@ -107,7 +125,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// Consults `admission` for `connection`'s source address and, if admitted, wires up its
     /// `stateUpdateHandler` and starts it; a refusal cancels `connection` before any TLS handshake
     /// starts (SPEC.md §10).
-    private static func admitAndStart(
+    private func admitAndStart(
         connection: NWConnection,
         ipAddress: String,
         admission: ConnectionAdmission
@@ -120,21 +138,28 @@ public struct NWListenerFactory: ListenerFactory {
         case .refused:
             connection.cancel()
         case .admitted(let id):
-            connection.stateUpdateHandler = Self.makeStateUpdateHandler(
+            let adapter = NWConnectionByteStreamConnection(connection: connection)
+            connection.stateUpdateHandler = makeStateUpdateHandler(
                 connection: connection,
                 admission: admission,
-                id: id
+                id: id,
+                adapter: adapter
             )
             connection.start(queue: .global())
         }
     }
 
     /// Builds `connection`'s `stateUpdateHandler`, reporting this connection's eventual outcome
-    /// back to `admission` (E12-18) alongside the existing ALPN check (E12-01).
-    private static func makeStateUpdateHandler(
+    /// back to `admission` (E12-18) alongside the existing ALPN check (E12-01), and republishing
+    /// every transition onto `adapter`'s own ``ByteStreamConnection/state`` stream -- `NWConnection`
+    /// allows only one `stateUpdateHandler`, so this single closure is the one place both
+    /// concerns can observe the connection's lifecycle. Once `.ready` passes the ALPN check, spawns
+    /// the E12-12 session wiring (``wireSession(adapter:connection:)``).
+    private func makeStateUpdateHandler(
         connection: NWConnection,
         admission: ConnectionAdmission,
-        id: ConnectionAdmission.ConnectionID
+        id: ConnectionAdmission.ConnectionID,
+        adapter: NWConnectionByteStreamConnection
     ) -> @Sendable (NWConnection.State) -> Void {
         { state in
             switch state {
@@ -151,14 +176,18 @@ public struct NWListenerFactory: ListenerFactory {
                     Task { await admission.handshakeFailed(id) }
                     return
                 }
+                adapter.reportReady()
                 Task { await admission.handshakeSucceeded(id) }
-            case .failed:
+                let metadataIdentifier = ObjectIdentifier(metadata.securityProtocolMetadata)
+                Task { await wireSession(adapter: adapter, metadataIdentifier: metadataIdentifier) }
+            case .failed(let error):
                 // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
                 // reaches `.ready`, so without this the accepted `NWConnection` is only ever
                 // released by `.cancelled` -- which nothing here would ever trigger for it --
                 // leaking it (and its closure's strong self-reference) for the life of the
                 // process. Cancelling on `.failed` releases it, and counts as a failed handshake
                 // for the per-IP throttle (SPEC.md §10).
+                adapter.reportFailed("\(error)")
                 connection.cancel()
                 Task { await admission.handshakeFailed(id) }
             case .cancelled:
@@ -166,9 +195,58 @@ public struct NWListenerFactory: ListenerFactory {
                 // reported, so this is a no-op) or from the TCP connection itself closing/
                 // resetting before the handshake ever reached `.ready`/`.failed` -- also a failed
                 // handshake (SPEC.md §10).
+                adapter.reportCancelled()
                 Task { await admission.handshakeFailed(id) }
             default:
                 break
+            }
+        }
+    }
+
+    /// Wraps `adapter` in a real `ChannelMultiplexer` + `ConnectionStateMachine`, runs the E12-07
+    /// `VersionHandshake`, and -- once Ready -- registers the resulting `ByteStreamSession` in
+    /// ``sessionRegistry`` under the peer's leaf SPKI fingerprint, recovered from
+    /// ``decisionCorrelator`` (E12-02's decision, never re-derived). Reflects the adapter's own
+    /// later lifecycle (post-Ready close/failure) into the state machine so a session that drops
+    /// is removed from the registry rather than left registered and dead.
+    private func wireSession(adapter: NWConnectionByteStreamConnection, metadataIdentifier: ObjectIdentifier) async {
+        let source = ByteStreamConnectionFrameSource(adapter)
+        let multiplexer = ChannelMultiplexer(source: source, sink: { data in try await adapter.send(data) })
+        let stateMachine = ConnectionStateMachine(clock: clock)
+        let handshake = VersionHandshake(multiplexer: multiplexer, clock: clock)
+        let session = ByteStreamSession(multiplexer: multiplexer, stateMachine: stateMachine)
+
+        await stateMachine.handle(.incomingConnection)
+        await stateMachine.handle(.handshakeStarted)
+        await stateMachine.handle(.handshakeCompleted)
+        await multiplexer.start()
+
+        await handshake.run()
+        switch await handshake.session {
+        case .ready:
+            await stateMachine.handle(.compatibleHelloReceived)
+            if let fingerprint = await decisionCorrelator.take(metadataIdentifier: metadataIdentifier) {
+                await sessionRegistry.register(fingerprint, session: session)
+            }
+        case .failed(let failure):
+            let closeCode: CloseCode
+            switch failure {
+            case .versionMismatch: closeCode = .versionMismatch
+            case .protocolTimeout: closeCode = .protocolTimeout
+            }
+            await stateMachine.handle(.handshakeError(closeCode))
+        case .pending:
+            break // `run()` always resolves `session` before returning; unreachable.
+        }
+
+        for await connectionState in adapter.state {
+            switch connectionState {
+            case .ready:
+                continue
+            case .closed, .cancelled:
+                await stateMachine.handle(.socketClosed(reason: "connection closed"))
+            case .failed(let failure):
+                await stateMachine.handle(.socketClosed(reason: failure.reason))
             }
         }
     }

@@ -3,6 +3,7 @@ import Network
 import Security
 import Testing
 import TandemCrypto
+import TandemProtocol
 @testable import TandemTransport
 
 /// SPEC.md §1's verify-callback pin decision, exercised over a real loopback TLS handshake
@@ -24,7 +25,7 @@ struct VerifyBlockLoopbackTests {
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory().makeListener(
+        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,
@@ -68,7 +69,7 @@ struct VerifyBlockLoopbackTests {
             trustStore: FixedTrustStoreReader(fingerprints: [clientFingerprint]),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory().makeListener(
+        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,
@@ -144,7 +145,7 @@ struct VerifyBlockLoopbackTests {
             trustStore: trustStore,
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory().makeListener(
+        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,
@@ -160,7 +161,7 @@ struct VerifyBlockLoopbackTests {
             extraCertificate: extraCertificate,
             observer: observer
         )
-        connection.start(queue: .global())
+        connection.start(queue: DispatchQueue.global())
 
         let reachedReady = await observer.waitForReady(timeout: 5)
         return (reachedReady, connection)

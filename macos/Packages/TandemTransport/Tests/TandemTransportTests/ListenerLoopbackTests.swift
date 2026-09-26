@@ -3,6 +3,7 @@ import Network
 import Security
 import Testing
 import TandemCrypto
+import TandemProtocol
 @testable import TandemTransport
 
 /// Real `NWListener`/`NWConnection` loopback tests (E12-01), built via `NWListenerFactory` and a
@@ -183,7 +184,7 @@ struct ListenerLoopbackTests {
     // MARK: - Harness
 
     private static func makeServerListener(identity: SecIdentity) throws -> NWListener {
-        try NWListenerFactory().makeListener(
+        try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
             identity: identity,
             port: .any,
             verify: { _, _, complete in complete(true) },
