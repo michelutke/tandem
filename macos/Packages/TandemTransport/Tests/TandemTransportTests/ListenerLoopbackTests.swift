@@ -186,7 +186,8 @@ struct ListenerLoopbackTests {
         try NWListenerFactory().makeListener(
             identity: identity,
             port: .any,
-            verify: { _, _, complete in complete(true) }
+            verify: { _, _, complete in complete(true) },
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
     }
 

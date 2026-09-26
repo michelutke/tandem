@@ -30,7 +30,10 @@ public typealias TandemVerifyBlock = @Sendable (
 /// issue so a future reader doesn't "helpfully" add it here: the `verify` block's actual trust
 /// decision (matching the peer's SPKI against the trust store or an open pairing window) is
 /// E12-02 (``PeerVerifier``); this type only wires whatever block it is given into
-/// `sec_protocol_options_set_verify_block`.
+/// `sec_protocol_options_set_verify_block`. The one exception is admission (E12-18,
+/// ``ConnectionAdmission``): every accepted connection is consulted against it, before the TLS
+/// handshake starts, since that is the only point at which an over-cap or throttled connection can
+/// be closed "before any allocation or side effect it would otherwise cause" (SPEC.md §10).
 ///
 /// No session resumption, no 0-RTT (E12-03, `docs/protocol/SPEC.md` §1): the server MUST NOT issue
 /// a usable session ticket, and neither side may resume a session -- disabling both
@@ -49,7 +52,8 @@ public protocol ListenerFactory: Sendable {
     func makeListener(
         identity: SecIdentity,
         port: NWEndpoint.Port,
-        verify: @escaping @Sendable sec_protocol_verify_t
+        verify: @escaping @Sendable sec_protocol_verify_t,
+        admission: ConnectionAdmission
     ) throws -> NWListener
 }
 
@@ -64,7 +68,8 @@ public struct NWListenerFactory: ListenerFactory {
     public func makeListener(
         identity: SecIdentity,
         port: NWEndpoint.Port,
-        verify: @escaping @Sendable sec_protocol_verify_t
+        verify: @escaping @Sendable sec_protocol_verify_t,
+        admission: ConnectionAdmission
     ) throws -> NWListener {
         guard let secIdentity = sec_identity_create(identity) else {
             throw ListenerFactoryError.invalidIdentity
@@ -86,34 +91,94 @@ public struct NWListenerFactory: ListenerFactory {
         let listener = try NWListener(using: parameters, on: port)
 
         listener.newConnectionHandler = { connection in
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    let rawMetadata = connection.metadata(definition: NWProtocolTLS.definition)
-                    guard
-                        let metadata = rawMetadata as? NWProtocolTLS.Metadata,
-                        let negotiated = sec_protocol_metadata_get_negotiated_protocol(
-                            metadata.securityProtocolMetadata
-                        ),
-                        String(cString: negotiated) == tandemALPN
-                    else {
-                        connection.cancel()
-                        return
-                    }
-                case .failed:
-                    // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
-                    // reaches `.ready`, so without this the accepted `NWConnection` is only ever
-                    // released by `.cancelled` -- which nothing here would ever trigger for it --
-                    // leaking it (and its closure's strong self-reference) for the life of the
-                    // process. Cancelling on `.failed` releases it.
-                    connection.cancel()
-                default:
-                    break
-                }
+            guard let ipAddress = Self.remoteHost(of: connection) else {
+                connection.cancel()
+                return
             }
-            connection.start(queue: .global())
+
+            Task {
+                await Self.admitAndStart(connection: connection, ipAddress: ipAddress, admission: admission)
+            }
         }
 
         return listener
+    }
+
+    /// Consults `admission` for `connection`'s source address and, if admitted, wires up its
+    /// `stateUpdateHandler` and starts it; a refusal cancels `connection` before any TLS handshake
+    /// starts (SPEC.md §10).
+    private static func admitAndStart(
+        connection: NWConnection,
+        ipAddress: String,
+        admission: ConnectionAdmission
+    ) async {
+        let decision = await admission.accept(ipAddress: ipAddress) {
+            connection.cancel()
+        }
+
+        switch decision {
+        case .refused:
+            connection.cancel()
+        case .admitted(let id):
+            connection.stateUpdateHandler = Self.makeStateUpdateHandler(
+                connection: connection,
+                admission: admission,
+                id: id
+            )
+            connection.start(queue: .global())
+        }
+    }
+
+    /// Builds `connection`'s `stateUpdateHandler`, reporting this connection's eventual outcome
+    /// back to `admission` (E12-18) alongside the existing ALPN check (E12-01).
+    private static func makeStateUpdateHandler(
+        connection: NWConnection,
+        admission: ConnectionAdmission,
+        id: ConnectionAdmission.ConnectionID
+    ) -> @Sendable (NWConnection.State) -> Void {
+        { state in
+            switch state {
+            case .ready:
+                let rawMetadata = connection.metadata(definition: NWProtocolTLS.definition)
+                guard
+                    let metadata = rawMetadata as? NWProtocolTLS.Metadata,
+                    let negotiated = sec_protocol_metadata_get_negotiated_protocol(
+                        metadata.securityProtocolMetadata
+                    ),
+                    String(cString: negotiated) == tandemALPN
+                else {
+                    connection.cancel()
+                    Task { await admission.handshakeFailed(id) }
+                    return
+                }
+                Task { await admission.handshakeSucceeded(id) }
+            case .failed:
+                // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
+                // reaches `.ready`, so without this the accepted `NWConnection` is only ever
+                // released by `.cancelled` -- which nothing here would ever trigger for it --
+                // leaking it (and its closure's strong self-reference) for the life of the
+                // process. Cancelling on `.failed` releases it, and counts as a failed handshake
+                // for the per-IP throttle (SPEC.md §10).
+                connection.cancel()
+                Task { await admission.handshakeFailed(id) }
+            case .cancelled:
+                // Reached either from one of the two `connection.cancel()` calls above (already
+                // reported, so this is a no-op) or from the TCP connection itself closing/
+                // resetting before the handshake ever reached `.ready`/`.failed` -- also a failed
+                // handshake (SPEC.md §10).
+                Task { await admission.handshakeFailed(id) }
+            default:
+                break
+            }
+        }
+    }
+
+    /// The remote endpoint's host, as ``ConnectionAdmission`` needs it -- a throttling key only,
+    /// never a trust input (invariant 3). `nil` only if `Network` ever hands back an accepted
+    /// connection whose endpoint isn't `.hostPort` at all, which never happens for a TCP listener
+    /// in practice; such a connection is cancelled outright rather than guessed at.
+    private static func remoteHost(of connection: NWConnection) -> String? {
+        guard case .hostPort(let host, _) = connection.endpoint else { return nil }
+        return "\(host)"
     }
 }
