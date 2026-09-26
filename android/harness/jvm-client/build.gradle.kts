@@ -91,3 +91,15 @@ tasks.register<JavaExec>("run") {
     classpath = sourceSets.getByName("main").runtimeClasspath
     standardInput = System.`in`
 }
+
+// E12-13: resolves (and, via `dependsOn("classes")`, builds) this module's runtime classpath
+// exactly once, so the integration script can then launch the CLI directly with plain `java`
+// for each of its scenarios instead of paying a `./gradlew run` build/config cost per scenario.
+tasks.register("printRuntimeClasspath") {
+    group = "application"
+    description = "Prints the JVM harness client's runtime classpath, one entry per line (E12-13)."
+    dependsOn("classes")
+    doLast {
+        sourceSets.getByName("main").runtimeClasspath.files.forEach { println(it.absolutePath) }
+    }
+}

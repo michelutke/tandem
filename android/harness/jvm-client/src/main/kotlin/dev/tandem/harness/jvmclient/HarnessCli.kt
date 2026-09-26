@@ -4,6 +4,7 @@ import dev.tandem.core.crypto.IdentityKeyManager
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.crypto.spkiFingerprint
 import dev.tandem.core.pairing.PairingStateMachine
 import dev.tandem.core.pairing.TrustCommitter
 import dev.tandem.core.pairing.qr.ParseInviteResult
@@ -14,8 +15,8 @@ import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -24,27 +25,33 @@ import java.io.File
 import java.net.InetAddress
 import java.time.Clock
 import java.util.Base64
-import java.util.concurrent.Executors
 
 private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
 
 /**
- * Entry point (E15-21): a single-threaded stdin/stdout CLI wired to the real `core/crypto`,
- * `core/transport` and `core/pairing` modules. `--identity-file <path>` selects where the
- * process's [PersistentIdentityKeyStore] persists its identity (default: [DEFAULT_IDENTITY_FILE]
- * in the current working directory) so a restarted process reloads the same key. Reads one
- * command per line from stdin until `EXIT` or end of input.
+ * Entry point (E15-21): a stdin/stdout CLI wired to the real `core/crypto`, `core/transport` and
+ * `core/pairing` modules. `--identity-file <path>` selects where the process's
+ * [PersistentIdentityKeyStore] persists its identity (default: [DEFAULT_IDENTITY_FILE] in the
+ * current working directory) so a restarted process reloads the same key. Reads one command per
+ * line from stdin until `EXIT` or end of input; the synchronous readln loop itself is what
+ * serializes command handling, one at a time -- [dispatcher] is [Dispatchers.IO], not a
+ * single-thread dispatcher (E12-13 fix): [ByteStreamSession] needs to run its `ChannelMultiplexer`
+ * read loop and its `VersionHandshake` write concurrently on the *same* dispatcher (both blocking,
+ * both via `runInterruptible`, see that class's own kdoc and `ByteStreamSessionTest`'s
+ * `Dispatchers.IO` usage) -- a single-thread dispatcher lets the read loop's blocking read()
+ * monopolize the only thread forever, so the client's own `VersionHello` write never runs and the
+ * handshake deadlocks (reproduced against the real Mac listener, E12-13).
  */
 fun main(args: Array<String>) {
     HarnessConscryptProvider.ensureInstalled()
     val identityFile = File(argValue(args, "--identity-file") ?: DEFAULT_IDENTITY_FILE)
-    val executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "harness-cli") }
-    val dispatcher = executor.asCoroutineDispatcher()
+    val dispatcher = Dispatchers.IO
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     val identityKeyStore = PersistentIdentityKeyStore(Clock.systemUTC(), identityFile)
     identityKeyStore.getOrCreate(PersistentIdentityKeyStore.IDENTITY_ALIAS, preferStrongBox = false)
     val keyManager = IdentityKeyManager(identityKeyStore, PersistentIdentityKeyStore.IDENTITY_ALIAS)
+    printIdentitySpkiFingerprint(keyManager)
 
     val cli = HarnessCli(keyManager, dispatcher, scope)
     try {
@@ -55,7 +62,6 @@ fun main(args: Array<String>) {
         }
     } finally {
         cli.shutdown()
-        executor.shutdownNow()
     }
 }
 
@@ -65,6 +71,19 @@ private fun argValue(
 ): String? {
     val index = args.indexOf(name)
     return if (index >= 0 && index + 1 < args.size) args[index + 1] else null
+}
+
+/**
+ * Prints this process's own identity SPKI fingerprint to stdout, in the same
+ * `harness-identity-spki: <hex>` format as the Mac driver's own hook (see
+ * `HarnessHooks.swift.printIdentitySpkiFingerprint`), so a driver script (E12-13) can seed this
+ * identity into the Mac trust store without parsing the identity file itself.
+ */
+private fun printIdentitySpkiFingerprint(keyManager: IdentityKeyManager) {
+    val certificate = keyManager.getCertificateChain(alias = null).single()
+    val fingerprint = spkiFingerprint(certificate.publicKey.encoded)
+    val hex = fingerprint.bytes.joinToString(separator = "") { "%02x".format(it) }
+    println("harness-identity-spki: $hex")
 }
 
 /** Holds the CLI's session/pairing state across commands; see [main] for how it is wired up. */
