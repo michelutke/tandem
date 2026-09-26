@@ -47,6 +47,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
 | `io.gitlab.arturbosch.detekt:detekt-gradle-plugin` | Apache-2.0 | Static analysis gate | E00-05 |
+| `org.jetbrains.kotlinx:kover-gradle-plugin` | Apache-2.0 | Code coverage reporting (aggregate report) | E00-06 |
 | `io.gitlab.arturbosch.detekt:detekt-api` | Apache-2.0 | Custom detekt rules (`:lint:detekt-rules`) | E00-14 |
 | `io.gitlab.arturbosch.detekt:detekt-test` | Apache-2.0 | Detekt rule unit-test fixtures (`:lint:detekt-rules`) | E00-17 |
 | `androidx.test:runner` | Apache-2.0 | Instrumented test runner (Gradle Managed Devices) | E00-21 |
