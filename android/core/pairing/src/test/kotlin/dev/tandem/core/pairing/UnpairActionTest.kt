@@ -1,6 +1,7 @@
 package dev.tandem.core.pairing
 
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Envelope
@@ -120,7 +121,7 @@ class UnpairActionTest {
     private class FakeTrustRemover : TrustRemover {
         val deleted = mutableListOf<SpkiFingerprint>()
 
-        override suspend fun delete(fingerprint: SpkiFingerprint) {
+        override suspend fun remove(fingerprint: SpkiFingerprint) {
             deleted += fingerprint
         }
     }

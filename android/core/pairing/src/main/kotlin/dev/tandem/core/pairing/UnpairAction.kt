@@ -1,6 +1,7 @@
 package dev.tandem.core.pairing
 
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
@@ -26,7 +27,7 @@ class UnpairAction(
         session: TandemSession?,
     ) {
         // Delete local trust first
-        trustRemover.delete(peerFingerprint)
+        trustRemover.remove(peerFingerprint)
 
         // Send Revoke if we have a Ready session
         if (session != null && session.state.value is ConnectionState.Ready) {
