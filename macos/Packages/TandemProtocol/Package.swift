@@ -28,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "TandemProtocolTests",
-            dependencies: ["TandemProtocol", "TandemTestSupport"],
+            dependencies: ["TandemProtocol", "TandemCrypto", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
