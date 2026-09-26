@@ -1,4 +1,5 @@
 #if DEBUG
+import AppKit
 import Foundation
 import Network
 import Security
@@ -62,16 +63,55 @@ enum HarnessHooks {
             port: port,
             verify: verify
         )
+        let started: ListenerController.StartedListener?
         do {
-            retainedListener = try controller.start()
+            started = try controller.start()
         } catch {
             fatalError("-HarnessListenerPort failed to start listener on port \(rawPort): \(error)")
+        }
+        guard let started else {
+            fatalError("-HarnessListenerPort requested but identity became unready between checks")
+        }
+        retainedListener = started.listener
+
+        // E20-10/E20-11: the harness is the one place this composition root actually runs the
+        // real listener, so it is also the one place ``SleepWakeController``/
+        // ``PathChangeController`` can be exercised for real (`tools/harness/integration/e12-13.sh`
+        // and manual gates) rather than only against fakes in `TandemTransportTests`. Both drive
+        // the same ``ProductionListenerControl``, seeded with the listener already started above
+        // so this never runs two listeners at once.
+        let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
+        let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
+        let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
+        let pathSource = NWPathMonitorSource()
+        let pathChangeController = PathChangeController(pathSource: pathSource, listenerControl: listenerControl)
+        retainedLifecycle = RetainedLifecycle(
+            listenerControl: listenerControl,
+            powerEvents: powerEvents,
+            pathSource: pathSource,
+            sleepWakeController: sleepWakeController,
+            pathChangeController: pathChangeController
+        )
+        Task {
+            await sleepWakeController.start()
+            await pathChangeController.start()
         }
     }
 
     /// Keeps the started `NWListener` alive for the process lifetime -- nothing else retains it
     /// once `startListenerIfRequested()` returns.
     nonisolated(unsafe) private static var retainedListener: NWListener?
+
+    /// Everything ``startListenerIfRequested()`` wires up beyond the listener itself, kept alive
+    /// for the process lifetime the same way ``retainedListener`` is.
+    private struct RetainedLifecycle {
+        let listenerControl: ProductionListenerControl
+        let powerEvents: WorkspacePowerEvents
+        let pathSource: NWPathMonitorSource
+        let sleepWakeController: SleepWakeController
+        let pathChangeController: PathChangeController
+    }
+    nonisolated(unsafe) private static var retainedLifecycle: RetainedLifecycle?
 
     private static func seedTrust(fromFixtureAt path: String) {
         do {
