@@ -10,6 +10,12 @@ import java.time.Clock
 
 class PairRequestBuilderTest {
     private val clock = Clock.systemUTC()
+    private val deviceInfoProvider =
+        object : DeviceInfoProvider {
+            override fun displayName(): String = "Test Phone"
+
+            override fun model(): String = "Pixel 8"
+        }
 
     @Test
     fun pairRequest_proofField_equalsCoreCryptoHelperOutput() {
@@ -41,7 +47,7 @@ class PairRequestBuilderTest {
             )
 
         val expectedProof = PairingProof.compute(secret, macSpkiDer, phoneSpkiDer, challenge)
-        val request = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge)
+        val request = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge, deviceInfoProvider)
 
         assertEquals(expectedProof.toList(), request.proof.toByteArray().toList())
     }
@@ -74,9 +80,9 @@ class PairRequestBuilderTest {
             )
 
         val request1 =
-            PairRequestBuilder.build(invite, macSpkiDer, identity1.publicKey.encoded, challenge)
+            PairRequestBuilder.build(invite, macSpkiDer, identity1.publicKey.encoded, challenge, deviceInfoProvider)
         val request2 =
-            PairRequestBuilder.build(invite, macSpkiDer, identity2.publicKey.encoded, challenge)
+            PairRequestBuilder.build(invite, macSpkiDer, identity2.publicKey.encoded, challenge, deviceInfoProvider)
 
         assertNotEquals(
             request1.proof.toByteArray().toList(),
@@ -127,8 +133,8 @@ class PairRequestBuilderTest {
                 macName = "Test Mac",
             )
 
-        val request1 = PairRequestBuilder.build(invite1, macSpkiDer1, phoneSpkiDer, challenge)
-        val request2 = PairRequestBuilder.build(invite2, macSpkiDer2, phoneSpkiDer, challenge)
+        val request1 = PairRequestBuilder.build(invite1, macSpkiDer1, phoneSpkiDer, challenge, deviceInfoProvider)
+        val request2 = PairRequestBuilder.build(invite2, macSpkiDer2, phoneSpkiDer, challenge, deviceInfoProvider)
 
         assertNotEquals(
             request1.proof.toByteArray().toList(),
@@ -169,8 +175,8 @@ class PairRequestBuilderTest {
                 macName = "Test Mac",
             )
 
-        val request1 = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge1)
-        val request2 = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge2)
+        val request1 = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge1, deviceInfoProvider)
+        val request2 = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge2, deviceInfoProvider)
 
         assertNotEquals(
             request1.proof.toByteArray().toList(),
@@ -207,9 +213,13 @@ class PairRequestBuilderTest {
                 macName = "Test Mac",
             )
 
-        val request = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge)
+        val request = PairRequestBuilder.build(invite, macSpkiDer, phoneSpkiDer, challenge, deviceInfoProvider)
 
         assertEquals(true, request.hasDeviceInfo())
+        assertEquals("Test Phone", request.deviceInfo.displayName)
+        assertEquals("Pixel 8", request.deviceInfo.model)
+        assertNotEquals("", request.deviceInfo.displayName)
+        assertNotEquals("", request.deviceInfo.model)
     }
 
     private fun hexToBytes(hex: String): ByteArray {
