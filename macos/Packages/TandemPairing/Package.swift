@@ -10,17 +10,20 @@ let package = Package(
     dependencies: [
         .package(path: "../TandemCrypto"),
         .package(path: "../TandemTransport"),
+        .package(path: "../TandemStore"),
+        .package(path: "../TandemProtocol"),
+        .package(path: "../TandemDesign"),
         .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "TandemPairing",
-            dependencies: ["TandemCrypto", "TandemTransport"],
+            dependencies: ["TandemCrypto", "TandemTransport", "TandemStore", "TandemProtocol", "TandemDesign"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "TandemPairingTests",
-            dependencies: ["TandemPairing", "TandemCrypto", "TandemTransport", "TandemTestSupport"],
+            dependencies: ["TandemPairing", "TandemCrypto", "TandemTransport", "TandemStore", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
