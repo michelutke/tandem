@@ -25,7 +25,10 @@ struct VerifyBlockLoopbackTests {
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
+        let listener = try NWListenerFactory(
+     sessionRegistry: ControlSessionRegistry(),
+     decisionCorrelator: PeerDecisionCorrelator()
+ ).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,
@@ -69,7 +72,10 @@ struct VerifyBlockLoopbackTests {
             trustStore: FixedTrustStoreReader(fingerprints: [clientFingerprint]),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
+        let listener = try NWListenerFactory(
+     sessionRegistry: ControlSessionRegistry(),
+     decisionCorrelator: PeerDecisionCorrelator()
+ ).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,
@@ -145,7 +151,10 @@ struct VerifyBlockLoopbackTests {
             trustStore: trustStore,
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
-        let listener = try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
+        let listener = try NWListenerFactory(
+     sessionRegistry: ControlSessionRegistry(),
+     decisionCorrelator: PeerDecisionCorrelator()
+ ).makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
             verify: verify,

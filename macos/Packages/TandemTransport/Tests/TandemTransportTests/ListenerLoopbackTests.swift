@@ -184,7 +184,13 @@ struct ListenerLoopbackTests {
     // MARK: - Harness
 
     private static func makeServerListener(identity: SecIdentity) throws -> NWListener {
-        try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
+        try NWListenerFactory(
+
+            sessionRegistry: ControlSessionRegistry(),
+
+            decisionCorrelator: PeerDecisionCorrelator()
+
+        ).makeListener(
             identity: identity,
             port: .any,
             verify: { _, _, complete in complete(true) },

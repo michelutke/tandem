@@ -96,7 +96,13 @@ extension ListenerLoopbackTests {
         identity: SecIdentity,
         admission: ConnectionAdmission = ConnectionAdmission(clock: ContinuousClock())
     ) throws -> NWListener {
-        try NWListenerFactory(sessionRegistry: ControlSessionRegistry(), decisionCorrelator: PeerDecisionCorrelator()).makeListener(
+        try NWListenerFactory(
+
+            sessionRegistry: ControlSessionRegistry(),
+
+            decisionCorrelator: PeerDecisionCorrelator()
+
+        ).makeListener(
             identity: identity,
             port: .any,
             verify: { _, _, complete in complete(true) },

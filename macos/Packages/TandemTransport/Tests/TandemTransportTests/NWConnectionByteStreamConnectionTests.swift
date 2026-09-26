@@ -112,7 +112,7 @@ struct NWConnectionByteStreamConnectionTests {
 
         var clientReadyIterator = clientAdapter.state.makeAsyncIterator()
         guard await clientReadyIterator.next() == .ready else {
-            throw NWConnectionByteStreamConnectionTestError.neverReady
+            throw AdapterTestError.neverReady
         }
 
         let serverAdapter = try await serverAdapterBox.waitForAdapter(timeout: 5)
@@ -142,7 +142,7 @@ struct NWConnectionByteStreamConnectionTests {
 
     private static func makeAcceptAllListener(identity: SecIdentity) throws -> NWListener {
         guard let secIdentity = sec_identity_create(identity) else {
-            throw NWConnectionByteStreamConnectionTestError.invalidIdentity
+            throw AdapterTestError.invalidIdentity
         }
         let tlsOptions = NWProtocolTLS.Options()
         let sec = tlsOptions.securityProtocolOptions
@@ -180,7 +180,7 @@ struct NWConnectionByteStreamConnectionTests {
                 case .ready:
                     guard resumeGuard.tryResume() else { return }
                     guard let port = listener.port else {
-                        continuation.resume(throwing: NWConnectionByteStreamConnectionTestError.noPort)
+                        continuation.resume(throwing: AdapterTestError.noPort)
                         return
                     }
                     continuation.resume(returning: port)
@@ -196,7 +196,7 @@ struct NWConnectionByteStreamConnectionTests {
     }
 }
 
-enum NWConnectionByteStreamConnectionTestError: Error {
+enum AdapterTestError: Error {
     case invalidIdentity
     case noPort
     case neverReady
@@ -263,6 +263,6 @@ private final class ServerAdapterBox: @unchecked Sendable {
         let pending = continuation
         continuation = nil
         lock.unlock()
-        pending?.resume(throwing: NWConnectionByteStreamConnectionTestError.neverReady)
+        pending?.resume(throwing: AdapterTestError.neverReady)
     }
 }
