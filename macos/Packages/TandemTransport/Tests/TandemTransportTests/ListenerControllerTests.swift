@@ -56,7 +56,8 @@ final class RecordingListenerFactory: ListenerFactory, @unchecked Sendable {
     func makeListener(
         identity: SecIdentity,
         port: NWEndpoint.Port,
-        verify: @escaping @Sendable sec_protocol_verify_t
+        verify: @escaping @Sendable sec_protocol_verify_t,
+        admission: ConnectionAdmission
     ) throws -> NWListener {
         lock.lock()
         count += 1

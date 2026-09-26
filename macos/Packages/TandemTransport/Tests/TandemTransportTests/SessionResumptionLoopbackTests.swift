@@ -39,7 +39,8 @@ struct SessionResumptionLoopbackTests {
             verify: { _, _, complete in
                 verifyInvocationCount.increment()
                 complete(true)
-            }
+            },
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
         defer { listener.cancel() }
         let port = try await Self.waitForListenerPort(listener)
@@ -72,7 +73,8 @@ struct SessionResumptionLoopbackTests {
         let listener = try NWListenerFactory().makeListener(
             identity: try serverKeychain.makeSecIdentity(),
             port: .any,
-            verify: { _, _, complete in complete(true) }
+            verify: { _, _, complete in complete(true) },
+            admission: ConnectionAdmission(clock: ContinuousClock())
         )
         defer { listener.cancel() }
         let port = try await Self.waitForListenerPort(listener)
