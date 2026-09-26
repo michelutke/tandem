@@ -9,7 +9,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../TandemCrypto"),
-        .package(path: "../TandemTestSupport")
+        .package(path: "../TandemTestSupport"),
+        .package(path: "../TandemProtocol")
     ],
     targets: [
         .target(
@@ -19,7 +20,7 @@ let package = Package(
         ),
         .testTarget(
             name: "TandemStoreTests",
-            dependencies: ["TandemStore", "TandemTestSupport"],
+            dependencies: ["TandemStore", "TandemTestSupport", "TandemProtocol"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

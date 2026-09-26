@@ -2,28 +2,26 @@
 import PackageDescription
 
 let package = Package(
-    name: "TandemPairing",
+    name: "TandemDevices",
     platforms: [.macOS(.v15)],
     products: [
-        .library(name: "TandemPairing", targets: ["TandemPairing"])
+        .library(name: "TandemDevices", targets: ["TandemDevices"])
     ],
     dependencies: [
         .package(path: "../TandemCrypto"),
-        .package(path: "../TandemTransport"),
         .package(path: "../TandemStore"),
-        .package(path: "../TandemProtocol"),
         .package(path: "../TandemDesign"),
         .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
-            name: "TandemPairing",
-            dependencies: ["TandemCrypto", "TandemTransport", "TandemStore", "TandemProtocol", "TandemDesign"],
+            name: "TandemDevices",
+            dependencies: ["TandemCrypto", "TandemStore", "TandemDesign"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "TandemPairingTests",
-            dependencies: ["TandemPairing", "TandemCrypto", "TandemTransport", "TandemStore", "TandemTestSupport"],
+            name: "TandemDevicesTests",
+            dependencies: ["TandemDevices", "TandemCrypto", "TandemStore", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

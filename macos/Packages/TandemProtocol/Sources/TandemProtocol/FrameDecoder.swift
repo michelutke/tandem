@@ -39,6 +39,9 @@ enum CloseCode: Sendable, Equatable {
     /// handshake deadline (``ConnectionStateMachine/handshakeDeadline``, E12-09) or the
     /// `VersionHello` deadline (``VersionHandshake/helloDeadline``, E12-07).
     case protocolTimeout
+    /// A peer or source exceeds a connection-level cap in SPEC.md §10 (E01-22), or an older
+    /// control session is replaced by a newer Ready session for the same peer SPKI (E12-19).
+    case limitExceeded
 }
 
 /// Local diagnostic reason grouped under `CloseCode.malformedFrame`. Never sent on the wire

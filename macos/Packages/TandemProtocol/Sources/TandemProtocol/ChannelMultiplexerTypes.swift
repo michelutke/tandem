@@ -29,6 +29,9 @@ enum MultiplexerClose: Sendable, Equatable {
     /// `CreditGrant` it sent named an amount that would take this side's own send balance for
     /// `channel` above that channel's cap. Always `CloseCode.creditViolation`.
     case creditViolation(Tandem_V1_Channel)
+    /// The local side asked this multiplexer to stop (``ChannelMultiplexer/stop()``) --
+    /// `TandemSession/close()` (E12-12), never a wire-observed condition.
+    case localClose
 }
 
 /// Thrown by ``ChannelMultiplexer/send(_:payload:)`` once the multiplexer has stopped
@@ -43,6 +46,17 @@ enum MultiplexerError: Error, Sendable, Equatable {
 /// application-level consumption for credit-flow-control replenishment (docs/protocol/SPEC.md
 /// #channels-and-flow-control-credits "Consume"; E11-08). Behaves exactly like the
 /// `AsyncStream<InboundFrame>` it wraps from a caller's point of view.
+extension ChannelMultiplexer {
+    /// Stops this multiplexer from the local side (``TandemSession/close()``, E12-12): equivalent
+    /// to how a fatal peer/framing condition stops it (``finish(_:)``), but chosen locally rather
+    /// than detected off the wire. Finishes every ``inbound(_:)`` stream and fails every send
+    /// still queued. Safe to call more than once, or once the multiplexer has already stopped for
+    /// another reason.
+    func stop() async {
+        await finish(.localClose)
+    }
+}
+
 struct InboundFrameStream: AsyncSequence, Sendable {
     typealias Element = InboundFrame
 
