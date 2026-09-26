@@ -88,7 +88,9 @@ public actor ChannelMultiplexer {
     private var consumedSinceLastGrant: [Tandem_V1_Channel: UInt32] = [:]
 
     private var readerTask: Task<Void, Never>?
-    private(set) var closeReason: MultiplexerClose?
+    public private(set) var closeReason: MultiplexerClose?
+    // Internal, not `private`: `awaitClose()` (`ChannelMultiplexerTypes.swift`) appends to this.
+    var closeWaiters: [CheckedContinuation<MultiplexerClose, Never>] = []
 
     /// One send awaiting the writer: enqueued by ``send(_:payload:)``, dequeued and turned into a
     /// wire write by ``drainLoop()``.
@@ -112,9 +114,8 @@ public actor ChannelMultiplexer {
         self.source = source
         self.sink = sink
         for channel in Self.routedChannels {
-            let (stream, continuation) = AsyncStream<InboundFrame>.makeStream(bufferingPolicy: .unbounded)
-            streams[channel] = stream
-            continuations[channel] = continuation
+            (streams[channel], continuations[channel]) =
+                AsyncStream<InboundFrame>.makeStream(bufferingPolicy: .unbounded)
         }
         for channel in Self.featureChannels {
             let cap = CreditCaps.capFor(channel)
@@ -391,9 +392,9 @@ public actor ChannelMultiplexer {
     func finish(_ reason: MultiplexerClose) async {
         guard closeReason == nil else { return }
         closeReason = reason
-        for continuation in continuations.values {
-            continuation.finish()
-        }
+        for continuation in continuations.values { continuation.finish() }
+        for waiter in closeWaiters { waiter.resume(returning: reason) }
+        closeWaiters = []
         kickDrainIfNeeded()
     }
 }

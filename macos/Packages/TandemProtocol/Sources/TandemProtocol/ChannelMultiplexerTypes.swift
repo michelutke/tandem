@@ -13,7 +13,7 @@ public struct InboundFrame: Sendable, Equatable {
 /// Why a ``ChannelMultiplexer`` stopped routing frames. Every case is a fail-closed stop: the
 /// reader task exits and every channel's inbound stream finishes (docs/protocol/SPEC.md
 /// invariant 5).
-enum MultiplexerClose: Sendable, Equatable {
+public enum MultiplexerClose: Sendable, Equatable {
     /// The peer closed its sending direction in an orderly way at a frame boundary
     /// (``FrameDecoder/decode(from:)`` returned `nil`) -- not itself a protocol violation.
     case peerClosed
@@ -54,6 +54,15 @@ extension ChannelMultiplexer {
     /// another reason.
     func stop() async {
         await finish(.localClose)
+    }
+
+    /// Suspends until this multiplexer closes, for any reason, then returns why -- immediately if
+    /// already closed. E12-12's session wiring uses this as the one place a post-Ready connection's
+    /// demise, from any cause, reaches the state machine and cancels the socket (every close path
+    /// already funnels through ``finish(_:)``).
+    public func awaitClose() async -> MultiplexerClose {
+        if let closeReason { return closeReason }
+        return await withCheckedContinuation { closeWaiters.append($0) }
     }
 }
 

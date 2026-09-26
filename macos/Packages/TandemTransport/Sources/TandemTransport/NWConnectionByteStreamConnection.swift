@@ -54,28 +54,39 @@ final class NWConnectionByteStreamConnection: ByteStreamConnection, @unchecked S
         }
     }
 
+    /// Pull-driven (`AsyncThrowingStream(unfolding:)`): `NWConnection.receive` is only re-armed
+    /// once a consumer actually asks for the next element (`ChannelMultiplexer`'s reader loop,
+    /// one `read(exactly:)` at a time), rather than eagerly buffering everything the peer sends
+    /// into an unbounded stream regardless of whether anything is reading it -- an authenticated
+    /// but otherwise idle/slow peer can otherwise grow this process's memory without bound
+    /// (docs/protocol/SPEC.md §10, "rejected before any allocation").
     func receive() -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { continuation in
-            self.scheduleReceive(into: continuation)
-        }
+        AsyncThrowingStream(unfolding: { [weak self] in
+            guard let self else { return nil }
+            return try await self.receiveOnce()
+        })
     }
 
-    /// Re-arms `NWConnection.receive` after every delivered chunk -- a single `receive` call only
-    /// ever delivers once, never a continuous stream on its own.
-    private func scheduleReceive(into continuation: AsyncThrowingStream<Data, Error>.Continuation) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: Self.maximumReceiveLength) { [weak self] data, _, isComplete, error in
-            if let error {
-                continuation.finish(throwing: error)
-                return
+    private func receiveOnce() async throws -> Data? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
+            connection.receive(
+                minimumIncompleteLength: 1,
+                maximumLength: Self.maximumReceiveLength
+            ) { data, _, _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let data, !data.isEmpty {
+                    continuation.resume(returning: data)
+                } else {
+                    // Either a clean end of stream (`isComplete`), or -- defensively, since
+                    // `NWConnection.receive`'s contract always delivers data, completion, or an
+                    // error -- an empty, non-terminal callback treated the same way: no more
+                    // elements from this call, so the unfolding sequence ends rather than looping
+                    // here (a genuinely non-terminal empty callback would be a `Network` bug, not
+                    // one this adapter should spin retrying).
+                    continuation.resume(returning: nil)
+                }
             }
-            if let data, !data.isEmpty {
-                continuation.yield(data)
-            }
-            if isComplete {
-                continuation.finish()
-                return
-            }
-            self?.scheduleReceive(into: continuation)
         }
     }
 

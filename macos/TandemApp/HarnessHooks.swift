@@ -61,9 +61,16 @@ enum HarnessHooks {
         let verify = PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
             window: NeverOpenPairingWindow(),
-            onDecision: { metadata, _, fingerprint in
+            onDecision: { metadata, decision, fingerprint in
+                // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
+                // returns control to Network.framework and the connection races ahead to `.ready`
+                // (`PeerDecisionCorrelator`'s own kdoc).
                 let metadataIdentifier = ObjectIdentifier(metadata)
-                Task { await decisionCorrelator.record(metadataIdentifier: metadataIdentifier, fingerprint: fingerprint) }
+                decisionCorrelator.record(
+                    metadataIdentifier: metadataIdentifier,
+                    decision: decision,
+                    fingerprint: fingerprint
+                )
             }
         )
         let controller = ListenerController(

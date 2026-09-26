@@ -49,7 +49,7 @@ public enum CloseCode: Sendable, Equatable {
 /// (docs/protocol/SPEC.md #framing-and-envelope "Rejection cases" / #errors-and-close-codes
 /// "Local reason vs. wire code", `docs/planning/decisions.md` D-13). Swift counterpart to
 /// Android's `FrameDecoder` reasons (E11-02).
-enum MalformedFrameReason: Sendable, Equatable {
+public enum MalformedFrameReason: Sendable, Equatable {
     case tooLarge
     case badLength
     case truncated
