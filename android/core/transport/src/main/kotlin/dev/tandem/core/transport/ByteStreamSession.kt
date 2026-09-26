@@ -74,12 +74,17 @@ class ByteStreamSession(
      * same way a [HandshakeOutcome.Failed] already is, per [ConnectionEvent.HandshakeError]'s own
      * "legal from any state" contract.
      */
+    @Suppress("TooGenericExceptionCaught") // any failure must reach HandshakeError, see above
     private suspend fun performHandshake() {
         try {
             when (val outcome = handshake.perform()) {
-                is HandshakeOutcome.Ready -> connection.handle(ConnectionEvent.CompatibleHelloReceived)
-                is HandshakeOutcome.Failed ->
+                is HandshakeOutcome.Ready -> {
+                    connection.handle(ConnectionEvent.CompatibleHelloReceived)
+                }
+
+                is HandshakeOutcome.Failed -> {
                     connection.handle(ConnectionEvent.HandshakeError(outcome.reason.toString()))
+                }
             }
         } catch (cancellation: CancellationException) {
             throw cancellation

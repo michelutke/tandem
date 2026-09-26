@@ -49,5 +49,6 @@ include(
     ":feature:messaging",
     ":feature:mirror",
     ":feature:notifications",
+    ":feature:pairing",
     ":lint:detekt-rules",
 )
