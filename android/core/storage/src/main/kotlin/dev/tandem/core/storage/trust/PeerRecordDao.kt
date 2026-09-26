@@ -18,4 +18,17 @@ internal interface PeerRecordDao {
 
     @Query("DELETE FROM peer_record WHERE spkiSha256Base64Url = :spkiSha256Base64Url")
     suspend fun deleteByFingerprint(spkiSha256Base64Url: String)
+
+    @Query(
+        """
+        UPDATE peer_record
+        SET lastSeenEpochMs = :lastSeenEpochMs, capabilitiesCsv = :capabilitiesCsv
+        WHERE spkiSha256Base64Url = :spkiSha256Base64Url
+        """,
+    )
+    suspend fun updateLastSeenAndCapabilities(
+        spkiSha256Base64Url: String,
+        lastSeenEpochMs: Long,
+        capabilitiesCsv: String,
+    )
 }

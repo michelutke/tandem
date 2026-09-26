@@ -37,6 +37,14 @@ jazzer = "0.30.0"
 # docs/spikes/trust-store-persistence.md; datastore-preferences-core is the pure Kotlin/JVM
 # artifact (no Android Context dependency), so unit tests run on plain JUnit5, no Robolectric.
 androidx-datastore = "1.2.1"
+# CameraX for the E14-10 QR scanner preview + frame analysis. 1.6.2 is the current stable release
+# (developer.android.com/jetpack/androidx/releases/camera, 2026-08-26); camera-core/camera-camera2/
+# camera-lifecycle/camera-view are released in lockstep at the same version.
+androidx-camera = "1.6.2"
+# zxing-cpp (E14-23 spike decision, docs/spikes/qr-decoder.md): QR decoder with zero Google/
+# Firebase/telemetry transitive dependencies (unlike ML Kit's bundled barcode-scanning artifact).
+# 3.1.1 is the latest release on Maven Central as of the spike (2026-07-29).
+zxingcpp = "3.1.1"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -79,6 +87,11 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "sqlite" }
 jazzer-junit = { group = "com.code-intelligence", name = "jazzer-junit", version.ref = "jazzer" }
 androidx-datastore-preferences-core = { group = "androidx.datastore", name = "datastore-preferences-core", version.ref = "androidx-datastore" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "androidx-camera" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidx-camera" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "androidx-camera" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidx-camera" }
+zxingcpp-android = { group = "io.github.zxing-cpp", name = "android", version.ref = "zxingcpp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
