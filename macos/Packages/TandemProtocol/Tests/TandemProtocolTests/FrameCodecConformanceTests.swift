@@ -91,6 +91,8 @@ struct FrameCodecConformanceTests {
         case .decodeFailed: return "DECODE_FAILED"
         case .unknownChannel: return "UNKNOWN_CHANNEL"
         case .unknownPayloadType: return "UNKNOWN_PAYLOAD_TYPE"
+        case .seqRegression: return "SEQ_REGRESSION"
+        case .seqGapTooLarge: return "SEQ_GAP_TOO_LARGE"
         }
     }
 
