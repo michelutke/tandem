@@ -28,4 +28,9 @@ public protocol PairingCandidateSink: Sendable {
 
     /// Closes the connection with the `PAIRING_FAILED` close code (`docs/protocol/SPEC.md` §5).
     func closePairingFailed() async
+
+    /// Sends `PairAccepted {}` (`docs/protocol/SPEC.md` § Mutual confirmation), only after the
+    /// owner explicitly clicks Pair. Never followed by a close: the connection becomes an
+    /// ordinary `CONTROL`/`DATA` session from this point on (E14-08's concern).
+    func sendPairAccepted() async throws
 }
