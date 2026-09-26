@@ -4,7 +4,6 @@
 
 set -euo pipefail
 
-readonly PATTERN='(?i)debug|echo|loopback|test|canary'
 readonly ALLOWLIST_FILE="${1:-.}/tools/protocol/proto-schema-scan-allowlist.txt"
 readonly PROTO_ROOT="${2:-.}/protocol/proto"
 
@@ -16,11 +15,17 @@ read_allowlist() {
   grep -v '^\s*#' "$ALLOWLIST_FILE" | grep -v '^\s*$' || true
 }
 
-# Extract message, enum, and channel names from proto files
+# Extract message, enum type, rpc names, and enum value names from proto files
 extract_names() {
+  # Extract message, enum type, and rpc names
   find "$PROTO_ROOT" -name "*.proto" -type f \
     | xargs grep -hE '^[[:space:]]*(message|enum|rpc)[[:space:]]+' \
-    | sed -E 's/^[[:space:]]*(message|enum|rpc)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\2/' \
+    | sed -E 's/^[[:space:]]*(message|enum|rpc)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\2/'
+
+  # Extract enum value names (e.g., CHANNEL_DEBUG = 0;)
+  find "$PROTO_ROOT" -name "*.proto" -type f \
+    | xargs grep -hE '^[[:space:]]+[A-Z_][A-Z0-9_]*[[:space:]]*=' \
+    | sed -E 's/^[[:space:]]+([A-Z_][A-Z0-9_]*)[[:space:]]*=.*/\1/' \
     | sort -u
 }
 
