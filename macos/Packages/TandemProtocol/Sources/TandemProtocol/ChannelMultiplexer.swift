@@ -388,7 +388,7 @@ actor ChannelMultiplexer {
     /// flight when this runs (assigned a `seq` and suspended inside the outbound sink) is
     /// unaffected -- it already committed to going out -- but ``drainLoop()`` will not start
     /// another one afterwards.
-    private func finish(_ reason: MultiplexerClose) async {
+    func finish(_ reason: MultiplexerClose) async {
         guard closeReason == nil else { return }
         closeReason = reason
         for continuation in continuations.values {
