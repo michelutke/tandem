@@ -9,13 +9,16 @@
 /* Begin PBXBuildFile section */
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
+		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
 		73B62DA518FFEDCE79282EF0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9CCF1B115421D313E1D549EA /* README.md */; };
 		81161460331011F52C3D9494 /* TandemCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 12FE37962CD7F002672F2964 /* TandemCrypto */; };
 		9E3ECFF08B9545FFD864C988 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9ED3304BEEFB2EF47223CBA6 /* README.md */; };
+		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 /* End PBXBuildFile section */
 
@@ -56,7 +59,9 @@
 		1ADF46FA55FCA2970CBE9E9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		32CDA13C3DF0DEB4E7DCD12B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		39581A17C108C4B4F78C2DD1 /* TandemTransport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemTransport; path = Packages/TandemTransport; sourceTree = SOURCE_ROOT; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -66,6 +71,7 @@
 		A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TandemShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC03814D9752C7029BBEB1C2 /* TandemStore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemStore; path = Packages/TandemStore; sourceTree = SOURCE_ROOT; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -75,6 +81,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				81161460331011F52C3D9494 /* TandemCrypto in Frameworks */,
+				58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */,
+				9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,6 +134,8 @@
 			isa = PBXGroup;
 			children = (
 				A98336DD4416DB2CBF0ED481 /* TandemCrypto */,
+				EC03814D9752C7029BBEB1C2 /* TandemStore */,
+				39581A17C108C4B4F78C2DD1 /* TandemTransport */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -133,6 +143,7 @@
 		EF686EE77DBC985FA54C12E5 /* TandemApp */ = {
 			isa = PBXGroup;
 			children = (
+				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
 				5319BE92DEC9F94E1C83D1EC /* README.md */,
@@ -181,6 +192,8 @@
 			name = TandemApp;
 			packageProductDependencies = (
 				12FE37962CD7F002672F2964 /* TandemCrypto */,
+				9198B05ADBA40A7A02B76C74 /* TandemTransport */,
+				84D30D39F94B2E8AE9912DBD /* TandemStore */,
 			);
 			productName = TandemApp;
 			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
@@ -230,6 +243,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0218E04C3402C3090FADECBF /* XCLocalSwiftPackageReference "Packages/TandemCrypto" */,
+				465E8D8E5336455AEFFF2E07 /* XCLocalSwiftPackageReference "Packages/TandemStore" */,
+				FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "Packages/TandemTransport" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 90B0D721ADB7BDABE34F39FF /* Products */;
@@ -283,6 +298,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
@@ -582,12 +598,28 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemCrypto;
 		};
+		465E8D8E5336455AEFFF2E07 /* XCLocalSwiftPackageReference "Packages/TandemStore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TandemStore;
+		};
+		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "Packages/TandemTransport" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TandemTransport;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		12FE37962CD7F002672F2964 /* TandemCrypto */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TandemCrypto;
+		};
+		84D30D39F94B2E8AE9912DBD /* TandemStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemStore;
+		};
+		9198B05ADBA40A7A02B76C74 /* TandemTransport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemTransport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

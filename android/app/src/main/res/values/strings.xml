@@ -7,4 +7,8 @@
     <string name="error_network">Connection failed. Please try again.</string>
     <string name="error_no_longer_paired">This device is no longer paired with %1$s.</string>
     <string name="error_no_longer_paired_unknown">This device is no longer paired.</string>
+    <!-- Pairing error messages (E14-17) -->
+    <string name="pairing_error_qr_expired">QR expired, refresh on Mac</string>
+    <string name="pairing_error_declined">Pairing declined on Mac</string>
+    <string name="pairing_error_network">Can\'t reach your Mac. Make sure both devices are on the same Wi-Fi. Guest and office networks often block devices from reaching each other (client isolation).</string>
 </resources>

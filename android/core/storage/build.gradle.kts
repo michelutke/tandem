@@ -31,6 +31,9 @@ dependencies {
     // Settings store (E13-04).
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.datastore.preferences.core)
+
+    // TestClock (E00-18) for PeerRecordUpdater tests (E12-17).
+    testImplementation(project(":core:testing"))
 }
 
 // E13-01/E13-02: Room schema export feeds the migration fixture E13-03 commits under test

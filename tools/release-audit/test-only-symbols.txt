@@ -38,3 +38,9 @@ HarnessPairingPayloadOut
 
 # Debug-only E15-22 CI harness launch argument for the throwaway file keychain (E10-07b, D-75).
 HarnessKeychainPath
+
+# Debug-only E15-22 CI harness launch hooks: trust seeding/clearing (same-binary, D-75) and the
+# harness listener's configurable port.
+HarnessSeedTrust
+HarnessClearTrust
+HarnessListenerPort
