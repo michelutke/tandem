@@ -9,15 +9,14 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import dev.tandem.app.R
+import dev.tandem.app.TandemApplication
 import dev.tandem.app.di.AppDispatchers
-import dev.tandem.core.storage.trust.TrustStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * Foreground service (E20-02, F-4.1) with type `connectedDevice` (Android 14+ requirement --
@@ -32,11 +31,16 @@ import java.io.File
  * [pairedPeerRepositoryFactory] and [dispatcher] are `internal var`s (not constructor parameters:
  * `Service` is instantiated by the framework via a no-arg constructor) so tests can substitute a
  * fake repository and a `TestDispatcher` before calling `onCreate()`, e.g. via
- * `Robolectric.buildService(TandemService::class.java).get()`.
+ * `Robolectric.buildService(TandemService::class.java).get()`. The default factory reads
+ * [TandemApplication.trustStore] -- the one process-wide `TrustStore` instance -- rather than
+ * opening its own connection to the trust store file: `TrustStore.observeList`'s reactivity comes
+ * from Room's per-`RoomDatabase`-instance `InvalidationTracker`, so a second connection to the
+ * same file would never see writes made through the first (e.g. an unpair action elsewhere in
+ * `:app`), and this service would never stop.
  */
 class TandemService : Service() {
     internal var pairedPeerRepositoryFactory: (Context) -> PairedPeerRepository = { context ->
-        TrustStorePairedPeerRepository(TrustStore.open(context, File(context.filesDir, TRUST_STORE_FILE_NAME)))
+        TrustStorePairedPeerRepository((context.applicationContext as TandemApplication).trustStore)
     }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
 
@@ -94,6 +98,5 @@ class TandemService : Service() {
     companion object {
         const val NOTIFICATION_ID = 1
         const val NOTIFICATION_CHANNEL_ID = "connection_status"
-        const val TRUST_STORE_FILE_NAME = "trust.db"
     }
 }

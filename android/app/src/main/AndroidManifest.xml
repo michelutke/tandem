@@ -1,12 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- E20-02: TandemService (`connectedDevice` foreground-service type, Android 14+
-         requirement). FOREGROUND_SERVICE_CONNECTED_DEVICE is the per-type permission Android 14
-         requires alongside the base FOREGROUND_SERVICE permission; CHANGE_NETWORK_STATE is the
-         connectedDevice runtime prerequisite that doesn't require a CompanionDeviceManager
-         association (SPEC.md heartbeat/Doze section assumes this service running with
-         unrestricted battery). POST_NOTIFICATIONS guards the mandatory ongoing notification on
-         API 33+ (runtime request flow is a later onboarding issue; this is the manifest half). -->
+    <!-- E20-02 permissions for TandemService (`connectedDevice` foreground-service type,
+         docs/planning/backlog/phase-2.yaml E20-02, acceptance criterion 1):
+           - FOREGROUND_SERVICE: base platform permission every foreground service needs
+             regardless of type (mandatory since API 28).
+           - FOREGROUND_SERVICE_CONNECTED_DEVICE: the per-type permission Android 14 requires for
+             the `connectedDevice` type, named explicitly in E20-02's issue body.
+           - CHANGE_NETWORK_STATE: the E20-02 issue body's own choice of `connectedDevice` runtime
+             prerequisite ("does not require a CDM association"); SPEC.md's heartbeat/Doze section
+             assumes this service runs with unrestricted battery.
+           - POST_NOTIFICATIONS: required on API 33+ to actually show the mandatory ongoing
+             notification E20-02's acceptance criteria call for (runtime request flow is a later
+             onboarding issue; this is only the manifest half). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />

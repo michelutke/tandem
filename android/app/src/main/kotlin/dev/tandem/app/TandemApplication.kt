@@ -18,20 +18,33 @@ import java.io.File
  * real `SingletonComponent` from every `@Module @InstallIn` shell on the app's classpath; no
  * production Hilt bindings live here yet.
  *
- * [onCreate] composes [ServiceStarter] with the real trust store (E13-02, F-4.1/E20-02) and
- * starts [TandemService] on app launch only when a paired Mac already exists.
+ * [trustStore] is the one process-wide `TrustStore` instance (E13-02). Room's
+ * `InvalidationTracker` -- what [TrustStore.observeList] relies on to notice writes -- is scoped
+ * per `RoomDatabase` instance, so every `:app` consumer (this class's own [ServiceStarter] check,
+ * [TandemService], and any future consumer such as an unpair action) reads and writes through
+ * this single instance rather than each opening its own connection to the same file: two
+ * independent connections would each have their own tracker and never see the other's writes,
+ * so [TandemService] would never notice a write made through a different connection.
+ *
+ * [onCreate] composes [ServiceStarter] with [trustStore] (F-4.1/E20-02) and starts
+ * [TandemService] on app launch only when a paired Mac already exists.
  */
 @HiltAndroidApp
 class TandemApplication : Application() {
+    val trustStore: TrustStore by lazy { TrustStore.open(this, File(filesDir, TRUST_STORE_FILE_NAME)) }
+
     override fun onCreate() {
         super.onCreate()
 
-        val trustStore = TrustStore.open(this, File(filesDir, TandemService.TRUST_STORE_FILE_NAME))
         val serviceStarter =
             ServiceStarter(
                 pairedPeerRepository = TrustStorePairedPeerRepository(trustStore),
                 startForegroundService = { startForegroundService(Intent(this, TandemService::class.java)) },
             )
         CoroutineScope(SupervisorJob() + AppDispatchers.default).launch { serviceStarter.start() }
+    }
+
+    companion object {
+        const val TRUST_STORE_FILE_NAME = "trust.db"
     }
 }
