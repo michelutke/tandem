@@ -2,6 +2,7 @@ package dev.tandem.core.storage.trust
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.testing.TestClock
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -173,5 +174,89 @@ class TrustStoreTest {
             assertEquals(record(seed = 1), store.get(fingerprint(1)))
             assertEquals(record(seed = 3), store.get(fingerprint(3)))
             assertNull(store.get(fingerprint(2)))
+        }
+
+    @Test
+    fun peerRecordUpdater_readyKnownSpki_setsLastSeenAndCapabilities() =
+        runTest {
+            val clock = TestClock(testScheduler)
+            val updater = PeerRecordUpdater(clock)
+            val initial = record(seed = 1, seen = 500L)
+            store.put(initial)
+
+            updater.updateOnReady(store, fingerprint(1), listOf("files", "notify"))
+
+            val updated = store.get(fingerprint(1))!!
+            assertEquals(clock.instant().toEpochMilli(), updated.lastSeenEpochMs)
+            assertEquals(listOf("files", "notify"), updated.capabilities)
+            assertEquals(initial.deviceId, updated.deviceId)
+            assertEquals(initial.displayName, updated.displayName)
+        }
+
+    @Test
+    fun peerRecordUpdater_failedHandshakeOrHello_allRecordsUnchanged() =
+        runTest {
+            store.put(record(seed = 1, seen = 1_000L))
+            store.put(record(seed = 2, seen = 2_000L))
+
+            val clock = TestClock(testScheduler)
+            val updater = PeerRecordUpdater(clock)
+
+            val before1 = store.get(fingerprint(1))!!
+            val before2 = store.get(fingerprint(2))!!
+
+            assertEquals(before1, store.get(fingerprint(1)))
+            assertEquals(before2, store.get(fingerprint(2)))
+        }
+
+    @Test
+    fun peerRecordUpdater_pairingConnection_noRecordWritten() =
+        runTest {
+            val clock = TestClock(testScheduler)
+            val updater = PeerRecordUpdater(clock)
+
+            updater.updateOnReady(store, fingerprint(99), listOf("notify"))
+
+            assertNull(store.get(fingerprint(99)))
+        }
+
+    @Test
+    fun peerRecordUpdater_twoRecordsSameDeviceId_onlyHandshakeSpkiUpdated() =
+        runTest {
+            val clock = TestClock(testScheduler)
+            val updater = PeerRecordUpdater(clock)
+
+            val record1 =
+                PeerRecord(
+                    deviceId = "same-device",
+                    displayName = "Device",
+                    spkiSha256Base64Url = fingerprint(1).base64Url,
+                    pairedAtEpochMs = 500L,
+                    lastSeenEpochMs = 1_000L,
+                    capabilities = listOf("notify"),
+                )
+            val record2 =
+                PeerRecord(
+                    deviceId = "same-device",
+                    displayName = "Device",
+                    spkiSha256Base64Url = fingerprint(2).base64Url,
+                    pairedAtEpochMs = 500L,
+                    lastSeenEpochMs = 1_000L,
+                    capabilities = listOf("notify"),
+                )
+
+            store.put(record1)
+            store.put(record2)
+
+            updater.updateOnReady(store, fingerprint(1), listOf("files", "notify"))
+
+            val updated1 = store.get(fingerprint(1))!!
+            val updated2 = store.get(fingerprint(2))!!
+
+            assertEquals(clock.instant().toEpochMilli(), updated1.lastSeenEpochMs)
+            assertEquals(listOf("files", "notify"), updated1.capabilities)
+
+            assertEquals(1_000L, updated2.lastSeenEpochMs)
+            assertEquals(listOf("notify"), updated2.capabilities)
         }
 }
