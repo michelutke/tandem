@@ -4,111 +4,78 @@
   "generatedBy": "tools/vectors/generate.py",
   "vectors": [
     {
-      "id": "device-status-minimal",
+      "id": "status-device-status-minimal",
       "description": "Minimal DeviceStatus with all fields at proto3 defaults (omitted).",
       "input": {
-        "kind": "deviceStatus",
-        "battery_level": 0,
-        "is_charging": false,
-        "network_type": 0,
-        "signal_level": 0
+        "frameHex": "0000000708091001a20100",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
       },
       "expected": {
-        "bytesHex": "",
-        "battery_level": 0,
-        "is_charging": false,
-        "network_type": 0,
-        "signal_level": 0
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "deviceStatus"
       }
     },
     {
-      "id": "device-status-typical",
+      "id": "status-device-status-typical",
       "description": "Typical DeviceStatus: 82% battery, charging, Wi-Fi, 3 bars signal.",
       "input": {
-        "kind": "deviceStatus",
-        "battery_level": 82,
-        "is_charging": true,
-        "network_type": 1,
-        "signal_level": 3
+        "frameHex": "000000110809102a1829a201080852100118012003",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
       },
       "expected": {
-        "bytesHex": "0852100118012003",
-        "battery_level": 82,
-        "is_charging": true,
-        "network_type": 1,
-        "signal_level": 3
+        "channel": "CHANNEL_STATUS",
+        "seq": 42,
+        "ack": 41,
+        "payload": "deviceStatus"
       }
     },
     {
-      "id": "device-status-cellular",
-      "description": "DeviceStatus with cellular network and full signal.",
+      "id": "status-ring",
+      "description": "Ring message on STATUS channel: smallest legal Ring frame.",
       "input": {
-        "kind": "deviceStatus",
-        "battery_level": 100,
-        "is_charging": false,
-        "network_type": 2,
-        "signal_level": 4
+        "frameHex": "0000000708091001aa0100",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
       },
       "expected": {
-        "bytesHex": "086418022004",
-        "battery_level": 100,
-        "is_charging": false,
-        "network_type": 2,
-        "signal_level": 4
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "ring"
       }
     },
     {
-      "id": "device-status-offline",
-      "description": "DeviceStatus with offline network (signal_level becomes meaningless, set to 0).",
+      "id": "status-ring-stop-mac",
+      "description": "RingStop with origin=MAC (1) from Mac side.",
       "input": {
-        "kind": "deviceStatus",
-        "battery_level": 15,
-        "is_charging": false,
-        "network_type": 3,
-        "signal_level": 0
+        "frameHex": "0000000b080910021801b201020801",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
       },
       "expected": {
-        "bytesHex": "080f1803",
-        "battery_level": 15,
-        "is_charging": false,
-        "network_type": 3,
-        "signal_level": 0
+        "channel": "CHANNEL_STATUS",
+        "seq": 2,
+        "ack": 1,
+        "payload": "ringStop"
       }
     },
     {
-      "id": "ring-stop-unspecified",
-      "description": "RingStop with origin UNSPECIFIED (0): encodes as empty message.",
+      "id": "status-ring-stop-phone",
+      "description": "RingStop with origin=PHONE (2) from phone side.",
       "input": {
-        "kind": "ringStop",
-        "origin": 0
+        "frameHex": "0000000b080910031802b201020802",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
       },
       "expected": {
-        "bytesHex": "",
-        "origin": 0
-      }
-    },
-    {
-      "id": "ring-stop-mac",
-      "description": "RingStop from Mac side (origin=1).",
-      "input": {
-        "kind": "ringStop",
-        "origin": 1
-      },
-      "expected": {
-        "bytesHex": "0801",
-        "origin": 1
-      }
-    },
-    {
-      "id": "ring-stop-phone",
-      "description": "RingStop from phone side (origin=2).",
-      "input": {
-        "kind": "ringStop",
-        "origin": 2
-      },
-      "expected": {
-        "bytesHex": "0802",
-        "origin": 2
+        "channel": "CHANNEL_STATUS",
+        "seq": 3,
+        "ack": 2,
+        "payload": "ringStop"
       }
     }
   ]

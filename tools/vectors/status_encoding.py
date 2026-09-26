@@ -1,16 +1,14 @@
 """Generator for protocol/vectors/status-encoding.json (E23-01).
 
-Covers encode/decode and round-trip vectors for DeviceStatus and RingStop messages,
-carried on the STATUS channel and defined in protocol/proto/tandem/v1/status.proto.
+Covers frame-level encode/decode round-trip vectors for STATUS channel payloads:
+DeviceStatus, Ring, and RingStop messages defined in protocol/proto/tandem/v1/status.proto.
+Each vector is a complete Envelope frame (length_prefix + envelope_bytes) that should encode
+and decode identically, exercising codec round-trip (like frame-encoding.json for other channels).
 
-DeviceStatus fields:
-  - battery_level (int32, field 1)
-  - is_charging (bool, field 2)
-  - network_type (enum, field 3)
-  - signal_level (int32, field 4)
-
-RingStop fields:
-  - origin (enum Origin, field 1), with values ORIGIN_UNSPECIFIED=0, ORIGIN_MAC=1, ORIGIN_PHONE=2
+DeviceStatus fields: battery_level (int32, field 1), is_charging (bool, field 2),
+  network_type (enum, field 3), signal_level (int32, field 4)
+Ring: empty message (no fields)
+RingStop fields: origin (enum Origin, field 1), values ORIGIN_UNSPECIFIED=0, ORIGIN_MAC=1, ORIGIN_PHONE=2
 """
 
 from __future__ import annotations
@@ -43,6 +41,11 @@ def _field_varint(field_number: int, value: int) -> bytes:
     return _tag(field_number, 0) + _varint(value)
 
 
+def _field_len_delimited(field_number: int, payload: bytes) -> bytes:
+    """Encodes a length-delimited (message) field."""
+    return _tag(field_number, 2) + _varint(len(payload)) + payload
+
+
 def encode_device_status(
     *, battery_level: int, is_charging: bool, network_type: int, signal_level: int
 ) -> bytes:
@@ -59,133 +62,144 @@ def encode_device_status(
     return b"".join(parts)
 
 
+def encode_ring() -> bytes:
+    """Encodes an empty Ring message (field 21 in envelope)."""
+    return _field_len_delimited(21, b"")
+
+
 def encode_ring_stop(*, origin: int) -> bytes:
-    """Encodes a RingStop message with the given origin enum value."""
+    """Encodes a RingStop message with the given origin enum value (field 22 in envelope)."""
     if origin == 0:  # ORIGIN_UNSPECIFIED
-        return b""  # empty message
-    return _field_varint(1, origin)
+        content = b""
+    else:
+        content = _field_varint(1, origin)
+    return _field_len_delimited(22, content)
+
+
+def build_envelope_frame(
+    *, channel: int, seq: int, ack: int, payload: bytes
+) -> bytes:
+    """Builds a complete Envelope frame with 4-byte big-endian length prefix."""
+    envelope = b""
+    envelope += _field_varint(1, channel)
+    if seq:
+        envelope += _field_varint(2, seq)
+    if ack:
+        envelope += _field_varint(3, ack)
+    envelope += payload
+    length_prefix = len(envelope).to_bytes(4, "big")
+    return length_prefix + envelope
 
 
 def generate_status_encoding_vectors() -> dict[str, Any]:
-    """Generates encode/decode round-trip vectors for DeviceStatus and RingStop."""
+    """Generates frame-level encode/decode round-trip vectors for STATUS channel."""
+
+    channel_status = 9
 
     vectors = [
         # DeviceStatus vectors
         {
-            "id": "device-status-minimal",
+            "id": "status-device-status-minimal",
             "description": "Minimal DeviceStatus with all fields at proto3 defaults (omitted).",
             "input": {
-                "kind": "deviceStatus",
-                "battery_level": 0,
-                "is_charging": False,
-                "network_type": 0,
-                "signal_level": 0,
+                "frameHex": build_envelope_frame(
+                    channel=channel_status,
+                    seq=1,
+                    ack=0,
+                    payload=_field_len_delimited(20, encode_device_status(
+                        battery_level=0, is_charging=False, network_type=0, signal_level=0
+                    )),
+                ).hex(),
+                "lengthPrefix": 0,
+                "suppliedEnvelopeLength": 0,
             },
             "expected": {
-                "bytesHex": encode_device_status(
-                    battery_level=0, is_charging=False, network_type=0, signal_level=0
-                ).hex(),
-                "battery_level": 0,
-                "is_charging": False,
-                "network_type": 0,
-                "signal_level": 0,
+                "channel": "CHANNEL_STATUS",
+                "seq": 1,
+                "ack": 0,
+                "payload": "deviceStatus",
             },
         },
         {
-            "id": "device-status-typical",
+            "id": "status-device-status-typical",
             "description": "Typical DeviceStatus: 82% battery, charging, Wi-Fi, 3 bars signal.",
             "input": {
-                "kind": "deviceStatus",
-                "battery_level": 82,
-                "is_charging": True,
-                "network_type": 1,  # NETWORK_TYPE_WIFI
-                "signal_level": 3,
-            },
-            "expected": {
-                "bytesHex": encode_device_status(
-                    battery_level=82, is_charging=True, network_type=1, signal_level=3
+                "frameHex": build_envelope_frame(
+                    channel=channel_status,
+                    seq=42,
+                    ack=41,
+                    payload=_field_len_delimited(20, encode_device_status(
+                        battery_level=82, is_charging=True, network_type=1, signal_level=3
+                    )),
                 ).hex(),
-                "battery_level": 82,
-                "is_charging": True,
-                "network_type": 1,
-                "signal_level": 3,
+                "lengthPrefix": 0,
+                "suppliedEnvelopeLength": 0,
+            },
+            "expected": {
+                "channel": "CHANNEL_STATUS",
+                "seq": 42,
+                "ack": 41,
+                "payload": "deviceStatus",
             },
         },
         {
-            "id": "device-status-cellular",
-            "description": "DeviceStatus with cellular network and full signal.",
+            "id": "status-ring",
+            "description": "Ring message on STATUS channel: smallest legal Ring frame.",
             "input": {
-                "kind": "deviceStatus",
-                "battery_level": 100,
-                "is_charging": False,
-                "network_type": 2,  # NETWORK_TYPE_CELLULAR
-                "signal_level": 4,
-            },
-            "expected": {
-                "bytesHex": encode_device_status(
-                    battery_level=100, is_charging=False, network_type=2, signal_level=4
+                "frameHex": build_envelope_frame(
+                    channel=channel_status,
+                    seq=1,
+                    ack=0,
+                    payload=encode_ring(),
                 ).hex(),
-                "battery_level": 100,
-                "is_charging": False,
-                "network_type": 2,
-                "signal_level": 4,
+                "lengthPrefix": 0,
+                "suppliedEnvelopeLength": 0,
+            },
+            "expected": {
+                "channel": "CHANNEL_STATUS",
+                "seq": 1,
+                "ack": 0,
+                "payload": "ring",
             },
         },
         {
-            "id": "device-status-offline",
-            "description": "DeviceStatus with offline network (signal_level becomes meaningless, set to 0).",
+            "id": "status-ring-stop-mac",
+            "description": "RingStop with origin=MAC (1) from Mac side.",
             "input": {
-                "kind": "deviceStatus",
-                "battery_level": 15,
-                "is_charging": False,
-                "network_type": 3,  # NETWORK_TYPE_OFFLINE
-                "signal_level": 0,
-            },
-            "expected": {
-                "bytesHex": encode_device_status(
-                    battery_level=15, is_charging=False, network_type=3, signal_level=0
+                "frameHex": build_envelope_frame(
+                    channel=channel_status,
+                    seq=2,
+                    ack=1,
+                    payload=encode_ring_stop(origin=1),
                 ).hex(),
-                "battery_level": 15,
-                "is_charging": False,
-                "network_type": 3,
-                "signal_level": 0,
-            },
-        },
-        # RingStop vectors
-        {
-            "id": "ring-stop-unspecified",
-            "description": "RingStop with origin UNSPECIFIED (0): encodes as empty message.",
-            "input": {
-                "kind": "ringStop",
-                "origin": 0,  # ORIGIN_UNSPECIFIED
+                "lengthPrefix": 0,
+                "suppliedEnvelopeLength": 0,
             },
             "expected": {
-                "bytesHex": encode_ring_stop(origin=0).hex(),
-                "origin": 0,
+                "channel": "CHANNEL_STATUS",
+                "seq": 2,
+                "ack": 1,
+                "payload": "ringStop",
             },
         },
         {
-            "id": "ring-stop-mac",
-            "description": "RingStop from Mac side (origin=1).",
+            "id": "status-ring-stop-phone",
+            "description": "RingStop with origin=PHONE (2) from phone side.",
             "input": {
-                "kind": "ringStop",
-                "origin": 1,  # ORIGIN_MAC
+                "frameHex": build_envelope_frame(
+                    channel=channel_status,
+                    seq=3,
+                    ack=2,
+                    payload=encode_ring_stop(origin=2),
+                ).hex(),
+                "lengthPrefix": 0,
+                "suppliedEnvelopeLength": 0,
             },
             "expected": {
-                "bytesHex": encode_ring_stop(origin=1).hex(),
-                "origin": 1,
-            },
-        },
-        {
-            "id": "ring-stop-phone",
-            "description": "RingStop from phone side (origin=2).",
-            "input": {
-                "kind": "ringStop",
-                "origin": 2,  # ORIGIN_PHONE
-            },
-            "expected": {
-                "bytesHex": encode_ring_stop(origin=2).hex(),
-                "origin": 2,
+                "channel": "CHANNEL_STATUS",
+                "seq": 3,
+                "ack": 2,
+                "payload": "ringStop",
             },
         },
     ]

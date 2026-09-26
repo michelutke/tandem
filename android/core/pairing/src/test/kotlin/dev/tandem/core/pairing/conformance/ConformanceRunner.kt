@@ -60,9 +60,9 @@ class ConformanceFailure(
  * existing dependency graph instead of adding a new Gradle module (KISS).
  */
 object ConformanceRunner {
-    val deferredCategories: Map<String, String> = mapOf("discovery-id" to "E21-05", "status-encoding" to "E23-01")
+    val deferredCategories: Map<String, String> = mapOf("discovery-id" to "E21-05")
     private val handledCategories: Set<String> =
-        setOf("frame-encoding", "spki-fingerprint", "pairing-proof", "qr-payload", "display-strings")
+        setOf("frame-encoding", "spki-fingerprint", "pairing-proof", "qr-payload", "display-strings", "status-encoding")
 
     /** Every vector entry across every manifest under [vectorsDir], on disk right now. */
     fun countVectorsOnDisk(vectorsDir: File): Int =
@@ -151,6 +151,7 @@ object ConformanceRunner {
                 "pairing-proof" -> pairingProofOutcome(vector)
                 "qr-payload" -> qrPayloadOutcome(vector)
                 "display-strings" -> displayStringsOutcome(vector)
+                "status-encoding" -> statusEncodingOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }
         }
@@ -443,4 +444,31 @@ object ConformanceRunner {
         val actual = DisplayStringSanitizer.sanitize(raw, kind)
         return VectorOutcome(id, "display-strings", if (actual == expected) "pass" else "fail", expected, actual)
     }
+
+    private fun statusEncodingOutcome(vector: JsonObject): VectorOutcome =
+        runBlocking {
+            val id = vector.getValue("id").jsonPrimitive.content
+            val input = vector.getValue("input").jsonObject
+            val inputFrame = hexToBytes(input.getValue("frameHex").jsonPrimitive.content)
+            val decoded = FrameDecoder.decodeFrame(sourceFor(inputFrame))
+            val frame =
+                decoded as? DecodeResult.Frame
+                    ?: return@runBlocking VectorOutcome(
+                        id,
+                        "status-encoding",
+                        "fail",
+                        inputFrame.toHex(),
+                        "rejected: $decoded",
+                    )
+
+            val outputFrame = FrameEncoder.encodeFrame(frame.envelope)
+            val passed = inputFrame.contentEquals(outputFrame)
+            VectorOutcome(
+                id,
+                "status-encoding",
+                if (passed) "pass" else "fail",
+                inputFrame.toHex(),
+                outputFrame.toHex(),
+            )
+        }
 }

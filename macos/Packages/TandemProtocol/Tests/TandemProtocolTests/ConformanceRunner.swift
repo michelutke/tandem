@@ -1,4 +1,6 @@
 import Foundation
+import TandemTestSupport
+@testable import TandemProtocol
 
 /// E15-02: aggregates every `protocol/vectors/` category against the real Swift codec/crypto
 /// implementations behind one explicit category -> handler table. A category on disk that is not
@@ -32,10 +34,10 @@ enum ConformanceRunner {
         let description: String
     }
 
-    static let deferredCategories: [String: String] = ["discovery-id": "E21-02", "status-encoding": "E23-01"]
+    static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
-        "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings"
+        "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -132,8 +134,57 @@ enum ConformanceRunner {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
+        case "status-encoding": return try await runStatusEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
+    }
+
+    private static func runStatusEncoding(data: Data) async throws -> [VectorOutcome] {
+        struct Manifest: Decodable {
+            struct Vector: Decodable {
+                let id: String
+                let input: Input
+            }
+            struct Input: Decodable {
+                let frameHex: String
+            }
+            let vectors: [Vector]
+        }
+
+        let manifest = try JSONDecoder().decode(Manifest.self, from: data)
+        var outcomes: [VectorOutcome] = []
+        for vector in manifest.vectors {
+            let inputFrameBytes = try conformanceRunnerHexDecode(vector.input.frameHex)
+            let decoded = try await decodeFrameForStatus(inputFrameBytes)
+            guard case .frame(let envelope) = decoded else {
+                outcomes.append(VectorOutcome(
+                    id: vector.id,
+                    category: "status-encoding",
+                    outcome: "fail",
+                    expected: vector.input.frameHex,
+                    actual: "rejected: \(String(describing: decoded))"
+                ))
+                continue
+            }
+
+            let reencoded = try FrameEncoder.encode(envelope)
+            let passed = inputFrameBytes == reencoded
+            outcomes.append(VectorOutcome(
+                id: vector.id,
+                category: "status-encoding",
+                outcome: passed ? "pass" : "fail",
+                expected: inputFrameBytes.conformanceRunnerHex,
+                actual: reencoded.conformanceRunnerHex
+            ))
+        }
+        return outcomes
+    }
+
+    private static func decodeFrameForStatus(_ bytes: Data) async throws -> DecodeResult? {
+        let pair = InMemoryConnectionPair(bufferCapacity: bytes.count + 8)
+        try await pair.endA.send(bytes)
+        await pair.endA.close()
+        return try await FrameDecoder.decode(from: InMemoryFrameSource(pair.endB))
     }
 }
 
