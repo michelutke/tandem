@@ -1,6 +1,50 @@
 import SwiftUI
 import TandemCrypto
 
+/// Maps a failure reason to a user-visible, secret-free error string (E12-10, invariant 5).
+/// Pure value type; no dependencies on the app state or UI framework.
+struct ErrorPresenter: Sendable {
+    /// The failure reason, as the name of a CloseCode case (e.g., "versionMismatch", "protocolTimeout").
+    let reasonName: String
+
+    /// Title shown in the menu's connection-status area.
+    var title: String {
+        switch reasonName {
+        case "versionMismatch":
+            return "error.versionMismatch"
+        case "protocolTimeout":
+            return "error.timeout"
+        case "limitExceeded":
+            return "error.unknownPeer"
+        case "malformedFrame", "creditViolation":
+            return "error.network"
+        default:
+            return "error.unknown"
+        }
+    }
+
+    /// Localized English text for the title (test-only; production uses Localizable.strings).
+    var localizedTitle: String {
+        switch reasonName {
+        case "versionMismatch":
+            return "Version mismatch."
+        case "protocolTimeout":
+            return "Timeout."
+        case "limitExceeded":
+            return "Unknown peer."
+        case "malformedFrame", "creditViolation":
+            return "Network error."
+        default:
+            return "Error."
+        }
+    }
+
+    /// Detail string (secondary text). Empty for now; may be filled in a future issue.
+    var detail: String {
+        ""
+    }
+}
+
 @main
 struct TandemMenuBarApp: App {
     #if DEBUG
@@ -95,6 +139,11 @@ private struct ScenarioView: View {
             Text("Not Paired")
                 .accessibilityIdentifier("notPairedStateLabel")
                 .accessibilityLabel("Not Paired")
+        case .failClosedError:
+            let presenter = ErrorPresenter(reasonName: "versionMismatch")
+            Text(presenter.localizedTitle)
+                .accessibilityIdentifier("failClosedErrorLabel")
+                .accessibilityLabel(presenter.localizedTitle)
         }
     }
 }
