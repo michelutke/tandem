@@ -9,6 +9,11 @@ packages:
   # TandemApp's Debug composition root.
   TandemCrypto:
     path: Packages/TandemCrypto
+  # E15-22: DEBUG harness hooks (listener port, trust seeding/clearing).
+  TandemTransport:
+    path: Packages/TandemTransport
+  TandemStore:
+    path: Packages/TandemStore
 
 targets:
   TandemApp:
@@ -35,6 +40,8 @@ targets:
         embed: true
         codeSign: true
       - package: TandemCrypto
+      - package: TandemTransport
+      - package: TandemStore
 
   TandemShare:
     type: app-extension
