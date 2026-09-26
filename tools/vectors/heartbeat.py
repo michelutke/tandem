@@ -18,8 +18,8 @@ from typing import Any
 # CONTROL channel is 8 (from channel.proto)
 CONTROL_CHANNEL = 8
 
-# Heartbeat message type is field 18 in the Envelope payload oneof (control.proto)
-HEARTBEAT_FIELD_NUMBER = 18
+# Heartbeat message type is field 5 in the Envelope payload oneof (envelope.proto E01-10)
+HEARTBEAT_FIELD_NUMBER = 5
 HEARTBEAT_WIRE_TYPE = 2  # LENGTH_DELIMITED
 
 
@@ -47,11 +47,11 @@ def _encode_heartbeat() -> bytes:
     """Encode an empty Heartbeat message: just the field tag with zero-length data.
 
     Heartbeat {} in protobuf3 encodes as:
-    - field number 18 (heartbeat), wire type 2 (LENGTH_DELIMITED)
-    - tag = (18 << 3) | 2 = 144 | 2 = 146 = 0x92
+    - field number 5 (heartbeat), wire type 2 (LENGTH_DELIMITED)
+    - tag = (5 << 3) | 2 = 40 | 2 = 42 = 0x2a
     - length = 0 (empty message)
     - payload = (empty)
-    Result: 0x92 0x00
+    Result: 0x2a 0x00
     """
     tag = _encode_field_tag(HEARTBEAT_FIELD_NUMBER, HEARTBEAT_WIRE_TYPE)
     return tag + b"\x00"
