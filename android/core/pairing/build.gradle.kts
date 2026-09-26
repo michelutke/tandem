@@ -15,6 +15,8 @@ dependencies {
     // QrPayloadParserTest (E14-03) parses the committed protocol/vectors/qr-payload.json manifest;
     // test-only, never on a release classpath.
     testImplementation(libs.kotlinx.serialization.json)
+    // SoftwareIdentityKeyStore for PairRequestBuilderTest (E14-06); test-only.
+    testImplementation(testFixtures(project(":core:crypto")))
 }
 
 // E14-03: QrPayloadParserTest reads the E01-21 vectors committed at protocol/vectors/ (outside this
