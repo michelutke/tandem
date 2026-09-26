@@ -41,6 +41,38 @@ extension FakeTandemSession {
     }
 }
 
+// Adapter whose sendRevoke hangs forever using the injected clock, to exercise the
+// 2s virtual timeout in UnpairAction.unpair.
+struct HangingUnpairActionSession: UnpairActionSession {
+    let session: FakeTandemSession
+    let clock: any Clock<Duration>
+
+    var state: AsyncStream<UnpairActionConnectionState> {
+        AsyncStream { continuation in
+            Task {
+                for await state in session.state {
+                    let actionState: UnpairActionConnectionState
+                    if case .ready = state {
+                        actionState = .ready
+                    } else {
+                        actionState = .other
+                    }
+                    continuation.yield(actionState)
+                }
+                continuation.finish()
+            }
+        }
+    }
+
+    func sendRevoke() async throws {
+        try await clock.sleep(for: .seconds(1_000_000))
+    }
+
+    func close() async {
+        await session.close()
+    }
+}
+
 // Fake registry for testing
 actor FakeUnpairActionRegistry: UnpairActionRegistry {
     private(set) var unregisteredPeers: [SpkiFingerprint] = []
@@ -61,10 +93,10 @@ actor MutableFakePurger: PeerDataPurging {
     }
 
     func purgeAll(peer: SpkiFingerprint) async throws {
+        purgedPeers.append(peer)
         if shouldThrow {
             throw NSError(domain: "test", code: 1)
         }
-        purgedPeers.append(peer)
     }
 
     func getPurgedPeers() -> [SpkiFingerprint] {
@@ -321,50 +353,23 @@ struct UnpairActionTests {
         try trustStore.put(record)
         await session.emit(.ready)
 
-        // Create an adapter that hangs on sendRevoke
-        struct HangingAdapter: UnpairActionSession {
-            let session: FakeTandemSession
-            let clock: any Clock<Duration>
-
-            var state: AsyncStream<UnpairActionConnectionState> {
-                AsyncStream { continuation in
-                    Task {
-                        for await state in session.state {
-                            let actionState: UnpairActionConnectionState
-                            if case .ready = state {
-                                actionState = .ready
-                            } else {
-                                actionState = .other
-                            }
-                            continuation.yield(actionState)
-                        }
-                        continuation.finish()
-                    }
-                }
-            }
-
-            func sendRevoke() async throws {
-                // Hang forever using injected clock
-                try await clock.sleep(for: .seconds(1000000))
-            }
-
-            func close() async {
-                await session.close()
-            }
-        }
-
-        // Execute: unpair with hanging send
+        // Execute: unpair with hanging send, racing the 2s virtual timeout
         let clock = ManualTestClock()
-        await UnpairAction.unpair(
-            peerSpkiFingerprint: spkiFingerprint,
-            session: HangingAdapter(session: session, clock: clock),
-            dependencies: .init(
-                trustStore: trustStore,
-                registry: registry,
-                purgeRegistry: purgeRegistry,
-                clock: clock
+        let unpairTask = Task {
+            await UnpairAction.unpair(
+                peerSpkiFingerprint: spkiFingerprint,
+                session: HangingUnpairActionSession(session: session, clock: clock),
+                dependencies: .init(
+                    trustStore: trustStore,
+                    registry: registry,
+                    purgeRegistry: purgeRegistry,
+                    clock: clock
+                )
             )
-        )
+        }
+        for _ in 0..<5 { await Task.yield() }
+        clock.advance(by: .seconds(2))
+        await unpairTask.value
 
         // Verify: record deleted
         #expect(try trustStore.get(spkiFingerprint) == nil)
