@@ -196,4 +196,46 @@ class TrustStoreTest {
             assertEquals("notify", second.capabilitiesCsv)
             assertEquals("", second.additionalData)
         }
+
+    @Test
+    fun unpair_thenGetSameProcess_returnsNull() =
+        runTest {
+            store.put(record(seed = 1))
+
+            store.unpair(fingerprint(1))
+
+            assertNull(store.get(fingerprint(1)))
+        }
+
+    @Test
+    fun unpair_thenReopenStore_recordStillAbsent() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val dbFile = File(tempFolder.root, "trust.db")
+            val first = TrustStore.open(context, dbFile)
+            first.put(record(seed = 1))
+            first.unpair(fingerprint(1))
+            first.close()
+
+            val reopened = TrustStore.open(context, dbFile)
+            val fetched = reopened.get(fingerprint(1))
+            reopened.close()
+
+            assertNull(fetched)
+        }
+
+    @Test
+    fun unpair_otherPeerRecords_remainUnchanged() =
+        runTest {
+            store.put(record(seed = 1))
+            store.put(record(seed = 2))
+            store.put(record(seed = 3))
+
+            store.unpair(fingerprint(2))
+
+            assertEquals(2, store.list().size)
+            assertEquals(record(seed = 1), store.get(fingerprint(1)))
+            assertEquals(record(seed = 3), store.get(fingerprint(3)))
+            assertNull(store.get(fingerprint(2)))
+        }
 }

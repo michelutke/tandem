@@ -36,6 +36,8 @@ class TrustStore private constructor(
 
     suspend fun delete(fingerprint: SpkiFingerprint) = dao.deleteByFingerprint(fingerprint.base64Url)
 
+    suspend fun unpair(fingerprint: SpkiFingerprint) = delete(fingerprint)
+
     fun close() = db.close()
 
     companion object {
