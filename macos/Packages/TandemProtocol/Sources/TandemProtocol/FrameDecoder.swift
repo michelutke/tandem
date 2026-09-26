@@ -16,12 +16,32 @@ protocol FrameSource: Sendable {
     func read(exactly count: Int) async throws -> Data
 }
 
-/// Close code a framing-level rejection produces (docs/protocol/SPEC.md
-/// #errors-and-close-codes, E01-05). `TandemProtocol` has no generated `CloseCode` type to reuse
-/// yet (`protocol/proto/tandem/v1/status.proto` does not define one as of this issue); this is a
-/// local placeholder scoped to the one code framing rejections ever produce.
+/// The canonical protocol-level close codes (docs/protocol/SPEC.md #errors-and-close-codes,
+/// E01-05: "the single canonical enumeration ... no other part of this document or the codebase
+/// may introduce a new close code outside this table"). `TandemProtocol` has no generated
+/// `CloseCode` type to reuse yet (`protocol/proto/tandem/v1/status.proto` does not define one as
+/// of this issue); this local enum is grown one case at a time, only as the issue implementing
+/// that row needs it -- it is not yet the full nine-row table.
 enum CloseCode: Sendable, Equatable {
     case malformedFrame
+    /// A peer violated the credit-flow-control contract (docs/protocol/SPEC.md
+    /// #channels-and-flow-control-credits; `docs/planning/decisions.md` D-64): it transmitted a
+    /// frame on a feature channel past the credit this side had granted it, or it sent a
+    /// `CreditGrant` naming an amount that would take this side's own send balance for that
+    /// channel above the channel's cap. Detected by ``ChannelMultiplexer`` (E11-08), never by
+    /// ``FrameDecoder`` itself -- framing decode has no notion of per-channel credit.
+    case creditViolation
+    /// The `VersionHello` protocol major version fields exchanged per §6 differ (SPEC.md row 1,
+    /// E01-06). Detected by ``VersionHandshake`` (E12-07), reported to ``ConnectionStateMachine``
+    /// (E12-09) as the reason a hello-stage handshake failed.
+    case versionMismatch
+    /// A deadline in §10 elapsed without the required message (SPEC.md row 8, E01-22): the TLS
+    /// handshake deadline (``ConnectionStateMachine/handshakeDeadline``, E12-09) or the
+    /// `VersionHello` deadline (``VersionHandshake/helloDeadline``, E12-07).
+    case protocolTimeout
+    /// A peer or source exceeds a connection-level cap in SPEC.md §10 (E01-22), or an older
+    /// control session is replaced by a newer Ready session for the same peer SPKI (E12-19).
+    case limitExceeded
 }
 
 /// Local diagnostic reason grouped under `CloseCode.malformedFrame`. Never sent on the wire
