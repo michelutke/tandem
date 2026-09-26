@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     id("tandem.android.test-fixtures")
     id("tandem.android.robolectric")
+    id("tandem.android.compose-ui-test")
     id("tandem.android.hilt")
     id("tandem.quality")
 }

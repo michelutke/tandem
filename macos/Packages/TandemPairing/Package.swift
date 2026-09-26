@@ -8,17 +8,19 @@ let package = Package(
         .library(name: "TandemPairing", targets: ["TandemPairing"])
     ],
     dependencies: [
-        .package(path: "../TandemCrypto")
+        .package(path: "../TandemCrypto"),
+        .package(path: "../TandemTransport"),
+        .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "TandemPairing",
-            dependencies: ["TandemCrypto"],
+            dependencies: ["TandemCrypto", "TandemTransport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "TandemPairingTests",
-            dependencies: ["TandemPairing", "TandemCrypto"],
+            dependencies: ["TandemPairing", "TandemCrypto", "TandemTransport", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
