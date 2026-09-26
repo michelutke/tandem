@@ -22,6 +22,11 @@ public final class PeerDecisionCorrelator: @unchecked Sendable {
     public struct Decision: Sendable {
         public let decision: PeerAuthorizationDecision
         public let fingerprint: SpkiFingerprint?
+        /// The candidate's raw SPKI DER, exactly as ``PeerVerifier`` observed it on this
+        /// connection's TLS handshake -- carried alongside ``fingerprint`` because a
+        /// ``PeerAuthorizationDecision/pairingCandidate`` connection's own pairing dance (E14-09)
+        /// needs the full DER, never re-derivable from the fingerprint hash alone.
+        public let spkiDer: Data?
     }
 
     private let lock = NSLock()
@@ -36,10 +41,11 @@ public final class PeerDecisionCorrelator: @unchecked Sendable {
     public func record(
         metadataIdentifier: ObjectIdentifier,
         decision: PeerAuthorizationDecision,
-        fingerprint: SpkiFingerprint?
+        fingerprint: SpkiFingerprint?,
+        spkiDer: Data?
     ) {
         lock.lock()
-        decisions[metadataIdentifier] = Decision(decision: decision, fingerprint: fingerprint)
+        decisions[metadataIdentifier] = Decision(decision: decision, fingerprint: fingerprint, spkiDer: spkiDer)
         lock.unlock()
     }
 

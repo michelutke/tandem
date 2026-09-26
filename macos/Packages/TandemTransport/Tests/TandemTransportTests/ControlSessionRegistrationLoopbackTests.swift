@@ -53,6 +53,70 @@ struct ControlSessionRegistrationLoopbackTests {
         #expect(registration?.fingerprint == clientFingerprint)
     }
 
+    /// E14-16's own missing production link: a `.pairingCandidate` connection (unknown
+    /// fingerprint, open window, no other candidate in flight) reaching protocol `.ready` is
+    /// handed to the configured ``PairingCandidateDriver`` -- and, unlike the `.trusted` case
+    /// above, is never registered (registration stays `.trusted`-only, E12-19).
+    @Test(.timeLimit(.minutes(1)))
+    func verifyBlock_pairingCandidateReachesProtocolReady_handedToDriverNeverRegistered() async throws {
+        let serverKeychain = try TemporaryKeychain()
+        defer { serverKeychain.cleanup() }
+        let clientKeychain = try TemporaryKeychain()
+        defer { clientKeychain.cleanup() }
+
+        let clientIdentity = try clientKeychain.makeSecIdentity()
+        let clientFingerprint = try Self.fingerprint(for: clientIdentity)
+
+        let spyRegistry = SpyControlSessionRegistry()
+        let spyDriver = SpyPairingCandidateDriver()
+        let decisionCorrelator = PeerDecisionCorrelator()
+        let verify = PeerVerifier.makeVerifyBlock(
+            trustStore: FixedTrustStoreReader(fingerprints: []),
+            window: FixedPairingWindowState(isOpen: true, candidateInFlight: false),
+            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer in
+                decisionCorrelator.record(
+                    metadataIdentifier: ObjectIdentifier(metadata),
+                    decision: decision,
+                    fingerprint: recordedFingerprint,
+                    spkiDer: recordedSpkiDer
+                )
+            }
+        )
+        let listener = try NWListenerFactory(
+            sessionRegistry: spyRegistry,
+            decisionCorrelator: decisionCorrelator,
+            pairingCandidateDriver: spyDriver
+        ).makeListener(
+            identity: try serverKeychain.makeSecIdentity(),
+            port: .any,
+            verify: verify,
+            admission: ConnectionAdmission(clock: ContinuousClock())
+        )
+        defer { listener.cancel() }
+        let port = try await Self.waitForListenerPort(listener)
+
+        let observer = ConnectionObserver()
+        let connection = Self.makeClientConnection(port: port, identity: clientIdentity, observer: observer)
+        defer { connection.cancel() }
+        connection.start(queue: .global())
+
+        let reachedReady = await observer.waitForReady(timeout: 5)
+        #expect(reachedReady)
+
+        try await Self.speakClientHalfOfProtocol(over: connection)
+
+        let drive = await spyDriver.waitForDrive(timeout: 5)
+        if let drive {
+            let observedFingerprint = try SpkiFingerprint.of(spkiDer: drive.handshakeSpkiDer)
+            #expect(observedFingerprint == clientFingerprint)
+        } else {
+            Issue.record("expected the pairing candidate driver to be invoked")
+        }
+
+        let registration = await spyRegistry.waitForRegistration(timeout: 0.3)
+        #expect(registration == nil)
+    }
+
     // MARK: - Harness
 
     private static func makeVerify(
@@ -62,11 +126,12 @@ struct ControlSessionRegistrationLoopbackTests {
         PeerVerifier.makeVerifyBlock(
             trustStore: FixedTrustStoreReader(fingerprints: [fingerprint]),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false),
-            onDecision: { metadata, decision, recordedFingerprint in
+            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer in
                 decisionCorrelator.record(
                     metadataIdentifier: ObjectIdentifier(metadata),
                     decision: decision,
-                    fingerprint: recordedFingerprint
+                    fingerprint: recordedFingerprint,
+                    spkiDer: recordedSpkiDer
                 )
             }
         )
@@ -257,6 +322,67 @@ private final class SpyControlSessionRegistry: ControlSessionRegistering, @unche
     }
 
     private func storeContinuation(_ continuation: CheckedContinuation<Registration, Error>) {
+        lock.lock()
+        self.continuation = continuation
+        lock.unlock()
+    }
+
+    private func timeOutPendingContinuation() {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(throwing: WaitError.timeout)
+    }
+}
+
+/// ``PairingCandidateDriver`` spy: records the one candidate it's ever driven and never touches
+/// `session` itself, mirroring ``SpyControlSessionRegistry``'s own wait-with-timeout idiom.
+private final class SpyPairingCandidateDriver: PairingCandidateDriver, @unchecked Sendable {
+    struct Drive {
+        let handshakeSpkiDer: Data
+    }
+
+    private enum WaitError: Error {
+        case timeout
+    }
+
+    private let lock = NSLock()
+    private var drive: Drive?
+    private var continuation: CheckedContinuation<Drive, Error>?
+
+    func drive(session: any TandemSession, handshakeSpkiDer: Data) async {
+        recordDrive(Drive(handshakeSpkiDer: handshakeSpkiDer))
+    }
+
+    func waitForDrive(timeout: TimeInterval) async -> Drive? {
+        if let existing = existingDrive() {
+            return existing
+        }
+        return try? await withCheckedThrowingContinuation { continuation in
+            self.storeContinuation(continuation)
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
+                self?.timeOutPendingContinuation()
+            }
+        }
+    }
+
+    private func recordDrive(_ value: Drive) {
+        lock.lock()
+        drive = value
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: value)
+    }
+
+    private func existingDrive() -> Drive? {
+        lock.lock()
+        defer { lock.unlock() }
+        return drive
+    }
+
+    private func storeContinuation(_ continuation: CheckedContinuation<Drive, Error>) {
         lock.lock()
         self.continuation = continuation
         lock.unlock()

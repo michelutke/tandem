@@ -76,17 +76,24 @@ public struct NWListenerFactory: ListenerFactory {
     /// Drives `ConnectionStateMachine`'s handshake deadline and `VersionHandshake`'s hello
     /// deadline for every session this listener wires up (E00-24 seam rule).
     private let clock: any Clock<Duration>
+    /// Where a `.pairingCandidate` connection's pairing dance (E14-09) is handed off once its
+    /// `VersionHello` exchange completes; `nil` means this listener never admits pairing
+    /// candidates in the first place (e.g. the E15-22 CI harness's plain `-HarnessListenerPort`,
+    /// which always runs a `NeverOpenPairingWindow`), so such a decision would never occur.
+    private let pairingCandidateDriver: (any PairingCandidateDriver)?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
     public init(
         sessionRegistry: any ControlSessionRegistering,
         decisionCorrelator: PeerDecisionCorrelator,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        pairingCandidateDriver: (any PairingCandidateDriver)? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
         self.clock = clock
+        self.pairingCandidateDriver = pairingCandidateDriver
     }
 
     public func makeListener(
@@ -267,23 +274,7 @@ public struct NWListenerFactory: ListenerFactory {
             return // `run()` always resolves `session` before returning; unreachable.
         }
 
-        var registeredFingerprint: SpkiFingerprint?
-        switch decisionCorrelator.take(metadataIdentifier: metadataIdentifier) {
-        case .some(let recorded) where recorded.decision == .trusted:
-            if let fingerprint = recorded.fingerprint {
-                await sessionRegistry.register(fingerprint, session: session)
-                registeredFingerprint = fingerprint
-            }
-        case .some:
-            // `.pairingCandidate`/`.rejected` reaching Ready would itself be a bug (a rejected
-            // verify never completes `true`) -- but never registers either way, fail closed.
-            break
-        case .none:
-            // The "verify-block metadata == `.ready` metadata" premise (`PeerDecisionCorrelator`'s
-            // own kdoc) failing would land here silently otherwise; log it so that ever happening
-            // is visible rather than a session that's Ready but was never registered anywhere.
-            Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
-        }
+        let registeredFingerprint = await handleReadyDecision(metadataIdentifier: metadataIdentifier, session: session)
 
         // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
         // framing/credit violation, the peer's own orderly close, or a transport-level read
@@ -296,6 +287,37 @@ public struct NWListenerFactory: ListenerFactory {
         adapter.cancel()
         if let registeredFingerprint {
             await sessionRegistry.removeIfCurrent(registeredFingerprint, session: session)
+        }
+    }
+
+    /// Acts on the decision ``PeerVerifier`` recorded for this now-Ready connection: registers a
+    /// `.trusted` session under its fingerprint (returned so ``wireSession`` can later remove it),
+    /// hands a `.pairingCandidate` session off to ``pairingCandidateDriver`` (registering neither,
+    /// E12-19), and otherwise does nothing (`.rejected` reaching Ready would itself be a bug, and a
+    /// missing entry means the "verify-block metadata == `.ready` metadata" premise
+    /// (`PeerDecisionCorrelator`'s own kdoc) failed -- logged so that's visible rather than a
+    /// session that's Ready but was never registered or handed off anywhere).
+    private func handleReadyDecision(
+        metadataIdentifier: ObjectIdentifier,
+        session: ByteStreamSession
+    ) async -> SpkiFingerprint? {
+        guard let recorded = decisionCorrelator.take(metadataIdentifier: metadataIdentifier) else {
+            Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
+            return nil
+        }
+
+        switch recorded.decision {
+        case .trusted:
+            guard let fingerprint = recorded.fingerprint else { return nil }
+            await sessionRegistry.register(fingerprint, session: session)
+            return fingerprint
+        case .pairingCandidate:
+            if let driver = pairingCandidateDriver, let spkiDer = recorded.spkiDer {
+                await driver.drive(session: session, handshakeSpkiDer: spkiDer)
+            }
+            return nil
+        case .rejected:
+            return nil
         }
     }
 
