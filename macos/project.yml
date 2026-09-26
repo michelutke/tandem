@@ -14,6 +14,9 @@ packages:
     path: Packages/TandemTransport
   TandemStore:
     path: Packages/TandemStore
+  # E12-13: server session wiring (TandemSession, VersionHandshake) used by the harness hooks.
+  TandemProtocol:
+    path: Packages/TandemProtocol
 
 targets:
   TandemApp:
@@ -42,6 +45,7 @@ targets:
       - package: TandemCrypto
       - package: TandemTransport
       - package: TandemStore
+      - package: TandemProtocol
 
   TandemShare:
     type: app-extension

@@ -25,14 +25,12 @@
 # is this script's own unconditional `exit 1` on a non-Darwin host or a failed Mac app build --
 # see the top-of-script guard and `harness_init` below.
 #
-# KNOWN GAP (as of this writing, scenario A fails): no production code anywhere in the Mac app
-# turns an admitted `NWListener` connection into a running session -- `NWListenerFactory`'s
-# `newConnectionHandler` (`ListenerFactory.swift`) stops at `admission.handshakeSucceeded(id)`, and
-# `ByteStreamConnection`'s own kdoc claims "the Network.framework adapter implements it in E12" but
-# no such adapter exists (`grep -r "ByteStreamConnection(" macos` outside tests is empty). The Mac
-# side therefore never sends its own `VersionHello`, so even a correctly seeded/pinned scenario A
-# times out after 5s (`ERROR HandshakeError(message=Timeout)`) -- not a bug in this script or in
-# the harness. Scenarios B and C (both negative cases) are unaffected and pass today.
+# E12-12: the Mac side now wires an admitted, TLS-ready `NWListener` connection into a real
+# session -- `NWConnectionByteStreamConnection` (`ByteStreamConnection`'s real Network.framework
+# adapter) feeds a `ChannelMultiplexer` + `ConnectionStateMachine`, runs `VersionHandshake`, and
+# registers the resulting session in `ControlSessionRegistry` under the peer's SPKI fingerprint
+# (correlated via `PeerVerifier`'s `onDecision` hook, `ListenerFactory.swift`). All three scenarios
+# pass.
 set -uo pipefail
 
 E12_13_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
