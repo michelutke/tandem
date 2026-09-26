@@ -1,0 +1,42 @@
+name: fuzz-libfuzzer
+
+# E15-14: libFuzzer smoke run over TandemProtocol's frame/envelope parser (FrameDecoder). Runs in
+# the official Swift Linux container, not macos-latest: Apple's Xcode toolchain does not ship the
+# libFuzzer runtime, so only the Swift.org / Linux toolchain can build and run the real
+# `-sanitize=fuzzer,address` target (see tools/fuzz/libfuzzer/README.md). `smoke.sh`'s `swift
+# test` step still gates every PR even where the real target can't build.
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "macos/Packages/TandemProtocol/**"
+      - "tools/fuzz/libfuzzer/**"
+      - "protocol/vectors/frame-encoding.json"
+      - ".github/workflows/fuzz-libfuzzer.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Toolchain
+        run: swift --version
+      - name: Install python3 (seed corpus generation)
+        run: |
+          command -v python3 >/dev/null || (apt-get update && apt-get install -y python3)
+      - name: Fuzz smoke (seed corpus replay + 300s budgeted run, -max_total_time=300)
+        run: tools/fuzz/libfuzzer/smoke.sh
+      - name: Upload crash reproducer
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: libfuzzer-crash-reproducer
+          path: tools/fuzz/libfuzzer/artifacts/
+          if-no-files-found: ignore

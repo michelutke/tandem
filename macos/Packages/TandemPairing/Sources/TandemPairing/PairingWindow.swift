@@ -1,0 +1,364 @@
+import Foundation
+import TandemTransport
+
+/// Wall-clock time seam, matching `TandemTestSupport.DateProvider`'s underlying closure type
+/// structurally so tests can bridge a `ManualTestClock` in via `FixedDateProvider` without this
+/// main target depending on that test-support package (E00-24; `TandemTestSupport` is a
+/// test-target-only dependency, `tools/lint/swift-package-rules.rb`).
+public typealias DateProvider = @Sendable () -> Date
+
+/// Why a pairing window closed (`docs/protocol/SPEC.md` § Pairing window). `nil` (via
+/// ``PairingWindow/closedReason``) means the window has never been opened yet.
+public enum PairingWindowClosedReason: Sendable, Equatable {
+    /// The owner clicked Pair on the confirmation dialog (`PairAccepted`).
+    case paired
+    /// 120 s elapsed since opening with no successful pairing.
+    case expired
+    /// A 3rd attempt was just burned (by a bad proof or a candidate closing before
+    /// `PairAccepted`), leaving no attempts remaining.
+    case attemptsExhausted
+    /// Explicit owner cancel (e.g. closing the QR sheet).
+    case cancelled
+    /// Owner-initiated decline (Don't Pair / Escape / dismiss) of a confirmation dialog whose
+    /// connection was still open (`docs/planning/decisions.md` D-73) -- destroys the secret and
+    /// closes the whole window, the same as a successful pairing, rather than merely burning one
+    /// attempt.
+    case declined
+}
+
+/// Outcome of ``PairingWindow/submitPairRequest(proof:)``.
+public enum PairRequestOutcome: Sendable, Equatable {
+    /// The proof was valid; the candidate now waits on the owner's confirmation dialog
+    /// (``PairingWindow/ownerAccepted()``/``PairingWindow/ownerDeclined()``).
+    case pendingConfirmation
+    /// The window wasn't open, no candidate was awaiting a request, or the proof was invalid.
+    /// The caller has nothing further to do with this attempt.
+    case rejected
+}
+
+/// The pairing-window state machine (E14-02, `docs/protocol/SPEC.md` § Pairing window). Conforms
+/// to ``PairingWindowState`` (E12-02, `TandemTransport`) so `PeerAuthorizer` can claim/release the
+/// single candidate slot through this same instance.
+///
+/// Time is settled lazily rather than by a background timer/Task: every public member first
+/// reconciles `dateProvider()` against the window's 120 s expiry and, while a candidate is
+/// admitted but hasn't yet sent `PairRequest`, its 10 s deadline (`docs/protocol/SPEC.md` § Frame
+/// order, E01-22). Tests drive time purely by advancing a `ManualTestClock` the caller bridges
+/// into `dateProvider` (`TandemTestSupport.FixedDateProvider`) and then reading any property or
+/// calling any method -- no `Task`/`sleep` race to synchronize with.
+public final class PairingWindow: PairingWindowState, @unchecked Sendable {
+
+    public static let defaultExpiry: TimeInterval = 120
+    public static let defaultCandidateRequestDeadline: TimeInterval = 10
+    public static let defaultMaxAttempts = 3
+
+    private enum CandidateState: Equatable {
+        /// No candidate connection currently occupies the slot.
+        case unclaimed
+        /// Admitted (verify callback accepted the unknown certificate) but hellos not yet done.
+        case admitted
+        /// Hellos completed; ``PairingWindow`` sent `PairChallenge` and is waiting up to 10 s for
+        /// `PairRequest`.
+        case awaitingRequest(helloCompletedAt: Date, challenge: Data)
+        /// A valid proof was received; waiting on the owner's confirmation dialog.
+        case confirmationPending(challenge: Data)
+    }
+
+    private struct OpenState {
+        var secret: Data
+        let expiresAt: Date
+        var attemptsRemaining: Int
+        var candidate: CandidateState
+    }
+
+    private enum Phase {
+        case closed(PairingWindowClosedReason?, attemptsRemaining: Int)
+        case open(OpenState)
+    }
+
+    private let dateProvider: DateProvider
+    private let challengeSource: any ChallengeSource
+    private let proofVerifier: any PairRequestVerifier
+    private let expiry: TimeInterval
+    private let candidateRequestDeadline: TimeInterval
+    private let maxAttempts: Int
+
+    private let lock = NSLock()
+    private var phase: Phase = .closed(nil, attemptsRemaining: 0)
+
+    public init(
+        dateProvider: @escaping DateProvider,
+        proofVerifier: any PairRequestVerifier,
+        challengeSource: any ChallengeSource = SystemChallengeSource(),
+        expiry: TimeInterval = PairingWindow.defaultExpiry,
+        candidateRequestDeadline: TimeInterval = PairingWindow.defaultCandidateRequestDeadline,
+        maxAttempts: Int = PairingWindow.defaultMaxAttempts
+    ) {
+        self.dateProvider = dateProvider
+        self.proofVerifier = proofVerifier
+        self.challengeSource = challengeSource
+        self.expiry = expiry
+        self.candidateRequestDeadline = candidateRequestDeadline
+        self.maxAttempts = maxAttempts
+    }
+
+    // MARK: - Opening / closing
+
+    /// Opens a fresh window with `secret` -- E14-01 generates this once so the identical value
+    /// also encodes the QR `s` field -- zeroing and discarding any previous secret first.
+    /// Regenerating always invalidates the previous window, even mid-candidate: any admitted
+    /// candidate's slot is dropped without burning an attempt (it belonged to the window that no
+    /// longer exists).
+    public func open(secret: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+        if case .open(var previous) = phase {
+            zero(&previous.secret)
+        }
+        let expiresAt = dateProvider().addingTimeInterval(expiry)
+        phase = .open(
+            OpenState(secret: secret, expiresAt: expiresAt, attemptsRemaining: maxAttempts, candidate: .unclaimed)
+        )
+    }
+
+    /// Explicit owner cancel (e.g. closing the QR sheet before any pairing completes).
+    public func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        closeLocked(.cancelled)
+    }
+
+    // MARK: - PairingWindowState
+
+    public var isOpen: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .open = phase { return true }
+        return false
+    }
+
+    /// Atomic test-and-set claim of the single candidate slot (D-18): succeeds only if the window
+    /// is open and no other candidate is already in flight.
+    public func admitCandidate() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, state.candidate == .unclaimed else { return false }
+        state.candidate = .admitted
+        phase = .open(state)
+        return true
+    }
+
+    /// Frees the slot a prior ``admitCandidate()`` call claimed, called by the candidate
+    /// connection's own lifecycle handling once it closes for any reason before `PairAccepted`.
+    /// Burns exactly one attempt (`docs/planning/decisions.md` D-70) -- regardless of which of the
+    /// candidate's sub-states it was in (admitted only, awaiting a request, or a confirmation
+    /// dialog pending) -- unless the slot is already free (e.g. the attempt was already burned by
+    /// the 10 s timeout, or the window already closed via ``ownerAccepted()``/``ownerDeclined()``
+    /// or has since been regenerated), in which case this is a no-op.
+    public func releaseCandidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, state.candidate != .unclaimed else { return }
+        state.candidate = .unclaimed
+        burnAttempt(&state)
+    }
+
+    // MARK: - Candidate lifecycle
+
+    /// Called once both sides' `VersionHello` exchange completes on the admitted candidate
+    /// connection. Generates and stores this candidate's `PairChallenge` (`cb`, D-67) and starts
+    /// its 10 s `PairRequest` deadline. Returns `nil` if no candidate is currently `.admitted`
+    /// (wrong call order, or the window closed/regenerated first).
+    public func candidateHellosCompleted() -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, state.candidate == .admitted else { return nil }
+        let challenge = challengeSource.generateChallenge()
+        state.candidate = .awaitingRequest(helloCompletedAt: dateProvider(), challenge: challenge)
+        phase = .open(state)
+        return challenge
+    }
+
+    /// A `Heartbeat` on a pairing-candidate connection is never a pairing failure, at any point --
+    /// including while a confirmation dialog is pending (`docs/planning/decisions.md` D-69,
+    /// `docs/protocol/SPEC.md` § Frame order). Intentionally a no-op beyond settling elapsed time:
+    /// it neither resets the 10 s `PairRequest` deadline nor touches the attempt budget.
+    public func heartbeatReceived() {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+    }
+
+    /// Evaluates a received `PairRequest.proof` against this candidate's stored secret and
+    /// challenge. A window that's closed, or a candidate not currently ``awaitingRequest``
+    /// (already timed out, never reached that state, or already resolved), is rejected without
+    /// ever invoking ``PairRequestVerifier``. A valid proof moves the candidate to awaiting the
+    /// owner's confirmation and burns nothing; an invalid proof burns one attempt and frees the
+    /// slot immediately.
+    public func submitPairRequest(proof: Data) -> PairRequestOutcome {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, case .awaitingRequest(_, let challenge) = state.candidate else {
+            return .rejected
+        }
+
+        guard proofVerifier.verify(proof: proof, secret: state.secret, challenge: challenge) else {
+            state.candidate = .unclaimed
+            burnAttempt(&state)
+            return .rejected
+        }
+
+        state.candidate = .confirmationPending(challenge: challenge)
+        phase = .open(state)
+        return .pendingConfirmation
+    }
+
+    /// The owner clicked Pair on the confirmation dialog. Closes the window as ``paired``&nbsp;--
+    /// single-use, the secret is destroyed and never reused for a second phone -- and is a no-op
+    /// if no confirmation is currently pending (e.g. it was already resolved, or the candidate
+    /// connection already dropped and freed the slot per D-73's "commits nothing" rule).
+    public func ownerAccepted() {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, case .confirmationPending = state.candidate else { return }
+        let attemptsRemaining = state.attemptsRemaining
+        zero(&state.secret)
+        phase = .closed(.paired, attemptsRemaining: attemptsRemaining)
+    }
+
+    /// An owner-initiated decline (Don't Pair, Escape, or dismiss) of a confirmation dialog whose
+    /// connection is still open. Closes the *entire* window (`docs/planning/decisions.md` D-73),
+    /// destroying the secret -- distinct from ``releaseCandidate()``, which only burns one attempt
+    /// and leaves the window open. A no-op if no confirmation is currently pending (the connection
+    /// already dropped first and ``releaseCandidate()`` already ran the D-70 attempt burn; this
+    /// stale, now-connectionless click commits nothing and decrements nothing a second time).
+    public func ownerDeclined() {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(var state) = phase, case .confirmationPending = state.candidate else { return }
+        let attemptsRemaining = state.attemptsRemaining
+        zero(&state.secret)
+        phase = .closed(.declined, attemptsRemaining: attemptsRemaining)
+    }
+
+    // MARK: - Introspection
+
+    /// `nil` while open or never opened; the reason once closed.
+    public var closedReason: PairingWindowClosedReason? {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .closed(let reason, _) = phase { return reason }
+        return nil
+    }
+
+    /// Attempts left in the current (or just-closed) window; `0` once ``attemptsExhausted``.
+    public var attemptsRemaining: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        switch phase {
+        case .open(let state): return state.attemptsRemaining
+        case .closed(_, let attemptsRemaining): return attemptsRemaining
+        }
+    }
+
+    /// `true` whenever the single candidate slot (D-18) is occupied, in any of its sub-states.
+    public var candidateInFlight: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .open(let state) = phase { return state.candidate != .unclaimed }
+        return false
+    }
+
+    /// `true` only while a valid proof has been received and the owner's confirmation dialog is
+    /// the one thing standing between this candidate and `PairAccepted`.
+    public var isConfirmationPending: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .open(let state) = phase, case .confirmationPending = state.candidate { return true }
+        return false
+    }
+
+    /// `nil` while closed; the 120 s expiry deadline while open.
+    public var expiresAt: Date? {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .open(let state) = phase { return state.expiresAt }
+        return nil
+    }
+
+    /// The live secret while open, `nil` once closed -- invariant 6, "the secret is no longer
+    /// retrievable" once the window closes for any reason. Not part of the public seam surface;
+    /// exposed for this package's own tests (`@testable import`), matching
+    /// `ManualTestClock.pendingSleeperCountForTesting`'s precedent.
+    var secretForTesting: Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        if case .open(let state) = phase { return state.secret }
+        return nil
+    }
+
+    // MARK: - Private
+
+    /// Reconciles `dateProvider()` against the window's 120 s expiry and, failing that, an
+    /// in-flight candidate's 10 s `PairRequest` deadline. Assumes `lock` is held.
+    private func settleLocked() {
+        guard case .open(var state) = phase else { return }
+        let now = dateProvider()
+
+        if now >= state.expiresAt {
+            zero(&state.secret)
+            phase = .closed(.expired, attemptsRemaining: state.attemptsRemaining)
+            return
+        }
+
+        if case .awaitingRequest(let helloCompletedAt, _) = state.candidate,
+           now >= helloCompletedAt.addingTimeInterval(candidateRequestDeadline) {
+            state.candidate = .unclaimed
+            burnAttempt(&state)
+            return
+        }
+
+        phase = .open(state)
+    }
+
+    /// Decrements `state.attemptsRemaining` by exactly one, closing the window as
+    /// ``attemptsExhausted`` if that reaches zero, else writing `state` back as still open. Assumes
+    /// `lock` is held and `state.candidate` has already been freed by the caller.
+    private func burnAttempt(_ state: inout OpenState) {
+        state.attemptsRemaining -= 1
+        if state.attemptsRemaining <= 0 {
+            zero(&state.secret)
+            phase = .closed(.attemptsExhausted, attemptsRemaining: 0)
+        } else {
+            phase = .open(state)
+        }
+    }
+
+    /// Closes the window with `reason` if it's currently open (no-op if already closed). Assumes
+    /// `lock` is held.
+    private func closeLocked(_ reason: PairingWindowClosedReason) {
+        guard case .open(var state) = phase else { return }
+        let attemptsRemaining = state.attemptsRemaining
+        zero(&state.secret)
+        phase = .closed(reason, attemptsRemaining: attemptsRemaining)
+    }
+
+    /// Best-effort scrub of sensitive bytes before the `Data` is discarded (invariant 6).
+    private func zero(_ data: inout Data) {
+        guard !data.isEmpty else { return }
+        data.resetBytes(in: 0..<data.count)
+    }
+}
