@@ -31,7 +31,7 @@ struct ErrorPresenter: Sendable {
         case "protocolTimeout":
             return "Timeout."
         case "limitExceeded":
-            return "Unknown peer."
+            return "Too many connections."
         case "malformedFrame", "creditViolation":
             return "Network error."
         default:
