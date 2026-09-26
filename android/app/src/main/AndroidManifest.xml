@@ -1,5 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- E20-02: TandemService (`connectedDevice` foreground-service type, Android 14+
+         requirement). FOREGROUND_SERVICE_CONNECTED_DEVICE is the per-type permission Android 14
+         requires alongside the base FOREGROUND_SERVICE permission; CHANGE_NETWORK_STATE is the
+         connectedDevice runtime prerequisite that doesn't require a CompanionDeviceManager
+         association (SPEC.md heartbeat/Doze section assumes this service running with
+         unrestricted battery). POST_NOTIFICATIONS guards the mandatory ongoing notification on
+         API 33+ (runtime request flow is a later onboarding issue; this is the manifest half). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!--
     E00-28 platform-hardening baseline (invariants 1, 2, 4):
       - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing
@@ -19,6 +31,13 @@
         <!-- Not launchable and not exported; declared so tooling that enumerates <activity>
              entries (E00-28's activity-inheritance backstop) has at least one real entry to see. -->
         <activity android:name=".TandemActivity" android:exported="false" />
+
+        <!-- E20-02: owns the control-connection lifecycle's on-screen presence (mandatory
+             ongoing notification); started only when a paired Mac exists (ServiceStarter). -->
+        <service
+            android:name=".service.TandemService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
 
         <activity
             android:name=".MainActivity"
