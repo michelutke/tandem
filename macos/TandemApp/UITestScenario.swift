@@ -21,6 +21,13 @@ enum UITestScenario: String {
     /// seeded via `@testable import TandemProtocol`.
     case pairedConnected
 
+    /// A previously-paired peer whose session is not currently `Ready` -- e.g. disconnected
+    /// (E22-02): the menu bar shows "Disconnected" and the four quick actions (Send File, Push
+    /// Clipboard, Find Phone, Mirror Phone) render but each disabled, backed by the same seeded
+    /// ``FakeTandemSession`` (E12-12) approach as ``pairedConnected``, transitioned to
+    /// `.disconnected` instead of `.ready`.
+    case pairedDisconnected
+
     /// Fail-closed error state: version mismatch (E12-10).
     case failClosedError
 
@@ -28,6 +35,15 @@ enum UITestScenario: String {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }
         return UITestScenario(rawValue: arguments[flagIndex + 1])
+    }
+
+    /// Whether a `-UITestSeedDeviceStatus` launch argument accompanies ``pairedConnected`` --
+    /// seeds a `DeviceStatus` frame (E23-04) in addition to the `Ready` state, so
+    /// `menuBarExtra_seededDeviceStatus_showsBatteryPercentAndNetworkLabel` can assert on the
+    /// formatted battery/network/signal strings without perturbing the existing
+    /// `showsPeerNameAndBatteryPlaceholder` scenario (no flag -> no `DeviceStatus` -> placeholder).
+    static func deviceStatusSeedRequested(_ arguments: [String] = CommandLine.arguments) -> Bool {
+        arguments.contains("-UITestSeedDeviceStatus")
     }
 }
 #endif

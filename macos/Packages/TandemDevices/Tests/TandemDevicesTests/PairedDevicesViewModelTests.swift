@@ -115,6 +115,23 @@ struct PairedDevicesViewModelTests {
         #expect(calledFingerprint == fingerprint)
     }
 
+    // MARK: - pairedDevicesViewModel_deviceStatusBatteryApplied_rowShowsSameBatteryText
+
+    @Test
+    func pairedDevicesViewModel_deviceStatusBatteryApplied_rowShowsSameBatteryText() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let fingerprint = try Self.fingerprint(0x06)
+        try store.put(Self.makeRecord(fingerprint: fingerprint, displayName: "Pixel 8", lastSeen: now))
+
+        let viewModel = Self.makeViewModel(trustStore: store, now: now)
+        #expect(viewModel.rows.first?.batteryText == nil)
+
+        viewModel.applyBatteryText("Battery 82% · Charging", for: fingerprint)
+
+        #expect(viewModel.rows.first?.batteryText == "Battery 82% · Charging")
+    }
+
     @Test
     func pairedDevicesViewModel_cancelRevoke_rowStaysAndPendingCleared() throws {
         let store = TrustStore(keychainStore: InMemoryKeychainStore())

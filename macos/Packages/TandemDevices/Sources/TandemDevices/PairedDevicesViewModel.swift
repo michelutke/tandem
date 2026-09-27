@@ -23,11 +23,14 @@ public typealias DateProvider = @Sendable () -> Date
 @Observable
 public final class PairedDevicesViewModel {
     /// One row: a sanitized display name (already sanitized on write into the trust store, e.g.
-    /// by the pairing confirmation dialog, E14-08) and a formatted relative last-seen string.
+    /// by the pairing confirmation dialog, E14-08), a formatted relative last-seen string, and
+    /// (E23-04) that device's last-known battery text -- `nil` until ``applyBatteryText(_:for:)``
+    /// has been called for this row's fingerprint at least once.
     public struct Row: Identifiable, Equatable, Sendable {
         public let id: SpkiFingerprint
         public let displayName: String
         public let lastSeenText: String
+        public var batteryText: String?
     }
 
     /// Every paired device, sorted by display name (case-insensitive, locale-aware).
@@ -40,6 +43,10 @@ public final class PairedDevicesViewModel {
     private let dateProvider: DateProvider
     private let unpair: @Sendable (SpkiFingerprint) async throws -> Void
     private let relativeDateFormatter: RelativeDateTimeFormatter
+
+    /// The last battery text applied per fingerprint (E23-04) -- kept separately from ``rows`` so
+    /// a subsequent ``refresh()`` (a fresh `TrustStore.list()` read) doesn't discard it.
+    private var batteryTextByFingerprint: [SpkiFingerprint: String] = [:]
 
     public init(
         trustStore: TrustStore,
@@ -69,9 +76,20 @@ public final class PairedDevicesViewModel {
                 Row(
                     id: record.fingerprint,
                     displayName: record.displayName,
-                    lastSeenText: relativeDateFormatter.localizedString(for: record.lastSeen, relativeTo: now)
+                    lastSeenText: relativeDateFormatter.localizedString(for: record.lastSeen, relativeTo: now),
+                    batteryText: batteryTextByFingerprint[record.fingerprint]
                 )
             }
+    }
+
+    /// Applies `batteryText` (e.g. `DeviceStatusViewModel.batteryText`, TandemApp/E23-04) to the
+    /// row for `fingerprint`, if one is currently shown. A no-op if `fingerprint` isn't paired --
+    /// the caller doesn't need to know whether a given connected peer's fingerprint has a
+    /// `TrustStore` row yet.
+    public func applyBatteryText(_ batteryText: String, for fingerprint: SpkiFingerprint) {
+        batteryTextByFingerprint[fingerprint] = batteryText
+        guard let index = rows.firstIndex(where: { $0.id == fingerprint }) else { return }
+        rows[index].batteryText = batteryText
     }
 
     /// The owner tapped Revoke on `row`: shows the confirmation, does nothing else yet.

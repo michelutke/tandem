@@ -19,6 +19,9 @@ packages:
   # scenario seeding also reaches FakeTandemSession (E12-12) via @testable import.
   TandemProtocol:
     path: Packages/TandemProtocol
+  # E14-16: PairingCoordinator/PairingWindow/PairConfirmationViewModel, used by the harness hooks.
+  TandemPairing:
+    path: Packages/TandemPairing
 
 targets:
   TandemApp:
@@ -48,6 +51,7 @@ targets:
       - package: TandemTransport
       - package: TandemStore
       - package: TandemProtocol
+      - package: TandemPairing
 
   TandemShare:
     type: app-extension
