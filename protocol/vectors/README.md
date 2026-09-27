@@ -160,6 +160,25 @@ regional-indicator pair) are covered by a minimal, self-contained subset of UAX 
 third-party/ICU grapheme-segmentation dependency — per the E01-24 backlog note, this vector suite
 is itself the cross-platform tie-breaker if a platform's own ICU/Swift segmentation disagrees.
 
+### `clipboard-encoding.json` (E31-01)
+
+Vectors for `docs/protocol/SPEC.md` `#clipboard-channel`'s `ClipboardText` message
+(`protocol/proto/tandem/v1/clipboard.proto`). Unlike `notify-encoding.json`/`status-encoding.json`,
+entries here are the raw serialized `ClipboardText` message bytes, not a full `Envelope` frame:
+`text` can be exactly at (or one byte past) its own 1,048,576-byte cap, which — once `Envelope`/
+frame overhead is added — would itself exceed the unrelated 1 MiB `Envelope` frame-length cap
+`frame-encoding.json` already covers, making a full-frame "exactly 1 MiB text is accepted" vector
+self-contradictory. A small vector's `input.clipboardTextHex` inlines the exact message bytes;
+the two boundary vectors instead give an `input.textRecipe` (`fillByte`/`fillLength`, the same
+"compact recipe" idea as `frame-encoding.json`'s 1-MiB `Envelope` vector, above) plus
+`originTag`/`sensitive`/`contentHashHex` so a `ClipboardText` can be reconstructed byte-for-byte
+without this manifest embedding a megabyte-scale string. `content_hash` is
+`SHA-256(UTF-8(text))` (`tools/vectors/clipboard_encoding.py`'s `content_hash_for`). Valid entries'
+`expected` gives the decoded fields (and, for a recipe-based entry, a `clipboardTextSha256` over
+the reconstructed message bytes to verify reconstruction); the one-byte-over-cap entry uses
+`expectedError: "clipboardTextTooLarge"` — this is a message-level validation rejection, not a
+frame-level close, so it carries no `closeCode`/`localReason`.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

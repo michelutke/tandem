@@ -557,6 +557,42 @@ public object EnvelopeKt {
     public fun hasNotificationActionResult(): kotlin.Boolean {
       return _builder.hasNotificationActionResult()
     }
+
+    /**
+     * ```
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * ```
+     *
+     * `.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];`
+     */
+    public var clipboardText: dev.tandem.protocol.v1.ClipboardText
+      @kotlin.jvm.JvmName("getClipboardText")
+        get() = _builder.clipboardText
+      @kotlin.jvm.JvmName("setClipboardText")
+        set(value) {
+        _builder.clipboardText = value
+      }
+    /**
+     * ```
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * ```
+     *
+     * `.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];`
+     */
+    public fun clearClipboardText() {
+      _builder.clearClipboardText()
+    }
+    /**
+     * ```
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * ```
+     *
+     * `.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];`
+     * @return Whether the clipboardText field is set.
+     */
+    public fun hasClipboardText(): kotlin.Boolean {
+      return _builder.hasClipboardText()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -620,4 +656,7 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationDismissOrNull: d
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationActionResultOrNull: dev.tandem.protocol.v1.NotificationActionResult?
   get() = if (hasNotificationActionResult()) getNotificationActionResult() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.clipboardTextOrNull: dev.tandem.protocol.v1.ClipboardText?
+  get() = if (hasClipboardText()) getClipboardText() else null
 
