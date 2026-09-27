@@ -1,5 +1,6 @@
 package dev.tandem.core.pairing.conformance
 
+import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.ConfirmationCode
 import dev.tandem.core.crypto.PairingProof
 import dev.tandem.core.crypto.PairingProofException
@@ -13,7 +14,9 @@ import dev.tandem.core.protocol.DisplayStringKind
 import dev.tandem.core.protocol.DisplayStringSanitizer
 import dev.tandem.core.protocol.FrameDecoder
 import dev.tandem.core.protocol.FrameEncoder
+import dev.tandem.protocol.v1.ClipboardText
 import dev.tandem.protocol.v1.Envelope
+import dev.tandem.protocol.v1.clipboardText
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -71,7 +74,11 @@ object ConformanceRunner {
             "display-strings",
             "status-encoding",
             "notify-encoding",
+            "clipboard-encoding",
         )
+
+    /** CLIPBOARD channel's text cap (docs/protocol/SPEC.md #clipboard-channel): 1 MiB, 2^20. */
+    private const val MAX_CLIPBOARD_TEXT_BYTES = 1_048_576
 
     /** Every vector entry across every manifest under [vectorsDir], on disk right now. */
     fun countVectorsOnDisk(vectorsDir: File): Int =
@@ -163,6 +170,7 @@ object ConformanceRunner {
                 "display-strings" -> displayStringsOutcome(vector)
                 "status-encoding" -> statusEncodingOutcome(vector)
                 "notify-encoding" -> notifyEncodingOutcome(vector)
+                "clipboard-encoding" -> clipboardEncodingOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }
         }
@@ -543,4 +551,130 @@ object ConformanceRunner {
                 outputFrame.toHex(),
             )
         }
+
+    /** `clipboard-encoding` category (E31-01): decodes the raw `ClipboardText` message bytes each
+     * vector describes (inlined as `clipboardTextHex`, or a compact `textRecipe` — see
+     * protocol/vectors/README.md) with the real generated `ClipboardText` type, then validates
+     * `text`'s byte length against the CLIPBOARD channel's 1,048,576-byte cap
+     * (docs/protocol/SPEC.md #clipboard-channel). Deliberately does not go through
+     * `FrameEncoder`/`FrameDecoder`: wrapping a boundary vector in a full `Envelope` frame would
+     * make the "exactly 1 MiB text is accepted" vector self-contradictory against the frame's
+     * own, unrelated 1 MiB length cap (see `clipboard-encoding.json`'s entry in
+     * protocol/vectors/README.md). */
+    private fun clipboardEncodingOutcome(vector: JsonObject): VectorOutcome {
+        val id = vector.getValue("id").jsonPrimitive.content
+        val input = vector.getValue("input").jsonObject
+        val messageBytes = clipboardTextBytes(input)
+        val decoded =
+            try {
+                ClipboardText.parseFrom(messageBytes)
+            } catch (e: Exception) {
+                return VectorOutcome(
+                    id,
+                    "clipboard-encoding",
+                    "fail",
+                    "decodable",
+                    "failed to decode: ${e::class.simpleName}",
+                )
+            }
+        val textByteLength = decoded.text.toByteArray(Charsets.UTF_8).size
+        val accepted = textByteLength <= MAX_CLIPBOARD_TEXT_BYTES
+        val decodedInfo = DecodedClipboardText(decoded, accepted, textByteLength)
+
+        return if ("expected" in vector) {
+            clipboardEncodingValidOutcome(id, input, vector.getValue("expected").jsonObject, decodedInfo)
+        } else {
+            val expectedError = vector.getValue("expectedError").jsonPrimitive.content
+            val actual = if (accepted) "accepted" else "clipboardTextTooLarge"
+            val outcome = if (actual == expectedError) "pass" else "fail"
+            VectorOutcome(id, "clipboard-encoding", outcome, expectedError, actual)
+        }
+    }
+
+    /** [decoded]/[accepted]/[textByteLength] bundled so the outcome functions below stay under
+     * detekt's six-parameter limit. */
+    private data class DecodedClipboardText(
+        val decoded: ClipboardText,
+        val accepted: Boolean,
+        val textByteLength: Int,
+    )
+
+    private fun clipboardEncodingValidOutcome(
+        id: String,
+        input: JsonObject,
+        expected: JsonObject,
+        decodedInfo: DecodedClipboardText,
+    ): VectorOutcome {
+        val (decoded, accepted, textByteLength) = decodedInfo
+        if (!accepted) {
+            return VectorOutcome(id, "clipboard-encoding", "fail", "accepted", "rejected: clipboardTextTooLarge")
+        }
+        val expectedOriginTag = expected.getValue("originTag").jsonPrimitive.content
+        val expectedContentHashHex = expected.getValue("contentHashHex").jsonPrimitive.content
+        val expectedSensitive =
+            expected
+                .getValue("sensitive")
+                .jsonPrimitive.content
+                .toBoolean()
+        val expectedTextByteLength =
+            expected
+                .getValue("textByteLength")
+                .jsonPrimitive.content
+                .toInt()
+
+        var passed =
+            decoded.originTag == expectedOriginTag &&
+                decoded.contentHash.toByteArray().toHex() == expectedContentHashHex &&
+                decoded.sensitive == expectedSensitive &&
+                textByteLength == expectedTextByteLength
+
+        expected["text"]?.jsonPrimitive?.content?.let { expectedText ->
+            passed = passed && decoded.text == expectedText
+        }
+        val expectedSha = expected["clipboardTextSha256"]?.jsonPrimitive?.content
+        if (expectedSha != null) {
+            passed = passed && sha256Hex(decoded.toByteArray()) == expectedSha
+        } else {
+            input["clipboardTextHex"]?.jsonPrimitive?.content?.let { hex ->
+                passed = passed && decoded.toByteArray().contentEquals(hexToBytes(hex))
+            }
+        }
+
+        val expectedDescription = "originTag=$expectedOriginTag textByteLength=$expectedTextByteLength"
+        val actualDescription = "originTag=${decoded.originTag} textByteLength=$textByteLength"
+        return VectorOutcome(
+            id,
+            "clipboard-encoding",
+            if (passed) "pass" else "fail",
+            expectedDescription,
+            actualDescription,
+        )
+    }
+
+    private fun clipboardTextBytes(input: JsonObject): ByteArray {
+        input["clipboardTextHex"]?.jsonPrimitive?.content?.let { return hexToBytes(it) }
+
+        val recipe = input.getValue("textRecipe").jsonObject
+        val fillByte = hexToBytes(recipe.getValue("fillByte").jsonPrimitive.content).first()
+        val fillLength =
+            recipe
+                .getValue("fillLength")
+                .jsonPrimitive.content
+                .toInt()
+        val fillChar = (fillByte.toInt() and BYTE_MASK).toChar()
+        val text = String(CharArray(fillLength) { fillChar })
+
+        return clipboardText {
+            originTag = input.getValue("originTag").jsonPrimitive.content
+            contentHash = ByteString.copyFrom(hexToBytes(input.getValue("contentHashHex").jsonPrimitive.content))
+            this.text = text
+            sensitive =
+                input
+                    .getValue("sensitive")
+                    .jsonPrimitive.content
+                    .toBoolean()
+        }.toByteArray()
+    }
+
+    private const val BYTE_MASK = 0xFF
 }
