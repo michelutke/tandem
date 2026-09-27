@@ -1,0 +1,4 @@
+2026-09-26 12:00:00.123 +0000 [tandem.macOS] [INFO] Tandem: Starting pairing session
+2026-09-26 12:00:01.456 +0000 [tandem.macOS] [DEBUG] NetworkManager: Connecting to 192.168.1.1
+2026-09-26 12:00:02.789 +0000 [tandem.macOS] [INFO] Tandem: TANDEM-CANARY-xyz789abc456def123
+2026-09-26 12:00:03.012 +0000 [tandem.macOS] [DEBUG] Transport: Frame received
