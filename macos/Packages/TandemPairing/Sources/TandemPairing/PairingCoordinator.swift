@@ -100,7 +100,6 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
 
         let resolution = ResolutionFlag()
         var pendingConfirmation: PairConfirmationViewModel?
-        var confirmationBuilt = false
         let registeredFingerprint = FingerprintBox()
         defer {
             if !resolution.isResolved {
@@ -125,65 +124,107 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         }
         defer { deadlineTask.cancel() }
 
-        let frames = await session.receive(.control)
-        for await frame in frames {
-            if resolution.isResolved { continue }
+        let context = PairRequestContext(
+            challenge: challenge,
+            handshakeSpkiDer: handshakeSpkiDer,
+            sink: sink,
+            token: token,
+            resolution: resolution,
+            session: session,
+            registeredFingerprint: registeredFingerprint
+        )
 
-            switch frame.payload {
-            case .pairRequest(let request)? where !confirmationBuilt:
-                deadlineTask.cancel()
-                await flow.pairRequestReceived(proof: request.proof)
-                guard window.isConfirmationPending else { return }
-                confirmationBuilt = true
-                guard let confirmationViewModel = makeConfirmationViewModel(
-                    request: request,
-                    challenge: challenge,
-                    handshakeSpkiDer: handshakeSpkiDer,
-                    sink: sink,
-                    token: token,
-                    resolution: resolution,
-                    session: session,
-                    registeredFingerprint: registeredFingerprint
-                ) else {
-                    await flow.wrongPayloadReceived()
-                    return
-                }
-                pendingConfirmation = confirmationViewModel
-            case .heartbeat?:
-                await flow.heartbeatReceived()
-                // Excludes `.paired` (E14-16 finding #4): this exact heartbeat can race this
-                // connection's own `pair()` between it committing the window to `.paired` and
-                // that same call's still-suspended `PairAccepted` send/registration finishing --
-                // returning here in that window would tear this `drive()` call down (and, via the
-                // `defer` above, de-register the session `pair()` just registered) out from under
-                // a connection that is succeeding, not failing.
-                if let reason = window.closedReason, reason != .paired { return }
-            default:
-                await flow.wrongPayloadReceived()
-                return
-            }
-        }
+        let frames = await session.receive(.control)
+        pendingConfirmation = await runFrameLoop(frames, flow: flow, deadlineTask: deadlineTask, context: context)
     }
 
     public func candidateAbandoned(token: PairingCandidateToken) async {
         window.releaseCandidate(token)
     }
 
+    /// `drive()`'s own frame loop, extracted to keep that function's length/complexity down.
+    /// Returns the confirmation view model built along the way, if any, so `drive()`'s own `defer`
+    /// can still call ``PairConfirmationViewModel/connectionDidClose()`` on it.
+    private func runFrameLoop(
+        _ frames: InboundFrameStream,
+        flow: PairingCandidateFlow,
+        deadlineTask: Task<Void, Never>,
+        context: PairRequestContext
+    ) async -> PairConfirmationViewModel? {
+        var pendingConfirmation: PairConfirmationViewModel?
+        var confirmationBuilt = false
+        for await frame in frames {
+            if context.resolution.isResolved { continue }
+
+            switch frame.payload {
+            case .pairRequest(let request)? where !confirmationBuilt:
+                deadlineTask.cancel()
+                switch await handlePairRequest(request, flow: flow, context: context) {
+                case .abort: return pendingConfirmation
+                case .confirmationPending(let confirmationViewModel):
+                    confirmationBuilt = true
+                    pendingConfirmation = confirmationViewModel
+                }
+            case .heartbeat?:
+                await flow.heartbeatReceived()
+                // Excludes `.paired` (E14-16 finding #4): this exact heartbeat can race this
+                // connection's own `pair()` between it committing the window to `.paired` and
+                // that same call's still-suspended `PairAccepted` send/registration finishing --
+                // returning here in that window would tear this `drive()` call down (and, via its
+                // own `defer`, de-register the session `pair()` just registered) out from under a
+                // connection that is succeeding, not failing.
+                if let reason = window.closedReason, reason != .paired { return pendingConfirmation }
+            default:
+                await flow.wrongPayloadReceived()
+                return pendingConfirmation
+            }
+        }
+        return pendingConfirmation
+    }
+
+    /// Everything a `PairRequest` frame's handling needs beyond the request itself, bundled to
+    /// keep `handlePairRequest`/`makeConfirmationViewModel`'s own parameter counts down.
+    private struct PairRequestContext {
+        let challenge: Data
+        let handshakeSpkiDer: Data
+        let sink: any PairingCandidateSink
+        let token: PairingCandidateToken
+        let resolution: ResolutionFlag
+        let session: any TandemSession
+        let registeredFingerprint: FingerprintBox
+    }
+
+    private enum PairRequestOutcome {
+        case abort
+        case confirmationPending(PairConfirmationViewModel)
+    }
+
+    /// The `.pairRequest` branch of `drive()`'s frame loop, extracted to keep that function's own
+    /// length/complexity down. `.abort` means the caller must `return` from `drive()` without
+    /// setting `pendingConfirmation`, matching the two `guard ... else { return }`s this replaces.
+    private func handlePairRequest(
+        _ request: Tandem_V1_PairRequest,
+        flow: PairingCandidateFlow,
+        context: PairRequestContext
+    ) async -> PairRequestOutcome {
+        await flow.pairRequestReceived(proof: request.proof)
+        guard window.isConfirmationPending else { return .abort }
+        guard let confirmationViewModel = makeConfirmationViewModel(request: request, context: context) else {
+            await flow.wrongPayloadReceived()
+            return .abort
+        }
+        return .confirmationPending(confirmationViewModel)
+    }
+
     private func makeConfirmationViewModel(
         request: Tandem_V1_PairRequest,
-        challenge: Data,
-        handshakeSpkiDer: Data,
-        sink: any PairingCandidateSink,
-        token: PairingCandidateToken,
-        resolution: ResolutionFlag,
-        session: any TandemSession,
-        registeredFingerprint: FingerprintBox
+        context: PairRequestContext
     ) -> PairConfirmationViewModel? {
         guard let code = try? ConfirmationCode.compute(
             secret: viewModel.currentPayload.secret,
             macSpkiDer: macSpkiDerProvider(),
-            phoneSpkiDer: handshakeSpkiDer,
-            channelBinding: challenge
+            phoneSpkiDer: context.handshakeSpkiDer,
+            channelBinding: context.challenge
         ) else {
             return nil
         }
@@ -192,17 +233,17 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
             displayNameBytes: Data(request.deviceInfo.displayName.utf8),
             modelBytes: Data(request.deviceInfo.model.utf8),
             confirmationCode: code,
-            handshakeSpkiDer: handshakeSpkiDer,
+            handshakeSpkiDer: context.handshakeSpkiDer,
             window: window,
-            token: token,
-            sink: sink,
+            token: context.token,
+            sink: context.sink,
             trustStore: trustStore,
             dateProvider: dateProvider,
-            onResolved: { resolution.resolve() },
-            onPaired: { [sessionRegistry] in
-                guard let fingerprint = try? SpkiFingerprint.of(spkiDer: handshakeSpkiDer) else { return }
-                registeredFingerprint.set(fingerprint)
-                await sessionRegistry.register(fingerprint, session: session)
+            onResolved: { context.resolution.resolve() },
+            onPaired: { [sessionRegistry, context] in
+                guard let fingerprint = try? SpkiFingerprint.of(spkiDer: context.handshakeSpkiDer) else { return }
+                context.registeredFingerprint.set(fingerprint)
+                await sessionRegistry.register(fingerprint, session: context.session)
             }
         )
         onConfirmationPending?(code, confirmationViewModel)

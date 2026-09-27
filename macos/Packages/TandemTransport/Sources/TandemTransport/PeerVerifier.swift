@@ -45,7 +45,8 @@ public enum PeerVerifier {
             }
 
             let outcome = PeerAuthorizer.decide(spki: spkiDer, trustStore: trustStore, window: window)
-            onDecision(metadata, outcome.decision, try? SpkiFingerprint.of(spkiDer: spkiDer), spkiDer, outcome.candidateToken)
+            let fingerprint = try? SpkiFingerprint.of(spkiDer: spkiDer)
+            onDecision(metadata, outcome.decision, fingerprint, spkiDer, outcome.candidateToken)
 
             switch outcome.decision {
             case .trusted, .pairingCandidate:

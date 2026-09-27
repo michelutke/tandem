@@ -52,41 +52,6 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     public static let defaultCandidateRequestDeadline: TimeInterval = 10
     public static let defaultMaxAttempts = 3
 
-    private enum CandidateState: Equatable {
-        /// No candidate connection currently occupies the slot.
-        case unclaimed
-        /// Admitted (verify callback accepted the unknown certificate) but hellos not yet done.
-        case admitted(PairingCandidateToken)
-        /// Hellos completed; ``PairingWindow`` sent `PairChallenge` and is waiting up to 10 s for
-        /// `PairRequest`.
-        case awaitingRequest(PairingCandidateToken, helloCompletedAt: Date, challenge: Data)
-        /// A valid proof was received; waiting on the owner's confirmation dialog.
-        case confirmationPending(PairingCandidateToken, challenge: Data)
-
-        /// The token that currently owns the slot (E14-16 finding #2), `nil` while ``unclaimed``.
-        /// Every candidate-scoped call below is a no-op unless the token it's given matches this
-        /// one, so a stale candidate can never mutate a different, currently-admitted candidate's
-        /// state.
-        var token: PairingCandidateToken? {
-            switch self {
-            case .unclaimed: return nil
-            case .admitted(let tok), .awaitingRequest(let tok, _, _), .confirmationPending(let tok, _): return tok
-            }
-        }
-    }
-
-    private struct OpenState {
-        let secretBox: SecretBox
-        let expiresAt: Date
-        var attemptsRemaining: Int
-        var candidate: CandidateState
-    }
-
-    private enum Phase {
-        case closed(PairingWindowClosedReason?, attemptsRemaining: Int)
-        case open(OpenState)
-    }
-
     private let dateProvider: DateProvider
     private let challengeSource: any ChallengeSource
     private let proofVerifier: any PairRequestVerifier
@@ -96,6 +61,10 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
 
     private let lock = NSLock()
     private var phase: Phase = .closed(nil, attemptsRemaining: 0)
+    /// Token ``settleLocked()`` most recently, lazily burned via its own 10s deadline check -- set
+    /// there, consumed by ``requestDeadlineElapsed(_:)`` (any locked call, not just the watcher's,
+    /// can be first to observe the deadline has passed).
+    private var deadlineBurnedToken: PairingCandidateToken?
 
     public init(
         dateProvider: @escaping DateProvider,
@@ -126,6 +95,7 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         if case .open(let previous) = phase {
             previous.secretBox.zero()
         }
+        deadlineBurnedToken = nil
         let expiresAt = dateProvider().addingTimeInterval(expiry)
         phase = .open(
             OpenState(
@@ -189,36 +159,30 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
 
     /// Called only by the active 10 s `PairRequest` deadline watcher (E14-16 finding #5,
     /// `docs/protocol/SPEC.md` §10 "`PairRequest` deadline"): frees the slot and burns one attempt
-    /// only if `token` is still the current candidate *and* it is still exactly
-    /// ``CandidateState/awaitingRequest`` -- a no-op if a `PairRequest` (valid or not) already
-    /// moved it past that sub-state, or the slot was freed some other way first, so a timer firing
-    /// after the real deadline was already superseded can never re-burn or re-release a candidate
-    /// that has moved on. Returns whether it actually did so, so the caller knows whether to close
-    /// the connection (local reason `TIMEOUT`, no `PairRejected` sent, `docs/planning/decisions.md`
-    /// D-72).
+    /// for `token`'s candidate, a no-op if a `PairRequest` already moved it past
+    /// ``CandidateState/awaitingRequest`` or the slot was freed some other way first. Returns
+    /// whether it did, so the caller knows whether to close the connection (local reason `TIMEOUT`,
+    /// no `PairRejected` sent, `docs/planning/decisions.md` D-72).
     @discardableResult
     public func requestDeadlineElapsed(_ token: PairingCandidateToken) -> Bool {
         lock.lock()
         defer { lock.unlock() }
 
-        // Checked *before* `settleLocked()`, unlike every other method here: that call performs
-        // this exact "is `token` still `.awaitingRequest` past its 10s deadline" check itself, as
-        // a side effect of every other locked call -- and since this method's only caller (the
-        // active watcher in `PairingCoordinator`) calls it right after its own equivalent
-        // `clock.sleep(for:)` elapses, `settleLocked()` would otherwise always win that race:
-        // silently freeing the slot and burning the attempt first, so a guard checked *after*
-        // settling never observes `.awaitingRequest` and this method reports `false` for the exact
-        // case it exists to detect. That leaves `PairingCandidateFlow` never told to close the
-        // connection -- a real deadlock (the frame loop parks on `frames.next()` forever), not
-        // merely a burned attempt.
-        guard case .open(var state) = phase, case .awaitingRequest = state.candidate, state.candidate.token == token
-        else {
-            settleLocked()
-            return false
+        // Checked before settleLocked(): watcher is first to check in, token still awaitingRequest.
+        if case .open(var state) = phase, case .awaitingRequest = state.candidate, state.candidate.token == token {
+            state.candidate = .unclaimed
+            burnAttempt(&state)
+            return true
         }
-        state.candidate = .unclaimed
-        burnAttempt(&state)
-        return true
+
+        // Otherwise some other locked call ran settleLocked() first and burned this token as a
+        // side effect -- deadlineBurnedToken lets this still report true, not "already handled".
+        settleLocked()
+        if deadlineBurnedToken == token {
+            deadlineBurnedToken = nil
+            return true
+        }
+        return false
     }
 
     // MARK: - Candidate lifecycle
@@ -401,9 +365,10 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
             return
         }
 
-        if case .awaitingRequest(_, let helloCompletedAt, _) = state.candidate,
+        if case .awaitingRequest(let token, let helloCompletedAt, _) = state.candidate,
            now >= helloCompletedAt.addingTimeInterval(candidateRequestDeadline) {
             state.candidate = .unclaimed
+            deadlineBurnedToken = token
             burnAttempt(&state)
             return
         }

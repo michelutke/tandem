@@ -9,8 +9,8 @@ import TandemProtocol
 /// E12-12, finding #5: proves the full session-wiring path -- not just that the raw TLS handshake
 /// completes (`VerifyBlockLoopbackTests`) -- by speaking the client half of the protocol (its own
 /// `VersionHello`) so the server's `VersionHandshake` actually resolves `.ready` and `wireSession`
-/// registers the resulting session. A spy `ControlSessionRegistering` (not `ControlSessionRegistry`'s
-/// own private state) observes the registration and the fingerprint it was keyed under.
+/// registers the resulting session. A spy `ControlSessionRegistering` observes the registration
+/// and the fingerprint it was keyed under.
 @Suite("Control session registration (hosted)", .serialized)
 struct ControlSessionRegistrationLoopbackTests {
 
@@ -53,10 +53,8 @@ struct ControlSessionRegistrationLoopbackTests {
         #expect(registration?.fingerprint == clientFingerprint)
     }
 
-    /// E14-16's own missing production link: a `.pairingCandidate` connection (unknown
-    /// fingerprint, open window, no other candidate in flight) reaching protocol `.ready` is
-    /// handed to the configured ``PairingCandidateDriver`` -- and, unlike the `.trusted` case
-    /// above, is never registered (registration stays `.trusted`-only, E12-19).
+    /// E14-16: a `.pairingCandidate` connection reaching protocol `.ready` is handed to the
+    /// configured ``PairingCandidateDriver`` -- unlike `.trusted`, never registered (E12-19).
     @Test(.timeLimit(.minutes(1)))
     func verifyBlock_pairingCandidateReachesProtocolReady_handedToDriverNeverRegistered() async throws {
         let serverKeychain = try TemporaryKeychain()
@@ -139,10 +137,8 @@ struct ControlSessionRegistrationLoopbackTests {
         )
     }
 
-    /// A bare TLS-ready connection is never registered (E12-12's session wiring gates registration
-    /// on the E12-07 `VersionHandshake` itself resolving `.ready`, both sides) -- so this speaks the
-    /// client half of the protocol for real, over the same `NWConnectionByteStreamConnection`/
-    /// `ChannelMultiplexer` production types the server uses.
+    /// A bare TLS-ready connection is never registered (E12-12 gates registration on the E12-07
+    /// `VersionHandshake` resolving `.ready`) -- so this speaks the client half for real.
     private static func speakClientHalfOfProtocol(over connection: NWConnection) async throws {
         let clientAdapter = NWConnectionByteStreamConnection(connection: connection)
         clientAdapter.reportReady()

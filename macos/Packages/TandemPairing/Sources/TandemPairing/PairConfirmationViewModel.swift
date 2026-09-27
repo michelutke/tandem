@@ -139,11 +139,15 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         guard claimResolution() else { return }
         guard window.ownerAccepted(token) else {
             markFailed()
+            try? await sink.sendPairRejected(.pairingUnavailable)
+            await sink.closePairingFailed()
             onResolved?()
             return
         }
         guard commitTrust() else {
             markFailed()
+            try? await sink.sendPairRejected(.pairingUnavailable)
+            await sink.closePairingFailed()
             onResolved?()
             return
         }

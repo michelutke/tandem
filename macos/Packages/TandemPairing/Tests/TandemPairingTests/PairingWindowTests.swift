@@ -178,6 +178,27 @@ struct PairingWindowTests {
         #expect(window.isOpen)
     }
 
+    /// Regression: `requestDeadlineElapsed(_:)` is `PairingCoordinator`'s active watcher's only
+    /// signal to close the actual connection -- if some *other* locked call (here, `isOpen`,
+    /// standing in for a second connection's `PeerAuthorizer.decide` or a `Heartbeat`) happens to
+    /// settle the same 10s deadline first, the watcher's own call must still report `true`, or its
+    /// caller wrongly concludes "already handled" and never closes the connection (a real deadlock:
+    /// the frame loop parks on `frames.next()` forever).
+    @Test
+    func pairingWindow_otherCallSettlesDeadlineFirst_requestDeadlineElapsedStillReportsTrue() throws {
+        let clock = ManualTestClock()
+        let window = Self.makeWindow(clock: clock).window
+        window.open(secret: Data([1]))
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+
+        clock.advance(by: .seconds(10))
+        _ = window.isOpen // forces settleLocked() to burn the deadline before the watcher checks in
+
+        #expect(window.requestDeadlineElapsed(token))
+        #expect(window.attemptsRemaining == 2 && window.isOpen)
+    }
+
     @Test
     func pairingCandidate_heartbeatWhileConfirmationPending_notAPairingFailure() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
@@ -321,20 +342,5 @@ struct PairingWindowTests {
         window.releaseCandidate(secondWindowToken)
         #expect(!window.candidateInFlight)
         #expect(window.attemptsRemaining == 2)
-    }
-
-    private static func makeWindow(
-        clock: ManualTestClock,
-        verifier: any PairRequestVerifier
-    ) -> (window: PairingWindow, clock: ManualTestClock) {
-        let window = PairingWindow(dateProvider: FixedDateProvider(clock: clock).provider, proofVerifier: verifier)
-        return (window, clock)
-    }
-
-    private static func makeWindow(
-        clock: ManualTestClock,
-        verifierResult: Bool = true
-    ) -> (window: PairingWindow, clock: ManualTestClock) {
-        makeWindow(clock: clock, verifier: SpyPairRequestVerifier(result: verifierResult))
     }
 }
