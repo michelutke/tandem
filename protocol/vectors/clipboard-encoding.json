@@ -1,0 +1,56 @@
+{
+  "$schema": "./schema.json",
+  "category": "clipboard-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "clipboard-text-sensitive-true",
+      "description": "A sensitive ClipboardText (e.g. from a password manager), origin_tag=android, round-tripping byte-identically through both codecs.",
+      "input": {
+        "clipboardTextHex": "0a07616e64726f696412200470d0da13b9d37662896d8b7d51d0bdd6519e6820ae6c003d9cde160ce7b1271a2068756e74657232636f7272656374686f72736562617474657279737461706c652001"
+      },
+      "expected": {
+        "originTag": "android",
+        "contentHashHex": "0470d0da13b9d37662896d8b7d51d0bdd6519e6820ae6c003d9cde160ce7b127",
+        "text": "hunter2correcthorsebatterystaple",
+        "sensitive": true,
+        "textByteLength": 32
+      }
+    },
+    {
+      "id": "clipboard-text-exactly-1-mib",
+      "description": "ClipboardText.text at exactly the 1,048,576-byte (1 MiB) cap (#clipboard-channel): MUST be accepted.",
+      "input": {
+        "originTag": "macos",
+        "sensitive": false,
+        "contentHashHex": "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+        "textRecipe": {
+          "fillByte": "61",
+          "fillLength": 1048576
+        }
+      },
+      "expected": {
+        "accepted": true,
+        "originTag": "macos",
+        "contentHashHex": "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+        "sensitive": false,
+        "textByteLength": 1048576,
+        "clipboardTextSha256": "0c8e6b69315f1b6df658f02ffa01799301e44cc58d8da30f013c038caec829df"
+      }
+    },
+    {
+      "id": "clipboard-text-one-byte-over-1-mib",
+      "description": "ClipboardText.text one byte past the 1,048,576-byte (1 MiB) cap (#clipboard-channel): MUST be rejected, not truncated.",
+      "input": {
+        "originTag": "macos",
+        "sensitive": false,
+        "contentHashHex": "4a3f0c0c213adea174f9a3d4c13177315b588bdb2e9c1012d3d0bf0453ca0f6a",
+        "textRecipe": {
+          "fillByte": "61",
+          "fillLength": 1048577
+        }
+      },
+      "expectedError": "clipboardTextTooLarge"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ syntax = "proto3";
 package tandem.v1;
 
 import "tandem/v1/channel.proto";
+import "tandem/v1/clipboard.proto";
 import "tandem/v1/control.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
@@ -43,7 +44,8 @@ message Envelope {
   // 30-39: notify.proto (E30-01). 30-34 are NotificationPosted/IconData/NotificationAction/
   // NotificationDismiss/NotificationActionResult; 35-39 held for future extensions.
   reserved 35 to 39;   // notify.proto (E30-01): future NOTIFY channel extensions
-  reserved 40 to 49;   // clipboard.proto (E31-01) — CLIPBOARD channel
+  // 40-49: clipboard.proto (E31-01). 40 is ClipboardText; 41-49 held for future extensions.
+  reserved 41 to 49;   // clipboard.proto (E31-01): future CLIPBOARD channel extensions
   reserved 50 to 59;   // files.proto (E40-01) — FILES channel
   reserved 60 to 69;   // photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision)
   reserved 70 to 79;   // sms.proto (E50-01) — SMS channel
@@ -78,5 +80,8 @@ message Envelope {
     NotificationAction notification_action = 32;
     NotificationDismiss notification_dismiss = 33;
     NotificationActionResult notification_action_result = 34;
+
+    // clipboard.proto (E31-01) — CLIPBOARD channel.
+    ClipboardText clipboard_text = 40;
   }
 }
