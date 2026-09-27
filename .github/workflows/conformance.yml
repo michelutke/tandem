@@ -22,9 +22,4 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Conformance vectors
-        run: |
-          if [[ -x tools/conformance/run.sh ]]; then
-            tools/conformance/run.sh
-          else
-            echo "::notice::tools/conformance/run.sh not implemented yet (E15-01..E15-03); nothing to run."
-          fi
+        run: tools/conformance/run.sh
