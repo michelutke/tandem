@@ -90,11 +90,18 @@ fi
 FILTER="tcp port ${PORT}"
 
 if [[ ${#SCRIPT_CMD[@]} -gt 0 ]]; then
-  "$TSHARK" -i "$IFACE" -f "$FILTER" -w "$OUT" &
+  tshark_log="$(mktemp)"
+  "$TSHARK" -i "$IFACE" -f "$FILTER" -w "$OUT" 2>"$tshark_log" &
   tshark_pid=$!
 
-  # Give tshark time to attach to the interface before the scripted session generates traffic.
-  sleep 1
+  # Wait (up to 15 s) until tshark reports it is capturing, so a loaded machine cannot race the
+  # scripted session ahead of the capture; then a short settle for the BPF filter to apply.
+  for _ in $(seq 1 150); do
+    grep -q "Capturing on" "$tshark_log" 2>/dev/null && break
+    kill -0 "$tshark_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  sleep 0.5
 
   set +e
   "${SCRIPT_CMD[@]}"
@@ -106,6 +113,7 @@ if [[ ${#SCRIPT_CMD[@]} -gt 0 ]]; then
 
   kill -INT "$tshark_pid" 2>/dev/null || true
   wait "$tshark_pid" 2>/dev/null || true
+  rm -f "$tshark_log"
 
   exit "$script_status"
 else
