@@ -10,6 +10,22 @@ public struct InboundFrame: Sendable, Equatable {
     public let payload: Tandem_V1_Envelope.OneOf_Payload?
 }
 
+/// One frame ``ChannelMultiplexer`` accepted off the wire, on any channel -- reported on
+/// ``ChannelMultiplexer/received`` at the moment ``ChannelMultiplexer`` validates it (before it is
+/// ever routed to its channel's own ``ChannelMultiplexer/inbound(_:)`` stream, and whether or not
+/// any caller ever pulls it off that stream). Exists for SPEC.md #heartbeat (E01-07)'s liveness
+/// contract and `docs/planning/decisions.md` D-61's `CONTROL` receive cap (E20-05/E20-15), both of
+/// which are defined at "any frame this side received", not at per-channel application-level
+/// consumption.
+public struct FrameArrival: Sendable, Equatable {
+    public let channel: Tandem_V1_Channel
+    /// `true` if this frame's payload is a `Heartbeat`. D-61's own wording excludes `Heartbeat`
+    /// from its `CONTROL` receive cap, but D-66 folds it back in on the Mac (``HeartbeatController``
+    /// counts every `CONTROL` frame, `Heartbeat` or not) -- this field is not consulted for that cap
+    /// on the Mac; it is kept for parity with the phone-side cap, which still excludes `Heartbeat`.
+    public let isHeartbeat: Bool
+}
+
 /// Why a ``ChannelMultiplexer`` stopped routing frames. Every case is a fail-closed stop: the
 /// reader task exits and every channel's inbound stream finishes (docs/protocol/SPEC.md
 /// invariant 5).

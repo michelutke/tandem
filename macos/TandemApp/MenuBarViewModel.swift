@@ -130,6 +130,12 @@ final class MenuBarViewModel {
             return .connected(peerName: peerName)
         case .failed:
             return .error
+        case .dead:
+            // E20-05's dead-peer detection is "a local, transport-liveness event, not a close
+            // code" (docs/protocol/SPEC.md #heartbeat) -- presented the same as any other
+            // disconnection, never as `.error`. A future issue may map this to `.reconnecting`
+            // once something here actually redials (E22-08).
+            return .disconnected
         }
     }
 }
