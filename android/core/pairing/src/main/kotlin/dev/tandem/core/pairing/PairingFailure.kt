@@ -19,4 +19,14 @@ sealed class PairingFailure {
 
     /** 120 s elapsed in [PairingState.AwaitingUserConfirm] without the owner tapping "Codes match". */
     data object ConfirmationTimeout : PairingFailure()
+
+    /** No `PairChallenge` arrived within 10 s of the candidate connection completing (SPEC.md §10). */
+    data object ChallengeTimeout : PairingFailure()
+
+    /**
+     * The received `PairChallenge`, or one of the SPKIs observed on this handshake, failed
+     * [dev.tandem.core.crypto.PairingProofException]'s precondition, so no proof/confirmation code
+     * could be computed (SPEC.md §2 "Proof computation", invariant 6).
+     */
+    data object MalformedChallenge : PairingFailure()
 }
