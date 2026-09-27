@@ -2,6 +2,7 @@ package dev.tandem.core.storage.trust
 
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import app.cash.turbine.test
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.testing.TestClock
 import kotlinx.coroutines.test.runTest
@@ -126,6 +127,27 @@ class TrustStoreTest {
 
             assertNull(store.get(fingerprint(1)))
             assertEquals(1, store.list().size)
+        }
+
+    @Test
+    fun trustStore_observeList_emitsCurrentThenOnPutAndDelete() =
+        runTest {
+            store.put(record(seed = 1))
+
+            store.observeList().test {
+                assertEquals(setOf(fingerprint(1).base64Url), awaitItem().map { it.spkiSha256Base64Url }.toSet())
+
+                store.put(record(seed = 2))
+                assertEquals(
+                    setOf(fingerprint(1).base64Url, fingerprint(2).base64Url),
+                    awaitItem().map { it.spkiSha256Base64Url }.toSet(),
+                )
+
+                store.delete(fingerprint(1))
+                assertEquals(setOf(fingerprint(2).base64Url), awaitItem().map { it.spkiSha256Base64Url }.toSet())
+
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test

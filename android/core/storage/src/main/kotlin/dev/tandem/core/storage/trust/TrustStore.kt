@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import dev.tandem.core.crypto.SpkiFingerprint
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.io.File
 
 /**
@@ -33,6 +35,9 @@ class TrustStore private constructor(
     suspend fun get(fingerprint: SpkiFingerprint): PeerRecord? = dao.getByFingerprint(fingerprint.base64Url)?.toDomain()
 
     suspend fun list(): List<PeerRecord> = dao.list().map { it.toDomain() }
+
+    /** Reactive [list] (E20-02): emits the current records, then again on every put/delete/unpair. */
+    fun observeList(): Flow<List<PeerRecord>> = dao.observeList().map { entities -> entities.map { it.toDomain() } }
 
     suspend fun delete(fingerprint: SpkiFingerprint) = dao.deleteByFingerprint(fingerprint.base64Url)
 

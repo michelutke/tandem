@@ -11,4 +11,9 @@
     <string name="pairing_error_qr_expired">QR expired, refresh on Mac</string>
     <string name="pairing_error_declined">Pairing declined on Mac</string>
     <string name="pairing_error_network">Can\'t reach your Mac. Make sure both devices are on the same Wi-Fi. Guest and office networks often block devices from reaching each other (client isolation).</string>
+
+    <!-- TandemService ongoing notification (E20-02) -->
+    <string name="notification_connection_channel_name">Connection status</string>
+    <string name="notification_connection_title">Tandem</string>
+    <string name="notification_connection_text">Connected to your Mac</string>
 </resources>
