@@ -32,10 +32,11 @@ enum ConformanceRunner {
         let description: String
     }
 
-    static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
+    static let deferredCategories: [String: String] = [:]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
-        "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings"
+        "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
+        "discovery-id"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -133,6 +134,7 @@ enum ConformanceRunner {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
+        case "discovery-id": return try runDiscoveryId(data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
     }
