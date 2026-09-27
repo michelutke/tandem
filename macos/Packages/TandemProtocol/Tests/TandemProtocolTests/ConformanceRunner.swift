@@ -37,7 +37,8 @@ enum ConformanceRunner {
     static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
-        "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding"
+        "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding",
+        "notify-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -134,12 +135,16 @@ enum ConformanceRunner {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
-        case "status-encoding": return try await runStatusEncoding(data: data)
+        case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
+        case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
     }
 
-    private static func runStatusEncoding(data: Data) async throws -> [VectorOutcome] {
+    /// Decodes an Envelope frame and re-encodes it, checking the bytes round-trip identically.
+    /// Shared by every category whose vectors are complete frame-encoding round-trips rather than
+    /// a category-specific transform (status-encoding, notify-encoding).
+    private static func runFrameRoundTrip(category: String, data: Data) async throws -> [VectorOutcome] {
         struct Manifest: Decodable {
             struct Vector: Decodable {
                 let id: String
@@ -155,11 +160,11 @@ enum ConformanceRunner {
         var outcomes: [VectorOutcome] = []
         for vector in manifest.vectors {
             let inputFrameBytes = try conformanceRunnerHexDecode(vector.input.frameHex)
-            let decoded = try await decodeFrameForStatus(inputFrameBytes)
+            let decoded = try await decodeFrameForRoundTrip(inputFrameBytes)
             guard case .frame(let envelope) = decoded else {
                 outcomes.append(VectorOutcome(
                     id: vector.id,
-                    category: "status-encoding",
+                    category: category,
                     outcome: "fail",
                     expected: vector.input.frameHex,
                     actual: "rejected: \(String(describing: decoded))"
@@ -171,7 +176,7 @@ enum ConformanceRunner {
             let passed = inputFrameBytes == reencoded
             outcomes.append(VectorOutcome(
                 id: vector.id,
-                category: "status-encoding",
+                category: category,
                 outcome: passed ? "pass" : "fail",
                 expected: inputFrameBytes.conformanceRunnerHex,
                 actual: reencoded.conformanceRunnerHex
@@ -180,7 +185,7 @@ enum ConformanceRunner {
         return outcomes
     }
 
-    private static func decodeFrameForStatus(_ bytes: Data) async throws -> DecodeResult? {
+    private static func decodeFrameForRoundTrip(_ bytes: Data) async throws -> DecodeResult? {
         let pair = InMemoryConnectionPair(bufferCapacity: bytes.count + 8)
         try await pair.endA.send(bytes)
         await pair.endA.close()

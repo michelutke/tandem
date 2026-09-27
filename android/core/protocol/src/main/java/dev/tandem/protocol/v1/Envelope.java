@@ -37,6 +37,11 @@ public  final class Envelope extends
     DEVICE_STATUS(20),
     RING(21),
     RING_STOP(22),
+    NOTIFICATION_POSTED(30),
+    ICON_DATA(31),
+    NOTIFICATION_ACTION(32),
+    NOTIFICATION_DISMISS(33),
+    NOTIFICATION_ACTION_RESULT(34),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -64,6 +69,11 @@ public  final class Envelope extends
         case 20: return DEVICE_STATUS;
         case 21: return RING;
         case 22: return RING_STOP;
+        case 30: return NOTIFICATION_POSTED;
+        case 31: return ICON_DATA;
+        case 32: return NOTIFICATION_ACTION;
+        case 33: return NOTIFICATION_DISMISS;
+        case 34: return NOTIFICATION_ACTION_RESULT;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -872,6 +882,286 @@ public  final class Envelope extends
    */
   private void clearRingStop() {
     if (payloadCase_ == 22) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int NOTIFICATION_POSTED_FIELD_NUMBER = 30;
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNotificationPosted() {
+    return payloadCase_ == 30;
+  }
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.NotificationPosted getNotificationPosted() {
+    if (payloadCase_ == 30) {
+       return (dev.tandem.protocol.v1.NotificationPosted) payload_;
+    }
+    return dev.tandem.protocol.v1.NotificationPosted.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNotificationPosted(dev.tandem.protocol.v1.NotificationPosted value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 30;
+  }
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNotificationPosted(dev.tandem.protocol.v1.NotificationPosted value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 30 &&
+        payload_ != dev.tandem.protocol.v1.NotificationPosted.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.NotificationPosted.newBuilder((dev.tandem.protocol.v1.NotificationPosted) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 30;
+  }
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   */
+  private void clearNotificationPosted() {
+    if (payloadCase_ == 30) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int ICON_DATA_FIELD_NUMBER = 31;
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   */
+  @java.lang.Override
+  public boolean hasIconData() {
+    return payloadCase_ == 31;
+  }
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.IconData getIconData() {
+    if (payloadCase_ == 31) {
+       return (dev.tandem.protocol.v1.IconData) payload_;
+    }
+    return dev.tandem.protocol.v1.IconData.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setIconData(dev.tandem.protocol.v1.IconData value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 31;
+  }
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeIconData(dev.tandem.protocol.v1.IconData value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 31 &&
+        payload_ != dev.tandem.protocol.v1.IconData.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.IconData.newBuilder((dev.tandem.protocol.v1.IconData) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 31;
+  }
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   */
+  private void clearIconData() {
+    if (payloadCase_ == 31) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int NOTIFICATION_ACTION_FIELD_NUMBER = 32;
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNotificationAction() {
+    return payloadCase_ == 32;
+  }
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.NotificationAction getNotificationAction() {
+    if (payloadCase_ == 32) {
+       return (dev.tandem.protocol.v1.NotificationAction) payload_;
+    }
+    return dev.tandem.protocol.v1.NotificationAction.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNotificationAction(dev.tandem.protocol.v1.NotificationAction value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 32;
+  }
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNotificationAction(dev.tandem.protocol.v1.NotificationAction value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 32 &&
+        payload_ != dev.tandem.protocol.v1.NotificationAction.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.NotificationAction.newBuilder((dev.tandem.protocol.v1.NotificationAction) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 32;
+  }
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   */
+  private void clearNotificationAction() {
+    if (payloadCase_ == 32) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int NOTIFICATION_DISMISS_FIELD_NUMBER = 33;
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNotificationDismiss() {
+    return payloadCase_ == 33;
+  }
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.NotificationDismiss getNotificationDismiss() {
+    if (payloadCase_ == 33) {
+       return (dev.tandem.protocol.v1.NotificationDismiss) payload_;
+    }
+    return dev.tandem.protocol.v1.NotificationDismiss.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNotificationDismiss(dev.tandem.protocol.v1.NotificationDismiss value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 33;
+  }
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNotificationDismiss(dev.tandem.protocol.v1.NotificationDismiss value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 33 &&
+        payload_ != dev.tandem.protocol.v1.NotificationDismiss.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.NotificationDismiss.newBuilder((dev.tandem.protocol.v1.NotificationDismiss) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 33;
+  }
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   */
+  private void clearNotificationDismiss() {
+    if (payloadCase_ == 33) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int NOTIFICATION_ACTION_RESULT_FIELD_NUMBER = 34;
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNotificationActionResult() {
+    return payloadCase_ == 34;
+  }
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.NotificationActionResult getNotificationActionResult() {
+    if (payloadCase_ == 34) {
+       return (dev.tandem.protocol.v1.NotificationActionResult) payload_;
+    }
+    return dev.tandem.protocol.v1.NotificationActionResult.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNotificationActionResult(dev.tandem.protocol.v1.NotificationActionResult value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 34;
+  }
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNotificationActionResult(dev.tandem.protocol.v1.NotificationActionResult value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 34 &&
+        payload_ != dev.tandem.protocol.v1.NotificationActionResult.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.NotificationActionResult.newBuilder((dev.tandem.protocol.v1.NotificationActionResult) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 34;
+  }
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   */
+  private void clearNotificationActionResult() {
+    if (payloadCase_ == 34) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -1751,6 +2041,270 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNotificationPosted() {
+      return instance.hasNotificationPosted();
+    }
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.NotificationPosted getNotificationPosted() {
+      return instance.getNotificationPosted();
+    }
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    public Builder setNotificationPosted(dev.tandem.protocol.v1.NotificationPosted value) {
+      copyOnWrite();
+      instance.setNotificationPosted(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    public Builder setNotificationPosted(
+        dev.tandem.protocol.v1.NotificationPosted.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNotificationPosted(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    public Builder mergeNotificationPosted(dev.tandem.protocol.v1.NotificationPosted value) {
+      copyOnWrite();
+      instance.mergeNotificationPosted(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * notify.proto (E30-01) — NOTIFY channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+     */
+    public Builder clearNotificationPosted() {
+      copyOnWrite();
+      instance.clearNotificationPosted();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    @java.lang.Override
+    public boolean hasIconData() {
+      return instance.hasIconData();
+    }
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.IconData getIconData() {
+      return instance.getIconData();
+    }
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    public Builder setIconData(dev.tandem.protocol.v1.IconData value) {
+      copyOnWrite();
+      instance.setIconData(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    public Builder setIconData(
+        dev.tandem.protocol.v1.IconData.Builder builderForValue) {
+      copyOnWrite();
+      instance.setIconData(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    public Builder mergeIconData(dev.tandem.protocol.v1.IconData value) {
+      copyOnWrite();
+      instance.mergeIconData(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+     */
+    public Builder clearIconData() {
+      copyOnWrite();
+      instance.clearIconData();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNotificationAction() {
+      return instance.hasNotificationAction();
+    }
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.NotificationAction getNotificationAction() {
+      return instance.getNotificationAction();
+    }
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    public Builder setNotificationAction(dev.tandem.protocol.v1.NotificationAction value) {
+      copyOnWrite();
+      instance.setNotificationAction(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    public Builder setNotificationAction(
+        dev.tandem.protocol.v1.NotificationAction.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNotificationAction(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    public Builder mergeNotificationAction(dev.tandem.protocol.v1.NotificationAction value) {
+      copyOnWrite();
+      instance.mergeNotificationAction(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+     */
+    public Builder clearNotificationAction() {
+      copyOnWrite();
+      instance.clearNotificationAction();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNotificationDismiss() {
+      return instance.hasNotificationDismiss();
+    }
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.NotificationDismiss getNotificationDismiss() {
+      return instance.getNotificationDismiss();
+    }
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    public Builder setNotificationDismiss(dev.tandem.protocol.v1.NotificationDismiss value) {
+      copyOnWrite();
+      instance.setNotificationDismiss(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    public Builder setNotificationDismiss(
+        dev.tandem.protocol.v1.NotificationDismiss.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNotificationDismiss(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    public Builder mergeNotificationDismiss(dev.tandem.protocol.v1.NotificationDismiss value) {
+      copyOnWrite();
+      instance.mergeNotificationDismiss(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+     */
+    public Builder clearNotificationDismiss() {
+      copyOnWrite();
+      instance.clearNotificationDismiss();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNotificationActionResult() {
+      return instance.hasNotificationActionResult();
+    }
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.NotificationActionResult getNotificationActionResult() {
+      return instance.getNotificationActionResult();
+    }
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    public Builder setNotificationActionResult(dev.tandem.protocol.v1.NotificationActionResult value) {
+      copyOnWrite();
+      instance.setNotificationActionResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    public Builder setNotificationActionResult(
+        dev.tandem.protocol.v1.NotificationActionResult.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNotificationActionResult(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    public Builder mergeNotificationActionResult(dev.tandem.protocol.v1.NotificationActionResult value) {
+      copyOnWrite();
+      instance.mergeNotificationActionResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+     */
+    public Builder clearNotificationActionResult() {
+      copyOnWrite();
+      instance.clearNotificationActionResult();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -1784,11 +2338,17 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.DeviceStatus.class,
             dev.tandem.protocol.v1.Ring.class,
             dev.tandem.protocol.v1.RingStop.class,
+            dev.tandem.protocol.v1.NotificationPosted.class,
+            dev.tandem.protocol.v1.IconData.class,
+            dev.tandem.protocol.v1.NotificationAction.class,
+            dev.tandem.protocol.v1.NotificationDismiss.class,
+            dev.tandem.protocol.v1.NotificationActionResult.class,
           };
           java.lang.String info =
-              "\u0000\u000f\u0001\u0000\u0001\u0016\u000f\u0000\u0000\u0000\u0001\f\u0002\u0003" +
-              "\u0003\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<" +
-              "\u0000\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000";
+              "\u0000\u0014\u0001\u0000\u0001\"\u0014\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
+              "\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000" +
+              "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
+              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {
