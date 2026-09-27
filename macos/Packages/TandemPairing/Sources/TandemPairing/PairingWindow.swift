@@ -200,11 +200,20 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     public func requestDeadlineElapsed(_ token: PairingCandidateToken) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        settleLocked()
-        guard case .open(var state) = phase,
-              case .awaitingRequest = state.candidate,
-              state.candidate.token == token
+
+        // Checked *before* `settleLocked()`, unlike every other method here: that call performs
+        // this exact "is `token` still `.awaitingRequest` past its 10s deadline" check itself, as
+        // a side effect of every other locked call -- and since this method's only caller (the
+        // active watcher in `PairingCoordinator`) calls it right after its own equivalent
+        // `clock.sleep(for:)` elapses, `settleLocked()` would otherwise always win that race:
+        // silently freeing the slot and burning the attempt first, so a guard checked *after*
+        // settling never observes `.awaitingRequest` and this method reports `false` for the exact
+        // case it exists to detect. That leaves `PairingCandidateFlow` never told to close the
+        // connection -- a real deadlock (the frame loop parks on `frames.next()` forever), not
+        // merely a burned attempt.
+        guard case .open(var state) = phase, case .awaitingRequest = state.candidate, state.candidate.token == token
         else {
+            settleLocked()
             return false
         }
         state.candidate = .unclaimed

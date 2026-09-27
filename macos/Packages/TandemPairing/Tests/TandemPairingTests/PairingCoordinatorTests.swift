@@ -250,10 +250,13 @@ struct PairingCoordinatorTests {
         // reached its own `clock.sleep(for:)` call and parked, or its deadline would be computed
         // from a `now` that already reflects this advance, needing a second one that never comes
         // (`ManualTestClock.pendingSleeperCountForTesting`'s own documented idiom,
-        // `ManualTestClockTests`).
-        while fixture.clock.pendingSleeperCountForTesting < 1 {
-            await Task.yield()
-        }
+        // `ManualTestClockTests`). Bounded via `waitFor` (real wall-clock timeout, matching every
+        // other polling wait in this file) rather than an unbounded `Task.yield()` loop: if the
+        // watcher never parks, this must fail fast with a clear assertion instead of hanging past
+        // `.timeLimit` (a `while` loop with no suspension point that checks `Task.isCancelled`
+        // ignores that trait's cancellation entirely).
+        let parked = await Self.waitFor(timeout: 2) { fixture.clock.pendingSleeperCountForTesting >= 1 }
+        #expect(parked, "the request-deadline watcher never parked on the clock")
         fixture.clock.advance(by: .seconds(10))
 
         await driveTask.value
