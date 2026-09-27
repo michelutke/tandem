@@ -3,6 +3,7 @@ import Network
 import Security
 import Testing
 import TandemCrypto
+import TandemProtocol
 @testable import TandemTransport
 
 /// `ConnectionAdmission` (E12-18) wired into a real `NWListener`/`NWConnection` loopback --
@@ -95,7 +96,13 @@ extension ListenerLoopbackTests {
         identity: SecIdentity,
         admission: ConnectionAdmission = ConnectionAdmission(clock: ContinuousClock())
     ) throws -> NWListener {
-        try NWListenerFactory().makeListener(
+        try NWListenerFactory(
+
+            sessionRegistry: ControlSessionRegistry(),
+
+            decisionCorrelator: PeerDecisionCorrelator()
+
+        ).makeListener(
             identity: identity,
             port: .any,
             verify: { _, _, complete in complete(true) },

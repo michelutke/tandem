@@ -41,6 +41,10 @@ jobs:
             build CODE_SIGNING_ALLOWED=NO -quiet
       - name: Release binary has no UI-test scenario hook
         run: ruby tools/ci/check_release_binary_no_ui_test_scenario.rb macos/build/release/Build/Products/Release/TandemApp.app/Contents/MacOS/TandemApp
+      - name: macOS entitlements check (E22-04)
+        run: tools/release-audit/check-macos-entitlements.sh
+      - name: macOS entitlements check test
+        run: bash tools/release-audit/test/macos_entitlements_check_test.sh
       - name: SwiftLint
         run: |
           command -v swiftlint >/dev/null || brew install swiftlint

@@ -21,19 +21,19 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 }
 
 /// NetworkType: the phone's current network connectivity, part of DeviceStatus (PRD F-4.3).
-nonisolated enum Tandem_V1_NetworkType: SwiftProtobuf.Enum, Swift.CaseIterable {
-  typealias RawValue = Int
+public nonisolated enum Tandem_V1_NetworkType: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
   case unspecified // = 0
   case wifi // = 1
   case cellular // = 2
   case offline // = 3
   case UNRECOGNIZED(Int)
 
-  init() {
+  public init() {
     self = .unspecified
   }
 
-  init?(rawValue: Int) {
+  public init?(rawValue: Int) {
     switch rawValue {
     case 0: self = .unspecified
     case 1: self = .wifi
@@ -43,7 +43,7 @@ nonisolated enum Tandem_V1_NetworkType: SwiftProtobuf.Enum, Swift.CaseIterable {
     }
   }
 
-  var rawValue: Int {
+  public var rawValue: Int {
     switch self {
     case .unspecified: return 0
     case .wifi: return 1
@@ -54,7 +54,7 @@ nonisolated enum Tandem_V1_NetworkType: SwiftProtobuf.Enum, Swift.CaseIterable {
   }
 
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Tandem_V1_NetworkType] = [
+  public static let allCases: [Tandem_V1_NetworkType] = [
     .unspecified,
     .wifi,
     .cellular,
@@ -65,67 +65,67 @@ nonisolated enum Tandem_V1_NetworkType: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 /// DeviceStatus: PRD F-4.3 — the phone publishes this on the STATUS channel on change and at
 /// most every 60 s. Sent directly as the Envelope payload (no wrapper message needed).
-nonisolated struct Tandem_V1_DeviceStatus: Sendable {
+public nonisolated struct Tandem_V1_DeviceStatus: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   /// Battery charge percentage, 0-100.
-  var batteryLevel: Int32 = 0
+  public var batteryLevel: Int32 = 0
 
-  var isCharging: Bool = false
+  public var isCharging: Bool = false
 
-  var networkType: Tandem_V1_NetworkType = .unspecified
+  public var networkType: Tandem_V1_NetworkType = .unspecified
 
   /// Signal strength, 0 (none) to 4 (full bars); meaningless (0) when network_type is
   /// NETWORK_TYPE_OFFLINE.
-  var signalLevel: Int32 = 0
+  public var signalLevel: Int32 = 0
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// Ring: PRD F-4.4 — the Mac sends this to make the phone play an alarm at max volume,
 /// overriding DND, until dismissed. No fields: ringing is idempotent while already in progress,
 /// and the alarm starts at most twice per 10 s (docs/planning/decisions.md D-62), so repeated
 /// delivery of this same empty message is intentionally indistinguishable from the first.
-nonisolated struct Tandem_V1_Ring: Sendable {
+public nonisolated struct Tandem_V1_Ring: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// RingStop: PRD F-4.4 — a side stops the alarm started by Ring. Carried on the STATUS channel.
 /// No fields: the identity of the stopper (mac | phone) is determined by which side sends it
 /// (origin field below).
-nonisolated struct Tandem_V1_RingStop: Sendable {
+public nonisolated struct Tandem_V1_RingStop: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var origin: Tandem_V1_RingStop.Origin = .unspecified
+  public var origin: Tandem_V1_RingStop.Origin = .unspecified
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   /// Origin: which side initiated the stop. Answers the question "did the phone dismiss the
   /// alarm, or did the Mac cancel it?" on the receiving side.
-  nonisolated enum Origin: SwiftProtobuf.Enum, Swift.CaseIterable {
-    typealias RawValue = Int
+  public nonisolated enum Origin: SwiftProtobuf.Enum, Swift.CaseIterable {
+    public typealias RawValue = Int
     case unspecified // = 0
     case mac // = 1
     case phone // = 2
     case UNRECOGNIZED(Int)
 
-    init() {
+    public init() {
       self = .unspecified
     }
 
-    init?(rawValue: Int) {
+    public init?(rawValue: Int) {
       switch rawValue {
       case 0: self = .unspecified
       case 1: self = .mac
@@ -134,7 +134,7 @@ nonisolated struct Tandem_V1_RingStop: Sendable {
       }
     }
 
-    var rawValue: Int {
+    public var rawValue: Int {
       switch self {
       case .unspecified: return 0
       case .mac: return 1
@@ -144,7 +144,7 @@ nonisolated struct Tandem_V1_RingStop: Sendable {
     }
 
     // The compiler won't synthesize support with the UNRECOGNIZED case.
-    static let allCases: [Tandem_V1_RingStop.Origin] = [
+    public static let allCases: [Tandem_V1_RingStop.Origin] = [
       .unspecified,
       .mac,
       .phone,
@@ -152,7 +152,7 @@ nonisolated struct Tandem_V1_RingStop: Sendable {
 
   }
 
-  init() {}
+  public init() {}
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -160,14 +160,14 @@ nonisolated struct Tandem_V1_RingStop: Sendable {
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_NetworkType: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NETWORK_TYPE_UNSPECIFIED\0\u{1}NETWORK_TYPE_WIFI\0\u{1}NETWORK_TYPE_CELLULAR\0\u{1}NETWORK_TYPE_OFFLINE\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0NETWORK_TYPE_UNSPECIFIED\0\u{1}NETWORK_TYPE_WIFI\0\u{1}NETWORK_TYPE_CELLULAR\0\u{1}NETWORK_TYPE_OFFLINE\0")
 }
 
 nonisolated extension Tandem_V1_DeviceStatus: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".DeviceStatus"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_level\0\u{3}is_charging\0\u{3}network_type\0\u{3}signal_level\0")
+  public static let protoMessageName: String = _protobuf_package + ".DeviceStatus"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}battery_level\0\u{3}is_charging\0\u{3}network_type\0\u{3}signal_level\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -182,7 +182,7 @@ nonisolated extension Tandem_V1_DeviceStatus: SwiftProtobuf.Message, SwiftProtob
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if self.batteryLevel != 0 {
       try visitor.visitSingularInt32Field(value: self.batteryLevel, fieldNumber: 1)
     }
@@ -198,7 +198,7 @@ nonisolated extension Tandem_V1_DeviceStatus: SwiftProtobuf.Message, SwiftProtob
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_DeviceStatus, rhs: Tandem_V1_DeviceStatus) -> Bool {
+  public static func ==(lhs: Tandem_V1_DeviceStatus, rhs: Tandem_V1_DeviceStatus) -> Bool {
     if lhs.batteryLevel != rhs.batteryLevel {return false}
     if lhs.isCharging != rhs.isCharging {return false}
     if lhs.networkType != rhs.networkType {return false}
@@ -209,29 +209,29 @@ nonisolated extension Tandem_V1_DeviceStatus: SwiftProtobuf.Message, SwiftProtob
 }
 
 nonisolated extension Tandem_V1_Ring: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Ring"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+  public static let protoMessageName: String = _protobuf_package + ".Ring"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     // Load everything into unknown fields
     while try decoder.nextFieldNumber() != nil {}
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_Ring, rhs: Tandem_V1_Ring) -> Bool {
+  public static func ==(lhs: Tandem_V1_Ring, rhs: Tandem_V1_Ring) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
 nonisolated extension Tandem_V1_RingStop: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".RingStop"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}origin\0")
+  public static let protoMessageName: String = _protobuf_package + ".RingStop"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}origin\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -243,14 +243,14 @@ nonisolated extension Tandem_V1_RingStop: SwiftProtobuf.Message, SwiftProtobuf._
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if self.origin != .unspecified {
       try visitor.visitSingularEnumField(value: self.origin, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_RingStop, rhs: Tandem_V1_RingStop) -> Bool {
+  public static func ==(lhs: Tandem_V1_RingStop, rhs: Tandem_V1_RingStop) -> Bool {
     if lhs.origin != rhs.origin {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -258,5 +258,5 @@ nonisolated extension Tandem_V1_RingStop: SwiftProtobuf.Message, SwiftProtobuf._
 }
 
 nonisolated extension Tandem_V1_RingStop.Origin: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ORIGIN_UNSPECIFIED\0\u{1}ORIGIN_MAC\0\u{1}ORIGIN_PHONE\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ORIGIN_UNSPECIFIED\0\u{1}ORIGIN_MAC\0\u{1}ORIGIN_PHONE\0")
 }

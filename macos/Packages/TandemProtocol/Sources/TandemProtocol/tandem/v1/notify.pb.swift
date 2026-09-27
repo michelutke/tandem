@@ -29,19 +29,19 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// VISIBILITY_SECRET notification is forwarded in redacted form (E30-11): title = the app name,
 /// text = "", messaging_style_senders = [] — the phone never sends the real content in that case,
 /// so no receiver-side redaction is required.
-nonisolated enum Tandem_V1_Visibility: SwiftProtobuf.Enum, Swift.CaseIterable {
-  typealias RawValue = Int
+public nonisolated enum Tandem_V1_Visibility: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
   case unspecified // = 0
   case `public` // = 1
   case `private` // = 2
   case secret // = 3
   case UNRECOGNIZED(Int)
 
-  init() {
+  public init() {
     self = .unspecified
   }
 
-  init?(rawValue: Int) {
+  public init?(rawValue: Int) {
     switch rawValue {
     case 0: self = .unspecified
     case 1: self = .public
@@ -51,7 +51,7 @@ nonisolated enum Tandem_V1_Visibility: SwiftProtobuf.Enum, Swift.CaseIterable {
     }
   }
 
-  var rawValue: Int {
+  public var rawValue: Int {
     switch self {
     case .unspecified: return 0
     case .public: return 1
@@ -62,7 +62,7 @@ nonisolated enum Tandem_V1_Visibility: SwiftProtobuf.Enum, Swift.CaseIterable {
   }
 
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Tandem_V1_Visibility] = [
+  public static let allCases: [Tandem_V1_Visibility] = [
     .unspecified,
     .public,
     .private,
@@ -73,7 +73,7 @@ nonisolated enum Tandem_V1_Visibility: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 /// NotificationPosted: PRD F-5.1 — the phone sends this when a notification is posted or updated.
 /// Sent directly as the Envelope payload (no wrapper message needed).
-nonisolated struct Tandem_V1_NotificationPosted: Sendable {
+public nonisolated struct Tandem_V1_NotificationPosted: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -82,105 +82,105 @@ nonisolated struct Tandem_V1_NotificationPosted: Sendable {
   /// NotificationDismiss, and NotificationActionResult to refer back to it. A second
   /// NotificationPosted with the same key updates the Mac's presentation of the same notification
   /// rather than stacking a new one.
-  var key: String = String()
+  public var key: String = String()
 
-  var packageName: String = String()
+  public var packageName: String = String()
 
-  var appVersionCode: Int64 = 0
+  public var appVersionCode: Int64 = 0
 
   /// Display cap: <= 256 characters (#timeouts-connection-limits-and-resource-caps, E01-22);
   /// sanitized per #untrusted-peer-strings-display-sanitization (E01-23) before display.
-  var title: String = String()
+  public var title: String = String()
 
   /// Display cap: <= 4096 characters (E01-22); sanitized as a `body` field (E01-23).
-  var text: String = String()
+  public var text: String = String()
 
   /// MessagingStyle sender names, message order preserved. Cap: <= 25 entries of <= 64 characters
   /// each (E01-22); each entry is sanitized as a `name` field (E01-23).
-  var messagingStyleSenders: [String] = []
+  public var messagingStyleSenders: [String] = []
 
-  var visibility: Tandem_V1_Visibility = .unspecified
+  public var visibility: Tandem_V1_Visibility = .unspecified
 
   /// True when the source notification has an icon; the icon bytes themselves arrive separately
   /// as IconData keyed by package_name + app_version_code (icons are cached per app version, not
   /// per notification, E30-05).
-  var hasIcon_p: Bool = false
+  public var hasIcon_p: Bool = false
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// IconData: PRD F-5.1 — an app icon, sent so the Mac can present notifications with the source
 /// app's icon without asking again for every post from the same app version.
-nonisolated struct Tandem_V1_IconData: Sendable {
+public nonisolated struct Tandem_V1_IconData: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var packageName: String = String()
+  public var packageName: String = String()
 
-  var versionCode: Int64 = 0
+  public var versionCode: Int64 = 0
 
   /// Cap: <= 64 KiB and <= 256x256 px (E01-22); over-cap data is discarded and a placeholder icon
   /// used instead (E30-05) rather than rejected at the protocol layer.
-  var pngBytes: Data = Data()
+  public var pngBytes: Data = Data()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// NotificationAction: PRD F-5.2 — the Mac sends this when the user taps an action (or submits a
 /// reply) on a mirrored notification.
-nonisolated struct Tandem_V1_NotificationAction: Sendable {
+public nonisolated struct Tandem_V1_NotificationAction: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var key: String = String()
+  public var key: String = String()
 
   /// Index into the source notification's action list, in the order NotificationPosted's source
   /// notification declared them.
-  var actionIndex: Int32 = 0
+  public var actionIndex: Int32 = 0
 
   /// Present only for a RemoteInput-capable action the user replied to; empty otherwise. Cap:
   /// <= 4096 characters (E01-22); sanitized as a `body` field (E01-23) before being shown back to
   /// the user (e.g. in a sent-reply confirmation).
-  var replyText: String = String()
+  public var replyText: String = String()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// NotificationDismiss: PRD F-5.3 — either side sends this when a notification is dismissed, so
 /// the other side removes its copy. `origin` records which side dismissed it, so the receiver
 /// never re-forwards a dismissal it only just applied locally (avoiding an echo loop, E30-10,
 /// E30-18).
-nonisolated struct Tandem_V1_NotificationDismiss: Sendable {
+public nonisolated struct Tandem_V1_NotificationDismiss: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var key: String = String()
+  public var key: String = String()
 
-  var origin: Tandem_V1_NotificationDismiss.Origin = .unspecified
+  public var origin: Tandem_V1_NotificationDismiss.Origin = .unspecified
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum Origin: SwiftProtobuf.Enum, Swift.CaseIterable {
-    typealias RawValue = Int
+  public nonisolated enum Origin: SwiftProtobuf.Enum, Swift.CaseIterable {
+    public typealias RawValue = Int
     case unspecified // = 0
     case android // = 1
     case macos // = 2
     case UNRECOGNIZED(Int)
 
-    init() {
+    public init() {
       self = .unspecified
     }
 
-    init?(rawValue: Int) {
+    public init?(rawValue: Int) {
       switch rawValue {
       case 0: self = .unspecified
       case 1: self = .android
@@ -189,7 +189,7 @@ nonisolated struct Tandem_V1_NotificationDismiss: Sendable {
       }
     }
 
-    var rawValue: Int {
+    public var rawValue: Int {
       switch self {
       case .unspecified: return 0
       case .android: return 1
@@ -199,7 +199,7 @@ nonisolated struct Tandem_V1_NotificationDismiss: Sendable {
     }
 
     // The compiler won't synthesize support with the UNRECOGNIZED case.
-    static let allCases: [Tandem_V1_NotificationDismiss.Origin] = [
+    public static let allCases: [Tandem_V1_NotificationDismiss.Origin] = [
       .unspecified,
       .android,
       .macos,
@@ -207,36 +207,36 @@ nonisolated struct Tandem_V1_NotificationDismiss: Sendable {
 
   }
 
-  init() {}
+  public init() {}
 }
 
 /// NotificationActionResult: PRD F-5.2 — the phone answers every received NotificationAction with
 /// this, so the Mac can report a reply/action as sent, or "no longer available" if the source
 /// notification was already gone (UC-09 alternate).
-nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
+public nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var key: String = String()
+  public var key: String = String()
 
-  var status: Tandem_V1_NotificationActionResult.Status = .unspecified
+  public var status: Tandem_V1_NotificationActionResult.Status = .unspecified
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum Status: SwiftProtobuf.Enum, Swift.CaseIterable {
-    typealias RawValue = Int
+  public nonisolated enum Status: SwiftProtobuf.Enum, Swift.CaseIterable {
+    public typealias RawValue = Int
     case unspecified // = 0
     case ok // = 1
     case gone // = 2
     case failed // = 3
     case UNRECOGNIZED(Int)
 
-    init() {
+    public init() {
       self = .unspecified
     }
 
-    init?(rawValue: Int) {
+    public init?(rawValue: Int) {
       switch rawValue {
       case 0: self = .unspecified
       case 1: self = .ok
@@ -246,7 +246,7 @@ nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
       }
     }
 
-    var rawValue: Int {
+    public var rawValue: Int {
       switch self {
       case .unspecified: return 0
       case .ok: return 1
@@ -257,7 +257,7 @@ nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
     }
 
     // The compiler won't synthesize support with the UNRECOGNIZED case.
-    static let allCases: [Tandem_V1_NotificationActionResult.Status] = [
+    public static let allCases: [Tandem_V1_NotificationActionResult.Status] = [
       .unspecified,
       .ok,
       .gone,
@@ -266,7 +266,7 @@ nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
 
   }
 
-  init() {}
+  public init() {}
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -274,14 +274,14 @@ nonisolated struct Tandem_V1_NotificationActionResult: Sendable {
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Visibility: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0VISIBILITY_UNSPECIFIED\0\u{1}VISIBILITY_PUBLIC\0\u{1}VISIBILITY_PRIVATE\0\u{1}VISIBILITY_SECRET\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0VISIBILITY_UNSPECIFIED\0\u{1}VISIBILITY_PUBLIC\0\u{1}VISIBILITY_PRIVATE\0\u{1}VISIBILITY_SECRET\0")
 }
 
 nonisolated extension Tandem_V1_NotificationPosted: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NotificationPosted"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{3}package_name\0\u{3}app_version_code\0\u{1}title\0\u{1}text\0\u{3}messaging_style_senders\0\u{1}visibility\0\u{3}has_icon\0")
+  public static let protoMessageName: String = _protobuf_package + ".NotificationPosted"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{3}package_name\0\u{3}app_version_code\0\u{1}title\0\u{1}text\0\u{3}messaging_style_senders\0\u{1}visibility\0\u{3}has_icon\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -300,7 +300,7 @@ nonisolated extension Tandem_V1_NotificationPosted: SwiftProtobuf.Message, Swift
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.key.isEmpty {
       try visitor.visitSingularStringField(value: self.key, fieldNumber: 1)
     }
@@ -328,7 +328,7 @@ nonisolated extension Tandem_V1_NotificationPosted: SwiftProtobuf.Message, Swift
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_NotificationPosted, rhs: Tandem_V1_NotificationPosted) -> Bool {
+  public static func ==(lhs: Tandem_V1_NotificationPosted, rhs: Tandem_V1_NotificationPosted) -> Bool {
     if lhs.key != rhs.key {return false}
     if lhs.packageName != rhs.packageName {return false}
     if lhs.appVersionCode != rhs.appVersionCode {return false}
@@ -343,10 +343,10 @@ nonisolated extension Tandem_V1_NotificationPosted: SwiftProtobuf.Message, Swift
 }
 
 nonisolated extension Tandem_V1_IconData: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".IconData"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}package_name\0\u{3}version_code\0\u{3}png_bytes\0")
+  public static let protoMessageName: String = _protobuf_package + ".IconData"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}package_name\0\u{3}version_code\0\u{3}png_bytes\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -360,7 +360,7 @@ nonisolated extension Tandem_V1_IconData: SwiftProtobuf.Message, SwiftProtobuf._
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.packageName.isEmpty {
       try visitor.visitSingularStringField(value: self.packageName, fieldNumber: 1)
     }
@@ -373,7 +373,7 @@ nonisolated extension Tandem_V1_IconData: SwiftProtobuf.Message, SwiftProtobuf._
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_IconData, rhs: Tandem_V1_IconData) -> Bool {
+  public static func ==(lhs: Tandem_V1_IconData, rhs: Tandem_V1_IconData) -> Bool {
     if lhs.packageName != rhs.packageName {return false}
     if lhs.versionCode != rhs.versionCode {return false}
     if lhs.pngBytes != rhs.pngBytes {return false}
@@ -383,10 +383,10 @@ nonisolated extension Tandem_V1_IconData: SwiftProtobuf.Message, SwiftProtobuf._
 }
 
 nonisolated extension Tandem_V1_NotificationAction: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NotificationAction"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{3}action_index\0\u{3}reply_text\0")
+  public static let protoMessageName: String = _protobuf_package + ".NotificationAction"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{3}action_index\0\u{3}reply_text\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -400,7 +400,7 @@ nonisolated extension Tandem_V1_NotificationAction: SwiftProtobuf.Message, Swift
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.key.isEmpty {
       try visitor.visitSingularStringField(value: self.key, fieldNumber: 1)
     }
@@ -413,7 +413,7 @@ nonisolated extension Tandem_V1_NotificationAction: SwiftProtobuf.Message, Swift
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_NotificationAction, rhs: Tandem_V1_NotificationAction) -> Bool {
+  public static func ==(lhs: Tandem_V1_NotificationAction, rhs: Tandem_V1_NotificationAction) -> Bool {
     if lhs.key != rhs.key {return false}
     if lhs.actionIndex != rhs.actionIndex {return false}
     if lhs.replyText != rhs.replyText {return false}
@@ -423,10 +423,10 @@ nonisolated extension Tandem_V1_NotificationAction: SwiftProtobuf.Message, Swift
 }
 
 nonisolated extension Tandem_V1_NotificationDismiss: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NotificationDismiss"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{1}origin\0")
+  public static let protoMessageName: String = _protobuf_package + ".NotificationDismiss"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{1}origin\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -439,7 +439,7 @@ nonisolated extension Tandem_V1_NotificationDismiss: SwiftProtobuf.Message, Swif
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.key.isEmpty {
       try visitor.visitSingularStringField(value: self.key, fieldNumber: 1)
     }
@@ -449,7 +449,7 @@ nonisolated extension Tandem_V1_NotificationDismiss: SwiftProtobuf.Message, Swif
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_NotificationDismiss, rhs: Tandem_V1_NotificationDismiss) -> Bool {
+  public static func ==(lhs: Tandem_V1_NotificationDismiss, rhs: Tandem_V1_NotificationDismiss) -> Bool {
     if lhs.key != rhs.key {return false}
     if lhs.origin != rhs.origin {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -458,14 +458,14 @@ nonisolated extension Tandem_V1_NotificationDismiss: SwiftProtobuf.Message, Swif
 }
 
 nonisolated extension Tandem_V1_NotificationDismiss.Origin: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ORIGIN_UNSPECIFIED\0\u{1}ORIGIN_ANDROID\0\u{1}ORIGIN_MACOS\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ORIGIN_UNSPECIFIED\0\u{1}ORIGIN_ANDROID\0\u{1}ORIGIN_MACOS\0")
 }
 
 nonisolated extension Tandem_V1_NotificationActionResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".NotificationActionResult"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{1}status\0")
+  public static let protoMessageName: String = _protobuf_package + ".NotificationActionResult"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}key\0\u{1}status\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -478,7 +478,7 @@ nonisolated extension Tandem_V1_NotificationActionResult: SwiftProtobuf.Message,
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.key.isEmpty {
       try visitor.visitSingularStringField(value: self.key, fieldNumber: 1)
     }
@@ -488,7 +488,7 @@ nonisolated extension Tandem_V1_NotificationActionResult: SwiftProtobuf.Message,
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_NotificationActionResult, rhs: Tandem_V1_NotificationActionResult) -> Bool {
+  public static func ==(lhs: Tandem_V1_NotificationActionResult, rhs: Tandem_V1_NotificationActionResult) -> Bool {
     if lhs.key != rhs.key {return false}
     if lhs.status != rhs.status {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -497,5 +497,5 @@ nonisolated extension Tandem_V1_NotificationActionResult: SwiftProtobuf.Message,
 }
 
 nonisolated extension Tandem_V1_NotificationActionResult.Status: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0STATUS_UNSPECIFIED\0\u{1}STATUS_OK\0\u{1}STATUS_GONE\0\u{1}STATUS_FAILED\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0STATUS_UNSPECIFIED\0\u{1}STATUS_OK\0\u{1}STATUS_GONE\0\u{1}STATUS_FAILED\0")
 }

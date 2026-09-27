@@ -22,6 +22,7 @@
 		9E3ECFF08B9545FFD864C988 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9ED3304BEEFB2EF47223CBA6 /* README.md */; };
 		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
+		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
 		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
@@ -70,6 +71,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		041CF567C3AFCE26290A0483 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
 		082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppComposition.swift; sourceTree = "<group>"; };
 		0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioFailClosedErrorUITests.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 			children = (
 				914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
+				041CF567C3AFCE26290A0483 /* README.md */,
 			);
 			path = TandemAppTests;
 			sourceTree = "<group>";
@@ -231,6 +234,7 @@
 			buildConfigurationList = FEA31CC30E71F445697274E1 /* Build configuration list for PBXNativeTarget "TandemAppTests" */;
 			buildPhases = (
 				6CA9F651C307663EA2598ACB /* Sources */,
+				2DB267659590A2945A73B5A4 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -333,6 +337,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2DB267659590A2945A73B5A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BC7B187EE5AF3789F6775FFF /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		49B17D310B02CAFE6AEB90BF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

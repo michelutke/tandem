@@ -30,8 +30,8 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// proof from an expired window from a malformed request (D-17); the E01-05 local reasons
 /// (EXPIRED, BAD_PROOF, MALFORMED) never appear on the wire, and local reason TIMEOUT sends no
 /// PairRejected at all (D-72).
-nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIterable {
-  typealias RawValue = Int
+public nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
 
   /// Never legal on the wire; fatal for a receiver, like any other proto3 zero-value default
   /// relied on as a real signal.
@@ -45,11 +45,11 @@ nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIte
   case pairingUnavailable // = 2
   case UNRECOGNIZED(Int)
 
-  init() {
+  public init() {
     self = .unspecified
   }
 
-  init?(rawValue: Int) {
+  public init?(rawValue: Int) {
     switch rawValue {
     case 0: self = .unspecified
     case 1: self = .rejectedByOwner
@@ -58,7 +58,7 @@ nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIte
     }
   }
 
-  var rawValue: Int {
+  public var rawValue: Int {
     switch self {
     case .unspecified: return 0
     case .rejectedByOwner: return 1
@@ -68,7 +68,7 @@ nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIte
   }
 
   // The compiler won't synthesize support with the UNRECOGNIZED case.
-  static let allCases: [Tandem_V1_PairRejectedReason] = [
+  public static let allCases: [Tandem_V1_PairRejectedReason] = [
     .unspecified,
     .rejectedByOwner,
     .pairingUnavailable,
@@ -81,7 +81,7 @@ nonisolated enum Tandem_V1_PairRejectedReason: SwiftProtobuf.Enum, Swift.CaseIte
 /// unconditionally as the first CONTROL frame after the VersionHello exchange completes on every
 /// pairing-candidate connection, on every platform and API level — never a fallback gated on the
 /// E03-04 exporter spike outcome (D-67 supersedes D-15).
-nonisolated struct Tandem_V1_PairChallenge: Sendable {
+public nonisolated struct Tandem_V1_PairChallenge: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
@@ -89,33 +89,33 @@ nonisolated struct Tandem_V1_PairChallenge: Sendable {
   /// Exactly 32 bytes (256 bits) from a CSPRNG, generated fresh per pairing-candidate connection.
   /// This is the `cb` input to both the proof and confirmation-code formulas (#pairing "Proof
   /// computation", "Confirmation code").
-  var challenge: Data = Data()
+  public var challenge: Data = Data()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// DeviceInfo: the phone's self-reported identity shown to the owner in the Mac's mutual-
 /// confirmation dialog (#pairing "Mutual confirmation"), sanitized for display before use
 /// (#untrusted-peer-strings-display-sanitization, E01-23) and never trusted for any decision.
 /// Cycle 4: no IMEI, serial, ANDROID_ID, account, or other stable hardware identifier.
-nonisolated struct Tandem_V1_DeviceInfo: Sendable {
+public nonisolated struct Tandem_V1_DeviceInfo: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
   /// At most 64 UTF-8 bytes.
-  var displayName: String = String()
+  public var displayName: String = String()
 
   /// At most 64 UTF-8 bytes.
-  var model: String = String()
+  public var model: String = String()
 
-  var appVersion: String = String()
+  public var appVersion: String = String()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// PairRequest: docs/protocol/SPEC.md #pairing "Frame order on a pairing-candidate connection".
@@ -123,67 +123,67 @@ nonisolated struct Tandem_V1_DeviceInfo: Sendable {
 /// Carries no public key or fingerprint field: the phone's key comes only from the client
 /// certificate actually seen on this connection's TLS handshake (#pairing "Proof computation"),
 /// never from any field here.
-nonisolated struct Tandem_V1_PairRequest: Sendable {
+public nonisolated struct Tandem_V1_PairRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var deviceInfo: Tandem_V1_DeviceInfo {
+  public var deviceInfo: Tandem_V1_DeviceInfo {
     get {_deviceInfo ?? Tandem_V1_DeviceInfo()}
     set {_deviceInfo = newValue}
   }
   /// Returns true if `deviceInfo` has been explicitly set.
-  var hasDeviceInfo: Bool {self._deviceInfo != nil}
+  public var hasDeviceInfo: Bool {self._deviceInfo != nil}
   /// Clears the value of `deviceInfo`. Subsequent reads from it will return its default value.
-  mutating func clearDeviceInfo() {self._deviceInfo = nil}
+  public mutating func clearDeviceInfo() {self._deviceInfo = nil}
 
   /// HMAC-SHA256(secret, transcript) per #pairing "Proof computation"; the Mac recomputes and
   /// compares this in constant time (invariant 6).
-  var proof: Data = Data()
+  public var proof: Data = Data()
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 
   fileprivate var _deviceInfo: Tandem_V1_DeviceInfo? = nil
 }
 
 /// PairAccepted: docs/protocol/SPEC.md #pairing "Mutual confirmation". Sent by the Mac only after
 /// the owner explicitly clicks Pair; no fields.
-nonisolated struct Tandem_V1_PairAccepted: Sendable {
+public nonisolated struct Tandem_V1_PairAccepted: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// PairRejected: docs/protocol/SPEC.md #pairing "PairRejected wire collapse". Sent immediately
 /// before the PAIRING_FAILED close (#errors-and-close-codes).
-nonisolated struct Tandem_V1_PairRejected: Sendable {
+public nonisolated struct Tandem_V1_PairRejected: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var reason: Tandem_V1_PairRejectedReason = .unspecified
+  public var reason: Tandem_V1_PairRejectedReason = .unspecified
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 /// Revoke: docs/protocol/SPEC.md #pairing "Mutual confirmation". Always means "delete the record
 /// of the peer authenticated on this session"; can never name another peer, so it has no fields.
-nonisolated struct Tandem_V1_Revoke: Sendable {
+public nonisolated struct Tandem_V1_Revoke: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  init() {}
+  public init() {}
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -191,14 +191,14 @@ nonisolated struct Tandem_V1_Revoke: Sendable {
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_PairRejectedReason: SwiftProtobuf._ProtoNameProviding {
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PAIR_REJECTED_REASON_UNSPECIFIED\0\u{1}PAIR_REJECTED_REASON_REJECTED_BY_OWNER\0\u{1}PAIR_REJECTED_REASON_PAIRING_UNAVAILABLE\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PAIR_REJECTED_REASON_UNSPECIFIED\0\u{1}PAIR_REJECTED_REASON_REJECTED_BY_OWNER\0\u{1}PAIR_REJECTED_REASON_PAIRING_UNAVAILABLE\0")
 }
 
 nonisolated extension Tandem_V1_PairChallenge: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".PairChallenge"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}challenge\0")
+  public static let protoMessageName: String = _protobuf_package + ".PairChallenge"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}challenge\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -210,14 +210,14 @@ nonisolated extension Tandem_V1_PairChallenge: SwiftProtobuf.Message, SwiftProto
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.challenge.isEmpty {
       try visitor.visitSingularBytesField(value: self.challenge, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_PairChallenge, rhs: Tandem_V1_PairChallenge) -> Bool {
+  public static func ==(lhs: Tandem_V1_PairChallenge, rhs: Tandem_V1_PairChallenge) -> Bool {
     if lhs.challenge != rhs.challenge {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -225,10 +225,10 @@ nonisolated extension Tandem_V1_PairChallenge: SwiftProtobuf.Message, SwiftProto
 }
 
 nonisolated extension Tandem_V1_DeviceInfo: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".DeviceInfo"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}display_name\0\u{1}model\0\u{3}app_version\0")
+  public static let protoMessageName: String = _protobuf_package + ".DeviceInfo"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}display_name\0\u{1}model\0\u{3}app_version\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -242,7 +242,7 @@ nonisolated extension Tandem_V1_DeviceInfo: SwiftProtobuf.Message, SwiftProtobuf
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if !self.displayName.isEmpty {
       try visitor.visitSingularStringField(value: self.displayName, fieldNumber: 1)
     }
@@ -255,7 +255,7 @@ nonisolated extension Tandem_V1_DeviceInfo: SwiftProtobuf.Message, SwiftProtobuf
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_DeviceInfo, rhs: Tandem_V1_DeviceInfo) -> Bool {
+  public static func ==(lhs: Tandem_V1_DeviceInfo, rhs: Tandem_V1_DeviceInfo) -> Bool {
     if lhs.displayName != rhs.displayName {return false}
     if lhs.model != rhs.model {return false}
     if lhs.appVersion != rhs.appVersion {return false}
@@ -265,10 +265,10 @@ nonisolated extension Tandem_V1_DeviceInfo: SwiftProtobuf.Message, SwiftProtobuf
 }
 
 nonisolated extension Tandem_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".PairRequest"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_info\0\u{1}proof\0")
+  public static let protoMessageName: String = _protobuf_package + ".PairRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}device_info\0\u{1}proof\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -281,7 +281,7 @@ nonisolated extension Tandem_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobu
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     // The use of inline closures is to circumvent an issue where the compiler
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
@@ -295,7 +295,7 @@ nonisolated extension Tandem_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobu
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_PairRequest, rhs: Tandem_V1_PairRequest) -> Bool {
+  public static func ==(lhs: Tandem_V1_PairRequest, rhs: Tandem_V1_PairRequest) -> Bool {
     if lhs._deviceInfo != rhs._deviceInfo {return false}
     if lhs.proof != rhs.proof {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
@@ -304,29 +304,29 @@ nonisolated extension Tandem_V1_PairRequest: SwiftProtobuf.Message, SwiftProtobu
 }
 
 nonisolated extension Tandem_V1_PairAccepted: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".PairAccepted"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+  public static let protoMessageName: String = _protobuf_package + ".PairAccepted"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     // Load everything into unknown fields
     while try decoder.nextFieldNumber() != nil {}
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_PairAccepted, rhs: Tandem_V1_PairAccepted) -> Bool {
+  public static func ==(lhs: Tandem_V1_PairAccepted, rhs: Tandem_V1_PairAccepted) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
 }
 
 nonisolated extension Tandem_V1_PairRejected: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".PairRejected"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}reason\0")
+  public static let protoMessageName: String = _protobuf_package + ".PairRejected"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}reason\0")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -338,14 +338,14 @@ nonisolated extension Tandem_V1_PairRejected: SwiftProtobuf.Message, SwiftProtob
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     if self.reason != .unspecified {
       try visitor.visitSingularEnumField(value: self.reason, fieldNumber: 1)
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_PairRejected, rhs: Tandem_V1_PairRejected) -> Bool {
+  public static func ==(lhs: Tandem_V1_PairRejected, rhs: Tandem_V1_PairRejected) -> Bool {
     if lhs.reason != rhs.reason {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
@@ -353,19 +353,19 @@ nonisolated extension Tandem_V1_PairRejected: SwiftProtobuf.Message, SwiftProtob
 }
 
 nonisolated extension Tandem_V1_Revoke: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Revoke"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+  public static let protoMessageName: String = _protobuf_package + ".Revoke"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     // Load everything into unknown fields
     while try decoder.nextFieldNumber() != nil {}
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_Revoke, rhs: Tandem_V1_Revoke) -> Bool {
+  public static func ==(lhs: Tandem_V1_Revoke, rhs: Tandem_V1_Revoke) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
