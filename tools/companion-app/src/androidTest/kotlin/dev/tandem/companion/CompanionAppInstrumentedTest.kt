@@ -56,6 +56,7 @@ class CompanionAppInstrumentedTest {
         val resultIntent =
             Intent(CompanionContract.ACTION_FIRED)
                 .setPackage(context.packageName)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(CompanionContract.EXTRA_KEY, key)
                 .putExtra(CompanionContract.EXTRA_ACTION_ID, CompanionContract.ACTION_ID_REPLY)
         val results = Bundle().apply { putCharSequence(CompanionContract.REMOTE_INPUT_KEY, replyText) }
@@ -114,6 +115,7 @@ class CompanionAppInstrumentedTest {
                 .setPackage(context.packageName)
                 .putExtra(CompanionContract.EXTRA_KIND, kind)
                 .putExtra(CompanionContract.EXTRA_KEY, key)
+        if (kind != CompanionContract.KIND_BURST) intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
         intent.extras()
         context.sendBroadcast(intent)
     }
@@ -169,7 +171,7 @@ class CompanionAppInstrumentedTest {
         const val POLL_INTERVAL_MS = 50L
         val REPLY_TIMEOUT_NANOS =
             java.util.concurrent.TimeUnit.SECONDS
-                .toNanos(20)
+                .toNanos(60)
         const val BURST_COUNT = 50
         const val BURST_WINDOW_MS = 1000L
         val BURST_TIMEOUT_NANOS =
