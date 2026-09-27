@@ -1,0 +1,5 @@
+# E15-12: nmap phone allowlist — ports expected open on a phone running Tandem app.
+# Format: port/protocol (one per line). Comments and blank lines ignored.
+
+# ADB over Wi-Fi (if explicitly enabled by user)
+5555/tcp
