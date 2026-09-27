@@ -27,6 +27,8 @@ object PairingErrorMapper {
             is PairingFailure.ConnectionLost -> PairingErrorMessage.QR_EXPIRED
             is PairingFailure.UserCancelled -> PairingErrorMessage.QR_EXPIRED
             is PairingFailure.ConfirmationTimeout -> PairingErrorMessage.QR_EXPIRED
+            is PairingFailure.ChallengeTimeout -> PairingErrorMessage.NETWORK
+            is PairingFailure.MalformedChallenge -> PairingErrorMessage.QR_EXPIRED
         }
 
     fun mapRejectionReason(reason: PairRejectedReason): PairingErrorMessage =
