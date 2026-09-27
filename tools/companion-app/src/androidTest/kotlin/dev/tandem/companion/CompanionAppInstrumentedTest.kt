@@ -40,10 +40,10 @@ class CompanionAppInstrumentedTest {
         }
 
         val notification = awaitActiveNotification(key)
-        val messages =
-            Notification.MessagingStyle.Message.getMessagesFromBundleArray(
-                notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES),
-            )
+        // Notification.MessagingStyle.Message.getMessagesFromBundleArray(...) is API 30+ only
+        // (this module's minSdk is 29, and CI runs an API 29 device); reading the raw extras
+        // array's size checks the same thing without needing that method.
+        val messages = requireNotNull(notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES))
         assertEquals(3, messages.size)
     }
 
@@ -79,8 +79,7 @@ class CompanionAppInstrumentedTest {
             putExtra(CompanionContract.EXTRA_INTERVAL_MS, BURST_WINDOW_MS)
         }
 
-        Thread.sleep(BURST_WINDOW_MS + BURST_SETTLE_MS)
-        val notification = awaitActiveNotification(key)
+        val notification = awaitBurstComplete(key)
         assertEquals(
             "burst $BURST_COUNT/$BURST_COUNT",
             notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString(),
@@ -124,6 +123,25 @@ class CompanionAppInstrumentedTest {
         error("no active notification for key=$key within timeout")
     }
 
+    // The companion app paces burst updates to stay under the platform's notification-update
+    // shedding threshold (see CompanionReceiver.MIN_STEP_MS), so a full 50-update burst can take
+    // several seconds longer than the requested intervalMs; poll for the final "N/N" text instead
+    // of guessing a fixed sleep.
+    private fun awaitBurstComplete(key: String): Notification {
+        val deadline = System.nanoTime() + BURST_TIMEOUT_NANOS
+        val expectedText = "burst $BURST_COUNT/$BURST_COUNT"
+        var last: Notification? = null
+        while (System.nanoTime() < deadline) {
+            val match = notificationManager.activeNotifications.firstOrNull { it.tag == key }
+            if (match != null) {
+                last = match.notification
+                if (last.extras.getCharSequence(Notification.EXTRA_TEXT).toString() == expectedText) return last
+            }
+            Thread.sleep(POLL_INTERVAL_MS)
+        }
+        return last ?: error("no active notification for key=$key within timeout")
+    }
+
     private fun queryReplyText(key: String): String? {
         val uri =
             android.net.Uri
@@ -146,9 +164,11 @@ class CompanionAppInstrumentedTest {
         const val POLL_INTERVAL_MS = 50L
         val REPLY_TIMEOUT_NANOS =
             java.util.concurrent.TimeUnit.SECONDS
-                .toNanos(1)
+                .toNanos(8)
         const val BURST_COUNT = 50
         const val BURST_WINDOW_MS = 1000L
-        const val BURST_SETTLE_MS = 500L
+        val BURST_TIMEOUT_NANOS =
+            java.util.concurrent.TimeUnit.SECONDS
+                .toNanos(30)
     }
 }

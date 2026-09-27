@@ -18,10 +18,16 @@
             </intent-filter>
         </receiver>
 
-        <!-- Target of every `actions` kind's PendingIntent (button tap and RemoteInput reply). -->
+        <!-- Target of every `actions` kind's PendingIntent (button tap and RemoteInput reply);
+             the intent-filter also lets an instrumented test drive it directly via
+             Context.sendBroadcast, the same way it drives CompanionReceiver. -->
         <receiver
             android:name=".ActionReceiver"
-            android:exported="true" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.tandem.companion.ACTION_FIRED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Debug-only read-back for recorded actions/replies (E00-22 acceptance). -->
         <provider

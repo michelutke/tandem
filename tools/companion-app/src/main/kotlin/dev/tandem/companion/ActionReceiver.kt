@@ -17,7 +17,7 @@ class ActionReceiver : BroadcastReceiver() {
     ) {
         val key = intent.getStringExtra(CompanionContract.EXTRA_KEY) ?: return
         val actionId = intent.getStringExtra(CompanionContract.EXTRA_ACTION_ID) ?: return
-        CompanionRecords.actionsFired += CompanionRecords.ActionFired(key, actionId)
+        CompanionRecords.recordActionFired(context, key, actionId)
 
         val replyText =
             RemoteInput
@@ -25,7 +25,7 @@ class ActionReceiver : BroadcastReceiver() {
                 ?.getCharSequence(CompanionContract.REMOTE_INPUT_KEY)
                 ?.toString()
         if (replyText != null) {
-            CompanionRecords.repliesReceived += CompanionRecords.ReplyReceived(key, replyText)
+            CompanionRecords.recordReplyReceived(context, key, replyText)
         }
     }
 }

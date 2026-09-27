@@ -24,14 +24,16 @@ class RecordsProvider : ContentProvider() {
     ): Cursor? =
         when (MATCHER.match(uri)) {
             ACTIONS -> {
+                val context = requireNotNull(context)
                 MatrixCursor(arrayOf(CompanionContract.COLUMN_KEY, CompanionContract.COLUMN_ACTION_ID)).apply {
-                    CompanionRecords.actionsFired.forEach { addRow(arrayOf(it.key, it.actionId)) }
+                    CompanionRecords.actionsFired(context).forEach { addRow(arrayOf(it.key, it.actionId)) }
                 }
             }
 
             REPLIES -> {
+                val context = requireNotNull(context)
                 MatrixCursor(arrayOf(CompanionContract.COLUMN_KEY, CompanionContract.COLUMN_TEXT)).apply {
-                    CompanionRecords.repliesReceived.forEach { addRow(arrayOf(it.key, it.text)) }
+                    CompanionRecords.repliesReceived(context).forEach { addRow(arrayOf(it.key, it.text)) }
                 }
             }
 

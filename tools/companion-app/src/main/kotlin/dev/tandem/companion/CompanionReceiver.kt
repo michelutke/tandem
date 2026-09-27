@@ -99,8 +99,14 @@ class CompanionReceiver : BroadcastReceiver() {
     }
 
     // "burst (N updates in T ms on one key)": posts `count` updates to the same key, spread across
-    // roughly `intervalMs` (T) total. Runs on a background thread (`goAsync()` keeps the receiver
-    // alive past `onReceive` returning) so the ~1s spread never risks the broadcast ANR timeout.
+    // roughly `intervalMs` (T) total, but never faster than MIN_STEP_MS apart. Runs on a
+    // background thread (`goAsync()` keeps the receiver alive past `onReceive` returning) since
+    // pacing a real burst can run well past the broadcast ANR timeout.
+    //
+    // NotificationManagerService sheds (silently drops, not delays) notification *updates* to the
+    // same id/tag above ~10/sec per package (Android N+); requesting a faster pace than that would
+    // make some updates never land no matter how long a caller waits, so MIN_STEP_MS floors the
+    // pace at the platform-recommended safe rate instead of honoring an unsafe `intervalMs`.
     private fun postBurst(
         context: Context,
         intent: Intent,
@@ -108,7 +114,8 @@ class CompanionReceiver : BroadcastReceiver() {
     ) {
         val count = intent.getIntExtra(CompanionContract.EXTRA_COUNT, 1)
         val intervalMs = intent.getLongExtra(CompanionContract.EXTRA_INTERVAL_MS, 0L)
-        val stepMs = if (count > 1) intervalMs / count else 0L
+        val requestedStepMs = if (count > 1) intervalMs / count else 0L
+        val stepMs = maxOf(requestedStepMs, MIN_STEP_MS)
         val pendingResult = goAsync()
         Thread {
             try {
@@ -128,5 +135,12 @@ class CompanionReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }.start()
+    }
+
+    private companion object {
+        // NotificationManagerService's ~10/sec shedding threshold (Android N+) is measured with
+        // enough slack/jitter that even a steady 5/sec (200ms) pace occasionally sheds one or two
+        // updates on a loaded emulator; ~3/sec leaves real margin.
+        const val MIN_STEP_MS = 350L
     }
 }
