@@ -454,9 +454,11 @@ object ConformanceRunner {
         return VectorOutcome(id, "display-strings", if (actual == expected) "pass" else "fail", expected, actual)
     }
 
-    private fun statusEncodingOutcome(vector: JsonObject): VectorOutcome = frameRoundTripOutcome("status-encoding", vector)
+    private fun statusEncodingOutcome(vector: JsonObject): VectorOutcome =
+        frameRoundTripOutcome("status-encoding", vector)
 
-    private fun notifyEncodingOutcome(vector: JsonObject): VectorOutcome = frameRoundTripOutcome("notify-encoding", vector)
+    private fun notifyEncodingOutcome(vector: JsonObject): VectorOutcome =
+        frameRoundTripOutcome("notify-encoding", vector)
 
     /** Decodes an Envelope frame and re-encodes it, checking the bytes round-trip identically.
      * Shared by every category whose vectors are complete frame-encoding round-trips rather than
