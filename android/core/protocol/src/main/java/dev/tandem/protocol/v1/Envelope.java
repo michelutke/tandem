@@ -42,6 +42,7 @@ public  final class Envelope extends
     NOTIFICATION_ACTION(32),
     NOTIFICATION_DISMISS(33),
     NOTIFICATION_ACTION_RESULT(34),
+    CLIPBOARD_TEXT(40),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -74,6 +75,7 @@ public  final class Envelope extends
         case 32: return NOTIFICATION_ACTION;
         case 33: return NOTIFICATION_DISMISS;
         case 34: return NOTIFICATION_ACTION_RESULT;
+        case 40: return CLIPBOARD_TEXT;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -1162,6 +1164,78 @@ public  final class Envelope extends
    */
   private void clearNotificationActionResult() {
     if (payloadCase_ == 34) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CLIPBOARD_TEXT_FIELD_NUMBER = 40;
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   */
+  @java.lang.Override
+  public boolean hasClipboardText() {
+    return payloadCase_ == 40;
+  }
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ClipboardText getClipboardText() {
+    if (payloadCase_ == 40) {
+       return (dev.tandem.protocol.v1.ClipboardText) payload_;
+    }
+    return dev.tandem.protocol.v1.ClipboardText.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setClipboardText(dev.tandem.protocol.v1.ClipboardText value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 40;
+  }
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeClipboardText(dev.tandem.protocol.v1.ClipboardText value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 40 &&
+        payload_ != dev.tandem.protocol.v1.ClipboardText.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ClipboardText.newBuilder((dev.tandem.protocol.v1.ClipboardText) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 40;
+  }
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   */
+  private void clearClipboardText() {
+    if (payloadCase_ == 40) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -2305,6 +2379,78 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    @java.lang.Override
+    public boolean hasClipboardText() {
+      return instance.hasClipboardText();
+    }
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ClipboardText getClipboardText() {
+      return instance.getClipboardText();
+    }
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    public Builder setClipboardText(dev.tandem.protocol.v1.ClipboardText value) {
+      copyOnWrite();
+      instance.setClipboardText(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    public Builder setClipboardText(
+        dev.tandem.protocol.v1.ClipboardText.Builder builderForValue) {
+      copyOnWrite();
+      instance.setClipboardText(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    public Builder mergeClipboardText(dev.tandem.protocol.v1.ClipboardText value) {
+      copyOnWrite();
+      instance.mergeClipboardText(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * clipboard.proto (E31-01) — CLIPBOARD channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+     */
+    public Builder clearClipboardText() {
+      copyOnWrite();
+      instance.clearClipboardText();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -2343,12 +2489,13 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.NotificationAction.class,
             dev.tandem.protocol.v1.NotificationDismiss.class,
             dev.tandem.protocol.v1.NotificationActionResult.class,
+            dev.tandem.protocol.v1.ClipboardText.class,
           };
           java.lang.String info =
-              "\u0000\u0014\u0001\u0000\u0001\"\u0014\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
+              "\u0000\u0015\u0001\u0000\u0001(\u0015\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
               "\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000" +
               "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
-              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000";
+              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {
