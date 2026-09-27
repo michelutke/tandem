@@ -70,6 +70,7 @@ object ConformanceRunner {
             "qr-payload",
             "display-strings",
             "status-encoding",
+            "notify-encoding",
         )
 
     /** Every vector entry across every manifest under [vectorsDir], on disk right now. */
@@ -161,6 +162,7 @@ object ConformanceRunner {
                 "qr-payload" -> qrPayloadOutcome(vector)
                 "display-strings" -> displayStringsOutcome(vector)
                 "status-encoding" -> statusEncodingOutcome(vector)
+                "notify-encoding" -> notifyEncodingOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }
         }
@@ -504,6 +506,18 @@ object ConformanceRunner {
     }
 
     private fun statusEncodingOutcome(vector: JsonObject): VectorOutcome =
+        frameRoundTripOutcome("status-encoding", vector)
+
+    private fun notifyEncodingOutcome(vector: JsonObject): VectorOutcome =
+        frameRoundTripOutcome("notify-encoding", vector)
+
+    /** Decodes an Envelope frame and re-encodes it, checking the bytes round-trip identically.
+     * Shared by every category whose vectors are complete frame-encoding round-trips rather than
+     * a category-specific transform (status-encoding, notify-encoding). */
+    private fun frameRoundTripOutcome(
+        category: String,
+        vector: JsonObject,
+    ): VectorOutcome =
         runBlocking {
             val id = vector.getValue("id").jsonPrimitive.content
             val input = vector.getValue("input").jsonObject
@@ -513,7 +527,7 @@ object ConformanceRunner {
                 decoded as? DecodeResult.Frame
                     ?: return@runBlocking VectorOutcome(
                         id,
-                        "status-encoding",
+                        category,
                         "fail",
                         inputFrame.toHex(),
                         "rejected: $decoded",
@@ -523,7 +537,7 @@ object ConformanceRunner {
             val passed = inputFrame.contentEquals(outputFrame)
             VectorOutcome(
                 id,
-                "status-encoding",
+                category,
                 if (passed) "pass" else "fail",
                 inputFrame.toHex(),
                 outputFrame.toHex(),

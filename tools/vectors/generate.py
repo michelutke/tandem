@@ -39,6 +39,7 @@ from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.
 from display_strings import generate_display_string_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
+from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
 from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
 from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
@@ -58,6 +59,7 @@ CATEGORIES.append(("pairing-proof.json", generate_pairing_proof_vectors))  # E01
 CATEGORIES.append(("qr-payload.json", generate_qr_payload_vectors))  # E01-21
 CATEGORIES.append(("display-strings.json", generate_display_string_vectors))  # E01-24
 CATEGORIES.append(("status-encoding.json", generate_status_encoding_vectors))  # E23-01
+CATEGORIES.append(("notify-encoding.json", generate_notify_encoding_vectors))  # E30-01
 
 
 def render(manifest: Manifest) -> str:

@@ -53,6 +53,20 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-29;google_apis;x86_64" > /dev/null
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+      # E00-22: the companion notification-poster app is built and installed on the managed
+      # devices before any other instrumented test runs (its own `companionApp_*` kind-coverage
+      # tests double as that installation/build step).
+      - name: Run companion app instrumented tests on managed devices
+        run: ./gradlew :companion-app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Upload companion app test report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: companion-app-test-report
+          path: |
+            tools/companion-app/build/reports/androidTests/managedDevice
+            tools/companion-app/build/outputs/androidTest-results
+          if-no-files-found: ignore
       - name: Run instrumented tests on managed devices
         run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
       # Separate invocation: running both modules' device groups at once (4 emulators) exhausts
