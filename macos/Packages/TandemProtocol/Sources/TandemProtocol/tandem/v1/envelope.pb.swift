@@ -179,6 +179,15 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .notificationActionResult(newValue)}
   }
 
+  /// clipboard.proto (E31-01) — CLIPBOARD channel.
+  public var clipboardText: Tandem_V1_ClipboardText {
+    get {
+      if case .clipboardText(let v)? = payload {return v}
+      return Tandem_V1_ClipboardText()
+    }
+    set {payload = .clipboardText(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -202,6 +211,8 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case notificationAction(Tandem_V1_NotificationAction)
     case notificationDismiss(Tandem_V1_NotificationDismiss)
     case notificationActionResult(Tandem_V1_NotificationActionResult)
+    /// clipboard.proto (E31-01) — CLIPBOARD channel.
+    case clipboardText(Tandem_V1_ClipboardText)
 
   }
 
@@ -214,7 +225,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -446,6 +457,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .notificationActionResult(v)
         }
       }()
+      case 40: try {
+        var v: Tandem_V1_ClipboardText?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .clipboardText(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .clipboardText(v)
+        }
+      }()
       default: break
       }
     }
@@ -533,6 +557,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .notificationActionResult?: try {
       guard case .notificationActionResult(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
+    }()
+    case .clipboardText?: try {
+      guard case .clipboardText(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 40)
     }()
     case nil: break
     }
