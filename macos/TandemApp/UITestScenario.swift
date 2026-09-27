@@ -21,6 +21,13 @@ enum UITestScenario: String {
     /// seeded via `@testable import TandemProtocol`.
     case pairedConnected
 
+    /// A previously-paired peer whose session is not currently `Ready` -- e.g. disconnected
+    /// (E22-02): the menu bar shows "Disconnected" and the four quick actions (Send File, Push
+    /// Clipboard, Find Phone, Mirror Phone) render but each disabled, backed by the same seeded
+    /// ``FakeTandemSession`` (E12-12) approach as ``pairedConnected``, transitioned to
+    /// `.disconnected` instead of `.ready`.
+    case pairedDisconnected
+
     /// Fail-closed error state: version mismatch (E12-10).
     case failClosedError
 

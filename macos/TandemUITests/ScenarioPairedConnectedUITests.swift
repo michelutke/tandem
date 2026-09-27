@@ -71,4 +71,36 @@ final class ScenarioPairedConnectedUITests: XCTestCase {
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
+
+    // MARK: - menuBarExtra_pairedConnectedScenario_showsFourEnabledQuickActions
+
+    func test_menuBarExtra_pairedConnectedScenario_showsFourEnabledQuickActions() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestScenario", "pairedConnected"]
+        app.launch()
+
+        let window = app.windows["Tandem UI Test Scenario"]
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "ui test scenario window never appeared")
+
+        let actions: [(identifier: String, label: String)] = [
+            ("sendFileMenuItem", "Send File…"),
+            ("pushClipboardMenuItem", "Push Clipboard"),
+            ("findPhoneMenuItem", "Find Phone"),
+            ("mirrorPhoneMenuItem", "Mirror Phone")
+        ]
+
+        for action in actions {
+            let button = window.buttons[action.identifier]
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "\(action.identifier) never appeared")
+            // As above: which AX attribute actually carries the text is unreliable on headless
+            // runners, so accept either the button's title or its accessibility label.
+            let gotTitle = button.title
+            let gotLabel = button.label
+            XCTAssertTrue(
+                gotTitle == action.label || gotLabel == action.label,
+                "expected title or label \"\(action.label)\", got title=\"\(gotTitle)\" label=\"\(gotLabel)\""
+            )
+            XCTAssertTrue(button.isEnabled, "\(action.identifier) should be enabled when connected")
+        }
+    }
 }

@@ -34,11 +34,11 @@ enum ConformanceRunner {
         let description: String
     }
 
-    static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
+    static let deferredCategories: [String: String] = [:]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
-        "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding",
-        "notify-encoding", "clipboard-encoding"
+        "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
+        "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -136,6 +136,7 @@ enum ConformanceRunner {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
+        case "discovery-id": return try runDiscoveryId(data: data)
         case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
         case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
         case "clipboard-encoding": return try runClipboardEncoding(data: data)
