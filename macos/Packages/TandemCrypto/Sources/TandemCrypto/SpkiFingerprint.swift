@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// The trust store's key (E10-08, E13-06, CLAUDE.md invariant 3): the leaf certificate's SPKI

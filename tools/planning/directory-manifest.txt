@@ -47,6 +47,7 @@ macos/Packages/TandemTestSupport
 macos/Packages/TandemTransport
 macos/Tandem.xcodeproj
 macos/TandemApp
+macos/TandemAppTests
 macos/TandemShare
 macos/TandemUITests
 

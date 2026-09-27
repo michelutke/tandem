@@ -24,6 +24,11 @@ jobs:
       - name: App build
         # E00-29: fail if resolving the app's packages would change any Package.resolved.
         run: xcodebuild -project macos/Tandem.xcodeproj -scheme Tandem -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile -quiet
+      - name: App unit tests
+        run: |
+          xcodebuild -project macos/Tandem.xcodeproj -scheme TandemAppTests -destination 'platform=macOS' test \
+            -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=
       - name: UI tests
         run: |
           xcodebuild -project macos/Tandem.xcodeproj -scheme TandemUITests -destination 'platform=macOS' test \
