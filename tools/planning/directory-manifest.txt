@@ -10,6 +10,7 @@ android/config/detekt
 android/core
 android/core/crypto
 android/core/designsystem
+android/core/discovery
 android/core/pairing
 android/core/protocol
 android/core/storage
@@ -23,6 +24,7 @@ android/feature/input
 android/feature/messaging
 android/feature/mirror
 android/feature/notifications
+android/feature/pairing
 android/lint
 android/lint/detekt-rules
 android/gradle
@@ -37,6 +39,7 @@ macos/Packages/FeatureMirror
 macos/Packages/FeatureNotifications
 macos/Packages/TandemCrypto
 macos/Packages/TandemDesign
+macos/Packages/TandemDevices
 macos/Packages/TandemPairing
 macos/Packages/TandemProtocol
 macos/Packages/TandemStore
@@ -44,6 +47,7 @@ macos/Packages/TandemTestSupport
 macos/Packages/TandemTransport
 macos/Tandem.xcodeproj
 macos/TandemApp
+macos/TandemAppTests
 macos/TandemShare
 macos/TandemUITests
 

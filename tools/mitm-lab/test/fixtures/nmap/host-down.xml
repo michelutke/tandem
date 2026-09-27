@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -p- 192.168.1.200" start="1234567890" startstr="Test" version="7.93">
+<scaninfo type="syn" protocol="tcp" numservices="65535" services="1-65535"/>
+<host starttime="1234567891" endtime="1234567900">
+<status state="down" reason="no-response" reason_ttl="0"/>
+<address addr="192.168.1.200" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports>
+</ports>
+<times srtt="5000000" rttvar="5000" to="100000"/>
+</host>
+<runstats>
+<finished time="1234567900" timestr="Test" summary="Nmap done at Test; 1 IP address scanned in 9.45 seconds" elapsed="9.45" exit="success"/>
+<hosts up="0" down="1" total="1"/>
+</runstats>
+</nmaprun>

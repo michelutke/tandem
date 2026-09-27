@@ -36,6 +36,7 @@ include(
     ":app",
     ":core:crypto",
     ":core:designsystem",
+    ":core:discovery",
     ":core:pairing",
     ":core:protocol",
     ":core:storage",
@@ -48,5 +49,6 @@ include(
     ":feature:messaging",
     ":feature:mirror",
     ":feature:notifications",
+    ":feature:pairing",
     ":lint:detekt-rules",
 )

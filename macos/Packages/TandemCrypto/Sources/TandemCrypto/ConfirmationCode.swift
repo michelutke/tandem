@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// 6-digit pairing confirmation code (E10-13, SPEC.md #2 "Confirmation code"): both peers

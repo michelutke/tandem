@@ -16,6 +16,14 @@ enum UITestScenario: String {
     /// `nm`/`strings` on the Release product, when a scenario first needs it.
     case notPaired
 
+    /// A paired peer whose session is `Ready` (E22-01): the menu bar shows "Connected to
+    /// <peer name>" and the battery placeholder, backed by a ``FakeTandemSession`` (E12-12)
+    /// seeded via `@testable import TandemProtocol`.
+    case pairedConnected
+
+    /// Fail-closed error state: version mismatch (E12-10).
+    case failClosedError
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

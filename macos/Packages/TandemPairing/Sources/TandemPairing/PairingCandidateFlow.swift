@@ -1,0 +1,123 @@
+import Foundation
+
+/// Drives one pairing-candidate connection through `docs/protocol/SPEC.md` §2 "Frame order on a
+/// pairing-candidate connection", on top of ``PairingWindow`` (E14-02) and a ``PairingCandidateSink``
+/// (E14-09). Centralizes every failure path for this receive flow -- a bad proof, a wrong payload
+/// (anything except `Heartbeat`), or the window closing (e.g. its 120 s expiry) while this candidate
+/// is still in flight -- so each one, and only these, sends `PairRejected(PAIRING_UNAVAILABLE)` and
+/// closes the connection with `PAIRING_FAILED` exactly once (`docs/planning/decisions.md` D-70: a
+/// candidate connection burns **at most one** attempt in total, regardless of how many of these
+/// events it triggers before closing).
+///
+/// The 10 s `PairRequest` deadline (local reason `TIMEOUT`) is deliberately not handled here: it
+/// sends no `PairRejected` at all (`docs/planning/decisions.md` D-72) and is entirely
+/// ``PairingWindow``'s own lazily-settled concern (E14-02's `candidateSilentFor10s` handling).
+///
+/// Like ``PairingWindow`` itself, this type settles no time on its own: the mid-flight expiry check
+/// runs only when some other event next reaches this candidate (in production, the periodic
+/// `Heartbeat` §7 already requires replying to; tests call ``heartbeatReceived()`` directly after
+/// advancing a `ManualTestClock`) -- there is no background `Task`/timer here either.
+public final class PairingCandidateFlow: @unchecked Sendable {
+    private let window: PairingWindow
+    private let sink: any PairingCandidateSink
+    private let token: CandidateToken
+
+    private let lock = NSLock()
+    private var hasFailed = false
+
+    /// - Parameter token: This candidate's slot claim, from the ``PairingWindow/admitCandidateToken()``
+    ///   call that admitted it -- presented to every later ``PairingWindow`` call this type makes
+    ///   for the same candidate, so a stale call from a since-superseded flow can only ever no-op
+    ///   (`docs/planning/decisions.md` D-73, adversarial-verifier finding).
+    public init(window: PairingWindow, sink: any PairingCandidateSink, token: CandidateToken) {
+        self.window = window
+        self.sink = sink
+        self.token = token
+    }
+
+    /// Called once both sides' `VersionHello` exchange completes on this admitted candidate.
+    /// Generates and sends this candidate's `PairChallenge` as the very next `CONTROL` frame. A
+    /// no-op (returns `nil`) if the window didn't have this candidate `.admitted` -- wrong call
+    /// order, or the window already closed/regenerated first (``PairingWindow`` guards this, not a
+    /// failure this type reports).
+    @discardableResult
+    public func hellosCompleted() async -> Data? {
+        guard let challenge = window.candidateHellosCompleted(token) else { return nil }
+        try? await sink.sendPairChallenge(challenge)
+        return challenge
+    }
+
+    /// A `PairRequest { proof }` arrived. A valid proof moves the candidate to awaiting the
+    /// owner's confirmation (E14-08's concern from here); an invalid one -- including one the
+    /// window rejects outright because it's no longer open, or this candidate is no longer
+    /// `awaitingRequest` -- fails this candidate (`docs/protocol/SPEC.md` §2, local reason
+    /// `BAD_PROOF`).
+    public func pairRequestReceived(proof: Data) async {
+        guard window.submitPairRequest(token, proof: proof) == .rejected else { return }
+        await fail()
+    }
+
+    /// Any payload other than the expected next message in the sequence, except `Heartbeat`
+    /// (`docs/protocol/SPEC.md` §2 "Frame order", case 4, local reason `MALFORMED`): a second
+    /// `PairChallenge`, a `PairRequest` before `PairChallenge`, a duplicate `PairRequest`, or any
+    /// other payload type. A no-op if this candidate already failed via another path (D-70: at
+    /// most one attempt burned per connection, in total).
+    public func wrongPayloadReceived() async {
+        guard !isAlreadyFailed() else { return }
+        window.releaseCandidate(token)
+        await fail()
+    }
+
+    /// A `Heartbeat` on this pairing-candidate connection: never itself a pairing failure, at any
+    /// point (`docs/planning/decisions.md` D-69). Also the point at which this type reconciles
+    /// against ``PairingWindow``'s own lazily-settled expiry: if the window has since closed while
+    /// this candidate was still in flight (e.g. its 120 s expiry elapsed while a confirmation
+    /// dialog was pending), this candidate connection is failed too -- it sends
+    /// `PairRejected(PAIRING_UNAVAILABLE)` and closes, but burns no additional attempt (the window
+    /// closing already accounts for the whole window's budget). Excludes ``PairingWindowClosedReason/paired``:
+    /// once the owner has accepted, this connection is an ordinary session from here on, and a
+    /// `Heartbeat` on it MUST NOT be treated as a pairing failure (a coordinator that keeps routing
+    /// `Heartbeat` through this type after `PairAccepted` would otherwise reject the very session
+    /// it just accepted).
+    public func heartbeatReceived() async {
+        window.heartbeatReceived()
+        guard let reason = window.closedReason, reason != .paired else { return }
+        await fail()
+    }
+
+    /// The underlying connection closed for a reason other than this type's own
+    /// ``pairRequestReceived(proof:)``/``wrongPayloadReceived()``/``heartbeatReceived()`` failures
+    /// -- e.g. a peer disconnect or transport error. Frees the candidate slot and burns one
+    /// attempt (``PairingWindow/releaseCandidate(_:)``), a no-op if this candidate already failed
+    /// via one of those paths (D-70: at most one attempt burned per connection, in total).
+    public func connectionClosed() {
+        guard !isAlreadyFailed() else { return }
+        window.releaseCandidate(token)
+    }
+
+    /// Sends `PairRejected(PAIRING_UNAVAILABLE)` and closes with `PAIRING_FAILED`, exactly once
+    /// per connection.
+    private func fail() async {
+        guard claimFailure() else { return }
+        try? await sink.sendPairRejected(.pairingUnavailable)
+        await sink.closePairingFailed()
+    }
+
+    /// Atomic test-and-set on `hasFailed`: `true` only for the caller that just claimed this
+    /// candidate's one-time failure, `false` for every subsequent call.
+    private func claimFailure() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if hasFailed { return false }
+        hasFailed = true
+        return true
+    }
+
+    /// Peeks `hasFailed` without claiming it, so ``wrongPayloadReceived()``/``connectionClosed()``
+    /// can skip touching ``window`` at all once this candidate has already failed via any path.
+    private func isAlreadyFailed() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return hasFailed
+    }
+}
