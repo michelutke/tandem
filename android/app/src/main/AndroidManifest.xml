@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- E20-08: lets BootReceiver restart TandemService after first unlock (BOOT_COMPLETED is not
+         direct-boot aware) without the user opening the app. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!--
     E00-28 platform-hardening baseline (invariants 1, 2, 4):
       - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing
@@ -43,6 +47,19 @@
             android:name=".service.TandemService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- E20-08: restarts TandemService when a paired Mac exists. Exported so the system can
+             deliver BOOT_COMPLETED (E00-28 allowlist entry below); onReceive itself ignores any
+             action other than BOOT_COMPLETED/MY_PACKAGE_REPLACED as a defense-in-depth guard
+             against an explicit intent from another app. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"
