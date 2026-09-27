@@ -36,6 +36,7 @@ include(
     ":app",
     ":core:crypto",
     ":core:designsystem",
+    ":core:discovery",
     ":core:pairing",
     ":core:protocol",
     ":core:storage",

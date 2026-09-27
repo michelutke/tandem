@@ -18,6 +18,7 @@ import dev.tandem.protocol.v1.pairChallenge
 import dev.tandem.protocol.v1.pairRejected
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -105,6 +106,37 @@ class PairingStateMachineTest {
         }
 
     @Test
+    fun pairingSm_firstAddressConnectThrows_dialsNextQrAddressInsteadOfCrashing() =
+        runTest {
+            val session = readySession()
+            val connector =
+                FakePairingConnector(
+                    mapOf(invite.addresses[1] to connectionOf(session)),
+                    failing = setOf(invite.addresses[0]),
+                )
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+
+            assertEquals(listOf(invite.addresses[0], invite.addresses[1]), connector.attempted)
+            assertEquals(PairingState.AwaitingProofSent, sm.state.value)
+        }
+
+    @Test
+    fun pairingSm_everyAddressConnectThrows_emitsFailedAllAddressesUnreachable() =
+        runTest {
+            val connector =
+                FakePairingConnector(emptyMap(), failing = setOf(invite.addresses[0], invite.addresses[1]))
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.AllAddressesUnreachable), sm.state.value)
+        }
+
+    @Test
     fun pairingSm_tlsReady_sendsPairRequestAndEmitsAwaitingAccept() =
         runTest {
             val session = readySession()
@@ -124,6 +156,28 @@ class PairingStateMachineTest {
             val expectedProof = PairingProof.compute(secret, macSpkiDer, phoneSpkiDer, challenge)
             val sentRequest = session.sentFrames.single().pairRequest
             assertEquals(expectedProof.toList(), sentRequest.proof.toByteArray().toList())
+        }
+
+    @Test
+    fun pairingSm_malformedPairChallenge_emitsFailedMalformedChallengeInsteadOfCrashing() =
+        runTest {
+            val session = readySession()
+            val connector = FakePairingConnector(mapOf(invite.addresses[0] to connectionOf(session)))
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+
+            val notThirtyTwoBytes = ByteString.copyFrom(ByteArray(4))
+            session.emitIncoming(
+                envelope {
+                    channel = Channel.CHANNEL_CONTROL
+                    pairChallenge = pairChallenge { this.challenge = notThirtyTwoBytes }
+                },
+            )
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.MalformedChallenge), sm.state.value)
         }
 
     @Test
@@ -277,6 +331,32 @@ class PairingStateMachineTest {
         }
 
     @Test
+    fun pairingSm_confirmRacesDeadlineAtBoundary_exactlyOneOutcomeWins() =
+        runTest {
+            val session = readySession()
+            val connector = FakePairingConnector(mapOf(invite.addresses[0] to connectionOf(session)))
+            val trustCommitter = FakeTrustCommitter()
+            val sm = newMachine(connector, trustCommitter)
+
+            sm.start()
+            runCurrent()
+            session.emitIncoming(challengeEnvelope())
+            runCurrent()
+            session.emitIncoming(pairAcceptedEnvelope())
+            runCurrent()
+
+            advanceTimeBy(PairingStateMachine.CONFIRM_TIMEOUT)
+            launch { sm.confirmCodesMatch() }
+            runCurrent()
+
+            val state = sm.state.value
+            assertTrue(state == PairingState.Paired || state == PairingState.Failed(PairingFailure.ConfirmationTimeout))
+            val committed = state == PairingState.Paired
+            assertEquals(if (committed) 1 else 0, trustCommitter.commits.size)
+            assertEquals(!committed, session.sentFrames.any { it.payloadCase == Envelope.PayloadCase.REVOKE })
+        }
+
+    @Test
     fun pairingSm_awaitingAccept_exposesConfirmationCodeBeforePairAccepted() =
         runTest {
             val session = readySession()
@@ -293,6 +373,44 @@ class PairingStateMachineTest {
             assertEquals(expectedCode, awaitingAccept.code)
         }
 
+    @Test
+    fun pairingSm_noPairChallengeWithin10s_emitsFailedChallengeTimeout() =
+        runTest {
+            val session = readySession()
+            val connector = FakePairingConnector(mapOf(invite.addresses[0] to connectionOf(session)))
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+            assertEquals(PairingState.AwaitingProofSent, sm.state.value)
+
+            advanceTimeBy(PairingStateMachine.CHALLENGE_TIMEOUT)
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.ChallengeTimeout), sm.state.value)
+        }
+
+    @Test
+    fun pairingSm_closeWhileAwaitingUserConfirm_sendsRevoke() =
+        runTest {
+            val session = readySession()
+            val connector = FakePairingConnector(mapOf(invite.addresses[0] to connectionOf(session)))
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+            session.emitIncoming(challengeEnvelope())
+            runCurrent()
+            session.emitIncoming(pairAcceptedEnvelope())
+            runCurrent()
+            assertTrue(sm.state.value is PairingState.AwaitingUserConfirm)
+
+            sm.close()
+            runCurrent()
+
+            assertTrue(session.sentFrames.any { it.payloadCase == Envelope.PayloadCase.REVOKE })
+        }
+
     private fun TestScope.newMachine(
         connector: PairingConnector,
         trustCommitter: TrustCommitter = FakeTrustCommitter(),
@@ -303,6 +421,7 @@ class PairingStateMachineTest {
             connector,
             trustCommitter,
             invite,
+            FakeDeviceInfoProvider(),
         )
 
     private fun readySession(): FakeTandemSession =
@@ -338,6 +457,7 @@ class PairingStateMachineTest {
 
     private class FakePairingConnector(
         private val responses: Map<String, PairingConnection>,
+        private val failing: Set<String> = emptySet(),
     ) : PairingConnector {
         val attempted = mutableListOf<String>()
 
@@ -347,6 +467,7 @@ class PairingStateMachineTest {
             pinSource: PinSource,
         ): PairingConnection {
             attempted += address
+            if (address in failing) error("connection refused")
             return responses[address] ?: awaitCancellation()
         }
     }
@@ -367,5 +488,14 @@ class PairingStateMachineTest {
             val macName: String,
             val pairedAt: Instant,
         )
+    }
+
+    private class FakeDeviceInfoProvider(
+        private val name: String = "Test Phone",
+        private val model: String = "Pixel 8",
+    ) : DeviceInfoProvider {
+        override fun displayName(): String = name
+
+        override fun model(): String = model
     }
 }
