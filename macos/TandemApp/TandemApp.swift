@@ -155,6 +155,19 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 struct MenuContentView: View {
     @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
 
+    /// No paired-session wiring exists yet for the four quick actions to react to (E22-02) -- the
+    /// same gap `menuBarViewModel`'s own `stateStream: nil` above already has -- so this is
+    /// `isConnected: false` with no-op stub closures until whichever issue first composes pairing
+    /// together with Send File (E40-10), Push Clipboard (E31-11), Find Phone (E23-07), and Mirror
+    /// (E61-12) into ``AppComposition``.
+    @State private var quickActionsViewModel = QuickActionsViewModel(
+        isConnected: false,
+        sendFile: {},
+        pushClipboard: {},
+        findPhone: {},
+        mirror: {}
+    )
+
     var body: some View {
         #if DEBUG
         if let scenario = UITestScenario.fromLaunchArguments() {
@@ -178,7 +191,10 @@ struct MenuContentView: View {
                 .accessibilityIdentifier("listenerUnavailableLabel")
                 .accessibilityLabel("Listener Unavailable")
         } else {
-            MenuBarContentView(viewModel: menuBarViewModel)
+            VStack(alignment: .leading, spacing: 8) {
+                MenuBarContentView(viewModel: menuBarViewModel)
+                QuickActionsView(viewModel: quickActionsViewModel)
+            }
         }
     }
 }
@@ -192,13 +208,26 @@ private struct ScenarioView: View {
     let scenario: UITestScenario
 
     @State private var pairedConnectedViewModel = ScenarioView.makePairedConnectedViewModel()
+    @State private var pairedConnectedQuickActionsViewModel =
+        ScenarioView.makeQuickActionsViewModel(isConnected: true)
+    @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
+    @State private var pairedDisconnectedQuickActionsViewModel =
+        ScenarioView.makeQuickActionsViewModel(isConnected: false)
 
     var body: some View {
         switch scenario {
         case .notPaired:
             MenuBarContentView(viewModel: MenuBarViewModel(stateStream: nil, peerName: nil))
         case .pairedConnected:
-            MenuBarContentView(viewModel: pairedConnectedViewModel)
+            VStack(alignment: .leading, spacing: 8) {
+                MenuBarContentView(viewModel: pairedConnectedViewModel)
+                QuickActionsView(viewModel: pairedConnectedQuickActionsViewModel)
+            }
+        case .pairedDisconnected:
+            VStack(alignment: .leading, spacing: 8) {
+                MenuBarContentView(viewModel: pairedDisconnectedViewModel)
+                QuickActionsView(viewModel: pairedDisconnectedQuickActionsViewModel)
+            }
         case .failClosedError:
             let presenter = ErrorPresenter(reasonName: "versionMismatch")
             Text(presenter.localizedTitle)
@@ -215,6 +244,28 @@ private struct ScenarioView: View {
         let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
         Task { await session.emit(.ready) }
         return viewModel
+    }
+
+    /// Seeds a ``FakeTandemSession`` (E12-12) transitioned to `.disconnected` instead of `.ready`,
+    /// so the scenario window renders "Disconnected" for the ``UITestScenario/pairedDisconnected``
+    /// case (E22-02) -- a previously-paired peer whose session isn't currently `Ready`.
+    private static func makePairedDisconnectedViewModel() -> MenuBarViewModel {
+        let session = FakeTandemSession()
+        let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
+        Task { await session.emit(.disconnected(reason: "peer disconnected")) }
+        return viewModel
+    }
+
+    /// No-op stub closures -- this seeds view state for XCUITest, not a unit test, so recording
+    /// call counts isn't needed here (``QuickActionsViewModelTests`` already covers that).
+    private static func makeQuickActionsViewModel(isConnected: Bool) -> QuickActionsViewModel {
+        QuickActionsViewModel(
+            isConnected: isConnected,
+            sendFile: {},
+            pushClipboard: {},
+            findPhone: {},
+            mirror: {}
+        )
     }
 }
 #endif
