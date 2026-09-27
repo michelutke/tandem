@@ -7,6 +7,12 @@ import TandemCrypto
 /// is single-use, sensitive material (`docs/protocol/SPEC.md` #2 "Secret handling"): never log,
 /// persist or place it on a pasteboard -- ``description``/``debugDescription`` are redacted so an
 /// accidental interpolation cannot leak either the secret or the URI (which itself encodes it).
+/// `secret` exists only so the caller can hand it to ``PairingWindow/open(secret:)`` -- the QR
+/// image itself is rendered from ``uri`` alone, which already encodes the same bytes as its `s`
+/// field -- so a caller MUST NOT retain this value (or this whole payload) past that one call:
+/// `PairingWindow` keeps its own independent, zeroed-in-place copy from that point on, and a
+/// second copy left alive for the life of the QR sheet is exactly the unscrubbed-buffer residual
+/// `PairingWindow.SecretBox` exists to avoid.
 public struct QrPayload: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     public let uri: String
     public let secret: Data
