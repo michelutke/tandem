@@ -84,6 +84,11 @@ class CompanionAppInstrumentedTest {
             "burst $BURST_COUNT/$BURST_COUNT",
             notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString(),
         )
+        // The platform's per-package notification rate limiter this test intentionally saturates
+        // (see CompanionReceiver.MIN_STEP_MS) stays in a cooldown state for some time afterward --
+        // on a loaded CI runner, observed to outlast the other tests' own REPLY_TIMEOUT_NANOS wait
+        // entirely, cascading real failures into unrelated tests. Let it settle before returning.
+        Thread.sleep(BURST_SETTLE_MS)
     }
 
     @Test
@@ -164,11 +169,12 @@ class CompanionAppInstrumentedTest {
         const val POLL_INTERVAL_MS = 50L
         val REPLY_TIMEOUT_NANOS =
             java.util.concurrent.TimeUnit.SECONDS
-                .toNanos(8)
+                .toNanos(20)
         const val BURST_COUNT = 50
         const val BURST_WINDOW_MS = 1000L
         val BURST_TIMEOUT_NANOS =
             java.util.concurrent.TimeUnit.SECONDS
                 .toNanos(30)
+        const val BURST_SETTLE_MS = 10_000L
     }
 }
