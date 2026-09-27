@@ -14,6 +14,7 @@ packages:
     path: Packages/TandemTransport
   TandemStore:
     path: Packages/TandemStore
+  # E12-13: server session wiring (TandemSession, VersionHandshake) used by the harness hooks.
   # E22-01: MenuBarViewModel maps ConnectionStateMachine.ConnectionState (E12-09); the DEBUG-only
   # scenario seeding also reaches FakeTandemSession (E12-12) via @testable import.
   TandemProtocol:

@@ -20,7 +20,7 @@ require_relative 'check_directory_manifest'
 module CheckGradleProjects
   MANIFEST_RELATIVE = 'tools/planning/directory-manifest.txt'
   PROJECT_LINE = /Project '(?<path>:[\w:-]*)'/.freeze
-  MODULE_DIR = %r{\Aandroid/(app|core/[^/]+|feature/[^/]+|lint/[^/]+)\z}.freeze
+  MODULE_DIR = %r{\Aandroid/(app|core/[^/]+|feature/[^/]+|lint/[^/]+|harness/[^/]+)\z}.freeze
 
   module_function
 

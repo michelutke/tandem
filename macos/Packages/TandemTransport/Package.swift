@@ -10,6 +10,7 @@ let package = Package(
     dependencies: [
         .package(path: "../TandemCrypto"),
         .package(path: "../TandemStore"),
+        .package(path: "../TandemProtocol"),
         .package(path: "../TandemTestSupport"),
         .package(url: "https://github.com/apple/swift-certificates.git", exact: "1.21.0")
     ],
@@ -18,7 +19,8 @@ let package = Package(
             name: "TandemTransport",
             dependencies: [
                 .product(name: "TandemCrypto", package: "TandemCrypto"),
-                .product(name: "TandemStore", package: "TandemStore")
+                .product(name: "TandemStore", package: "TandemStore"),
+                .product(name: "TandemProtocol", package: "TandemProtocol")
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

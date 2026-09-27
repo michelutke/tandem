@@ -24,6 +24,8 @@ android/feature/input
 android/feature/messaging
 android/feature/mirror
 android/feature/notifications
+android/harness
+android/harness/jvm-client
 android/feature/pairing
 android/lint
 android/lint/detekt-rules

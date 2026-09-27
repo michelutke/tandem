@@ -2,9 +2,10 @@ import Foundation
 
 /// Minimal async byte-source abstraction ``FrameDecoder`` reads from. `TandemProtocol` must not
 /// depend on `TandemTransport` (PRD module rules: transport depends on protocol, never the
-/// reverse), so this is not `ByteStreamConnection` (E00-25) itself; tests adapt
-/// `InMemoryConnectionPair` (`TandemTestSupport`) to this protocol instead.
-protocol FrameSource: Sendable {
+/// reverse), so this is not `ByteStreamConnection` (E00-25) itself; `TandemTransport`'s real
+/// `NWConnection` adapter (E12-12) and tests' `InMemoryConnectionPair` (`TandemTestSupport`) both
+/// adapt to this protocol instead of this package depending on either.
+public protocol FrameSource: Sendable {
     /// Reads until exactly `count` bytes have been collected, or until the underlying stream
     /// closes first — in which case it returns everything collected so far for this call, which
     /// may be fewer than `count` bytes, including zero. ``FrameDecoder`` distinguishes a clean
@@ -48,7 +49,7 @@ public enum CloseCode: Sendable, Equatable {
 /// (docs/protocol/SPEC.md #framing-and-envelope "Rejection cases" / #errors-and-close-codes
 /// "Local reason vs. wire code", `docs/planning/decisions.md` D-13). Swift counterpart to
 /// Android's `FrameDecoder` reasons (E11-02).
-enum MalformedFrameReason: Sendable, Equatable {
+public enum MalformedFrameReason: Sendable, Equatable {
     case tooLarge
     case badLength
     case truncated
