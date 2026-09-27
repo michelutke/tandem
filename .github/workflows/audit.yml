@@ -1,0 +1,32 @@
+name: audit
+
+# E15-19: security audit CI subset (conformance, fuzz smoke, mitm-lab, loopback pcap-audit)
+# as a required check on PRs touching android/core/** or macos/Packages/Tandem*/** (E15-18 runner).
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "android/core/**"
+      - "macos/Packages/Tandem*/**"
+      - "tools/audit/**"
+      - ".github/workflows/audit.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Security audit subset
+        run: tools/audit/run.sh --subset ci
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: audit-report
+          path: |
+            report.json
+            report.md
