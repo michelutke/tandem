@@ -17,6 +17,7 @@ struct MenuBarContentView: View {
             if viewModel.showsPairPhoneMenuItem {
                 Button("Pair phone…") {}
                     .accessibilityIdentifier("pairPhoneMenuItem")
+                    .accessibilityLabel("Pair phone…")
             } else {
                 Text(MenuBarViewModel.batteryPlaceholder)
                     .accessibilityIdentifier("batteryLabel")
