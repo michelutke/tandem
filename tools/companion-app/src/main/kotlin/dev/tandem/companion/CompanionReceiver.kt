@@ -141,6 +141,6 @@ class CompanionReceiver : BroadcastReceiver() {
         // NotificationManagerService's ~10/sec shedding threshold (Android N+) is measured with
         // enough slack/jitter that even a steady 5/sec (200ms) pace occasionally sheds one or two
         // updates on a loaded emulator; ~3/sec leaves real margin.
-        const val MIN_STEP_MS = 350L
+        const val MIN_STEP_MS = 500L
     }
 }
