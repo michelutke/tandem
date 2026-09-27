@@ -142,56 +142,6 @@ enum ConformanceRunner {
         }
     }
 
-    /// Decodes an Envelope frame and re-encodes it, checking the bytes round-trip identically.
-    /// Shared by every category whose vectors are complete frame-encoding round-trips rather than
-    /// a category-specific transform (status-encoding, notify-encoding).
-    private static func runFrameRoundTrip(category: String, data: Data) async throws -> [VectorOutcome] {
-        struct Manifest: Decodable {
-            struct Vector: Decodable {
-                let id: String
-                let input: Input
-            }
-            struct Input: Decodable {
-                let frameHex: String
-            }
-            let vectors: [Vector]
-        }
-
-        let manifest = try JSONDecoder().decode(Manifest.self, from: data)
-        var outcomes: [VectorOutcome] = []
-        for vector in manifest.vectors {
-            let inputFrameBytes = try conformanceRunnerHexDecode(vector.input.frameHex)
-            let decoded = try await decodeFrameForRoundTrip(inputFrameBytes)
-            guard case .frame(let envelope) = decoded else {
-                outcomes.append(VectorOutcome(
-                    id: vector.id,
-                    category: category,
-                    outcome: "fail",
-                    expected: vector.input.frameHex,
-                    actual: "rejected: \(String(describing: decoded))"
-                ))
-                continue
-            }
-
-            let reencoded = try FrameEncoder.encode(envelope)
-            let passed = inputFrameBytes == reencoded
-            outcomes.append(VectorOutcome(
-                id: vector.id,
-                category: category,
-                outcome: passed ? "pass" : "fail",
-                expected: inputFrameBytes.conformanceRunnerHex,
-                actual: reencoded.conformanceRunnerHex
-            ))
-        }
-        return outcomes
-    }
-
-    private static func decodeFrameForRoundTrip(_ bytes: Data) async throws -> DecodeResult? {
-        let pair = InMemoryConnectionPair(bufferCapacity: bytes.count + 8)
-        try await pair.endA.send(bytes)
-        await pair.endA.close()
-        return try await FrameDecoder.decode(from: InMemoryFrameSource(pair.endB))
-    }
 }
 
 extension Data {
