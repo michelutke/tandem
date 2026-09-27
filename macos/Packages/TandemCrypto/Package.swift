@@ -28,9 +28,13 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-certificates.git", exact: "1.21.0"),
         // Linux-only: CryptoKit is Apple-only, so SHA256/HMAC<SHA256> usage falls back to
-        // swift-crypto's API-compatible `Crypto` module there (already transitively resolved via
-        // swift-certificates' own dependency graph at 5.0.0 -- see Package.resolved).
-        .package(url: "https://github.com/apple/swift-crypto.git", exact: "5.0.0")
+        // swift-crypto's API-compatible `Crypto` module there. Pinned to 4.5.2, not the newer
+        // 5.0.0 that swift-certificates' own "3.12.3"..<"6.0.0" range would otherwise resolve to
+        // unconstrained -- 5.0.0's manifest declares swift-tools-version 6.2, which the
+        // fuzz-libfuzzer.yml CI container (swift:6.1 Docker image) cannot even parse, so
+        // resolution fails there with "incompatible tools version" (reproduced locally via
+        // `docker run swift:6.1 swift package resolve`). 4.5.2 declares swift-tools-version 6.1.
+        .package(url: "https://github.com/apple/swift-crypto.git", exact: "4.5.2")
     ],
     targets: [
         .target(

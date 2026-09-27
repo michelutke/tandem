@@ -1,6 +1,7 @@
 excluded:
   - Packages/*/.build
   - .build
+  - build
   - DerivedData
   - "**/*.pb.swift"
 

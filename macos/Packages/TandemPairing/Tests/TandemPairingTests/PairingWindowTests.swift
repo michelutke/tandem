@@ -24,13 +24,13 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_failedAttempt_attemptsRemainingDecrementsByOne() {
+    func pairingWindow_failedAttempt_attemptsRemainingDecrementsByOne() throws {
         let window = Self.makeWindow(clock: ManualTestClock(), verifierResult: false).window
 
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        #expect(window.candidateHellosCompleted() != nil)
-        let outcome = window.submitPairRequest(proof: Data([9]))
+        let token = try #require(window.admitCandidateToken())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        let outcome = window.submitPairRequest(token, proof: Data([9]))
 
         #expect(outcome == .rejected)
         #expect(window.attemptsRemaining == 2)
@@ -39,21 +39,23 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_fourthAttempt_rejectedWithoutProofCheck() {
+    func pairingWindow_fourthAttempt_rejectedWithoutProofCheck() throws {
         let verifier = SpyPairRequestVerifier(result: false)
         let window = Self.makeWindow(clock: ManualTestClock(), verifier: verifier).window
         window.open(secret: Data([1]))
 
+        var lastToken: CandidateToken!
         for _ in 0..<3 {
-            #expect(window.admitCandidate())
-            _ = window.candidateHellosCompleted()
-            _ = window.submitPairRequest(proof: Data([9]))
+            let token = try #require(window.admitCandidateToken())
+            lastToken = token
+            _ = window.candidateHellosCompleted(token)
+            _ = window.submitPairRequest(token, proof: Data([9]))
         }
 
         #expect(window.closedReason == .attemptsExhausted)
         #expect(verifier.callCount == 3)
 
-        let outcome = window.submitPairRequest(proof: Data([9]))
+        let outcome = window.submitPairRequest(lastToken, proof: Data([9]))
 
         #expect(outcome == .rejected)
         #expect(verifier.callCount == 3)
@@ -84,39 +86,39 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_successfulPairing_closedAndSecretCleared() {
+    func pairingWindow_successfulPairing_closedAndSecretCleared() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        #expect(window.submitPairRequest(proof: Data([9])) == .pendingConfirmation)
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
 
-        window.ownerAccepted()
+        #expect(window.ownerAccepted())
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .paired)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
     }
 
     @Test
-    func pairingWindow_sameSecretAfterSuccess_secondRequestRejected() {
+    func pairingWindow_sameSecretAfterSuccess_secondRequestRejected() throws {
         let verifier = SpyPairRequestVerifier(result: true)
         let window = Self.makeWindow(clock: ManualTestClock(), verifier: verifier).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        #expect(window.submitPairRequest(proof: Data([9])) == .pendingConfirmation)
-        window.ownerAccepted()
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
+        #expect(window.ownerAccepted())
 
         let callsBeforeSecondAttempt = verifier.callCount
-        let outcome = window.submitPairRequest(proof: Data([9]))
+        let outcome = window.submitPairRequest(token, proof: Data([9]))
 
         #expect(outcome == .rejected)
         #expect(verifier.callCount == callsBeforeSecondAttempt)
     }
 
     @Test
-    func pairingWindow_regenerate_oldSecretProofRejected() {
+    func pairingWindow_regenerate_oldSecretProofRejected() throws {
         let clock = ManualTestClock()
         let secretA = Data([0xAA])
         let secretB = Data([0xBB])
@@ -128,9 +130,9 @@ struct PairingWindowTests {
         window.open(secret: secretA)
         window.open(secret: secretB)
 
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        let outcome = window.submitPairRequest(proof: Data([9]))
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        let outcome = window.submitPairRequest(token, proof: Data([9]))
 
         #expect(outcome == .rejected)
         #expect(window.attemptsRemaining == 2)
@@ -145,7 +147,7 @@ struct PairingWindowTests {
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .cancelled)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
     }
 
     @Test
@@ -160,12 +162,12 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_candidateSilentFor10s_closedAndOneAttemptBurned() {
+    func pairingWindow_candidateSilentFor10s_closedAndOneAttemptBurned() throws {
         let clock = ManualTestClock()
         let window = Self.makeWindow(clock: clock).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        #expect(window.candidateHellosCompleted() != nil)
+        let token = try #require(window.admitCandidateToken())
+        #expect(window.candidateHellosCompleted(token) != nil)
 
         clock.advance(by: .seconds(10))
 
@@ -175,12 +177,12 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingCandidate_heartbeatWhileConfirmationPending_notAPairingFailure() {
+    func pairingCandidate_heartbeatWhileConfirmationPending_notAPairingFailure() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        #expect(window.submitPairRequest(proof: Data([9])) == .pendingConfirmation)
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
 
         window.heartbeatReceived()
         window.heartbeatReceived()
@@ -204,13 +206,13 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_peerClosesAfterChallenge_burnsOneAttempt() {
+    func pairingWindow_peerClosesAfterChallenge_burnsOneAttempt() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        #expect(window.candidateHellosCompleted() != nil)
+        let token = try #require(window.admitCandidateToken())
+        #expect(window.candidateHellosCompleted(token) != nil)
 
-        window.releaseCandidate()
+        window.releaseCandidate(token)
 
         #expect(window.attemptsRemaining == 2)
         #expect(!window.candidateInFlight)
@@ -218,14 +220,14 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_candidateDropsWhileDialogPending_attemptBurnedWindowStaysOpen() {
+    func pairingWindow_candidateDropsWhileDialogPending_attemptBurnedWindowStaysOpen() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        #expect(window.submitPairRequest(proof: Data([9])) == .pendingConfirmation)
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
 
-        window.releaseCandidate()
+        window.releaseCandidate(token)
 
         #expect(window.attemptsRemaining == 2)
         #expect(window.isOpen)
@@ -234,18 +236,18 @@ struct PairingWindowTests {
     }
 
     @Test
-    func pairingWindow_ownerDeclinesConfirmation_closedDeclinedSecretDestroyed() {
+    func pairingWindow_ownerDeclinesConfirmation_closedDeclinedSecretDestroyed() throws {
         let window = Self.makeWindow(clock: ManualTestClock()).window
         window.open(secret: Data([1]))
-        #expect(window.admitCandidate())
-        _ = window.candidateHellosCompleted()
-        #expect(window.submitPairRequest(proof: Data([9])) == .pendingConfirmation)
+        let token = try #require(window.admitCandidateToken())
+        _ = window.candidateHellosCompleted(token)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
 
         window.ownerDeclined()
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .declined)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
 
         // A stale connection teardown after the fact (D-73) commits/decrements nothing again.
         let attemptsAfterDecline = window.attemptsRemaining

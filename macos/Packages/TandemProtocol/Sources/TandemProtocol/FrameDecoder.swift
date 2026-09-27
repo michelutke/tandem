@@ -22,7 +22,7 @@ protocol FrameSource: Sendable {
 /// `CloseCode` type to reuse yet (`protocol/proto/tandem/v1/status.proto` does not define one as
 /// of this issue); this local enum is grown one case at a time, only as the issue implementing
 /// that row needs it -- it is not yet the full nine-row table.
-enum CloseCode: Sendable, Equatable {
+public enum CloseCode: Sendable, Equatable {
     case malformedFrame
     /// A peer violated the credit-flow-control contract (docs/protocol/SPEC.md
     /// #channels-and-flow-control-credits; `docs/planning/decisions.md` D-64): it transmitted a
