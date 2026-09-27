@@ -12,6 +12,10 @@ androidx.profileinstaller.ProfileInstallReceiver android.permission.DUMP
 # Launcher activity (E00-03); must be exported for the home screen, needs no permission.
 dev.tandem.app.MainActivity -
 
+# BOOT_COMPLETED/MY_PACKAGE_REPLACED restart receiver (E20-08); exported so the system can deliver
+# BOOT_COMPLETED (not direct-boot aware), action-checked in onReceive rather than permission-guarded.
+dev.tandem.app.service.BootReceiver -
+
 # Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
 # components exist in the app module today):
 #   - the launcher activity                                                    -
@@ -19,4 +23,3 @@ dev.tandem.app.MainActivity -
 #   - the quick-settings TileService (E31-12)           android.permission.BIND_QUICK_SETTINGS_TILE
 #   - the NotificationListenerService (E40-11)      android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
 #   - the AccessibilityService (E31-06, remote input)   android.permission.BIND_ACCESSIBILITY_SERVICE
-#   - the BOOT_COMPLETED receiver (E20-08, action-checked)                     -

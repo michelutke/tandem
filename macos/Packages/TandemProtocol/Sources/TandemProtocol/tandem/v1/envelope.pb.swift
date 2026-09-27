@@ -130,6 +130,55 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .ring(newValue)}
   }
 
+  public var ringStop: Tandem_V1_RingStop {
+    get {
+      if case .ringStop(let v)? = payload {return v}
+      return Tandem_V1_RingStop()
+    }
+    set {payload = .ringStop(newValue)}
+  }
+
+  /// notify.proto (E30-01) — NOTIFY channel.
+  public var notificationPosted: Tandem_V1_NotificationPosted {
+    get {
+      if case .notificationPosted(let v)? = payload {return v}
+      return Tandem_V1_NotificationPosted()
+    }
+    set {payload = .notificationPosted(newValue)}
+  }
+
+  public var iconData: Tandem_V1_IconData {
+    get {
+      if case .iconData(let v)? = payload {return v}
+      return Tandem_V1_IconData()
+    }
+    set {payload = .iconData(newValue)}
+  }
+
+  public var notificationAction: Tandem_V1_NotificationAction {
+    get {
+      if case .notificationAction(let v)? = payload {return v}
+      return Tandem_V1_NotificationAction()
+    }
+    set {payload = .notificationAction(newValue)}
+  }
+
+  public var notificationDismiss: Tandem_V1_NotificationDismiss {
+    get {
+      if case .notificationDismiss(let v)? = payload {return v}
+      return Tandem_V1_NotificationDismiss()
+    }
+    set {payload = .notificationDismiss(newValue)}
+  }
+
+  public var notificationActionResult: Tandem_V1_NotificationActionResult {
+    get {
+      if case .notificationActionResult(let v)? = payload {return v}
+      return Tandem_V1_NotificationActionResult()
+    }
+    set {payload = .notificationActionResult(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -146,6 +195,13 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case revoke(Tandem_V1_Revoke)
     case deviceStatus(Tandem_V1_DeviceStatus)
     case ring(Tandem_V1_Ring)
+    case ringStop(Tandem_V1_RingStop)
+    /// notify.proto (E30-01) — NOTIFY channel.
+    case notificationPosted(Tandem_V1_NotificationPosted)
+    case iconData(Tandem_V1_IconData)
+    case notificationAction(Tandem_V1_NotificationAction)
+    case notificationDismiss(Tandem_V1_NotificationDismiss)
+    case notificationActionResult(Tandem_V1_NotificationActionResult)
 
   }
 
@@ -158,7 +214,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -312,6 +368,84 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .ring(v)
         }
       }()
+      case 22: try {
+        var v: Tandem_V1_RingStop?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .ringStop(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .ringStop(v)
+        }
+      }()
+      case 30: try {
+        var v: Tandem_V1_NotificationPosted?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .notificationPosted(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .notificationPosted(v)
+        }
+      }()
+      case 31: try {
+        var v: Tandem_V1_IconData?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .iconData(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .iconData(v)
+        }
+      }()
+      case 32: try {
+        var v: Tandem_V1_NotificationAction?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .notificationAction(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .notificationAction(v)
+        }
+      }()
+      case 33: try {
+        var v: Tandem_V1_NotificationDismiss?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .notificationDismiss(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .notificationDismiss(v)
+        }
+      }()
+      case 34: try {
+        var v: Tandem_V1_NotificationActionResult?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .notificationActionResult(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .notificationActionResult(v)
+        }
+      }()
       default: break
       }
     }
@@ -375,6 +509,30 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .ring?: try {
       guard case .ring(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 21)
+    }()
+    case .ringStop?: try {
+      guard case .ringStop(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 22)
+    }()
+    case .notificationPosted?: try {
+      guard case .notificationPosted(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 30)
+    }()
+    case .iconData?: try {
+      guard case .iconData(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 31)
+    }()
+    case .notificationAction?: try {
+      guard case .notificationAction(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 32)
+    }()
+    case .notificationDismiss?: try {
+      guard case .notificationDismiss(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 33)
+    }()
+    case .notificationActionResult?: try {
+      guard case .notificationActionResult(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 34)
     }()
     case nil: break
     }
