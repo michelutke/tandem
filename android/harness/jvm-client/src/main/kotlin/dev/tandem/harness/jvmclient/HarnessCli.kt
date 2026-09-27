@@ -5,6 +5,7 @@ import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.crypto.spkiFingerprint
+import dev.tandem.core.pairing.DeviceInfoProvider
 import dev.tandem.core.pairing.PairingStateMachine
 import dev.tandem.core.pairing.TrustCommitter
 import dev.tandem.core.pairing.qr.ParseInviteResult
@@ -165,7 +166,14 @@ private class HarnessCli(
                         println("EVENT PAIRED $macName ${fingerprint.base64Url}")
                     }
                 val machine =
-                    PairingStateMachine(Clock.systemUTC(), dispatcher, connector, trustCommitter, result.invite)
+                    PairingStateMachine(
+                        Clock.systemUTC(),
+                        dispatcher,
+                        connector,
+                        trustCommitter,
+                        result.invite,
+                        HarnessDeviceInfoProvider,
+                    )
                 pairing = machine
                 scope.launch { machine.state.collect { println("EVENT $it") } }
                 machine.start()
@@ -198,4 +206,11 @@ private class HarnessCli(
     private companion object {
         const val CONNECT_ARG_COUNT = 3
     }
+}
+
+/** Fixed, non-hardware-identifying device info for this JVM harness process (E14-06). */
+private object HarnessDeviceInfoProvider : DeviceInfoProvider {
+    override fun displayName(): String = "JVM Harness Client"
+
+    override fun model(): String = "jvm-client"
 }

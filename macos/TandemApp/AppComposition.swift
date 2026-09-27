@@ -1,6 +1,7 @@
 import AppKit
 import Network
 import TandemCrypto
+import TandemProtocol
 import TandemStore
 import TandemTransport
 
@@ -46,13 +47,29 @@ enum AppComposition {
             return .failure(.identityNotReady)
         }
 
+        // E12-12/E12-13: correlates PeerVerifier's onDecision hook (the fingerprint it already
+        // computed for a connection's own verify callback) with that same connection's session
+        // wiring at `.ready`, so a trusted client's control session is registered under its real
+        // SPKI fingerprint rather than re-deriving it after the fact -- mirrors HarnessHooks.
+        let decisionCorrelator = PeerDecisionCorrelator()
         let verify = PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
-            window: NoPairingWindow()
+            window: NoPairingWindow(),
+            onDecision: { metadata, decision, fingerprint in
+                let metadataIdentifier = ObjectIdentifier(metadata)
+                decisionCorrelator.record(
+                    metadataIdentifier: metadataIdentifier,
+                    decision: decision,
+                    fingerprint: fingerprint
+                )
+            }
         )
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(),
+            listenerFactory: NWListenerFactory(
+                sessionRegistry: ControlSessionRegistry(),
+                decisionCorrelator: decisionCorrelator
+            ),
             port: .any,
             verify: verify
         )
