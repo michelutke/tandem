@@ -45,8 +45,10 @@ struct PairingWindowTests {
         let window = Self.makeWindow(clock: ManualTestClock(), verifier: verifier).window
         window.open(secret: Data([1]))
 
+        var lastToken: PairingCandidateToken!
         for _ in 0..<3 {
             let token = try #require(window.admitCandidate())
+            lastToken = token
             _ = window.candidateHellosCompleted(token)
             _ = window.submitPairRequest(token, proof: Data([9]))
         }
@@ -54,8 +56,8 @@ struct PairingWindowTests {
         #expect(window.closedReason == .attemptsExhausted)
         #expect(verifier.callCount == 3)
 
-        let staleToken = PairingCandidateToken()
-        let outcome = window.submitPairRequest(staleToken, proof: Data([9]))
+        // The last real candidate's own token is also stale now the window has closed.
+        let outcome = window.submitPairRequest(lastToken, proof: Data([9]))
 
         #expect(outcome == .rejected)
         #expect(verifier.callCount == 3)
@@ -97,7 +99,7 @@ struct PairingWindowTests {
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .paired)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
     }
 
     @Test
@@ -147,7 +149,7 @@ struct PairingWindowTests {
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .cancelled)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
     }
 
     @Test
@@ -247,7 +249,7 @@ struct PairingWindowTests {
 
         #expect(!window.isOpen)
         #expect(window.closedReason == .declined)
-        #expect(window.secretForTesting == nil)
+        #expect(window.secretBoxForTesting == nil)
 
         // A stale connection teardown after the fact (D-73) commits/decrements nothing again.
         let attemptsAfterDecline = window.attemptsRemaining
@@ -283,7 +285,8 @@ struct PairingWindowTests {
 
     @Test
     func pairingWindow_staleCandidateSubmitProofAfterFreshAdmitted_freshCandidateUnaffected() throws {
-        let window = Self.makeWindow(clock: ManualTestClock()).window
+        let verifier = SpyPairRequestVerifier(result: true)
+        let window = Self.makeWindow(clock: ManualTestClock(), verifier: verifier).window
         window.open(secret: Data([1]))
         let staleToken = try #require(window.admitCandidate())
         window.releaseCandidate(staleToken)
@@ -292,9 +295,11 @@ struct PairingWindowTests {
         let freshToken = try #require(window.admitCandidate())
         _ = window.candidateHellosCompleted(freshToken)
 
-        // A late-arriving frame on the stale (already-closed) connection must be rejected without
-        // affecting the fresh candidate's own budget or state.
+        // A late-arriving frame on the stale (already-closed) connection must be rejected --
+        // without ever invoking `PairRequestVerifier` -- and without affecting the fresh
+        // candidate's own budget or state.
         #expect(window.submitPairRequest(staleToken, proof: Data([9])) == .rejected)
+        #expect(verifier.callCount == 0)
         #expect(window.attemptsRemaining == attemptsAfterStaleRelease)
         #expect(window.candidateInFlight)
     }

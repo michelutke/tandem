@@ -174,6 +174,57 @@ struct PairConfirmationViewModelTests {
 
         #expect(sink.calls.isEmpty)
         #expect(try trustStore.list().isEmpty)
+        #expect(viewModel.didFailToPair)
+    }
+
+    @Test
+    func pairConfirmation_windowExpiredWhileDialogPending_pairAbortsNoPairAcceptedVisibleError() async throws {
+        let fixture = try Self.loadFixture()
+        let clock = ManualTestClock()
+        let (window, token) = Self.confirmationPendingWindow(secret: fixture.secret, clock: clock)
+        let sink = FakePairingCandidateSink()
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            token: token,
+            sink: sink,
+            trustStore: trustStore
+        )
+
+        // The window's 120 s expiry elapses while the dialog is still showing, before the owner
+        // clicks Pair (D-73's "commits nothing on a connection that is no longer open").
+        clock.advance(by: .seconds(120))
+
+        await viewModel.pair()
+
+        #expect(sink.calls.isEmpty)
+        #expect(try trustStore.list().isEmpty)
+        #expect(window.closedReason == .expired)
+        #expect(viewModel.didFailToPair)
+    }
+
+    @Test
+    func pairConfirmation_trustStoreCommitThrows_abortsNoPairAcceptedVisibleError() async throws {
+        let fixture = try Self.loadFixture()
+        let (window, token) = Self.confirmationPendingWindow(secret: fixture.secret)
+        let sink = FakePairingCandidateSink()
+        let keychainStore = InMemoryKeychainStore()
+        keychainStore.failNextOperation(with: .locked)
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            token: token,
+            sink: sink,
+            trustStore: trustStore
+        )
+
+        await viewModel.pair()
+
+        #expect(sink.calls.isEmpty)
+        #expect(try trustStore.list().isEmpty)
+        #expect(viewModel.didFailToPair)
     }
 
     // MARK: - Fixtures

@@ -79,6 +79,24 @@ struct PairingCandidateFlowTests {
     }
 
     @Test
+    func pairingFailure_wrongPayloadThenConnectionClosed_decrementsExactlyOnce() async throws {
+        let window = Self.makeWindow()
+        window.open(secret: Data([1]))
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        let sink = FakePairingCandidateSink()
+        let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
+
+        await flow.wrongPayloadReceived()
+        flow.connectionClosed()
+
+        // Once this candidate has already failed via `wrongPayloadReceived()`, `connectionClosed()`
+        // no-ops entirely (finding, cycle 8 adversarial review) rather than touching `window` again.
+        #expect(window.attemptsRemaining == 2)
+        #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
+    }
+
+    @Test
     func pairingFailure_badProof_wireReasonPairingUnavailableOnly() async throws {
         let window = Self.makeWindow(verifierResult: false)
         window.open(secret: Data([1]))
@@ -155,6 +173,29 @@ struct PairingCandidateFlowTests {
         #expect(window.isConfirmationPending)
         #expect(window.attemptsRemaining == 3)
         #expect(sink.calls.isEmpty)
+    }
+
+    @Test
+    func pairingCandidate_connectionClosedWithStaleToken_doesNotBurnNewCandidatesAttempt() throws {
+        let window = Self.makeWindow()
+        window.open(secret: Data([1]))
+        let staleToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(staleToken) != nil)
+        let sink = FakePairingCandidateSink()
+        let staleFlow = PairingCandidateFlow(window: window, sink: sink, token: staleToken)
+
+        // This candidate's slot was freed by some other path (e.g. the window's own 10 s
+        // deadline), and a brand new, unrelated candidate has since claimed it -- `staleFlow`
+        // never itself failed (`hasFailed` is still false), so only the window's own token check
+        // stands between a late `connectionClosed()` and burning the wrong candidate's attempt.
+        window.releaseCandidate(staleToken)
+        _ = try #require(window.admitCandidate())
+        let attemptsBeforeStaleClose = window.attemptsRemaining
+
+        staleFlow.connectionClosed()
+
+        #expect(window.attemptsRemaining == attemptsBeforeStaleClose)
+        #expect(window.candidateInFlight)
     }
 
     private static func makeWindow(

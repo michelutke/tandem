@@ -28,6 +28,10 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     private let lock = NSLock()
     private var hasFailed = false
 
+    /// - Parameter token: This candidate's slot claim, from the ``PairingWindow/admitCandidate()``
+    ///   call that admitted it -- presented to every later ``PairingWindow`` call this type makes
+    ///   for the same candidate, so a stale call from a since-superseded flow can only ever no-op
+    ///   (`docs/planning/decisions.md` D-73, adversarial-verifier finding).
     public init(window: PairingWindow, sink: any PairingCandidateSink, token: PairingCandidateToken) {
         self.window = window
         self.sink = sink
@@ -59,8 +63,10 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     /// Any payload other than the expected next message in the sequence, except `Heartbeat`
     /// (`docs/protocol/SPEC.md` §2 "Frame order", case 4, local reason `MALFORMED`): a second
     /// `PairChallenge`, a `PairRequest` before `PairChallenge`, a duplicate `PairRequest`, or any
-    /// other payload type.
+    /// other payload type. A no-op if this candidate already failed via another path (D-70: at
+    /// most one attempt burned per connection, in total).
     public func wrongPayloadReceived() async {
+        guard !isAlreadyFailed() else { return }
         window.releaseCandidate(token)
         await fail()
     }
@@ -75,7 +81,11 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     /// (E14-16 finding #4): a `Heartbeat` can land on this exact connection's own frame loop after
     /// its own ``PairConfirmationViewModel/pair()`` has already committed the window to `.paired`
     /// but while that same call is still suspended awaiting `PairAccepted`'s send -- that is this
-    /// connection succeeding, not failing, so it must never be treated as a reason to reject it.
+    /// connection succeeding, not failing, so it must never be treated as a reason to reject it. Once
+    /// the owner has accepted, this connection is an ordinary session from here on, and a `Heartbeat`
+    /// on it MUST NOT be treated as a pairing failure (a coordinator that keeps routing `Heartbeat`
+    /// through this type after `PairAccepted` would otherwise reject the very session it just
+    /// accepted).
     public func heartbeatReceived() async {
         window.heartbeatReceived()
         guard let reason = window.closedReason, reason != .paired else { return }
@@ -88,6 +98,7 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     /// attempt (``PairingWindow/releaseCandidate(_:)``), a no-op if this candidate already failed
     /// via one of those paths (D-70: at most one attempt burned per connection, in total).
     public func connectionClosed() {
+        guard !isAlreadyFailed() else { return }
         window.releaseCandidate(token)
     }
 
@@ -120,5 +131,13 @@ public final class PairingCandidateFlow: @unchecked Sendable {
         if hasFailed { return false }
         hasFailed = true
         return true
+    }
+
+    /// Peeks `hasFailed` without claiming it, so ``wrongPayloadReceived()``/``connectionClosed()``
+    /// can skip touching ``window`` at all once this candidate has already failed via any path.
+    private func isAlreadyFailed() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return hasFailed
     }
 }

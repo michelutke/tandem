@@ -244,9 +244,7 @@ struct PairingCoordinatorTests {
             )
         }
 
-        FileHandle.standardError.write("DBG1 before waitForChallenge\n".data(using: .utf8)!)
         _ = try await Self.waitForChallenge(session, timeout: 2)
-        FileHandle.standardError.write("DBG2 after waitForChallenge\n".data(using: .utf8)!)
         // The active deadline watcher (E14-16 finding #5) is a `Task` racing this test's own
         // foreground code: `clock.advance(by:)` must not run until that `Task` has actually
         // reached its own `clock.sleep(for:)` call and parked, or its deadline would be computed
@@ -256,12 +254,9 @@ struct PairingCoordinatorTests {
         while fixture.clock.pendingSleeperCountForTesting < 1 {
             await Task.yield()
         }
-        FileHandle.standardError.write("DBG3 sleeper parked, advancing\n".data(using: .utf8)!)
         fixture.clock.advance(by: .seconds(10))
-        FileHandle.standardError.write("DBG4 advanced, awaiting driveTask\n".data(using: .utf8)!)
 
         await driveTask.value
-        FileHandle.standardError.write("DBG5 driveTask done\n".data(using: .utf8)!)
 
         let sent = await session.sent
         #expect(!sent.contains { if case .pairRejected = $0.payload { return true } else { return false } })
