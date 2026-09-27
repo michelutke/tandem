@@ -1,0 +1,82 @@
+{
+  "$schema": "./schema.json",
+  "category": "status-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "status-device-status-minimal",
+      "description": "Minimal DeviceStatus with all fields at proto3 defaults (omitted).",
+      "input": {
+        "frameHex": "0000000708091001a20100",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "deviceStatus"
+      }
+    },
+    {
+      "id": "status-device-status-typical",
+      "description": "Typical DeviceStatus: 82% battery, charging, Wi-Fi, 3 bars signal.",
+      "input": {
+        "frameHex": "000000110809102a1829a201080852100118012003",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 42,
+        "ack": 41,
+        "payload": "deviceStatus"
+      }
+    },
+    {
+      "id": "status-ring",
+      "description": "Ring message on STATUS channel: smallest legal Ring frame.",
+      "input": {
+        "frameHex": "0000000708091001aa0100",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 1,
+        "ack": 0,
+        "payload": "ring"
+      }
+    },
+    {
+      "id": "status-ring-stop-mac",
+      "description": "RingStop with origin=MAC (1) from Mac side.",
+      "input": {
+        "frameHex": "0000000b080910021801b201020801",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 2,
+        "ack": 1,
+        "payload": "ringStop"
+      }
+    },
+    {
+      "id": "status-ring-stop-phone",
+      "description": "RingStop with origin=PHONE (2) from phone side.",
+      "input": {
+        "frameHex": "0000000b080910031802b201020802",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_STATUS",
+        "seq": 3,
+        "ack": 2,
+        "payload": "ringStop"
+      }
+    }
+  ]
+}

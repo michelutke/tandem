@@ -1,0 +1,82 @@
+{
+  "$schema": "./schema.json",
+  "category": "notify-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "notify-notification-posted-messaging-style-three-senders",
+      "description": "NotificationPosted for a MessagingStyle conversation with 3 senders.",
+      "input": {
+        "frameHex": "0000008608021001f2017f0a15636f6d2e6578616d706c652e636861747c313030311210636f6d2e6578616d706c652e63686174182a220c5465616d205374616e6475702a2e416c6963653a204f6e206d79207761790a426f623a2053656520796f752074686572650a436172613a20f09f918d3205416c6963653203426f6232044361726138014001",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_NOTIFY",
+        "seq": 1,
+        "ack": 0,
+        "payload": "notificationPosted"
+      }
+    },
+    {
+      "id": "notify-notification-action-with-reply-text",
+      "description": "NotificationAction for a RemoteInput-capable action with a reply.",
+      "input": {
+        "frameHex": "000000320802100718068202290a15636f6d2e6578616d706c652e636861747c3130303110011a0e4f6e206d792077617920746f6f21",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_NOTIFY",
+        "seq": 7,
+        "ack": 6,
+        "payload": "notificationAction"
+      }
+    },
+    {
+      "id": "notify-notification-dismiss-origin-macos",
+      "description": "NotificationDismiss originating from the Mac.",
+      "input": {
+        "frameHex": "000000220802100818078a02190a15636f6d2e6578616d706c652e636861747c313030311002",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_NOTIFY",
+        "seq": 8,
+        "ack": 7,
+        "payload": "notificationDismiss"
+      }
+    },
+    {
+      "id": "notify-icon-data-png-bytes",
+      "description": "IconData carrying a small PNG payload for an app version.",
+      "input": {
+        "frameHex": "0000003d080210021801fa01340a10636f6d2e6578616d706c652e63686174102a1a1e89504e470d0a1a0a0000000d494844520000000100000001080600000037",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_NOTIFY",
+        "seq": 2,
+        "ack": 1,
+        "payload": "iconData"
+      }
+    },
+    {
+      "id": "notify-notification-action-result-status-gone",
+      "description": "NotificationActionResult reporting that the source notification was already gone (UC-09 alternate).",
+      "input": {
+        "frameHex": "000000220802100918089202190a15636f6d2e6578616d706c652e636861747c313030311002",
+        "lengthPrefix": 0,
+        "suppliedEnvelopeLength": 0
+      },
+      "expected": {
+        "channel": "CHANNEL_NOTIFY",
+        "seq": 9,
+        "ack": 8,
+        "payload": "notificationActionResult"
+      }
+    }
+  ]
+}

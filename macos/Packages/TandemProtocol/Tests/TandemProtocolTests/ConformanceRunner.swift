@@ -1,4 +1,6 @@
 import Foundation
+import TandemTestSupport
+@testable import TandemProtocol
 
 /// E15-02: aggregates every `protocol/vectors/` category against the real Swift codec/crypto
 /// implementations behind one explicit category -> handler table. A category on disk that is not
@@ -36,7 +38,7 @@ enum ConformanceRunner {
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
-        "discovery-id"
+        "discovery-id", "status-encoding", "notify-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -134,10 +136,16 @@ enum ConformanceRunner {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
+<<<<<<< HEAD
         case "discovery-id": return try runDiscoveryId(data: data)
+=======
+        case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
+        case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
+>>>>>>> 5c071279e2328af2780b1d00afd440ad5cd67c78
         default: throw UnknownVectorCategoryError(category: category)
         }
     }
+
 }
 
 extension Data {
