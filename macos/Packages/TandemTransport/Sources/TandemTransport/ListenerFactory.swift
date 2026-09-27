@@ -151,22 +151,37 @@ public struct NWListenerFactory: ListenerFactory {
                     Task { await admission.handshakeFailed(id) }
                     return
                 }
-                Task { await admission.handshakeSucceeded(id) }
+                Task {
+                    await admission.handshakeSucceeded(id)
+                    // E20-10/E20-11: lets a later `ListenerControl.stop()` (sleep, or a rebind on
+                    // network path change) tear this connection down to `Disconnected` -- the
+                    // only place any *post*-handshake connection is tracked at all.
+                    await admission.trackReadyConnection(id) { connection.cancel() }
+                }
             case .failed:
                 // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
                 // reaches `.ready`, so without this the accepted `NWConnection` is only ever
                 // released by `.cancelled` -- which nothing here would ever trigger for it --
                 // leaking it (and its closure's strong self-reference) for the life of the
                 // process. Cancelling on `.failed` releases it, and counts as a failed handshake
-                // for the per-IP throttle (SPEC.md §10).
+                // for the per-IP throttle (SPEC.md §10). A connection that had already reached
+                // `.ready` and is only failing later (peer vanished after the handshake) is also
+                // untracked here, so a subsequent `cancelAllReady()` never revisits it.
                 connection.cancel()
-                Task { await admission.handshakeFailed(id) }
+                Task {
+                    await admission.handshakeFailed(id)
+                    await admission.untrackReadyConnection(id)
+                }
             case .cancelled:
-                // Reached either from one of the two `connection.cancel()` calls above (already
-                // reported, so this is a no-op) or from the TCP connection itself closing/
-                // resetting before the handshake ever reached `.ready`/`.failed` -- also a failed
-                // handshake (SPEC.md §10).
-                Task { await admission.handshakeFailed(id) }
+                // Reached either from one of the `connection.cancel()` calls above (already
+                // reported, so this is a no-op), from `ConnectionAdmission.cancelAllReady()`
+                // cancelling an already-`.ready` connection (E20-10/E20-11), or from the TCP
+                // connection itself closing/resetting before the handshake ever reached
+                // `.ready`/`.failed` -- also a failed handshake (SPEC.md §10).
+                Task {
+                    await admission.handshakeFailed(id)
+                    await admission.untrackReadyConnection(id)
+                }
             default:
                 break
             }

@@ -59,6 +59,7 @@ public actor ConnectionAdmission {
     private var failureCounts: [String: Int] = [:]
     private var throttledIPs: Set<String> = []
     private var nextIDValue = 0
+    private var readyConnections: [ConnectionID: @Sendable () -> Void] = [:]
 
     /// `totalPreAuthCap`/`perIPPreAuthCap` default to the SPEC.md §10 values (``totalPreAuthCap``,
     /// ``perIPPreAuthCap``, the `static` properties above) and exist as `init` parameters, not
@@ -128,6 +129,32 @@ public actor ConnectionAdmission {
     public func handshakeFailed(_ id: ConnectionID) {
         guard let slot = releaseSlot(id) else { return }
         recordFailure(ipAddress: slot.ipAddress)
+    }
+
+    /// Marks `id` as a live, past-handshake connection, holding `cancel` so a later
+    /// ``cancelAllReady()`` (E20-10 sleep, E20-11 path-change rebind) can tear it down. Entirely
+    /// separate bookkeeping from the pre-auth ``slots`` above, which ``handshakeSucceeded(_:)``
+    /// already released by the time a caller has anything worth tracking here.
+    public func trackReadyConnection(_ id: ConnectionID, cancel: @escaping @Sendable () -> Void) {
+        readyConnections[id] = cancel
+    }
+
+    /// Stops tracking `id` -- called once its connection reaches `.cancelled`/`.failed` on its
+    /// own, so a later ``cancelAllReady()`` never double-cancels an already-gone connection. A
+    /// no-op if `id` was never tracked or was already untracked.
+    public func untrackReadyConnection(_ id: ConnectionID) {
+        readyConnections.removeValue(forKey: id)
+    }
+
+    /// Cancels every currently tracked ready connection exactly once (E20-10 sleep, E20-11
+    /// path-change rebind) -- each closure's own `NWConnection.cancel()` drives that connection's
+    /// state machine to `Disconnected` (E12-09) via its ordinary `.cancelled` handling. Safe to
+    /// call repeatedly: connections cancelled by a prior call are no longer tracked, so they are
+    /// never cancelled twice.
+    public func cancelAllReady() {
+        let cancels = Array(readyConnections.values)
+        readyConnections.removeAll()
+        for cancel in cancels { cancel() }
     }
 
     @discardableResult

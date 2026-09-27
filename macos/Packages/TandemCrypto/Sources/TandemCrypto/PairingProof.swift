@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// HMAC-SHA256 pairing-proof helper (E10-13, SPEC.md #2 "Proof computation"): binds the pairing

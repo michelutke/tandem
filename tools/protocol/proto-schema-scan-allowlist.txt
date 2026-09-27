@@ -1,0 +1,3 @@
+# Allowlist for proto-schema-scan.sh (E01-15)
+# Names that match (?i)debug|echo|loopback|test|canary but are allowed for testing.
+# One name per line; lines starting with # and empty lines are ignored.
