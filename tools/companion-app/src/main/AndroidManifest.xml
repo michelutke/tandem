@@ -1,0 +1,40 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- E00-22: debug-only companion app, never published, never a dependency of android/app.
+         Posts notifications on command so notification tests don't depend on a real third-party
+         app; driven by `adb shell am broadcast -a dev.tandem.companion.POST` or an instrumented
+         test's own explicit broadcast. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:label="Tandem Companion"
+        android:allowBackup="false">
+
+        <receiver
+            android:name=".CompanionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.tandem.companion.POST" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Target of every `actions` kind's PendingIntent (button tap and RemoteInput reply);
+             the intent-filter also lets an instrumented test drive it directly via
+             Context.sendBroadcast, the same way it drives CompanionReceiver. -->
+        <receiver
+            android:name=".ActionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.tandem.companion.ACTION_FIRED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Debug-only read-back for recorded actions/replies (E00-22 acceptance). -->
+        <provider
+            android:name=".RecordsProvider"
+            android:authorities="dev.tandem.companion.records"
+            android:exported="true" />
+
+    </application>
+
+</manifest>

@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+// E30-01: notify.proto — NotificationPosted, IconData, NotificationAction, NotificationDismiss,
+// and NotificationActionResult, carried on the NOTIFY channel (Channel.NOTIFY, envelope.proto).
+// The normative NOTIFY section of docs/protocol/SPEC.md is written by this issue. Field numbers
+// 30-34 of envelope.proto's Envelope.payload oneof are used below; 35-39 are held for future
+// NOTIFY extensions (see envelope.proto's reserved-range comment).
+//
+// Every string field below (title, text, messaging_style_senders entries, and the app name a
+// receiver looks up for package_name) is untrusted peer input: docs/protocol/SPEC.md
+// #untrusted-peer-strings-display-sanitization (E01-23) MUST run before any of it is rendered,
+// and none of it MUST ever be written to a log in a release build (invariant 7,
+// docs/planning/decisions.md).
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// Visibility: mirrors the Android notification's lock-screen visibility (PRD F-5.4). A
+// VISIBILITY_SECRET notification is forwarded in redacted form (E30-11): title = the app name,
+// text = "", messaging_style_senders = [] — the phone never sends the real content in that case,
+// so no receiver-side redaction is required.
+enum Visibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  VISIBILITY_PUBLIC = 1;
+  VISIBILITY_PRIVATE = 2;
+  VISIBILITY_SECRET = 3;
+}
+
+// NotificationPosted: PRD F-5.1 — the phone sends this when a notification is posted or updated.
+// Sent directly as the Envelope payload (no wrapper message needed).
+message NotificationPosted {
+  // Stable identifier for this notification (phone-assigned), reused by NotificationAction,
+  // NotificationDismiss, and NotificationActionResult to refer back to it. A second
+  // NotificationPosted with the same key updates the Mac's presentation of the same notification
+  // rather than stacking a new one.
+  string key = 1;
+  string package_name = 2;
+  int64 app_version_code = 3;
+  // Display cap: <= 256 characters (#timeouts-connection-limits-and-resource-caps, E01-22);
+  // sanitized per #untrusted-peer-strings-display-sanitization (E01-23) before display.
+  string title = 4;
+  // Display cap: <= 4096 characters (E01-22); sanitized as a `body` field (E01-23).
+  string text = 5;
+  // MessagingStyle sender names, message order preserved. Cap: <= 25 entries of <= 64 characters
+  // each (E01-22); each entry is sanitized as a `name` field (E01-23).
+  repeated string messaging_style_senders = 6;
+  Visibility visibility = 7;
+  // True when the source notification has an icon; the icon bytes themselves arrive separately
+  // as IconData keyed by package_name + app_version_code (icons are cached per app version, not
+  // per notification, E30-05).
+  bool has_icon = 8;
+}
+
+// IconData: PRD F-5.1 — an app icon, sent so the Mac can present notifications with the source
+// app's icon without asking again for every post from the same app version.
+message IconData {
+  string package_name = 1;
+  int64 version_code = 2;
+  // Cap: <= 64 KiB and <= 256x256 px (E01-22); over-cap data is discarded and a placeholder icon
+  // used instead (E30-05) rather than rejected at the protocol layer.
+  bytes png_bytes = 3;
+}
+
+// NotificationAction: PRD F-5.2 — the Mac sends this when the user taps an action (or submits a
+// reply) on a mirrored notification.
+message NotificationAction {
+  string key = 1;
+  // Index into the source notification's action list, in the order NotificationPosted's source
+  // notification declared them.
+  int32 action_index = 2;
+  // Present only for a RemoteInput-capable action the user replied to; empty otherwise. Cap:
+  // <= 4096 characters (E01-22); sanitized as a `body` field (E01-23) before being shown back to
+  // the user (e.g. in a sent-reply confirmation).
+  string reply_text = 3;
+}
+
+// NotificationDismiss: PRD F-5.3 — either side sends this when a notification is dismissed, so
+// the other side removes its copy. `origin` records which side dismissed it, so the receiver
+// never re-forwards a dismissal it only just applied locally (avoiding an echo loop, E30-10,
+// E30-18).
+message NotificationDismiss {
+  string key = 1;
+  enum Origin {
+    ORIGIN_UNSPECIFIED = 0;
+    ORIGIN_ANDROID = 1;
+    ORIGIN_MACOS = 2;
+  }
+  Origin origin = 2;
+}
+
+// NotificationActionResult: PRD F-5.2 — the phone answers every received NotificationAction with
+// this, so the Mac can report a reply/action as sent, or "no longer available" if the source
+// notification was already gone (UC-09 alternate).
+message NotificationActionResult {
+  string key = 1;
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_OK = 1;
+    STATUS_GONE = 2;
+    STATUS_FAILED = 3;
+  }
+  Status status = 2;
+}

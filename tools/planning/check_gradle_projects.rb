@@ -20,7 +20,13 @@ require_relative 'check_directory_manifest'
 module CheckGradleProjects
   MANIFEST_RELATIVE = 'tools/planning/directory-manifest.txt'
   PROJECT_LINE = /Project '(?<path>:[\w:-]*)'/.freeze
-  MODULE_DIR = %r{\Aandroid/(app|core/[^/]+|feature/[^/]+|lint/[^/]+|harness/[^/]+)\z}.freeze
+  MODULE_DIR = %r{\Aandroid/(app|core/[^/]+|feature/[^/]+|lint/[^/]+|harness/[^/]+)\z|\Atools/companion-app\z}.freeze
+
+  # E00-22: `:companion-app` is a real module of the android/ build (see android/settings.gradle.kts),
+  # but its `projectDir` points outside android/ (`tools/companion-app`), so it needs an explicit
+  # manifest-dir -> gradle-path mapping instead of the android/-relative one every other module gets.
+  EXTERNAL_MODULE_DIRS = { 'tools/companion-app' => ':companion-app' }.freeze
+  EXTERNAL_GRADLE_PATHS = EXTERNAL_MODULE_DIRS.invert.freeze
 
   module_function
 
@@ -45,7 +51,7 @@ module CheckGradleProjects
   end
 
   def gradle_path(dir)
-    ":#{dir.delete_prefix('android/').tr('/', ':')}"
+    EXTERNAL_MODULE_DIRS[dir] || ":#{dir.delete_prefix('android/').tr('/', ':')}"
   end
 
   def run_gradle_projects(android_dir)
@@ -61,6 +67,10 @@ module CheckGradleProjects
   end
 
   def buildable?(android_dir, gradle_path)
+    if (external_dir = EXTERNAL_GRADLE_PATHS[gradle_path])
+      return File.exist?(File.join(android_dir, '..', external_dir, 'build.gradle.kts'))
+    end
+
     dir = gradle_path.delete_prefix(':').tr(':', '/')
     File.exist?(File.join(android_dir, dir, 'build.gradle.kts'))
   end

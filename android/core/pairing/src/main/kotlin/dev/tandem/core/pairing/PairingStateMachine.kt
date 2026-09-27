@@ -1,6 +1,7 @@
 package dev.tandem.core.pairing
 
 import dev.tandem.core.crypto.ConfirmationCode
+import dev.tandem.core.crypto.PairingProofException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.qr.PairingInvite
 import dev.tandem.core.pairing.qr.QrPairingPinSource
@@ -9,6 +10,7 @@ import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.revoke
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,6 +26,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
@@ -51,12 +55,15 @@ class PairingStateMachine(
     private val connector: PairingConnector,
     private val trustCommitter: TrustCommitter,
     private val invite: PairingInvite,
+    private val deviceInfoProvider: DeviceInfoProvider,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Idle)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
 
+    /** Guards [confirmContext]/[confirmDeadline] so exactly one of confirm/cancel/deadline/close wins. */
+    private val confirmMutex = Mutex()
     private var confirmContext: ConfirmContext? = null
     private var confirmDeadline: Job? = null
 
@@ -78,11 +85,7 @@ class PairingStateMachine(
      * fingerprint via [trustCommitter] and moves to [PairingState.Paired]. No-op outside that state.
      */
     suspend fun confirmCodesMatch() {
-        val context = confirmContext ?: return
-        if (mutableState.value !is PairingState.AwaitingUserConfirm) return
-        confirmContext = null
-        confirmDeadline?.cancel()
-        confirmDeadline = null
+        val context = claimConfirmContext() ?: return
         trustCommitter.commit(context.macFingerprint, context.macName, clock.instant())
         mutableState.value = PairingState.Paired
     }
@@ -93,16 +96,40 @@ class PairingStateMachine(
      * that state.
      */
     fun cancelConfirm() {
-        val context = confirmContext ?: return
-        if (mutableState.value !is PairingState.AwaitingUserConfirm) return
-        confirmContext = null
-        scope.launch { declineConfirm(context.session, PairingFailure.UserCancelled) }
+        scope.launch {
+            val context = claimConfirmContext() ?: return@launch
+            declineConfirm(context.session, PairingFailure.UserCancelled)
+        }
     }
 
-    /** Callers own this machine's lifetime and MUST call this once done with it. */
+    /**
+     * Callers own this machine's lifetime and MUST call this once done with it. If a confirmation
+     * is still pending, best-effort sends `Revoke` on that candidate connection before tearing this
+     * machine's scope down (SPEC.md §2 "Mutual confirmation": the phone abandoning the dialog MUST
+     * NOT leave the Mac's window open indefinitely).
+     */
     fun close() {
-        scope.cancel()
+        scope
+            .launch {
+                val context = claimConfirmContext() ?: return@launch
+                runCatching { context.session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+                context.session.close()
+            }.invokeOnCompletion { scope.cancel() }
     }
+
+    /**
+     * Atomically claims [confirmContext] for whichever of [confirmCodesMatch]/[cancelConfirm]/the
+     * [armConfirmDeadline] job/[close] calls it first, cancelling [confirmDeadline]; every later
+     * caller (including the 120 s boundary racing a tap) gets `null` and no-ops (finding 5).
+     */
+    private suspend fun claimConfirmContext(): ConfirmContext? =
+        confirmMutex.withLock {
+            val context = confirmContext ?: return@withLock null
+            confirmContext = null
+            confirmDeadline?.cancel()
+            confirmDeadline = null
+            context
+        }
 
     private suspend fun runPairing() {
         val connection = dialAddresses() ?: return
@@ -110,13 +137,36 @@ class PairingStateMachine(
         mutableState.value = PairingState.AwaitingProofSent
 
         val challenge =
-            waitForControlEnvelope(session) { it.payloadCase == Envelope.PayloadCase.PAIR_CHALLENGE }
+            withTimeoutOrNull(CHALLENGE_TIMEOUT) {
+                waitForControlEnvelope(session) { it.payloadCase == Envelope.PayloadCase.PAIR_CHALLENGE }
+            }
         when (challenge) {
-            is WaitOutcome.ConnectionLost -> mutableState.value = PairingState.Failed(PairingFailure.ConnectionLost)
-            is WaitOutcome.Success -> sendPairRequestAndAwaitResult(connection, challenge.envelope)
+            null -> {
+                session.close()
+                mutableState.value = PairingState.Failed(PairingFailure.ChallengeTimeout)
+            }
+
+            is WaitOutcome.ConnectionLost -> {
+                mutableState.value = PairingState.Failed(PairingFailure.ConnectionLost)
+            }
+
+            is WaitOutcome.Success -> {
+                sendPairRequestAndAwaitResult(connection, challenge.envelope)
+            }
         }
     }
 
+    /**
+     * Dials every address in order (D-68). A connect timeout advances to the next address; any
+     * other connect/handshake failure (connection refused, TLS pin mismatch, hello version
+     * mismatch, ...) does too, rather than crashing this machine's scope (finding 4) — only
+     * exhausting every address is a terminal [PairingFailure.AllAddressesUnreachable]. The
+     * [connector] seam is a `fun interface` with no declared throws, so any implementation's
+     * connect/handshake failure surfaces as an unchecked exception of an unknown type; catching it
+     * broadly here, rather than letting it escape to this machine's `SupervisorJob` uncaught, is
+     * the fix, not an oversight.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun dialAddresses(): PairingConnection? {
         val pinSource = QrPairingPinSource(invite)
         for (address in invite.addresses) {
@@ -125,6 +175,10 @@ class PairingStateMachine(
                     withTimeout(CONNECT_TIMEOUT) { connector.connect(address, invite.port, pinSource) }
                 } catch (expectedAddressTimeout: TimeoutCancellationException) {
                     null
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (connectFailure: Exception) {
+                    null
                 }
             if (connection != null) return connection
         }
@@ -132,15 +186,38 @@ class PairingStateMachine(
         return null
     }
 
+    /**
+     * The malformed-challenge branch below intentionally never rethrows or logs
+     * [PairingProofException]: it maps straight to [PairingFailure.MalformedChallenge] with no
+     * further detail exposed, so its message can't leak into a release log (invariant 7).
+     */
+    @Suppress("SwallowedException")
     private suspend fun sendPairRequestAndAwaitResult(
         connection: PairingConnection,
         challengeEnvelope: Envelope,
     ) {
         val session = connection.session
         val challenge = challengeEnvelope.pairChallenge.challenge.toByteArray()
-        val request = PairRequestBuilder.build(invite, connection.macSpkiDer, connection.phoneSpkiDer, challenge)
+        val requestAndCode =
+            try {
+                val request =
+                    PairRequestBuilder.build(
+                        invite,
+                        connection.macSpkiDer,
+                        connection.phoneSpkiDer,
+                        challenge,
+                        deviceInfoProvider,
+                    )
+                val code =
+                    ConfirmationCode.compute(invite.secret, connection.macSpkiDer, connection.phoneSpkiDer, challenge)
+                request to code
+            } catch (malformed: PairingProofException) {
+                session.close()
+                mutableState.value = PairingState.Failed(PairingFailure.MalformedChallenge)
+                return
+            }
+        val (request, code) = requestAndCode
         session.send(Channel.CHANNEL_CONTROL) { pairRequest = request }
-        val code = ConfirmationCode.compute(invite.secret, connection.macSpkiDer, connection.phoneSpkiDer, challenge)
         mutableState.value = PairingState.AwaitingAccept(code)
 
         when (
@@ -168,37 +245,33 @@ class PairingStateMachine(
                 } else {
                     confirmContext = ConfirmContext(session, SpkiFingerprint(invite.fingerprint), invite.macName)
                     mutableState.value = PairingState.AwaitingUserConfirm(code, invite.macName)
-                    armConfirmDeadline()
+                    confirmDeadline =
+                        scope.launch {
+                            delay(CONFIRM_TIMEOUT)
+                            val context = claimConfirmContext() ?: return@launch
+                            declineConfirm(context.session, PairingFailure.ConfirmationTimeout)
+                        }
                 }
             }
         }
-    }
-
-    private fun armConfirmDeadline() {
-        confirmDeadline =
-            scope.launch {
-                delay(CONFIRM_TIMEOUT)
-                val context = confirmContext ?: return@launch
-                confirmContext = null
-                declineConfirm(context.session, PairingFailure.ConfirmationTimeout)
-            }
     }
 
     private suspend fun declineConfirm(
         session: TandemSession,
         reason: PairingFailure,
     ) {
-        confirmDeadline?.cancel()
-        confirmDeadline = null
         runCatching { session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
         session.close()
         mutableState.value = PairingState.Failed(reason)
     }
 
     private sealed class WaitOutcome {
-        data class Success(
+        /** Plain, not `data`, class: default `toString()` must never print [envelope]'s bytes (finding 8). */
+        class Success(
             val envelope: Envelope,
-        ) : WaitOutcome()
+        ) : WaitOutcome() {
+            override fun toString(): String = "Success(envelope=<redacted>)"
+        }
 
         data object ConnectionLost : WaitOutcome()
     }
@@ -229,6 +302,14 @@ class PairingStateMachine(
     companion object {
         /** SPEC.md §2 "Dialing the QR addresses (phone side)", D-68: 3 s per address. */
         val CONNECT_TIMEOUT = 3.seconds
+
+        /**
+         * SPEC.md §10: the phone MUST reply with `PairRequest` within 10 s of the hello exchange
+         * completing, and this single deadline covers the Mac's `PairChallenge` send too, so this
+         * machine bounds its own wait for it the same way rather than relying solely on the Mac
+         * closing the connection (finding 10).
+         */
+        val CHALLENGE_TIMEOUT = 10.seconds
 
         /** SPEC.md §2 "Frame order on a pairing-candidate connection", step 6: 120 s for the result. */
         val ACCEPT_TIMEOUT = 120.seconds

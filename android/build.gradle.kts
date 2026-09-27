@@ -5,8 +5,10 @@
 // the whole build.
 // `tandem.module-rules` (E00-14) inspects the whole project graph, so it is applied here rather
 // than by each module's own build script.
+// Kover (E00-06) is applied at root for aggregate coverage reporting.
 plugins {
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kover)
     id("tandem.module-rules")
 }
 
@@ -15,5 +17,15 @@ plugins {
 subprojects {
     dependencyLocking {
         lockAllConfigurations()
+    }
+}
+
+// E00-06: Kover aggregate coverage report across all modules. The koverHtmlReport task generates
+// an HTML report in build/reports/kover/html/ that includes all modules' coverage metrics.
+kover {
+    reports {
+        total {
+            html.title = "Tandem Coverage Report"
+        }
     }
 }

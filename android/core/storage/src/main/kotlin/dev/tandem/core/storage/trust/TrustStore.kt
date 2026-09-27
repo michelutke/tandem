@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import dev.tandem.core.crypto.SpkiFingerprint
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.io.File
 
 /**
@@ -34,6 +36,9 @@ class TrustStore private constructor(
 
     suspend fun list(): List<PeerRecord> = dao.list().map { it.toDomain() }
 
+    /** Reactive [list] (E20-02): emits the current records, then again on every put/delete/unpair. */
+    fun observeList(): Flow<List<PeerRecord>> = dao.observeList().map { entities -> entities.map { it.toDomain() } }
+
     suspend fun delete(fingerprint: SpkiFingerprint) = dao.deleteByFingerprint(fingerprint.base64Url)
 
     suspend fun unpair(fingerprint: SpkiFingerprint) = delete(fingerprint)
@@ -42,6 +47,7 @@ class TrustStore private constructor(
 
     companion object {
         /** File-backed store; survives process restart (UC-03). */
+        @Suppress("SpreadOperator") // Room's addMigrations only has a vararg overload (E13-03).
         fun open(
             context: Context,
             file: File,
@@ -50,16 +56,19 @@ class TrustStore private constructor(
                 Room
                     .databaseBuilder(context, TrustDatabase::class.java, file.absolutePath)
                     .setDriver(AndroidSQLiteDriver())
+                    .addMigrations(*TrustStoreMigrations.ALL)
                     .build()
             return TrustStore(db)
         }
 
         /** In-memory store, for tests that don't need restart survival. */
+        @Suppress("SpreadOperator") // Room's addMigrations only has a vararg overload (E13-03).
         fun openInMemory(context: Context): TrustStore {
             val db =
                 Room
                     .inMemoryDatabaseBuilder(context, TrustDatabase::class.java)
                     .setDriver(AndroidSQLiteDriver())
+                    .addMigrations(*TrustStoreMigrations.ALL)
                     .build()
             return TrustStore(db)
         }

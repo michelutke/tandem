@@ -181,5 +181,79 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.Ring getRing();
 
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   * @return Whether the ringStop field is set.
+   */
+  boolean hasRingStop();
+  /**
+   * <code>.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];</code>
+   * @return The ringStop.
+   */
+  dev.tandem.protocol.v1.RingStop getRingStop();
+
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   * @return Whether the notificationPosted field is set.
+   */
+  boolean hasNotificationPosted();
+  /**
+   * <pre>
+   * notify.proto (E30-01) — NOTIFY channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];</code>
+   * @return The notificationPosted.
+   */
+  dev.tandem.protocol.v1.NotificationPosted getNotificationPosted();
+
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   * @return Whether the iconData field is set.
+   */
+  boolean hasIconData();
+  /**
+   * <code>.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];</code>
+   * @return The iconData.
+   */
+  dev.tandem.protocol.v1.IconData getIconData();
+
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   * @return Whether the notificationAction field is set.
+   */
+  boolean hasNotificationAction();
+  /**
+   * <code>.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];</code>
+   * @return The notificationAction.
+   */
+  dev.tandem.protocol.v1.NotificationAction getNotificationAction();
+
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   * @return Whether the notificationDismiss field is set.
+   */
+  boolean hasNotificationDismiss();
+  /**
+   * <code>.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];</code>
+   * @return The notificationDismiss.
+   */
+  dev.tandem.protocol.v1.NotificationDismiss getNotificationDismiss();
+
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   * @return Whether the notificationActionResult field is set.
+   */
+  boolean hasNotificationActionResult();
+  /**
+   * <code>.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];</code>
+   * @return The notificationActionResult.
+   */
+  dev.tandem.protocol.v1.NotificationActionResult getNotificationActionResult();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

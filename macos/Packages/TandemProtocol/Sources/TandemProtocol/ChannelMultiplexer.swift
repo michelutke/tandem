@@ -32,6 +32,12 @@ import Foundation
 /// An inbound `CreditGrant` above this side's own cap for that channel is also a
 /// ``MultiplexerClose/creditViolation(_:)`` (D-64: reported, never clamped).
 ///
+/// ``sent``/``received`` (E20-05/E20-15): a connection's liveness contract (SPEC.md #heartbeat,
+/// E01-07) and D-61's `CONTROL` receive cap are both defined at "any frame", independent of which
+/// channel it is on or whether any consumer ever pulls it off ``inbound(_:)`` -- so both are
+/// reported as their own broadcast streams here, never by consuming a channel's own stream (which
+/// would otherwise steal frames from whatever else is reading it).
+///
 /// `TandemProtocol` may not depend on `TandemTransport` (PRD module rules: transport depends on
 /// protocol, never the reverse), and the wire types this type operates on are internal to this
 /// module, so this lives in `TandemProtocol` and talks to the outside world only through the
@@ -52,8 +58,10 @@ public actor ChannelMultiplexer {
         Tandem_V1_Channel.allCases.filter { $0 != .unspecified }
 
     /// `routedChannels` minus `.control`: the eight channels a `CreditLedger` applies to
-    /// (docs/protocol/SPEC.md "CONTROL is exempt from credit accounting").
-    private static let featureChannels: [Tandem_V1_Channel] =
+    /// (docs/protocol/SPEC.md "CONTROL is exempt from credit accounting"). Internal, not
+    /// `private`: `ChannelMultiplexer+CreditFlow.swift`'s `applyIncomingCreditGrant(_:)` (same
+    /// module, different file) also reads this.
+    static let featureChannels: [Tandem_V1_Channel] =
         routedChannels.filter { $0 != .control }
 
     private let source: FrameSource
@@ -63,34 +71,55 @@ public actor ChannelMultiplexer {
     private var continuations: [Tandem_V1_Channel: AsyncStream<InboundFrame>.Continuation] = [:]
 
     /// This side's own per-channel outbound `seq` counter: the last `seq` this side has sent on
-    /// that channel (0 before this side has sent anything on it).
-    private var outgoingSeq: [Tandem_V1_Channel: UInt64] = [:]
+    /// that channel (0 before this side has sent anything on it). Internal, not `private`: also
+    /// read/written by `ChannelMultiplexer+CreditFlow.swift`'s `validateAndRecord(seq:ack:channel:)`.
+    var outgoingSeq: [Tandem_V1_Channel: UInt64] = [:]
     /// The ack watermark this side reports for each channel: the highest `seq` received from the
-    /// peer on that channel, in contiguous order (0 before anything has arrived on it).
-    private var inboundWatermark: [Tandem_V1_Channel: UInt64] = [:]
+    /// peer on that channel, in contiguous order (0 before anything has arrived on it). Internal
+    /// for the same reason as ``outgoingSeq``.
+    var inboundWatermark: [Tandem_V1_Channel: UInt64] = [:]
     /// `seq` values received above a channel's current watermark but not yet folded into it
-    /// (held back by an earlier gap), per channel.
-    private var inboundPendingAboveWatermark: [Tandem_V1_Channel: Set<UInt64>] = [:]
+    /// (held back by an earlier gap), per channel. Internal for the same reason as ``outgoingSeq``.
+    var inboundPendingAboveWatermark: [Tandem_V1_Channel: Set<UInt64>] = [:]
 
     /// This side's own send-side credit balance for each feature channel (E11-14): consumed by 1
     /// each time this side actually writes a frame on that channel, replenished by an inbound
-    /// `CreditGrant` (``applyIncomingCreditGrant(_:)``). Absent for `.control` (exempt).
-    private var sendLedger: [Tandem_V1_Channel: CreditLedger] = [:]
+    /// `CreditGrant` (``applyIncomingCreditGrant(_:)``, `ChannelMultiplexer+CreditFlow.swift`).
+    /// Absent for `.control` (exempt). Internal for the same reason as ``outgoingSeq``.
+    var sendLedger: [Tandem_V1_Channel: CreditLedger] = [:]
     /// This side's belief of the peer's remaining send-side balance for each feature channel:
     /// consumed by 1 as each of the peer's frames arrives (a peer spending past this is
     /// ``MultiplexerClose/creditViolation(_:)``), replenished when this side sends the peer a
-    /// `CreditGrant` (``frameConsumed(_:)``). Absent for `.control` (exempt).
-    private var receiveLedger: [Tandem_V1_Channel: CreditLedger] = [:]
+    /// `CreditGrant` (``frameConsumed(_:)``, `ChannelMultiplexer+CreditFlow.swift`). Absent for
+    /// `.control` (exempt). Internal for the same reason as ``outgoingSeq``.
+    var receiveLedger: [Tandem_V1_Channel: CreditLedger] = [:]
     /// Frames actually pulled off each feature channel's inbound stream (``InboundFrameStream``)
     /// since the last `CreditGrant` this side sent for it (or since the start, if none yet).
     /// Reaching half the channel's cap is the SPEC-defined replenishment trigger
-    /// (``frameConsumed(_:)``).
-    private var consumedSinceLastGrant: [Tandem_V1_Channel: UInt32] = [:]
+    /// (``frameConsumed(_:)``, `ChannelMultiplexer+CreditFlow.swift`). Internal for the same
+    /// reason as ``outgoingSeq``.
+    var consumedSinceLastGrant: [Tandem_V1_Channel: UInt32] = [:]
 
     private var readerTask: Task<Void, Never>?
     public private(set) var closeReason: MultiplexerClose?
     // Internal, not `private`: `awaitClose()` (`ChannelMultiplexerTypes.swift`) appends to this.
     var closeWaiters: [CheckedContinuation<MultiplexerClose, Never>] = []
+
+    /// Fires once for every frame this multiplexer actually writes to the wire, on any channel
+    /// (SPEC.md #heartbeat, E01-07/E20-05: "any frame it sends" resets the Mac's own idle-send
+    /// timer). Never finishes until ``finish(_:)`` runs.
+    public nonisolated let sent: AsyncStream<Void>
+    private let sentContinuation: AsyncStream<Void>.Continuation
+
+    /// Fires once for every frame this multiplexer accepts off the wire, on any channel, at the
+    /// moment it is validated -- before it is ever routed to that channel's own ``inbound(_:)``
+    /// stream, and regardless of whether any caller ever pulls it off there (SPEC.md #heartbeat,
+    /// E01-07/E20-05: "any frame" received resets the dead-peer timer; `docs/planning/decisions.md`
+    /// D-61's `CONTROL` receive cap is defined at this same granularity). Never consumes
+    /// ``inbound(_:)`` itself, so observing this never drops a frame another consumer would
+    /// otherwise see.
+    public nonisolated let received: AsyncStream<FrameArrival>
+    private let receivedContinuation: AsyncStream<FrameArrival>.Continuation
 
     /// One send awaiting the writer: enqueued by ``send(_:payload:)``, dequeued and turned into a
     /// wire write by ``drainLoop()``.
@@ -113,6 +142,8 @@ public actor ChannelMultiplexer {
     public init(source: FrameSource, sink: @escaping OutboundSink) {
         self.source = source
         self.sink = sink
+        (sent, sentContinuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .unbounded)
+        (received, receivedContinuation) = AsyncStream<FrameArrival>.makeStream(bufferingPolicy: .unbounded)
         for channel in Self.routedChannels {
             (streams[channel], continuations[channel]) =
                 AsyncStream<InboundFrame>.makeStream(bufferingPolicy: .unbounded)
@@ -175,8 +206,9 @@ public actor ChannelMultiplexer {
     }
 
     /// Starts ``drainLoop()`` if none is currently running. Safe to call any number of times --
-    /// only the first call while idle actually spawns work.
-    private func kickDrainIfNeeded() {
+    /// only the first call while idle actually spawns work. Internal, not `private`:
+    /// `ChannelMultiplexer+CreditFlow.swift`'s `applyIncomingCreditGrant(_:)` also calls this.
+    func kickDrainIfNeeded() {
         guard !isDraining else { return }
         isDraining = true
         Task { [weak self] in await self?.drainLoop() }
@@ -215,6 +247,7 @@ public actor ChannelMultiplexer {
             do {
                 let frame = try FrameEncoder.encode(envelope)
                 try await sink(frame)
+                sentContinuation.yield(())
                 item.continuation.resume()
             } catch {
                 item.continuation.resume(throwing: error)
@@ -283,6 +316,14 @@ public actor ChannelMultiplexer {
             return false
         }
 
+        let isHeartbeat: Bool
+        if case .heartbeat? = envelope.payload {
+            isHeartbeat = true
+        } else {
+            isHeartbeat = false
+        }
+        receivedContinuation.yield(FrameArrival(channel: channel, isHeartbeat: isHeartbeat))
+
         if channel != .control {
             let result = receiveLedger[channel]?.consume(1)
             if result == .insufficient {
@@ -300,88 +341,6 @@ public actor ChannelMultiplexer {
         return true
     }
 
-    /// Applies a peer's `CreditGrant` to this side's own send-side balance for the channel it
-    /// names (docs/protocol/SPEC.md #channels-and-flow-control-credits "Replenishment"). A
-    /// `CreditGrant` naming `.control`, `.unspecified`, or any unrecognized value is rejected
-    /// `MALFORMED_FRAME`/`unknownChannel` (SPEC.md: those never name a real credit ledger). An
-    /// `amount` of 0 is a well-formed no-op. An `amount` that would push this side's balance for
-    /// that channel above its cap is a ``MultiplexerClose/creditViolation(_:)`` (D-64: reported,
-    /// never clamped) -- also unblocking nothing, since nothing changed.
-    ///
-    /// - Returns: `false` (having already called `finish(_:)`) on either violation.
-    private func applyIncomingCreditGrant(_ grant: Tandem_V1_CreditGrant) async -> Bool {
-        let namedChannel = grant.channel
-        guard Self.featureChannels.contains(namedChannel) else {
-            await finish(.violation(.malformedFrame, .unknownChannel))
-            return false
-        }
-        guard grant.amount > 0 else { return true }
-
-        guard let result = sendLedger[namedChannel]?.applyGrant(grant.amount) else { return true }
-        switch result {
-        case .success:
-            kickDrainIfNeeded()
-            return true
-        case .overflow:
-            await finish(.creditViolation(namedChannel))
-            return false
-        }
-    }
-
-    /// Records that a caller actually pulled `channel`'s frame off ``inbound(_:)``'s stream
-    /// (docs/protocol/SPEC.md "Consume": application-level consumption, not decode, is what a
-    /// replenishment grant is conditioned on). Once accumulated consumption since the last grant
-    /// this side sent for `channel` reaches half its cap, sends the peer exactly one `CreditGrant`
-    /// restoring this side's belief of the peer's balance to exactly the cap
-    /// (`docs/planning/decisions.md` D-64: "never above"), then resets the accumulator so the
-    /// trigger re-arms against the next half-cap crossing.
-    private func frameConsumed(_ channel: Tandem_V1_Channel) async {
-        guard channel != .control else { return }
-        let cap = CreditCaps.capFor(channel)
-
-        let consumedCount = (consumedSinceLastGrant[channel] ?? 0) + 1
-        consumedSinceLastGrant[channel] = consumedCount
-        guard consumedCount >= cap / 2 else { return }
-
-        let currentBalance = receiveLedger[channel]?.balance ?? cap
-        let amount = cap - currentBalance
-        consumedSinceLastGrant[channel] = 0
-        guard amount > 0 else { return }
-
-        _ = receiveLedger[channel]?.applyGrant(amount)
-
-        var grant = Tandem_V1_CreditGrant()
-        grant.channel = channel
-        grant.amount = amount
-        try? await send(.control, payload: .creditGrant(grant))
-    }
-
-    /// - Returns: the violation reason if `seq` or `ack` violates D-57 (a `seq` of 0, at or below
-    ///   the current watermark, or a duplicate of an already-received above-watermark value; an
-    ///   `ack` above the highest `seq` this side has itself sent on `channel`; or `channel`'s
-    ///   above-watermark pending set already holding ``CreditCaps/protocolMax`` entries -- D-64: a
-    ///   legitimate, credit-bound peer can never make this many `seq` values pending at once). On
-    ///   success (`nil`), records `seq` and advances the watermark past any newly-contiguous run
-    ///   (docs/protocol/SPEC.md "Sequence and acknowledgement violations").
-    private func validateAndRecord(seq: UInt64, ack: UInt64, channel: Tandem_V1_Channel) -> MalformedFrameReason? {
-        guard ack <= (outgoingSeq[channel] ?? 0) else { return .seqRegression }
-
-        var watermark = inboundWatermark[channel] ?? 0
-        var pending = inboundPendingAboveWatermark[channel] ?? []
-        guard seq > watermark, !pending.contains(seq) else { return .seqRegression }
-        guard pending.count < Int(CreditCaps.protocolMax) else { return .seqGapTooLarge }
-
-        pending.insert(seq)
-        while pending.contains(watermark + 1) {
-            watermark += 1
-            pending.remove(watermark)
-        }
-
-        inboundWatermark[channel] = watermark
-        inboundPendingAboveWatermark[channel] = pending
-        return nil
-    }
-
     /// Completes this multiplexer's close exactly once: records `reason`, finishes every inbound
     /// stream, and makes sure the writer runs at least once more so every still-queued send is
     /// failed with ``MultiplexerError/closed(_:)`` rather than left waiting forever
@@ -393,6 +352,8 @@ public actor ChannelMultiplexer {
         guard closeReason == nil else { return }
         closeReason = reason
         for continuation in continuations.values { continuation.finish() }
+        sentContinuation.finish()
+        receivedContinuation.finish()
         for waiter in closeWaiters { waiter.resume(returning: reason) }
         closeWaiters = []
         kickDrainIfNeeded()

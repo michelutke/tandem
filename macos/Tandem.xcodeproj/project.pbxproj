@@ -7,23 +7,35 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */; };
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
+		2224311E3BAA40BD9A9E1B23 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22AA208D67AF466CA01FA053 /* LoginItemService.swift */; };
+		F9A4576B148640CAB74E0656 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B334B9029DE7440D8B417CF9 /* LaunchAtLoginPreferenceStore.swift */; };
+		D8C0E73970DF4317A4E6672D /* LaunchAtLoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07E156BA6C3412185C0C2C5 /* LaunchAtLoginViewModel.swift */; };
+		727791F1FF8D4AE8B5D9108F /* LaunchAtLoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D3889FA2B34C648C2CFCF6 /* LaunchAtLoginViewModelTests.swift */; };
 		290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */; };
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
 		4E5798DFC9A62A92CDBAFCCC /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 4403433E9D4CD101110A322E /* TandemPairing */; };
 		55DA94E9B145DF8C20B83397 /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC38B9F617CD19FE902E745 /* ErrorPresenterTests.swift */; };
 		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
+		63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */; };
+		65CD6C14FBBB2A64DFF59A32 /* MenuBarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */; };
 		714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = 1988BC0B564CCF8C41148DCF /* TandemProtocol */; };
+		725B0AE94A30C8D218739076 /* ScenarioPairedConnectedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */; };
 		73B62DA518FFEDCE79282EF0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9CCF1B115421D313E1D549EA /* README.md */; };
 		81161460331011F52C3D9494 /* TandemCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 12FE37962CD7F002672F2964 /* TandemCrypto */; };
+		85AC58E2BE2BC6A252F0A390 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132ECF02E619377AEA48E71F /* MenuBarContentView.swift */; };
 		9E3ECFF08B9545FFD864C988 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9ED3304BEEFB2EF47223CBA6 /* README.md */; };
 		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
+		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
+		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
+		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +45,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 04ABC6CCB7A3CFDAB37494F5;
 			remoteInfo = TandemShare;
+		};
+		2CADE7EC73EABC2F6FEF7859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 65C5B6802EBC009E346053A9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 420AE8114A5DC308D38B542C;
+			remoteInfo = TandemApp;
 		};
 		A09F09F2F9BA4BC2DF0BC2A4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -58,17 +77,27 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		041CF567C3AFCE26290A0483 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
+		082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppComposition.swift; sourceTree = "<group>"; };
 		0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioFailClosedErrorUITests.swift; sourceTree = "<group>"; };
+		132ECF02E619377AEA48E71F /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreFactory.swift; sourceTree = "<group>"; };
+		1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModel.swift; sourceTree = "<group>"; };
+		22AA208D67AF466CA01FA053 /* LoginItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemService.swift; sourceTree = "<group>"; };
+		B334B9029DE7440D8B417CF9 /* LaunchAtLoginPreferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginPreferenceStore.swift; sourceTree = "<group>"; };
+		F07E156BA6C3412185C0C2C5 /* LaunchAtLoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModel.swift; sourceTree = "<group>"; };
+		10D3889FA2B34C648C2CFCF6 /* LaunchAtLoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModelTests.swift; sourceTree = "<group>"; };
 		1ADF46FA55FCA2970CBE9E9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		32CDA13C3DF0DEB4E7DCD12B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		39581A17C108C4B4F78C2DD1 /* TandemTransport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemTransport; path = Packages/TandemTransport; sourceTree = SOURCE_ROOT; };
+		42DC6A25C8E86E1680563D5D /* TandemAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
+		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
-		9BC38B9F617CD19FE902E745 /* ErrorPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenterTests.swift; sourceTree = "<group>"; };
+		914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenterTests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9ED3304BEEFB2EF47223CBA6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -80,6 +109,7 @@
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF086E83EB78D3A58BA035B6 /* TandemPairing */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemPairing; path = Packages/TandemPairing; sourceTree = SOURCE_ROOT; };
 		EC03814D9752C7029BBEB1C2 /* TandemStore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemStore; path = Packages/TandemStore; sourceTree = SOURCE_ROOT; };
+		ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioPairedConnectedUITests.swift; sourceTree = "<group>"; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -93,6 +123,14 @@
 				9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */,
 				714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */,
 				4E5798DFC9A62A92CDBAFCCC /* TandemPairing in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7371E9DB572F1A6CE1068EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,10 +151,10 @@
 		826B8821B9D13CF8014B2982 /* TandemUITests */ = {
 			isa = PBXGroup;
 			children = (
-				9BC38B9F617CD19FE902E745 /* ErrorPresenterTests.swift */,
 				9ED3304BEEFB2EF47223CBA6 /* README.md */,
 				0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */,
 				046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */,
+				ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */,
 			);
 			path = TandemUITests;
 			sourceTree = "<group>";
@@ -125,10 +163,22 @@
 			isa = PBXGroup;
 			children = (
 				DA99F72F15344D7755773094 /* TandemApp.app */,
+				42DC6A25C8E86E1680563D5D /* TandemAppTests.xctest */,
 				A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */,
 				36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A9128161CD48DA25F6524B0C /* TandemAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */,
+				10D3889FA2B34C648C2CFCF6 /* LaunchAtLoginViewModelTests.swift */,
+				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
+				041CF567C3AFCE26290A0483 /* README.md */,
+			);
+			path = TandemAppTests;
 			sourceTree = "<group>";
 		};
 		B4DBF71FB3128126612D5D3C = {
@@ -136,6 +186,7 @@
 			children = (
 				E761C8EF00E9F7D6EF4C817D /* Packages */,
 				EF686EE77DBC985FA54C12E5 /* TandemApp */,
+				A9128161CD48DA25F6524B0C /* TandemAppTests */,
 				0A6ACEE33F1C9E09EEC5E95C /* TandemShare */,
 				826B8821B9D13CF8014B2982 /* TandemUITests */,
 				90B0D721ADB7BDABE34F39FF /* Products */,
@@ -157,9 +208,15 @@
 		EF686EE77DBC985FA54C12E5 /* TandemApp */ = {
 			isa = PBXGroup;
 			children = (
+				082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
+				B334B9029DE7440D8B417CF9 /* LaunchAtLoginPreferenceStore.swift */,
+				F07E156BA6C3412185C0C2C5 /* LaunchAtLoginViewModel.swift */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
+				22AA208D67AF466CA01FA053 /* LoginItemService.swift */,
+				132ECF02E619377AEA48E71F /* MenuBarContentView.swift */,
+				1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */,
 				5319BE92DEC9F94E1C83D1EC /* README.md */,
 				8A44A1216CFE5055E0699868 /* TandemApp.entitlements */,
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
@@ -188,6 +245,25 @@
 			productName = TandemShare;
 			productReference = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		3631CC0D958EBE67C1902296 /* TandemAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FEA31CC30E71F445697274E1 /* Build configuration list for PBXNativeTarget "TandemAppTests" */;
+			buildPhases = (
+				6CA9F651C307663EA2598ACB /* Sources */,
+				2DB267659590A2945A73B5A4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C166DA6F710E152041027513 /* PBXTargetDependency */,
+			);
+			name = TandemAppTests;
+			packageProductDependencies = (
+			);
+			productName = TandemAppTests;
+			productReference = 42DC6A25C8E86E1680563D5D /* TandemAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		420AE8114A5DC308D38B542C /* TandemApp */ = {
 			isa = PBXNativeTarget;
@@ -221,6 +297,7 @@
 			buildPhases = (
 				034657D71E5B6215B354265A /* Sources */,
 				A0FC01FD80015AB82A5E182B /* Resources */,
+				A7371E9DB572F1A6CE1068EA /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -229,6 +306,7 @@
 			);
 			name = TandemUITests;
 			packageProductDependencies = (
+				BE8F0E46D0DF41D3590CE07D /* TandemProtocol */,
 			);
 			productName = TandemUITests;
 			productReference = 36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */;
@@ -271,12 +349,21 @@
 			targets = (
 				420AE8114A5DC308D38B542C /* TandemApp */,
 				04ABC6CCB7A3CFDAB37494F5 /* TandemShare */,
+				3631CC0D958EBE67C1902296 /* TandemAppTests */,
 				478185C79D894ECF1EEE635B /* TandemUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2DB267659590A2945A73B5A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BC7B187EE5AF3789F6775FFF /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		49B17D310B02CAFE6AEB90BF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -308,9 +395,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				55DA94E9B145DF8C20B83397 /* ErrorPresenterTests.swift in Sources */,
 				290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */,
 				C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */,
+				725B0AE94A30C8D218739076 /* ScenarioPairedConnectedUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6CA9F651C307663EA2598ACB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */,
+				727791F1FF8D4AE8B5D9108F /* LaunchAtLoginViewModelTests.swift in Sources */,
+				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -318,8 +415,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
+				F9A4576B148640CAB74E0656 /* LaunchAtLoginPreferenceStore.swift in Sources */,
+				D8C0E73970DF4317A4E6672D /* LaunchAtLoginViewModel.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
+				2224311E3BAA40BD9A9E1B23 /* LoginItemService.swift in Sources */,
+				85AC58E2BE2BC6A252F0A390 /* MenuBarContentView.swift in Sources */,
+				65CD6C14FBBB2A64DFF59A32 /* MenuBarViewModel.swift in Sources */,
 				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 			);
@@ -345,6 +448,11 @@
 			isa = PBXTargetDependency;
 			target = 420AE8114A5DC308D38B542C /* TandemApp */;
 			targetProxy = A09F09F2F9BA4BC2DF0BC2A4 /* PBXContainerItemProxy */;
+		};
+		C166DA6F710E152041027513 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 420AE8114A5DC308D38B542C /* TandemApp */;
+			targetProxy = 2CADE7EC73EABC2F6FEF7859 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -485,6 +593,24 @@
 			};
 			name = Debug;
 		};
+		41B74554FB778A3E4281383E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app.Tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TandemApp.app/Contents/MacOS/TandemApp";
+			};
+			name = Debug;
+		};
 		55AC91430F18BA8197502B45 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -500,6 +626,24 @@
 				SDKROOT = macosx;
 				SWIFT_VERSION = 6.0;
 				TEST_TARGET_NAME = TandemApp;
+			};
+			name = Release;
+		};
+		6197093B23E69FE732AFA0C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.tandem.app.Tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TandemApp.app/Contents/MacOS/TandemApp";
 			};
 			name = Release;
 		};
@@ -611,6 +755,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		FEA31CC30E71F445697274E1 /* Build configuration list for PBXNativeTarget "TandemAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				41B74554FB778A3E4281383E /* Debug */,
+				6197093B23E69FE732AFA0C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -656,6 +809,10 @@
 		4403433E9D4CD101110A322E /* TandemPairing */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TandemPairing;
+		};
+		BE8F0E46D0DF41D3590CE07D /* TandemProtocol */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemProtocol;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

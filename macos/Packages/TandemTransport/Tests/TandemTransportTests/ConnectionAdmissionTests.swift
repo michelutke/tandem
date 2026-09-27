@@ -126,6 +126,25 @@ struct ConnectionAdmissionTests {
     }
 
     @Test
+    func connectionAdmission_cancelAllReady_cancelsEachTrackedReadyConnectionOnce() async {
+        let admission = ConnectionAdmission(clock: ManualTestClock())
+        let decision = await admission.accept(ipAddress: "10.0.0.1", onHandshakeDeadline: {})
+        guard case .admitted(let id) = decision else {
+            Issue.record("expected an admitted decision")
+            return
+        }
+        await admission.handshakeSucceeded(id)
+
+        let cancelCount = CallCounter()
+        await admission.trackReadyConnection(id) { cancelCount.increment() }
+
+        await admission.cancelAllReady()
+        await admission.cancelAllReady()
+
+        #expect(cancelCount.value == 1, "a connection already cancelled must not be cancelled twice")
+    }
+
+    @Test
     func peerAuthorizer_signature_takesNoAddressOrAdmissionInput() {
         // Compile-time check (SPEC.md §10, invariant 3): `PeerAuthorizer.decide` has exactly this
         // shape -- a source address or admission decision anywhere in its parameter list would
@@ -152,5 +171,15 @@ private final class ClosedFlag: @unchecked Sendable {
 
     func set() {
         value = true
+    }
+}
+
+/// Same shape as ``ClosedFlag``, counting instead of latching -- used to prove a cancel closure
+/// runs exactly once even across repeated ``ConnectionAdmission/cancelAllReady()`` calls.
+private final class CallCounter: @unchecked Sendable {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
     }
 }

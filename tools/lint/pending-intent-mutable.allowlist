@@ -8,4 +8,4 @@
 # fully-qualified-name resolution); only the first whitespace-separated token is read, the rest is
 # a human-readable comment. Blank lines and lines starting with # are ignored.
 #
-# Nothing is allowlisted yet.
+CompanionNotifications.kt#buildReplyAction — E00-22 — RemoteInput direct-reply requires a mutable PendingIntent so the system can attach the typed reply text to the Intent it fires.

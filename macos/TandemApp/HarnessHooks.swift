@@ -1,4 +1,5 @@
 #if DEBUG
+import AppKit
 import Foundation
 import Network
 import Security
@@ -39,9 +40,12 @@ enum HarnessHooks {
     }
 
     /// Starts the mTLS listener on `-HarnessListenerPort <port>` against the harness keychain's
-    /// identity and trust store (E15-22). Does nothing if the argument isn't set. The listener
-    /// keeps running for the life of the process, admitting connections whose presented SPKI
-    /// fingerprint matches a trust record seeded by `-HarnessSeedTrust`.
+    /// identity and trust store (E15-22). Does nothing if the argument isn't set -- the de-dup
+    /// against ``AppComposition``'s own production listener is the `UserDefaults` guard in
+    /// `TandemMenuBarApp.init()` (checking this same `-HarnessListenerPort` key), not this
+    /// function's return value. The listener keeps running for the life of the process, admitting
+    /// connections whose presented SPKI fingerprint matches a trust record seeded by
+    /// `-HarnessSeedTrust`.
     ///
     /// `-HarnessOpenPairingWindow YES` additionally opens a real ``TandemPairing/PairingWindow``
     /// (E14-16) instead of a ``NeverOpenPairingWindow``, prints the QR URI immediately and the
@@ -63,10 +67,6 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
-        // E12-12: correlates PeerVerifier's onDecision hook (the fingerprint it already computed
-        // for a connection's own verify callback) with that same connection's session wiring at
-        // `.ready`, so a seeded, trusted client's control session is registered under its real
-        // SPKI fingerprint rather than re-deriving it after the fact.
         let decisionCorrelator = PeerDecisionCorrelator()
         let sessionRegistry = ControlSessionRegistry()
         let (window, pairingCandidateDriver) = resolvePairingWindow(
@@ -103,10 +103,39 @@ enum HarnessHooks {
             port: port,
             verify: verify
         )
+        let started: ListenerController.StartedListener?
         do {
-            retainedListener = try controller.start()
+            started = try controller.start()
         } catch {
             fatalError("-HarnessListenerPort failed to start listener on port \(rawPort): \(error)")
+        }
+        guard let started else {
+            fatalError("-HarnessListenerPort requested but identity became unready between checks")
+        }
+        retainedListener = started.listener
+
+        // E20-10/E20-11: the harness is one place this composition root actually runs the real
+        // listener -- ``AppComposition/startListener()`` is the other, for an ordinary launch
+        // (E22-01) -- so it's also a place ``SleepWakeController``/``PathChangeController`` can be
+        // exercised for real (`tools/harness/integration/e12-13.sh` and manual gates) rather than
+        // only against fakes in `TandemTransportTests`. Both drive the same
+        // ``ProductionListenerControl``, seeded with the listener already started above so this
+        // never runs two listeners at once.
+        let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
+        let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
+        let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
+        let pathSource = NWPathMonitorSource()
+        let pathChangeController = PathChangeController(pathSource: pathSource, listenerControl: listenerControl)
+        retainedLifecycle = RetainedLifecycle(
+            listenerControl: listenerControl,
+            powerEvents: powerEvents,
+            pathSource: pathSource,
+            sleepWakeController: sleepWakeController,
+            pathChangeController: pathChangeController
+        )
+        Task {
+            await sleepWakeController.start()
+            await pathChangeController.start()
         }
     }
 
@@ -176,6 +205,17 @@ enum HarnessHooks {
     /// hands to `onConfirmationPending`) alive for the process lifetime, the same way
     /// `retainedListener` does for the `NWListener` itself.
     nonisolated(unsafe) private static var retainedPairingCoordinator: PairingCoordinator?
+
+    /// Everything ``startListenerIfRequested()`` wires up beyond the listener itself, kept alive
+    /// for the process lifetime the same way ``retainedListener`` is.
+    private struct RetainedLifecycle {
+        let listenerControl: ProductionListenerControl
+        let powerEvents: WorkspacePowerEvents
+        let pathSource: NWPathMonitorSource
+        let sleepWakeController: SleepWakeController
+        let pathChangeController: PathChangeController
+    }
+    nonisolated(unsafe) private static var retainedLifecycle: RetainedLifecycle?
 
     private static func seedTrust(fromFixtureAt path: String) {
         do {

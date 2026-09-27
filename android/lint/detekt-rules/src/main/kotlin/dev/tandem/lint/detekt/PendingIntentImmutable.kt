@@ -141,7 +141,10 @@ class PendingIntentImmutable(config: Config = Config.empty) : Rule(config) {
     private fun isAllowlisted(expression: KtCallExpression): Boolean {
         val function = expression.getParentOfType<KtNamedFunction>(strict = true) ?: return false
         val name = function.name ?: return false
-        return "${expression.containingFile.name}#$name" in mutableAllowlist
+        // `containingFile.name` is the bare file name in the detekt-test harness (KtTestCompiler
+        // always compiles as "Test.kt"), but a real Gradle `detekt` run backs it with the file's
+        // full path; File(...).name normalizes both to match the allowlist's plain filename form.
+        return "${File(expression.containingFile.name).name}#$name" in mutableAllowlist
     }
 
     private fun isExplicitComponentIntent(expression: KtExpression): Boolean {

@@ -196,8 +196,14 @@ public struct NWListenerFactory: ListenerFactory {
                     return
                 }
                 adapter.reportReady()
-                Task { await admission.handshakeSucceeded(id) }
                 let metadataIdentifier = ObjectIdentifier(metadata.securityProtocolMetadata)
+                Task {
+                    await admission.handshakeSucceeded(id)
+                    // E20-10/E20-11: lets a later `ListenerControl.stop()` (sleep, or a rebind on
+                    // network path change) tear this connection down to `Disconnected` -- the
+                    // only place any *post*-handshake connection is tracked at all.
+                    await admission.trackReadyConnection(id) { connection.cancel() }
+                }
                 Task { await wireSession(adapter: adapter, metadataIdentifier: metadataIdentifier) }
             case .failed(let error):
                 // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
@@ -205,23 +211,32 @@ public struct NWListenerFactory: ListenerFactory {
                 // released by `.cancelled` -- which nothing here would ever trigger for it --
                 // leaking it (and its closure's strong self-reference) for the life of the
                 // process. Cancelling on `.failed` releases it, and counts as a failed handshake
-                // for the per-IP throttle (SPEC.md §10).
+                // for the per-IP throttle (SPEC.md §10). A connection that had already reached
+                // `.ready` and is only failing later (peer vanished after the handshake) is also
+                // untracked here, so a subsequent `cancelAllReady()` never revisits it.
                 adapter.reportFailed("\(error)")
                 abandonIfPairingCandidate(
                     Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
                 )
                 connection.cancel()
-                Task { await admission.handshakeFailed(id) }
+                Task {
+                    await admission.handshakeFailed(id)
+                    await admission.untrackReadyConnection(id)
+                }
             case .cancelled:
-                // Reached either from one of the two `connection.cancel()` calls above (already
-                // reported, so this is a no-op) or from the TCP connection itself closing/
-                // resetting before the handshake ever reached `.ready`/`.failed` -- also a failed
-                // handshake (SPEC.md §10).
+                // Reached either from one of the `connection.cancel()` calls above (already
+                // reported, so this is a no-op), from `ConnectionAdmission.cancelAllReady()`
+                // cancelling an already-`.ready` connection (E20-10/E20-11), or from the TCP
+                // connection itself closing/resetting before the handshake ever reached
+                // `.ready`/`.failed` -- also a failed handshake (SPEC.md §10).
                 adapter.reportCancelled()
                 abandonIfPairingCandidate(
                     Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
                 )
-                Task { await admission.handshakeFailed(id) }
+                Task {
+                    await admission.handshakeFailed(id)
+                    await admission.untrackReadyConnection(id)
+                }
             default:
                 break
             }
@@ -279,9 +294,16 @@ public struct NWListenerFactory: ListenerFactory {
         await multiplexer.start()
 
         await handshake.run()
+        var heartbeatController: HeartbeatController?
         switch await handshake.session {
         case .ready:
             await stateMachine.handle(.compatibleHelloReceived)
+            heartbeatController = await makeHeartbeatController(
+                session: session,
+                stateMachine: stateMachine,
+                multiplexer: multiplexer,
+                adapter: adapter
+            )
         case .failed(let failure):
             let closeCode: CloseCode
             switch failure {
@@ -306,6 +328,7 @@ public struct NWListenerFactory: ListenerFactory {
         // any cause, both reaches the state machine and cancels the socket (fail closed, SPEC.md
         // invariant 5).
         let closeReason = await multiplexer.awaitClose()
+        await heartbeatController?.stop()
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()
         if let registeredFingerprint {
@@ -348,6 +371,28 @@ public struct NWListenerFactory: ListenerFactory {
         case .rejected:
             return nil
         }
+    }
+
+    /// Builds and starts this connection's ``HeartbeatController`` (E20-05), once the E12-07
+    /// handshake has resolved `.ready`: the Mac half of the E01-07 liveness contract, and D-61's
+    /// `CONTROL` receive cap. Split out of ``wireSession(adapter:metadataIdentifier:)`` purely to
+    /// keep that function under this repo's `function_body_length` lint budget.
+    private func makeHeartbeatController(
+        session: ByteStreamSession,
+        stateMachine: ConnectionStateMachine,
+        multiplexer: ChannelMultiplexer,
+        adapter: NWConnectionByteStreamConnection
+    ) async -> HeartbeatController {
+        let heartbeat = HeartbeatController(
+            session: session,
+            stateMachine: stateMachine,
+            sent: multiplexer.sent,
+            received: multiplexer.received,
+            clock: clock,
+            cancelConnection: { adapter.cancel() }
+        )
+        await heartbeat.start()
+        return heartbeat
     }
 
     /// The remote endpoint's host, as ``ConnectionAdmission`` needs it -- a throttling key only,

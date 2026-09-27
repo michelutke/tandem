@@ -15,6 +15,7 @@ dependencies {
     // API (E14-05), so this is api(), not implementation() -- mirrors core/transport's own
     // api(":core:protocol").
     api(project(":core:transport"))
+    testImplementation(testFixtures(project(":core:transport")))
 
     // QrPayloadParserTest (E14-03) parses the committed protocol/vectors/qr-payload.json manifest;
     // test-only, never on a release classpath.
@@ -22,7 +23,6 @@ dependencies {
     // SoftwareIdentityKeyStore for PairRequestBuilderTest (E14-06); test-only.
     testImplementation(testFixtures(project(":core:crypto")))
     // FakeTandemSession (E12-11) for PairingStateMachineTest (E14-05); test-only.
-    testImplementation(testFixtures(project(":core:transport")))
     // TestClock/StandardTestDispatcher pairing for virtual-time timeouts (E00-18); test-only.
     testImplementation(project(":core:testing"))
 }

@@ -38,6 +38,7 @@ FIELDS = [
     "tls.record.opaque_type",
     "tls.handshake.type",
     "tls.handshake.extensions.supported_version",
+    "tls.handshake.version",
     "tcp.len",
 ]
 
@@ -63,6 +64,7 @@ class Record:
     tls_content_types: list[int]
     tls_handshake_types: list[int]
     tls_negotiated_version: str | None
+    tls_handshake_version: str | None
     payload_len: int
 
     def as_dict(self) -> dict[str, Any]:
@@ -73,6 +75,7 @@ class Record:
             "tlsContentTypes": self.tls_content_types,
             "tlsHandshakeTypes": self.tls_handshake_types,
             "tlsNegotiatedVersion": self.tls_negotiated_version,
+            "tlsHandshakeVersion": self.tls_handshake_version,
             "payloadLen": self.payload_len,
         }
 
@@ -89,9 +92,17 @@ def parse_records(pcap: Path, port: int | None = None) -> list[Record]:
     for line in _run_tshark(args).splitlines():
         if not line.strip():
             continue
-        frame, stream, protocols, content_types, opaque_types, handshake_types, supported_versions, tcp_len = (
-            line.split("|")
-        )
+        (
+            frame,
+            stream,
+            protocols,
+            content_types,
+            opaque_types,
+            handshake_types,
+            supported_versions,
+            handshake_versions,
+            tcp_len,
+        ) = line.split("|")
 
         handshake = _int_list(handshake_types)
         content = _int_list(content_types) + _int_list(opaque_types)
@@ -101,6 +112,11 @@ def parse_records(pcap: Path, port: int | None = None) -> list[Record]:
             versions = _hex_list(supported_versions)
             negotiated = versions[0] if versions else None
 
+        handshake_version = None
+        if SERVER_HELLO_TYPE in handshake and handshake_versions:
+            hv = _hex_list(handshake_versions)
+            handshake_version = hv[0] if hv else None
+
         records.append(
             Record(
                 frame=int(frame),
@@ -109,6 +125,7 @@ def parse_records(pcap: Path, port: int | None = None) -> list[Record]:
                 tls_content_types=content,
                 tls_handshake_types=handshake,
                 tls_negotiated_version=negotiated,
+                tls_handshake_version=handshake_version,
                 payload_len=int(tcp_len) if tcp_len else 0,
             )
         )

@@ -1,5 +1,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- E20-02 permissions for TandemService (`connectedDevice` foreground-service type,
+         docs/planning/backlog/phase-2.yaml E20-02, acceptance criterion 1):
+           - FOREGROUND_SERVICE: base platform permission every foreground service needs
+             regardless of type (mandatory since API 28).
+           - FOREGROUND_SERVICE_CONNECTED_DEVICE: the per-type permission Android 14 requires for
+             the `connectedDevice` type, named explicitly in E20-02's issue body.
+           - CHANGE_NETWORK_STATE: the E20-02 issue body's own choice of `connectedDevice` runtime
+             prerequisite ("does not require a CDM association"); SPEC.md's heartbeat/Doze section
+             assumes this service runs with unrestricted battery.
+           - POST_NOTIFICATIONS: required on API 33+ to actually show the mandatory ongoing
+             notification E20-02's acceptance criteria call for (runtime request flow is a later
+             onboarding issue; this is only the manifest half). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- E20-08: lets BootReceiver restart TandemService after first unlock (BOOT_COMPLETED is not
+         direct-boot aware) without the user opening the app. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!--
     E00-28 platform-hardening baseline (invariants 1, 2, 4):
       - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing
@@ -19,6 +40,26 @@
         <!-- Not launchable and not exported; declared so tooling that enumerates <activity>
              entries (E00-28's activity-inheritance backstop) has at least one real entry to see. -->
         <activity android:name=".TandemActivity" android:exported="false" />
+
+        <!-- E20-02: owns the control-connection lifecycle's on-screen presence (mandatory
+             ongoing notification); started only when a paired Mac exists (ServiceStarter). -->
+        <service
+            android:name=".service.TandemService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- E20-08: restarts TandemService when a paired Mac exists. Exported so the system can
+             deliver BOOT_COMPLETED (E00-28 allowlist entry below); onReceive itself ignores any
+             action other than BOOT_COMPLETED/MY_PACKAGE_REPLACED as a defense-in-depth guard
+             against an explicit intent from another app. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"
