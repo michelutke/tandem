@@ -264,9 +264,16 @@ public struct NWListenerFactory: ListenerFactory {
         await multiplexer.start()
 
         await handshake.run()
+        var heartbeatController: HeartbeatController?
         switch await handshake.session {
         case .ready:
             await stateMachine.handle(.compatibleHelloReceived)
+            heartbeatController = await makeHeartbeatController(
+                session: session,
+                stateMachine: stateMachine,
+                multiplexer: multiplexer,
+                adapter: adapter
+            )
         case .failed(let failure):
             let closeCode: CloseCode
             switch failure {
@@ -282,23 +289,10 @@ public struct NWListenerFactory: ListenerFactory {
             return // `run()` always resolves `session` before returning; unreachable.
         }
 
-        var registeredFingerprint: SpkiFingerprint?
-        switch decisionCorrelator.take(metadataIdentifier: metadataIdentifier) {
-        case .some(let recorded) where recorded.decision == .trusted:
-            if let fingerprint = recorded.fingerprint {
-                await sessionRegistry.register(fingerprint, session: session)
-                registeredFingerprint = fingerprint
-            }
-        case .some:
-            // `.pairingCandidate`/`.rejected` reaching Ready would itself be a bug (a rejected
-            // verify never completes `true`) -- but never registers either way, fail closed.
-            break
-        case .none:
-            // The "verify-block metadata == `.ready` metadata" premise (`PeerDecisionCorrelator`'s
-            // own kdoc) failing would land here silently otherwise; log it so that ever happening
-            // is visible rather than a session that's Ready but was never registered anywhere.
-            Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
-        }
+        let registeredFingerprint = await registerIfTrusted(
+            session: session,
+            metadataIdentifier: metadataIdentifier
+        )
 
         // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
         // framing/credit violation, the peer's own orderly close, or a transport-level read
@@ -307,11 +301,65 @@ public struct NWListenerFactory: ListenerFactory {
         // any cause, both reaches the state machine and cancels the socket (fail closed, SPEC.md
         // invariant 5).
         let closeReason = await multiplexer.awaitClose()
+        await heartbeatController?.stop()
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()
         if let registeredFingerprint {
             await sessionRegistry.removeIfCurrent(registeredFingerprint, session: session)
         }
+    }
+
+    /// Registers `session` in ``sessionRegistry`` under the peer's leaf SPKI fingerprint, but only
+    /// if `PeerVerifier` (recovered from ``decisionCorrelator``, never re-derived) classified this
+    /// peer `.trusted` -- a `.pairingCandidate` connection reaching Ready is never registered here
+    /// (E14's own pairing flow owns that handshake, once it exists). Split out of
+    /// ``wireSession(adapter:metadataIdentifier:)`` purely to keep that function under this repo's
+    /// `function_body_length` lint budget.
+    ///
+    /// - Returns: the fingerprint `session` was registered under, or `nil` if it was not
+    ///   registered at all.
+    private func registerIfTrusted(
+        session: ByteStreamSession,
+        metadataIdentifier: ObjectIdentifier
+    ) async -> SpkiFingerprint? {
+        switch decisionCorrelator.take(metadataIdentifier: metadataIdentifier) {
+        case .some(let recorded) where recorded.decision == .trusted:
+            guard let fingerprint = recorded.fingerprint else { return nil }
+            await sessionRegistry.register(fingerprint, session: session)
+            return fingerprint
+        case .some:
+            // `.pairingCandidate`/`.rejected` reaching Ready would itself be a bug (a rejected
+            // verify never completes `true`) -- but never registers either way, fail closed.
+            return nil
+        case .none:
+            // The "verify-block metadata == `.ready` metadata" premise (`PeerDecisionCorrelator`'s
+            // own kdoc) failing would land here silently otherwise; log it so that ever happening
+            // is visible rather than a session that's Ready but was never registered anywhere.
+            Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
+            return nil
+        }
+    }
+
+    /// Builds and starts this connection's ``HeartbeatController`` (E20-05), once the E12-07
+    /// handshake has resolved `.ready`: the Mac half of the E01-07 liveness contract, and D-61's
+    /// `CONTROL` receive cap. Split out of ``wireSession(adapter:metadataIdentifier:)`` purely to
+    /// keep that function under this repo's `function_body_length` lint budget.
+    private func makeHeartbeatController(
+        session: ByteStreamSession,
+        stateMachine: ConnectionStateMachine,
+        multiplexer: ChannelMultiplexer,
+        adapter: NWConnectionByteStreamConnection
+    ) async -> HeartbeatController {
+        let heartbeat = HeartbeatController(
+            session: session,
+            stateMachine: stateMachine,
+            sent: multiplexer.sent,
+            received: multiplexer.received,
+            clock: clock,
+            cancelConnection: { adapter.cancel() }
+        )
+        await heartbeat.start()
+        return heartbeat
     }
 
     /// The remote endpoint's host, as ``ConnectionAdmission`` needs it -- a throttling key only,

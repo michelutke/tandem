@@ -36,6 +36,12 @@ public actor ConnectionStateMachine {
         /// enumeration (docs/protocol/SPEC.md #errors-and-close-codes) -- never an empty/absent
         /// reason.
         case failed(CloseCode)
+        /// This side declared the connection dead under SPEC.md #heartbeat's dead-peer rule
+        /// (E01-07/E20-05: 45 s without receiving any frame). Deliberately its own case, not
+        /// ``failed(_:)`` -- SPEC.md is explicit that this is "a local, transport-liveness event,
+        /// not a close code" and MUST NOT be reported as `PROTOCOL_TIMEOUT`
+        /// (`docs/planning/decisions.md` D-58).
+        case dead
     }
 
     /// Inputs this machine reacts to.
@@ -46,6 +52,10 @@ public actor ConnectionStateMachine {
         case compatibleHelloReceived
         case handshakeError(CloseCode)
         case socketClosed(reason: String)
+        /// SPEC.md #heartbeat's dead-peer rule elapsed on a `Ready` connection (E20-05): 45 s
+        /// without receiving any frame. Legal only from ``ConnectionState/ready``, transitioning to
+        /// ``ConnectionState/dead``.
+        case deadPeerTimeout
     }
 
     /// TLS handshake deadline: 10 s from TCP accept, Mac side (docs/protocol/SPEC.md §10,
@@ -95,7 +105,7 @@ public actor ConnectionStateMachine {
         }
 
         switch next {
-        case .failed:
+        case .failed, .dead:
             cancelHandshakeDeadline()
             continuation.finish()
         case .disconnected(let reason) where reason != nil:
@@ -146,6 +156,8 @@ public actor ConnectionStateMachine {
              (.helloExchange, .handshakeError(let code)),
              (.ready, .handshakeError(let code)):
             return .failed(code)
+        case (.ready, .deadPeerTimeout):
+            return .dead
         default:
             return nil
         }
