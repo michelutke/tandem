@@ -7,8 +7,8 @@ syntax = "proto3";
 // reserved-range comment). Do not add speculative fields ahead of that section landing.
 package tandem.v1;
 
-option java_package = "dev.tandem.protocol.v1";
 option java_multiple_files = true;
+option java_package = "dev.tandem.protocol.v1";
 
 // DeviceStatus: PRD F-4.3 — the phone publishes this on the STATUS channel on change and at
 // most every 60 s. Sent directly as the Envelope payload (no wrapper message needed).
@@ -35,3 +35,17 @@ enum NetworkType {
 // and the alarm starts at most twice per 10 s (docs/planning/decisions.md D-62), so repeated
 // delivery of this same empty message is intentionally indistinguishable from the first.
 message Ring {}
+
+// RingStop: PRD F-4.4 — a side stops the alarm started by Ring. Carried on the STATUS channel.
+// No fields: the identity of the stopper (mac | phone) is determined by which side sends it
+// (origin field below).
+message RingStop {
+  // Origin: which side initiated the stop. Answers the question "did the phone dismiss the
+  // alarm, or did the Mac cancel it?" on the receiving side.
+  enum Origin {
+    ORIGIN_UNSPECIFIED = 0;
+    ORIGIN_MAC = 1;
+    ORIGIN_PHONE = 2;
+  }
+  Origin origin = 1;
+}
