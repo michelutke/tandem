@@ -26,3 +26,7 @@ plugins:
     out: ../android/core/protocol/src/main/kotlin
   - remote: buf.build/apple/swift:v1.38.1
     out: ../macos/Packages/TandemProtocol/Sources/TandemProtocol
+    # E12-12: TandemTransport's real NWConnection-backed session wiring needs to reference
+    # Tandem_V1_Channel/Tandem_V1_Envelope from outside this package (TandemSession's public
+    # protocol requirements name them); swift-protobuf's default Visibility is Internal.
+    opt: Visibility=Public

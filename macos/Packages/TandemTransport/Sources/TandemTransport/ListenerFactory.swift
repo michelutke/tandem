@@ -1,5 +1,8 @@
 import Network
+import os
 import Security
+import TandemCrypto
+import TandemProtocol
 
 /// The single ALPN identifier this protocol negotiates (`docs/protocol/SPEC.md`
 /// `#handshake-and-tls-profile`). No other value is ever offered or accepted.
@@ -62,8 +65,29 @@ public protocol ListenerFactory: Sendable {
 /// selection itself is out of scope here (the pairing QR's `p` field, `docs/protocol/SPEC.md`
 /// `#pairing`); this type just listens on whatever port it is given.
 public struct NWListenerFactory: ListenerFactory {
+    /// Where a connection that reaches `.ready` as a `.trusted` peer is registered under its SPKI
+    /// fingerprint (E12-19). `any ControlSessionRegistering` rather than the concrete actor so a
+    /// test can inject a spy. Shared across every connection this listener ever accepts.
+    private let sessionRegistry: any ControlSessionRegistering
+    /// Recovers the decision and fingerprint `PeerVerifier`'s `onDecision` hook already computed
+    /// for a connection's own verify callback (E12-02), keyed by that connection's TLS metadata
+    /// object.
+    private let decisionCorrelator: PeerDecisionCorrelator
+    /// Drives `ConnectionStateMachine`'s handshake deadline and `VersionHandshake`'s hello
+    /// deadline for every session this listener wires up (E00-24 seam rule).
+    private let clock: any Clock<Duration>
 
-    public init() {}
+    private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
+
+    public init(
+        sessionRegistry: any ControlSessionRegistering,
+        decisionCorrelator: PeerDecisionCorrelator,
+        clock: any Clock<Duration> = ContinuousClock()
+    ) {
+        self.sessionRegistry = sessionRegistry
+        self.decisionCorrelator = decisionCorrelator
+        self.clock = clock
+    }
 
     public func makeListener(
         identity: SecIdentity,
@@ -97,7 +121,7 @@ public struct NWListenerFactory: ListenerFactory {
             }
 
             Task {
-                await Self.admitAndStart(connection: connection, ipAddress: ipAddress, admission: admission)
+                await admitAndStart(connection: connection, ipAddress: ipAddress, admission: admission)
             }
         }
 
@@ -107,7 +131,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// Consults `admission` for `connection`'s source address and, if admitted, wires up its
     /// `stateUpdateHandler` and starts it; a refusal cancels `connection` before any TLS handshake
     /// starts (SPEC.md §10).
-    private static func admitAndStart(
+    private func admitAndStart(
         connection: NWConnection,
         ipAddress: String,
         admission: ConnectionAdmission
@@ -120,21 +144,28 @@ public struct NWListenerFactory: ListenerFactory {
         case .refused:
             connection.cancel()
         case .admitted(let id):
-            connection.stateUpdateHandler = Self.makeStateUpdateHandler(
+            let adapter = NWConnectionByteStreamConnection(connection: connection)
+            connection.stateUpdateHandler = makeStateUpdateHandler(
                 connection: connection,
                 admission: admission,
-                id: id
+                id: id,
+                adapter: adapter
             )
             connection.start(queue: .global())
         }
     }
 
     /// Builds `connection`'s `stateUpdateHandler`, reporting this connection's eventual outcome
-    /// back to `admission` (E12-18) alongside the existing ALPN check (E12-01).
-    private static func makeStateUpdateHandler(
+    /// back to `admission` (E12-18) alongside the existing ALPN check (E12-01), and republishing
+    /// every transition onto `adapter`'s own ``ByteStreamConnection/state`` stream -- `NWConnection`
+    /// allows only one `stateUpdateHandler`, so this single closure is the one place both
+    /// concerns can observe the connection's lifecycle. Once `.ready` passes the ALPN check, spawns
+    /// the E12-12 session wiring (``wireSession(adapter:connection:)``).
+    private func makeStateUpdateHandler(
         connection: NWConnection,
         admission: ConnectionAdmission,
-        id: ConnectionAdmission.ConnectionID
+        id: ConnectionAdmission.ConnectionID,
+        adapter: NWConnectionByteStreamConnection
     ) -> @Sendable (NWConnection.State) -> Void {
         { state in
             switch state {
@@ -147,10 +178,15 @@ public struct NWListenerFactory: ListenerFactory {
                     ),
                     String(cString: negotiated) == tandemALPN
                 else {
+                    if let metadata = rawMetadata as? NWProtocolTLS.Metadata {
+                        decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+                    }
                     connection.cancel()
                     Task { await admission.handshakeFailed(id) }
                     return
                 }
+                adapter.reportReady()
+                let metadataIdentifier = ObjectIdentifier(metadata.securityProtocolMetadata)
                 Task {
                     await admission.handshakeSucceeded(id)
                     // E20-10/E20-11: lets a later `ListenerControl.stop()` (sleep, or a rebind on
@@ -158,7 +194,8 @@ public struct NWListenerFactory: ListenerFactory {
                     // only place any *post*-handshake connection is tracked at all.
                     await admission.trackReadyConnection(id) { connection.cancel() }
                 }
-            case .failed:
+                Task { await wireSession(adapter: adapter, metadataIdentifier: metadataIdentifier) }
+            case .failed(let error):
                 // A rejected handshake (bad TLS version, no client cert, ALPN mismatch) never
                 // reaches `.ready`, so without this the accepted `NWConnection` is only ever
                 // released by `.cancelled` -- which nothing here would ever trigger for it --
@@ -167,6 +204,8 @@ public struct NWListenerFactory: ListenerFactory {
                 // for the per-IP throttle (SPEC.md §10). A connection that had already reached
                 // `.ready` and is only failing later (peer vanished after the handshake) is also
                 // untracked here, so a subsequent `cancelAllReady()` never revisits it.
+                adapter.reportFailed("\(error)")
+                Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
                 connection.cancel()
                 Task {
                     await admission.handshakeFailed(id)
@@ -178,6 +217,8 @@ public struct NWListenerFactory: ListenerFactory {
                 // cancelling an already-`.ready` connection (E20-10/E20-11), or from the TCP
                 // connection itself closing/resetting before the handshake ever reached
                 // `.ready`/`.failed` -- also a failed handshake (SPEC.md §10).
+                adapter.reportCancelled()
+                Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
                 Task {
                     await admission.handshakeFailed(id)
                     await admission.untrackReadyConnection(id)
@@ -185,6 +226,91 @@ public struct NWListenerFactory: ListenerFactory {
             default:
                 break
             }
+        }
+    }
+
+    /// A connection that never reaches `.ready` (verify rejected it, or it reset/timed out first)
+    /// may still have a decision recorded for it (E12-02's `onDecision` fires before `complete(_:)`
+    /// regardless of outcome) -- drop it so a *later* connection can never inherit a stale
+    /// `.trusted` decision through a reused `sec_protocol_metadata_t` `ObjectIdentifier` (finding
+    /// #3: the address-reuse race this guards against).
+    private static func dropStaleDecision(connection: NWConnection, decisionCorrelator: PeerDecisionCorrelator) {
+        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
+            return
+        }
+        decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+    }
+
+    /// Wraps `adapter` in a real `ChannelMultiplexer` + `ConnectionStateMachine`, runs the E12-07
+    /// `VersionHandshake`, and -- once Ready -- registers the resulting `ByteStreamSession` in
+    /// ``sessionRegistry`` under the peer's leaf SPKI fingerprint, but only if `PeerVerifier`
+    /// (recovered from ``decisionCorrelator``, never re-derived) classified this peer `.trusted`;
+    /// a `.pairingCandidate` connection reaching Ready is never registered here (E14's own pairing
+    /// flow owns that handshake, once it exists). Every fatal outcome -- a failed/mismatched
+    /// handshake, or the multiplexer closing for any reason (peer/framing/credit violation,
+    /// transport failure, orderly peer close) -- cancels `adapter`'s underlying `NWConnection` and,
+    /// once registered, identity-checked-removes this exact session from ``sessionRegistry`` so a
+    /// dead session is never left registered.
+    private func wireSession(adapter: NWConnectionByteStreamConnection, metadataIdentifier: ObjectIdentifier) async {
+        let source = ByteStreamConnectionFrameSource(adapter)
+        let multiplexer = ChannelMultiplexer(source: source, sink: { data in try await adapter.send(data) })
+        let stateMachine = ConnectionStateMachine(clock: clock)
+        let handshake = VersionHandshake(multiplexer: multiplexer, clock: clock)
+        let session = ByteStreamSession(multiplexer: multiplexer, stateMachine: stateMachine)
+
+        await stateMachine.handle(.incomingConnection)
+        await stateMachine.handle(.handshakeStarted)
+        await stateMachine.handle(.handshakeCompleted)
+        await multiplexer.start()
+
+        await handshake.run()
+        switch await handshake.session {
+        case .ready:
+            await stateMachine.handle(.compatibleHelloReceived)
+        case .failed(let failure):
+            let closeCode: CloseCode
+            switch failure {
+            case .versionMismatch: closeCode = .versionMismatch
+            case .protocolTimeout: closeCode = .protocolTimeout
+            }
+            await stateMachine.handle(.handshakeError(closeCode))
+            adapter.cancel()
+            decisionCorrelator.drop(metadataIdentifier: metadataIdentifier)
+            return
+        case .pending:
+            decisionCorrelator.drop(metadataIdentifier: metadataIdentifier)
+            return // `run()` always resolves `session` before returning; unreachable.
+        }
+
+        var registeredFingerprint: SpkiFingerprint?
+        switch decisionCorrelator.take(metadataIdentifier: metadataIdentifier) {
+        case .some(let recorded) where recorded.decision == .trusted:
+            if let fingerprint = recorded.fingerprint {
+                await sessionRegistry.register(fingerprint, session: session)
+                registeredFingerprint = fingerprint
+            }
+        case .some:
+            // `.pairingCandidate`/`.rejected` reaching Ready would itself be a bug (a rejected
+            // verify never completes `true`) -- but never registers either way, fail closed.
+            break
+        case .none:
+            // The "verify-block metadata == `.ready` metadata" premise (`PeerDecisionCorrelator`'s
+            // own kdoc) failing would land here silently otherwise; log it so that ever happening
+            // is visible rather than a session that's Ready but was never registered anywhere.
+            Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
+        }
+
+        // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
+        // framing/credit violation, the peer's own orderly close, or a transport-level read
+        // failure (which a cancelled/failed `NWConnection` also produces, via its `.receive()`
+        // completion) -- so this single `awaitClose()` is where a Ready connection's demise, from
+        // any cause, both reaches the state machine and cancels the socket (fail closed, SPEC.md
+        // invariant 5).
+        let closeReason = await multiplexer.awaitClose()
+        await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
+        adapter.cancel()
+        if let registeredFingerprint {
+            await sessionRegistry.removeIfCurrent(registeredFingerprint, session: session)
         }
     }
 
