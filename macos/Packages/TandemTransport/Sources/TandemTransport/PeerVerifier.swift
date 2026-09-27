@@ -13,12 +13,14 @@ public enum PeerVerifier {
     /// - Parameter onDecision: Called once per invocation of the returned block, after
     ///   ``PeerAuthorizer/decide(spki:trustStore:window:)`` has run and before `complete` is
     ///   called, with the connection's metadata, the decision reached, the candidate fingerprint
-    ///   (`nil` only if the leaf's SPKI never parsed at all), and that same candidate's raw SPKI
-    ///   DER (also `nil` only in that case). Surfaces `.trusted` / `.pairingCandidate` (and which
-    ///   fingerprint/DER) to the connection that owns this handshake -- e.g. E14-07's "connection
-    ///   classified `.pairingCandidate` by E12-02" -- without that caller re-deriving the decision
-    ///   itself from live trust-store/window state after the fact (a TOCTOU risk: that state may
-    ///   have already moved on by `.ready`). Defaults to a no-op.
+    ///   (`nil` only if the leaf's SPKI never parsed at all), that same candidate's raw SPKI DER
+    ///   (also `nil` only in that case), and -- only for `.pairingCandidate` -- the
+    ///   ``PairingCandidateToken`` that decision's ``PairingWindowState/admitCandidate()`` claim
+    ///   returned. Surfaces `.trusted` / `.pairingCandidate` (and which fingerprint/DER/token) to
+    ///   the connection that owns this handshake -- e.g. E14-07's "connection classified
+    ///   `.pairingCandidate` by E12-02" -- without that caller re-deriving the decision itself from
+    ///   live trust-store/window state after the fact (a TOCTOU risk: that state may have already
+    ///   moved on by `.ready`). Defaults to a no-op.
     public static func makeVerifyBlock(
         trustStore: any TrustStoreReader,
         window: any PairingWindowState,
@@ -26,8 +28,9 @@ public enum PeerVerifier {
             sec_protocol_metadata_t,
             PeerAuthorizationDecision,
             SpkiFingerprint?,
-            Data?
-        ) -> Void = { _, _, _, _ in }
+            Data?,
+            PairingCandidateToken?
+        ) -> Void = { _, _, _, _, _ in }
     ) -> TandemVerifyBlock {
         { metadata, secTrust, complete in
             let trust = sec_trust_copy_ref(secTrust).takeRetainedValue()
@@ -36,15 +39,15 @@ public enum PeerVerifier {
                 let leaf = chain.first,
                 let spkiDer = spkiDer(fromLeaf: leaf)
             else {
-                onDecision(metadata, .rejected, nil, nil)
+                onDecision(metadata, .rejected, nil, nil, nil)
                 complete(false)
                 return
             }
 
-            let decision = PeerAuthorizer.decide(spki: spkiDer, trustStore: trustStore, window: window)
-            onDecision(metadata, decision, try? SpkiFingerprint.of(spkiDer: spkiDer), spkiDer)
+            let outcome = PeerAuthorizer.decide(spki: spkiDer, trustStore: trustStore, window: window)
+            onDecision(metadata, outcome.decision, try? SpkiFingerprint.of(spkiDer: spkiDer), spkiDer, outcome.candidateToken)
 
-            switch decision {
+            switch outcome.decision {
             case .trusted, .pairingCandidate:
                 complete(true)
             case .rejected:

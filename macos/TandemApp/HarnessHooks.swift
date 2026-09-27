@@ -68,16 +68,18 @@ enum HarnessHooks {
         // `.ready`, so a seeded, trusted client's control session is registered under its real
         // SPKI fingerprint rather than re-deriving it after the fact.
         let decisionCorrelator = PeerDecisionCorrelator()
+        let sessionRegistry = ControlSessionRegistry()
         let (window, pairingCandidateDriver) = resolvePairingWindow(
             identity: identity,
             keychainStore: keychainStore,
-            rawPort: rawPort
+            rawPort: rawPort,
+            sessionRegistry: sessionRegistry
         )
 
         let verify = PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
             window: window,
-            onDecision: { metadata, decision, fingerprint, spkiDer in
+            onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
                 // returns control to Network.framework and the connection races ahead to `.ready`
                 // (`PeerDecisionCorrelator`'s own kdoc).
@@ -86,14 +88,15 @@ enum HarnessHooks {
                     metadataIdentifier: metadataIdentifier,
                     decision: decision,
                     fingerprint: fingerprint,
-                    spkiDer: spkiDer
+                    spkiDer: spkiDer,
+                    candidateToken: candidateToken
                 )
             }
         )
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
-                sessionRegistry: ControlSessionRegistry(),
+                sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
                 pairingCandidateDriver: pairingCandidateDriver
             ),
@@ -114,7 +117,8 @@ enum HarnessHooks {
     private static func resolvePairingWindow(
         identity: SecIdentity,
         keychainStore: any KeychainStore,
-        rawPort: UInt16
+        rawPort: UInt16,
+        sessionRegistry: any ControlSessionRegistering
     ) -> (window: any PairingWindowState, driver: (any PairingCandidateDriver)?) {
         guard UserDefaults.standard.bool(forKey: "HarnessOpenPairingWindow") else {
             return (NeverOpenPairingWindow(), nil)
@@ -123,7 +127,8 @@ enum HarnessHooks {
             identity: identity,
             keychainStore: keychainStore,
             port: Int(rawPort),
-            autoConfirm: UserDefaults.standard.bool(forKey: "HarnessAutoConfirmPairing")
+            autoConfirm: UserDefaults.standard.bool(forKey: "HarnessAutoConfirmPairing"),
+            sessionRegistry: sessionRegistry
         )
         print("harness-pairing-qr-uri: \(coordinator.viewModel.currentPayload.uri)")
         fflush(stdout)
@@ -138,7 +143,8 @@ enum HarnessHooks {
         identity: SecIdentity,
         keychainStore: any KeychainStore,
         port: Int,
-        autoConfirm: Bool
+        autoConfirm: Bool,
+        sessionRegistry: any ControlSessionRegistering
     ) -> PairingCoordinator {
         guard let macSpkiDer = spkiDer(for: identity),
               let fingerprint = try? SpkiFingerprint.of(spkiDer: macSpkiDer) else {
@@ -151,6 +157,7 @@ enum HarnessHooks {
             name: "Tandem Harness",
             trustStore: TrustStore(keychainStore: keychainStore),
             dateProvider: { Date() },
+            sessionRegistry: sessionRegistry,
             onConfirmationPending: { code, viewModel in
                 print("harness-pairing-confirmation-code: \(code)")
                 fflush(stdout)
@@ -243,8 +250,8 @@ enum HarnessHooks {
 /// never via the pairing-candidate relaxation (D-18).
 private struct NeverOpenPairingWindow: PairingWindowState {
     var isOpen: Bool { false }
-    func admitCandidate() -> Bool { false }
-    func releaseCandidate() {}
+    func admitCandidate() -> PairingCandidateToken? { nil }
+    func releaseCandidate(_ token: PairingCandidateToken) {}
 }
 
 /// JSON fixture for `-HarnessSeedTrust <path>`: hex/ISO 8601 fields instead of `PeerRecord`'s own

@@ -2,6 +2,7 @@ import Foundation
 import TandemCrypto
 import TandemProtocol
 import TandemStore
+import TandemTransport
 
 /// Which of the confirmation dialog's two actions an owner input maps to (`docs/design/ui-spec.md`
 /// §9 "Default to safety"). Presentation-independent: a SwiftUI view binds a button tap, the
@@ -38,6 +39,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     public let bodyText: String
 
     private let window: PairingWindow
+    private let token: PairingCandidateToken
     private let sink: any PairingCandidateSink
     private let trustStore: TrustStore
     private let handshakeSpkiDer: Data
@@ -45,6 +47,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private let capabilities: [String]
     private let dateProvider: DateProvider
     private let onResolved: (@Sendable () -> Void)?
+    private let onPaired: (@Sendable () async -> Void)?
 
     private let lock = NSLock()
     private var hasResolved = false
@@ -60,6 +63,9 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     TLS handshake (never trusted from any field of `PairRequest`) -- committed to
     ///     `trustStore` only on ``pair()``.
     ///   - window: This candidate's ``PairingWindow``, already `.confirmationPending`.
+    ///   - token: This candidate's ``PairingCandidateToken`` (E14-16 finding #2) -- every window
+    ///     call below is scoped to it, so a stale dialog can never mutate a different candidate's
+    ///     state.
     ///   - sink: This candidate connection's ``PairingCandidateSink``.
     ///   - trustStore: Committed to on ``pair()`` only.
     ///   - dateProvider: Injected clock for the committed `PeerRecord`'s `pairedAt`/`lastSeen`
@@ -68,17 +74,22 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     capability-negotiation concern of its own.
     ///   - onResolved: Called exactly once, the first time this dialog resolves by any path --
     ///     lets the (not yet built) window/coordinator that presents this dialog close it.
+    ///   - onPaired: Called once, only on a successful ``pair()`` (E14-16 finding #6) -- after
+    ///     trust is committed, before `PairAccepted` is sent -- so the caller can register this
+    ///     connection's now-trusted session (e.g. `ControlSessionRegistry`) promptly.
     public init(
         displayNameBytes: Data,
         modelBytes: Data,
         confirmationCode: String,
         handshakeSpkiDer: Data,
         window: PairingWindow,
+        token: PairingCandidateToken,
         sink: any PairingCandidateSink,
         trustStore: TrustStore,
         dateProvider: @escaping DateProvider,
         capabilities: [String] = [],
-        onResolved: (@Sendable () -> Void)? = nil
+        onResolved: (@Sendable () -> Void)? = nil,
+        onPaired: (@Sendable () async -> Void)? = nil
     ) {
         let sanitizedDisplayName = DisplayStringSanitizer.sanitize(displayNameBytes, kind: .name)
         let sanitizedModel = DisplayStringSanitizer.sanitize(modelBytes, kind: .name)
@@ -86,12 +97,14 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         self.bodyText = "\(sanitizedModel) · Make sure your phone shows \(Self.grouped(confirmationCode))"
         self.sanitizedDisplayName = sanitizedDisplayName
         self.window = window
+        self.token = token
         self.sink = sink
         self.trustStore = trustStore
         self.handshakeSpkiDer = handshakeSpkiDer
         self.capabilities = capabilities
         self.dateProvider = dateProvider
         self.onResolved = onResolved
+        self.onPaired = onPaired
     }
 
     /// `true` once this dialog has resolved by any path (accept, deny, dismiss, or the connection
@@ -102,14 +115,22 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         return hasResolved
     }
 
-    /// The owner clicked Pair: commits the handshake SPKI to the trust store, tells the window
-    /// (``PairingWindow/ownerAccepted()``) and sends `PairAccepted` -- never followed by a close,
-    /// the connection stays open as an ordinary session. A no-op if this dialog already resolved
-    /// (e.g. the connection dropped first).
+    /// The owner clicked Pair: tells the window (``PairingWindow/ownerAccepted(_:)``) and, only if
+    /// that actually committed the `paired` transition, commits the handshake SPKI to the trust
+    /// store and sends `PairAccepted` -- never followed by a close, the connection stays open as an
+    /// ordinary session. A no-op past ``claimResolution()`` if this dialog already resolved (e.g.
+    /// the connection dropped first); commits and sends nothing at all if the window no longer has
+    /// this exact candidate `.confirmationPending` -- e.g. a concurrent connection-drop already
+    /// released this candidate's slot before this click was processed (E14-16 finding #3,
+    /// `docs/planning/decisions.md` D-73: "clicking Pair afterward... commits nothing").
     public func pair() async {
         guard claimResolution() else { return }
+        guard window.ownerAccepted(token) else {
+            onResolved?()
+            return
+        }
         commitTrust()
-        window.ownerAccepted()
+        await onPaired?()
         try? await sink.sendPairAccepted()
         onResolved?()
     }
@@ -140,7 +161,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
 
     private func reject() async {
         guard claimResolution() else { return }
-        window.ownerDeclined()
+        window.ownerDeclined(token)
         try? await sink.sendPairRejected(.rejectedByOwner)
         await sink.closePairingFailed()
         onResolved?()

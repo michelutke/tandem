@@ -20,5 +20,17 @@ public protocol PairingCandidateDriver: Sendable {
     ///   - handshakeSpkiDer: The phone's SPKI DER exactly as ``PeerVerifier`` (E12-02) observed it
     ///     on this connection's own TLS handshake -- never re-derived, never trusted from any wire
     ///     field of a later message.
-    func drive(session: any TandemSession, handshakeSpkiDer: Data) async
+    ///   - token: The ``PairingCandidateToken`` this connection's verify-callback
+    ///     ``PairingWindowState/admitCandidate()`` claim returned -- threaded through so every
+    ///     window mutation this candidate's own pairing dance performs is scoped to it (E14-16
+    ///     finding #2).
+    func drive(session: any TandemSession, handshakeSpkiDer: Data, token: PairingCandidateToken) async
+
+    /// Called instead of ``drive(session:handshakeSpkiDer:token:)`` when a `.pairingCandidate`
+    /// connection never reaches the point of being handed off to it at all -- an ALPN mismatch, a
+    /// failed/cancelled handshake, a `VersionHello` mismatch or timeout, or any other pre-`Ready`
+    /// exit (E14-16 finding #1, `docs/planning/decisions.md` D-70: even a silent candidate still
+    /// burns its one attempt and frees the slot). Releases exactly the slot `token` names, scoped
+    /// so it can never affect a different candidate that has since claimed the slot (finding #2).
+    func candidateAbandoned(token: PairingCandidateToken) async
 }

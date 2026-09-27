@@ -27,6 +27,11 @@ public final class PeerDecisionCorrelator: @unchecked Sendable {
         /// ``PeerAuthorizationDecision/pairingCandidate`` connection's own pairing dance (E14-09)
         /// needs the full DER, never re-derivable from the fingerprint hash alone.
         public let spkiDer: Data?
+        /// The ``PairingCandidateToken`` ``PeerAuthorizer`` returned alongside a
+        /// ``PeerAuthorizationDecision/pairingCandidate`` decision (`nil` for `.trusted`/
+        /// `.rejected`) -- carried so a connection that never reaches `.ready` can still release
+        /// exactly the slot it claimed (E14-16 finding #1), scoped to this one candidate (finding #2).
+        public let candidateToken: PairingCandidateToken?
     }
 
     private let lock = NSLock()
@@ -42,10 +47,16 @@ public final class PeerDecisionCorrelator: @unchecked Sendable {
         metadataIdentifier: ObjectIdentifier,
         decision: PeerAuthorizationDecision,
         fingerprint: SpkiFingerprint?,
-        spkiDer: Data?
+        spkiDer: Data?,
+        candidateToken: PairingCandidateToken? = nil
     ) {
         lock.lock()
-        decisions[metadataIdentifier] = Decision(decision: decision, fingerprint: fingerprint, spkiDer: spkiDer)
+        decisions[metadataIdentifier] = Decision(
+            decision: decision,
+            fingerprint: fingerprint,
+            spkiDer: spkiDer,
+            candidateToken: candidateToken
+        )
         lock.unlock()
     }
 
@@ -61,10 +72,13 @@ public final class PeerDecisionCorrelator: @unchecked Sendable {
     /// Called for a connection that reaches `.failed`/`.cancelled` without ever reaching `.ready`
     /// (e.g. it passed `PeerVerifier` but reset before the ALPN check, or `PeerVerifier` rejected
     /// it outright): drops any entry recorded for it, so a later connection cannot inherit a stale
-    /// `.trusted` decision through a reused `ObjectIdentifier`.
-    public func drop(metadataIdentifier: ObjectIdentifier) {
+    /// `.trusted` decision through a reused `ObjectIdentifier`. Returns the dropped entry, if any,
+    /// so a caller can still release a `.pairingCandidate` connection's window slot (E14-16 finding
+    /// #1) even though it never reached `.ready` to be handed to a ``PairingCandidateDriver``.
+    @discardableResult
+    public func drop(metadataIdentifier: ObjectIdentifier) -> Decision? {
         lock.lock()
-        decisions.removeValue(forKey: metadataIdentifier)
-        lock.unlock()
+        defer { lock.unlock() }
+        return decisions.removeValue(forKey: metadataIdentifier)
     }
 }

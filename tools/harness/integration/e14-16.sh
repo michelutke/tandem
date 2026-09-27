@@ -290,6 +290,69 @@ if [ "$MAC_TRUSTED_FP_HEX" != "$PHONE_FP_HEX" ]; then
 fi
 log "OK: trust committed on both sides"
 
+# --- Re-injection check (yaml acceptance "Re-injecting the same QR payload after success is ------
+# rejected by the Mac", UC-03 same QR twice): the Mac's pairing window closed the instant it
+# auto-confirmed above (single-use secret, `docs/planning/decisions.md` D-67/D-73) -- a brand new
+# candidate connection replaying the exact same QR against the still-running Mac (before restart)
+# must be rejected, never re-paired a second time.
+
+log "re-injecting the same QR payload against the still-running Mac (must be rejected)"
+FIRST_CLIENT_PID="$CLIENT_PID"
+REINJECT_IDENTITY="$E14_16_TMP_DIR/reinject-identity.bin"
+start_client "$REINJECT_IDENTITY" "$E14_16_TMP_DIR/reinject.in" "$E14_16_TMP_DIR/reinject.out"
+exec 5>"$E14_16_TMP_DIR/reinject.in"
+exec 6<"$E14_16_TMP_DIR/reinject.out"
+
+if ! IFS= read -r -t "$STARTUP_TIMEOUT_SECONDS" reinject_startup <&6; then
+  log "FAIL: re-injection client never printed its startup identity line"
+  exit 1
+fi
+
+echo "PAIR $QR_URI" >&5
+if ! IFS= read -r -t "$STARTUP_TIMEOUT_SECONDS" reinject_started <&6; then
+  log "FAIL: re-injected PAIR never responded"
+  exit 1
+fi
+if [ "$reinject_started" != "OK PAIRING_STARTED" ]; then
+  log "FAIL: re-injected PAIR did not even start: $reinject_started"
+  exit 1
+fi
+
+REINJECT_OUTCOME=""
+reinject_deadline=$((SECONDS + PAIR_TIMEOUT_SECONDS))
+while (( SECONDS < reinject_deadline )) && [ -z "$REINJECT_OUTCOME" ]; do
+  remaining=$((reinject_deadline - SECONDS))
+  [ "$remaining" -lt 1 ] && remaining=1
+  if ! IFS= read -r -t "$remaining" line <&6; then
+    break
+  fi
+  case "$line" in
+    "EVENT Rejected("*|"EVENT Failed("*)
+      REINJECT_OUTCOME="$line"
+      ;;
+    "EVENT Paired")
+      log "FAIL: re-injected QR payload was accepted a second time"
+      exit 1
+      ;;
+    *)
+      log "reinject-client: $line"
+      ;;
+  esac
+done
+if [ -z "$REINJECT_OUTCOME" ]; then
+  log "FAIL: re-injected QR payload produced no Rejected/Failed outcome within ${PAIR_TIMEOUT_SECONDS}s"
+  exit 1
+fi
+log "OK: re-injecting the same QR payload was rejected ($REINJECT_OUTCOME)"
+
+echo "EXIT" >&5 2>/dev/null || true
+exec 5>&-
+exec 6<&-
+if [ -n "$CLIENT_PID" ] && kill -0 "$CLIENT_PID" 2>/dev/null; then
+  wait "$CLIENT_PID" 2>/dev/null
+fi
+CLIENT_PID="$FIRST_CLIENT_PID"
+
 # --- Step 3: kill and relaunch both apps -- the JVM client keeps its identity file/trust --------
 
 echo "EXIT" >&3 2>/dev/null || true
@@ -325,13 +388,21 @@ log "OK: JVM client identity persisted across restart"
 # --- Step 4: assert the reconnect reaches Ready with no QR --------------------------------------
 
 FAILED=0
+RECONNECT_START=$(date +%s)
 echo "CONNECT 127.0.0.1 $MAC_PORT $MAC_FP_B64" >&3
 if response="$(read_response "$CONNECT_TIMEOUT_SECONDS")"; then
+  RECONNECT_ELAPSED=$(( $(date +%s) - RECONNECT_START ))
   if [ "$response" != "OK CONNECTED" ]; then
     log "FAIL: reconnect expected OK CONNECTED, got: $response"
     FAILED=1
   else
-    log "OK: reconnect reached Ready using only the persisted trust store"
+    log "OK: reconnect reached Ready using only the persisted trust store (${RECONNECT_ELAPSED}s)"
+    # yaml acceptance "reconnect < 10 s" (UC-03 proxy timing, same bound the harness applies to the
+    # initial QR-to-Paired pairing time).
+    if [ "$RECONNECT_ELAPSED" -ge 10 ]; then
+      log "FAIL: reconnect took ${RECONNECT_ELAPSED}s, expected < 10s"
+      FAILED=1
+    fi
   fi
 else
   log "FAIL: reconnect -- no response within ${CONNECT_TIMEOUT_SECONDS}s"

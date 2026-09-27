@@ -73,12 +73,13 @@ struct ControlSessionRegistrationLoopbackTests {
         let verify = PeerVerifier.makeVerifyBlock(
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: true, candidateInFlight: false),
-            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer in
+            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer, candidateToken in
                 decisionCorrelator.record(
                     metadataIdentifier: ObjectIdentifier(metadata),
                     decision: decision,
                     fingerprint: recordedFingerprint,
-                    spkiDer: recordedSpkiDer
+                    spkiDer: recordedSpkiDer,
+                    candidateToken: candidateToken
                 )
             }
         )
@@ -126,12 +127,13 @@ struct ControlSessionRegistrationLoopbackTests {
         PeerVerifier.makeVerifyBlock(
             trustStore: FixedTrustStoreReader(fingerprints: [fingerprint]),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false),
-            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer in
+            onDecision: { metadata, decision, recordedFingerprint, recordedSpkiDer, candidateToken in
                 decisionCorrelator.record(
                     metadataIdentifier: ObjectIdentifier(metadata),
                     decision: decision,
                     fingerprint: recordedFingerprint,
-                    spkiDer: recordedSpkiDer
+                    spkiDer: recordedSpkiDer,
+                    candidateToken: candidateToken
                 )
             }
         )
@@ -233,25 +235,27 @@ private struct FixedTrustStoreReader: TrustStoreReader {
 private final class FixedPairingWindowState: PairingWindowState, @unchecked Sendable {
     let isOpen: Bool
     private let lock = NSLock()
-    private var claimed: Bool
+    private var currentToken: PairingCandidateToken?
 
     init(isOpen: Bool, candidateInFlight: Bool) {
         self.isOpen = isOpen
-        self.claimed = candidateInFlight
+        self.currentToken = candidateInFlight ? PairingCandidateToken() : nil
     }
 
-    func admitCandidate() -> Bool {
+    func admitCandidate() -> PairingCandidateToken? {
         lock.lock()
         defer { lock.unlock() }
-        guard !claimed else { return false }
-        claimed = true
-        return true
+        guard currentToken == nil else { return nil }
+        let token = PairingCandidateToken()
+        currentToken = token
+        return token
     }
 
-    func releaseCandidate() {
+    func releaseCandidate(_ token: PairingCandidateToken) {
         lock.lock()
         defer { lock.unlock() }
-        claimed = false
+        guard currentToken == token else { return }
+        currentToken = nil
     }
 }
 
@@ -351,9 +355,11 @@ private final class SpyPairingCandidateDriver: PairingCandidateDriver, @unchecke
     private var drive: Drive?
     private var continuation: CheckedContinuation<Drive, Error>?
 
-    func drive(session: any TandemSession, handshakeSpkiDer: Data) async {
+    func drive(session: any TandemSession, handshakeSpkiDer: Data, token: PairingCandidateToken) async {
         recordDrive(Drive(handshakeSpkiDer: handshakeSpkiDer))
     }
+
+    func candidateAbandoned(token: PairingCandidateToken) async {}
 
     func waitForDrive(timeout: TimeInterval) async -> Drive? {
         if let existing = existingDrive() {

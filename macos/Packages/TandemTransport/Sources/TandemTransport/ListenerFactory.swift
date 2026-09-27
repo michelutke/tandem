@@ -186,7 +186,10 @@ public struct NWListenerFactory: ListenerFactory {
                     String(cString: negotiated) == tandemALPN
                 else {
                     if let metadata = rawMetadata as? NWProtocolTLS.Metadata {
-                        decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+                        let dropped = decisionCorrelator.drop(
+                            metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata)
+                        )
+                        abandonIfPairingCandidate(dropped)
                     }
                     connection.cancel()
                     Task { await admission.handshakeFailed(id) }
@@ -204,7 +207,9 @@ public struct NWListenerFactory: ListenerFactory {
                 // process. Cancelling on `.failed` releases it, and counts as a failed handshake
                 // for the per-IP throttle (SPEC.md §10).
                 adapter.reportFailed("\(error)")
-                Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
+                abandonIfPairingCandidate(
+                    Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
+                )
                 connection.cancel()
                 Task { await admission.handshakeFailed(id) }
             case .cancelled:
@@ -213,7 +218,9 @@ public struct NWListenerFactory: ListenerFactory {
                 // resetting before the handshake ever reached `.ready`/`.failed` -- also a failed
                 // handshake (SPEC.md §10).
                 adapter.reportCancelled()
-                Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
+                abandonIfPairingCandidate(
+                    Self.dropStaleDecision(connection: connection, decisionCorrelator: decisionCorrelator)
+                )
                 Task { await admission.handshakeFailed(id) }
             default:
                 break
@@ -225,12 +232,28 @@ public struct NWListenerFactory: ListenerFactory {
     /// may still have a decision recorded for it (E12-02's `onDecision` fires before `complete(_:)`
     /// regardless of outcome) -- drop it so a *later* connection can never inherit a stale
     /// `.trusted` decision through a reused `sec_protocol_metadata_t` `ObjectIdentifier` (finding
-    /// #3: the address-reuse race this guards against).
-    private static func dropStaleDecision(connection: NWConnection, decisionCorrelator: PeerDecisionCorrelator) {
+    /// #3: the address-reuse race this guards against). Returns the dropped entry, if any, so the
+    /// caller can still release a `.pairingCandidate` connection's window slot (E14-16 finding #1).
+    @discardableResult
+    private static func dropStaleDecision(
+        connection: NWConnection,
+        decisionCorrelator: PeerDecisionCorrelator
+    ) -> PeerDecisionCorrelator.Decision? {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
-            return
+            return nil
         }
-        decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+        return decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+    }
+
+    /// Releases `dropped`'s window slot (E14-16 finding #1) if it was ever recorded and was a
+    /// `.pairingCandidate` decision -- every other case (no entry at all, `.trusted`, `.rejected`)
+    /// is a no-op, since neither of those ever claims the slot in the first place. Fire-and-forget
+    /// (`Task`), matching every other post-hoc admission report already made from this same
+    /// synchronous `stateUpdateHandler` closure.
+    private func abandonIfPairingCandidate(_ dropped: PeerDecisionCorrelator.Decision?) {
+        guard let dropped, dropped.decision == .pairingCandidate, let token = dropped.candidateToken else { return }
+        guard let driver = pairingCandidateDriver else { return }
+        Task { await driver.candidateAbandoned(token: token) }
     }
 
     /// Wraps `adapter` in a real `ChannelMultiplexer` + `ConnectionStateMachine`, runs the E12-07
@@ -267,10 +290,10 @@ public struct NWListenerFactory: ListenerFactory {
             }
             await stateMachine.handle(.handshakeError(closeCode))
             adapter.cancel()
-            decisionCorrelator.drop(metadataIdentifier: metadataIdentifier)
+            abandonIfPairingCandidate(decisionCorrelator.drop(metadataIdentifier: metadataIdentifier))
             return
         case .pending:
-            decisionCorrelator.drop(metadataIdentifier: metadataIdentifier)
+            abandonIfPairingCandidate(decisionCorrelator.drop(metadataIdentifier: metadataIdentifier))
             return // `run()` always resolves `session` before returning; unreachable.
         }
 
@@ -312,9 +335,15 @@ public struct NWListenerFactory: ListenerFactory {
             await sessionRegistry.register(fingerprint, session: session)
             return fingerprint
         case .pairingCandidate:
-            if let driver = pairingCandidateDriver, let spkiDer = recorded.spkiDer {
-                await driver.drive(session: session, handshakeSpkiDer: spkiDer)
+            guard let driver = pairingCandidateDriver, let token = recorded.candidateToken else { return nil }
+            guard let spkiDer = recorded.spkiDer else {
+                // Unreachable in practice (`PeerVerifier` never records `.pairingCandidate` without
+                // a parsed SPKI DER) -- handled anyway so this candidate's slot is never left
+                // occupied for the rest of the window's 120 s (E14-16 finding #1).
+                await driver.candidateAbandoned(token: token)
+                return nil
             }
+            await driver.drive(session: session, handshakeSpkiDer: spkiDer, token: token)
             return nil
         case .rejected:
             return nil

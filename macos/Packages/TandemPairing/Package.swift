@@ -23,7 +23,14 @@ let package = Package(
         ),
         .testTarget(
             name: "TandemPairingTests",
-            dependencies: ["TandemPairing", "TandemCrypto", "TandemTransport", "TandemStore", "TandemTestSupport"],
+            dependencies: [
+                "TandemPairing",
+                "TandemCrypto",
+                "TandemTransport",
+                "TandemStore",
+                "TandemProtocol",
+                "TandemTestSupport"
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

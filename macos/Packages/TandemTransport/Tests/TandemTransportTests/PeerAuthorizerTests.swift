@@ -14,13 +14,14 @@ struct PeerAuthorizerTests {
     func peerAuthorizer_unknownFingerprintWindowClosed_rejected() throws {
         let spki = try Self.makeValidSpkiDer()
 
-        let decision = PeerAuthorizer.decide(
+        let outcome = PeerAuthorizer.decide(
             spki: spki,
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: false, candidateInFlight: false)
         )
 
-        #expect(decision == .rejected)
+        #expect(outcome.decision == .rejected)
+        #expect(outcome.candidateToken == nil)
     }
 
     @Test
@@ -34,8 +35,9 @@ struct PeerAuthorizerTests {
             FixedPairingWindowState(isOpen: true, candidateInFlight: false),
             FixedPairingWindowState(isOpen: true, candidateInFlight: true)
         ] {
-            let decision = PeerAuthorizer.decide(spki: spki, trustStore: trustStore, window: window)
-            #expect(decision == .trusted)
+            let outcome = PeerAuthorizer.decide(spki: spki, trustStore: trustStore, window: window)
+            #expect(outcome.decision == .trusted)
+            #expect(outcome.candidateToken == nil)
         }
     }
 
@@ -43,13 +45,14 @@ struct PeerAuthorizerTests {
     func peerAuthorizer_unknownFingerprintWindowOpen_pairingCandidate() throws {
         let spki = try Self.makeValidSpkiDer()
 
-        let decision = PeerAuthorizer.decide(
+        let outcome = PeerAuthorizer.decide(
             spki: spki,
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: true, candidateInFlight: false)
         )
 
-        #expect(decision == .pairingCandidate)
+        #expect(outcome.decision == .pairingCandidate)
+        #expect(outcome.candidateToken != nil)
     }
 
     @Test
@@ -58,39 +61,39 @@ struct PeerAuthorizerTests {
 
         // Window open -- if the read error were ever mapped to "unknown" instead of propagated,
         // this would come back `.pairingCandidate` (or worse, `.trusted`) instead of `.rejected`.
-        let decision = PeerAuthorizer.decide(
+        let outcome = PeerAuthorizer.decide(
             spki: spki,
             trustStore: ThrowingTrustStoreReader(),
             window: FixedPairingWindowState(isOpen: true, candidateInFlight: false)
         )
 
-        #expect(decision == .rejected)
+        #expect(outcome.decision == .rejected)
     }
 
     @Test
     func peerAuthorizer_nonP256LeafKey_rejected() {
         let notAConformingSpki = Data(repeating: 0xAB, count: SpkiFingerprint.expectedSpkiDerByteCount)
 
-        let decision = PeerAuthorizer.decide(
+        let outcome = PeerAuthorizer.decide(
             spki: notAConformingSpki,
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: true, candidateInFlight: false)
         )
 
-        #expect(decision == .rejected)
+        #expect(outcome.decision == .rejected)
     }
 
     @Test
     func peerAuthorizer_secondUnknownCertWhileCandidateInFlight_rejected() throws {
         let spki = try Self.makeValidSpkiDer()
 
-        let decision = PeerAuthorizer.decide(
+        let outcome = PeerAuthorizer.decide(
             spki: spki,
             trustStore: FixedTrustStoreReader(fingerprints: []),
             window: FixedPairingWindowState(isOpen: true, candidateInFlight: true)
         )
 
-        #expect(decision == .rejected)
+        #expect(outcome.decision == .rejected)
     }
 
     @Test
@@ -102,7 +105,7 @@ struct PeerAuthorizerTests {
         let iterations = 64
 
         DispatchQueue.concurrentPerform(iterations: iterations) { _ in
-            collector.record(PeerAuthorizer.decide(spki: spki, trustStore: trustStore, window: window))
+            collector.record(PeerAuthorizer.decide(spki: spki, trustStore: trustStore, window: window).decision)
         }
 
         #expect(collector.count(of: .pairingCandidate) == 1)
@@ -145,25 +148,27 @@ private struct ThrowingTrustStoreReader: TrustStoreReader {
 private final class FixedPairingWindowState: PairingWindowState, @unchecked Sendable {
     let isOpen: Bool
     private let lock = NSLock()
-    private var claimed: Bool
+    private var currentToken: PairingCandidateToken?
 
     init(isOpen: Bool, candidateInFlight: Bool) {
         self.isOpen = isOpen
-        self.claimed = candidateInFlight
+        self.currentToken = candidateInFlight ? PairingCandidateToken() : nil
     }
 
-    func admitCandidate() -> Bool {
+    func admitCandidate() -> PairingCandidateToken? {
         lock.lock()
         defer { lock.unlock() }
-        guard !claimed else { return false }
-        claimed = true
-        return true
+        guard currentToken == nil else { return nil }
+        let token = PairingCandidateToken()
+        currentToken = token
+        return token
     }
 
-    func releaseCandidate() {
+    func releaseCandidate(_ token: PairingCandidateToken) {
         lock.lock()
         defer { lock.unlock() }
-        claimed = false
+        guard currentToken == token else { return }
+        currentToken = nil
     }
 }
 
