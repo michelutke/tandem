@@ -5,10 +5,15 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 // transitively, `tandem.android.feature`) module, plus `app` (which applies this plugin directly
 // since it uses `com.android.application` rather than the library convention plugin): JUnit
 // Jupiter + the platform launcher so `./gradlew test` runs on JUnit5, and Turbine +
-// kotlinx-coroutines-test for Flow assertions. `CommonExtension` is the DSL type shared by
-// `LibraryExtension` and `ApplicationExtension`, so this configures whichever one the consuming
-// module already applied. Precompiled script plugins don't get the generated `libs.*` accessors
-// that a project's own build script gets, so the version catalog is looked up by name instead.
+// kotlinx-coroutines-test for Flow assertions. Also applies Kover for coverage reporting (E00-06).
+// `CommonExtension` is the DSL type shared by `LibraryExtension` and `ApplicationExtension`,
+// so this configures whichever one the consuming module already applied. Precompiled script
+// plugins don't get the generated `libs.*` accessors that a project's own build script gets,
+// so the version catalog is looked up by name instead.
+plugins {
+    id("tandem.android.kover")
+}
+
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
 extensions.configure<CommonExtension> {
