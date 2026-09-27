@@ -18,7 +18,11 @@ import Foundation
 /// reverse).
 public actor ConnectionStateMachine {
 
-    /// Every state this machine's connection can be in.
+    /// Every state this machine's connection can be in. Public (E22-01): the menu bar's own
+    /// ``MenuBarViewModel`` maps this into its own presentation-level state without either side
+    /// depending on `TandemSession`/`FakeTandemSession` (E12-12), whose `send`/`receive`
+    /// requirements can't cross the module boundary -- their payload types are generated protobuf
+    /// code built `Visibility=Internal` (see ``FrameSource``'s own doc comment).
     public enum ConnectionState: Sendable, Equatable {
         /// Before this connection was ever accepted (`reason == nil`, the only value ``handle(_:)``
         /// ever starts from), or after a `Ready` connection's socket closed (`reason` is then the
