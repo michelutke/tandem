@@ -52,4 +52,11 @@ include(
     ":feature:notifications",
     ":feature:pairing",
     ":lint:detekt-rules",
+    ":companion-app",
 )
+
+// E00-22: the companion notification-poster app lives under tools/, not android/, so its own
+// README (E00-01) and the directory-manifest check both see it as a `tools/*` leaf; it is
+// otherwise a plain module of this build, reusing the version catalog and quality convention
+// plugins like every other module. check_gradle_projects.rb maps this path back explicitly.
+project(":companion-app").projectDir = file("../tools/companion-app")
