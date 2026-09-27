@@ -32,7 +32,10 @@ sealed class PairingState {
      */
     data class AwaitingAccept(
         val code: String,
-    ) : PairingState()
+    ) : PairingState() {
+        /** Redacted (invariant 7): [code] is derived from the pairing secret. */
+        override fun toString(): String = "AwaitingAccept(code=<redacted>)"
+    }
 
     /**
      * `PairAccepted` received; the Mac already committed this phone's SPKI to its own trust store.
@@ -43,7 +46,10 @@ sealed class PairingState {
     data class AwaitingUserConfirm(
         val code: String,
         val macName: String,
-    ) : PairingState()
+    ) : PairingState() {
+        /** Redacted (invariant 7): [code] is derived from the pairing secret. */
+        override fun toString(): String = "AwaitingUserConfirm(code=<redacted>, macName=$macName)"
+    }
 
     /** The owner confirmed the code; the Mac's fingerprint is committed to this phone's trust store. */
     data object Paired : PairingState()
