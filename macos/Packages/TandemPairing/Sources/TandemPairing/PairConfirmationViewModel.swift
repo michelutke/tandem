@@ -48,6 +48,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
 
     private let lock = NSLock()
     private var hasResolved = false
+    private var didFail = false
 
     /// - Parameters:
     ///   - displayNameBytes: The phone's raw `DeviceInfo.display_name` UTF-8 bytes, untrusted and
@@ -102,14 +103,35 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         return hasResolved
     }
 
-    /// The owner clicked Pair: commits the handshake SPKI to the trust store, tells the window
-    /// (``PairingWindow/ownerAccepted()``) and sends `PairAccepted` -- never followed by a close,
-    /// the connection stays open as an ordinary session. A no-op if this dialog already resolved
-    /// (e.g. the connection dropped first).
+    /// `true` once ``pair()`` has resolved this dialog by aborting -- the window was no longer
+    /// `.confirmationPending` (e.g. it expired, or the candidate connection already dropped, while
+    /// this dialog was showing) or committing trust failed -- rather than by successfully pairing.
+    /// No `PairAccepted` was sent in either case; lets the presenting view show a visible error
+    /// instead of silently closing (invariant 5).
+    public var didFailToPair: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didFail
+    }
+
+    /// The owner clicked Pair. `docs/planning/decisions.md` D-73's "commits nothing on a
+    /// connection that is no longer open" is enforced here, not merely documented: the window's
+    /// own ``PairingWindow/ownerAccepted()`` guard runs *before* any trust is committed, and
+    /// `PairAccepted` is sent only once that guard has succeeded **and** the trust-store commit
+    /// itself has succeeded. Either failure aborts with no `PairAccepted` and no retry -- a no-op
+    /// if this dialog already resolved (e.g. the connection dropped first).
     public func pair() async {
         guard claimResolution() else { return }
-        commitTrust()
-        window.ownerAccepted()
+        guard window.ownerAccepted() else {
+            markFailed()
+            onResolved?()
+            return
+        }
+        guard commitTrust() else {
+            markFailed()
+            onResolved?()
+            return
+        }
         try? await sink.sendPairAccepted()
         onResolved?()
     }
@@ -146,8 +168,12 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         onResolved?()
     }
 
-    private func commitTrust() {
-        guard let fingerprint = try? SpkiFingerprint.of(spkiDer: handshakeSpkiDer) else { return }
+    /// Commits `handshakeSpkiDer`'s fingerprint to `trustStore`, returning `false` -- instead of
+    /// swallowing the failure -- if the fingerprint can't be derived or the store write itself
+    /// throws (e.g. a locked Keychain), so ``pair()`` can abort rather than send `PairAccepted` for
+    /// a peer it never actually committed.
+    private func commitTrust() -> Bool {
+        guard let fingerprint = try? SpkiFingerprint.of(spkiDer: handshakeSpkiDer) else { return false }
         let now = dateProvider()
         let record = PeerRecord(
             fingerprint: fingerprint,
@@ -156,7 +182,12 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
             lastSeen: now,
             capabilities: capabilities
         )
-        try? trustStore.put(record)
+        do {
+            try trustStore.put(record)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Atomic test-and-set on `hasResolved`: `true` only for the caller that just claimed this
@@ -168,6 +199,13 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         if hasResolved { return false }
         hasResolved = true
         return true
+    }
+
+    /// Records that ``pair()`` resolved by aborting rather than pairing, for ``didFailToPair``.
+    private func markFailed() {
+        lock.lock()
+        defer { lock.unlock() }
+        didFail = true
     }
 
     /// Formats a 6-digit code as two groups of three (ui-spec §9: "never truncate"); returns
