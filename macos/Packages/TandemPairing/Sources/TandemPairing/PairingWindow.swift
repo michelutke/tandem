@@ -26,7 +26,7 @@ public enum PairingWindowClosedReason: Sendable, Equatable {
     case declined
 }
 
-/// Outcome of ``PairingWindow/submitPairRequest(proof:)``.
+/// Outcome of ``PairingWindow/submitPairRequest(_:proof:)``.
 public enum PairRequestOutcome: Sendable, Equatable {
     /// The proof was valid; the candidate now waits on the owner's confirmation dialog
     /// (``PairingWindow/ownerAccepted()``/``PairingWindow/ownerDeclined()``).
@@ -56,16 +56,24 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         /// No candidate connection currently occupies the slot.
         case unclaimed
         /// Admitted (verify callback accepted the unknown certificate) but hellos not yet done.
-        case admitted
+        case admitted(CandidateToken)
         /// Hellos completed; ``PairingWindow`` sent `PairChallenge` and is waiting up to 10 s for
         /// `PairRequest`.
-        case awaitingRequest(helloCompletedAt: Date, challenge: Data)
+        case awaitingRequest(CandidateToken, helloCompletedAt: Date, challenge: Data)
         /// A valid proof was received; waiting on the owner's confirmation dialog.
-        case confirmationPending(challenge: Data)
+        case confirmationPending(CandidateToken, challenge: Data)
+
+        /// The token that currently owns the slot, `nil` while ``unclaimed``.
+        var token: CandidateToken? {
+            switch self {
+            case .unclaimed: return nil
+            case .admitted(let tok), .awaitingRequest(let tok, _, _), .confirmationPending(let tok, _): return tok
+            }
+        }
     }
 
     private struct OpenState {
-        var secret: Data
+        let secretBox: SecretBox
         let expiresAt: Date
         var attemptsRemaining: Int
         var candidate: CandidateState
@@ -112,12 +120,17 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     public func open(secret: Data) {
         lock.lock()
         defer { lock.unlock() }
-        if case .open(var previous) = phase {
-            zero(&previous.secret)
+        if case .open(let previous) = phase {
+            previous.secretBox.zero()
         }
         let expiresAt = dateProvider().addingTimeInterval(expiry)
         phase = .open(
-            OpenState(secret: secret, expiresAt: expiresAt, attemptsRemaining: maxAttempts, candidate: .unclaimed)
+            OpenState(
+                secretBox: SecretBox(secret),
+                expiresAt: expiresAt,
+                attemptsRemaining: maxAttempts,
+                candidate: .unclaimed
+            )
         )
     }
 
@@ -139,30 +152,52 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         return false
     }
 
-    /// Atomic test-and-set claim of the single candidate slot (D-18): succeeds only if the window
-    /// is open and no other candidate is already in flight.
+    /// Atomic test-and-set claim of the single candidate slot (D-18, `PairingWindowState`
+    /// conformance for ``PeerAuthorizer``, E12-02). Equivalent to discarding the token from
+    /// ``admitCandidateToken()``, which every in-package caller uses instead.
     public func admitCandidate() -> Bool {
+        admitCandidateToken() != nil
+    }
+
+    /// The token-returning counterpart of ``admitCandidate()``: claims the same slot and returns a
+    /// fresh ``CandidateToken`` the caller must present to every later call for this candidate.
+    public func admitCandidateToken() -> CandidateToken? {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, state.candidate == .unclaimed else { return false }
-        state.candidate = .admitted
+        guard case .open(var state) = phase, state.candidate == .unclaimed else { return nil }
+        let token = CandidateToken()
+        state.candidate = .admitted(token)
         phase = .open(state)
-        return true
+        return token
     }
 
-    /// Frees the slot a prior ``admitCandidate()`` call claimed, called by the candidate
-    /// connection's own lifecycle handling once it closes for any reason before `PairAccepted`.
-    /// Burns exactly one attempt (`docs/planning/decisions.md` D-70) -- regardless of which of the
-    /// candidate's sub-states it was in (admitted only, awaiting a request, or a confirmation
-    /// dialog pending) -- unless the slot is already free (e.g. the attempt was already burned by
-    /// the 10 s timeout, or the window already closed via ``ownerAccepted()``/``ownerDeclined()``
-    /// or has since been regenerated), in which case this is a no-op.
+    /// Frees the slot a prior ``admitCandidate()`` call claimed, unconditionally (`PairingWindowState`
+    /// conformance; never called by ``PeerAuthorizer``/`PeerVerifier` themselves). Every
+    /// in-package caller uses ``releaseCandidate(_:)`` instead, which no-ops on a stale token.
     public func releaseCandidate() {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, state.candidate != .unclaimed else { return }
+        releaseIfMatching { $0 != .unclaimed }
+    }
+
+    /// The token-checked counterpart of ``releaseCandidate()``, called once the candidate
+    /// connection closes for any reason before `PairAccepted`. Burns exactly one attempt
+    /// (`docs/planning/decisions.md` D-70) unless `token` no longer matches the slot's current
+    /// occupant (already freed, regenerated, or since claimed by an unrelated later candidate), in
+    /// which case this is a no-op -- a stale caller can never burn a different candidate's attempt.
+    public func releaseCandidate(_ token: CandidateToken) {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        releaseIfMatching { $0.token == token }
+    }
+
+    /// Shared by both ``releaseCandidate()`` overloads: frees the slot and burns one attempt only
+    /// if `matches` accepts the current candidate state. Assumes `lock` is held.
+    private func releaseIfMatching(_ matches: (CandidateState) -> Bool) {
+        guard case .open(var state) = phase, matches(state.candidate) else { return }
         state.candidate = .unclaimed
         burnAttempt(&state)
     }
@@ -171,15 +206,17 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
 
     /// Called once both sides' `VersionHello` exchange completes on the admitted candidate
     /// connection. Generates and stores this candidate's `PairChallenge` (`cb`, D-67) and starts
-    /// its 10 s `PairRequest` deadline. Returns `nil` if no candidate is currently `.admitted`
-    /// (wrong call order, or the window closed/regenerated first).
-    public func candidateHellosCompleted() -> Data? {
+    /// its 10 s `PairRequest` deadline. Returns `nil` if `token` no longer matches a candidate
+    /// currently `.admitted`.
+    public func candidateHellosCompleted(_ token: CandidateToken) -> Data? {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, state.candidate == .admitted else { return nil }
+        guard case .open(var state) = phase, state.candidate.token == token, case .admitted = state.candidate else {
+            return nil
+        }
         let challenge = challengeSource.generateChallenge()
-        state.candidate = .awaitingRequest(helloCompletedAt: dateProvider(), challenge: challenge)
+        state.candidate = .awaitingRequest(token, helloCompletedAt: dateProvider(), challenge: challenge)
         phase = .open(state)
         return challenge
     }
@@ -195,57 +232,62 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     }
 
     /// Evaluates a received `PairRequest.proof` against this candidate's stored secret and
-    /// challenge. A window that's closed, or a candidate not currently ``awaitingRequest``
-    /// (already timed out, never reached that state, or already resolved), is rejected without
-    /// ever invoking ``PairRequestVerifier``. A valid proof moves the candidate to awaiting the
-    /// owner's confirmation and burns nothing; an invalid proof burns one attempt and frees the
-    /// slot immediately.
-    public func submitPairRequest(proof: Data) -> PairRequestOutcome {
+    /// challenge. A window that's closed, or `token` no longer matching a candidate currently
+    /// ``awaitingRequest``, is rejected without ever invoking ``PairRequestVerifier``. A valid
+    /// proof moves the candidate to awaiting the owner's confirmation and burns nothing; an
+    /// invalid proof burns one attempt and frees the slot immediately.
+    public func submitPairRequest(_ token: CandidateToken, proof: Data) -> PairRequestOutcome {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, case .awaitingRequest(_, let challenge) = state.candidate else {
+        guard case .open(var state) = phase,
+              state.candidate.token == token,
+              case .awaitingRequest(_, _, let challenge) = state.candidate else {
             return .rejected
         }
 
-        guard proofVerifier.verify(proof: proof, secret: state.secret, challenge: challenge) else {
+        guard proofVerifier.verify(proof: proof, secret: state.secretBox.data, challenge: challenge) else {
             state.candidate = .unclaimed
             burnAttempt(&state)
             return .rejected
         }
 
-        state.candidate = .confirmationPending(challenge: challenge)
+        state.candidate = .confirmationPending(token, challenge: challenge)
         phase = .open(state)
         return .pendingConfirmation
     }
 
     /// The owner clicked Pair on the confirmation dialog. Closes the window as ``paired``&nbsp;--
-    /// single-use, the secret is destroyed and never reused for a second phone -- and is a no-op
-    /// if no confirmation is currently pending (e.g. it was already resolved, or the candidate
-    /// connection already dropped and freed the slot per D-73's "commits nothing" rule).
-    public func ownerAccepted() {
+    /// the secret is destroyed and never reused -- and returns `false` as a no-op if no
+    /// confirmation is currently pending (e.g. the window expired while the dialog was showing, or
+    /// the candidate connection already dropped, per D-73's "commits nothing" rule). The caller
+    /// (E14-08) MUST NOT treat trust as committed, nor send `PairAccepted`, unless this is `true`.
+    @discardableResult
+    public func ownerAccepted() -> Bool {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, case .confirmationPending = state.candidate else { return }
+        guard case .open(let state) = phase, case .confirmationPending = state.candidate else { return false }
         let attemptsRemaining = state.attemptsRemaining
-        zero(&state.secret)
+        state.secretBox.zero()
         phase = .closed(.paired, attemptsRemaining: attemptsRemaining)
+        return true
     }
 
     /// An owner-initiated decline (Don't Pair, Escape, or dismiss) of a confirmation dialog whose
     /// connection is still open. Closes the *entire* window (`docs/planning/decisions.md` D-73),
-    /// destroying the secret -- distinct from ``releaseCandidate()``, which only burns one attempt
-    /// and leaves the window open. A no-op if no confirmation is currently pending (the connection
-    /// already dropped first and ``releaseCandidate()`` already ran the D-70 attempt burn; this
-    /// stale, now-connectionless click commits nothing and decrements nothing a second time).
+    /// destroying the secret -- distinct from ``releaseCandidate(_:)``, which only burns one
+    /// attempt and leaves the window open. A no-op if no confirmation is currently pending (the
+    /// connection already dropped first and ``releaseCandidate(_:)`` already ran the D-70 attempt
+    /// burn; this stale, now-connectionless click commits nothing and decrements nothing a second
+    /// time).
     public func ownerDeclined() {
         lock.lock()
         defer { lock.unlock() }
         settleLocked()
-        guard case .open(var state) = phase, case .confirmationPending = state.candidate else { return }
+        guard case .open(let state) = phase, case .confirmationPending = state.candidate else { return }
         let attemptsRemaining = state.attemptsRemaining
-        zero(&state.secret)
+        state.secretBox.zero()
         phase = .closed(.declined, attemptsRemaining: attemptsRemaining)
     }
 
@@ -299,14 +341,14 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         return nil
     }
 
-    /// The live secret while open, `nil` once closed -- invariant 6, "the secret is no longer
-    /// retrievable" once the window closes for any reason. Not part of the public seam surface;
-    /// exposed for this package's own tests (`@testable import`), matching
-    /// `ManualTestClock.pendingSleeperCountForTesting`'s precedent.
-    var secretForTesting: Data? {
+    /// The live secret box while open, `nil` once closed -- invariant 6. Not part of the public
+    /// seam surface; exposed for this package's own tests (`@testable import`) to hold the exact
+    /// same reference the window scrubs in place, so a test can verify the bytes are actually
+    /// zeroed rather than merely unreachable.
+    var secretBoxForTesting: SecretBox? {
         lock.lock()
         defer { lock.unlock() }
-        if case .open(let state) = phase { return state.secret }
+        if case .open(let state) = phase { return state.secretBox }
         return nil
     }
 
@@ -319,12 +361,12 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         let now = dateProvider()
 
         if now >= state.expiresAt {
-            zero(&state.secret)
+            state.secretBox.zero()
             phase = .closed(.expired, attemptsRemaining: state.attemptsRemaining)
             return
         }
 
-        if case .awaitingRequest(let helloCompletedAt, _) = state.candidate,
+        if case .awaitingRequest(_, let helloCompletedAt, _) = state.candidate,
            now >= helloCompletedAt.addingTimeInterval(candidateRequestDeadline) {
             state.candidate = .unclaimed
             burnAttempt(&state)
@@ -340,7 +382,7 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     private func burnAttempt(_ state: inout OpenState) {
         state.attemptsRemaining -= 1
         if state.attemptsRemaining <= 0 {
-            zero(&state.secret)
+            state.secretBox.zero()
             phase = .closed(.attemptsExhausted, attemptsRemaining: 0)
         } else {
             phase = .open(state)
@@ -350,15 +392,9 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     /// Closes the window with `reason` if it's currently open (no-op if already closed). Assumes
     /// `lock` is held.
     private func closeLocked(_ reason: PairingWindowClosedReason) {
-        guard case .open(var state) = phase else { return }
+        guard case .open(let state) = phase else { return }
         let attemptsRemaining = state.attemptsRemaining
-        zero(&state.secret)
+        state.secretBox.zero()
         phase = .closed(reason, attemptsRemaining: attemptsRemaining)
-    }
-
-    /// Best-effort scrub of sensitive bytes before the `Data` is discarded (invariant 6).
-    private func zero(_ data: inout Data) {
-        guard !data.isEmpty else { return }
-        data.resetBytes(in: 0..<data.count)
     }
 }
