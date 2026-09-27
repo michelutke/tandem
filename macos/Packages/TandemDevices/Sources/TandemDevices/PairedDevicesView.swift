@@ -52,6 +52,11 @@ public struct PairedDevicesView: View {
                 Text(row.lastSeenText)
                     .tandemTextStyle(TandemTypography.meta())
                     .foregroundStyle(TandemColor.ink2)
+                if let batteryText = row.batteryText {
+                    Text(batteryText)
+                        .tandemTextStyle(TandemTypography.meta())
+                        .foregroundStyle(TandemColor.ink2)
+                }
             }
             Spacer()
             PillButton("Revoke", kind: .destructive) {

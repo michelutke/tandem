@@ -36,5 +36,14 @@ enum UITestScenario: String {
               arguments.indices.contains(flagIndex + 1) else { return nil }
         return UITestScenario(rawValue: arguments[flagIndex + 1])
     }
+
+    /// Whether a `-UITestSeedDeviceStatus` launch argument accompanies ``pairedConnected`` --
+    /// seeds a `DeviceStatus` frame (E23-04) in addition to the `Ready` state, so
+    /// `menuBarExtra_seededDeviceStatus_showsBatteryPercentAndNetworkLabel` can assert on the
+    /// formatted battery/network/signal strings without perturbing the existing
+    /// `showsPeerNameAndBatteryPlaceholder` scenario (no flag -> no `DeviceStatus` -> placeholder).
+    static func deviceStatusSeedRequested(_ arguments: [String] = CommandLine.arguments) -> Bool {
+        arguments.contains("-UITestSeedDeviceStatus")
+    }
 }
 #endif

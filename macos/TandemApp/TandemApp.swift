@@ -192,7 +192,7 @@ struct MenuContentView: View {
                 .accessibilityLabel("Listener Unavailable")
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                MenuBarContentView(viewModel: menuBarViewModel)
+                MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
                 QuickActionsView(viewModel: quickActionsViewModel)
             }
         }
@@ -208,6 +208,7 @@ private struct ScenarioView: View {
     let scenario: UITestScenario
 
     @State private var pairedConnectedViewModel = ScenarioView.makePairedConnectedViewModel()
+    @State private var pairedConnectedDeviceStatusViewModel = ScenarioView.makePairedConnectedDeviceStatusViewModel()
     @State private var pairedConnectedQuickActionsViewModel =
         ScenarioView.makeQuickActionsViewModel(isConnected: true)
     @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
@@ -217,15 +218,18 @@ private struct ScenarioView: View {
     var body: some View {
         switch scenario {
         case .notPaired:
-            MenuBarContentView(viewModel: MenuBarViewModel(stateStream: nil, peerName: nil))
+            MenuBarContentView(viewModel: MenuBarViewModel(stateStream: nil, peerName: nil), deviceStatusViewModel: nil)
         case .pairedConnected:
             VStack(alignment: .leading, spacing: 8) {
-                MenuBarContentView(viewModel: pairedConnectedViewModel)
+                MenuBarContentView(
+                    viewModel: pairedConnectedViewModel,
+                    deviceStatusViewModel: pairedConnectedDeviceStatusViewModel
+                )
                 QuickActionsView(viewModel: pairedConnectedQuickActionsViewModel)
             }
         case .pairedDisconnected:
             VStack(alignment: .leading, spacing: 8) {
-                MenuBarContentView(viewModel: pairedDisconnectedViewModel)
+                MenuBarContentView(viewModel: pairedDisconnectedViewModel, deviceStatusViewModel: nil)
                 QuickActionsView(viewModel: pairedDisconnectedQuickActionsViewModel)
             }
         case .failClosedError:
@@ -236,13 +240,36 @@ private struct ScenarioView: View {
         }
     }
 
-    /// Seeds a ``FakeTandemSession`` (E12-12) already `Ready`, so the scenario window renders
-    /// "Connected to Pixel 8" and the battery placeholder without any real network/Keychain
-    /// access.
+    /// The one ``FakeTandemSession`` (E12-12) shared by ``makePairedConnectedViewModel()`` and
+    /// ``makePairedConnectedDeviceStatusViewModel()`` for this scenario window's lifetime -- both
+    /// view models observe the same session, exactly as production wiring would.
+    private static let pairedConnectedSession = FakeTandemSession()
+
+    /// Seeds ``pairedConnectedSession`` already `Ready`, so the scenario window renders "Connected
+    /// to Pixel 8" and the battery placeholder (until a `DeviceStatus` arrives, below) without any
+    /// real network/Keychain access.
     private static func makePairedConnectedViewModel() -> MenuBarViewModel {
-        let session = FakeTandemSession()
-        let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
-        Task { await session.emit(.ready) }
+        let viewModel = MenuBarViewModel(stateStream: pairedConnectedSession.state, peerName: pairedConnectedPeerName)
+        Task { await pairedConnectedSession.emit(.ready) }
+        return viewModel
+    }
+
+    /// Seeds a `DeviceStatus` on ``pairedConnectedSession`` only when
+    /// ``UITestScenario/deviceStatusSeedRequested(_:)`` -- the plain `pairedConnected` scenario
+    /// (no flag) never sees a `DeviceStatus`, so its own battery placeholder assertion
+    /// (`ScenarioPairedConnectedUITests`) stays deterministic.
+    private static func makePairedConnectedDeviceStatusViewModel() -> DeviceStatusViewModel {
+        let viewModel = DeviceStatusViewModel(session: pairedConnectedSession)
+        if UITestScenario.deviceStatusSeedRequested() {
+            var status = Tandem_V1_DeviceStatus()
+            status.batteryLevel = 82
+            status.isCharging = true
+            status.networkType = .wifi
+            Task {
+                let frame = InboundFrame(channel: .status, seq: 1, ack: 0, payload: .deviceStatus(status))
+                await pairedConnectedSession.inject(frame)
+            }
+        }
         return viewModel
     }
 

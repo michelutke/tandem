@@ -1,12 +1,17 @@
 import SwiftUI
 
 /// Renders ``MenuBarViewModel``'s current state (E22-01): the connection label, and either the
-/// "Pair phone…" action (no paired peer, UC-01) or the battery placeholder row. Plain `Text`/
-/// `Button` rather than `Label`/`Menu` -- macOS exposes SwiftUI `Text` content reliably as AXValue
-/// for XCUITest, matching the existing `ScenarioView` convention, whereas composite controls are
-/// less predictable on headless runners.
+/// "Pair phone…" action (no paired peer, UC-01) or the battery/network/signal row(s). Plain
+/// `Text`/`Button` rather than `Label`/`Menu` -- macOS exposes SwiftUI `Text` content reliably as
+/// AXValue for XCUITest, matching the existing `ScenarioView` convention, whereas composite
+/// controls are less predictable on headless runners.
 struct MenuBarContentView: View {
     let viewModel: MenuBarViewModel
+
+    /// `nil` until a `DeviceStatus` has been received (E23-04) -- ``batteryText`` then falls back
+    /// to ``MenuBarViewModel/batteryPlaceholder``, and the network/signal rows are omitted
+    /// entirely.
+    let deviceStatusViewModel: DeviceStatusViewModel?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,9 +24,23 @@ struct MenuBarContentView: View {
                     .accessibilityIdentifier("pairPhoneMenuItem")
                     .accessibilityLabel("Pair phone…")
             } else {
-                Text(MenuBarViewModel.batteryPlaceholder)
+                let batteryText = deviceStatusViewModel?.batteryText ?? MenuBarViewModel.batteryPlaceholder
+                Text(batteryText)
                     .accessibilityIdentifier("batteryLabel")
-                    .accessibilityLabel(MenuBarViewModel.batteryPlaceholder)
+                    .accessibilityLabel(batteryText)
+
+                if let networkText = deviceStatusViewModel?.networkText {
+                    Text(networkText)
+                        .accessibilityIdentifier("networkLabel")
+                        .accessibilityLabel(networkText)
+                }
+
+                if let signalBars = deviceStatusViewModel?.signalBars,
+                   let signalAccessibilityValue = deviceStatusViewModel?.signalAccessibilityValue {
+                    Text("\(signalBars)")
+                        .accessibilityIdentifier("signalLabel")
+                        .accessibilityValue(signalAccessibilityValue)
+                }
             }
         }
         .padding()
