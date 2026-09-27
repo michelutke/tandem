@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */; };
+		0A52CD9C19097CC799A304B8 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F0EC0B3B0072BA2540ABFA /* DeviceStatusViewModel.swift */; };
+		11AD49092DF4AF1481C1713B /* DeviceStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDECBDEE4617A806665E1E5F /* DeviceStatusViewModelTests.swift */; };
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		2224311E3BAA40BD9A9E1B23 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22AA208D67AF466CA01FA053 /* LoginItemService.swift */; };
 		F9A4576B148640CAB74E0656 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B334B9029DE7440D8B417CF9 /* LaunchAtLoginPreferenceStore.swift */; };
@@ -80,6 +82,8 @@
 		082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppComposition.swift; sourceTree = "<group>"; };
 		0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioFailClosedErrorUITests.swift; sourceTree = "<group>"; };
 		132ECF02E619377AEA48E71F /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
+		64F0EC0B3B0072BA2540ABFA /* DeviceStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusViewModel.swift; sourceTree = "<group>"; };
+		FDECBDEE4617A806665E1E5F /* DeviceStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusViewModelTests.swift; sourceTree = "<group>"; };
 		13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreFactory.swift; sourceTree = "<group>"; };
 		1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModel.swift; sourceTree = "<group>"; };
 		22AA208D67AF466CA01FA053 /* LoginItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemService.swift; sourceTree = "<group>"; };
@@ -172,6 +176,7 @@
 				914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */,
 				10D3889FA2B34C648C2CFCF6 /* LaunchAtLoginViewModelTests.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
+				FDECBDEE4617A806665E1E5F /* DeviceStatusViewModelTests.swift */,
 				041CF567C3AFCE26290A0483 /* README.md */,
 			);
 			path = TandemAppTests;
@@ -212,6 +217,7 @@
 				22AA208D67AF466CA01FA053 /* LoginItemService.swift */,
 				132ECF02E619377AEA48E71F /* MenuBarContentView.swift */,
 				1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */,
+				64F0EC0B3B0072BA2540ABFA /* DeviceStatusViewModel.swift */,
 				5319BE92DEC9F94E1C83D1EC /* README.md */,
 				8A44A1216CFE5055E0699868 /* TandemApp.entitlements */,
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
@@ -401,6 +407,7 @@
 				F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */,
 				727791F1FF8D4AE8B5D9108F /* LaunchAtLoginViewModelTests.swift in Sources */,
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
+				11AD49092DF4AF1481C1713B /* DeviceStatusViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +423,7 @@
 				2224311E3BAA40BD9A9E1B23 /* LoginItemService.swift in Sources */,
 				85AC58E2BE2BC6A252F0A390 /* MenuBarContentView.swift in Sources */,
 				65CD6C14FBBB2A64DFF59A32 /* MenuBarViewModel.swift in Sources */,
+				0A52CD9C19097CC799A304B8 /* DeviceStatusViewModel.swift in Sources */,
 				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 			);
