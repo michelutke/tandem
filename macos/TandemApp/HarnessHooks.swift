@@ -76,22 +76,10 @@ enum HarnessHooks {
             sessionRegistry: sessionRegistry
         )
 
-        let verify = PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+        let verify = harnessVerifyBlock(
+            keychainStore: keychainStore,
             window: window,
-            onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
-                // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
-                // returns control to Network.framework and the connection races ahead to `.ready`
-                // (`PeerDecisionCorrelator`'s own kdoc).
-                let metadataIdentifier = ObjectIdentifier(metadata)
-                decisionCorrelator.record(
-                    metadataIdentifier: metadataIdentifier,
-                    decision: decision,
-                    fingerprint: fingerprint,
-                    spkiDer: spkiDer,
-                    candidateToken: candidateToken
-                )
-            }
+            decisionCorrelator: decisionCorrelator
         )
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
@@ -113,14 +101,22 @@ enum HarnessHooks {
             fatalError("-HarnessListenerPort requested but identity became unready between checks")
         }
         retainedListener = started.listener
+        retainLifecycle(controller: controller, started: started)
+    }
 
-        // E20-10/E20-11: the harness is one place this composition root actually runs the real
-        // listener -- ``AppComposition/startListener()`` is the other, for an ordinary launch
-        // (E22-01) -- so it's also a place ``SleepWakeController``/``PathChangeController`` can be
-        // exercised for real (`tools/harness/integration/e12-13.sh` and manual gates) rather than
-        // only against fakes in `TandemTransportTests`. Both drive the same
-        // ``ProductionListenerControl``, seeded with the listener already started above so this
-        // never runs two listeners at once.
+    /// The E20-10/E20-11 sleep/wake and path-change wiring `startListenerIfRequested()` retains
+    /// once its listener has started, split out purely to keep that function under this repo's
+    /// `function_body_length` lint budget: the harness is one place this composition root actually
+    /// runs the real listener -- ``AppComposition/startListener()`` is the other, for an ordinary
+    /// launch (E22-01) -- so it's also a place ``SleepWakeController``/``PathChangeController`` can
+    /// be exercised for real (`tools/harness/integration/e12-13.sh` and manual gates) rather than
+    /// only against fakes in `TandemTransportTests`. Both drive the same
+    /// ``ProductionListenerControl``, seeded with the listener already started above so this never
+    /// runs two listeners at once.
+    private static func retainLifecycle(
+        controller: ListenerController,
+        started: ListenerController.StartedListener
+    ) {
         let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
@@ -137,6 +133,34 @@ enum HarnessHooks {
             await sleepWakeController.start()
             await pathChangeController.start()
         }
+    }
+
+    /// Builds `startListenerIfRequested()`'s verify block, split out purely to keep that function
+    /// under this repo's `function_body_length` lint budget. E12-12: correlates `PeerVerifier`'s
+    /// `onDecision` hook (the fingerprint, and for a `.pairingCandidate`, the SPKI DER and token it
+    /// already computed for a connection's own verify callback) with that same connection's session
+    /// wiring at `.ready`, so it can be recovered without re-deriving it after the fact.
+    private static func harnessVerifyBlock(
+        keychainStore: any KeychainStore,
+        window: any PairingWindowState,
+        decisionCorrelator: PeerDecisionCorrelator
+    ) -> TandemVerifyBlock {
+        PeerVerifier.makeVerifyBlock(
+            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+            window: window,
+            onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
+                // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
+                // returns control to Network.framework and the connection races ahead to `.ready`
+                // (`PeerDecisionCorrelator`'s own kdoc).
+                decisionCorrelator.record(
+                    metadataIdentifier: ObjectIdentifier(metadata),
+                    decision: decision,
+                    fingerprint: fingerprint,
+                    spkiDer: spkiDer,
+                    candidateToken: candidateToken
+                )
+            }
+        )
     }
 
     /// Resolves the `PairingWindowState`/`PairingCandidateDriver` pair `startListenerIfRequested()`
