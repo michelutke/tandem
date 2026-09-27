@@ -42,6 +42,7 @@ class TrustStore private constructor(
 
     companion object {
         /** File-backed store; survives process restart (UC-03). */
+        @Suppress("SpreadOperator") // Room's addMigrations only has a vararg overload (E13-03).
         fun open(
             context: Context,
             file: File,
@@ -50,16 +51,19 @@ class TrustStore private constructor(
                 Room
                     .databaseBuilder(context, TrustDatabase::class.java, file.absolutePath)
                     .setDriver(AndroidSQLiteDriver())
+                    .addMigrations(*TrustStoreMigrations.ALL)
                     .build()
             return TrustStore(db)
         }
 
         /** In-memory store, for tests that don't need restart survival. */
+        @Suppress("SpreadOperator") // Room's addMigrations only has a vararg overload (E13-03).
         fun openInMemory(context: Context): TrustStore {
             val db =
                 Room
                     .inMemoryDatabaseBuilder(context, TrustDatabase::class.java)
                     .setDriver(AndroidSQLiteDriver())
+                    .addMigrations(*TrustStoreMigrations.ALL)
                     .build()
             return TrustStore(db)
         }

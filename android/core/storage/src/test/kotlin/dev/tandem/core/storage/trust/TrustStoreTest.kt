@@ -1,5 +1,6 @@
 package dev.tandem.core.storage.trust
 
+import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.testing.TestClock
@@ -133,6 +134,69 @@ class TrustStoreTest {
             SpkiFingerprint(ByteArray(31))
         }
     }
+
+    /**
+     * Copies the committed v1 fixture (`src/test/resources/trust_v1_fixture.db`, generated
+     * against schema v1's identity hash, E13-03) to [destination] so each test mutates its own
+     * copy rather than the shared classpath resource.
+     */
+    private fun copyV1Fixture(destination: File) {
+        val resource =
+            requireNotNull(javaClass.classLoader?.getResourceAsStream("trust_v1_fixture.db")) {
+                "trust_v1_fixture.db missing from test resources"
+            }
+        resource.use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
+    }
+
+    @Test
+    fun migration_v1FixtureOpened_allRecordsReadableVersionStill1() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val dbFile = File(tempFolder.root, "trust_v1_fixture.db")
+            copyV1Fixture(dbFile)
+
+            val fixture = TrustStore.open(context, dbFile)
+            val records = fixture.list()
+            fixture.close()
+
+            assertEquals(2, records.size)
+            assertEquals(
+                setOf("device-a", "device-b"),
+                records.map { it.deviceId }.toSet(),
+            )
+
+            val rawDb = SQLiteDatabase.openOrCreateDatabase(dbFile.absolutePath, null)
+            assertEquals(1, rawDb.version)
+            rawDb.close()
+        }
+
+    @Test
+    fun migration_v1FixtureToSimulatedV2_allRecordsPreservedNewFieldDefaulted() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val dbFile = File(tempFolder.root, "trust_v1_to_v2.db")
+            copyV1Fixture(dbFile)
+
+            val db = SimulatedV2TrustDatabase.open(context, dbFile, SIMULATED_MIGRATION_1_TO_2)
+            val records = db.list()
+            db.close()
+
+            assertEquals(2, records.size)
+
+            val first = records.single { it.deviceId == "device-a" }
+            assertEquals("Phone A", first.displayName)
+            assertEquals(1000L, first.pairedAtEpochMs)
+            assertEquals(2000L, first.lastSeenEpochMs)
+            assertEquals("notify,clipboard", first.capabilitiesCsv)
+            assertEquals("", first.additionalData)
+
+            val second = records.single { it.deviceId == "device-b" }
+            assertEquals("Phone B", second.displayName)
+            assertEquals(1500L, second.pairedAtEpochMs)
+            assertEquals(2500L, second.lastSeenEpochMs)
+            assertEquals("notify", second.capabilitiesCsv)
+            assertEquals("", second.additionalData)
+        }
 
     @Test
     fun unpair_thenGetSameProcess_returnsNull() =
