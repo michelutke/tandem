@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 internal interface PeerRecordDao {
@@ -15,6 +16,11 @@ internal interface PeerRecordDao {
 
     @Query("SELECT * FROM peer_record")
     suspend fun list(): List<PeerRecordEntity>
+
+    // E20-02: reactive seam for TandemService's "stop when the last paired Mac is unpaired"
+    // behavior -- Room re-runs this and re-emits on every write to peer_record.
+    @Query("SELECT * FROM peer_record")
+    fun observeList(): Flow<List<PeerRecordEntity>>
 
     @Query("DELETE FROM peer_record WHERE spkiSha256Base64Url = :spkiSha256Base64Url")
     suspend fun deleteByFingerprint(spkiSha256Base64Url: String)
