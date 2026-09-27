@@ -255,5 +255,24 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.NotificationActionResult getNotificationActionResult();
 
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   * @return Whether the clipboardText field is set.
+   */
+  boolean hasClipboardText();
+  /**
+   * <pre>
+   * clipboard.proto (E31-01) — CLIPBOARD channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ClipboardText clipboard_text = 40 [json_name = "clipboardText"];</code>
+   * @return The clipboardText.
+   */
+  dev.tandem.protocol.v1.ClipboardText getClipboardText();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }
