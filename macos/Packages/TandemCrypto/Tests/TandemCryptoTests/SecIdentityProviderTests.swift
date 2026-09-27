@@ -12,7 +12,7 @@ import Testing
 /// entitlement needed -- so they run unconditionally in plain `swift test`. `Network` is otherwise
 /// off-limits in this package (E00-15's package-graph rule), but that rule only covers `Sources/`,
 /// not `Tests/`; the production `SecIdentityProvider` type never imports it.
-@Suite("SecIdentityProvider (hosted)")
+@Suite("SecIdentityProvider (hosted)", .timeLimit(.minutes(1)))
 struct SecIdentityProviderHostedTests {
 
     @Test

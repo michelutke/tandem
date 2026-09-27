@@ -1,6 +1,14 @@
 import SwiftUI
 import TandemCrypto
 
+#if DEBUG
+// FakeTandemSession (E12-12) is internal to TandemProtocol -- deliberately not exposed publicly,
+// since its `send`/`receive` requirements would otherwise have to carry non-public generated
+// protobuf types across the module boundary (see `FakeTandemSession`'s own doc comment). Reached
+// here, under DEBUG only, exactly the way the E00-26 scenario seeding was always documented to.
+@testable import TandemProtocol
+#endif
+
 /// Maps a failure reason to a user-visible, secret-free error string (E12-10, invariant 5).
 /// Pure value type; no dependencies on the app state or UI framework.
 struct ErrorPresenter: Sendable {
@@ -16,8 +24,10 @@ struct ErrorPresenter: Sendable {
             return "error.timeout"
         case "limitExceeded":
             return "error.unknownPeer"
-        case "malformedFrame", "creditViolation":
-            return "error.network"
+        case "malformedFrame":
+            return "error.malformedFrame"
+        case "creditViolation":
+            return "error.creditViolation"
         default:
             return "error.unknown"
         }
@@ -32,8 +42,10 @@ struct ErrorPresenter: Sendable {
             return "Timeout."
         case "limitExceeded":
             return "Too many connections."
-        case "malformedFrame", "creditViolation":
-            return "Network error."
+        case "malformedFrame":
+            return "Corrupted data received."
+        case "creditViolation":
+            return "Data flow error."
         default:
             return "Error."
         }
@@ -57,6 +69,37 @@ struct TandemMenuBarApp: App {
     // DEBUG-only, gated the same as `UITestScenario` itself (invariant 2).
     @NSApplicationDelegateAdaptor(UITestScenarioWindowDelegate.self) private var scenarioWindowDelegate
     #endif
+
+    /// Starts the production listener (E22-01's own follow-up: "production listener startup") for
+    /// every ordinary launch -- Debug or Release. Skipped only when a DEBUG harness or
+    /// `-UITestScenario` launch argument is present, matching exactly the set `HarnessHooks`
+    /// itself checks, so this never races the harness's own listener and a seeded scenario never
+    /// touches the real network/Keychain.
+    init() {
+        guard Self.retainedProductionLifecycle == nil, Self.productionListenerFailureReason == nil else { return }
+        #if DEBUG
+        guard UserDefaults.standard.string(forKey: "HarnessListenerPort") == nil,
+              UserDefaults.standard.string(forKey: "HarnessSeedTrust") == nil,
+              !UserDefaults.standard.bool(forKey: "HarnessClearTrust"),
+              UITestScenario.fromLaunchArguments() == nil else { return }
+        #endif
+        switch AppComposition.startListener() {
+        case .success(let lifecycle):
+            Self.retainedProductionLifecycle = lifecycle
+        case .failure(let reason):
+            Self.productionListenerFailureReason = reason
+        }
+    }
+
+    /// Keeps ``AppComposition/startListener()``'s lifecycle controllers alive for the process
+    /// lifetime, once started -- `init()` only ever calls `startListener()` once per process (the
+    /// guard above), so a second `App.init()` can't leak a second listener.
+    nonisolated(unsafe) private static var retainedProductionLifecycle: AppComposition.RetainedLifecycle?
+
+    /// Set instead of `retainedProductionLifecycle` if `startListener()` didn't start anything --
+    /// surfaced by `MenuContentView` as a visible "Listener Unavailable" state (invariant 5),
+    /// never retried silently.
+    nonisolated(unsafe) fileprivate static var productionListenerFailureReason: AppComposition.StartFailure?
 
     var body: some Scene {
         MenuBarExtra("Tandem", systemImage: "circle.fill") {
@@ -110,6 +153,8 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 /// element to assert on. Otherwise, if identity bootstrap failed (E10-07b, D-75), that replaces
 /// the ordinary "Tandem" content with a visible error.
 struct MenuContentView: View {
+    @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
+
     var body: some View {
         #if DEBUG
         if let scenario = UITestScenario.fromLaunchArguments() {
@@ -128,28 +173,48 @@ struct MenuContentView: View {
             Text("Identity Unavailable")
                 .accessibilityIdentifier("identityUnavailableLabel")
                 .accessibilityLabel("Identity Unavailable: \(reason)")
+        } else if TandemMenuBarApp.productionListenerFailureReason != nil {
+            Text("Listener Unavailable")
+                .accessibilityIdentifier("listenerUnavailableLabel")
+                .accessibilityLabel("Listener Unavailable")
         } else {
-            Text("Tandem")
+            MenuBarContentView(viewModel: menuBarViewModel)
         }
     }
 }
 
 #if DEBUG
 private struct ScenarioView: View {
+    /// The seeded peer name for the ``UITestScenario/pairedConnected`` scenario -- also asserted
+    /// against by ``ScenarioPairedConnectedUITests``.
+    static let pairedConnectedPeerName = "Pixel 8"
+
     let scenario: UITestScenario
+
+    @State private var pairedConnectedViewModel = ScenarioView.makePairedConnectedViewModel()
 
     var body: some View {
         switch scenario {
         case .notPaired:
-            Text("Not Paired")
-                .accessibilityIdentifier("notPairedStateLabel")
-                .accessibilityLabel("Not Paired")
+            MenuBarContentView(viewModel: MenuBarViewModel(stateStream: nil, peerName: nil))
+        case .pairedConnected:
+            MenuBarContentView(viewModel: pairedConnectedViewModel)
         case .failClosedError:
             let presenter = ErrorPresenter(reasonName: "versionMismatch")
             Text(presenter.localizedTitle)
                 .accessibilityIdentifier("failClosedErrorLabel")
                 .accessibilityLabel(presenter.localizedTitle)
         }
+    }
+
+    /// Seeds a ``FakeTandemSession`` (E12-12) already `Ready`, so the scenario window renders
+    /// "Connected to Pixel 8" and the battery placeholder without any real network/Keychain
+    /// access.
+    private static func makePairedConnectedViewModel() -> MenuBarViewModel {
+        let session = FakeTandemSession()
+        let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
+        Task { await session.emit(.ready) }
+        return viewModel
     }
 }
 #endif

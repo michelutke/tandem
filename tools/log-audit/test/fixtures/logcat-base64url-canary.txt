@@ -1,0 +1,4 @@
+09-26 12:00:00.123  1234  5678 I Tandem: Starting pairing session
+09-26 12:00:01.456  1234  5678 D NetworkManager: Connecting to 192.168.1.1
+09-26 12:00:02.789  1234  5678 I Tandem: JWT token: VEFOREVNLUNBTkFSWS10ZXN0MTIz
+09-26 12:00:03.012  1234  5678 D Transport: Frame received
