@@ -3,17 +3,17 @@ import Foundation
 /// One decoded frame routed to its channel's inbound stream (``ChannelMultiplexer/inbound(_:)``).
 /// `channel` is redundant with which stream it arrived on, but is kept so a consumer (or a test)
 /// can assert routing without depending on which stream instance it read from.
-struct InboundFrame: Sendable, Equatable {
-    let channel: Tandem_V1_Channel
-    let seq: UInt64
-    let ack: UInt64
-    let payload: Tandem_V1_Envelope.OneOf_Payload?
+public struct InboundFrame: Sendable, Equatable {
+    public let channel: Tandem_V1_Channel
+    public let seq: UInt64
+    public let ack: UInt64
+    public let payload: Tandem_V1_Envelope.OneOf_Payload?
 }
 
 /// Why a ``ChannelMultiplexer`` stopped routing frames. Every case is a fail-closed stop: the
 /// reader task exits and every channel's inbound stream finishes (docs/protocol/SPEC.md
 /// invariant 5).
-enum MultiplexerClose: Sendable, Equatable {
+public enum MultiplexerClose: Sendable, Equatable {
     /// The peer closed its sending direction in an orderly way at a frame boundary
     /// (``FrameDecoder/decode(from:)`` returned `nil`) -- not itself a protocol violation.
     case peerClosed
@@ -55,10 +55,19 @@ extension ChannelMultiplexer {
     func stop() async {
         await finish(.localClose)
     }
+
+    /// Suspends until this multiplexer closes, for any reason, then returns why -- immediately if
+    /// already closed. E12-12's session wiring uses this as the one place a post-Ready connection's
+    /// demise, from any cause, reaches the state machine and cancels the socket (every close path
+    /// already funnels through ``finish(_:)``).
+    public func awaitClose() async -> MultiplexerClose {
+        if let closeReason { return closeReason }
+        return await withCheckedContinuation { closeWaiters.append($0) }
+    }
 }
 
-struct InboundFrameStream: AsyncSequence, Sendable {
-    typealias Element = InboundFrame
+public struct InboundFrameStream: AsyncSequence, Sendable {
+    public typealias Element = InboundFrame
 
     fileprivate let base: AsyncStream<InboundFrame>
     fileprivate let onConsumed: @Sendable () async -> Void
@@ -68,18 +77,18 @@ struct InboundFrameStream: AsyncSequence, Sendable {
         self.onConsumed = onConsumed
     }
 
-    struct AsyncIterator: AsyncIteratorProtocol {
+    public struct AsyncIterator: AsyncIteratorProtocol {
         fileprivate var base: AsyncStream<InboundFrame>.AsyncIterator
         fileprivate let onConsumed: @Sendable () async -> Void
 
-        mutating func next() async -> InboundFrame? {
+        public mutating func next() async -> InboundFrame? {
             guard let frame = await base.next() else { return nil }
             await onConsumed()
             return frame
         }
     }
 
-    func makeAsyncIterator() -> AsyncIterator {
+    public func makeAsyncIterator() -> AsyncIterator {
         AsyncIterator(base: base.makeAsyncIterator(), onConsumed: onConsumed)
     }
 }

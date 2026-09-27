@@ -14,24 +14,24 @@ import Foundation
 /// ``ChannelMultiplexer/start()`` and ``VersionHandshake/run()``, both already called explicitly
 /// by whoever assembles a connection's pipeline -- so a caller controls exactly when reading and
 /// the handshake deadline begin.
-actor ByteStreamSession: TandemSession {
+public actor ByteStreamSession: TandemSession {
     private let multiplexer: ChannelMultiplexer
     private let stateMachine: ConnectionStateMachine
 
-    nonisolated var state: AsyncStream<ConnectionStateMachine.ConnectionState> {
+    public nonisolated var state: AsyncStream<ConnectionStateMachine.ConnectionState> {
         stateMachine.states
     }
 
-    init(multiplexer: ChannelMultiplexer, stateMachine: ConnectionStateMachine) {
+    public init(multiplexer: ChannelMultiplexer, stateMachine: ConnectionStateMachine) {
         self.multiplexer = multiplexer
         self.stateMachine = stateMachine
     }
 
-    func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
+    public func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
         try await multiplexer.send(channel, payload: payload)
     }
 
-    func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
+    public func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
         await multiplexer.inbound(channel)
     }
 
@@ -41,7 +41,7 @@ actor ByteStreamSession: TandemSession {
     /// (``ChannelMultiplexer/stop()``), finishing every channel's ``receive(_:)`` stream. Safe to
     /// call more than once: both `stateMachine.handle(_:)` and `multiplexer.stop()` are no-ops
     /// once already stopped.
-    func close() async {
+    public func close() async {
         await stateMachine.handle(.socketClosed(reason: "closed locally"))
         await multiplexer.stop()
     }

@@ -22,26 +22,26 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 
 /// Envelope: docs/protocol/SPEC.md #framing-and-envelope. Every frame (length-prefixed per that
 /// section) on every mTLS connection carries exactly one Envelope.
-nonisolated struct Tandem_V1_Envelope: Sendable {
+public nonisolated struct Tandem_V1_Envelope: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  var channel: Tandem_V1_Channel = .unspecified
+  public var channel: Tandem_V1_Channel = .unspecified
 
   /// Per-channel, per-direction counter maintained independently by each side. The first frame a
   /// side sends on a channel carries seq = 1; seq = 0 is never valid on the wire
   /// (#framing-and-envelope "Envelope fields").
-  var seq: UInt64 = 0
+  public var seq: UInt64 = 0
 
   /// Highest seq received in contiguous order from the peer on this channel; 0 before anything
   /// has arrived on that channel in that direction (#framing-and-envelope "Envelope fields").
-  var ack: UInt64 = 0
+  public var ack: UInt64 = 0
 
-  var payload: Tandem_V1_Envelope.OneOf_Payload? = nil
+  public var payload: Tandem_V1_Envelope.OneOf_Payload? = nil
 
   /// control.proto (E01-12) — CONTROL channel.
-  var versionHello: Tandem_V1_VersionHello {
+  public var versionHello: Tandem_V1_VersionHello {
     get {
       if case .versionHello(let v)? = payload {return v}
       return Tandem_V1_VersionHello()
@@ -49,7 +49,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .versionHello(newValue)}
   }
 
-  var heartbeat: Tandem_V1_Heartbeat {
+  public var heartbeat: Tandem_V1_Heartbeat {
     get {
       if case .heartbeat(let v)? = payload {return v}
       return Tandem_V1_Heartbeat()
@@ -57,7 +57,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .heartbeat(newValue)}
   }
 
-  var creditGrant: Tandem_V1_CreditGrant {
+  public var creditGrant: Tandem_V1_CreditGrant {
     get {
       if case .creditGrant(let v)? = payload {return v}
       return Tandem_V1_CreditGrant()
@@ -65,7 +65,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .creditGrant(newValue)}
   }
 
-  var mediaTicketGrant: Tandem_V1_MediaTicketGrant {
+  public var mediaTicketGrant: Tandem_V1_MediaTicketGrant {
     get {
       if case .mediaTicketGrant(let v)? = payload {return v}
       return Tandem_V1_MediaTicketGrant()
@@ -74,7 +74,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
   }
 
   /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
-  var pairChallenge: Tandem_V1_PairChallenge {
+  public var pairChallenge: Tandem_V1_PairChallenge {
     get {
       if case .pairChallenge(let v)? = payload {return v}
       return Tandem_V1_PairChallenge()
@@ -82,7 +82,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .pairChallenge(newValue)}
   }
 
-  var pairRequest: Tandem_V1_PairRequest {
+  public var pairRequest: Tandem_V1_PairRequest {
     get {
       if case .pairRequest(let v)? = payload {return v}
       return Tandem_V1_PairRequest()
@@ -90,7 +90,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .pairRequest(newValue)}
   }
 
-  var pairAccepted: Tandem_V1_PairAccepted {
+  public var pairAccepted: Tandem_V1_PairAccepted {
     get {
       if case .pairAccepted(let v)? = payload {return v}
       return Tandem_V1_PairAccepted()
@@ -98,7 +98,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .pairAccepted(newValue)}
   }
 
-  var pairRejected: Tandem_V1_PairRejected {
+  public var pairRejected: Tandem_V1_PairRejected {
     get {
       if case .pairRejected(let v)? = payload {return v}
       return Tandem_V1_PairRejected()
@@ -106,7 +106,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .pairRejected(newValue)}
   }
 
-  var revoke: Tandem_V1_Revoke {
+  public var revoke: Tandem_V1_Revoke {
     get {
       if case .revoke(let v)? = payload {return v}
       return Tandem_V1_Revoke()
@@ -114,7 +114,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .revoke(newValue)}
   }
 
-  var deviceStatus: Tandem_V1_DeviceStatus {
+  public var deviceStatus: Tandem_V1_DeviceStatus {
     get {
       if case .deviceStatus(let v)? = payload {return v}
       return Tandem_V1_DeviceStatus()
@@ -122,7 +122,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .deviceStatus(newValue)}
   }
 
-  var ring: Tandem_V1_Ring {
+  public var ring: Tandem_V1_Ring {
     get {
       if case .ring(let v)? = payload {return v}
       return Tandem_V1_Ring()
@@ -130,9 +130,9 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .ring(newValue)}
   }
 
-  var unknownFields = SwiftProtobuf.UnknownStorage()
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  nonisolated enum OneOf_Payload: Equatable, Sendable {
+  public nonisolated enum OneOf_Payload: Equatable, Sendable {
     /// control.proto (E01-12) — CONTROL channel.
     case versionHello(Tandem_V1_VersionHello)
     case heartbeat(Tandem_V1_Heartbeat)
@@ -149,7 +149,7 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
 
   }
 
-  init() {}
+  public init() {}
 }
 
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
@@ -157,10 +157,10 @@ nonisolated struct Tandem_V1_Envelope: Sendable {
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  static let protoMessageName: String = _protobuf_package + ".Envelope"
-  static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let protoMessageName: String = _protobuf_package + ".Envelope"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{16}\u{8}\u{c}\u{1e}\u{a}\u{c}(\u{a}\u{c}2\u{a}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
-  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
       // The use of inline closures is to circumvent an issue where the compiler
       // allocates stack space for every case branch when no optimizations are
@@ -317,7 +317,7 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     }
   }
 
-  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
     // The use of inline closures is to circumvent an issue where the compiler
     // allocates stack space for every if/case branch local when no optimizations
     // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
@@ -381,7 +381,7 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     try unknownFields.traverse(visitor: &visitor)
   }
 
-  static func ==(lhs: Tandem_V1_Envelope, rhs: Tandem_V1_Envelope) -> Bool {
+  public static func ==(lhs: Tandem_V1_Envelope, rhs: Tandem_V1_Envelope) -> Bool {
     if lhs.channel != rhs.channel {return false}
     if lhs.seq != rhs.seq {return false}
     if lhs.ack != rhs.ack {return false}

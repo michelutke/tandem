@@ -1,0 +1,93 @@
+package dev.tandem.harness.jvmclient.testserver
+
+import dev.tandem.core.transport.tls.TANDEM_ALPN_PROTOCOL
+import org.conscrypt.Conscrypt
+import java.io.Closeable
+import java.net.InetAddress
+import java.security.cert.X509Certificate
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLServerSocket
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.X509KeyManager
+import javax.net.ssl.X509TrustManager
+
+/** Per-connection knobs for [TestTlsServer] (mirrors `core/transport`'s own E12-04 fake). */
+data class TestTlsServerConfig(
+    val enabledProtocols: Array<String> = arrayOf("TLSv1.3"),
+    val alpnProtocols: Array<String> = arrayOf(TANDEM_ALPN_PROTOCOL),
+    val requireClientAuth: Boolean = true,
+)
+
+/** What the server observed on the one connection it accepted. */
+data class TestTlsConnectionResult(
+    val handshakeError: Throwable?,
+    val clientCertificate: X509Certificate?,
+)
+
+/**
+ * A JVM-only Conscrypt `SSLServerSocket` on `127.0.0.1` (E15-21 self-test): the peer the harness
+ * client dials to exercise a real TLS 1.3 mTLS handshake through `SslClientFactory`, mirroring
+ * `core/transport`'s own `TestTlsServer` (E12-04). `jvmIntegrationTest` source set only — never a
+ * main source set (invariant 4: the Android app opens no listening sockets).
+ */
+class TestTlsServer(
+    keyManager: X509KeyManager,
+    trustManager: X509TrustManager,
+    private val config: TestTlsServerConfig = TestTlsServerConfig(),
+) : Closeable {
+    private val executor = Executors.newCachedThreadPool()
+    private val serverSocket: SSLServerSocket
+
+    init {
+        val provider = Conscrypt.newProvider()
+        val context = SSLContext.getInstance("TLS", provider)
+        context.init(arrayOf(keyManager), arrayOf(trustManager), null)
+        serverSocket =
+            context.serverSocketFactory
+                .createServerSocket(0, 50, InetAddress.getByName("127.0.0.1")) as SSLServerSocket
+        serverSocket.enabledProtocols = config.enabledProtocols
+        serverSocket.needClientAuth = config.requireClientAuth
+    }
+
+    val port: Int get() = serverSocket.localPort
+
+    /** Accepts exactly one connection on a background thread and reports the outcome. */
+    fun acceptOnce(): CompletableFuture<TestTlsConnectionResult> {
+        val future = CompletableFuture<TestTlsConnectionResult>()
+        executor.submit {
+            try {
+                future.complete(handleOneConnection())
+            } catch (t: Throwable) {
+                future.completeExceptionally(t)
+            }
+        }
+        return future
+    }
+
+    private fun handleOneConnection(): TestTlsConnectionResult {
+        val socket = serverSocket.accept() as SSLSocket
+        val parameters = socket.sslParameters
+        parameters.applicationProtocols = config.alpnProtocols
+        socket.sslParameters = parameters
+
+        var handshakeError: Throwable? = null
+        var clientCertificate: X509Certificate? = null
+        try {
+            socket.startHandshake()
+            clientCertificate =
+                runCatching { socket.session.peerCertificates.firstOrNull() as? X509Certificate }.getOrNull()
+        } catch (t: Throwable) {
+            handshakeError = t
+        } finally {
+            runCatching { socket.close() }
+        }
+        return TestTlsConnectionResult(handshakeError, clientCertificate)
+    }
+
+    override fun close() {
+        serverSocket.close()
+        executor.shutdownNow()
+    }
+}
