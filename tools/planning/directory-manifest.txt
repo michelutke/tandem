@@ -10,6 +10,7 @@ android/config/detekt
 android/core
 android/core/crypto
 android/core/designsystem
+android/core/discovery
 android/core/pairing
 android/core/protocol
 android/core/storage

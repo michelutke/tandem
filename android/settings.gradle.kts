@@ -37,6 +37,7 @@ include(
     ":harness:jvm-client",
     ":core:crypto",
     ":core:designsystem",
+    ":core:discovery",
     ":core:pairing",
     ":core:protocol",
     ":core:storage",
