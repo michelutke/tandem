@@ -51,6 +51,8 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 15 | Contacts channel | `#contacts-channel` | TBD (Phase 5, epic E51) |
 | 16 | Calls channel | `#calls-channel` | TBD (Phase 5, epic E52) |
 | 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
+| 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
+| 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -1443,5 +1445,137 @@ detecting it would not close any actual gap (residual risk recorded in `docs/thr
 `protocol/vectors/` (E01-24) is the authoritative vector suite for this rule on both platforms: each
 vector gives an input string, a `kind` (`name`, `title`, or `body`), and the expected sanitized output.
 E14-21 (Android) and E14-22 (macOS) implement a shared sanitizer validated against these vectors.
+
+---
+
+## STATUS channel
+
+*(E23-01 · PRD F-4.3, F-4.4 · UC-05, UC-06 · no invariant references)*
+
+The STATUS channel carries two message types: `DeviceStatus` (the phone sends this to report battery,
+network, and signal state) and `Ring`/`RingStop` (the Mac sends `Ring` to make the phone ring; either
+side sends `RingStop` to stop it). The semantics below govern publish rate and direction:
+
+### DeviceStatus publish rule
+
+- **Direction:** Phone → Mac only. The phone publishes on every change of `battery_level`, 
+  `is_charging`, `network_type`, or `signal_level`.
+- **Throttle:** At most one `DeviceStatus` per 60 seconds. If a change occurs within 60 s of the
+  previous send, the new values are coalesced (the latest values overwrite earlier ones in that window)
+  and sent exactly once at 60 s after the last send. If no change occurs for 60+ seconds, nothing is
+  sent until the next actual change.
+- **Session Ready:** Immediately upon the session reaching Ready, the phone sends the current 
+  `DeviceStatus` once, applying the same publish rule: if a change occurred within the last 60 s of
+  session negotiation, the latest values are sent; otherwise, the current values at Ready time are
+  sent.
+
+### Ring/RingStop flow
+
+- **Ring (Mac → Phone):** The Mac sends `Ring` to make the phone play an alarm at max volume,
+  overriding Do Not Disturb, until dismissed. See §10 (`#timeouts-connection-limits-and-resource-caps`,
+  E01-22) for the cooldown cap: the alarm starts at most twice per rolling 10 s regardless of how many
+  `Ring` frames arrive.
+- **RingStop (either direction):** Either side may send `RingStop` to stop the ringing alarm. The
+  `origin` field records which side initiated the stop (mac or phone), answering the question "did the
+  phone dismiss this, or did the Mac cancel it?" on the receiving side, so each side's UI can reflect
+  the appropriate cause.
+
+### Conformance
+
+`protocol/vectors/` (E01-16) includes encode/decode and round-trip vectors for a full `DeviceStatus`
+and a `Ring`/`RingStop` pair; both Kotlin and Swift codecs produce byte-identical encodings for these
+vectors (E15-01, E15-02).
+
+---
+
+## NOTIFY channel
+
+*(E30-01 · PRD F-5.1, F-5.2, F-5.3, F-5.4 · UC-08, UC-09, UC-10, AC-14, AC-19 · invariant 7)*
+
+The NOTIFY channel (`Channel.NOTIFY`, §4) mirrors Android notifications to the Mac and forwards
+actions/dismissals back. It carries five message types, each sent directly as the Envelope
+payload (no wrapper message): `NotificationPosted` and `IconData` (phone → Mac),
+`NotificationAction` (Mac → phone), `NotificationActionResult` (phone → Mac), and
+`NotificationDismiss` (either direction).
+
+### NotificationPosted and default filter
+
+The phone sends `NotificationPosted` when a notification is posted or updated; a second
+`NotificationPosted` with the same `key` updates the Mac's presentation of that notification
+rather than stacking a new one (E30-02). Before any notification reaches this channel it passes
+the default filter (E30-03), which drops: (1) Tandem's own package; (2) packages `android` and
+`com.android.systemui`; (3) any notification carrying `FLAG_FOREGROUND_SERVICE`; (4) group-summary
+notifications (children are still forwarded); (5) `MediaStyle` notifications (media control is
+F-10.1, a separate feature). This rule set is authoritative here; its implementation is checked in
+as `android/feature/notifications/SYSTEM_NOISE.md` (E30-03). A per-app allow/deny setting
+(E30-04) overrides this default filter and is phone-side only (`docs/planning/decisions.md` D-04,
+D-50) — the Mac shows no per-app list in v1.
+
+### IconData
+
+`IconData` carries a source app's icon, keyed by `package_name` + `version_code` (not per
+notification): the Mac caches it and reuses it for every `NotificationPosted` from that app
+version that sets `has_icon = true` (E30-05, E30-06). A missing or over-cap icon (§10) falls back
+to a generic placeholder rather than blocking the notification's presentation.
+
+### VISIBILITY_SECRET handling
+
+A notification marked `VISIBILITY_SECRET` is forwarded in redacted form unless the user has
+opted in to "Show content of secret notifications on Mac" in phone settings (default off,
+E30-11): `title` = the app name, `text` = `""`, `messaging_style_senders` = `[]`,
+`visibility` = `VISIBILITY_SECRET`. The phone never sends the real content in the non-opted-in
+case — this is a sender-side redaction, not something the Mac must apply itself.
+
+### NotificationAction and NotificationActionResult
+
+The Mac sends `NotificationAction` when the user taps an action or submits a reply on a mirrored
+notification, identifying the source action by `key` + `action_index` and carrying `reply_text`
+for a RemoteInput-capable action (E30-08, E30-09). The phone answers every received
+`NotificationAction` with exactly one `NotificationActionResult` for the same `key`: `OK` once the
+action's `PendingIntent` is sent; `GONE` if `key` no longer refers to a live notification (already
+dismissed or expired — UC-09 alternate); `FAILED` if sending the `PendingIntent` throws (e.g.
+`CanceledException`), including a `reply_text` over the §10 cap, which is answered `FAILED`
+without attempting to send.
+
+### NotificationDismiss
+
+Dismissing a notification on either side sends `NotificationDismiss{key, origin}`: `origin` records
+which side dismissed it (`ORIGIN_ANDROID` or `ORIGIN_MACOS`) so the receiving side can apply the
+removal locally (`NotificationListenerService.cancelNotification` on Android, E30-10;
+`NotificationPresenter.removeDelivered` on macOS, E30-18) without re-forwarding a dismissal it only
+just applied itself — this prevents an echo loop between the two sides.
+
+### Disconnected-phone notification buffer
+
+While the phone's session is not Connected, `NotificationPosted` (and its matching
+`NotificationDismiss`) are held in memory only, never persisted to disk
+(`docs/planning/decisions.md` D-45): at most 50 entries; an entry older than 60 s is evicted before
+flush; when the buffer is full, the oldest entry is dropped first to make room for a new one. A
+`NotificationDismiss` for a still-buffered key removes that entry from the buffer instead of being
+sent — neither the post nor the dismiss reaches the Mac in that case (UC-08 alternate). On
+reconnect, buffered posts are flushed oldest-first and the buffer is empty afterward. This policy
+is implemented by E30-16.
+
+### Feature caps and sanitization
+
+§10 (`#timeouts-connection-limits-and-resource-caps`, E01-22) is the single source of truth for
+every numeric cap in this section; restated here for convenience: `title` ≤ 256 characters, `text`
+≤ 4096 characters, `messaging_style_senders` ≤ 25 entries of ≤ 64 characters each, `IconData`
+PNG ≤ 64 KiB and ≤ 256×256 px, `NotificationAction.reply_text` ≤ 4096 characters. Every string
+field on this channel — `title`, `text`, each `messaging_style_senders` entry, and the app name a
+receiver looks up for `package_name` — is untrusted peer input and MUST pass
+§11 (`#untrusted-peer-strings-display-sanitization`, E01-23) before being rendered, exactly like
+every other surface in that section. None of these fields, nor any notification body/text they
+carry, is ever written to a log in a release build (invariant 7): the same
+`DisplayStringSanitizer`/release-log rules that keep secrets out of logs elsewhere in this
+protocol apply to this channel without exception.
+
+### Conformance
+
+`protocol/vectors/` (E15-01, E15-02) includes frame-level encode/decode round-trip vectors for
+this channel: a `NotificationPosted` with a `MessagingStyle` post carrying 3 senders, a
+`NotificationAction` with a reply, a `NotificationDismiss` with `origin = ORIGIN_MACOS`, an
+`IconData`, and a `NotificationActionResult` with `status = STATUS_GONE`. Both the Kotlin and
+Swift codecs produce byte-identical encodings for these vectors.
 
 ---

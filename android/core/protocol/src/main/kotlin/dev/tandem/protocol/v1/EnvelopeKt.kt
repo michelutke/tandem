@@ -401,6 +401,162 @@ public object EnvelopeKt {
     public fun hasRing(): kotlin.Boolean {
       return _builder.hasRing()
     }
+
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     */
+    public var ringStop: dev.tandem.protocol.v1.RingStop
+      @kotlin.jvm.JvmName("getRingStop")
+        get() = _builder.ringStop
+      @kotlin.jvm.JvmName("setRingStop")
+        set(value) {
+        _builder.ringStop = value
+      }
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     */
+    public fun clearRingStop() {
+      _builder.clearRingStop()
+    }
+    /**
+     * `.tandem.v1.RingStop ring_stop = 22 [json_name = "ringStop"];`
+     * @return Whether the ringStop field is set.
+     */
+    public fun hasRingStop(): kotlin.Boolean {
+      return _builder.hasRingStop()
+    }
+
+    /**
+     * ```
+     * notify.proto (E30-01) — NOTIFY channel.
+     * ```
+     *
+     * `.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];`
+     */
+    public var notificationPosted: dev.tandem.protocol.v1.NotificationPosted
+      @kotlin.jvm.JvmName("getNotificationPosted")
+        get() = _builder.notificationPosted
+      @kotlin.jvm.JvmName("setNotificationPosted")
+        set(value) {
+        _builder.notificationPosted = value
+      }
+    /**
+     * ```
+     * notify.proto (E30-01) — NOTIFY channel.
+     * ```
+     *
+     * `.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];`
+     */
+    public fun clearNotificationPosted() {
+      _builder.clearNotificationPosted()
+    }
+    /**
+     * ```
+     * notify.proto (E30-01) — NOTIFY channel.
+     * ```
+     *
+     * `.tandem.v1.NotificationPosted notification_posted = 30 [json_name = "notificationPosted"];`
+     * @return Whether the notificationPosted field is set.
+     */
+    public fun hasNotificationPosted(): kotlin.Boolean {
+      return _builder.hasNotificationPosted()
+    }
+
+    /**
+     * `.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];`
+     */
+    public var iconData: dev.tandem.protocol.v1.IconData
+      @kotlin.jvm.JvmName("getIconData")
+        get() = _builder.iconData
+      @kotlin.jvm.JvmName("setIconData")
+        set(value) {
+        _builder.iconData = value
+      }
+    /**
+     * `.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];`
+     */
+    public fun clearIconData() {
+      _builder.clearIconData()
+    }
+    /**
+     * `.tandem.v1.IconData icon_data = 31 [json_name = "iconData"];`
+     * @return Whether the iconData field is set.
+     */
+    public fun hasIconData(): kotlin.Boolean {
+      return _builder.hasIconData()
+    }
+
+    /**
+     * `.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];`
+     */
+    public var notificationAction: dev.tandem.protocol.v1.NotificationAction
+      @kotlin.jvm.JvmName("getNotificationAction")
+        get() = _builder.notificationAction
+      @kotlin.jvm.JvmName("setNotificationAction")
+        set(value) {
+        _builder.notificationAction = value
+      }
+    /**
+     * `.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];`
+     */
+    public fun clearNotificationAction() {
+      _builder.clearNotificationAction()
+    }
+    /**
+     * `.tandem.v1.NotificationAction notification_action = 32 [json_name = "notificationAction"];`
+     * @return Whether the notificationAction field is set.
+     */
+    public fun hasNotificationAction(): kotlin.Boolean {
+      return _builder.hasNotificationAction()
+    }
+
+    /**
+     * `.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];`
+     */
+    public var notificationDismiss: dev.tandem.protocol.v1.NotificationDismiss
+      @kotlin.jvm.JvmName("getNotificationDismiss")
+        get() = _builder.notificationDismiss
+      @kotlin.jvm.JvmName("setNotificationDismiss")
+        set(value) {
+        _builder.notificationDismiss = value
+      }
+    /**
+     * `.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];`
+     */
+    public fun clearNotificationDismiss() {
+      _builder.clearNotificationDismiss()
+    }
+    /**
+     * `.tandem.v1.NotificationDismiss notification_dismiss = 33 [json_name = "notificationDismiss"];`
+     * @return Whether the notificationDismiss field is set.
+     */
+    public fun hasNotificationDismiss(): kotlin.Boolean {
+      return _builder.hasNotificationDismiss()
+    }
+
+    /**
+     * `.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];`
+     */
+    public var notificationActionResult: dev.tandem.protocol.v1.NotificationActionResult
+      @kotlin.jvm.JvmName("getNotificationActionResult")
+        get() = _builder.notificationActionResult
+      @kotlin.jvm.JvmName("setNotificationActionResult")
+        set(value) {
+        _builder.notificationActionResult = value
+      }
+    /**
+     * `.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];`
+     */
+    public fun clearNotificationActionResult() {
+      _builder.clearNotificationActionResult()
+    }
+    /**
+     * `.tandem.v1.NotificationActionResult notification_action_result = 34 [json_name = "notificationActionResult"];`
+     * @return Whether the notificationActionResult field is set.
+     */
+    public fun hasNotificationActionResult(): kotlin.Boolean {
+      return _builder.hasNotificationActionResult()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -446,4 +602,22 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.deviceStatusOrNull: dev.tand
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.ringOrNull: dev.tandem.protocol.v1.Ring?
   get() = if (hasRing()) getRing() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.ringStopOrNull: dev.tandem.protocol.v1.RingStop?
+  get() = if (hasRingStop()) getRingStop() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationPostedOrNull: dev.tandem.protocol.v1.NotificationPosted?
+  get() = if (hasNotificationPosted()) getNotificationPosted() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.iconDataOrNull: dev.tandem.protocol.v1.IconData?
+  get() = if (hasIconData()) getIconData() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationActionOrNull: dev.tandem.protocol.v1.NotificationAction?
+  get() = if (hasNotificationAction()) getNotificationAction() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationDismissOrNull: dev.tandem.protocol.v1.NotificationDismiss?
+  get() = if (hasNotificationDismiss()) getNotificationDismiss() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationActionResultOrNull: dev.tandem.protocol.v1.NotificationActionResult?
+  get() = if (hasNotificationActionResult()) getNotificationActionResult() else null
 
