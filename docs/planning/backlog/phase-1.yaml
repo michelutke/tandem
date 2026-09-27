@@ -2609,6 +2609,39 @@ epics:
           - "integration: e2eHarness_qrInjectionToPaired_under10s"
           - "integration: e2eHarness_pairing_macDialogCodeEqualsClientCode"
 
+      - id: E14-24
+        title: "[macos] PairingWindow: whole-window-expiry race can leave a candidate socket open"
+        type: test
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [5]
+        depends_on: [E14-16]
+        description: |
+          Follow-up from E14-16's second security-review round (Fable verifier, non-blocking LOW
+          finding). The fix committed for E14-16 records which token `settleLocked()` lazily burned
+          via `deadlineBurnedToken` so `PairingCandidateFlow.requestDeadlineElapsed()` can still report
+          success when the candidate's own 10 s sub-deadline is what `settleLocked()` processes first.
+          A second, narrower race in the same class remains: if the window's own 120 s *whole-window*
+          expiry (not the candidate's 10 s sub-deadline) is what `settleLocked()` happens to process
+          first — e.g. `PairingViewModel.tick()`'s 1 Hz UI poll reading `closedReason` right around the
+          same instant — `deadlineBurnedToken` is never set (that branch of `settleLocked()` returns
+          before reaching the candidate-deadline check), `open()`/regenerate then nils it, and the
+          watcher's `requestDeadlineElapsed(_:)` reports `false` — same class of leaked-open socket,
+          via the window-expiry path instead of the candidate-deadline path. Self-heals if the phone
+          ever sends a non-heartbeat frame or disconnects, and does not block new pairing (the slot is
+          free), so this is LOW severity, not a blocking finding.
+          Suggested fix (from the verifier): have `PairingCandidateFlow.requestDeadlineElapsed()` close
+          whenever the window no longer reports `token` as in-flight at all (idempotent close;
+          `claimFailure` already prevents a second `PairRejected`), rather than only trusting
+          `PairingWindow`'s own return value.
+        acceptance:
+          - "Candidate reaches awaitingRequest, the window's own 120 s whole-window expiry fires first (not the candidate's 10 s sub-deadline), and the watcher still closes the stale connection."
+        tdd:
+          - "unit: pairingCandidateFlow_windowExpiresBeforeCandidateDeadlineCheck_connectionClosed"
+
       - id: E14-17
         title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable"
         type: story
