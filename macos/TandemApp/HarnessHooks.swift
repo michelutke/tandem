@@ -56,26 +56,8 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
-        // E12-12: correlates PeerVerifier's onDecision hook (the fingerprint it already computed
-        // for a connection's own verify callback) with that same connection's session wiring at
-        // `.ready`, so a seeded, trusted client's control session is registered under its real
-        // SPKI fingerprint rather than re-deriving it after the fact.
         let decisionCorrelator = PeerDecisionCorrelator()
-        let verify = PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
-            window: NeverOpenPairingWindow(),
-            onDecision: { metadata, decision, fingerprint in
-                // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
-                // returns control to Network.framework and the connection races ahead to `.ready`
-                // (`PeerDecisionCorrelator`'s own kdoc).
-                let metadataIdentifier = ObjectIdentifier(metadata)
-                decisionCorrelator.record(
-                    metadataIdentifier: metadataIdentifier,
-                    decision: decision,
-                    fingerprint: fingerprint
-                )
-            }
-        )
+        let verify = harnessVerifyBlock(keychainStore: keychainStore, decisionCorrelator: decisionCorrelator)
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
@@ -135,6 +117,30 @@ enum HarnessHooks {
         let pathChangeController: PathChangeController
     }
     nonisolated(unsafe) private static var retainedLifecycle: RetainedLifecycle?
+
+    /// E12-12: correlates `PeerVerifier`'s `onDecision` hook (the fingerprint it already computed
+    /// for a connection's own verify callback) with that same connection's session wiring at
+    /// `.ready`, so a seeded, trusted client's control session is registered under its real SPKI
+    /// fingerprint rather than re-deriving it after the fact.
+    private static func harnessVerifyBlock(
+        keychainStore: any KeychainStore,
+        decisionCorrelator: PeerDecisionCorrelator
+    ) -> TandemVerifyBlock {
+        PeerVerifier.makeVerifyBlock(
+            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+            window: NeverOpenPairingWindow(),
+            onDecision: { metadata, decision, fingerprint in
+                // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`
+                // returns control to Network.framework and the connection races ahead to `.ready`
+                // (`PeerDecisionCorrelator`'s own kdoc).
+                decisionCorrelator.record(
+                    metadataIdentifier: ObjectIdentifier(metadata),
+                    decision: decision,
+                    fingerprint: fingerprint
+                )
+            }
+        )
+    }
 
     private static func seedTrust(fromFixtureAt path: String) {
         do {
