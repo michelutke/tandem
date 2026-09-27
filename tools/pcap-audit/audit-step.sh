@@ -4,6 +4,7 @@
 # merged yet, so ci and full both run this package's own pytest suite until then.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+command -v tshark >/dev/null || brew install wireshark >/dev/null
 venv=/tmp/audit-step-pcap-venv
 [ -d "$venv" ] || python3 -m venv "$venv" >/dev/null
 "$venv/bin/pip" -q install -r "$here/requirements.txt" pytest

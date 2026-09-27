@@ -14,6 +14,10 @@ packages:
     path: Packages/TandemTransport
   TandemStore:
     path: Packages/TandemStore
+  # E22-01: MenuBarViewModel maps ConnectionStateMachine.ConnectionState (E12-09); the DEBUG-only
+  # scenario seeding also reaches FakeTandemSession (E12-12) via @testable import.
+  TandemProtocol:
+    path: Packages/TandemProtocol
 
 targets:
   TandemApp:
@@ -42,6 +46,7 @@ targets:
       - package: TandemCrypto
       - package: TandemTransport
       - package: TandemStore
+      - package: TandemProtocol
 
   TandemShare:
     type: app-extension
@@ -65,6 +70,24 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
 
+  # Hosted unit-test bundle for TandemApp's own types (ErrorPresenter, MenuBarViewModel): Swift
+  # Testing (`import Testing`) cannot be imported from a `bundle.ui-testing` target at all
+  # (confirmed against this toolchain -- "_Testing_Unavailable"; matches the Swift Forums report
+  # that UI test bundles and Swift Testing are currently incompatible), so `unit:` tdd entries for
+  # TandemApp-hosted types live here, never in `TandemUITests`.
+  TandemAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - TandemAppTests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.tandem.app.Tests
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TandemApp
+
   # E00-26: runner for macOS `ui:` tdd entries. Drives TandemApp through its accessibility
   # identifiers; the app under test reads `-UITestScenario <name>` only under `#if DEBUG`.
   TandemUITests:
@@ -79,6 +102,7 @@ targets:
         GENERATE_INFOPLIST_FILE: true
     dependencies:
       - target: TandemApp
+      - package: TandemProtocol
 
 schemes:
   Tandem:
@@ -86,6 +110,15 @@ schemes:
       targets:
         TandemApp: all
         TandemShare: all
+
+  TandemAppTests:
+    build:
+      targets:
+        TandemApp: all
+        TandemAppTests: all
+    test:
+      targets:
+        - TandemAppTests
 
   TandemUITests:
     build:
