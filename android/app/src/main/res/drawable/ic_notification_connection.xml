@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ongoing-notification small icon for TandemService (E20-02): a single-color dot, matching the
+     "Dot" motif in core/designsystem (DotDrawing). Notification small icons must be a single
+     alpha-only shape; Android draws it in the status-bar/shade tint, never its own color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12,12m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0" />
+</vector>

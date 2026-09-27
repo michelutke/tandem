@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.detekt.gradlePlugin)
     implementation(libs.ksp.gradlePlugin)
     implementation(libs.hilt.gradlePlugin)
+    implementation(libs.kover.gradlePlugin)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(gradleTestKit())

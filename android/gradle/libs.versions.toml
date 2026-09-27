@@ -45,6 +45,9 @@ androidx-camera = "1.6.2"
 # Firebase/telemetry transitive dependencies (unlike ML Kit's bundled barcode-scanning artifact).
 # 3.1.1 is the latest release on Maven Central as of the spike (2026-07-29).
 zxingcpp = "3.1.1"
+# Kover for aggregate coverage reporting across modules (E00-06); native Kotlin plugin integrates
+# cleanly with JUnit5 / Turbine test infrastructure. 0.9.2 is latest stable on Maven Central.
+kover = "0.9.2"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -92,8 +95,10 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "androidx-camera" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidx-camera" }
 zxingcpp-android = { group = "io.github.zxing-cpp", name = "android", version.ref = "zxingcpp" }
+kover-gradlePlugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

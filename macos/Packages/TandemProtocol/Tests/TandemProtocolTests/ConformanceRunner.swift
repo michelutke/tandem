@@ -37,7 +37,7 @@ enum ConformanceRunner {
     static let deferredCategories: [String: String] = ["discovery-id": "E21-02"]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
-        "frame-encoding", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding",
+        "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings", "status-encoding",
         "notify-encoding"
     ]
 
@@ -132,6 +132,7 @@ enum ConformanceRunner {
     private static func runCategory(_ category: String, data: Data) async throws -> [VectorOutcome] {
         switch category {
         case "frame-encoding": return try await runFrameEncoding(data: data)
+        case "heartbeat": return try await runHeartbeat(data: data)
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)

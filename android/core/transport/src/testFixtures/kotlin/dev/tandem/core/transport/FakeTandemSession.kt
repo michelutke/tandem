@@ -5,6 +5,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
 import dev.tandem.protocol.v1.envelope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,10 +32,22 @@ class FakeTandemSession : TandemSession {
 
     private val inboundQueues = ConcurrentHashMap<Channel, KtChannel<Envelope>>()
 
+    private var nextSendException: Exception? = null
+    private var hangingSend = false
+
     override suspend fun send(
         channel: Channel,
         payload: EnvelopeKt.Dsl.() -> Unit,
     ) {
+        nextSendException?.let {
+            nextSendException = null
+            throw it
+        }
+
+        if (hangingSend) {
+            kotlinx.coroutines.awaitCancellation()
+        }
+
         mutableSentFrames +=
             envelope {
                 payload()
@@ -52,6 +65,16 @@ class FakeTandemSession : TandemSession {
     /** Sets [state] to [next], as if this session's underlying connection reached it. */
     fun emitState(next: ConnectionState) {
         mutableState.value = next
+    }
+
+    /** Configures the next [send] to throw [exception]. */
+    fun failNextSend(exception: Exception) {
+        nextSendException = exception
+    }
+
+    /** Configures [send] to hang indefinitely (used to test timeouts). */
+    fun setHangingSend() {
+        hangingSend = true
     }
 
     override fun close() {

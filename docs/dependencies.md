@@ -47,6 +47,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `com.google.protobuf:protobuf-kotlin-lite` | BSD-3-Clause | Protobuf runtime (Kotlin, lite) | E00-09 |
 | `org.jlleitschuh.gradle:ktlint-gradle` | MIT | Kotlin formatting gate | E00-05 |
 | `io.gitlab.arturbosch.detekt:detekt-gradle-plugin` | Apache-2.0 | Static analysis gate | E00-05 |
+| `org.jetbrains.kotlinx:kover-gradle-plugin` | Apache-2.0 | Code coverage reporting (aggregate report) | E00-06 |
 | `io.gitlab.arturbosch.detekt:detekt-api` | Apache-2.0 | Custom detekt rules (`:lint:detekt-rules`) | E00-14 |
 | `io.gitlab.arturbosch.detekt:detekt-test` | Apache-2.0 | Detekt rule unit-test fixtures (`:lint:detekt-rules`) | E00-17 |
 | `androidx.test:runner` | Apache-2.0 | Instrumented test runner (Gradle Managed Devices) | E00-21 |
@@ -70,6 +71,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `androidx.camera:camera-lifecycle` | Apache-2.0 | `ProcessCameraProvider`/`bindToLifecycle` | E14-10 |
 | `androidx.camera:camera-view` | Apache-2.0 | `PreviewView` viewfinder widget | E14-10 |
 | `io.github.zxing-cpp:android` | Apache-2.0 | QR decoding (E14-23 spike: zero Google/Firebase/telemetry transitive deps, unlike ML Kit's bundled barcode-scanning artifact, which also fails the license-allowlist gate) | E14-10 |
+| `swift-crypto` | Apache-2.0 | `TandemCrypto`'s Linux-only `Crypto` module fallback for `SHA256`/`HMAC<SHA256>` (CryptoKit is Apple-only; fuzz-libfuzzer.yml's CI container is Linux) — already transitively resolved via `swift-certificates`, now also a direct dependency | E15-14 |
 
 `jazzer-junit` pulls in `com.code-intelligence:jazzer` and `com.code-intelligence:jazzer-api`
 transitively (both Apache-2.0, both left un-pinned in `[libraries]` since only `jazzer-junit` is a

@@ -123,6 +123,54 @@ struct PairConfirmationViewModelTests {
         #expect(window.attemptsRemaining == 2)
     }
 
+    @Test
+    func pairConfirmation_windowExpiredWhileDialogPending_pairAbortsNoPairAcceptedVisibleError() async throws {
+        let fixture = try Self.loadFixture()
+        let clock = ManualTestClock()
+        let window = Self.confirmationPendingWindow(secret: fixture.secret, clock: clock)
+        let sink = FakePairingCandidateSink()
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            sink: sink,
+            trustStore: trustStore
+        )
+
+        // The window's 120 s expiry elapses while the dialog is still showing, before the owner
+        // clicks Pair (D-73's "commits nothing on a connection that is no longer open").
+        clock.advance(by: .seconds(120))
+
+        await viewModel.pair()
+
+        #expect(sink.calls.isEmpty)
+        #expect(try trustStore.list().isEmpty)
+        #expect(window.closedReason == .expired)
+        #expect(viewModel.didFailToPair)
+    }
+
+    @Test
+    func pairConfirmation_trustStoreCommitThrows_abortsNoPairAcceptedVisibleError() async throws {
+        let fixture = try Self.loadFixture()
+        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let sink = FakePairingCandidateSink()
+        let keychainStore = InMemoryKeychainStore()
+        keychainStore.failNextOperation(with: .locked)
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            sink: sink,
+            trustStore: trustStore
+        )
+
+        await viewModel.pair()
+
+        #expect(sink.calls.isEmpty)
+        #expect(try trustStore.list().isEmpty)
+        #expect(viewModel.didFailToPair)
+    }
+
     // MARK: - Fixtures
 
     private struct Fixture {
@@ -159,9 +207,9 @@ struct PairConfirmationViewModelTests {
             proofVerifier: SpyPairRequestVerifier(result: true)
         )
         window.open(secret: secret)
-        _ = window.admitCandidate()
-        _ = window.candidateHellosCompleted()
-        _ = window.submitPairRequest(proof: Data([9]))
+        guard let token = window.admitCandidateToken() else { return window }
+        _ = window.candidateHellosCompleted(token)
+        _ = window.submitPairRequest(token, proof: Data([9]))
         return window
     }
 

@@ -64,6 +64,7 @@ object ConformanceRunner {
     private val handledCategories: Set<String> =
         setOf(
             "frame-encoding",
+            "heartbeat",
             "spki-fingerprint",
             "pairing-proof",
             "qr-payload",
@@ -155,6 +156,7 @@ object ConformanceRunner {
         manifest.getValue("vectors").jsonArray.map { it.jsonObject }.map { vector ->
             when (category) {
                 "frame-encoding" -> frameEncodingOutcome(vector)
+                "heartbeat" -> heartbeatOutcome(vector)
                 "spki-fingerprint" -> spkiFingerprintOutcome(vector)
                 "pairing-proof" -> pairingProofOutcome(vector)
                 "qr-payload" -> qrPayloadOutcome(vector)
@@ -222,6 +224,55 @@ object ConformanceRunner {
         return VectorOutcome(
             id,
             "frame-encoding",
+            if (passed) "pass" else "fail",
+            "$expectedClose:$expectedReason",
+            actual,
+        )
+    }
+
+    private fun heartbeatOutcome(vector: JsonObject): VectorOutcome =
+        runBlocking {
+            val id = vector.getValue("id").jsonPrimitive.content
+            val input = vector.getValue("input").jsonObject
+            if ("expected" in vector) {
+                heartbeatValidOutcome(id, input, vector.getValue("expected").jsonObject)
+            } else {
+                heartbeatInvalidOutcome(id, input, vector)
+            }
+        }
+
+    private suspend fun heartbeatValidOutcome(
+        id: String,
+        input: JsonObject,
+        expected: JsonObject,
+    ): VectorOutcome {
+        val inputFrame = hexToBytes(input.getValue("frameHex").jsonPrimitive.content)
+        val decoded = FrameDecoder.decodeFrame(sourceFor(inputFrame))
+        val frame =
+            decoded as? DecodeResult.Frame
+                ?: return VectorOutcome(id, "heartbeat", "fail", inputFrame.toHex(), "rejected: $decoded")
+
+        val outputFrame = FrameEncoder.encodeFrame(frame.envelope)
+        val passed = inputFrame.contentEquals(outputFrame)
+        return VectorOutcome(id, "heartbeat", if (passed) "pass" else "fail", inputFrame.toHex(), outputFrame.toHex())
+    }
+
+    private suspend fun heartbeatInvalidOutcome(
+        id: String,
+        input: JsonObject,
+        vector: JsonObject,
+    ): VectorOutcome {
+        val frameBytes = hexToBytes(input.getValue("frameHex").jsonPrimitive.content)
+        val decoded = FrameDecoder.decodeFrame(sourceFor(frameBytes))
+        val rejected = decoded as? DecodeResult.Rejected
+        val expectedClose = vector.getValue("closeCode").jsonPrimitive.content
+        val expectedReason = vector.getValue("localReason").jsonPrimitive.content
+        val passed =
+            rejected != null && rejected.closeCode.name == expectedClose && rejected.reason.name == expectedReason
+        val actual = if (rejected != null) "${rejected.closeCode.name}:${rejected.reason.name}" else decoded.toString()
+        return VectorOutcome(
+            id,
+            "heartbeat",
             if (passed) "pass" else "fail",
             "$expectedClose:$expectedReason",
             actual,
