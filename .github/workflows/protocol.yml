@@ -1,6 +1,7 @@
 name: protocol
 
 # E00-11: buf lint on every protocol change; breaking-change check against main on PRs.
+# E01-15: proto schema scan (no debug-only names).
 # E01-16: test-vector generator + schema checks on every protocol/vectors or tools/vectors change.
 on:
   push:
@@ -27,6 +28,8 @@ jobs:
       - name: buf breaking
         if: github.event_name == 'pull_request'
         run: buf breaking protocol --against ".git#ref=refs/remotes/origin/main,subdir=protocol"
+      - name: proto schema scan
+        run: tools/protocol/proto-schema-scan.sh . .
 
   vectors:
     runs-on: ubuntu-latest
