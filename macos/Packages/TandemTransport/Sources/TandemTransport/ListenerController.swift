@@ -27,12 +27,21 @@ public final class ListenerController: Sendable {
         self.clock = clock
     }
 
+    /// A running listener paired with the ``ConnectionAdmission`` instance backing it -- the only
+    /// place that instance is reachable, since ``ListenerFactory/makeListener(identity:port:verify:admission:)``
+    /// takes it as a parameter but never hands it back. ``ProductionListenerControl`` (E20-10,
+    /// E20-11) holds onto this so its own `stop()` can reach ``ConnectionAdmission/cancelAllReady()``.
+    public struct StartedListener: Sendable {
+        public let listener: NWListener
+        public let admission: ConnectionAdmission
+    }
+
     /// Starts the listener if, and only if, the identity is ready. Returns `nil` (never invoking
     /// ``ListenerFactory``) when the identity is `.missing` or `.error`. Each call builds a fresh
     /// ``ConnectionAdmission`` (E12-18), so a restarted listener starts with a clean pre-auth
     /// budget and throttle state.
     @discardableResult
-    public func start() throws -> NWListener? {
+    public func start() throws -> StartedListener? {
         guard case .ready(let identity) = identityStateProvider.identityState else {
             return nil
         }
@@ -44,6 +53,6 @@ public final class ListenerController: Sendable {
             admission: admission
         )
         listener.start(queue: .global())
-        return listener
+        return StartedListener(listener: listener, admission: admission)
     }
 }

@@ -28,13 +28,16 @@ OTHER_PAYLOAD = b"OTHER-PORT-PAYLOAD"
 
 
 def _can_capture_on_lo0() -> bool:
-    with tempfile.TemporaryDirectory() as tmp:
-        probe = subprocess.run(
-            ["tshark", "-i", "lo0", "-a", "duration:1", "-w", str(Path(tmp) / "probe.pcapng")],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            probe = subprocess.run(
+                ["tshark", "-i", "lo0", "-a", "duration:1", "-w", str(Path(tmp) / "probe.pcapng")],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+    except FileNotFoundError:
+        return False
     return probe.returncode == 0
 
 
