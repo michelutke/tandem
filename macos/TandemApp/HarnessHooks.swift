@@ -33,11 +33,13 @@ enum HarnessHooks {
     }
 
     /// Starts the mTLS listener on `-HarnessListenerPort <port>` against the harness keychain's
-    /// identity and trust store (E15-22). Does nothing if the argument isn't set. The listener
-    /// keeps running for the life of the process, admitting only connections whose presented SPKI
-    /// fingerprint matches a trust record seeded by `-HarnessSeedTrust` -- there is no pairing
-    /// window in the harness (the live pairing state machine, E14-02, is exercised by its own
-    /// harness hook once E14-01/E14-02 land).
+    /// identity and trust store (E15-22). Does nothing if the argument isn't set -- the de-dup
+    /// against ``AppComposition``'s own production listener is the `UserDefaults` guard in
+    /// `TandemMenuBarApp.init()` (checking this same `-HarnessListenerPort` key), not this
+    /// function's return value. The listener keeps running for the life of the process, admitting
+    /// only connections whose presented SPKI fingerprint matches a trust record seeded by
+    /// `-HarnessSeedTrust` -- there is no pairing window in the harness (the live pairing state
+    /// machine, E14-02, is exercised by its own harness hook once E14-01/E14-02 land).
     static func startListenerIfRequested() {
         guard let portString = UserDefaults.standard.string(forKey: "HarnessListenerPort"),
               let rawPort = UInt16(portString),
@@ -74,12 +76,13 @@ enum HarnessHooks {
         }
         retainedListener = started.listener
 
-        // E20-10/E20-11: the harness is the one place this composition root actually runs the
-        // real listener, so it is also the one place ``SleepWakeController``/
-        // ``PathChangeController`` can be exercised for real (`tools/harness/integration/e12-13.sh`
-        // and manual gates) rather than only against fakes in `TandemTransportTests`. Both drive
-        // the same ``ProductionListenerControl``, seeded with the listener already started above
-        // so this never runs two listeners at once.
+        // E20-10/E20-11: the harness is one place this composition root actually runs the real
+        // listener -- ``AppComposition/startListener()`` is the other, for an ordinary launch
+        // (E22-01) -- so it's also a place ``SleepWakeController``/``PathChangeController`` can be
+        // exercised for real (`tools/harness/integration/e12-13.sh` and manual gates) rather than
+        // only against fakes in `TandemTransportTests`. Both drive the same
+        // ``ProductionListenerControl``, seeded with the listener already started above so this
+        // never runs two listeners at once.
         let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
