@@ -67,12 +67,22 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
-        // E14-26: shared with the verify block below, exactly like `AppComposition.startListener()`
-        // -- the harness listener must consume a real incoming `Revoke` the same way the real
-        // production listener does, not just seed/clear trust via its own one-shot hooks.
-        let trustStore = TrustStore(keychainStore: keychainStore)
+        // E14-20's `HarnessRevokeAwareSessionRegistry` already handles both revoke directions for
+        // this harness listener (including `-HarnessRevokeOnReady`'s Mac-initiated-revoke test
+        // scaffolding, which has no real-production equivalent by design -- production never
+        // auto-revokes a peer on Ready) and `tools/harness/integration/e14-20.sh` depends on its
+        // specific `harness-revoke-received:` log line. Do NOT also pass `trustStore:` to
+        // `NWListenerFactory` here (E14-26's real-production wiring) -- that would spawn a second,
+        // competing CONTROL-revoke reader racing this one on the same session's frame stream.
+        // Consolidating the harness onto the exact same production path (retiring this wrapper) is
+        // a real follow-up, but needs the script's own assertion reworked first, not a change to
+        // make under merge-conflict-resolution pressure -- tracked as a fresh backlog issue below.
         let decisionCorrelator = PeerDecisionCorrelator()
-        let sessionRegistry = ControlSessionRegistry()
+        let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
+            wrapping: ControlSessionRegistry(),
+            trustStore: TrustStore(keychainStore: keychainStore),
+            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
+        )
         let (window, pairingCandidateDriver) = resolvePairingWindow(
             identity: identity,
             keychainStore: keychainStore,
@@ -81,7 +91,7 @@ enum HarnessHooks {
         )
 
         let verify = harnessVerifyBlock(
-            trustStore: trustStore,
+            trustStore: TrustStore(keychainStore: keychainStore),
             window: window,
             decisionCorrelator: decisionCorrelator
         )
@@ -90,8 +100,7 @@ enum HarnessHooks {
             listenerFactory: NWListenerFactory(
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
-                pairingCandidateDriver: pairingCandidateDriver,
-                trustStore: trustStore
+                pairingCandidateDriver: pairingCandidateDriver
             ),
             port: port,
             verify: verify
