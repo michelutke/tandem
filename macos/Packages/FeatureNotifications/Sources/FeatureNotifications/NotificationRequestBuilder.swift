@@ -19,11 +19,21 @@ public enum NotificationRequestBuilder {
     /// Builds the request. `request.identifier` is `posted.key`, so presenting a second
     /// `NotificationPosted` with the same `key` replaces rather than stacks the delivered
     /// notification (`UNUserNotificationCenter.add(_:)`'s own identifier-reuse contract).
-    public static func build(_ posted: Tandem_V1_NotificationPosted) -> UNNotificationRequest {
+    ///
+    /// `iconAttachment` (E30-06), when non-nil, becomes the request's single attachment: the
+    /// source app's icon, resolved by ``IconCache`` from `posted.packageName` +
+    /// `posted.appVersionCode` (a cached icon, or the generic placeholder if none is cached).
+    public static func build(
+        _ posted: Tandem_V1_NotificationPosted,
+        iconAttachment: UNNotificationAttachment? = nil
+    ) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = DisplayStringSanitizer.sanitize(Data(posted.title.utf8), kind: .title)
         content.subtitle = DisplayStringSanitizer.sanitize(Data(posted.packageName.utf8), kind: .title)
         content.body = body(for: posted)
+        if let iconAttachment {
+            content.attachments = [iconAttachment]
+        }
         return UNNotificationRequest(identifier: posted.key, content: content, trigger: nil)
     }
 
