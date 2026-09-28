@@ -26,6 +26,20 @@ enum AppComposition {
         let pathSource: NWPathMonitorSource
         let sleepWakeController: SleepWakeController
         let pathChangeController: PathChangeController
+        /// The exact ``TandemProtocol/ControlSessionRegistry`` the running listener registers
+        /// every `.trusted` session into (E14-26): shared, not re-created, so a later Devices-
+        /// screen unpair (``AppComposition/makeUnpairAction(trustStore:sessionRegistry:purgeRegistry:)``)
+        /// can find the same live session `NWListenerFactory` already tracks, rather than a second,
+        /// empty registry that would always see "not connected".
+        let sessionRegistry: ControlSessionRegistry
+        /// The exact ``TandemStore/TrustStore`` the running listener's verify block and `CONTROL`
+        /// revoke consumer both read/write (E14-26) -- shared for the same reason as
+        /// ``sessionRegistry``.
+        let trustStore: TrustStore
+        /// Empty until a later-phase store registers a purger (``TandemStore/PeerDataPurgeRegistry``'s
+        /// own kdoc, E50-09/E51-04); retained here so every unpair -- incoming `Revoke` or an
+        /// owner-initiated Devices-screen unpair -- runs against the same registry.
+        let purgeRegistry: PeerDataPurgeRegistry
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -47,13 +61,17 @@ enum AppComposition {
             return .failure(.identityNotReady)
         }
 
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let sessionRegistry = ControlSessionRegistry()
+        let purgeRegistry = PeerDataPurgeRegistry()
         let decisionCorrelator = PeerDecisionCorrelator()
-        let verify = verifyBlock(keychainStore: keychainStore, decisionCorrelator: decisionCorrelator)
+        let verify = verifyBlock(trustStore: trustStore, decisionCorrelator: decisionCorrelator)
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
-                sessionRegistry: ControlSessionRegistry(),
-                decisionCorrelator: decisionCorrelator
+                sessionRegistry: sessionRegistry,
+                decisionCorrelator: decisionCorrelator,
+                trustStore: trustStore
             ),
             port: .any,
             verify: verify
@@ -79,7 +97,10 @@ enum AppComposition {
                 powerEvents: powerEvents,
                 pathSource: pathSource,
                 sleepWakeController: sleepWakeController,
-                pathChangeController: pathChangeController
+                pathChangeController: pathChangeController,
+                sessionRegistry: sessionRegistry,
+                trustStore: trustStore,
+                purgeRegistry: purgeRegistry
             )
         )
     }
@@ -91,11 +112,11 @@ enum AppComposition {
     /// control session is registered under its real SPKI fingerprint rather than re-deriving it
     /// after the fact -- mirrors `HarnessHooks`.
     private static func verifyBlock(
-        keychainStore: any KeychainStore,
+        trustStore: TrustStore,
         decisionCorrelator: PeerDecisionCorrelator
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+            trustStore: TandemTrustStoreReader(trustStore: trustStore),
             window: NoPairingWindow(),
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 decisionCorrelator.record(

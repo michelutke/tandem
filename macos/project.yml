@@ -22,6 +22,10 @@ packages:
   # E14-16: PairingCoordinator/PairingWindow/PairConfirmationViewModel, used by the harness hooks.
   TandemPairing:
     path: Packages/TandemPairing
+  # E14-26: PairedDevicesViewModel (E14-14), composed here with the real UnpairAction so the
+  # Devices screen can actually revoke a phone in production.
+  TandemDevices:
+    path: Packages/TandemDevices
 
 targets:
   TandemApp:
@@ -58,6 +62,7 @@ targets:
       - package: TandemStore
       - package: TandemProtocol
       - package: TandemPairing
+      - package: TandemDevices
 
   TandemShare:
     type: app-extension
