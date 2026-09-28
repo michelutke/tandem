@@ -103,4 +103,47 @@ final class ScenarioPairedConnectedUITests: XCTestCase {
             XCTAssertTrue(button.isEnabled, "\(action.identifier) should be enabled when connected")
         }
     }
+
+    // MARK: - menuBarExtra_findPhoneSelected_itemShowsStopRinging
+
+    /// E23-07 tdd: ui: menuBarExtra_findPhoneSelected_itemShowsStopRinging. Clicking "Find Phone"
+    /// sends a `Ring` on the scenario's shared `FakeTandemSession` (E12-12) and flips the item's
+    /// own label to "Stop Ringing".
+    func test_menuBarExtra_findPhoneSelected_itemShowsStopRinging() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestScenario", "pairedConnected"]
+        app.launch()
+
+        let window = app.windows["Tandem UI Test Scenario"]
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "ui test scenario window never appeared")
+
+        let button = window.buttons["findPhoneMenuItem"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "findPhoneMenuItem never appeared")
+        XCTAssertTrue(button.isEnabled, "findPhoneMenuItem should be enabled when connected")
+
+        button.click()
+
+        XCTAssertTrue(
+            Self.waitForButtonText(button, toEqual: "Stop Ringing"),
+            "findPhoneMenuItem never showed \"Stop Ringing\" after being selected"
+        )
+    }
+
+    /// Like ``waitForText(_:toEqual:timeout:)``, but also accepts a button's `title` -- the same
+    /// title-or-label fallback `menuBarExtra_pairedConnectedScenario_showsFourEnabledQuickActions`
+    /// above already needs, since which AX attribute carries a `Button`'s text is unreliable on
+    /// headless runners.
+    private static func waitForButtonText(
+        _ button: XCUIElement,
+        toEqual expected: String,
+        timeout: TimeInterval = 10
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            let value = button.value as? String ?? ""
+            let displayed = value.isEmpty ? button.label : value
+            return displayed == expected || button.title == expected
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: button)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
 }
