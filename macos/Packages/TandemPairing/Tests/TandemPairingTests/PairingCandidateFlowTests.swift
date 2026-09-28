@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TandemCrypto
 import TandemTestSupport
 import TandemTransport
 @testable import TandemPairing
@@ -60,6 +61,82 @@ struct PairingCandidateFlowTests {
 
         #expect(window.closedReason == .expired)
         #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
+    }
+
+    // MARK: - E14-24: whole-window-expiry race (deadlineBurnedToken never set)
+
+    /// Regression for the second, narrower race the E14-16 fix's `deadlineBurnedToken` doesn't
+    /// cover: here it's the window's own 120 s *whole-window* expiry -- not the candidate's 10 s
+    /// sub-deadline -- that `settleLocked()` processes first (stood in for by
+    /// `PairingViewModel.tick()`'s 1 Hz poll reading `closedReason`, exactly like production). That
+    /// branch returns before ever reaching the per-candidate deadline check, so
+    /// `deadlineBurnedToken` is never set; `tick()` then regenerates, which nils it outright. The
+    /// active 10 s watcher's `requestDeadlineElapsed()` call must still close this stale connection
+    /// rather than conclude (wrongly) that some other path already handled it.
+    @Test
+    func pairingCandidateFlow_windowExpiresBeforeCandidateDeadlineCheck_connectionClosed() async throws {
+        let clock = ManualTestClock()
+        let window = Self.makeWindow(clock: clock)
+        let viewModel = PairingViewModel(
+            window: window,
+            fingerprint: try SpkiFingerprint(bytes: Data(repeating: 0xAB, count: SpkiFingerprint.byteCount)),
+            secretSource: SystemSecretSource(),
+            addressSource: FakeLocalAddressSource(addresses: ["192.168.1.10"]),
+            port: 54321,
+            name: "Mac",
+            dateProvider: FixedDateProvider(clock: clock).provider
+        )
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        let sink = FakePairingCandidateSink()
+        let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
+
+        // The window's own 120 s expiry, not the candidate's 10 s sub-deadline.
+        clock.advance(by: .seconds(120))
+        // Stands in for `PairingViewModel.tick()`'s 1 Hz UI poll racing the watcher below: this
+        // settles the whole-window expiry first, then regenerates -- both before the watcher fires.
+        viewModel.tick()
+
+        // The active 10 s watcher, firing after the race above already ran.
+        await flow.requestDeadlineElapsed()
+
+        #expect(sink.calls == [.closePairingFailed])
+    }
+
+    /// Pins why ``PairingCandidateFlow/requestDeadlineElapsed()``'s fix must check `candidateInFlight(_:)`
+    /// scoped to its own stale `token`, not the window-wide `candidateInFlight` -- a window-wide check
+    /// would see a fresh candidate already admitted (true) and wrongly no-op, leaving the stale
+    /// connection open (reintroducing the exact bug this file's other E14-24 test guards against).
+    /// The stale watcher must close only its own connection and never touch the fresh candidate's slot.
+    @Test
+    func pairingCandidateFlow_staleWatcherAfterFreshCandidateAdmitted_closesStaleOnlyNotFresh() async throws {
+        let clock = ManualTestClock()
+        let window = Self.makeWindow(clock: clock)
+        let viewModel = PairingViewModel(
+            window: window,
+            fingerprint: try SpkiFingerprint(bytes: Data(repeating: 0xAB, count: SpkiFingerprint.byteCount)),
+            secretSource: SystemSecretSource(),
+            addressSource: FakeLocalAddressSource(addresses: ["192.168.1.10"]),
+            port: 54321,
+            name: "Mac",
+            dateProvider: FixedDateProvider(clock: clock).provider
+        )
+        let staleToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(staleToken) != nil)
+        let staleSink = FakePairingCandidateSink()
+        let staleFlow = PairingCandidateFlow(window: window, sink: staleSink, token: staleToken)
+
+        clock.advance(by: .seconds(120))
+        viewModel.tick()
+
+        let freshToken = try #require(window.admitCandidate())
+        #expect(freshToken != staleToken)
+        #expect(window.candidateInFlight)
+
+        await staleFlow.requestDeadlineElapsed()
+
+        #expect(staleSink.calls == [.closePairingFailed])
+        #expect(window.candidateInFlight, "the fresh candidate's slot must be untouched by the stale watcher")
     }
 
     @Test
