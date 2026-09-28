@@ -61,3 +61,8 @@ HarnessAutoConfirmPairing
 # Debug-only E14-20 CI harness launch hook: Mac-initiated revoke the instant any peer's session
 # reaches Ready (deletes trust, sends Revoke, closes).
 HarnessRevokeOnReady
+
+# Debug-only E21-07 CI harness launch hook: prints the rotating id this Mac's identity would
+# advertise for a CI-pinned ISO 8601 instant, without changing the real wall clock or running
+# real mDNS multicast.
+HarnessPrintRotatingId

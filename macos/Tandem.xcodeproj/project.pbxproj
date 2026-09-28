@@ -56,7 +56,9 @@
 		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF66E68281898309742F036 /* UnpairComposition.swift */; };
+		43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
+		D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
 		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
@@ -132,6 +134,8 @@
 		51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModelTests.swift; sourceTree = "<group>"; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
+		C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
+		203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessPeerRecordFixture.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
@@ -281,6 +285,8 @@
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
+				C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */,
+				203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */,
 				77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
@@ -516,6 +522,8 @@
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
+				43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */,
+				D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */,
 				AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */,

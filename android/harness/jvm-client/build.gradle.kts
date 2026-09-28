@@ -54,6 +54,9 @@ dependencies {
     implementation(project(":core:transport"))
     implementation(project(":core:pairing"))
     implementation(project(":core:protocol"))
+    // PairedMacMatcher (E21-05), for RotatingIdHarnessCli (E21-07): real rotating-id recognition
+    // against a real Mac-produced id, without a reimplementation of PairedMacMatcher's logic.
+    implementation(project(":core:discovery"))
     // SoftwareIdentityKeyStore (E10-15) is this harness's only IdentityKeyStore, wrapped by
     // PersistentIdentityKeyStore for cross-restart persistence (E15-21 acceptance); this module
     // never ships (no `:app` dependency reaches it), so depending on a testFixtures artifact from
