@@ -2713,6 +2713,41 @@ epics:
           - "integration: appComposition_revokeFrameOnRegisteredSession_trustDeletedAndSessionClosed"
           - "unit: pairedDevicesViewModel_unpairSelected_sendsRevokeAndDeletesLocalTrust"
 
+      - id: E14-27
+        title: "[macos] Retire HarnessRevokeAwareSessionRegistry, consolidate onto E14-26's real path"
+        type: task
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-2.3]
+        use_cases: [UC-07]
+        invariants: []
+        depends_on: [E14-26, E14-20]
+        description: |
+          E14-26 wires `NWListenerFactory(trustStore:)`'s real CONTROL-revoke consumer into
+          `AppComposition`, but deliberately did NOT also wire it into `HarnessHooks.swift`'s own
+          harness listener -- doing so would spawn a second, competing CONTROL-revoke reader racing
+          E14-20's existing `HarnessRevokeAwareSessionRegistry` on the same session's frame stream.
+          The harness keeps its own parallel wrapper for now, including `-HarnessRevokeOnReady`'s
+          Mac-initiated-revoke test scaffolding (no real-production equivalent by design) and the
+          `harness-revoke-received:` log line `tools/harness/integration/e14-20.sh`'s scenario 3
+          polls for.
+          This issue does the actual consolidation: rework `e14-20.sh`'s scenario 3 assertion to
+          poll `-HarnessListTrust` for the trust record's disappearance (the same idiom the script's
+          other scenarios already use for `TRUST_COUNT`, e.g. scenario 2) instead of depending on a
+          harness-only log line; keep `-HarnessRevokeOnReady`'s Mac-initiated-revoke behavior as its
+          own small piece (it has no real-production equivalent and never will); then delete the
+          now-redundant incoming-revoke-watching logic from `HarnessRevokeAwareSessionRegistry`
+          (or delete the type entirely and replace `-HarnessRevokeOnReady`'s logic with something
+          smaller) and pass `trustStore:` into the harness's `NWListenerFactory` call so it uses the
+          exact same production revoke-consumption path `AppComposition` does.
+        acceptance:
+          - "e14-20.sh's scenario 3 (phone unpairs while connected) passes using only -HarnessListTrust polling, no harness-revoke-received log line"
+          - The harness listener's incoming-Revoke consumption goes through the same ControlRevokeConsumer code path AppComposition uses, not a parallel reimplementation
+          - All 4 e14-20.sh scenarios still pass end to end
+        tdd:
+          - "integration: e1420Scenario3_phoneUnpairsWhileConnected_pollsTrustRecordDisappearance"
+
       - id: E14-17
         title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable"
         type: story
