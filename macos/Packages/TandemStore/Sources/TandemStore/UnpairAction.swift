@@ -5,18 +5,18 @@ import os
 // Internal type definitions for the UnpairAction.
 // These mirror the actual TandemProtocol types and are used to avoid a circular dependency.
 
-protocol UnpairActionSession: Sendable {
+public protocol UnpairActionSession: Sendable {
     var state: AsyncStream<UnpairActionConnectionState> { get }
     func sendRevoke() async throws
     func close() async
 }
 
-enum UnpairActionConnectionState: Sendable, Equatable {
+public enum UnpairActionConnectionState: Sendable, Equatable {
     case ready
     case other
 }
 
-protocol UnpairActionRegistry: Sendable {
+public protocol UnpairActionRegistry: Sendable {
     func unregister(_ spkiFingerprint: SpkiFingerprint) async
 }
 
@@ -67,12 +67,29 @@ public actor PeerDataPurgeRegistry {
 /// Unpair action: local deletion and Revoke if connected (E14-13).
 /// Deletes the peer's trust record and, if a Ready session exists, sends Revoke on CONTROL,
 /// closes the session, and unregisters it. Invokes all registered data purgers.
-struct UnpairAction {
-    struct Dependencies {
+///
+/// Public (E14-26) so a real composition root (``AppComposition``, the Devices screen's
+/// `PairedDevicesViewModel` wiring) can call this exact action instead of reimplementing its
+/// effect -- see ``RevokeHandler``'s own doc comment for why the mirror protocols above stay the
+/// seam instead of a `TandemStore` -> `TandemProtocol` dependency.
+public struct UnpairAction {
+    public struct Dependencies: Sendable {
         let trustStore: TrustStore
         let registry: any UnpairActionRegistry
         let purgeRegistry: PeerDataPurgeRegistry
         let clock: any Clock<Duration>
+
+        public init(
+            trustStore: TrustStore,
+            registry: any UnpairActionRegistry,
+            purgeRegistry: PeerDataPurgeRegistry,
+            clock: any Clock<Duration>
+        ) {
+            self.trustStore = trustStore
+            self.registry = registry
+            self.purgeRegistry = purgeRegistry
+            self.clock = clock
+        }
     }
 
     /// Unpairs a device: deletes its local trust record, sends Revoke if a Ready session
@@ -87,7 +104,7 @@ struct UnpairAction {
     ///
     /// If any Revoke send throws or times out, the record is still deleted and the session
     /// is still closed.
-    static func unpair(
+    public static func unpair(
         peerSpkiFingerprint: SpkiFingerprint,
         session: (any UnpairActionSession)?,
         dependencies: Dependencies

@@ -3,6 +3,7 @@ import os
 import Security
 import TandemCrypto
 import TandemProtocol
+import TandemStore
 
 /// Production ``ListenerFactory``. Binds to every interface (not loopback-only, unlike the test
 /// harnesses in this package) on `port`, so a real phone on the LAN can reach it -- `port`
@@ -25,6 +26,17 @@ public struct NWListenerFactory: ListenerFactory {
     /// candidates in the first place (e.g. the E15-22 CI harness's plain `-HarnessListenerPort`,
     /// which always runs a `NeverOpenPairingWindow`), so such a decision would never occur.
     private let pairingCandidateDriver: (any PairingCandidateDriver)?
+    /// Where a `.trusted` session's `CONTROL` reader (E14-26,
+    /// ``startControlRevokeReader(fingerprint:session:sessionRegistry:trustStore:)``)
+    /// deletes a peer's trust record once a `Revoke` frame arrives -- the same store
+    /// ``TandemTrustStoreReader`` already reads for `PeerVerifier`'s own trust check, so a revoked
+    /// peer's fingerprint stops verifying on its very next connection attempt. `nil` (the default)
+    /// means this listener never reads `CONTROL` for `Revoke` at all, matching every existing
+    /// caller (`HarnessHooks`, every test in this package) exactly, so this is a purely additive
+    /// seam. `TandemTransport` already depends on `TandemStore` (see ``TandemTrustStoreReader``'s
+    /// own kdoc on the PRD module-layering direction), so this calls `TandemStore`'s own
+    /// `RevokeHandler.handle` directly rather than a facade reimplementing its effect.
+    private let trustStore: TrustStore?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -32,12 +44,14 @@ public struct NWListenerFactory: ListenerFactory {
         sessionRegistry: any ControlSessionRegistering,
         decisionCorrelator: PeerDecisionCorrelator,
         clock: any Clock<Duration> = ContinuousClock(),
-        pairingCandidateDriver: (any PairingCandidateDriver)? = nil
+        pairingCandidateDriver: (any PairingCandidateDriver)? = nil,
+        trustStore: TrustStore? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
         self.clock = clock
         self.pairingCandidateDriver = pairingCandidateDriver
+        self.trustStore = trustStore
     }
 
     public func makeListener(
@@ -278,6 +292,11 @@ public struct NWListenerFactory: ListenerFactory {
         }
 
         let registeredFingerprint = await handleReadyDecision(metadataIdentifier: metadataIdentifier, session: session)
+        let revokeReaderTask = registeredFingerprint.flatMap { fingerprint in
+            startControlRevokeReader(
+                fingerprint: fingerprint, session: session, sessionRegistry: sessionRegistry, trustStore: trustStore
+            )
+        }
 
         // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
         // framing/credit violation, the peer's own orderly close, or a transport-level read
@@ -286,6 +305,7 @@ public struct NWListenerFactory: ListenerFactory {
         // any cause, both reaches the state machine and cancels the socket (fail closed, SPEC.md
         // invariant 5).
         let closeReason = await multiplexer.awaitClose()
+        revokeReaderTask?.cancel()
         await heartbeatController?.stop()
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()

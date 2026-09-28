@@ -33,6 +33,17 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
         }
     }
 
+    /// The currently registered session for `spkiFingerprint`, if this peer is presently connected
+    /// -- `nil` otherwise. E14-26: lets a composition root (``AppComposition``'s Devices-screen
+    /// unpair wiring) look up whether a peer has a live session to send `Revoke` on before
+    /// deleting its trust record, without exposing this actor's private storage directly. Not part
+    /// of ``ControlSessionRegistering`` (every existing conformer/spy stays unaffected); callers
+    /// that need this hold the concrete actor, exactly like ``AppComposition`` already does for
+    /// ``register(_:session:)``'s own construction site.
+    public func session(for spkiFingerprint: SpkiFingerprint) -> (any TandemSession)? {
+        sessions[spkiFingerprint]
+    }
+
     /// Removes and closes the session for `spkiFingerprint` only if it is still exactly `session`
     /// (identity-checked, since both are actor references) -- so a disconnect notification for an
     /// older, already-replaced session never removes a newer session registered later for the same

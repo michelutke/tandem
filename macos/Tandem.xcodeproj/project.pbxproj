@@ -11,6 +11,7 @@
 		16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */; };
 		181061876B4B9D392C41F0D3 /* LocalNetworkPermissionViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B9B2E23FF1A4091B5ED2B9E /* LocalNetworkPermissionViewModelTests.swift */; };
 		193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */; };
+		19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */; };
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */; };
 		34117C7BA25150F22D77D0DC /* LocalNetworkPermissionBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */; };
@@ -36,6 +37,7 @@
 		91C0F139DCD588C464955E6D /* ScenarioFailClosedErrorBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA5A6EBDCE65DCD4BF3A9E8 /* ScenarioFailClosedErrorBannerUITests.swift */; };
 		9A2563DADF4B7EDD4C0B2628 /* QuickActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF1A4DABE7F5BA206539775C /* QuickActionsView.swift */; };
 		9E3ECFF08B9545FFD864C988 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9ED3304BEEFB2EF47223CBA6 /* README.md */; };
+		9F6E0E166FCAA1BDD2EC41C7 /* TandemDevices in Frameworks */ = {isa = PBXBuildFile; productRef = 357221C8D301D0173582718D /* TandemDevices */; };
 		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
 		A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */; };
@@ -49,6 +51,7 @@
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
 		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF66E68281898309742F036 /* UnpairComposition.swift */; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
@@ -101,6 +104,7 @@
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
 		082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppComposition.swift; sourceTree = "<group>"; };
 		08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusViewModelTests.swift; sourceTree = "<group>"; };
+		0B3F7B2EC531ADC48A39DEFD /* TandemDevices */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemDevices; path = Packages/TandemDevices; sourceTree = SOURCE_ROOT; };
 		0BD74961775D9359BBD2C9A6 /* LaunchAtLoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModel.swift; sourceTree = "<group>"; };
 		0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioFailClosedErrorUITests.swift; sourceTree = "<group>"; };
 		0FFC191545982C44F99E44FE /* FindPhoneViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModelTests.swift; sourceTree = "<group>"; };
@@ -123,10 +127,12 @@
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
+		7CF66E68281898309742F036 /* UnpairComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnpairComposition.swift; sourceTree = "<group>"; };
 		7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModel.swift; sourceTree = "<group>"; };
 		86769ADA9F9034205A270081 /* URLOpener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLOpener.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
+		8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedDevicesCompositionTests.swift; sourceTree = "<group>"; };
 		8BF20C4F3C47025C0506B8DD /* QuickActionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModel.swift; sourceTree = "<group>"; };
 		914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenterTests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
@@ -160,6 +166,7 @@
 				9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */,
 				714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */,
 				BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */,
+				9F6E0E166FCAA1BDD2EC41C7 /* TandemDevices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +228,7 @@
 				2B9B2E23FF1A4091B5ED2B9E /* LocalNetworkPermissionViewModelTests.swift */,
 				9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
+				8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */,
 				51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */,
 				041CF567C3AFCE26290A0483 /* README.md */,
 			);
@@ -243,6 +251,7 @@
 			isa = PBXGroup;
 			children = (
 				A98336DD4416DB2CBF0ED481 /* TandemCrypto */,
+				0B3F7B2EC531ADC48A39DEFD /* TandemDevices */,
 				22B90C5D6D56E3A0E60531E0 /* TandemPairing */,
 				D4D890067B09F0862A11DF58 /* TandemProtocol */,
 				EC03814D9752C7029BBEB1C2 /* TandemStore */,
@@ -276,6 +285,7 @@
 				8A44A1216CFE5055E0699868 /* TandemApp.entitlements */,
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
 				A5E30F71572BF267AF52CCFE /* UITestScenario.swift */,
+				7CF66E68281898309742F036 /* UnpairComposition.swift */,
 				86769ADA9F9034205A270081 /* URLOpener.swift */,
 			);
 			path = TandemApp;
@@ -342,6 +352,7 @@
 				84D30D39F94B2E8AE9912DBD /* TandemStore */,
 				1988BC0B564CCF8C41148DCF /* TandemProtocol */,
 				19FA760857066CAA11B0A7B3 /* TandemPairing */,
+				357221C8D301D0173582718D /* TandemDevices */,
 			);
 			productName = TandemApp;
 			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
@@ -393,6 +404,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				0218E04C3402C3090FADECBF /* XCLocalSwiftPackageReference "Packages/TandemCrypto" */,
+				4A7276332FF58EA55BA12C73 /* XCLocalSwiftPackageReference "Packages/TandemDevices" */,
 				DFEA52698D47E79167671FD7 /* XCLocalSwiftPackageReference "Packages/TandemPairing" */,
 				7F7D28370B22FFA6B9153614 /* XCLocalSwiftPackageReference "Packages/TandemProtocol" */,
 				465E8D8E5336455AEFFF2E07 /* XCLocalSwiftPackageReference "Packages/TandemStore" */,
@@ -472,6 +484,7 @@
 				181061876B4B9D392C41F0D3 /* LocalNetworkPermissionViewModelTests.swift in Sources */,
 				838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */,
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
+				19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */,
 				16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -500,6 +513,7 @@
 				C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */,
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 				A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */,
+				E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -850,6 +864,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemStore;
 		};
+		4A7276332FF58EA55BA12C73 /* XCLocalSwiftPackageReference "Packages/TandemDevices" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TandemDevices;
+		};
 		7F7D28370B22FFA6B9153614 /* XCLocalSwiftPackageReference "Packages/TandemProtocol" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemProtocol;
@@ -876,6 +894,10 @@
 		19FA760857066CAA11B0A7B3 /* TandemPairing */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TandemPairing;
+		};
+		357221C8D301D0173582718D /* TandemDevices */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TandemDevices;
 		};
 		84D30D39F94B2E8AE9912DBD /* TandemStore */ = {
 			isa = XCSwiftPackageProductDependency;
