@@ -65,7 +65,12 @@ enum AppComposition {
         let sessionRegistry = ControlSessionRegistry()
         let purgeRegistry = PeerDataPurgeRegistry()
         let decisionCorrelator = PeerDecisionCorrelator()
-        let verify = verifyBlock(trustStore: trustStore, decisionCorrelator: decisionCorrelator)
+        let pinMismatchBannerGate = PinMismatchBannerGate()
+        let verify = verifyBlock(
+            trustStore: trustStore,
+            decisionCorrelator: decisionCorrelator,
+            pinMismatchBannerGate: pinMismatchBannerGate
+        )
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
@@ -80,6 +85,37 @@ enum AppComposition {
             return .failure(.listenerBindFailed)
         }
 
+        let controllers = makeLifecycleControllers(controller: controller, started: started)
+        return .success(
+            RetainedLifecycle(
+                listener: started.listener,
+                listenerControl: controllers.listenerControl,
+                powerEvents: controllers.powerEvents,
+                pathSource: controllers.pathSource,
+                sleepWakeController: controllers.sleepWakeController,
+                pathChangeController: controllers.pathChangeController,
+                sessionRegistry: sessionRegistry,
+                trustStore: trustStore,
+                purgeRegistry: purgeRegistry
+            )
+        )
+    }
+
+    /// Every ``RetainedLifecycle`` field that comes from the started listener itself (sleep/wake,
+    /// network-path-change) rather than from identity/trust-store setup -- split out purely to keep
+    /// ``startListener()`` under this repo's `function_body_length` lint budget.
+    private struct LifecycleControllers {
+        let listenerControl: ProductionListenerControl
+        let powerEvents: WorkspacePowerEvents
+        let pathSource: NWPathMonitorSource
+        let sleepWakeController: SleepWakeController
+        let pathChangeController: PathChangeController
+    }
+
+    private static func makeLifecycleControllers(
+        controller: ListenerController,
+        started: ListenerController.StartedListener
+    ) -> LifecycleControllers {
         let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
@@ -90,18 +126,12 @@ enum AppComposition {
             await pathChangeController.start()
         }
 
-        return .success(
-            RetainedLifecycle(
-                listener: started.listener,
-                listenerControl: listenerControl,
-                powerEvents: powerEvents,
-                pathSource: pathSource,
-                sleepWakeController: sleepWakeController,
-                pathChangeController: pathChangeController,
-                sessionRegistry: sessionRegistry,
-                trustStore: trustStore,
-                purgeRegistry: purgeRegistry
-            )
+        return LifecycleControllers(
+            listenerControl: listenerControl,
+            powerEvents: powerEvents,
+            pathSource: pathSource,
+            sleepWakeController: sleepWakeController,
+            pathChangeController: pathChangeController
         )
     }
 
@@ -110,10 +140,14 @@ enum AppComposition {
     /// `onDecision` hook (the fingerprint it already computed for a connection's own verify
     /// callback) with that same connection's session wiring at `.ready`, so a trusted client's
     /// control session is registered under its real SPKI fingerprint rather than re-deriving it
-    /// after the fact -- mirrors `HarnessHooks`.
+    /// after the fact -- mirrors `HarnessHooks`. Also feeds every `.rejected` decision into
+    /// `pinMismatchBannerGate` (E22-10, `docs/planning/decisions.md` D-59/D-76): a `.rejected`
+    /// verify-callback outcome is always pre-pin-check, so it only ever bumps the gate's aggregate
+    /// counter -- never a per-connection banner.
     private static func verifyBlock(
         trustStore: TrustStore,
-        decisionCorrelator: PeerDecisionCorrelator
+        decisionCorrelator: PeerDecisionCorrelator,
+        pinMismatchBannerGate: PinMismatchBannerGate
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: trustStore),
@@ -126,6 +160,9 @@ enum AppComposition {
                     spkiDer: spkiDer,
                     candidateToken: candidateToken
                 )
+                if decision == .rejected {
+                    Task { await pinMismatchBannerGate.recordRejection() }
+                }
             }
         )
     }
