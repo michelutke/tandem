@@ -80,8 +80,9 @@ dependencies {
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
 
-    // E23-06: RingController's unit tests drive a FakeTandemSession (E12-11) and FakeElapsedRealtime
-    // (E00-18), matching how core/pairing tests a TandemSession-taking handler.
+    // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
+    // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a
+    // TandemSession-taking handler. Test-only.
     testImplementation(testFixtures(project(":core:transport")))
     testImplementation(project(":core:testing"))
 
