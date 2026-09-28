@@ -1140,7 +1140,7 @@ epics:
           - "unit: menuBarViewModel_pathInterfaceChanged_reconnectingWithin1s"
 
       - id: E22-10
-        title: "[macos] Gate PIN_MISMATCH banner surfacing to post-pin closes only (D-59/AC-13)"
+        title: "[macos] Count pre-pin verify-callback rejections in an aggregate counter only (D-59/AC-13)"
         type: task
         platforms: [macos]
         priority: P1
@@ -1151,20 +1151,24 @@ epics:
         depends_on: [E22-07]
         description: |
           Follow-up from E22-07's Fable verifier pass. `ErrorBannerViewModel` (E22-07) renders
-          whatever `CloseCode.pinMismatch` events it is given, but nothing wires a real rejected
-          TLS handshake into it yet. SPEC.md's "Pre-authentication closes are not surfaced per
-          connection" (D-59, AC-13) requires that a peer who never passed the pin check at all
-          (drive-by scanning noise) gets only an aggregate counter, never a per-attempt banner --
-          only a peer whose key CHANGED from an already-pinned entry should raise this banner.
-          Whoever wires `PeerVerifier`'s `.rejected` outcome into a stream this banner observes
-          must gate on "was this SPKI ever pinned before" before emitting `.failed(.pinMismatch)`
-          into that stream, not just any verify-callback rejection.
+          whatever `CloseCode.pinMismatch` events it is given, but nothing wires a rejected TLS
+          handshake into it. SPEC.md's "Pre-authentication closes are not surfaced per connection"
+          (D-59, AC-13) requires that the Mac MUST NOT surface a per-connection UI notification for
+          a close on a connection whose peer has not yet passed the TLS pin check -- such closes MAY
+          be counted in an aggregate, non-blocking counter only. A verify-callback `.rejected`
+          outcome is BY DEFINITION such a pre-pin-check close (SPEC.md "Errors and close codes";
+          `docs/planning/decisions.md` D-23: the rejecting side cannot distinguish an unrecognized
+          key from a previously-pinned one that changed, so there is no available signal to gate a
+          per-connection banner on). `PinMismatchBannerGate` therefore only ever bumps its aggregate
+          `rejectionCount`; it never emits a per-connection banner event for any `.rejected`
+          decision, regardless of whether the trust store is empty or not. Key-change surfacing for
+          an already-paired identity happens dial-side (E12-16) or via in-band rotation (E70), not
+          via the Mac listener's rejection path (`docs/planning/decisions.md` D-76).
         acceptance:
-          - A verify-callback rejection for an SPKI that was never in the trust store increments only an aggregate counter, no banner event is emitted
-          - A verify-callback rejection for an SPKI that changed from a still-pinned trust-store entry emits exactly one `.failed(.pinMismatch)` banner event
+          - A verify-callback rejection for an SPKI that was never in the trust store increments only the aggregate counter, no banner event is emitted
+          - A verify-callback rejection while the trust store is non-empty still increments only the aggregate counter, no banner event is emitted
         tdd:
-          - "unit: listener_prePinRejection_noBannerEventEmitted"
-          - "unit: listener_pinnedIdentityChanged_bannerEventEmittedOnce"
+          - "unit: gate_recordRejection_incrementsAggregateCounter"
 
       - id: E22-09
         title: "[macos] Main window shell: glass sidebar, sections, offline/empty states"
