@@ -68,7 +68,11 @@ enum HarnessHooks {
         printIdentitySpkiFingerprint(identity: identity)
 
         let decisionCorrelator = PeerDecisionCorrelator()
-        let sessionRegistry = ControlSessionRegistry()
+        let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
+            wrapping: ControlSessionRegistry(),
+            trustStore: TrustStore(keychainStore: keychainStore),
+            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
+        )
         let (window, pairingCandidateDriver) = resolvePairingWindow(
             identity: identity,
             keychainStore: keychainStore,
