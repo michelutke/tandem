@@ -54,8 +54,7 @@ class ConformanceFailure(
  * implementations behind one explicit category -> handler table. A category on disk that is not
  * in this table is an error, never a silent skip ([UnknownVectorCategoryException]).
  * [deferredCategories] names the categories this platform cannot run yet, and the issue that will
- * add them (protocol/vectors' `discovery-id`, deferred until E21-05 lands the Kotlin rotating-ID
- * implementation, per the E15-01 backlog note).
+ * add them.
  *
  * Lives in `core/pairing`'s test source set because that is the one Gradle module already
  * depending on `core/protocol` (frame codec, display-string sanitizer), `core/crypto` (SPKI
@@ -63,7 +62,7 @@ class ConformanceFailure(
  * existing dependency graph instead of adding a new Gradle module (KISS).
  */
 object ConformanceRunner {
-    val deferredCategories: Map<String, String> = mapOf("discovery-id" to "E21-05")
+    val deferredCategories: Map<String, String> = emptyMap()
     private val handledCategories: Set<String> =
         setOf(
             "frame-encoding",
@@ -75,6 +74,7 @@ object ConformanceRunner {
             "status-encoding",
             "notify-encoding",
             "clipboard-encoding",
+            "discovery-id",
         )
 
     /** CLIPBOARD channel's text cap (docs/protocol/SPEC.md #clipboard-channel): 1 MiB, 2^20. */
@@ -171,6 +171,7 @@ object ConformanceRunner {
                 "status-encoding" -> statusEncodingOutcome(vector)
                 "notify-encoding" -> notifyEncodingOutcome(vector)
                 "clipboard-encoding" -> clipboardEncodingOutcome(vector)
+                "discovery-id" -> discoveryIdOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }
         }
