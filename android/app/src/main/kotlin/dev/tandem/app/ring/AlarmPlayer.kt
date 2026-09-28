@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.provider.Settings
 
@@ -27,14 +28,34 @@ class SystemAlarmPlayer(
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private var previousAlarmVolume = 0
     private var mediaPlayer: MediaPlayer? = null
+    private var toneGenerator: ToneGenerator? = null
 
     override fun start() {
         previousAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
         val maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0)
 
-        mediaPlayer =
-            MediaPlayer().apply {
+        // A device can legitimately have zero installed alarm sounds -- confirmed by real CI
+        // failures, not a theoretical edge case: one managed-device image had
+        // `RingtoneManager.getActualDefaultRingtoneUri` return null AND the
+        // `Settings.System.DEFAULT_ALARM_ALERT_URI` fallback itself fail `setDataSource` with
+        // `IOException: setDataSource failed.: status=0x80000000`. `ToneGenerator` needs no audio
+        // asset at all and is the final fallback, so the phone always actually rings (max volume +
+        // an audible tone), never just maxes the volume on silence.
+        val started = startMediaPlayer()
+        mediaPlayer = started
+        if (started == null) startToneGenerator()
+    }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    // MediaPlayer.setDataSource/prepare document IOException, IllegalStateException,
+    // IllegalArgumentException and SecurityException as all possible on a real device (confirmed:
+    // a real CI failure threw IOException); any of them means "fall back to ToneGenerator", so a
+    // single broad catch is the correct shape here, not a narrowing to guess at up front.
+    private fun startMediaPlayer(): MediaPlayer? {
+        val player = MediaPlayer()
+        return try {
+            player.apply {
                 setAudioAttributes(
                     AudioAttributes
                         .Builder()
@@ -46,6 +67,18 @@ class SystemAlarmPlayer(
                 isLooping = true
                 prepare()
                 start()
+            }
+        } catch (error: Exception) {
+            player.release()
+            null
+        }
+    }
+
+    /** Loops [ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD] on `STREAM_ALARM` until [stop]. */
+    private fun startToneGenerator() {
+        toneGenerator =
+            ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME).apply {
+                startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
             }
     }
 
@@ -67,6 +100,11 @@ class SystemAlarmPlayer(
             release()
         }
         mediaPlayer = null
+        toneGenerator?.apply {
+            stopTone()
+            release()
+        }
+        toneGenerator = null
         audioManager.setStreamVolume(AudioManager.STREAM_ALARM, previousAlarmVolume, 0)
     }
 }
