@@ -18,7 +18,14 @@ FakeTandemSession
 dev.tandem.companion
 
 # Third-party test frameworks that must never be on a release classpath.
-Robolectric
+# org.robolectric.RobolectricTestRunner (not the bare word "Robolectric"): protobuf-javalite's
+# com.google.protobuf.Android runs a legitimate `Class.forName("org.robolectric.Robolectric")`
+# environment check in its own static initializer (nothing to do with shipping test code), and R8
+# started keeping that class reachable once E30-02 exercised a new protobuf-lite code path -- the
+# bare substring "Robolectric" false-positives on that string constant. Any real accidental
+# Robolectric-on-release leak still ships this exact runner class by name, since it's what
+# `@RunWith(AndroidJUnit4::class)` (`tandem.android.robolectric.gradle.kts`) actually resolves to.
+org.robolectric.RobolectricTestRunner
 androidx.test
 org.junit
 app.cash.turbine

@@ -16,10 +16,13 @@ dev.tandem.app.MainActivity -
 # BOOT_COMPLETED (not direct-boot aware), action-checked in onReceive rather than permission-guarded.
 dev.tandem.app.service.BootReceiver -
 
+# NotificationListenerService (E30-02, F-5.1); exported so the system can bind it, guarded by
+# BIND_NOTIFICATION_LISTENER_SERVICE so no other app can.
+dev.tandem.feature.notifications.TandemNotificationListenerService android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
+
 # Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
 # components exist in the app module today):
 #   - the launcher activity                                                    -
 #   - the share-target activity (ACTION_SEND) and PROCESS_TEXT activity        -
 #   - the quick-settings TileService (E31-12)           android.permission.BIND_QUICK_SETTINGS_TILE
-#   - the NotificationListenerService (E40-11)      android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
 #   - the AccessibilityService (E31-06, remote input)   android.permission.BIND_ACCESSIBILITY_SERVICE

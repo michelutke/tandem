@@ -79,6 +79,8 @@ dependencies {
     implementation(project(":core:transport"))
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
+    // E30-02: TandemNotificationListenerService, declared below in this module's manifest.
+    implementation(project(":feature:notifications"))
 
     // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
     // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a
