@@ -16,6 +16,10 @@ import android.service.notification.StatusBarNotification
  * default is a no-op: the real session-facing sink with disconnected buffering is wired in by
  * E30-16.
  *
+ * E30-03: every posted notification passes [NotificationFilter] before it reaches
+ * [NotificationMapper] -- a filtered notification is never mapped or forwarded. Dismissals are not
+ * filtered (a filtered notification is never sent, so there is nothing on the Mac to withdraw).
+ *
  * [notificationCanceller] is the same seam pattern, defaulting to the inherited
  * `cancelNotification(String)`: E30-10's incoming-dismiss reader (`startNotificationDismissReader`)
  * calls it for every macos-origin `NotificationDismiss` it sees off the NOTIFY channel, to cancel
@@ -33,6 +37,7 @@ class TandemNotificationListenerService : NotificationListenerService() {
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (!NotificationFilter.shouldForward(sbn, packageName)) return
         eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, appVersionCode(sbn.packageName)))
     }
 
