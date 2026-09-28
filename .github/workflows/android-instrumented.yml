@@ -69,7 +69,25 @@ jobs:
           if-no-files-found: ignore
       - name: Run instrumented tests on managed devices
         run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Upload core:crypto test report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: core-crypto-test-report
+          path: |
+            android/core/crypto/build/reports/androidTests/managedDevice
+            android/core/crypto/build/outputs/androidTest-results
+          if-no-files-found: ignore
       # Separate invocation: running both modules' device groups at once (4 emulators) exhausts
       # the runner's memory and the job is killed.
       - name: Run app instrumented tests on managed devices
         run: ./gradlew :app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Upload app test report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-test-report
+          path: |
+            android/app/build/reports/androidTests/managedDevice
+            android/app/build/outputs/androidTest-results
+          if-no-files-found: ignore

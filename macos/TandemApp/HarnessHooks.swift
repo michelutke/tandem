@@ -67,6 +67,10 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
+        // E14-26: shared with the verify block below, exactly like `AppComposition.startListener()`
+        // -- the harness listener must consume a real incoming `Revoke` the same way the real
+        // production listener does, not just seed/clear trust via its own one-shot hooks.
+        let trustStore = TrustStore(keychainStore: keychainStore)
         let decisionCorrelator = PeerDecisionCorrelator()
         let sessionRegistry = ControlSessionRegistry()
         let (window, pairingCandidateDriver) = resolvePairingWindow(
@@ -77,7 +81,7 @@ enum HarnessHooks {
         )
 
         let verify = harnessVerifyBlock(
-            keychainStore: keychainStore,
+            trustStore: trustStore,
             window: window,
             decisionCorrelator: decisionCorrelator
         )
@@ -86,7 +90,8 @@ enum HarnessHooks {
             listenerFactory: NWListenerFactory(
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
-                pairingCandidateDriver: pairingCandidateDriver
+                pairingCandidateDriver: pairingCandidateDriver,
+                trustStore: trustStore
             ),
             port: port,
             verify: verify
@@ -141,12 +146,12 @@ enum HarnessHooks {
     /// already computed for a connection's own verify callback) with that same connection's session
     /// wiring at `.ready`, so it can be recovered without re-deriving it after the fact.
     private static func harnessVerifyBlock(
-        keychainStore: any KeychainStore,
+        trustStore: TrustStore,
         window: any PairingWindowState,
         decisionCorrelator: PeerDecisionCorrelator
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+            trustStore: TandemTrustStoreReader(trustStore: trustStore),
             window: window,
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`

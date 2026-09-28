@@ -96,6 +96,17 @@ targets:
     platform: macOS
     sources:
       - TandemAppTests
+      # E22-07: ManualTestClock (E00-24) as a single source file, not a `package: TandemTestSupport`
+      # dependency -- that package's own graph (TandemTransport -> TandemCrypto -> swift-certificates
+      # X509, whose target also references swift-crypto's Linux-only `Crypto` product via
+      # `condition: .when(platforms: [.linux])`) hits a reproducible Xcode SwiftPM-integration eager-
+      # linking bug once pulled into this *test bundle's* own PackageFrameworks build (confirmed:
+      # baseline `TandemAppTests` scheme passes; adding `package: TandemTestSupport` here alone makes
+      # `xcodebuild test` fail linking X509 against a `Crypto_..._PackageProduct.framework` that was
+      # never built for macOS). This is the exact same file `ManualTestClock.swift` every other
+      # `unit:` test in this repo imports via `TandemTestSupport` -- never copied or reimplemented.
+      - path: Packages/TandemTestSupport/Sources/TandemTestSupport/ManualTestClock.swift
+        group: TandemAppTests
     settings:
       base:
         SWIFT_VERSION: "6.0"
