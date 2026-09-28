@@ -2,6 +2,9 @@ name: macos
 
 # E00-11: SwiftPM package tests, app build and lint for the macOS tree.
 # E00-26: XCUITest run plus a Release-binary scan for the DEBUG-only scenario hook.
+# E15-15's jvm-harness job lives in its own jvm-harness.yml (separate path filter -- android/**
+# must not trigger this workflow's `build` job, or every android-only PR would pay for an ~18min
+# macOS build/lint run it doesn't need; see tools/ci/check_path_filters_test.rb).
 on:
   push:
     branches: [main]

@@ -27,6 +27,8 @@
 		82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		85AC58E2BE2BC6A252F0A390 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132ECF02E619377AEA48E71F /* MenuBarContentView.swift */; };
+		86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */; };
+		897C119CFD2F25B4DEE86FA2 /* FindPhoneViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFC191545982C44F99E44FE /* FindPhoneViewModelTests.swift */; };
 		9071F174A4AC6DBDF8575027 /* ScenarioPairedDisconnectedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFE4F187257AE37E3EC7F0B2 /* ScenarioPairedDisconnectedUITests.swift */; };
 		91C0F139DCD588C464955E6D /* ScenarioFailClosedErrorBannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA5A6EBDCE65DCD4BF3A9E8 /* ScenarioFailClosedErrorBannerUITests.swift */; };
 		9A2563DADF4B7EDD4C0B2628 /* QuickActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF1A4DABE7F5BA206539775C /* QuickActionsView.swift */; };
@@ -95,6 +97,7 @@
 		08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusViewModelTests.swift; sourceTree = "<group>"; };
 		0BD74961775D9359BBD2C9A6 /* LaunchAtLoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModel.swift; sourceTree = "<group>"; };
 		0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioFailClosedErrorUITests.swift; sourceTree = "<group>"; };
+		0FFC191545982C44F99E44FE /* FindPhoneViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModelTests.swift; sourceTree = "<group>"; };
 		132ECF02E619377AEA48E71F /* MenuBarContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContentView.swift; sourceTree = "<group>"; };
 		13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreFactory.swift; sourceTree = "<group>"; };
 		1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModel.swift; sourceTree = "<group>"; };
@@ -109,6 +112,7 @@
 		51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModelTests.swift; sourceTree = "<group>"; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
+		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModel.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
@@ -199,6 +203,7 @@
 				08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */,
 				F1B18C5B6B167CD86E4E3118 /* ErrorBannerViewModelTests.swift */,
 				914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */,
+				0FFC191545982C44F99E44FE /* FindPhoneViewModelTests.swift */,
 				03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */,
 				9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
@@ -239,6 +244,7 @@
 				2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */,
 				022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */,
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
+				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
@@ -442,6 +448,7 @@
 				3CEE3ED42D968EA33509BDB2 /* DeviceStatusViewModelTests.swift in Sources */,
 				5DF35AD6ECA5BA6F17993B84 /* ErrorBannerViewModelTests.swift in Sources */,
 				F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */,
+				897C119CFD2F25B4DEE86FA2 /* FindPhoneViewModelTests.swift in Sources */,
 				BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */,
 				838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */,
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
@@ -457,6 +464,7 @@
 				F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */,
 				A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */,
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
+				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */,
