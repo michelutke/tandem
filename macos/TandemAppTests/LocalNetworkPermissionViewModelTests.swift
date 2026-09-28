@@ -19,7 +19,7 @@ struct LocalNetworkPermissionViewModelTests {
         #expect(!viewModel.isDenied)
 
         continuation.yield(.policyDenied)
-        await Self.settle()
+        await Self.waitUntil { viewModel.isDenied }
 
         #expect(viewModel.isDenied)
         #expect(
@@ -47,11 +47,16 @@ struct LocalNetworkPermissionViewModelTests {
         )
     }
 
-    /// Yields several times so the view model's background observation `Task` has a chance to
-    /// run, without an artificial wall-clock sleep -- mirrors ``BonjourAdvertiserTests``'s own
-    /// `settle()`.
-    private static func settle() async {
-        for _ in 0..<10 { await Task.yield() }
+    /// Yields until `condition` is true or a generous bound is hit, so the view model's background
+    /// observation `Task` has a chance to run without an artificial wall-clock sleep. A fixed
+    /// small yield count (this test's original approach) is not reliably enough under CI's slower,
+    /// more contended scheduler -- confirmed by a real CI failure, not a hypothetical.
+    @MainActor
+    private static func waitUntil(_ condition: () -> Bool, maxYields: Int = 10_000) async {
+        for _ in 0..<maxYields {
+            if condition() { return }
+            await Task.yield()
+        }
     }
 }
 
