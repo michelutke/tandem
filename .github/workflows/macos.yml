@@ -45,6 +45,10 @@ jobs:
         run: tools/release-audit/check-macos-entitlements.sh
       - name: macOS entitlements check test
         run: bash tools/release-audit/test/macos_entitlements_check_test.sh
+      - name: macOS Info.plist Local Network privacy check (E21-03)
+        run: tools/release-audit/check-macos-info-plist.sh
+      - name: macOS Info.plist Local Network privacy check test
+        run: bash tools/release-audit/test/macos_info_plist_check_test.sh
       - name: SwiftLint
         run: |
           command -v swiftlint >/dev/null || brew install swiftlint

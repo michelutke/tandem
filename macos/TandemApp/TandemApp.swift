@@ -1,5 +1,6 @@
 import SwiftUI
 import TandemCrypto
+import TandemTransport
 
 #if DEBUG
 // FakeTandemSession (E12-12) is internal to TandemProtocol -- deliberately not exposed publicly,
@@ -237,6 +238,8 @@ private struct ScenarioView: View {
             Text(presenter.localizedTitle)
                 .accessibilityIdentifier("failClosedErrorLabel")
                 .accessibilityLabel(presenter.localizedTitle)
+        case .localNetworkDenied:
+            LocalNetworkPermissionBannerView(viewModel: ScenarioView.makeLocalNetworkPermissionViewModel())
         }
     }
 
@@ -281,6 +284,20 @@ private struct ScenarioView: View {
         let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
         Task { await session.emit(.disconnected(reason: "peer disconnected")) }
         return viewModel
+    }
+
+    /// Seeds a `BonjourPublishError.policyDenied` error before the view model even starts
+    /// observing -- `AsyncStream.makeStream()`'s default `.unbounded` buffering policy means the
+    /// yield is still delivered once ``LocalNetworkPermissionViewModel.init(errors:urlOpener:)``'s
+    /// own observation `Task` gets scheduled, so this scenario's banner appears without any real
+    /// `BonjourPublisher`/advertise wiring (E21-03: none exists in this scenario window). The real
+    /// `WorkspaceURLOpener` is used here, not a fake -- unlike `LocalNetworkPermissionViewModelTests`,
+    /// this is a real interactive window a developer can click through, and the XCUITest itself
+    /// only asserts the button exists, never taps it.
+    private static func makeLocalNetworkPermissionViewModel() -> LocalNetworkPermissionViewModel {
+        let (stream, continuation) = AsyncStream<BonjourPublishError>.makeStream()
+        continuation.yield(.policyDenied)
+        return LocalNetworkPermissionViewModel(errors: stream, urlOpener: WorkspaceURLOpener())
     }
 
     /// No-op stub closures -- this seeds view state for XCUITest, not a unit test, so recording
