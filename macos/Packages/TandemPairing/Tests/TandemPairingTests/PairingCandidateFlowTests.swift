@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TandemTestSupport
+import TandemTransport
 @testable import TandemPairing
 
 /// The pairing-candidate flow handler (E14-09, `docs/protocol/SPEC.md` §2 "Frame order on a
@@ -15,7 +16,7 @@ struct PairingCandidateFlowTests {
     func pairingFailure_badProof_closesAndDecrementsByOne() async throws {
         let window = Self.makeWindow(verifierResult: false)
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
@@ -31,7 +32,7 @@ struct PairingCandidateFlowTests {
     func pairingFailure_malformedPairRequest_closesAndDecrementsByOne() async throws {
         let window = Self.makeWindow()
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
@@ -48,7 +49,7 @@ struct PairingCandidateFlowTests {
         let clock = ManualTestClock()
         let window = Self.makeWindow(clock: clock, verifierResult: true)
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
         let sink = FakePairingCandidateSink()
@@ -65,7 +66,7 @@ struct PairingCandidateFlowTests {
     func pairingFailure_badProofThenDrop_decrementsExactlyOnce() async throws {
         let window = Self.makeWindow(verifierResult: false)
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
@@ -81,7 +82,7 @@ struct PairingCandidateFlowTests {
     func pairingFailure_wrongPayloadThenConnectionClosed_decrementsExactlyOnce() async throws {
         let window = Self.makeWindow()
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
@@ -99,7 +100,7 @@ struct PairingCandidateFlowTests {
     func pairingFailure_badProof_wireReasonPairingUnavailableOnly() async throws {
         let window = Self.makeWindow(verifierResult: false)
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
@@ -113,19 +114,64 @@ struct PairingCandidateFlowTests {
         #expect(reasons == [.pairingUnavailable])
     }
 
+    // MARK: - E14-16 finding #4: heartbeat race during `pair()`'s `PairAccepted` send
+
     @Test
-    func pairingCandidate_heartbeatAfterOwnerAccepted_neverFailsTheNewlyPairedSession() async throws {
-        let window = Self.makeWindow()
+    func heartbeatReceived_windowAlreadyPaired_noPairRejectedSent() async throws {
+        let window = Self.makeWindow(verifierResult: true)
         window.open(secret: Data([1]))
-        let token = try #require(window.admitCandidateToken())
+        let token = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(token) != nil)
         #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
-        #expect(window.ownerAccepted())
         let sink = FakePairingCandidateSink()
         let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
 
+        // Simulates `PairConfirmationViewModel.pair()` having already committed the window's
+        // `.paired` transition (its very first side effect) while it is still suspended sending
+        // `PairAccepted` -- a `Heartbeat` landing on this connection's own frame loop in exactly
+        // that window must never be treated as this candidate failing.
+        #expect(window.ownerAccepted(token))
+
         await flow.heartbeatReceived()
 
+        #expect(window.closedReason == .paired)
+        #expect(sink.calls.isEmpty)
+    }
+
+    // MARK: - E14-16 finding #5: active `PairRequest` deadline
+
+    @Test
+    func requestDeadlineElapsed_beforeAnyRequest_closesWithNoPairRejectedAndBurnsOneAttempt() async throws {
+        let window = Self.makeWindow()
+        window.open(secret: Data([1]))
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        let sink = FakePairingCandidateSink()
+        let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
+
+        await flow.requestDeadlineElapsed()
+
+        #expect(window.attemptsRemaining == 2)
+        #expect(!window.candidateInFlight)
+        #expect(sink.calls == [.closePairingFailed])
+    }
+
+    @Test
+    func requestDeadlineElapsed_afterValidRequestAlreadyPending_noOp() async throws {
+        let window = Self.makeWindow(verifierResult: true)
+        window.open(secret: Data([1]))
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
+        let sink = FakePairingCandidateSink()
+        let flow = PairingCandidateFlow(window: window, sink: sink, token: token)
+
+        // A delayed deadline timer firing after a valid `PairRequest` already arrived must never
+        // burn the attempt or close the connection a second time.
+        await flow.requestDeadlineElapsed()
+
+        #expect(window.isConfirmationPending)
+        #expect(window.attemptsRemaining == 3)
         #expect(sink.calls.isEmpty)
     }
 
@@ -133,7 +179,7 @@ struct PairingCandidateFlowTests {
     func pairingCandidate_connectionClosedWithStaleToken_doesNotBurnNewCandidatesAttempt() throws {
         let window = Self.makeWindow()
         window.open(secret: Data([1]))
-        let staleToken = try #require(window.admitCandidateToken())
+        let staleToken = try #require(window.admitCandidate())
         #expect(window.candidateHellosCompleted(staleToken) != nil)
         let sink = FakePairingCandidateSink()
         let staleFlow = PairingCandidateFlow(window: window, sink: sink, token: staleToken)
@@ -143,7 +189,7 @@ struct PairingCandidateFlowTests {
         // never itself failed (`hasFailed` is still false), so only the window's own token check
         // stands between a late `connectionClosed()` and burning the wrong candidate's attempt.
         window.releaseCandidate(staleToken)
-        _ = try #require(window.admitCandidateToken())
+        _ = try #require(window.admitCandidate())
         let attemptsBeforeStaleClose = window.attemptsRemaining
 
         staleFlow.connectionClosed()

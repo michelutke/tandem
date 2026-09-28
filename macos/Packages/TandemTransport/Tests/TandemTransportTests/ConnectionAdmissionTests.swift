@@ -150,7 +150,7 @@ struct ConnectionAdmissionTests {
         // shape -- a source address or admission decision anywhere in its parameter list would
         // fail this assignment to compile, since the throttle above must never be able to grant
         // trust.
-        let decide: (Data, any TrustStoreReader, any PairingWindowState) -> PeerAuthorizationDecision
+        let decide: (Data, any TrustStoreReader, any PairingWindowState) -> PeerAuthorizer.Outcome
             = PeerAuthorizer.decide
         _ = decide
     }

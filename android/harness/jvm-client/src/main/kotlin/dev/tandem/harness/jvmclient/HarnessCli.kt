@@ -6,6 +6,7 @@ import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.crypto.spkiFingerprint
 import dev.tandem.core.pairing.DeviceInfoProvider
+import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PairingStateMachine
 import dev.tandem.core.pairing.TrustCommitter
 import dev.tandem.core.pairing.qr.ParseInviteResult
@@ -175,7 +176,7 @@ private class HarnessCli(
                         HarnessDeviceInfoProvider,
                     )
                 pairing = machine
-                scope.launch { machine.state.collect { println("EVENT $it") } }
+                scope.launch { machine.state.collect { println("EVENT ${harnessEventLine(it)}") } }
                 machine.start()
                 println("OK PAIRING_STARTED")
             }
@@ -191,6 +192,22 @@ private class HarnessCli(
         runBlocking(dispatcher) { machine.confirmCodesMatch() }
         println("OK CONFIRMED")
     }
+
+    /**
+     * Renders a [PairingState] for this harness's own `EVENT` line -- unlike [PairingState]'s own
+     * `toString()` (invariant 7: redacted in every ordinary app log), the harness's own driver
+     * script (`tools/harness/integration/e14-16.sh`) must read the actual confirmation code back to
+     * assert it equals the one the Mac prints, so [AwaitingAccept]/[AwaitingUserConfirm] print their
+     * real, unredacted [PairingState.AwaitingAccept.code]/[PairingState.AwaitingUserConfirm.code]
+     * here -- mirroring the Mac harness's own `HarnessHooks.onConfirmationPending` doing the same
+     * over stdout. Every other state falls back to its own (harmless, code-free) `toString()`.
+     */
+    private fun harnessEventLine(state: PairingState): String =
+        when (state) {
+            is PairingState.AwaitingAccept -> "AwaitingAccept(code=${state.code})"
+            is PairingState.AwaitingUserConfirm -> "AwaitingUserConfirm(code=${state.code}, macName=${state.macName})"
+            else -> state.toString()
+        }
 
     private fun disconnect() {
         session?.close()

@@ -2,6 +2,7 @@ import Foundation
 import TandemCrypto
 import TandemProtocol
 import TandemStore
+import TandemTransport
 
 /// Which of the confirmation dialog's two actions an owner input maps to (`docs/design/ui-spec.md`
 /// §9 "Default to safety"). Presentation-independent: a SwiftUI view binds a button tap, the
@@ -24,8 +25,8 @@ public enum PairConfirmationAction: Sendable, Equatable {
 /// Every action is idempotent past the first: once resolved (Pair, Don't Pair, an owner-initiated
 /// dismiss, or the candidate connection itself closing first), every later call is a no-op --
 /// `docs/planning/decisions.md` D-70/D-73, cycle 8 (adversarial verifier M2/M3/N4): a connection
-/// that already burned its one attempt via ``PairingWindow/releaseCandidate()`` before this dialog
-/// resolved MUST NOT be accepted, rejected or decremented a second time by a stale click.
+/// that already burned its one attempt via ``PairingWindow/releaseCandidate(_:)`` before this
+/// dialog resolved MUST NOT be accepted, rejected or decremented a second time by a stale click.
 public final class PairConfirmationViewModel: @unchecked Sendable {
     /// Both the dialog's default (Return-key) button and the Escape key map to ``dontPair()``,
     /// never `pair` -- an explicit click is the only way to accept (ui-spec §9).
@@ -38,6 +39,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     public let bodyText: String
 
     private let window: PairingWindow
+    private let token: PairingCandidateToken
     private let sink: any PairingCandidateSink
     private let trustStore: TrustStore
     private let handshakeSpkiDer: Data
@@ -45,6 +47,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private let capabilities: [String]
     private let dateProvider: DateProvider
     private let onResolved: (@Sendable () -> Void)?
+    private let onPaired: (@Sendable () async -> Void)?
 
     private let lock = NSLock()
     private var hasResolved = false
@@ -61,6 +64,9 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     TLS handshake (never trusted from any field of `PairRequest`) -- committed to
     ///     `trustStore` only on ``pair()``.
     ///   - window: This candidate's ``PairingWindow``, already `.confirmationPending`.
+    ///   - token: This candidate's ``PairingCandidateToken`` (E14-16 finding #2) -- every window
+    ///     call below is scoped to it, so a stale dialog can never mutate a different candidate's
+    ///     state.
     ///   - sink: This candidate connection's ``PairingCandidateSink``.
     ///   - trustStore: Committed to on ``pair()`` only.
     ///   - dateProvider: Injected clock for the committed `PeerRecord`'s `pairedAt`/`lastSeen`
@@ -69,17 +75,22 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     capability-negotiation concern of its own.
     ///   - onResolved: Called exactly once, the first time this dialog resolves by any path --
     ///     lets the (not yet built) window/coordinator that presents this dialog close it.
+    ///   - onPaired: Called once, only on a successful ``pair()`` (E14-16 finding #6) -- after
+    ///     trust is committed, before `PairAccepted` is sent -- so the caller can register this
+    ///     connection's now-trusted session (e.g. `ControlSessionRegistry`) promptly.
     public init(
         displayNameBytes: Data,
         modelBytes: Data,
         confirmationCode: String,
         handshakeSpkiDer: Data,
         window: PairingWindow,
+        token: PairingCandidateToken,
         sink: any PairingCandidateSink,
         trustStore: TrustStore,
         dateProvider: @escaping DateProvider,
         capabilities: [String] = [],
-        onResolved: (@Sendable () -> Void)? = nil
+        onResolved: (@Sendable () -> Void)? = nil,
+        onPaired: (@Sendable () async -> Void)? = nil
     ) {
         let sanitizedDisplayName = DisplayStringSanitizer.sanitize(displayNameBytes, kind: .name)
         let sanitizedModel = DisplayStringSanitizer.sanitize(modelBytes, kind: .name)
@@ -87,12 +98,14 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         self.bodyText = "\(sanitizedModel) · Make sure your phone shows \(Self.grouped(confirmationCode))"
         self.sanitizedDisplayName = sanitizedDisplayName
         self.window = window
+        self.token = token
         self.sink = sink
         self.trustStore = trustStore
         self.handshakeSpkiDer = handshakeSpkiDer
         self.capabilities = capabilities
         self.dateProvider = dateProvider
         self.onResolved = onResolved
+        self.onPaired = onPaired
     }
 
     /// `true` once this dialog has resolved by any path (accept, deny, dismiss, or the connection
@@ -104,10 +117,11 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     }
 
     /// `true` once ``pair()`` has resolved this dialog by aborting -- the window was no longer
-    /// `.confirmationPending` (e.g. it expired, or the candidate connection already dropped, while
-    /// this dialog was showing) or committing trust failed -- rather than by successfully pairing.
-    /// No `PairAccepted` was sent in either case; lets the presenting view show a visible error
-    /// instead of silently closing (invariant 5).
+    /// `.confirmationPending` for this candidate's token (e.g. it expired, the candidate connection
+    /// already dropped, or a concurrent connection-drop released this exact slot before this click
+    /// was processed, E14-16 finding #3) or committing trust failed -- rather than by successfully
+    /// pairing. No `PairAccepted` was sent in either case; lets the presenting view show a visible
+    /// error instead of silently closing (invariant 5).
     public var didFailToPair: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -115,23 +129,29 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     }
 
     /// The owner clicked Pair. `docs/planning/decisions.md` D-73's "commits nothing on a
-    /// connection that is no longer open" is enforced here, not merely documented: the window's
-    /// own ``PairingWindow/ownerAccepted()`` guard runs *before* any trust is committed, and
-    /// `PairAccepted` is sent only once that guard has succeeded **and** the trust-store commit
-    /// itself has succeeded. Either failure aborts with no `PairAccepted` and no retry -- a no-op
-    /// if this dialog already resolved (e.g. the connection dropped first).
+    /// connection that is no longer open" is enforced here, not merely documented: the window's own
+    /// ``PairingWindow/ownerAccepted(_:)`` guard -- scoped to this candidate's token (E14-16 finding
+    /// #3) -- runs *before* any trust is committed, and `PairAccepted` is sent only once that guard
+    /// has succeeded **and** the trust-store commit itself has succeeded. Either failure aborts with
+    /// no `PairAccepted` and no retry -- a no-op past ``claimResolution()`` if this dialog already
+    /// resolved (e.g. the connection dropped first).
     public func pair() async {
         guard claimResolution() else { return }
-        guard window.ownerAccepted() else {
+        guard window.ownerAccepted(token) else {
             markFailed()
+            try? await sink.sendPairRejected(.pairingUnavailable)
+            await sink.closePairingFailed()
             onResolved?()
             return
         }
         guard commitTrust() else {
             markFailed()
+            try? await sink.sendPairRejected(.pairingUnavailable)
+            await sink.closePairingFailed()
             onResolved?()
             return
         }
+        await onPaired?()
         try? await sink.sendPairAccepted()
         onResolved?()
     }
@@ -152,7 +172,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
 
     /// The candidate connection closed on its own (peer disconnect, transport error, or the
     /// window's own budget/expiry) while this dialog was still showing. That path already ran
-    /// ``PairingWindow/releaseCandidate()``'s one-attempt burn before this dialog could act
+    /// ``PairingWindow/releaseCandidate(_:)``'s one-attempt burn before this dialog could act
     /// (D-70), so this only marks the dialog resolved -- it sends nothing, commits nothing, and
     /// never touches `window` again.
     public func connectionDidClose() {
@@ -162,7 +182,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
 
     private func reject() async {
         guard claimResolution() else { return }
-        window.ownerDeclined()
+        window.ownerDeclined(token)
         try? await sink.sendPairRejected(.rejectedByOwner)
         await sink.closePairingFailed()
         onResolved?()

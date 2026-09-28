@@ -1,4 +1,5 @@
 import Foundation
+import TandemTransport
 
 /// Drives one pairing-candidate connection through `docs/protocol/SPEC.md` §2 "Frame order on a
 /// pairing-candidate connection", on top of ``PairingWindow`` (E14-02) and a ``PairingCandidateSink``
@@ -9,27 +10,29 @@ import Foundation
 /// candidate connection burns **at most one** attempt in total, regardless of how many of these
 /// events it triggers before closing).
 ///
-/// The 10 s `PairRequest` deadline (local reason `TIMEOUT`) is deliberately not handled here: it
-/// sends no `PairRejected` at all (`docs/planning/decisions.md` D-72) and is entirely
-/// ``PairingWindow``'s own lazily-settled concern (E14-02's `candidateSilentFor10s` handling).
+/// The 10 s `PairRequest` deadline (local reason `TIMEOUT`) is driven from outside this type (the
+/// active watcher lives in ``PairingCoordinator/drive(session:handshakeSpkiDer:token:)``, since it
+/// needs the injected `Clock` to actually sleep): ``requestDeadlineElapsed()`` is what that watcher
+/// calls once it fires, and -- unlike every other failure path here -- sends no `PairRejected` at
+/// all (`docs/planning/decisions.md` D-72).
 ///
-/// Like ``PairingWindow`` itself, this type settles no time on its own: the mid-flight expiry check
-/// runs only when some other event next reaches this candidate (in production, the periodic
-/// `Heartbeat` §7 already requires replying to; tests call ``heartbeatReceived()`` directly after
-/// advancing a `ManualTestClock`) -- there is no background `Task`/timer here either.
+/// Like ``PairingWindow`` itself, this type settles no time on its own beyond that one active
+/// watcher: the mid-flight expiry check runs only when some other event next reaches this
+/// candidate (in production, the periodic `Heartbeat` §7 already requires replying to; tests call
+/// ``heartbeatReceived()`` directly after advancing a `ManualTestClock`).
 public final class PairingCandidateFlow: @unchecked Sendable {
     private let window: PairingWindow
     private let sink: any PairingCandidateSink
-    private let token: CandidateToken
+    private let token: PairingCandidateToken
 
     private let lock = NSLock()
     private var hasFailed = false
 
-    /// - Parameter token: This candidate's slot claim, from the ``PairingWindow/admitCandidateToken()``
+    /// - Parameter token: This candidate's slot claim, from the ``PairingWindow/admitCandidate()``
     ///   call that admitted it -- presented to every later ``PairingWindow`` call this type makes
     ///   for the same candidate, so a stale call from a since-superseded flow can only ever no-op
     ///   (`docs/planning/decisions.md` D-73, adversarial-verifier finding).
-    public init(window: PairingWindow, sink: any PairingCandidateSink, token: CandidateToken) {
+    public init(window: PairingWindow, sink: any PairingCandidateSink, token: PairingCandidateToken) {
         self.window = window
         self.sink = sink
         self.token = token
@@ -74,11 +77,15 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     /// this candidate was still in flight (e.g. its 120 s expiry elapsed while a confirmation
     /// dialog was pending), this candidate connection is failed too -- it sends
     /// `PairRejected(PAIRING_UNAVAILABLE)` and closes, but burns no additional attempt (the window
-    /// closing already accounts for the whole window's budget). Excludes ``PairingWindowClosedReason/paired``:
-    /// once the owner has accepted, this connection is an ordinary session from here on, and a
-    /// `Heartbeat` on it MUST NOT be treated as a pairing failure (a coordinator that keeps routing
-    /// `Heartbeat` through this type after `PairAccepted` would otherwise reject the very session
-    /// it just accepted).
+    /// closing already accounts for the whole window's budget). Excludes ``PairingWindowClosedReason/paired``
+    /// (E14-16 finding #4): a `Heartbeat` can land on this exact connection's own frame loop after
+    /// its own ``PairConfirmationViewModel/pair()`` has already committed the window to `.paired`
+    /// but while that same call is still suspended awaiting `PairAccepted`'s send -- that is this
+    /// connection succeeding, not failing, so it must never be treated as a reason to reject it. Once
+    /// the owner has accepted, this connection is an ordinary session from here on, and a `Heartbeat`
+    /// on it MUST NOT be treated as a pairing failure (a coordinator that keeps routing `Heartbeat`
+    /// through this type after `PairAccepted` would otherwise reject the very session it just
+    /// accepted).
     public func heartbeatReceived() async {
         window.heartbeatReceived()
         guard let reason = window.closedReason, reason != .paired else { return }
@@ -93,6 +100,19 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     public func connectionClosed() {
         guard !isAlreadyFailed() else { return }
         window.releaseCandidate(token)
+    }
+
+    /// The active 10 s `PairRequest` deadline (E14-16 finding #5, `docs/protocol/SPEC.md` §10
+    /// "`PairRequest` deadline") elapsed with no `PairRequest` yet received on this connection.
+    /// Burns one attempt and closes the connection -- but, unlike ``fail()``, sends no
+    /// `PairRejected` at all (`docs/planning/decisions.md` D-72: local reason `TIMEOUT` is the one
+    /// `PAIRING_FAILED` reason with no wire signal). A no-op if this candidate already moved past
+    /// `awaitingRequest` (a `PairRequest`, valid or not, already arrived) or already failed via
+    /// another path -- D-70's "at most one attempt burned per connection" still holds.
+    public func requestDeadlineElapsed() async {
+        guard window.requestDeadlineElapsed(token) else { return }
+        guard claimFailure() else { return }
+        await sink.closePairingFailed()
     }
 
     /// Sends `PairRejected(PAIRING_UNAVAILABLE)` and closes with `PAIRING_FAILED`, exactly once

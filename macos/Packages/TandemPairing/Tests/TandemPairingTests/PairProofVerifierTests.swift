@@ -191,14 +191,14 @@ struct PairProofVerifierTests {
         )
 
         window.open(secret: secret)
-        let firstToken = try #require(window.admitCandidateToken())
+        let firstToken = try #require(window.admitCandidate())
         let challenge = try #require(window.candidateHellosCompleted(firstToken))
 
         let wrongProof = Data(repeating: 0xAB, count: 32)
         #expect(window.submitPairRequest(firstToken, proof: wrongProof) == .rejected)
         #expect(window.attemptsRemaining == 2)
 
-        let secondToken = try #require(window.admitCandidateToken())
+        let secondToken = try #require(window.admitCandidate())
         _ = window.candidateHellosCompleted(secondToken)
         decision.value = .trusted
         let correctProof = try PairingProof.compute(
@@ -207,7 +207,7 @@ struct PairProofVerifierTests {
         #expect(window.submitPairRequest(secondToken, proof: correctProof) == .rejected)
 
         decision.value = .pairingCandidate
-        let thirdToken = try #require(window.admitCandidateToken())
+        let thirdToken = try #require(window.admitCandidate())
         let secondChallenge = try #require(window.candidateHellosCompleted(thirdToken))
         let secondCorrectProof = try PairingProof.compute(
             secret: secret, macSpkiDer: macSpkiDer, phoneSpkiDer: phoneSpkiDer, channelBinding: secondChallenge

@@ -3,6 +3,7 @@ import Testing
 import TandemCrypto
 import TandemStore
 import TandemTestSupport
+import TandemTransport
 @testable import TandemPairing
 
 /// The Mac's mutual-confirmation dialog (E14-08, `docs/protocol/SPEC.md` § Pairing, "Mutual
@@ -31,12 +32,13 @@ struct PairConfirmationViewModelTests {
     @Test
     func pairConfirmation_accept_sendsPairAcceptedAndCommitsHandshakeSpki() async throws {
         let fixture = try Self.loadFixture()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
         let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
         let viewModel = try Self.makeViewModel(
             fixture: fixture,
             window: window,
+            token: token,
             sink: sink,
             trustStore: trustStore
         )
@@ -51,14 +53,34 @@ struct PairConfirmationViewModelTests {
     }
 
     @Test
+    func pairConfirmation_accept_onPairedCalledOnceBeforePairAccepted() async throws {
+        let fixture = try Self.loadFixture()
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
+        let sink = FakePairingCandidateSink()
+        let onPairedCallCount = LockedBox(0)
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            token: token,
+            sink: sink,
+            onPaired: { onPairedCallCount.value += 1 }
+        )
+
+        await viewModel.pair()
+
+        #expect(onPairedCallCount.value == 1)
+    }
+
+    @Test
     func pairConfirmation_deny_sendsPairRejectedAndClosesEntireWindow() async throws {
         let fixture = try Self.loadFixture()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
         let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
         let viewModel = try Self.makeViewModel(
             fixture: fixture,
             window: window,
+            token: token,
             sink: sink,
             trustStore: trustStore
         )
@@ -73,9 +95,9 @@ struct PairConfirmationViewModelTests {
     @Test
     func pairConfirmation_ownerInitiatedDismissConnectionStillOpen_closesEntireWindow() async throws {
         let fixture = try Self.loadFixture()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
-        let viewModel = try Self.makeViewModel(fixture: fixture, window: window, sink: sink)
+        let viewModel = try Self.makeViewModel(fixture: fixture, window: window, token: token, sink: sink)
 
         await viewModel.ownerDidDismiss()
 
@@ -101,18 +123,19 @@ struct PairConfirmationViewModelTests {
     @Test
     func pairConfirmation_connectionClosedBeforePair_commitsNothing() async throws {
         let fixture = try Self.loadFixture()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
         let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
         let viewModel = try Self.makeViewModel(
             fixture: fixture,
             window: window,
+            token: token,
             sink: sink,
             trustStore: trustStore
         )
 
         // The connection dropped on its own first: the flow layer already burned the attempt.
-        window.releaseCandidate()
+        window.releaseCandidate(token)
         viewModel.connectionDidClose()
 
         await viewModel.pair()
@@ -123,16 +146,48 @@ struct PairConfirmationViewModelTests {
         #expect(window.attemptsRemaining == 2)
     }
 
+    /// E14-16 finding #3 (D-73): a second candidate's `PairRequest` frees this dialog's own slot
+    /// (releasing it, per D-70) *before* the coordinator has a chance to mark this dialog resolved
+    /// -- so `window.ownerAccepted(_:)` must itself refuse the transition, and `pair()` must
+    /// commit nothing, even though this dialog's own `hasResolved` flag hasn't flipped yet.
     @Test
-    func pairConfirmation_windowExpiredWhileDialogPending_pairAbortsNoPairAcceptedVisibleError() async throws {
+    func pairConfirmation_windowSlotReleasedByOtherMeansBeforePairClicked_commitsNothing() async throws {
         let fixture = try Self.loadFixture()
-        let clock = ManualTestClock()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret, clock: clock)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
         let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
         let viewModel = try Self.makeViewModel(
             fixture: fixture,
             window: window,
+            token: token,
+            sink: sink,
+            trustStore: trustStore
+        )
+
+        // The window's own slot is released out from under this still-unresolved dialog (e.g. a
+        // duplicate `PairRequest` on the same connection triggered `PairingCandidateFlow`'s own
+        // `wrongPayloadReceived()` -> `releaseCandidate(_:)`, D-70) -- the dialog itself was never
+        // told.
+        window.releaseCandidate(token)
+
+        await viewModel.pair()
+
+        #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
+        #expect(try trustStore.list().isEmpty)
+        #expect(viewModel.didFailToPair)
+    }
+
+    @Test
+    func pairConfirmation_windowExpiredWhileDialogPending_pairAbortsNoPairAcceptedVisibleError() async throws {
+        let fixture = try Self.loadFixture()
+        let clock = ManualTestClock()
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret, clock: clock)
+        let sink = FakePairingCandidateSink()
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let viewModel = try Self.makeViewModel(
+            fixture: fixture,
+            window: window,
+            token: token,
             sink: sink,
             trustStore: trustStore
         )
@@ -143,7 +198,7 @@ struct PairConfirmationViewModelTests {
 
         await viewModel.pair()
 
-        #expect(sink.calls.isEmpty)
+        #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
         #expect(try trustStore.list().isEmpty)
         #expect(window.closedReason == .expired)
         #expect(viewModel.didFailToPair)
@@ -152,7 +207,7 @@ struct PairConfirmationViewModelTests {
     @Test
     func pairConfirmation_trustStoreCommitThrows_abortsNoPairAcceptedVisibleError() async throws {
         let fixture = try Self.loadFixture()
-        let window = Self.confirmationPendingWindow(secret: fixture.secret)
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
         let sink = FakePairingCandidateSink()
         let keychainStore = InMemoryKeychainStore()
         keychainStore.failNextOperation(with: .locked)
@@ -160,13 +215,14 @@ struct PairConfirmationViewModelTests {
         let viewModel = try Self.makeViewModel(
             fixture: fixture,
             window: window,
+            token: token,
             sink: sink,
             trustStore: trustStore
         )
 
         await viewModel.pair()
 
-        #expect(sink.calls.isEmpty)
+        #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
         #expect(try trustStore.list().isEmpty)
         #expect(viewModel.didFailToPair)
     }
@@ -201,16 +257,16 @@ struct PairConfirmationViewModelTests {
     private static func confirmationPendingWindow(
         secret: Data,
         clock: ManualTestClock = ManualTestClock()
-    ) -> PairingWindow {
+    ) throws -> (window: PairingWindow, token: PairingCandidateToken) {
         let window = PairingWindow(
             dateProvider: FixedDateProvider(clock: clock).provider,
             proofVerifier: SpyPairRequestVerifier(result: true)
         )
         window.open(secret: secret)
-        guard let token = window.admitCandidateToken() else { return window }
+        let token = try #require(window.admitCandidate())
         _ = window.candidateHellosCompleted(token)
         _ = window.submitPairRequest(token, proof: Data([9]))
-        return window
+        return (window, token)
     }
 
     private static func makeViewModel(
@@ -218,20 +274,29 @@ struct PairConfirmationViewModelTests {
         model: String = "Google Pixel 8",
         fixture: Fixture? = nil,
         window: PairingWindow? = nil,
+        token: PairingCandidateToken? = nil,
         sink: any PairingCandidateSink = FakePairingCandidateSink(),
-        trustStore: TrustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        trustStore: TrustStore = TrustStore(keychainStore: InMemoryKeychainStore()),
+        onPaired: (@Sendable () async -> Void)? = nil
     ) throws -> PairConfirmationViewModel {
         let fixture = try fixture ?? Self.loadFixture()
-        let window = window ?? Self.confirmationPendingWindow(secret: fixture.secret)
+        let resolvedWindowAndToken: (window: PairingWindow, token: PairingCandidateToken)
+        if let window, let token {
+            resolvedWindowAndToken = (window, token)
+        } else {
+            resolvedWindowAndToken = try Self.confirmationPendingWindow(secret: fixture.secret)
+        }
         return PairConfirmationViewModel(
             displayNameBytes: Data(displayName.utf8),
             modelBytes: Data(model.utf8),
             confirmationCode: fixture.confirmationCode,
             handshakeSpkiDer: fixture.phoneSpkiDer,
-            window: window,
+            window: resolvedWindowAndToken.window,
+            token: resolvedWindowAndToken.token,
             sink: sink,
             trustStore: trustStore,
-            dateProvider: { Date(timeIntervalSince1970: 0) }
+            dateProvider: { Date(timeIntervalSince1970: 0) },
+            onPaired: onPaired
         )
     }
 

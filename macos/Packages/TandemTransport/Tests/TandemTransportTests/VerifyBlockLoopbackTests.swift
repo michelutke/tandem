@@ -300,25 +300,27 @@ private struct FixedTrustStoreReader: TrustStoreReader {
 private final class FixedPairingWindowState: PairingWindowState, @unchecked Sendable {
     let isOpen: Bool
     private let lock = NSLock()
-    private var claimed: Bool
+    private var currentToken: PairingCandidateToken?
 
     init(isOpen: Bool, candidateInFlight: Bool) {
         self.isOpen = isOpen
-        self.claimed = candidateInFlight
+        self.currentToken = candidateInFlight ? PairingCandidateToken() : nil
     }
 
-    func admitCandidate() -> Bool {
+    func admitCandidate() -> PairingCandidateToken? {
         lock.lock()
         defer { lock.unlock() }
-        guard !claimed else { return false }
-        claimed = true
-        return true
+        guard currentToken == nil else { return nil }
+        let token = PairingCandidateToken()
+        currentToken = token
+        return token
     }
 
-    func releaseCandidate() {
+    func releaseCandidate(_ token: PairingCandidateToken) {
         lock.lock()
         defer { lock.unlock() }
-        claimed = false
+        guard currentToken == token else { return }
+        currentToken = nil
     }
 }
 

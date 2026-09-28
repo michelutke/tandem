@@ -68,7 +68,7 @@ struct PairingViewModelTests {
         let viewModel = try Self.makeViewModel(clock: clock, window: window)
 
         for _ in 0..<3 {
-            let token = try #require(window.admitCandidateToken())
+            let token = try #require(window.admitCandidate())
             _ = window.candidateHellosCompleted(token)
             _ = window.submitPairRequest(token, proof: Data([9]))
         }
