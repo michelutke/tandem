@@ -57,7 +57,16 @@ class ReconnectStrategy(
     /** The address the most recent successful [Connector.connect] used, if any. */
     val lastWorking: StateFlow<CandidateAddress?> = mutableLastWorking.asStateFlow()
 
-    private var failedCycles = 0
+    private val mutableFailedCycles = MutableStateFlow(0)
+
+    /**
+     * Count of consecutive full cycles (E20-09) that exhausted every candidate in [buildCycle]
+     * without a successful [Connector.connect]. Reset to zero by a successful connect or a
+     * [kick]; incremented at the same point the loop's own backoff-wait decision is made, so
+     * callers (e.g. the phone's connection-status UI) observe exactly the count the backoff
+     * delay itself is based on.
+     */
+    val failedCycles: StateFlow<Int> = mutableFailedCycles.asStateFlow()
 
     // Conflated: only "has a kick arrived since the loop last checked" matters, not how many.
     private val kickChannel = Channel<Unit>(Channel.CONFLATED)
@@ -77,7 +86,7 @@ class ReconnectStrategy(
      * connect, nothing is listening, so a kick after that point has no effect.
      */
     fun kick() {
-        failedCycles = 0
+        mutableFailedCycles.value = 0
         kickChannel.trySend(Unit)
     }
 
@@ -100,7 +109,7 @@ class ReconnectStrategy(
             for (candidate in buildCycle()) {
                 when (connector.connect(candidate)) {
                     ConnectResult.Connected -> {
-                        failedCycles = 0
+                        mutableFailedCycles.value = 0
                         mutableLastWorking.value = candidate
                         return
                     }
@@ -114,14 +123,14 @@ class ReconnectStrategy(
             // Long-milliseconds overload is hard-deprecated in this project's kotlinx.coroutines
             // version and whose Duration overload doesn't resolve cleanly here) so a kick can
             // simply cancel it and race the two via `onJoin`/`onReceive`.
-            val wait = scope.launch { delay(ReconnectBackoff.delayFor(failedCycles)) }
+            val wait = scope.launch { delay(ReconnectBackoff.delayFor(mutableFailedCycles.value)) }
             val kicked =
                 select {
                     wait.onJoin { false }
                     kickChannel.onReceive { true }
                 }
             wait.cancel()
-            if (!kicked) failedCycles++
+            if (!kicked) mutableFailedCycles.value++
         }
     }
 
