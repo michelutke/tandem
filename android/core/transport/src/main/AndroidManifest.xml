@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ConnectivityManagerNetworkMonitor (E20-07): registerDefaultNetworkCallback requires this
+         normal (non-dangerous) permission. Declared here, co-located with the code that needs it,
+         rather than only in :app's manifest. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+</manifest>
