@@ -8,13 +8,18 @@ import dev.tandem.core.crypto.spkiFingerprint
 import dev.tandem.core.pairing.DeviceInfoProvider
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PairingStateMachine
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.TrustCommitter
+import dev.tandem.core.pairing.UnpairAction
 import dev.tandem.core.pairing.qr.ParseInviteResult
 import dev.tandem.core.pairing.qr.QrPayloadParser
+import dev.tandem.core.pairing.revoke.RevokeHandler
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
+import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.Envelope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +60,8 @@ fun main(args: Array<String>) {
     val keyManager = IdentityKeyManager(identityKeyStore, PersistentIdentityKeyStore.IDENTITY_ALIAS)
     printIdentitySpkiFingerprint(keyManager)
 
-    val cli = HarnessCli(keyManager, dispatcher, scope)
+    val knownPeerStore = HarnessKnownPeerStore(identityFile)
+    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore)
     try {
         while (true) {
             val line = readlnOrNull() ?: break
@@ -84,18 +90,32 @@ private fun argValue(
 private fun printIdentitySpkiFingerprint(keyManager: IdentityKeyManager) {
     val certificate = keyManager.getCertificateChain(alias = null).single()
     val fingerprint = spkiFingerprint(certificate.publicKey.encoded)
-    val hex = fingerprint.bytes.joinToString(separator = "") { "%02x".format(it) }
-    println("harness-identity-spki: $hex")
+    println("harness-identity-spki: ${hexOf(fingerprint)}")
 }
+
+/** Renders [fingerprint] the same way the Mac driver's own hooks do (hex, lowercase, no separator). */
+private fun hexOf(fingerprint: SpkiFingerprint): String = fingerprint.bytes.joinToString(separator = "") { "%02x".format(it) }
 
 /** Holds the CLI's session/pairing state across commands; see [main] for how it is wired up. */
 private class HarnessCli(
     private val keyManager: IdentityKeyManager,
     private val dispatcher: CoroutineDispatcher,
     private val scope: CoroutineScope,
+    private val knownPeerStore: HarnessKnownPeerStore,
 ) {
     private var session: TandemSession? = null
+    private var connectedPeerFingerprintHex: String? = null
     private var pairing: PairingStateMachine? = null
+
+    /**
+     * Peers this process currently considers *not* paired any more (E14-20): either a live
+     * `Revoke` was received on a Ready session, or this side explicitly `UNPAIR`ed. [connect]
+     * refuses to dial any of these -- no socket is ever opened -- reproducing "the client never
+     * dials it" (AC-12) without needing this harness to model a full client-side `TrustStore`.
+     * In-memory only: unlike [knownPeerStore], nothing in this harness's scope needs this to
+     * survive a process restart.
+     */
+    private val locallyRevoked = mutableSetOf<String>()
 
     /** Handles one command line; returns `false` if the CLI should stop reading further commands. */
     fun handle(line: String): Boolean {
@@ -106,6 +126,8 @@ private class HarnessCli(
             "CONNECT" -> connect(rest)
             "PAIR" -> pair(rest)
             "CONFIRM" -> confirm()
+            "UNPAIR" -> unpair(rest)
+            "TRUSTED" -> trusted(rest)
             "DISCONNECT" -> disconnect()
             "EXIT" -> {
                 exit()
@@ -134,9 +156,17 @@ private class HarnessCli(
             println("ERROR invalid CONNECT arguments")
             return
         }
+        val fingerprint = SpkiFingerprint(fingerprintBytes)
+        val fingerprintHex = hexOf(fingerprint)
 
+        // AC-12: this side has already unpaired this peer, so a forced CONNECT dials with the
+        // same (now-empty) pin list the real app would have -- the real client-side pin check
+        // (PinningTrustManager, over a real TLS handshake) rejects the server, not a harness-side
+        // shortcut. A TLS handshake failure exchanges zero *application* bytes (SPEC.md's AC-12
+        // wording), matching "forced dial fails the client-side pin check with 0 application bytes".
         runCatching {
-            val pinSource = PinSource { listOf(SpkiFingerprint(fingerprintBytes)) }
+            val pinSource =
+                if (fingerprintHex in locallyRevoked) PinSource { emptyList() } else PinSource { listOf(fingerprint) }
             val factory =
                 SslClientFactory(keyManager, PinningTrustManager(pinSource), JvmConscryptSessionTicketDisabler())
             val socket = factory.createSocket()
@@ -148,13 +178,91 @@ private class HarnessCli(
                 when (val outcome = readyOrFailed) {
                     is ConnectionState.Ready -> {
                         session = newSession
+                        connectedPeerFingerprintHex = fingerprintHex
+                        knownPeerStore.recordPinned(fingerprintHex)
+                        watchForRevoke(newSession, fingerprint)
                         println("OK CONNECTED")
                     }
-                    is ConnectionState.Failed -> println("ERROR ${outcome.reason}")
+                    is ConnectionState.Failed -> println("ERROR ${classify(fingerprintHex)} ${outcome.reason}")
                     else -> Unit
                 }
             }
-        }.onFailure { println("ERROR ${it.message}") }
+        }.onFailure { println("ERROR ${classify(fingerprintHex)} ${it.message}") }
+    }
+
+    /**
+     * SPEC.md #errors-and-close-codes row 7 / row 2 (E12-16, UC-07): a failed non-pairing dial maps
+     * to `REVOKED` ("no longer paired") if this side had previously pinned [fingerprintHex]
+     * ([HarnessKnownPeerStore.hasEverPinned], surviving a process restart), else to `PIN_MISMATCH`
+     * (an unrecognized key is indistinguishable from a never-known one, D-23).
+     */
+    private fun classify(fingerprintHex: String): String =
+        if (knownPeerStore.hasEverPinned(fingerprintHex)) "REVOKED" else "PIN_MISMATCH"
+
+    /**
+     * Watches [activeSession]'s CONTROL channel for a `Revoke` from [peer] (E14-20, mirroring the
+     * real E14-19 receiver: a Revoke on a Ready session deletes this side's own belief that it is
+     * still paired with [peer] and closes the session; a Revoke before/without Ready is impossible
+     * here since this is only ever called after `OK CONNECTED`). Reuses the real
+     * [RevokeHandler] rather than reimplementing its logic.
+     */
+    private fun watchForRevoke(
+        activeSession: TandemSession,
+        peer: SpkiFingerprint,
+    ) {
+        scope.launch {
+            activeSession.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
+                if (envelope.payloadCase == Envelope.PayloadCase.REVOKE) {
+                    val handler = RevokeHandler(activeSession, peer) { fp -> locallyRevoked += hexOf(fp) }
+                    if (handler.handleRevoke()) {
+                        println("EVENT REVOKED ${hexOf(peer)}")
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * `UNPAIR <spkiFingerprintBase64Url>` (E14-20): reuses the real [UnpairAction] (E14-12/E14-13)
+     * -- deletes this side's own belief that it is paired with that peer first, then, only if
+     * [session] is Ready for that exact peer, sends Revoke on CONTROL and closes.
+     */
+    private fun unpair(fingerprintArg: String) {
+        val fingerprintBytes = runCatching { Base64.getUrlDecoder().decode(fingerprintArg.trim()) }.getOrNull()
+        if (fingerprintBytes == null) {
+            println("ERROR usage: UNPAIR <spkiFingerprintBase64Url>")
+            return
+        }
+        val fingerprint = SpkiFingerprint(fingerprintBytes)
+        val fingerprintHex = hexOf(fingerprint)
+        val activeSession = session.takeIf { connectedPeerFingerprintHex == fingerprintHex }
+
+        val action = UnpairAction(
+            trustRemover = { fp -> locallyRevoked += hexOf(fp) },
+            purgeRegistry = PeerDataPurgeRegistry(),
+        )
+        runBlocking(dispatcher) { action.unpair(fingerprint, activeSession) }
+        if (activeSession != null) {
+            session = null
+            connectedPeerFingerprintHex = null
+        }
+        println("OK UNPAIRED")
+    }
+
+    /**
+     * `TRUSTED <spkiFingerprintBase64Url>` (E14-20): `OK FALSE` once this fingerprint has been
+     * revoked/unpaired (see [locallyRevoked]), `OK TRUE` otherwise -- the harness's stand-in for
+     * "does the phone still show a trust record for this peer" (scoped to a peer this process has
+     * actually connected to; this harness tracks no wider trust store, E15-21 scope).
+     */
+    private fun trusted(fingerprintArg: String) {
+        val fingerprintBytes = runCatching { Base64.getUrlDecoder().decode(fingerprintArg.trim()) }.getOrNull()
+        if (fingerprintBytes == null) {
+            println("ERROR usage: TRUSTED <spkiFingerprintBase64Url>")
+            return
+        }
+        val fingerprintHex = hexOf(SpkiFingerprint(fingerprintBytes))
+        println(if (fingerprintHex in locallyRevoked) "OK FALSE" else "OK TRUE")
     }
 
     private fun pair(qrUri: String) {
@@ -212,6 +320,7 @@ private class HarnessCli(
     private fun disconnect() {
         session?.close()
         session = null
+        connectedPeerFingerprintHex = null
         println("OK DISCONNECTED")
     }
 

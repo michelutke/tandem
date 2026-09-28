@@ -50,3 +50,7 @@ HarnessListTrust
 # confirmation code) and auto-confirming "Pair" the moment a candidate's proof verifies.
 HarnessOpenPairingWindow
 HarnessAutoConfirmPairing
+
+# Debug-only E14-20 CI harness launch hook: Mac-initiated revoke the instant any peer's session
+# reaches Ready (deletes trust, sends Revoke, closes).
+HarnessRevokeOnReady
