@@ -109,8 +109,22 @@ public final class PairingCandidateFlow: @unchecked Sendable {
     /// `PAIRING_FAILED` reason with no wire signal). A no-op if this candidate already moved past
     /// `awaitingRequest` (a `PairRequest`, valid or not, already arrived) or already failed via
     /// another path -- D-70's "at most one attempt burned per connection" still holds.
+    ///
+    /// Doesn't trust ``PairingWindow/requestDeadlineElapsed(_:)``'s own return value alone (E14-24):
+    /// that call reports `false` not only when some other locked call already burned *this*
+    /// candidate's 10 s sub-deadline first (``PairingWindow``'s `deadlineBurnedToken` already
+    /// covers that, per E14-16), but also when the window's own, entirely separate 120 s
+    /// whole-window expiry is what settled first instead -- that branch returns before ever
+    /// reaching the per-candidate deadline check, so `deadlineBurnedToken` is never set for
+    /// `token`, and this watcher must not conclude "already handled" and leave the connection open.
+    /// So this also closes whenever `token` is no longer one ``PairingWindow`` considers in flight
+    /// at all, rather than only when it burned the deadline itself just now -- safe either way:
+    /// any attempt burn already happened inside that one locked ``PairingWindow`` call (never
+    /// here), and ``claimFailure()`` still guards this connection's own close/`PairRejected` to at
+    /// most once regardless of which path got there first.
     public func requestDeadlineElapsed() async {
-        guard window.requestDeadlineElapsed(token) else { return }
+        let burnedByWindow = window.requestDeadlineElapsed(token)
+        guard burnedByWindow || !window.candidateInFlight(token) else { return }
         guard claimFailure() else { return }
         await sink.closePairingFailed()
     }

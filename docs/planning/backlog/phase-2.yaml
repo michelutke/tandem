@@ -664,6 +664,37 @@ epics:
         tdd:
           - "security: mitmLabDos_authenticatedHeartbeatFlood1000PerSecond_phoneRepliesCappedSessionStaysUp"
         notes: "Added: verifies D-60/D-61 against an authenticated (not pre-auth) flood."
+
+      - id: E20-21
+        title: "[android] Wire RevokeHandler into TandemService and implement the dialing-side REVOKED mapping"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: M
+        prd: [F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3, 5]
+        depends_on: [E14-12, E14-19, E20-19, E12-16]
+        description: |
+          Found by E14-20's Fable verifier pass, the Android half of the same gap as E14-26 (macOS):
+          `TandemService` has no CONTROL consumer and no `RevokeHandler` wiring, so a Mac-side
+          revoke never deletes the phone's own trust record in production (violates AC-09 "both
+          trust stores lack the peer within 2s" on the real app). Separately, SPEC.md
+          #errors-and-close-codes row 7's "previously pinned -> REVOKED" mapping has no real
+          producer: `ConnectionErrorMapper` string-matches a `"REVOKED"` reason nothing in
+          production ever generates (E14-20's harness JVM client built this classification only
+          for its own test purposes, over real `core/pairing` types but not wired into the real app).
+          Wire a live CONTROL consumer into `TandemService`'s session that dispatches an incoming
+          `Revoke` to the real `RevokeHandler`; depends on E20-19 for the outgoing unpair UI. Add
+          the dialing-side "was this SPKI ever pinned before" classification as a real producer
+          feeding `ConnectionErrorMapper`, using the same reasoning E14-20's harness-only
+          `HarnessKnownPeerStore` proved out.
+        acceptance:
+          - A real Revoke frame arriving on TandemService's registered session deletes that peer's trust record and closes the session within 2s
+          - A failed post-pin handshake against a previously-pinned peer maps to the REVOKED UI state, not a generic error
+        tdd:
+          - "instrumented: tandemService_revokeFrameReceived_trustDeletedAndSessionClosedWithin2s"
+          - "unit: connectionErrorMapper_previouslyPinnedPeerHandshakeFailed_mapsToRevoked"
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]

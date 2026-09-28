@@ -2642,6 +2642,77 @@ epics:
         tdd:
           - "unit: pairingCandidateFlow_windowExpiresBeforeCandidateDeadlineCheck_connectionClosed"
 
+      - id: E14-25
+        title: "[macos] PairingCandidateFlow deadline watcher: atomic tri-state check + .paired exclusion"
+        type: test
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [5]
+        depends_on: [E14-24]
+        description: |
+          Follow-up from E14-24's Fable verifier pass (two narrow gaps, both fail-closed-direction,
+          neither an invariant-5 violation, neither blocking that fix's commit).
+          (1) `wrongPayloadReceived()`/`pairRequestReceived()` call `window.releaseCandidate(token)`
+          (freeing the slot) before `fail()`'s `claimFailure()`. If the deadline watcher's
+          `requestDeadlineElapsed()` runs in that microsecond-scale gap, it can win `claimFailure()`
+          first and close without ever sending `PairRejected` — the connection still closes and the
+          attempt is still burned exactly once, so this is a skipped wire message (indistinguishable
+          from the sanctioned D-72 TIMEOUT close), not a leaked-open socket. Fix: reorder
+          `wrongPayloadReceived()` (and `pairRequestReceived()` if it has the same shape) to call
+          `claimFailure()` before `releaseCandidate`.
+          (2) The new `candidateInFlight(_:)` check has no `.paired` exclusion, unlike
+          `heartbeatReceived()` (E14-16 finding #4's fix). A TOCTOU across
+          `requestDeadlineElapsed(token)` and `candidateInFlight(token)`'s two separate lock
+          acquisitions can — if a `PairRequest` is accepted between them — close a connection whose
+          window already reached `.closed(.paired)`. Trust is already committed by that point (the
+          phone simply reconnects as a trusted peer), so this is not a security regression, but it's
+          the same bug class as E14-16 finding #4. Fix: make `PairingWindow.requestDeadlineElapsed(_:)`
+          return an atomic tri-state (`.burned` / `.gone` / `.stillInFlight`, with `.gone` excluding
+          `.paired`) resolved under one lock, replacing the current two-call sequence.
+        acceptance:
+          - A deadline watcher racing `wrongPayloadReceived()`'s claim-then-release sequence never skips `PairRejected` when it wins the race to claim the failure first
+          - "A deadline watcher whose window has already reached .closed(.paired) is a no-op (does not close a just-paired session)."
+        tdd:
+          - "unit: requestDeadlineElapsed_staleWatcherAfterFreshCandidateAdmitted_closesStaleOnlyNotFresh"
+          - "unit: requestDeadlineElapsed_windowAlreadyPaired_noOp"
+
+      - id: E14-26
+        title: "[macos] Wire RevokeHandler + UnpairAction into the production composition root"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: M
+        prd: [F-2.3]
+        use_cases: [UC-07, AC-09]
+        invariants: [3, 5]
+        depends_on: [E14-13, E14-15, E14-14]
+        description: |
+          Found by E14-20's Fable verifier pass: `RevokeHandler`/`UnpairAction` (E14-13/E14-15) are
+          fully implemented and unit-tested, but nothing in `AppComposition`/`ListenerFactory` ever
+          consumes CONTROL on a registered trusted session, so the production Mac app silently
+          ignores an incoming `Revoke` (the frame sits in the session's buffer forever) and cannot
+          itself revoke a phone at all -- `PairedDevicesViewModel` (E14-14, the Devices screen with
+          the revoke button) is never composed anywhere outside its own tests either. E14-20's
+          `HarnessRevokeAwareSessionRegistry` (DEBUG-only) proves the correct behavior but is a
+          parallel reimplementation for test purposes only, not the real path.
+          Wire a live CONTROL consumer into every registered trusted session in
+          `AppComposition`/`ListenerFactory` that dispatches an incoming `Revoke` to `RevokeHandler`;
+          compose `PairedDevicesViewModel` with a real `UnpairAction`. `RevokeHandler`/`UnpairAction`
+          are currently `internal` to `TandemStore` -- either make them public or add a
+          `TandemStore`-level facade `AppComposition` can call. Once this lands, retire
+          `HarnessRevokeAwareSessionRegistry` in favor of the harness exercising the real production
+          wiring directly (E14-20's own script should keep passing unmodified against the real path).
+        acceptance:
+          - A real Revoke frame arriving on a registered trusted session's CONTROL channel deletes that peer's trust record and closes the session
+          - Selecting "Unpair" in the real Devices screen (E14-14) sends Revoke, closes the session, and deletes the local trust record
+          - This E14-20 exit criterion ("both trust stores lack the peer within 2s") holds against the real production listener, not only the harness's parallel wrapper
+        tdd:
+          - "integration: appComposition_revokeFrameOnRegisteredSession_trustDeletedAndSessionClosed"
+          - "unit: pairedDevicesViewModel_unpairSelected_sendsRevokeAndDeletesLocalTrust"
+
       - id: E14-17
         title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable"
         type: story
