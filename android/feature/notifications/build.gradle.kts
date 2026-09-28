@@ -16,4 +16,11 @@ android {
 dependencies {
     // NotificationPosted/NotificationDismiss DSL builders (E30-01).
     implementation(project(":core:protocol"))
+    // NotificationSink (E30-16) sends over the real TandemSession seam.
+    implementation(project(":core:transport"))
+
+    // NotificationSinkTest scripts TandemSession via FakeTandemSession (E12-11) and
+    // ElapsedRealtimeSource via FakeElapsedRealtime (E00-18); test-only, never a release classpath.
+    testImplementation(testFixtures(project(":core:transport")))
+    testImplementation(project(":core:testing"))
 }
