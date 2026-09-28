@@ -17,6 +17,12 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- E23-05: lets RingHandler read/set the Do Not Disturb interruption filter so a Ring can
+         switch total silence (NONE) to ALARMS for the duration of the ring; granted through the
+         system's notification policy access settings (RingPolicyExplanationScreen), not a runtime
+         permission dialog. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <!-- E20-08: lets BootReceiver restart TandemService after first unlock (BOOT_COMPLETED is not
          direct-boot aware) without the user opening the app. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
