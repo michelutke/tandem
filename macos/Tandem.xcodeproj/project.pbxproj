@@ -45,6 +45,7 @@
 		AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */; };
 		BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 19FA760857066CAA11B0A7B3 /* TandemPairing */; };
 		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
+		BD82E904F8A53F7D281986A1 /* SystemPowerEventsAndNetworkPathFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */; };
 		BE4ACE39CAE53BBE32C1A3A6 /* LocalNetworkPermissionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3932FFD187ADE277BE636353 /* LocalNetworkPermissionViewModel.swift */; };
 		BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
@@ -99,6 +100,7 @@
 
 /* Begin PBXFileReference section */
 		022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerView.swift; sourceTree = "<group>"; };
+		029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SystemPowerEventsAndNetworkPathFakes.swift; path = ../Packages/TandemTestSupport/Sources/TandemTestSupport/SystemPowerEventsAndNetworkPathFakes.swift; sourceTree = "<group>"; };
 		03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModelTests.swift; sourceTree = "<group>"; };
 		041CF567C3AFCE26290A0483 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 				8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */,
 				51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */,
 				041CF567C3AFCE26290A0483 /* README.md */,
+				029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */,
 			);
 			path = TandemAppTests;
 			sourceTree = "<group>";
@@ -486,6 +489,7 @@
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
 				19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */,
 				16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */,
+				BD82E904F8A53F7D281986A1 /* SystemPowerEventsAndNetworkPathFakes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

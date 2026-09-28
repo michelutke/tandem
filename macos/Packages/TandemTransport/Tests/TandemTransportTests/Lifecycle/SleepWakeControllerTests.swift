@@ -6,9 +6,10 @@ import TandemTestSupport
 
 /// E20-10 (docs/protocol/SPEC.md #heartbeat, PRD F-3.4, UC-04): ``SleepWakeController`` stops the
 /// listener on ``SystemPowerEvent/willSleep`` and restarts it on ``SystemPowerEvent/didWake``,
-/// against a recording ``ListenerControl`` fake and a ``SystemPowerEvents`` fake this file drives
-/// directly -- no real `NSWorkspace` notification and no wall-clock sleep in any test here
-/// (``ManualTestClock``, E00-24, stands in for the 1 s bound).
+/// against a recording ``ListenerControl`` fake and ``TandemTestSupport``'s ``FakeSystemPowerEvents``
+/// (shared with E22-08's `MenuBarViewModel` tests) driven directly by this file -- no real
+/// `NSWorkspace` notification and no wall-clock sleep in any test here (``ManualTestClock``,
+/// E00-24, stands in for the 1 s bound).
 @Suite("SleepWakeController")
 struct SleepWakeControllerTests {
 
@@ -74,21 +75,6 @@ struct SleepWakeControllerTests {
     /// events already sent on ``FakeSystemPowerEvents``, without an artificial wall-clock sleep.
     private func settle() async {
         for _ in 0..<10 { await Task.yield() }
-    }
-}
-
-/// Recording ``SystemPowerEvents`` fake driven directly by ``send(_:)``, standing in for a real
-/// `NSWorkspace` notification stream in ``SleepWakeControllerTests``.
-final class FakeSystemPowerEvents: SystemPowerEvents, @unchecked Sendable {
-    let events: AsyncStream<SystemPowerEvent>
-    private let continuation: AsyncStream<SystemPowerEvent>.Continuation
-
-    init() {
-        (events, continuation) = AsyncStream<SystemPowerEvent>.makeStream()
-    }
-
-    func send(_ event: SystemPowerEvent) {
-        continuation.yield(event)
     }
 }
 

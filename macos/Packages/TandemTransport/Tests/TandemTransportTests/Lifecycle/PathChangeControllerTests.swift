@@ -6,8 +6,9 @@ import TandemTestSupport
 /// E20-11 (PRD F-3.4, UC-04): ``PathChangeController`` rebinds the listener exactly once per
 /// network interface set change (Wi-Fi switch, VPN toggle) and never rebinds when the set is
 /// unchanged -- against a recording ``ListenerControl`` fake (``FakeListenerControl``, reused from
-/// `SleepWakeControllerTests`) and a ``NetworkPathSource`` fake this file drives directly. No real
-/// `NWPathMonitor` anywhere in this file.
+/// `SleepWakeControllerTests`) and ``TandemTestSupport``'s ``FakeNetworkPathSource`` (shared with
+/// E22-08's `MenuBarViewModel` tests) driven directly by this file. No real `NWPathMonitor`
+/// anywhere in this file.
 @Suite("PathChangeController")
 struct PathChangeControllerTests {
 
@@ -68,20 +69,5 @@ struct PathChangeControllerTests {
     /// snapshots already sent on ``FakeNetworkPathSource``, without an artificial wall-clock sleep.
     private func settle() async {
         for _ in 0..<10 { await Task.yield() }
-    }
-}
-
-/// Recording ``NetworkPathSource`` fake driven directly by ``send(_:)``, standing in for a real
-/// `NWPathMonitor` path stream in ``PathChangeControllerTests``.
-final class FakeNetworkPathSource: NetworkPathSource, @unchecked Sendable {
-    let paths: AsyncStream<NetworkPathSnapshot>
-    private let continuation: AsyncStream<NetworkPathSnapshot>.Continuation
-
-    init() {
-        (paths, continuation) = AsyncStream<NetworkPathSnapshot>.makeStream()
-    }
-
-    func send(_ snapshot: NetworkPathSnapshot) {
-        continuation.yield(snapshot)
     }
 }
