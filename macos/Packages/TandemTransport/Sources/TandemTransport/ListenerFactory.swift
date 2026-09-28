@@ -305,7 +305,17 @@ public struct NWListenerFactory: ListenerFactory {
         // any cause, both reaches the state machine and cancels the socket (fail closed, SPEC.md
         // invariant 5).
         let closeReason = await multiplexer.awaitClose()
-        revokeReaderTask?.cancel()
+        // `revokeReaderTask` is a self-terminating proxy (``startControlRevokeReader``'s own
+        // kdoc, E14-27 HIGH fix): its `CONTROL` reader finishes on its own once `session` closes
+        // (this `awaitClose()` having returned means it already has). Awaiting it here (never
+        // cancelling) guarantees a `Revoke` frame that arrived in the same tick as the close is
+        // always fully handled -- `RevokeHandler.handle`/`trustStore.unpair()` complete -- before
+        // this function proceeds to cancel the socket and remove the session below, so the trust
+        // record is provably gone before either of those observable side effects (a stale
+        // `AsyncStream` consumer cancelled mid-flight used to be able to drop an already-buffered
+        // `Revoke`; not cancelling removes that race, and awaiting rather than discarding makes
+        // the ordering true rather than merely likely).
+        await revokeReaderTask?.value
         await heartbeatController?.stop()
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()

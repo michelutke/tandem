@@ -67,43 +67,12 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
-        // E14-20's `HarnessRevokeAwareSessionRegistry` already handles both revoke directions for
-        // this harness listener (including `-HarnessRevokeOnReady`'s Mac-initiated-revoke test
-        // scaffolding, which has no real-production equivalent by design -- production never
-        // auto-revokes a peer on Ready) and `tools/harness/integration/e14-20.sh` depends on its
-        // specific `harness-revoke-received:` log line. Do NOT also pass `trustStore:` to
-        // `NWListenerFactory` here (E14-26's real-production wiring) -- that would spawn a second,
-        // competing CONTROL-revoke reader racing this one on the same session's frame stream.
-        // Consolidating the harness onto the exact same production path (retiring this wrapper) is
-        // a real follow-up, but needs the script's own assertion reworked first, not a change to
-        // make under merge-conflict-resolution pressure -- tracked as a fresh backlog issue below.
-        let decisionCorrelator = PeerDecisionCorrelator()
-        let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
-            wrapping: ControlSessionRegistry(),
-            trustStore: TrustStore(keychainStore: keychainStore),
-            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
-        )
-        let (window, pairingCandidateDriver) = resolvePairingWindow(
+        let controller = makeController(
             identity: identity,
+            identityBootstrapper: identityBootstrapper,
             keychainStore: keychainStore,
             rawPort: rawPort,
-            sessionRegistry: sessionRegistry
-        )
-
-        let verify = harnessVerifyBlock(
-            trustStore: TrustStore(keychainStore: keychainStore),
-            window: window,
-            decisionCorrelator: decisionCorrelator
-        )
-        let controller = ListenerController(
-            identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(
-                sessionRegistry: sessionRegistry,
-                decisionCorrelator: decisionCorrelator,
-                pairingCandidateDriver: pairingCandidateDriver
-            ),
-            port: port,
-            verify: verify
+            port: port
         )
         let started: ListenerController.StartedListener?
         do {
@@ -116,6 +85,53 @@ enum HarnessHooks {
         }
         retainedListener = started.listener
         retainLifecycle(controller: controller, started: started)
+    }
+
+    /// Builds `startListenerIfRequested()`'s ``ListenerController`` -- the session registry, verify
+    /// block, and the real `NWListenerFactory(trustStore:)` wiring -- split out purely to keep that
+    /// function under this repo's `function_body_length` lint budget. E14-27: the harness listener's
+    /// incoming-Revoke consumption goes through the exact same production `ControlRevokeConsumer`
+    /// path (E14-26) `AppComposition`'s own listener uses -- `NWListenerFactory(trustStore:)` below
+    /// -- instead of a parallel reimplementation. `-HarnessRevokeOnReady`'s Mac-initiated-revoke
+    /// test scaffolding has no real-production equivalent by design (production never auto-revokes
+    /// a peer on Ready), so it stays its own small ``HarnessRevokeAwareSessionRegistry`` decorator.
+    private static func makeController(
+        identity: SecIdentity,
+        identityBootstrapper: IdentityBootstrapper,
+        keychainStore: any KeychainStore,
+        rawPort: UInt16,
+        port: NWEndpoint.Port
+    ) -> ListenerController {
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let decisionCorrelator = PeerDecisionCorrelator()
+        let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
+            wrapping: ControlSessionRegistry(),
+            trustStore: trustStore,
+            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
+        )
+        let (window, pairingCandidateDriver) = resolvePairingWindow(
+            identity: identity,
+            keychainStore: keychainStore,
+            rawPort: rawPort,
+            sessionRegistry: sessionRegistry
+        )
+
+        let verify = harnessVerifyBlock(
+            trustStore: trustStore,
+            window: window,
+            decisionCorrelator: decisionCorrelator
+        )
+        return ListenerController(
+            identityStateProvider: identityBootstrapper,
+            listenerFactory: NWListenerFactory(
+                sessionRegistry: sessionRegistry,
+                decisionCorrelator: decisionCorrelator,
+                pairingCandidateDriver: pairingCandidateDriver,
+                trustStore: trustStore
+            ),
+            port: port,
+            verify: verify
+        )
     }
 
     /// The E20-10/E20-11 sleep/wake and path-change wiring `startListenerIfRequested()` retains

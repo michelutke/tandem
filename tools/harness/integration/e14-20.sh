@@ -23,9 +23,13 @@
 #
 # Scenario 3 (jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s): the JVM client's new
 # `UNPAIR <fp>` command (reusing the real `core/pairing` `UnpairAction`, E14-12/E14-13) sends
-# `Revoke` on CONTROL to the still-connected Mac. `HarnessRevokeAwareSessionRegistry`'s always-on
-# inbound-Revoke watch (independent of `-HarnessRevokeOnReady`) deletes the Mac's own trust record
-# and closes/unregisters -- proven via `-HarnessListTrust` showing zero records within 2 s.
+# `Revoke` on CONTROL to the still-connected Mac. The Mac's real production CONTROL-revoke consumer
+# (`TandemTransport/ControlRevokeConsumer.startControlRevokeReader`, wired into
+# `NWListenerFactory(trustStore:)` -- the same path `AppComposition`'s own listener uses, E14-26/
+# E14-27) deletes the Mac's own trust record and closes/unregisters -- proven via
+# `wait_for_mac_session_closed` polling for the Mac's own connected socket to close (real 2 s bound
+# anchored to `RevokeHandler`'s unpair-then-close ordering), then a single `-HarnessListTrust` check
+# for that record's disappearance (no dependency on any harness-only log line).
 #
 # Scenario 4 (jvmHarness_phoneUnpairsWhileMacOffline_neverDialsAndForcedDialFailsPin, AC-12
 # lost/stolen Mac): the JVM client unpairs locally while the Mac is stopped (`UNPAIR` with no live
@@ -36,9 +40,11 @@
 # application bytes" together.
 #
 # New surface this issue added (documented here rather than duplicated per-scenario below):
-#   - Mac (`TandemApp/HarnessHooks.swift`): `-HarnessRevokeOnReady YES` launch flag, and the
-#     always-on inbound-Revoke watch, both via `HarnessRevokeAwareSessionRegistry` wrapping
-#     `ControlSessionRegistry`.
+#   - Mac (`TandemApp/HarnessHooks.swift`): `-HarnessRevokeOnReady YES` launch flag, via
+#     `HarnessRevokeAwareSessionRegistry` wrapping `ControlSessionRegistry`. (E14-27: the inbound-
+#     Revoke watch this issue originally added here was retired in favor of the harness listener's
+#     `NWListenerFactory(trustStore:)` using the same production `ControlRevokeConsumer` path
+#     `AppComposition` does.)
 #   - JVM client (`HarnessCli.kt`): `UNPAIR <spkiFingerprintBase64Url>` and
 #     `TRUSTED <spkiFingerprintBase64Url>` commands, a live CONTROL-channel Revoke watch on every
 #     connected session (reusing `RevokeHandler`), and `HarnessKnownPeerStore` (on-disk, next to
@@ -53,7 +59,6 @@ STARTUP_TIMEOUT_SECONDS=10
 CONNECT_TIMEOUT_SECONDS=5
 REJECT_TIMEOUT_SECONDS=15
 REVOKE_TIMEOUT_SECONDS=2
-LOG_WAIT_TIMEOUT_SECONDS=2
 
 # shellcheck source=../mac-driver.sh
 source "$E14_20_ROOT/tools/harness/mac-driver.sh"
@@ -146,25 +151,6 @@ read_response() {
   return 1
 }
 
-# Waits (up to $2 seconds, default $LOG_WAIT_TIMEOUT_SECONDS) for a line matching regex $1 to appear
-# in the current launch's log; prints the last matching line and returns 0, or returns 1 on timeout.
-wait_for_log_line() {
-  local pattern="$1"
-  local timeout="${2:-$LOG_WAIT_TIMEOUT_SECONDS}"
-  local waited=0
-  while (( waited < timeout * 10 )); do
-    local match
-    match="$(grep -o "$pattern" "$HARNESS_LOG_PATH" 2>/dev/null | tail -1)"
-    if [ -n "$match" ]; then
-      printf '%s\n' "$match"
-      return 0
-    fi
-    sleep 0.1
-    waited=$((waited + 1))
-  done
-  return 1
-}
-
 # Polls `TRUSTED <fp>` on fd 3/4 (up to $2 seconds, default $REVOKE_TIMEOUT_SECONDS) until the
 # client answers `OK FALSE`; returns 0 on that, 1 on timeout (printing the last response seen).
 wait_for_untrusted() {
@@ -181,6 +167,35 @@ wait_for_untrusted() {
     waited=$((waited + 1))
   done
   log "last TRUSTED response: $response"
+  return 1
+}
+
+# Polls (up to $1 seconds, default $REVOKE_TIMEOUT_SECONDS) for the Mac's own connected socket on
+# $MAC_PORT to close entirely -- not merely leave `ESTABLISHED`. The phone (JVM client)'s own
+# `UnpairAction` sends Revoke then closes its side immediately (back-to-back, E14-27's own finding),
+# so its FIN alone can flip the Mac's socket out of `ESTABLISHED` into `CLOSE_WAIT` well before the
+# Mac has actually processed the Revoke frame -- an `ESTABLISHED`-only check would race ahead of
+# that and give this loop's later iterations nothing left to rescue, exactly this function's former
+# bug (see below). Excluding only `LISTEN` (`grep -v LISTEN`, so `CLOSE_WAIT`/`LAST_ACK`/etc. still
+# count as "still open") instead requires the *Mac's own* side to have also closed --
+# `ListenerFactory.wireSession`'s `adapter.cancel()`, reached only once `awaitClose()` returns,
+# itself only once `RevokeHandler.handle` has already called `session.close()`, which runs strictly
+# after `trustStore.unpair()` (`TandemStore/RevokeHandler.swift`'s own ordering). So this is a real
+# 2 s bound anchored to that production ordering, not a race against `harness_kill` -- this
+# function's previous shape called `harness_kill` on every iteration, which killed the Mac process
+# on its very first pass; every later iteration's `harness_kill` was then a no-op re-reading a
+# keychain state nothing could still change, in effect a fixed ~100 ms budget rather than a real 2 s
+# one.
+wait_for_mac_session_closed() {
+  local timeout="${1:-$REVOKE_TIMEOUT_SECONDS}"
+  local waited=0
+  while (( waited < timeout * 10 )); do
+    if ! lsof -nP -iTCP:"$MAC_PORT" 2>/dev/null | grep TandemApp | grep -qv LISTEN; then
+      return 0
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
   return 1
 }
 
@@ -266,14 +281,18 @@ CLIENT_PID=""
 
 harness_kill
 if [ "$FAILED" -eq 0 ]; then
-  TRUST_RECORDS="$(harness_list_trust)"
-  TRUST_COUNT="$(printf '%s\n' "$TRUST_RECORDS" | grep -c '^harness-trust-record: ' || true)"
-  if [ "$TRUST_COUNT" -ne 0 ]; then
-    log "FAIL: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s -- expected 0 Mac trust records, found $TRUST_COUNT"
-    printf '%s\n' "$TRUST_RECORDS" >&2
-    FAILED=1
+  if TRUST_RECORDS="$(harness_list_trust)"; then
+    TRUST_COUNT="$(printf '%s\n' "$TRUST_RECORDS" | grep -c '^harness-trust-record: ' || true)"
+    if [ "$TRUST_COUNT" -ne 0 ]; then
+      log "FAIL: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s -- expected 0 Mac trust records, found $TRUST_COUNT"
+      printf '%s\n' "$TRUST_RECORDS" >&2
+      FAILED=1
+    else
+      log "OK: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s"
+    fi
   else
-    log "OK: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s"
+    log "FAIL: jvmHarness_macRevokesConnectedPhone_bothTrustStoresEmptyWithin2s -- -HarnessListTrust exited non-zero"
+    FAILED=1
   fi
 fi
 
@@ -440,16 +459,6 @@ if [ "$FAILED" -eq 0 ]; then
   fi
 fi
 
-if [ "$FAILED" -eq 0 ]; then
-  if wait_for_log_line 'harness-revoke-received: .*' "$REVOKE_TIMEOUT_SECONDS" >/dev/null; then
-    log "OK: Mac processed the incoming Revoke"
-  else
-    log "FAIL: Mac never processed the incoming Revoke within ${REVOKE_TIMEOUT_SECONDS}s"
-    cat "$HARNESS_LOG_PATH" >&2
-    FAILED=1
-  fi
-fi
-
 echo "EXIT" >&3 2>/dev/null || true
 exec 3>&-
 exec 4<&-
@@ -458,17 +467,28 @@ if [ -n "$CLIENT_PID" ] && kill -0 "$CLIENT_PID" 2>/dev/null; then
 fi
 CLIENT_PID=""
 
-harness_kill
 if [ "$FAILED" -eq 0 ]; then
-  TRUST_RECORDS="$(harness_list_trust)"
-  TRUST_COUNT="$(printf '%s\n' "$TRUST_RECORDS" | grep -c '^harness-trust-record: ' || true)"
-  if [ "$TRUST_COUNT" -ne 0 ]; then
-    log "FAIL: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s -- expected 0 Mac trust records, found $TRUST_COUNT"
-    printf '%s\n' "$TRUST_RECORDS" >&2
-    FAILED=1
+  if wait_for_mac_session_closed "$REVOKE_TIMEOUT_SECONDS"; then
+    harness_kill
+    if RECORDS="$(harness_list_trust)"; then
+      if [ "$(printf '%s\n' "$RECORDS" | grep -c '^harness-trust-record: ' || true)" -eq 0 ]; then
+        log "OK: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s"
+      else
+        log "FAIL: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s -- Mac still has a trust record"
+        printf '%s\n' "$RECORDS" >&2
+        FAILED=1
+      fi
+    else
+      log "FAIL: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s -- -HarnessListTrust exited non-zero"
+      FAILED=1
+    fi
   else
-    log "OK: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s"
+    log "FAIL: jvmHarness_phoneUnpairsWhileConnected_macRecordDeletedWithin2s -- Mac's session on port $MAC_PORT never closed within ${REVOKE_TIMEOUT_SECONDS}s"
+    harness_kill
+    FAILED=1
   fi
+else
+  harness_kill
 fi
 
 if [ "$FAILED" -ne 0 ]; then
