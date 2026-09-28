@@ -14,12 +14,17 @@ class FakeAlarmPlayer(
     var isPlaying: Boolean = false
         private set
 
+    /** Number of [start] calls so far (E23-06): lets D-62's cooldown tests assert on start count. */
+    var startCount: Int = 0
+        private set
+
     private var volumeBeforeStart = initialVolume
 
     override fun start() {
         volumeBeforeStart = alarmVolume
         alarmVolume = maxVolume
         isPlaying = true
+        startCount++
     }
 
     override fun stop() {

@@ -16,4 +16,10 @@
     <string name="notification_connection_channel_name">Connection status</string>
     <string name="notification_connection_title">Tandem</string>
     <string name="notification_connection_text">Connected to your Mac</string>
+
+    <!-- Ring ongoing notification (E23-06) -->
+    <string name="notification_ring_channel_name">Ring</string>
+    <string name="notification_ring_title">Tandem is ringing</string>
+    <string name="notification_ring_text">Your Mac is ringing this phone</string>
+    <string name="notification_ring_stop_action">Stop</string>
 </resources>

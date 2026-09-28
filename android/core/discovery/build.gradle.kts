@@ -18,4 +18,10 @@ dependencies {
     // (E21-04), so this is api(), not implementation() -- mirrors core/protocol's own
     // api(libs.kotlinx.coroutines.core).
     api(libs.kotlinx.coroutines.core)
+
+    // SpkiFingerprint appears in PairedMacMatch's public API (E21-05), so this is api(), not
+    // implementation() -- mirrors this file's own api(libs.kotlinx.coroutines.core) rationale.
+    api(project(":core:crypto"))
+    // DiscoveryTxtRecord is internal-only to PairedMacMatcher, never in this module's public API (E21-05).
+    implementation(project(":core:protocol"))
 }

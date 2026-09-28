@@ -67,6 +67,16 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
+        // E14-20's `HarnessRevokeAwareSessionRegistry` already handles both revoke directions for
+        // this harness listener (including `-HarnessRevokeOnReady`'s Mac-initiated-revoke test
+        // scaffolding, which has no real-production equivalent by design -- production never
+        // auto-revokes a peer on Ready) and `tools/harness/integration/e14-20.sh` depends on its
+        // specific `harness-revoke-received:` log line. Do NOT also pass `trustStore:` to
+        // `NWListenerFactory` here (E14-26's real-production wiring) -- that would spawn a second,
+        // competing CONTROL-revoke reader racing this one on the same session's frame stream.
+        // Consolidating the harness onto the exact same production path (retiring this wrapper) is
+        // a real follow-up, but needs the script's own assertion reworked first, not a change to
+        // make under merge-conflict-resolution pressure -- tracked as a fresh backlog issue below.
         let decisionCorrelator = PeerDecisionCorrelator()
         let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
             wrapping: ControlSessionRegistry(),
@@ -81,7 +91,7 @@ enum HarnessHooks {
         )
 
         let verify = harnessVerifyBlock(
-            keychainStore: keychainStore,
+            trustStore: TrustStore(keychainStore: keychainStore),
             window: window,
             decisionCorrelator: decisionCorrelator
         )
@@ -145,12 +155,12 @@ enum HarnessHooks {
     /// already computed for a connection's own verify callback) with that same connection's session
     /// wiring at `.ready`, so it can be recovered without re-deriving it after the fact.
     private static func harnessVerifyBlock(
-        keychainStore: any KeychainStore,
+        trustStore: TrustStore,
         window: any PairingWindowState,
         decisionCorrelator: PeerDecisionCorrelator
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: TrustStore(keychainStore: keychainStore)),
+            trustStore: TandemTrustStoreReader(trustStore: trustStore),
             window: window,
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 // Synchronous, not `Task { await ... }`: this MUST complete before `complete(_:)`

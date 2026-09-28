@@ -8,16 +8,18 @@ let package = Package(
         .library(name: "FeatureClipboard", targets: ["FeatureClipboard"])
     ],
     dependencies: [
-        .package(path: "../TandemTestSupport")
+        .package(path: "../TandemTestSupport"),
+        .package(path: "../TandemProtocol")
     ],
     targets: [
         .target(
             name: "FeatureClipboard",
+            dependencies: ["TandemProtocol"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureClipboardTests",
-            dependencies: ["FeatureClipboard", "TandemTestSupport"],
+            dependencies: ["FeatureClipboard", "TandemTestSupport", "TandemProtocol"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
