@@ -204,6 +204,12 @@ final class FakeBonjourPublisher: BonjourPublisher, @unchecked Sendable {
     private let gate = AsyncStream<Void>.makeStream()
     private let gateArmed = Mutex(false)
 
+    /// No test here drives ``BonjourAdvertiser`` through a publish error -- that's
+    /// `LocalNetworkPermissionViewModelTests` (TandemAppTests), which feeds a plain
+    /// `AsyncStream<BonjourPublishError>` directly rather than through this fake. Just an
+    /// already-finished, empty stream to satisfy ``BonjourPublisher`` conformance.
+    let errors = AsyncStream<BonjourPublishError>.makeStream().stream
+
     func armGate() {
         gateArmed.withLock { $0 = true }
     }
