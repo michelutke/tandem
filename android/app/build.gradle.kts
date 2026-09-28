@@ -80,7 +80,14 @@ dependencies {
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
 
+    // E23-06: RingController's unit tests drive a FakeTandemSession (E12-11) and FakeElapsedRealtime
+    // (E00-18), matching how core/pairing tests a TandemSession-taking handler.
+    testImplementation(testFixtures(project(":core:transport")))
+    testImplementation(project(":core:testing"))
+
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+    // E23-06: RingStopActionReceiverInstrumentedTest drives RingController with a FakeTandemSession.
+    androidTestImplementation(testFixtures(project(":core:transport")))
 }

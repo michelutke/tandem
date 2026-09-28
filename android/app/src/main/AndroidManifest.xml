@@ -67,6 +67,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- E23-06: receives the ring notification's "Stop" action tap. Not exported: reached
+             only via the explicit-component PendingIntent RingNotification builds for its own
+             "Stop" action, never a manifest intent-filter. -->
+        <receiver
+            android:name=".ring.RingStopActionReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
