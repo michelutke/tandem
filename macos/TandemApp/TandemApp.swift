@@ -28,6 +28,8 @@ struct ErrorPresenter: Sendable {
             return "error.malformedFrame"
         case "creditViolation":
             return "error.creditViolation"
+        case "pinMismatch":
+            return "error.pinMismatch"
         default:
             return "error.unknown"
         }
@@ -46,6 +48,8 @@ struct ErrorPresenter: Sendable {
             return "Corrupted data received."
         case "creditViolation":
             return "Data flow error."
+        case "pinMismatch":
+            return "Untrusted device refused."
         default:
             return "Error."
         }
@@ -168,6 +172,11 @@ struct MenuContentView: View {
         mirror: {}
     )
 
+    /// Same wiring gap as ``menuBarViewModel``/``quickActionsViewModel`` above: no paired-session
+    /// stream exists yet (E22-02), so this never observes a real fail-closed event until a future
+    /// issue composes real session wiring into ``AppComposition``.
+    @State private var errorBannerViewModel = ErrorBannerViewModel(stateStream: nil, peerName: nil)
+
     var body: some View {
         #if DEBUG
         if let scenario = UITestScenario.fromLaunchArguments() {
@@ -192,6 +201,7 @@ struct MenuContentView: View {
                 .accessibilityLabel("Listener Unavailable")
         } else {
             VStack(alignment: .leading, spacing: 8) {
+                ErrorBannerView(viewModel: errorBannerViewModel)
                 MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
                 QuickActionsView(viewModel: quickActionsViewModel)
             }
@@ -214,6 +224,7 @@ private struct ScenarioView: View {
     @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
     @State private var pairedDisconnectedQuickActionsViewModel =
         ScenarioView.makeQuickActionsViewModel(isConnected: false)
+    @State private var failClosedErrorBannerViewModel = ScenarioView.makeFailClosedErrorBannerViewModel()
 
     var body: some View {
         switch scenario {
@@ -234,9 +245,12 @@ private struct ScenarioView: View {
             }
         case .failClosedError:
             let presenter = ErrorPresenter(reasonName: "versionMismatch")
-            Text(presenter.localizedTitle)
-                .accessibilityIdentifier("failClosedErrorLabel")
-                .accessibilityLabel(presenter.localizedTitle)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(presenter.localizedTitle)
+                    .accessibilityIdentifier("failClosedErrorLabel")
+                    .accessibilityLabel(presenter.localizedTitle)
+                ErrorBannerView(viewModel: failClosedErrorBannerViewModel)
+            }
         }
     }
 
@@ -280,6 +294,17 @@ private struct ScenarioView: View {
         let session = FakeTandemSession()
         let viewModel = MenuBarViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
         Task { await session.emit(.disconnected(reason: "peer disconnected")) }
+        return viewModel
+    }
+
+    /// Seeds a fresh ``FakeTandemSession`` (E12-12) that emits `.failed(.versionMismatch)`, so the
+    /// scenario window's ``ErrorBannerView`` renders the exact E22-07 version-mismatch banner text
+    /// alongside the existing E12-10 status-line text above -- both driven by the same close code,
+    /// on separate view models, matching how they'll compose once real session wiring lands.
+    private static func makeFailClosedErrorBannerViewModel() -> ErrorBannerViewModel {
+        let session = FakeTandemSession()
+        let viewModel = ErrorBannerViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
+        Task { await session.emit(.failed(.versionMismatch)) }
         return viewModel
     }
 
