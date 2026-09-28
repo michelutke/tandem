@@ -51,7 +51,16 @@ class RingStopActionReceiverInstrumentedTest {
 
         ringController.ring()
         RingNotification.show(context)
-        assertTrue("alarm stream should be active once ringing", waitUntil(TIMEOUT_MILLIS) { isAlarmStreamActive() })
+        // Setup wait, not the timed acceptance criterion below -- a shared CI runner's audio HAL
+        // can be slow to register a fresh AudioTrack's playback configuration under load (observed
+        // for real: a ToneGenerator fallback -- no alarm sound file installed on that managed-
+        // device image -- took longer than 1s to first appear in activePlaybackConfigurations, with
+        // no assertion failure once given headroom). Give this setup wait CI-only headroom; the
+        // Stop-response bound below is the actual "...Within1s" acceptance criterion and stays 1s.
+        assertTrue(
+            "alarm stream should be active once ringing",
+            waitUntil(RING_START_TIMEOUT_MILLIS) { isAlarmStreamActive() },
+        )
 
         receiver.onReceive(context, Intent(RingStopActionReceiver.ACTION_STOP))
 
@@ -78,6 +87,7 @@ class RingStopActionReceiverInstrumentedTest {
 
     private companion object {
         const val TIMEOUT_MILLIS = 1_000L
+        const val RING_START_TIMEOUT_MILLIS = 5_000L
         const val POLL_INTERVAL_MILLIS = 50L
         const val NANOS_PER_MILLI = 1_000_000L
     }
