@@ -54,7 +54,10 @@ object NotificationMapper {
 
     // Reconstructed from the built Notification's own extras (this listener never holds the
     // MessagingStyle instance another app's process built), message order preserved.
+    // Message.getMessagesFromBundleArray is API 30+; minSdk is 29, so API 29 devices get no
+    // sender names rather than a crash.
     private fun messagingStyleSenderNames(notification: Notification): List<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
         val messages = messagesExtra(notification) ?: return emptyList()
         return Notification.MessagingStyle.Message
             .getMessagesFromBundleArray(messages)
