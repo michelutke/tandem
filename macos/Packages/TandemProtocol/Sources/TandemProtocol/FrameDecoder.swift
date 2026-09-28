@@ -32,6 +32,19 @@ public enum CloseCode: Sendable, Equatable {
     /// channel above the channel's cap. Detected by ``ChannelMultiplexer`` (E11-08), never by
     /// ``FrameDecoder`` itself -- framing decode has no notion of per-channel credit.
     case creditViolation
+    /// SPEC.md #errors-and-close-codes row 2, `PIN_MISMATCH`: the TLS verify callback (§1,
+    /// E01-01) computes a peer SPKI fingerprint that does not match the trust store, outside an
+    /// open pairing window (`PeerAuthorizer/decide(spki:trustStore:window:)`'s `.rejected`
+    /// outcome, E12-02). SPEC.md's row 2 text covers both a previously-unknown peer and one whose
+    /// key changed from a still-pinned entry ("this device's identity changed / is not trusted");
+    /// which of those two applies is presentation-layer context (whether the peer's name is
+    /// already known), never a second close code (E01-05: "no other part of ... the codebase may
+    /// introduce a new close code outside this table"). SPEC.md's "Pre-authentication closes are
+    /// not surfaced per connection" also applies to this row: an unrecognized-key connection that
+    /// never passed the pin check (no open pairing window) MUST NOT pop a per-attempt UI
+    /// notification, only an aggregate counter -- not yet wired to any production caller as of
+    /// this issue (E22-07 delivers the presentation-layer `ErrorBannerViewModel` only).
+    case pinMismatch
     /// The `VersionHello` protocol major version fields exchanged per §6 differ (SPEC.md row 1,
     /// E01-06). Detected by ``VersionHandshake`` (E12-07), reported to ``ConnectionStateMachine``
     /// (E12-09) as the reason a hello-stage handshake failed.
