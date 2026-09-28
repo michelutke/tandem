@@ -40,6 +40,7 @@
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
 		A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */; };
 		A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86769ADA9F9034205A270081 /* URLOpener.swift */; };
+		AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */; };
 		BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 19FA760857066CAA11B0A7B3 /* TandemPairing */; };
 		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
 		BE4ACE39CAE53BBE32C1A3A6 /* LocalNetworkPermissionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3932FFD187ADE277BE636353 /* LocalNetworkPermissionViewModel.swift */; };
@@ -121,6 +122,7 @@
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
+		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
 		7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModel.swift; sourceTree = "<group>"; };
 		86769ADA9F9034205A270081 /* URLOpener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLOpener.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
@@ -258,6 +260,7 @@
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
+				77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
 				3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */,
@@ -483,6 +486,7 @@
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
+				AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */,
 				4CF15945A231CDA685E26206 /* LaunchAtLoginViewModel.swift in Sources */,
