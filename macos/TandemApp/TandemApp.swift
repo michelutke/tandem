@@ -1,5 +1,6 @@
 import SwiftUI
 import TandemCrypto
+import TandemDevices
 import TandemTransport
 
 #if DEBUG
@@ -99,7 +100,7 @@ struct TandemMenuBarApp: App {
     /// Keeps ``AppComposition/startListener()``'s lifecycle controllers alive for the process
     /// lifetime, once started -- `init()` only ever calls `startListener()` once per process (the
     /// guard above), so a second `App.init()` can't leak a second listener.
-    nonisolated(unsafe) private static var retainedProductionLifecycle: AppComposition.RetainedLifecycle?
+    nonisolated(unsafe) static private(set) var retainedProductionLifecycle: AppComposition.RetainedLifecycle?
 
     /// Set instead of `retainedProductionLifecycle` if `startListener()` didn't start anything --
     /// surfaced by `MenuContentView` as a visible "Listener Unavailable" state (invariant 5),
@@ -111,6 +112,10 @@ struct TandemMenuBarApp: App {
             MenuContentView()
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            SettingsView(pairedDevicesViewModel: Self.settingsPairedDevicesViewModel)
+        }
     }
 }
 
@@ -216,6 +221,7 @@ struct MenuContentView: View {
                 ErrorBannerView(viewModel: errorBannerViewModel)
                 MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
                 QuickActionsView(viewModel: quickActionsViewModel, findPhoneViewModel: findPhoneViewModel)
+                SettingsMenuButton()
             }
         }
     }
@@ -264,7 +270,13 @@ private struct ScenarioView: View {
     var body: some View {
         switch scenario {
         case .notPaired:
-            MenuBarContentView(viewModel: MenuBarViewModel(stateStream: nil, peerName: nil), deviceStatusViewModel: nil)
+            VStack(alignment: .leading, spacing: 8) {
+                MenuBarContentView(
+                    viewModel: MenuBarViewModel(stateStream: nil, peerName: nil),
+                    deviceStatusViewModel: nil
+                )
+                SettingsMenuButton()
+            }
         case .pairedConnected:
             VStack(alignment: .leading, spacing: 8) {
                 MenuBarContentView(
