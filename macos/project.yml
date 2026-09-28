@@ -102,6 +102,12 @@ targets:
       # `unit:` test in this repo imports via `TandemTestSupport` -- never copied or reimplemented.
       - path: Packages/TandemTestSupport/Sources/TandemTestSupport/ManualTestClock.swift
         group: TandemAppTests
+      # E22-08: same `package: TandemTestSupport` linking-bug workaround as ManualTestClock above --
+      # FakeSystemPowerEvents/FakeNetworkPathSource (E20-10/E20-11's own seams, shared with
+      # SleepWakeControllerTests/PathChangeControllerTests via TandemTestSupport) compiled directly
+      # from their canonical TandemTestSupport source file rather than via the package dependency.
+      - path: Packages/TandemTestSupport/Sources/TandemTestSupport/SystemPowerEventsAndNetworkPathFakes.swift
+        group: TandemAppTests
     settings:
       base:
         SWIFT_VERSION: "6.0"

@@ -1,13 +1,16 @@
 import Foundation
 import Observation
 import TandemProtocol
+import TandemTransport
 
 /// The menu bar's own presentation state (E22-01, PRD F-4.2, UC-01/UC-05): six states, each with
 /// a distinct icon and exact label, mapping the paired session's ``ConnectionStateMachine``
 /// (E12-09) transitions plus whether a peer is paired at all. Battery is a placeholder until E23
-/// wires real telemetry; ``State/reconnecting`` is not reachable from any
-/// ``ConnectionStateMachine/ConnectionState`` transition in this issue -- E22-08 drives it from
-/// sleep/wake and network-restart events instead.
+/// wires real telemetry; ``State/reconnecting`` is never reached from a
+/// ``ConnectionStateMachine/ConnectionState`` transition -- E22-08 drives it instead from the same
+/// ``SystemPowerEvents`` (E20-10) sleep/wake stream and ``NetworkPathSource`` (E20-11)
+/// network-restart stream ``SleepWakeController``/``PathChangeController`` observe to rebind the
+/// listener, so the label never freezes on the last known state across either window.
 ///
 /// Presentation-independent -- no `SwiftUI` import -- unit-tested against the E12-12
 /// `FakeTandemSession`'s own ``TandemSession/state`` stream (`@testable import TandemProtocol`,
@@ -32,9 +35,10 @@ final class MenuBarViewModel {
 
     private(set) var state: State
 
-    /// Threaded through now (E00-24 seam rule) so a later issue (E22-08: sleep/wake- and
-    /// network-restart-driven "Reconnecting…" transitions, proved with `ManualTestClock`) doesn't
-    /// need to change this initializer's shape. Not read yet -- this issue never times anything.
+    /// Threaded through now (E00-24 seam rule); not read directly by this view model -- E22-08's
+    /// own "within 1 s" acceptance is proved the same way every other issue's own "publishes within
+    /// 1 s" case already is, a yield-bounded loop rather than a wall-clock deadline, so callers only
+    /// need this parameter to plug in a ``ManualTestClock`` for their own tests.
     private let clock: any Clock<Duration>
 
     /// `@ObservationIgnored` (not part of this view model's presented state) and
@@ -43,28 +47,56 @@ final class MenuBarViewModel {
     @ObservationIgnored
     private nonisolated(unsafe) var observationTask: Task<Void, Never>?
 
+    /// E22-08: mirrors ``SleepWakeController``'s own `observationTask`/`isSleeping` pair -- a
+    /// `didWake` with no prior `willSleep` is ignored, same guard, so this never overrides ``state``
+    /// on a stray event.
+    @ObservationIgnored
+    private nonisolated(unsafe) var powerObservationTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var isSleeping = false
+
+    /// E22-08: mirrors ``PathChangeController``'s own `observationTask`/`lastInterfaces` pair -- the
+    /// very first snapshot only seeds the baseline (never flips ``state``), same as that controller
+    /// never rebinding on the first snapshot it sees.
+    @ObservationIgnored
+    private nonisolated(unsafe) var pathObservationTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var lastInterfaces: Set<String>?
+
     /// - Parameters:
     ///   - stateStream: The paired session's own connection-state stream
     ///     (``TandemSession/state``), or `nil` if no peer is paired yet (UC-01) -- must be
     ///     non-nil exactly when `peerName` is non-nil.
     ///   - peerName: The paired peer's display name, or `nil` if none is paired.
+    ///   - powerEvents: The Mac's own sleep/wake stream (E20-10), or `nil` to observe none -- only
+    ///     ever observed when a session is paired; there is nothing to reconnect otherwise.
+    ///   - pathSource: The Mac's own network-interface-change stream (E20-11), or `nil` to observe
+    ///     none -- same pairing gate as `powerEvents`.
     init(
         stateStream: AsyncStream<ConnectionStateMachine.ConnectionState>?,
         peerName: String?,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        powerEvents: (any SystemPowerEvents)? = nil,
+        pathSource: (any NetworkPathSource)? = nil
     ) {
         self.clock = clock
         if let stateStream, let peerName {
             state = .connecting
             observe(stateStream, peerName: peerName)
+            if let powerEvents {
+                observePower(powerEvents)
+            }
+            if let pathSource {
+                observePath(pathSource)
+            }
         } else {
             state = .notPaired
         }
     }
 
     /// Test/preview-only constructor: sets ``state`` directly without observing any stream, so
-    /// every ``State`` case -- including ``State/reconnecting``, unreachable from this issue's own
-    /// mapping -- can be exercised for its icon/label.
+    /// every ``State`` case -- including ``State/reconnecting`` -- can be exercised for its
+    /// icon/label without a sleep/wake or network-path event.
     init(state: State, clock: any Clock<Duration> = ContinuousClock()) {
         self.clock = clock
         self.state = state
@@ -72,6 +104,8 @@ final class MenuBarViewModel {
 
     deinit {
         observationTask?.cancel()
+        powerObservationTask?.cancel()
+        pathObservationTask?.cancel()
     }
 
     /// The SF Symbol name for ``state``'s menu bar icon -- distinct per state (acceptance: "Each
@@ -117,6 +151,58 @@ final class MenuBarViewModel {
 
     private func apply(_ connectionState: ConnectionStateMachine.ConnectionState, peerName: String) {
         state = Self.map(connectionState, peerName: peerName)
+    }
+
+    /// E22-08: mirrors ``SleepWakeController/start()``'s own observation loop over the same
+    /// ``SystemPowerEvents`` stream.
+    private func observePower(_ powerEvents: any SystemPowerEvents) {
+        powerObservationTask?.cancel()
+        let events = powerEvents.events
+        powerObservationTask = Task { [weak self] in
+            for await event in events {
+                guard !Task.isCancelled else { return }
+                self?.applyPower(event)
+            }
+        }
+    }
+
+    /// Mirrors ``SleepWakeController/handle(_:)``'s own `isSleeping` guard: a `didWake` with no
+    /// prior `willSleep` is ignored, so this never overrides ``state`` on a stray event. Unlike
+    /// that controller, `willSleep` itself never changes ``state`` -- only `didWake` does, dropping
+    /// it into ``State/reconnecting`` until the session's own state stream reaches `.ready` again
+    /// (this issue's acceptance).
+    private func applyPower(_ event: SystemPowerEvent) {
+        switch event {
+        case .willSleep:
+            guard !isSleeping else { return }
+            isSleeping = true
+        case .didWake:
+            guard isSleeping else { return }
+            isSleeping = false
+            state = .reconnecting
+        }
+    }
+
+    /// E22-08: mirrors ``PathChangeController/start()``'s own observation loop over the same
+    /// ``NetworkPathSource`` stream.
+    private func observePath(_ pathSource: any NetworkPathSource) {
+        pathObservationTask?.cancel()
+        let paths = pathSource.paths
+        pathObservationTask = Task { [weak self] in
+            for await snapshot in paths {
+                guard !Task.isCancelled else { return }
+                self?.applyPath(snapshot)
+            }
+        }
+    }
+
+    /// Mirrors ``PathChangeController/handle(_:)``'s own `lastInterfaces` comparison: the very
+    /// first snapshot only seeds the baseline, and an unchanged interface set never re-flips
+    /// ``state``.
+    private func applyPath(_ snapshot: NetworkPathSnapshot) {
+        defer { lastInterfaces = snapshot.interfaces }
+        guard let lastInterfaces, lastInterfaces != snapshot.interfaces else { return }
+        state = .reconnecting
     }
 
     /// The pure reducer from a connection's own state to this menu bar's presentation state.
