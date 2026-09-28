@@ -77,6 +77,8 @@ dependencies {
     implementation(project(":core:protocol"))
     implementation(project(":core:storage"))
     implementation(project(":core:transport"))
+    // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
+    implementation(project(":feature:pairing"))
 
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
