@@ -63,8 +63,18 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     var phase: Phase = .closed(nil, attemptsRemaining: 0)
     /// Token ``settleLocked()`` most recently, lazily burned via its own 10s deadline check -- set
     /// there, consumed by ``requestDeadlineElapsed(_:)`` (any locked call, not just the watcher's,
-    /// can be first to observe the deadline has passed).
-    private var deadlineBurnedToken: PairingCandidateToken?
+    /// can be first to observe the deadline has passed). `internal` (not `private`), like `lock`
+    /// and `phase`, only because ``requestDeadlineElapsed(_:)`` itself lives in `PairingWindowTypes.swift`
+    /// to keep this file within the lint file-length bound.
+    var deadlineBurnedToken: PairingCandidateToken?
+    /// The token that paired into the window's current `.closed(.paired, _)` phase, if any -- set
+    /// by ``ownerAccepted(_:)``, cleared by ``open(secret:)`` (E14-25). `Phase.closed(.paired, _)`
+    /// itself carries no token, so without this a stale candidate's own deadline watcher can no
+    /// longer tell "this window is `.paired` because *I* paired" (must stay open) apart from
+    /// "this window is `.paired` because some *other*, later candidate paired after my slot was
+    /// dropped by a regenerate" (must still close) -- `internal`, same reasoning as
+    /// `deadlineBurnedToken`.
+    var pairedToken: PairingCandidateToken?
 
     public init(
         dateProvider: @escaping DateProvider,
@@ -96,6 +106,7 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
             previous.secretBox.zero()
         }
         deadlineBurnedToken = nil
+        pairedToken = nil
         let expiresAt = dateProvider().addingTimeInterval(expiry)
         phase = .open(
             OpenState(
@@ -157,33 +168,8 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         burnAttempt(&state)
     }
 
-    /// Called only by the active 10 s `PairRequest` deadline watcher (E14-16 finding #5,
-    /// `docs/protocol/SPEC.md` §10 "`PairRequest` deadline"): frees the slot and burns one attempt
-    /// for `token`'s candidate, a no-op if a `PairRequest` already moved it past
-    /// ``CandidateState/awaitingRequest`` or the slot was freed some other way first. Returns
-    /// whether it did, so the caller knows whether to close the connection (local reason `TIMEOUT`,
-    /// no `PairRejected` sent, `docs/planning/decisions.md` D-72).
-    @discardableResult
-    public func requestDeadlineElapsed(_ token: PairingCandidateToken) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-
-        // Checked before settleLocked(): watcher is first to check in, token still awaitingRequest.
-        if case .open(var state) = phase, case .awaitingRequest = state.candidate, state.candidate.token == token {
-            state.candidate = .unclaimed
-            burnAttempt(&state)
-            return true
-        }
-
-        // Otherwise some other locked call ran settleLocked() first and burned this token as a
-        // side effect -- deadlineBurnedToken lets this still report true, not "already handled".
-        settleLocked()
-        if deadlineBurnedToken == token {
-            deadlineBurnedToken = nil
-            return true
-        }
-        return false
-    }
+    // ``requestDeadlineElapsed(_:)`` (E14-16 finding #5 / E14-25) lives in `PairingWindowTypes.swift`
+    // to keep this file within the lint file-length bound.
 
     // MARK: - Candidate lifecycle
 
@@ -264,6 +250,7 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         }
         let attemptsRemaining = state.attemptsRemaining
         state.secretBox.zero()
+        pairedToken = token
         phase = .closed(.paired, attemptsRemaining: attemptsRemaining)
         return true
     }
@@ -378,8 +365,9 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
 
     /// Decrements `state.attemptsRemaining` by exactly one, closing the window as
     /// ``attemptsExhausted`` if that reaches zero, else writing `state` back as still open. Assumes
-    /// `lock` is held and `state.candidate` has already been freed by the caller.
-    private func burnAttempt(_ state: inout OpenState) {
+    /// `lock` is held and `state.candidate` has already been freed by the caller. `internal` (not
+    /// `private`) so ``requestDeadlineElapsed(_:)`` in `PairingWindowTypes.swift` can call it too.
+    func burnAttempt(_ state: inout OpenState) {
         state.attemptsRemaining -= 1
         if state.attemptsRemaining <= 0 {
             state.secretBox.zero()

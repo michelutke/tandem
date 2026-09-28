@@ -191,7 +191,10 @@ struct MenuContentView: View {
 
     /// Same wiring gap as ``menuBarViewModel``/``quickActionsViewModel`` above: no paired-session
     /// stream exists yet (E22-02), so this never observes a real fail-closed event until a future
-    /// issue composes real session wiring into ``AppComposition``.
+    /// issue composes real session wiring into ``AppComposition``. `pinMismatch` specifically can
+    /// never be wired here from the Mac listener's own rejections either (E22-10,
+    /// `docs/planning/decisions.md` D-59/D-76): a `.rejected` verify-callback outcome is always
+    /// pre-pin-check, so SPEC.md forbids surfacing it as a per-connection banner at all.
     @State private var errorBannerViewModel = ErrorBannerViewModel(stateStream: nil, peerName: nil)
 
     var body: some View {
