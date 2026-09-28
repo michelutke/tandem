@@ -5,11 +5,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 
 /**
  * Reconnect address-selection state machine (E20-06; SPEC.md F-3.4, UC-04). Callers start this
@@ -57,10 +59,26 @@ class ReconnectStrategy(
 
     private var failedCycles = 0
 
+    // Conflated: only "has a kick arrived since the loop last checked" matters, not how many.
+    private val kickChannel = Channel<Unit>(Channel.CONFLATED)
+
     /** Starts the reconnect loop. Idempotent: cancels and replaces any loop already running. */
     fun start() {
         job?.cancel()
+        kickChannel.tryReceive() // drop a stale kick left over from a previous run
         job = scope.launch { loop() }
+    }
+
+    /**
+     * External trigger (E20-07, e.g. [NetworkReconnectTrigger]): cancels any pending backoff wait
+     * and resets backoff to zero, so the loop's next attempt starts immediately instead of
+     * waiting out the rest of the current delay. A no-op if the loop isn't currently suspended
+     * waiting on this signal -- in particular, once [loop] has already returned from a successful
+     * connect, nothing is listening, so a kick after that point has no effect.
+     */
+    fun kick() {
+        failedCycles = 0
+        kickChannel.trySend(Unit)
     }
 
     /**
@@ -92,8 +110,18 @@ class ReconnectStrategy(
                     }
                 }
             }
-            delay(ReconnectBackoff.delayFor(failedCycles))
-            failedCycles++
+            // A child job for the wait itself (rather than `select`'s own `onTimeout`, whose
+            // Long-milliseconds overload is hard-deprecated in this project's kotlinx.coroutines
+            // version and whose Duration overload doesn't resolve cleanly here) so a kick can
+            // simply cancel it and race the two via `onJoin`/`onReceive`.
+            val wait = scope.launch { delay(ReconnectBackoff.delayFor(failedCycles)) }
+            val kicked =
+                select {
+                    wait.onJoin { false }
+                    kickChannel.onReceive { true }
+                }
+            wait.cancel()
+            if (!kicked) failedCycles++
         }
     }
 

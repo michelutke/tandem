@@ -1,6 +1,7 @@
 plugins {
     id("tandem.android.library")
     id("tandem.android.hilt")
+    id("tandem.android.robolectric")
 }
 
 android {
@@ -11,6 +12,12 @@ android {
     testFixtures {
         enable = true
     }
+
+    // ConnectivityManagerNetworkMonitorTest (E20-07) needs a merged manifest for Robolectric to
+    // resolve targetSdkVersion from -- without this, Robolectric silently falls back to the real
+    // (unmocked) SDK stub jar instead of shadowing framework classes (same reasoning as
+    // tandem.android.compose-ui-test's identical setting).
+    testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 dependencies {
