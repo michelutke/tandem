@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.net.Uri
+import android.provider.Settings
 
 /**
  * Seam over `AudioManager`/`MediaPlayer` (E23-05, F-4.4, UC-06): starting a ring sets
@@ -40,12 +42,24 @@ class SystemAlarmPlayer(
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build(),
                 )
-                setDataSource(context, RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM))
+                setDataSource(context, alarmSoundUri())
                 isLooping = true
                 prepare()
                 start()
             }
     }
+
+    /**
+     * The device's default alarm sound, falling back to the system-settings alarm-alert URI when
+     * no default is configured -- [RingtoneManager.getActualDefaultRingtoneUri] returns `null` on
+     * a fresh device/managed-device image with no alarm sound set (confirmed via a real CI
+     * instrumented-test crash: `MediaPlayer.setDataSource` throws `NullPointerException("uri
+     * param can not be null")` when passed the unguarded null), not only in some theoretical edge
+     * case.
+     */
+    private fun alarmSoundUri(): Uri =
+        RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
+            ?: Settings.System.DEFAULT_ALARM_ALERT_URI
 
     override fun stop() {
         mediaPlayer?.apply {
