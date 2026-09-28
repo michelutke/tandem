@@ -7,6 +7,9 @@ let package = Package(
     products: [
         .library(name: "FeatureClipboard", targets: ["FeatureClipboard"])
     ],
+    dependencies: [
+        .package(path: "../TandemTestSupport")
+    ],
     targets: [
         .target(
             name: "FeatureClipboard",
@@ -14,7 +17,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureClipboardTests",
-            dependencies: ["FeatureClipboard"],
+            dependencies: ["FeatureClipboard", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

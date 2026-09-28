@@ -1,0 +1,40 @@
+name: jvm-harness
+
+# E15-15: JVM client (android/harness/jvm-client, E15-21) against the real Mac server app
+# (mac-driver.sh, E15-22) -- no physical device or emulator, no Android SDK components beyond
+# the compileSdk platform the app modules already need to build. Kept as its own workflow file
+# (not a job inside macos.yml) so its android/**-inclusive path filter doesn't also pull the
+# unrelated macos.yml `build` job onto every Android-only PR.
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", "macos/**", "protocol/**", "tools/harness/**", ".github/workflows/jvm-harness.yml"]
+  pull_request:
+    paths: ["android/**", "macos/**", "protocol/**", "tools/harness/**", ".github/workflows/jvm-harness.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  jvm-harness:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      # E00-29 (Android side): fails if any gradle-wrapper.jar in the repo isn't one of Gradle's
+      # known-good binaries -- same check android.yml runs before trusting the wrapper.
+      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: corretto
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Install Android SDK platform
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: JVM harness (E15-15)
+        # Acceptance #4: no physical device/emulator, and a hard wall-clock budget -- `alarm`+`exec`
+        # (not GNU coreutils `timeout`, which macOS runners don't ship) kills the whole harness
+        # script, and everything it launched, if it runs past 15 minutes, failing this step rather
+        # than hanging or soft-failing.
+        run: time perl -e 'alarm shift; exec @ARGV' 900 tools/harness/integration/e15-15.sh
