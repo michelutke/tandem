@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_replayedPairRequestAfterCompletion_noPairAccepted
+# mitm-scenario-role: client
+# mitm-scenario-expect: noPairAccepted
+# mitm-scenario-timeout: 240
+#
+# E15-09 (1/9): replay a previously valid `PairRequest` after the original pairing completed.
+#
+# A real pairing is completed first (RAWOPEN + RAWSEND with the real secret -- the Mac auto-
+# confirms Pair the instant the proof verifies, `-HarnessAutoConfirmPairing YES`), committing
+# exactly one Mac-side trust record for this phone's identity. The Mac is then restarted (same
+# on-disk keychain, so the trust record survives, and no new pairing window is opened -- its
+# single-use window already closed on success, SPEC.md #pairing "Pairing window"). The same phone
+# identity reconnects: since its key is now trusted, the Mac classifies this connection `.trusted`,
+# never `.pairingCandidate` (SPEC.md #pairing "Frame order": a `PairChallenge` is only ever sent to
+# a pairing-candidate connection), so no fresh challenge is ever offered. This scenario nonetheless
+# injects the exact proof bytes captured from the original, valid `PairRequest` as a raw `PairRequest`
+# frame on this new, already-trusted connection -- a `PairRequest` is not a legal message on an
+# ordinary trusted session at all (SPEC.md #pairing "Frame order", step 5), so it must never be
+# accepted, and the Mac's trust-store record count must stay unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+
+e15_09_start_client
+open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+if [ "$open_response" != "${open_response#OK OPENED}" ]; then
+  e15_09_log "OK: first RAWOPEN reached a pairing candidate ($open_response)"
+else
+  e15_09_log "FAIL: first RAWOPEN did not open a pairing candidate: $open_response"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_rawsend "$SECRET_B64URL"
+  if [ "$LAST_PAIR_EVENT" != "EVENT PAIR_ACCEPTED" ]; then
+    e15_09_log "FAIL: the original, legitimate pairing did not reach PAIR_ACCEPTED: $LAST_PAIR_EVENT"
+    FAILED=1
+  else
+    e15_09_log "OK: original pairing completed (proof ${LAST_SENT_PROOF_HEX})"
+  fi
+fi
+ORIGINAL_PROOF_HEX="$LAST_SENT_PROOF_HEX"
+
+e15_09_send "RAWCLOSE"
+e15_09_read 5 >/dev/null || true
+
+BEFORE_COUNT="$(e15_09_trust_record_count)"
+if [ "$FAILED" -eq 0 ] && [ "$BEFORE_COUNT" != "1" ]; then
+  e15_09_log "FAIL: expected exactly 1 trust record after the legitimate pairing, found $BEFORE_COUNT"
+  FAILED=1
+fi
+
+e15_09_stop_client
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_relaunch_plain
+
+  e15_09_start_client
+  reopen_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  e15_09_log "reconnect (already-trusted identity) RAWOPEN: $reopen_response"
+
+  case "$reopen_response" in
+    "OK OPENED"*)
+      e15_09_rawsendproof "$ORIGINAL_PROOF_HEX"
+      e15_09_log "replayed-proof outcome: $LAST_PAIR_EVENT"
+      if [ "$LAST_PAIR_EVENT" = "EVENT PAIR_ACCEPTED" ]; then
+        e15_09_log "FAIL: the replayed PairRequest was accepted a second time"
+        FAILED=1
+      fi
+      ;;
+    *)
+      e15_09_log "FAIL: reconnect (already-trusted identity) never opened a raw session -- the replay was never even attempted: $reopen_response"
+      FAILED=1
+      ;;
+  esac
+
+  e15_09_stop_client
+
+  AFTER_COUNT="$(e15_09_trust_record_count)"
+  if [ "$AFTER_COUNT" != "$BEFORE_COUNT" ]; then
+    e15_09_log "FAIL: trust record count changed ($BEFORE_COUNT -> $AFTER_COUNT)"
+    FAILED=1
+  fi
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: noPairAccepted"
+else
+  echo "OUTCOME: FAILED"
+fi

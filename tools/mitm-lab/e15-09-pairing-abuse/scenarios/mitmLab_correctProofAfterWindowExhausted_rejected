@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_correctProofAfterWindowExhausted_rejected
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-09 (4/9): a correct proof after the window's 3-attempt budget is exhausted must still be
+# rejected -- confirming the window itself is closed (SPEC.md #pairing "Pairing window":
+# `attemptsExhausted` closes the window entirely, exactly like a success or expiry), not merely that
+# this particular candidate's proof happened to be wrong on the 3 attempts that burned it (E15-09
+# scenario `mitmLab_fourthAttemptAfterThreeFailures_rejected`).
+#
+# Exactly like that scenario, 3 attempts are burned (client 1) with a deliberately wrong proof each.
+# The 4th connection attempt is then made from a completely FRESH, never-seen-before identity
+# (client 2, mirroring `mitmLab_secondConcurrentPairingCandidate_rejectedInHandshake`'s own
+# `e15_09_start_client2` pattern) using the real, correct pairing secret (`RAWSEND` with
+# `$SECRET_B64URL`, the same secret this scenario's own Mac QR code carries) rather than garbage --
+# but it is rejected at the TLS verify callback itself, before this connection is ever admitted as a
+# pairing candidate and therefore before it ever receives a `PairChallenge` to compute a proof
+# against at all. Using a fresh identity here (rather than client 1's, already-exhausted key) is what
+# proves this is a per-WINDOW limit rather than a per-KEY limit: a completely different key is also
+# rejected while the window is exhausted, not merely the one key already burned by 3 failures. The
+# correct secret is provably irrelevant here: `RAWSEND` itself refuses to run with no captured
+# challenge, which is the concrete, observable proof that proof evaluation was never reached, exactly
+# as SPEC.md describes ("it never reaches proof evaluation").
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+e15_09_start_client
+
+for attempt in 1 2 3; do
+  open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  if [ "${open_response#OK OPENED}" = "$open_response" ]; then
+    e15_09_log "FAIL: attempt $attempt was not even admitted as a pairing candidate: $open_response"
+    FAILED=1
+    break
+  fi
+  garbage_proof_hex="$(openssl rand -hex 32)"
+  e15_09_rawsendproof "$garbage_proof_hex"
+  e15_09_log "attempt $attempt outcome: $LAST_PAIR_EVENT"
+  if [ "$LAST_PAIR_EVENT" = "EVENT PAIR_ACCEPTED" ]; then
+    e15_09_log "FAIL: attempt $attempt with a random proof was accepted"
+    FAILED=1
+    break
+  fi
+done
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_start_client2
+  e15_09_send2 "RAWOPEN 127.0.0.1 $MAC_PORT $MAC_FP_B64"
+  fourth_response="$(e15_09_read2 "$E15_09_STARTUP_TIMEOUT_SECONDS")" || fourth_response="<no response>"
+  e15_09_log "4th attempt RAWOPEN, fresh identity (about to try the *correct* secret): $fourth_response"
+  case "$fourth_response" in
+    "ERROR HANDSHAKE_REJECTED"*)
+      e15_09_log "OK: 4th candidate connection (fresh identity) rejected in the verify callback"
+      e15_09_assert_mac_alive || FAILED=1
+      # Prove the correct proof is provably irrelevant: RAWSEND has no challenge to compute
+      # against, because this connection never reached PairChallenge.
+      e15_09_send2 "RAWSEND $SECRET_B64URL"
+      rawsend_response="$(e15_09_read2 5)" || rawsend_response="<no response>"
+      case "$rawsend_response" in
+        "ERROR usage: RAWSEND"*)
+          e15_09_log "OK: even the correct secret cannot be evaluated -- no challenge was ever captured ($rawsend_response)"
+          ;;
+        *)
+          e15_09_log "FAIL: expected RAWSEND to refuse for lack of a captured challenge, got: $rawsend_response"
+          FAILED=1
+          ;;
+      esac
+      ;;
+    *)
+      e15_09_log "FAIL: expected the 4th attempt (fresh identity) to be rejected at the handshake, got: $fourth_response"
+      FAILED=1
+      ;;
+  esac
+  e15_09_stop_client2
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_09_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

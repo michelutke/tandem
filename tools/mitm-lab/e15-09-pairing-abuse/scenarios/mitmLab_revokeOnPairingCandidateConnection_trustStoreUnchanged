@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_revokeOnPairingCandidateConnection_trustStoreUnchanged
+# mitm-scenario-role: client
+# mitm-scenario-expect: noPairAccepted
+# mitm-scenario-timeout: 240
+#
+# E15-09 (6/9): `Revoke` sent on a pairing-candidate connection before `PairAccepted`.
+#
+# `Revoke` is not part of the pairing-candidate frame order at all (SPEC.md #pairing "Frame order on
+# a pairing-candidate connection", step 4: only `PairRequest` -- or a `Heartbeat` -- is legal after
+# `PairChallenge`); sending it instead of a `PairRequest` is "any other payload type", which the Mac
+# closes with `PAIRING_FAILED` (local reason `MALFORMED`), burning one attempt and leaving no trust
+# record behind -- there was never a `PairRequest`, let alone a `PairAccepted`, for the Mac to have
+# committed anything from.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+e15_09_start_client
+
+open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+case "$open_response" in
+  "OK OPENED "*) ;;
+  *)
+    e15_09_log "FAIL: not admitted as a pairing candidate: $open_response"
+    FAILED=1
+    ;;
+esac
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_rawrevoke
+  e15_09_log "Revoke-before-PairAccepted outcome: $LAST_PAIR_EVENT"
+  case "$LAST_PAIR_EVENT" in
+    "EVENT PAIR_ACCEPTED")
+      e15_09_log "FAIL: sending Revoke somehow produced a PairAccepted"
+      FAILED=1
+      ;;
+    "EVENT PAIR_REJECTED"*|"EVENT PAIR_CLOSED"|"EVENT PAIR_TIMEOUT")
+      e15_09_log "OK: connection ended without a PairAccepted"
+      ;;
+    *)
+      e15_09_log "FAIL: unexpected outcome: $LAST_PAIR_EVENT"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_09_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: noPairAccepted"
+else
+  echo "OUTCOME: FAILED"
+fi
