@@ -80,6 +80,9 @@ dependencies {
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
 
+    // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05); test-only.
+    testImplementation(testFixtures(project(":core:transport")))
+
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
