@@ -1103,6 +1103,33 @@ epics:
           - "unit: menuBarViewModel_willSleepThenDidWake_reconnectingThenConnected"
           - "unit: menuBarViewModel_pathInterfaceChanged_reconnectingWithin1s"
 
+      - id: E22-10
+        title: "[macos] Gate PIN_MISMATCH banner surfacing to post-pin closes only (D-59/AC-13)"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: []
+        use_cases: [AC-13]
+        invariants: [5]
+        depends_on: [E22-07]
+        description: |
+          Follow-up from E22-07's Fable verifier pass. `ErrorBannerViewModel` (E22-07) renders
+          whatever `CloseCode.pinMismatch` events it is given, but nothing wires a real rejected
+          TLS handshake into it yet. SPEC.md's "Pre-authentication closes are not surfaced per
+          connection" (D-59, AC-13) requires that a peer who never passed the pin check at all
+          (drive-by scanning noise) gets only an aggregate counter, never a per-attempt banner --
+          only a peer whose key CHANGED from an already-pinned entry should raise this banner.
+          Whoever wires `PeerVerifier`'s `.rejected` outcome into a stream this banner observes
+          must gate on "was this SPKI ever pinned before" before emitting `.failed(.pinMismatch)`
+          into that stream, not just any verify-callback rejection.
+        acceptance:
+          - A verify-callback rejection for an SPKI that was never in the trust store increments only an aggregate counter, no banner event is emitted
+          - A verify-callback rejection for an SPKI that changed from a still-pinned trust-store entry emits exactly one `.failed(.pinMismatch)` banner event
+        tdd:
+          - "unit: listener_prePinRejection_noBannerEventEmitted"
+          - "unit: listener_pinnedIdentityChanged_bannerEventEmittedOnce"
+
       - id: E22-09
         title: "[macos] Main window shell: glass sidebar, sections, offline/empty states"
         type: story
