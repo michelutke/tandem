@@ -51,6 +51,7 @@ include(
     ":feature:mirror",
     ":feature:notifications",
     ":feature:pairing",
+    ":feature:status",
     ":lint:detekt-rules",
     ":companion-app",
 )
