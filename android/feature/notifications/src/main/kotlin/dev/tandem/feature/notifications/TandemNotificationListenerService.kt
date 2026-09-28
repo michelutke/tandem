@@ -19,16 +19,34 @@ import android.service.notification.StatusBarNotification
  * E30-03: every posted notification passes [NotificationFilter] before it reaches
  * [NotificationMapper] -- a filtered notification is never mapped or forwarded. Dismissals are not
  * filtered (a filtered notification is never sent, so there is nothing on the Mac to withdraw).
+ *
+ * [notificationCanceller] is the same seam pattern, defaulting to the inherited
+ * `cancelNotification(String)`: E30-10's incoming-dismiss reader (`startNotificationDismissReader`)
+ * calls it for every macos-origin `NotificationDismiss` it sees off the NOTIFY channel, to cancel
+ * that notification locally. That reader is spawned by a composition root (out of this issue's
+ * scope, same as the macOS twin `startNotificationPresentationReader`), so nothing in this class
+ * dials out to a `TandemSession` itself.
+ *
+ * E30-10: calling `cancelNotification` re-enters this service's [onNotificationRemoved] with
+ * `reason == REASON_LISTENER_CANCEL`. That removal is this listener's own echo of a macos-origin
+ * dismiss it already applied, not a fresh user action, so it is never forwarded to [eventSink] --
+ * otherwise a Mac dismissal would bounce back to the Mac as a phone dismissal forever.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
+    internal var notificationCanceller: (String) -> Unit = ::cancelNotification
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!NotificationFilter.shouldForward(sbn, packageName)) return
         eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, appVersionCode(sbn.packageName)))
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+    override fun onNotificationRemoved(
+        sbn: StatusBarNotification,
+        rankingMap: RankingMap,
+        reason: Int,
+    ) {
+        if (reason == REASON_LISTENER_CANCEL) return
         eventSink.onNotificationDismissed(NotificationMapper.toDismiss(sbn))
     }
 
