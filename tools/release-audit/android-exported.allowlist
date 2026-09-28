@@ -20,9 +20,13 @@ dev.tandem.app.service.BootReceiver -
 # BIND_NOTIFICATION_LISTENER_SERVICE so no other app can.
 dev.tandem.feature.notifications.TandemNotificationListenerService android.permission.BIND_NOTIFICATION_LISTENER_SERVICE
 
+# Share-sheet target (ACTION_SEND) and PROCESS_TEXT entry point (E31-06, F-6.2/F-6.3); exported so
+# the system can resolve them from another app's share sheet / the text-selection menu, no
+# permission guard needed.
+dev.tandem.feature.clipboard.ShareTargetActivity -
+dev.tandem.feature.clipboard.ProcessTextActivity -
+
 # Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
 # components exist in the app module today):
-#   - the launcher activity                                                    -
-#   - the share-target activity (ACTION_SEND) and PROCESS_TEXT activity        -
 #   - the quick-settings TileService (E31-12)           android.permission.BIND_QUICK_SETTINGS_TILE
-#   - the AccessibilityService (E31-06, remote input)   android.permission.BIND_ACCESSIBILITY_SERVICE
+#   - the AccessibilityService (remote input)            android.permission.BIND_ACCESSIBILITY_SERVICE

@@ -77,10 +77,14 @@ dependencies {
     implementation(project(":core:protocol"))
     implementation(project(":core:storage"))
     implementation(project(":core:transport"))
+    // TandemActivity (E00-28), moved out of :app in E31-06 so feature modules can extend it too.
+    implementation(project(":core:ui"))
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
     // E30-02: TandemNotificationListenerService, declared below in this module's manifest.
     implementation(project(":feature:notifications"))
+    // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
+    implementation(project(":feature:clipboard"))
 
     // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
     // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a

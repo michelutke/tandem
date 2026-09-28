@@ -16,6 +16,7 @@ android/core/protocol
 android/core/storage
 android/core/testing
 android/core/transport
+android/core/ui
 android/feature
 android/feature/calls
 android/feature/clipboard
