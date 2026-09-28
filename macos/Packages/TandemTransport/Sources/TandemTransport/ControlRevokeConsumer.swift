@@ -16,6 +16,17 @@ import TandemStore
 /// this repo's `file_length`/`type_body_length` SwiftLint budgets) can build its own adapters
 /// without needing cross-file access to that type's own `private` stored properties -- every
 /// dependency it needs is passed in explicitly.
+///
+/// The returned ``Task`` is a thin proxy over an inner, never-cancelled `worker` task that does
+/// the actual reading and dispatching (E14-27 HIGH fix). `AsyncStream`'s `next()` can return `nil`
+/// once its consuming task is cancelled even when a value (here, a `Revoke` frame) was already
+/// buffered -- `RevokeHandler.handle`'s own `for await state in session.state.prefix(1)` has the
+/// identical hazard. Unlike ``HeartbeatController``'s observer loops (dropping one reset there is
+/// harmless: the next send/receive re-arms the same timer), losing a dequeued-but-uncommitted
+/// `Revoke` here would silently leave a revoked peer's trust record intact (AC-09/AC-12), so this
+/// consumer cannot tolerate that race at all. Cancelling the returned proxy (the caller's only
+/// handle) therefore never reaches `worker`, so a `Revoke` frame that has already arrived on the
+/// wire is always fully handled, no matter when or whether the caller cancels.
 func startControlRevokeReader(
     fingerprint: SpkiFingerprint,
     session: ByteStreamSession,
@@ -23,7 +34,7 @@ func startControlRevokeReader(
     trustStore: TrustStore?
 ) -> Task<Void, Never>? {
     guard let trustStore else { return nil }
-    return Task {
+    let worker = Task {
         let frames = await session.receive(.control)
         for await frame in frames {
             guard case .revoke = frame.payload else { continue }
@@ -35,6 +46,9 @@ func startControlRevokeReader(
             )
             return
         }
+    }
+    return Task {
+        _ = await worker.value
     }
 }
 
