@@ -58,7 +58,7 @@ object NotificationMapper {
     // sender names rather than a crash.
     private fun messagingStyleSenderNames(notification: Notification): List<String> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
-        val messages = messagesExtra(notification) ?: return emptyList()
+        val messages = messagesExtra(notification) ?: emptyArray()
         return Notification.MessagingStyle.Message
             .getMessagesFromBundleArray(messages)
             .map {
