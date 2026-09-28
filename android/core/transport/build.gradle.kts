@@ -19,9 +19,18 @@ dependencies {
     // implementation().
     api(project(":core:protocol"))
 
+    // PairedMacBonjourSource (E20-06) matches resolved services against paired fingerprints via
+    // PairedMacMatcher/ServiceDiscovery (E21-04/E21-05); implementation(), never api() -- neither
+    // type appears in this module's own public API.
+    implementation(project(":core:discovery"))
+    implementation(project(":core:crypto"))
+
     // ByteStreamSessionTest wires two sessions over InMemoryDuplexPipe (E00-19); test-only, never
     // a release classpath.
     testImplementation(project(":core:testing"))
+    // PairedMacBonjourSourceTest scripts ServiceDiscovery via FakeServiceDiscovery (E21-04);
+    // test-only, never a release classpath.
+    testImplementation(testFixtures(project(":core:discovery")))
 }
 
 dependencies {
