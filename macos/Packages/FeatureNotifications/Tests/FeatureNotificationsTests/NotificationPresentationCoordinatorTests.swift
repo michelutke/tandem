@@ -70,4 +70,33 @@ import TandemCrypto
         let addedIdentifiers = await presenter.addedIdentifiers
         #expect(addedIdentifiers == ["reader-1"])
     }
+
+    @Test func notificationPresentation_iconCached_requestHasOneIconAttachment() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tandem-icon-cache-coordinator-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let iconCache = try IconCache(directory: directory)
+        let presenter = RecordingNotificationPresenter()
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter, iconCache: iconCache)
+        let peer = try Self.fingerprint(0x05)
+
+        let pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        var icon = Tandem_V1_IconData()
+        icon.packageName = "com.example.icon"
+        icon.versionCode = 7
+        icon.pngBytes = try #require(Data(base64Encoded: pngBase64))
+        await iconCache.store(icon, from: peer)
+
+        var posted = Tandem_V1_NotificationPosted()
+        posted.key = "icon-1"
+        posted.packageName = "com.example.icon"
+        posted.appVersionCode = 7
+        posted.title = "With icon"
+        posted.text = "body"
+
+        await coordinator.present(posted, from: peer)
+
+        let attachmentCounts = await presenter.addedAttachmentCounts
+        #expect(attachmentCounts == [1])
+    }
 }
