@@ -6,19 +6,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.tandem.core.protocol.connection.ConnectionState
 
 /**
- * Displays connection status with fail-closed error messages (E12-16, invariant 5).
+ * Displays [statusText] -- [ConnectionStatusViewModel]'s rendering of the connection state,
+ * reconnect-backoff cycle count and paired Mac name (E20-09, invariant 5).
  */
 @Composable
 fun ConnectionStatusScreen(
-    state: ConnectionState,
+    statusText: String,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel = ConnectionStatusViewModel()
-    val statusText = viewModel.getStatusText(state)
-
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
