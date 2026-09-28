@@ -6,6 +6,17 @@ import TandemTransport
 /// nothing outside `TandemPairing` sees them, since `PairingWindow`'s own public surface never
 /// exposes them.
 extension PairingWindow {
+    /// `true` only if `token` itself owns the slot, after settling elapsed time first (E14-24) --
+    /// unlike ``candidateInFlight``, `false` once the window has closed for any reason (including
+    /// its own 120 s whole-window expiry) or a fresher candidate has since superseded `token`.
+    public func candidateInFlight(_ token: PairingCandidateToken) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        if case .open(let state) = phase { return state.candidate.token == token }
+        return false
+    }
+
     enum CandidateState: Equatable {
         /// No candidate connection currently occupies the slot.
         case unclaimed
