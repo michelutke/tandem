@@ -18,4 +18,11 @@ dependencies {
     implementation(project(":core:protocol"))
     // ContextCompat.registerReceiver's RECEIVER_NOT_EXPORTED flag (E23-02).
     implementation(libs.androidx.core)
+    // StatusPublisher (E23-03) sends over the real TandemSession seam.
+    implementation(project(":core:transport"))
+
+    // StatusPublisherTest scripts TandemSession via FakeTandemSession (E12-11) and the 60 s
+    // throttle window via TestClock (E00-18); test-only, never a release classpath.
+    testImplementation(testFixtures(project(":core:transport")))
+    testImplementation(project(":core:testing"))
 }
