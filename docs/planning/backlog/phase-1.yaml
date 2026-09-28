@@ -2642,6 +2642,43 @@ epics:
         tdd:
           - "unit: pairingCandidateFlow_windowExpiresBeforeCandidateDeadlineCheck_connectionClosed"
 
+      - id: E14-25
+        title: "[macos] PairingCandidateFlow deadline watcher: atomic tri-state check + .paired exclusion"
+        type: test
+        platforms: [macos]
+        priority: P2
+        size: S
+        prd: [F-2.1]
+        use_cases: [UC-03]
+        invariants: [5]
+        depends_on: [E14-24]
+        description: |
+          Follow-up from E14-24's Fable verifier pass (two narrow gaps, both fail-closed-direction,
+          neither an invariant-5 violation, neither blocking that fix's commit).
+          (1) `wrongPayloadReceived()`/`pairRequestReceived()` call `window.releaseCandidate(token)`
+          (freeing the slot) before `fail()`'s `claimFailure()`. If the deadline watcher's
+          `requestDeadlineElapsed()` runs in that microsecond-scale gap, it can win `claimFailure()`
+          first and close without ever sending `PairRejected` — the connection still closes and the
+          attempt is still burned exactly once, so this is a skipped wire message (indistinguishable
+          from the sanctioned D-72 TIMEOUT close), not a leaked-open socket. Fix: reorder
+          `wrongPayloadReceived()` (and `pairRequestReceived()` if it has the same shape) to call
+          `claimFailure()` before `releaseCandidate`.
+          (2) The new `candidateInFlight(_:)` check has no `.paired` exclusion, unlike
+          `heartbeatReceived()` (E14-16 finding #4's fix). A TOCTOU across
+          `requestDeadlineElapsed(token)` and `candidateInFlight(token)`'s two separate lock
+          acquisitions can — if a `PairRequest` is accepted between them — close a connection whose
+          window already reached `.closed(.paired)`. Trust is already committed by that point (the
+          phone simply reconnects as a trusted peer), so this is not a security regression, but it's
+          the same bug class as E14-16 finding #4. Fix: make `PairingWindow.requestDeadlineElapsed(_:)`
+          return an atomic tri-state (`.burned` / `.gone` / `.stillInFlight`, with `.gone` excluding
+          `.paired`) resolved under one lock, replacing the current two-call sequence.
+        acceptance:
+          - A deadline watcher racing `wrongPayloadReceived()`'s claim-then-release sequence never skips `PairRejected` when it wins the race to claim the failure first
+          - "A deadline watcher whose window has already reached .closed(.paired) is a no-op (does not close a just-paired session)."
+        tdd:
+          - "unit: requestDeadlineElapsed_staleWatcherAfterFreshCandidateAdmitted_closesStaleOnlyNotFresh"
+          - "unit: requestDeadlineElapsed_windowAlreadyPaired_noOp"
+
       - id: E14-17
         title: "[android] Pairing failure messages: expired/used QR, declined, Mac unreachable"
         type: story
