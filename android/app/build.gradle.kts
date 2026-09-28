@@ -79,6 +79,8 @@ dependencies {
     implementation(project(":core:transport"))
     // E20-14: sequences onboarding's final step to E14-10's ScannerScreen unmodified.
     implementation(project(":feature:pairing"))
+    // E30-02: TandemNotificationListenerService, declared below in this module's manifest.
+    implementation(project(":feature:notifications"))
 
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)

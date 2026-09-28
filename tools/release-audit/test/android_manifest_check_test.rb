@@ -13,6 +13,7 @@
 #   ci: deniedPermissionCheck_usesPermissionSdk23QueryAllPackagesFixture_checkFails
 #   ci: allowlist_malformedLine_loadRaises
 #   ci: mergedManifest_missingNetworkSecurityConfigOrCleartextFixture_checkFails
+#   ci: mergedManifest_notificationListener_requiresBindNotificationListenerPermission (E30-02)
 
 require 'minitest/autorun'
 require 'tmpdir'
@@ -118,6 +119,30 @@ class AndroidManifestCheckTest < Minitest::Test
     )
 
     assert_empty violations
+  end
+
+  # E30-02: the real NotificationListenerService declaration/allowlist entry, exercised by name
+  # rather than relying on the generic TileService fixture above.
+  def test_mergedManifest_notificationListener_requiresBindNotificationListenerPermission
+    notification_listener_allowlist = {
+      'dev.tandem.feature.notifications.TandemNotificationListenerService' =>
+        'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE',
+    }
+
+    missing_permission_violations = AndroidManifestCheck.check_manifest(
+      fixture('manifest-notification-listener-missing-permission.xml'),
+      allowlist: notification_listener_allowlist,
+    )
+    assert(
+      missing_permission_violations.any? do |v|
+        v.include?('TandemNotificationListenerService') && v.include?('BIND_NOTIFICATION_LISTENER_SERVICE')
+      end,
+    )
+
+    assert_empty AndroidManifestCheck.check_manifest(
+      fixture('manifest-notification-listener-valid.xml'),
+      allowlist: notification_listener_allowlist,
+    )
   end
 
   # --- denied permissions ---
