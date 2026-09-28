@@ -71,6 +71,13 @@ final class ManualTestClockScanFixture: NSObject {
 
 @main
 struct TandemMenuBarApp: App {
+    // E22-05's SettingsComposition.swift extends this type from a separate, always-compiled
+    // (not #if DEBUG-only) file and reads this property -- this stub swaps out the real
+    // TandemApp.swift wholesale, so it must keep re-declaring anything another file in this
+    // target still references, or this fixture build fails to compile with an unrelated
+    // "cannot find in scope" error instead of exercising what this test actually checks.
+    nonisolated(unsafe) private(set) static var retainedProductionLifecycle: AppComposition.RetainedLifecycle?
+
     init() {
         _ = ManualTestClockScanFixture()
     }
