@@ -10,7 +10,9 @@ import TandemProtocol
 /// A detected change is never sent when: its types carry a concealed/transient/auto-generated
 /// marker (E31-03's ``ConcealedTypeFilter``, checked *before* any string is read, per that type's
 /// own contract); it has no `public.utf8-plain-text` representation at all (images, files, ...);
-/// or its UTF-8 byte length exceeds ``maxTextBytes`` -- an over-cap item is rejected outright, never
+/// its `changeCount` is exactly a just-applied received clip's write, per the shared
+/// ``ClipboardLoopGuard`` (E31-14) -- preventing the phone-to-Mac-to-phone echo; or its UTF-8 byte
+/// length exceeds ``maxTextBytes`` -- an over-cap item is rejected outright, never
 /// truncated (SPEC.md "Size limit"), and the sending-side hint is recorded in ``hintsShown``
 /// instead of a frame being sent.
 ///
@@ -38,6 +40,7 @@ public actor ClipboardSender {
     private let source: any PasteboardSource
     private let clock: any Clock<Duration>
     private let session: any TandemSession
+    private let loopGuard: ClipboardLoopGuard
 
     // Built lazily on the first ``start()`` -- not in `init` -- since its `onChange` closure
     // captures `self`, and (matching `HeartbeatController`/`ChannelMultiplexer`'s own convention)
@@ -52,10 +55,16 @@ public actor ClipboardSender {
     /// this records.
     public private(set) var hintsShown: [String] = []
 
-    public init(source: any PasteboardSource, clock: any Clock<Duration>, session: any TandemSession) {
+    public init(
+        source: any PasteboardSource,
+        clock: any Clock<Duration>,
+        session: any TandemSession,
+        loopGuard: ClipboardLoopGuard = ClipboardLoopGuard()
+    ) {
         self.source = source
         self.clock = clock
         self.session = session
+        self.loopGuard = loopGuard
     }
 
     /// Starts polling. See ``PasteboardPoller/start()``.
@@ -75,6 +84,8 @@ public actor ClipboardSender {
     private func handleChange(types: [NSPasteboard.PasteboardType]) async {
         guard !ConcealedTypeFilter.shouldSkip(types: types) else { return }
         guard types.contains(.string), let text = source.string(forType: .string) else { return }
+
+        guard await !loopGuard.shouldSkip(changeCount: source.changeCount) else { return }
 
         let utf8Bytes = Array(text.utf8)
         guard utf8Bytes.count <= Self.maxTextBytes else {

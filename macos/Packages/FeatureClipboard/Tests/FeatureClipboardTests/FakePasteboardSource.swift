@@ -38,9 +38,16 @@ final class FakePasteboardSource: PasteboardSource, Sendable {
         state.withLock { $0.strings[type] }
     }
 
+    /// Mirrors `NSPasteboard.setString(_:forType:)`'s own contract of advancing `changeCount` on
+    /// every write (``PasteboardSource``'s doc comment) -- needed so a test driving the real
+    /// `PasteboardWriter`/`ClipboardSender` pair (e.g. E31-14's loop-guard tests) sees the same
+    /// write-then-poll-detects sequence a real pasteboard would produce.
     @discardableResult
     func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool {
-        state.withLock { $0.strings[type] = string }
+        state.withLock {
+            $0.strings[type] = string
+            $0.changeCount += 1
+        }
         return true
     }
 }

@@ -15,22 +15,28 @@ import TandemProtocol
 ///
 /// `text` is untrusted peer input and is never logged (invariant 7) -- this type only ever passes
 /// it straight to ``PasteboardSource/setString(_:forType:)``, never to any log/print call.
+///
+/// Every applied write's resulting `changeCount` is recorded into the shared ``ClipboardLoopGuard``
+/// (E31-14), so `ClipboardSender`'s poller skips this same write when it next re-detects it as a
+/// pasteboard change -- preventing the phone-to-Mac-to-phone echo.
 public actor PasteboardWriter {
     /// docs/protocol/SPEC.md #clipboard-channel "Size limit" -- restated from `ClipboardSender`.
     public static let maxTextBytes = 1_048_576
 
     private let source: any PasteboardSource
     private let session: any TandemSession
+    private let loopGuard: ClipboardLoopGuard
 
     private var readTask: Task<Void, Never>?
 
-    /// The pasteboard's own `changeCount` immediately after the most recent write this type made,
-    /// for a future E31-14 loop guard to consume -- `nil` if nothing has been written yet.
-    public private(set) var lastWrittenChangeCount: Int?
-
-    public init(source: any PasteboardSource, session: any TandemSession) {
+    public init(
+        source: any PasteboardSource,
+        session: any TandemSession,
+        loopGuard: ClipboardLoopGuard = ClipboardLoopGuard()
+    ) {
         self.source = source
         self.session = session
+        self.loopGuard = loopGuard
     }
 
     /// Starts reading the CLIPBOARD channel. Idempotent: replaces any read loop already running.
@@ -52,7 +58,7 @@ public actor PasteboardWriter {
         readTask = nil
     }
 
-    private func handle(_ clipboardText: Tandem_V1_ClipboardText) {
+    private func handle(_ clipboardText: Tandem_V1_ClipboardText) async {
         guard clipboardText.text.utf8.count <= Self.maxTextBytes else { return }
 
         source.setString(clipboardText.text, forType: .string)
@@ -60,6 +66,6 @@ public actor PasteboardWriter {
             source.setString("", forType: ConcealedTypeFilter.concealedType)
             source.setString("", forType: ConcealedTypeFilter.transientType)
         }
-        lastWrittenChangeCount = source.changeCount
+        await loopGuard.recordAppliedReceive(changeCount: source.changeCount)
     }
 }

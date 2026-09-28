@@ -18,14 +18,13 @@ struct ClipboardSenderTests {
         let clock = ManualTestClock()
         let source = FakePasteboardSource(changeCount: 0, types: [.string])
         let text = String(repeating: "a", count: ClipboardSender.maxTextBytes)
-        source.setString(text, forType: .string)
         let session = FakeTandemSession()
         let sender = ClipboardSender(source: source, clock: clock, session: session)
 
         await sender.start()
         #expect(await waitForParkedSleepers(clock, count: 1))
 
-        source.changeCount = 1
+        source.setString(text, forType: .string)
         clock.advance(by: PasteboardPoller.pollInterval)
 
         let sent = await waitUntilTrue { await session.sent.count == 1 }
@@ -48,14 +47,13 @@ struct ClipboardSenderTests {
         let clock = ManualTestClock()
         let source = FakePasteboardSource(changeCount: 0, types: [.string])
         let text = String(repeating: "a", count: ClipboardSender.maxTextBytes + 1)
-        source.setString(text, forType: .string)
         let session = FakeTandemSession()
         let sender = ClipboardSender(source: source, clock: clock, session: session)
 
         await sender.start()
         #expect(await waitForParkedSleepers(clock, count: 1))
 
-        source.changeCount = 1
+        source.setString(text, forType: .string)
         clock.advance(by: PasteboardPoller.pollInterval)
 
         // Give the poll tick's callback a chance to run, then confirm nothing was ever sent --
@@ -70,7 +68,6 @@ struct ClipboardSenderTests {
         let clock = ManualTestClock()
         let source = FakePasteboardSource(changeCount: 0, types: [.string])
         let text = String(repeating: "a", count: ClipboardSender.maxTextBytes + 1)
-        source.setString(text, forType: .string)
         let session = FakeTandemSession()
         let sender = ClipboardSender(source: source, clock: clock, session: session)
 
@@ -78,7 +75,7 @@ struct ClipboardSenderTests {
         #expect(await waitForParkedSleepers(clock, count: 1))
 
         // First tick: a genuinely new oversized item -- warned once.
-        source.changeCount = 1
+        source.setString(text, forType: .string)
         clock.advance(by: PasteboardPoller.pollInterval)
         let warnedOnce = await waitUntilTrue { await sender.hintsShown.count == 1 }
         #expect(warnedOnce)
@@ -97,7 +94,6 @@ struct ClipboardSenderTests {
         // A different oversized item (new changeCount) is warned about again.
         let otherText = String(repeating: "b", count: ClipboardSender.maxTextBytes + 2)
         source.setString(otherText, forType: .string)
-        source.changeCount = 2
         clock.advance(by: PasteboardPoller.pollInterval)
         let warnedTwice = await waitUntilTrue { await sender.hintsShown.count == 2 }
         #expect(warnedTwice)
