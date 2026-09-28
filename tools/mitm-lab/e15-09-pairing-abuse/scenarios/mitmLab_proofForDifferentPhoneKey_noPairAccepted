@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_proofForDifferentPhoneKey_noPairAccepted
+# mitm-scenario-role: client
+# mitm-scenario-expect: noPairAccepted
+# mitm-scenario-timeout: 240
+#
+# E15-09 (5/9): a `PairRequest` whose proof was computed for a different phone's key than the one
+# actually presented in this connection's TLS handshake.
+#
+# SPEC.md #pairing "Proof computation": `phoneSpkiDer` is taken from the client certificate seen on
+# *this* TLS handshake -- never from any field of the `PairRequest` body -- so a `PairRequest` can
+# never claim a different key than the one that actually authenticated the connection. This scenario
+# authenticates with its real identity, then computes `proof` using a freshly generated, unrelated
+# P-256 key's SPKI DER instead of that real identity's own (`RAWSEND ... WRONGKEY`,
+# `HarnessCli.kt.rawSend`). The Mac recomputes with the key it actually observed on the handshake, so
+# this must be rejected as `BAD_PROOF`, wire-collapsed to `PAIRING_UNAVAILABLE`
+# (`docs/planning/decisions.md` D-72), never accepted.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+e15_09_start_client
+
+open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+case "$open_response" in
+  "OK OPENED "*) ;;
+  *)
+    e15_09_log "FAIL: not admitted as a pairing candidate: $open_response"
+    FAILED=1
+    ;;
+esac
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_rawsend "$SECRET_B64URL WRONGKEY"
+  e15_09_log "wrong-phone-key outcome: $LAST_PAIR_EVENT"
+  case "$LAST_PAIR_EVENT" in
+    "EVENT PAIR_ACCEPTED")
+      e15_09_log "FAIL: a PairRequest proved for a different phone key was accepted"
+      FAILED=1
+      ;;
+    "EVENT PAIR_REJECTED PAIR_REJECTED_REASON_PAIRING_UNAVAILABLE")
+      e15_09_log "OK: rejected with the wire-collapsed PAIRING_UNAVAILABLE reason (BAD_PROOF)"
+      ;;
+    *)
+      e15_09_log "FAIL: expected PAIR_REJECTED PAIRING_UNAVAILABLE, got: $LAST_PAIR_EVENT"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_09_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: noPairAccepted"
+else
+  echo "OUTCOME: FAILED"
+fi

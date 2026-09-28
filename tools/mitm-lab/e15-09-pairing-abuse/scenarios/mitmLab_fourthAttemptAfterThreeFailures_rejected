@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_fourthAttemptAfterThreeFailures_rejected
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-09 (3/9): a 4th pairing attempt after 3 failures within the same window.
+#
+# SPEC.md #pairing "Pairing window": at most 3 attempts are permitted; a 4th candidate connection is
+# rejected in the TLS verify callback itself -- because the window is already closed, it never
+# becomes a pairing candidate at all, so it never even reaches proof evaluation. Three attempts are
+# burned here with a deliberately wrong proof each (any of the "closes for any reason other than
+# PairAccepted" triggers in "Pairing window" burns exactly one attempt per connection); the 4th
+# connection attempt -- from the very same identity -- must be rejected at the handshake, before
+# ever exchanging a single CONTROL frame. This only proves the *same* key is rejected after 3
+# failures; it does not by itself show the window (rather than just this one key) is exhausted --
+# `mitmLab_correctProofAfterWindowExhausted_rejected` proves that with a fresh, never-seen identity.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+e15_09_start_client
+
+for attempt in 1 2 3; do
+  open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  if [ "${open_response#OK OPENED}" = "$open_response" ]; then
+    e15_09_log "FAIL: attempt $attempt was not even admitted as a pairing candidate: $open_response"
+    FAILED=1
+    break
+  fi
+  garbage_proof_hex="$(openssl rand -hex 32)"
+  e15_09_rawsendproof "$garbage_proof_hex"
+  e15_09_log "attempt $attempt outcome: $LAST_PAIR_EVENT"
+  case "$LAST_PAIR_EVENT" in
+    "EVENT PAIR_ACCEPTED")
+      e15_09_log "FAIL: attempt $attempt with a random proof was accepted"
+      FAILED=1
+      ;;
+    "EVENT PAIR_REJECTED"*|"EVENT PAIR_CLOSED"|"EVENT PAIR_TIMEOUT")
+      : # burns one attempt either way (SPEC.md #pairing "Pairing window" last bullet)
+      ;;
+    *)
+      e15_09_log "FAIL: unexpected attempt $attempt outcome: $LAST_PAIR_EVENT"
+      FAILED=1
+      ;;
+  esac
+  [ "$FAILED" -eq 1 ] && break
+done
+
+if [ "$FAILED" -eq 0 ]; then
+  fourth_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  e15_09_log "4th attempt RAWOPEN: $fourth_response"
+  case "$fourth_response" in
+    "ERROR HANDSHAKE_REJECTED"*)
+      e15_09_log "OK: 4th candidate connection rejected in the verify callback, window exhausted"
+      e15_09_assert_mac_alive || FAILED=1
+      ;;
+    *)
+      e15_09_log "FAIL: expected the 4th attempt to be rejected at the handshake, got: $fourth_response"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_09_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

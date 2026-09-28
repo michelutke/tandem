@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_secondConcurrentPairingCandidate_rejectedInHandshake
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-09 (8/9): a second concurrent pairing candidate.
+#
+# SPEC.md #pairing "Pairing window", "Concurrency": at most one pairing-candidate connection is
+# processed at a time (`docs/planning/decisions.md` D-18); a second unknown client certificate
+# arriving while one candidate is already in flight MUST be rejected in the verify callback itself,
+# before any pairing message is ever processed, and MUST NOT burn one of the 3 attempts.
+#
+# Client 1 opens a candidate connection and holds it open (occupying the one candidate slot) without
+# sending a `PairRequest` yet. Client 2 -- a second, distinct identity -- then tries to open its own
+# candidate connection and must be rejected at the TLS handshake. To confirm client 2's rejected
+# attempt did *not* burn one of the window's 3 attempts, client 1 then burns exactly 3 real attempts
+# (with a wrong proof each) and only then finds the window exhausted: if client 2's concurrent
+# attempt had counted, the window would have exhausted one attempt sooner.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../lib/e15-09-common.sh"
+trap e15_09_teardown EXIT
+e15_09_setup
+
+FAILED=0
+e15_09_start_client
+
+open1_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+if [ "${open1_response#OK OPENED}" = "$open1_response" ]; then
+  e15_09_log "FAIL: client 1 was not admitted as a pairing candidate: $open1_response"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_start_client2
+  e15_09_send2 "RAWOPEN 127.0.0.1 $MAC_PORT $MAC_FP_B64"
+  open2_response="$(e15_09_read2 "$E15_09_STARTUP_TIMEOUT_SECONDS")" || open2_response="<no response>"
+  e15_09_log "client 2 (second concurrent candidate) RAWOPEN: $open2_response"
+  case "$open2_response" in
+    "ERROR HANDSHAKE_REJECTED"*)
+      e15_09_log "OK: client 2 rejected at the handshake while client 1's candidate slot is occupied"
+      e15_09_assert_mac_alive || FAILED=1
+      ;;
+    *)
+      e15_09_log "FAIL: expected client 2 to be rejected at the handshake, got: $open2_response"
+      FAILED=1
+      ;;
+  esac
+  e15_09_stop_client2
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  # Client 1 now burns exactly 3 attempts. If client 2's rejected attempt above had counted, the
+  # window would already be exhausted after only 2 more -- it must not be.
+  for attempt in 1 2 3; do
+    if [ "$attempt" -gt 1 ]; then
+      open_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+      if [ "${open_response#OK OPENED}" = "$open_response" ]; then
+        e15_09_log "FAIL: client 1's attempt $attempt was rejected too early (client 2's concurrent attempt must not have burned a real attempt): $open_response"
+        FAILED=1
+        break
+      fi
+    fi
+    garbage_proof_hex="$(openssl rand -hex 32)"
+    e15_09_rawsendproof "$garbage_proof_hex"
+    e15_09_log "client 1 attempt $attempt outcome: $LAST_PAIR_EVENT"
+    if [ "$LAST_PAIR_EVENT" = "EVENT PAIR_ACCEPTED" ]; then
+      e15_09_log "FAIL: attempt $attempt with a random proof was accepted"
+      FAILED=1
+      break
+    fi
+  done
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  fourth_response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  e15_09_log "client 1's 4th real attempt (window should now be exhausted): $fourth_response"
+  case "$fourth_response" in
+    "ERROR HANDSHAKE_REJECTED"*)
+      e15_09_log "OK: window exhausted after exactly 3 real attempts -- client 2's concurrent attempt did not count"
+      e15_09_assert_mac_alive || FAILED=1
+      ;;
+    *)
+      e15_09_log "FAIL: expected the window to be exhausted, got: $fourth_response"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_09_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

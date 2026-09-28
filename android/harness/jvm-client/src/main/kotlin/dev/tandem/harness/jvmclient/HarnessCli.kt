@@ -1,6 +1,8 @@
 package dev.tandem.harness.jvmclient
 
+import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.IdentityKeyManager
+import dev.tandem.core.crypto.PairingProof
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
@@ -20,18 +22,30 @@ import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
+import dev.tandem.protocol.v1.deviceInfo
+import dev.tandem.protocol.v1.pairRequest
+import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.net.InetAddress
+import java.security.KeyPairGenerator
+import java.security.spec.ECGenParameterSpec
 import java.time.Clock
 import java.util.Base64
+
+private const val RAW_CHALLENGE_TIMEOUT_MS = 10_000L
+private const val RAW_OUTCOME_TIMEOUT_MS = 15_000L
 
 private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
 
@@ -96,6 +110,17 @@ private fun printIdentitySpkiFingerprint(keyManager: IdentityKeyManager) {
 /** Renders [fingerprint] the same way the Mac driver's own hooks do (hex, lowercase, no separator). */
 private fun hexOf(fingerprint: SpkiFingerprint): String = fingerprint.bytes.joinToString(separator = "") { "%02x".format(it) }
 
+/** Lowercase, no-separator hex, matching [hexOf]'s rendering -- for the raw E15-09 commands' `cb`/proof bytes. */
+private fun ByteArray.toLowerHex(): String = joinToString(separator = "") { "%02x".format(it) }
+
+/** Decodes lowercase or uppercase hex into bytes, or `null` if [this] is not valid even-length hex. */
+private fun String.decodeHex(): ByteArray? {
+    if (length % 2 != 0 || isEmpty()) return null
+    return runCatching {
+        ByteArray(length / 2) { i -> ((this[2 * i].digitToInt(16) shl 4) or this[2 * i + 1].digitToInt(16)).toByte() }
+    }.getOrNull()
+}
+
 /** Holds the CLI's session/pairing state across commands; see [main] for how it is wired up. */
 private class HarnessCli(
     private val keyManager: IdentityKeyManager,
@@ -106,6 +131,18 @@ private class HarnessCli(
     private var session: TandemSession? = null
     private var connectedPeerFingerprintHex: String? = null
     private var pairing: PairingStateMachine? = null
+
+    /**
+     * State for the `RAWOPEN`/`RAWSEND`/`RAWSENDPROOF`/`RAWREVOKE`/`RAWCLOSE` commands (E15-09
+     * mitm-lab pairing-abuse scenarios): a *separate* low-level pairing-candidate connection from
+     * [session]/[pairing] above, deliberately bypassing [PairingStateMachine]/[PairRequestBuilder]
+     * so a scenario script can construct a wrong, replayed, or malformed `PairRequest` (or a
+     * `Revoke` sent before `PairAccepted`) that the real state machine would never produce.
+     */
+    private var rawSession: TandemSession? = null
+    private var rawMacSpkiDer: ByteArray? = null
+    private var rawPhoneSpkiDer: ByteArray? = null
+    private var rawChallenge: ByteArray? = null
 
     /**
      * Peers this process currently considers *not* paired any more (E14-20): either a live
@@ -129,6 +166,11 @@ private class HarnessCli(
             "UNPAIR" -> unpair(rest)
             "TRUSTED" -> trusted(rest)
             "DISCONNECT" -> disconnect()
+            "RAWOPEN" -> rawOpen(rest)
+            "RAWSEND" -> rawSend(rest)
+            "RAWSENDPROOF" -> rawSendProof(rest)
+            "RAWREVOKE" -> rawRevoke()
+            "RAWCLOSE" -> rawClose()
             "EXIT" -> {
                 exit()
                 return false
@@ -322,6 +364,276 @@ private class HarnessCli(
         session = null
         connectedPeerFingerprintHex = null
         println("OK DISCONNECTED")
+    }
+
+    /**
+     * `RAWOPEN <host> <port> <macFpSpkiFingerprintBase64Url>` (E15-09): dials a fresh mTLS
+     * connection with this process's real identity, exactly like [connect], but keeps the raw
+     * [TandemSession] in [rawSession] instead of driving it through a normal Ready session or the
+     * real [PairingStateMachine]. A rejection at the TLS verify callback itself (no pairing window
+     * open, a candidate already in flight, or the window's attempt budget exhausted -- SPEC.md
+     * #pairing "Pairing window") surfaces here as [ConnectionState.Failed] before any `CONTROL`
+     * frame is ever exchanged, printed as `ERROR HANDSHAKE_REJECTED <reason>`.
+     *
+     * On a successful handshake, waits up to [RAW_CHALLENGE_TIMEOUT_MS] for the first non-Heartbeat
+     * `CONTROL` frame: a `PairChallenge` (the normal pairing-candidate case) is captured into
+     * [rawChallenge] and printed as `OK OPENED <cbHex>`; anything else prints `OK OPENED
+     * NOCHALLENGE` (this connection's certificate is already trusted -- SPEC.md #pairing "Frame
+     * order": the Mac only ever sends `PairChallenge` to a *pairing-candidate* connection, never to
+     * an already-trusted one -- E15-09 scenarios 1/6/7 deliberately reconnect with an
+     * already-trusted identity and inject a `PairRequest` anyway).
+     */
+    private fun rawOpen(argsLine: String) {
+        val args = argsLine.split(" ").filter { it.isNotEmpty() }
+        if (args.size != CONNECT_ARG_COUNT) {
+            println("ERROR usage: RAWOPEN <host> <port> <spkiFingerprintBase64Url>")
+            return
+        }
+        val (host, portArg, fingerprintArg) = args
+        val port = portArg.toIntOrNull()
+        val fingerprintBytes = runCatching { Base64.getUrlDecoder().decode(fingerprintArg) }.getOrNull()
+        if (port == null || fingerprintBytes == null) {
+            println("ERROR invalid RAWOPEN arguments")
+            return
+        }
+        rawSession?.close()
+        rawSession = null
+        rawMacSpkiDer = null
+        rawPhoneSpkiDer = null
+        rawChallenge = null
+
+        val fingerprint = SpkiFingerprint(fingerprintBytes)
+        runCatching {
+            val factory =
+                SslClientFactory(
+                    keyManager,
+                    PinningTrustManager(PinSource { listOf(fingerprint) }),
+                    JvmConscryptSessionTicketDisabler(),
+                )
+            val socket = factory.createSocket()
+            runBlocking(dispatcher) {
+                val stream = withContext(dispatcher) { factory.connect(socket, InetAddress.getByName(host), port) }
+                val newSession = ByteStreamSession(stream, Clock.systemUTC(), dispatcher)
+                when (val outcome = newSession.state.first { it is ConnectionState.Ready || it is ConnectionState.Failed }) {
+                    is ConnectionState.Failed -> {
+                        newSession.close()
+                        println("ERROR HANDSHAKE_REJECTED ${outcome.reason}")
+                    }
+                    is ConnectionState.Ready -> {
+                        rawSession = newSession
+                        rawMacSpkiDer = socket.session.peerCertificates.first().let { (it as java.security.cert.X509Certificate).publicKey.encoded }
+                        rawPhoneSpkiDer = keyManager.getCertificateChain(alias = null).single().publicKey.encoded
+                        when (val challengeOutcome = awaitFirstNonHeartbeat(newSession, RAW_CHALLENGE_TIMEOUT_MS)) {
+                            is RawWaitOutcome.Success -> {
+                                val envelope = challengeOutcome.envelope
+                                if (envelope.payloadCase == Envelope.PayloadCase.PAIR_CHALLENGE) {
+                                    val challenge = envelope.pairChallenge.challenge.toByteArray()
+                                    rawChallenge = challenge
+                                    println("OK OPENED ${challenge.toLowerHex()}")
+                                } else {
+                                    println("OK OPENED NOCHALLENGE")
+                                }
+                            }
+                            RawWaitOutcome.ConnectionLost -> println("ERROR CONNECTION_CLOSED")
+                            RawWaitOutcome.TimedOut -> println("OK OPENED NOCHALLENGE")
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        }.onFailure { println("ERROR HANDSHAKE_REJECTED ${it.message}") }
+    }
+
+    /**
+     * `RAWSEND <secretBase64Url> [WRONGKEY] [CB=<cbHex>]` (E15-09): computes a real `proof` using
+     * the real, injected [PairingProof] formula (SPEC.md #pairing "Proof computation") and this
+     * process's real [rawMacSpkiDer]/[rawPhoneSpkiDer] -- over [rawChallenge] (captured by
+     * [rawOpen] for the *current* raw session) unless `CB=<cbHex>` overrides which channel-binding
+     * value goes into the transcript (scenario `mitmLab_pairRequestReplayedOnNewTlsSession`: a real
+     * proof computed with the *current* session's own `macSpkiDer`/`phoneSpkiDer` but an *old*
+     * session's `cb`, proving channel binding rejects it). `WRONGKEY` substitutes a freshly
+     * generated, unrelated P-256 key's SPKI DER in place of [rawPhoneSpkiDer] (scenario
+     * `mitmLab_proofForDifferentPhoneKey`: the Mac always recomputes with the key it actually saw
+     * on *this* handshake, never a field from the request body, so this must -- and does --
+     * produce `BAD_PROOF`).
+     */
+    private fun rawSend(argsLine: String) {
+        val parts = argsLine.split(" ").filter { it.isNotEmpty() }
+        val secretArg = parts.getOrNull(0)
+        var wrongKey = false
+        var cbOverrideHex: String? = null
+        for (flag in parts.drop(1)) {
+            when {
+                flag.equals("WRONGKEY", ignoreCase = true) -> wrongKey = true
+                flag.startsWith("CB=", ignoreCase = true) -> cbOverrideHex = flag.substringAfter("=")
+            }
+        }
+        val macSpkiDer = rawMacSpkiDer
+        val phoneSpkiDer = rawPhoneSpkiDer
+        val challenge = cbOverrideHex?.decodeHex() ?: rawChallenge
+        val secretBytes = secretArg?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() }
+        if (secretBytes == null || macSpkiDer == null || challenge == null || phoneSpkiDer == null) {
+            println("ERROR usage: RAWSEND <secretBase64Url> [WRONGKEY] [CB=<cbHex>] (after a successful RAWOPEN with a challenge)")
+            return
+        }
+        val effectivePhoneSpkiDer = if (wrongKey) generateUnrelatedSpkiDer() else phoneSpkiDer
+        val proof = PairingProof.compute(secretBytes, macSpkiDer, effectivePhoneSpkiDer, challenge)
+        sendRawPairRequest(proof)
+    }
+
+    /**
+     * `RAWSENDPROOF <proofHex>` (E15-09): sends a `PairRequest` carrying literal, already-computed
+     * proof bytes rather than deriving them here -- for byte-level replay of a proof value captured
+     * from an earlier, real `RAWSEND` (scenarios `mitmLab_replayedPairRequestAfterCompletion`,
+     * `mitmLab_pairRequestReplayedOnNewTlsSession`) or an arbitrary bad/random proof (scenario
+     * `mitmLab_badProofRejection`, the `mitmLab_fourthAttemptAfterThreeFailures` exhaustion loop).
+     */
+    private fun rawSendProof(proofHexArg: String) {
+        val proof = proofHexArg.trim().decodeHex()
+        if (proof == null) {
+            println("ERROR usage: RAWSENDPROOF <proofHex>")
+            return
+        }
+        sendRawPairRequest(proof)
+    }
+
+    private fun sendRawPairRequest(proof: ByteArray) {
+        val activeSession = rawSession
+        if (activeSession == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        val request =
+            pairRequest {
+                this.proof = ByteString.copyFrom(proof)
+                deviceInfo =
+                    deviceInfo {
+                        displayName = "E15-09 mitm-lab"
+                        model = "jvm-raw-client"
+                        appVersion = ""
+                    }
+            }
+        println("OK SENT ${proof.toLowerHex()}")
+        runBlocking(dispatcher) {
+            activeSession.send(Channel.CHANNEL_CONTROL) { pairRequest = request }
+        }
+        printRawPairOutcome(activeSession)
+    }
+
+    /**
+     * `RAWREVOKE` (E15-09 scenario `mitmLab_revokeOnPairingCandidateConnection`): sends `Revoke {}`
+     * on the still-open raw pairing-candidate connection instead of a `PairRequest` -- an
+     * unexpected payload at this point in the frame order (SPEC.md #pairing "Frame order on a
+     * pairing-candidate connection", step 4), which the Mac closes with `PAIRING_FAILED` and never
+     * turns into `PairAccepted` or a committed trust record.
+     */
+    private fun rawRevoke() {
+        val activeSession = rawSession
+        if (activeSession == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        runBlocking(dispatcher) {
+            activeSession.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} }
+        }
+        println("OK SENT_REVOKE")
+        printRawPairOutcome(activeSession)
+    }
+
+    private fun rawClose() {
+        rawSession?.close()
+        rawSession = null
+        rawMacSpkiDer = null
+        rawPhoneSpkiDer = null
+        rawChallenge = null
+        println("OK RAWCLOSED")
+    }
+
+    /**
+     * Prints the terminal outcome of a raw pairing attempt/`Revoke`: `EVENT PAIR_ACCEPTED`,
+     * `EVENT PAIR_REJECTED <reasonEnumName>` (SPEC.md #pairing "`PairRejected` wire collapse":
+     * always `PAIR_REJECTED_REASON_REJECTED_BY_OWNER` or `PAIR_REJECTED_REASON_PAIRING_UNAVAILABLE`),
+     * `EVENT PAIR_CLOSED` (the connection dropped with no `PairRejected` -- `TIMEOUT`,
+     * `MALFORMED_FRAME`, or the peer simply closing), or `EVENT PAIR_TIMEOUT` (no terminal frame
+     * and no close within [RAW_OUTCOME_TIMEOUT_MS]).
+     */
+    private fun printRawPairOutcome(activeSession: TandemSession) {
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) {
+                        it.payloadCase == Envelope.PayloadCase.PAIR_ACCEPTED ||
+                            it.payloadCase == Envelope.PayloadCase.PAIR_REJECTED
+                    }
+                }
+            }
+        when (outcome) {
+            null, RawWaitOutcome.TimedOut -> println("EVENT PAIR_TIMEOUT")
+            RawWaitOutcome.ConnectionLost -> println("EVENT PAIR_CLOSED")
+            is RawWaitOutcome.Success -> {
+                val envelope = outcome.envelope
+                if (envelope.payloadCase == Envelope.PayloadCase.PAIR_ACCEPTED) {
+                    println("EVENT PAIR_ACCEPTED")
+                } else {
+                    println("EVENT PAIR_REJECTED ${envelope.pairRejected.reason}")
+                }
+            }
+        }
+    }
+
+    /** Sealed outcome for [waitForControlEnvelope]/[awaitFirstNonHeartbeat], mirroring [PairingStateMachine]'s own. */
+    private sealed class RawWaitOutcome {
+        class Success(
+            val envelope: Envelope,
+        ) : RawWaitOutcome()
+
+        data object ConnectionLost : RawWaitOutcome()
+
+        data object TimedOut : RawWaitOutcome()
+    }
+
+    /**
+     * Races [predicate] matching a `CONTROL` [Envelope] against [activeSession]'s connection
+     * dropping -- the same shape as [PairingStateMachine]'s private `waitForControlEnvelope`,
+     * duplicated here since this class deliberately drives its own raw session outside that state
+     * machine.
+     */
+    private suspend fun waitForControlEnvelope(
+        activeSession: TandemSession,
+        predicate: (Envelope) -> Boolean,
+    ): RawWaitOutcome =
+        coroutineScope {
+            val received = async { activeSession.receive(Channel.CHANNEL_CONTROL).first(predicate) }
+            val disconnected = async { activeSession.state.first { it is ConnectionState.Disconnected } }
+            try {
+                select {
+                    received.onAwait { RawWaitOutcome.Success(it) }
+                    disconnected.onAwait { RawWaitOutcome.ConnectionLost }
+                }
+            } finally {
+                received.cancel()
+                disconnected.cancel()
+            }
+        }
+
+    /**
+     * Like [waitForControlEnvelope], but bounded by [timeoutMs] and skipping `Heartbeat` frames
+     * (SPEC.md #pairing "Frame order", step 4: `Heartbeat` is exempt from wrong-payload handling in
+     * both directions) rather than treating the first arriving frame of any type as terminal.
+     */
+    private suspend fun awaitFirstNonHeartbeat(
+        activeSession: TandemSession,
+        timeoutMs: Long,
+    ): RawWaitOutcome =
+        withTimeoutOrNull(timeoutMs) {
+            waitForControlEnvelope(activeSession) { it.payloadCase != Envelope.PayloadCase.HEARTBEAT }
+        } ?: RawWaitOutcome.TimedOut
+
+    /** A P-256 SPKI DER for a key nobody's certificate uses -- SPEC.md #pairing "Proof computation" wrong-key case. */
+    private fun generateUnrelatedSpkiDer(): ByteArray {
+        val generator = KeyPairGenerator.getInstance("EC")
+        generator.initialize(ECGenParameterSpec("secp256r1"))
+        return generator.generateKeyPair().public.encoded
     }
 
     private fun exit() {
