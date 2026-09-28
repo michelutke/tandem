@@ -37,6 +37,10 @@ enum HarnessHooks {
             listTrust()
             exit(0)
         }
+        if let isoDate = UserDefaults.standard.string(forKey: "HarnessPrintRotatingId") {
+            printRotatingId(pinnedDateIso8601: isoDate)
+            exit(0)
+        }
     }
 
     /// Starts the mTLS listener on `-HarnessListenerPort <port>` against the harness keychain's
@@ -313,7 +317,8 @@ enum HarnessHooks {
     /// confirm, across a kill/relaunch of the same on-disk keychain, that the identity is
     /// unchanged -- without any second binary reading the keychain itself (the same cross-binary
     /// ACL-prompt concern `-HarnessSeedTrust`/`-HarnessClearTrust` avoid, D-75).
-    private static func printIdentitySpkiFingerprint(identity: SecIdentity) {
+    /// Not `private`: also called from `HarnessHooks+RotatingId.swift` (E21-07).
+    static func printIdentitySpkiFingerprint(identity: SecIdentity) {
         var certificate: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
             return
@@ -330,7 +335,8 @@ enum HarnessHooks {
     /// `identity`'s own certificate's SPKI DER, exactly as ``PairingCoordinator`` needs it for its
     /// `macSpkiDerProvider` -- the same extraction ``printIdentitySpkiFingerprint(identity:)`` uses,
     /// just returning the DER itself rather than only its fingerprint.
-    private static func spkiDer(for identity: SecIdentity) -> Data? {
+    /// Not `private`: also called from `HarnessHooks+RotatingId.swift` (E21-07).
+    static func spkiDer(for identity: SecIdentity) -> Data? {
         var certificate: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
             return nil
@@ -348,53 +354,4 @@ private struct NeverOpenPairingWindow: PairingWindowState {
     func releaseCandidate(_ token: PairingCandidateToken) {}
 }
 
-/// JSON fixture for `-HarnessSeedTrust <path>`: hex/ISO 8601 fields instead of `PeerRecord`'s own
-/// Foundation `Codable` encoding (raw bytes as base64, dates as `timeIntervalSinceReferenceDate`),
-/// so the CI driver script can generate the fixture without reproducing Foundation's date/data
-/// encoding.
-private struct HarnessPeerRecordFixture: Decodable {
-    let fingerprintHex: String
-    let displayName: String
-    let pairedAt: String
-    let lastSeen: String
-    let capabilities: [String]
-
-    enum FixtureError: Error {
-        case invalidFingerprintHex
-        case invalidDate
-    }
-
-    func makePeerRecord() throws -> PeerRecord {
-        guard let fingerprintBytes = Data(harnessHexString: fingerprintHex) else {
-            throw FixtureError.invalidFingerprintHex
-        }
-        let formatter = ISO8601DateFormatter()
-        guard let pairedAtDate = formatter.date(from: pairedAt),
-              let lastSeenDate = formatter.date(from: lastSeen) else {
-            throw FixtureError.invalidDate
-        }
-        return PeerRecord(
-            fingerprint: try SpkiFingerprint(bytes: fingerprintBytes),
-            displayName: displayName,
-            pairedAt: pairedAtDate,
-            lastSeen: lastSeenDate,
-            capabilities: capabilities
-        )
-    }
-}
-
-private extension Data {
-    init?(harnessHexString hexString: String) {
-        guard hexString.count.isMultiple(of: 2) else { return nil }
-        var data = Data(capacity: hexString.count / 2)
-        var index = hexString.startIndex
-        while index < hexString.endIndex {
-            let next = hexString.index(index, offsetBy: 2)
-            guard let byte = UInt8(hexString[index..<next], radix: 16) else { return nil }
-            data.append(byte)
-            index = next
-        }
-        self = data
-    }
-}
 #endif

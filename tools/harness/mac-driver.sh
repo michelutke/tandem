@@ -134,6 +134,19 @@ harness_list_trust() {
     -HarnessListTrust YES
 }
 
+# Runs `-HarnessPrintRotatingId <isoDate>` to completion (E21-07), printing
+# `harness-identity-spki: <fingerprintHex>` and `harness-rotating-id: <idHex>` -- the rotating id
+# this Mac's identity would advertise for the UTC instant `iso_date`, computed via the real
+# DiscoveryRotatingId (macos/Packages/TandemCrypto), without changing the real wall clock or
+# running real mDNS multicast. Never a trust decision (invariant 3): no pin check happens here.
+harness_print_rotating_id() {
+  local iso_date="$1"
+  TANDEM_HARNESS_KEYCHAIN_PASSWORD="$HARNESS_KEYCHAIN_PASSWORD" \
+    "$HARNESS_APP_BINARY" \
+    -HarnessKeychainPath "$HARNESS_KEYCHAIN_PATH" \
+    -HarnessPrintRotatingId "$iso_date"
+}
+
 # Kills the app if still running and deletes the temp dir (keychain file included). Always safe to
 # call, including after a failed harness_init.
 harness_cleanup() {
