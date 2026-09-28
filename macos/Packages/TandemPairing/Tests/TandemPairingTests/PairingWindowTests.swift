@@ -181,11 +181,11 @@ struct PairingWindowTests {
     /// Regression: `requestDeadlineElapsed(_:)` is `PairingCoordinator`'s active watcher's only
     /// signal to close the actual connection -- if some *other* locked call (here, `isOpen`,
     /// standing in for a second connection's `PeerAuthorizer.decide` or a `Heartbeat`) happens to
-    /// settle the same 10s deadline first, the watcher's own call must still report `true`, or its
-    /// caller wrongly concludes "already handled" and never closes the connection (a real deadlock:
-    /// the frame loop parks on `frames.next()` forever).
+    /// settle the same 10s deadline first, the watcher's own call must still report `.burned`, or
+    /// its caller wrongly concludes "already handled" and never closes the connection (a real
+    /// deadlock: the frame loop parks on `frames.next()` forever).
     @Test
-    func pairingWindow_otherCallSettlesDeadlineFirst_requestDeadlineElapsedStillReportsTrue() throws {
+    func pairingWindow_otherCallSettlesDeadlineFirst_requestDeadlineElapsedStillReportsBurned() throws {
         let clock = ManualTestClock()
         let window = Self.makeWindow(clock: clock).window
         window.open(secret: Data([1]))
@@ -195,7 +195,7 @@ struct PairingWindowTests {
         clock.advance(by: .seconds(10))
         _ = window.isOpen // forces settleLocked() to burn the deadline before the watcher checks in
 
-        #expect(window.requestDeadlineElapsed(token))
+        #expect(window.requestDeadlineElapsed(token) == .burned)
         #expect(window.attemptsRemaining == 2 && window.isOpen)
     }
 

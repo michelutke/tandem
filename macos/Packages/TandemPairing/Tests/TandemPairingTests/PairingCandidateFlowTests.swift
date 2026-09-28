@@ -103,11 +103,12 @@ struct PairingCandidateFlowTests {
         #expect(sink.calls == [.closePairingFailed])
     }
 
-    /// Pins why ``PairingCandidateFlow/requestDeadlineElapsed()``'s fix must check `candidateInFlight(_:)`
-    /// scoped to its own stale `token`, not the window-wide `candidateInFlight` -- a window-wide check
-    /// would see a fresh candidate already admitted (true) and wrongly no-op, leaving the stale
-    /// connection open (reintroducing the exact bug this file's other E14-24 test guards against).
-    /// The stale watcher must close only its own connection and never touch the fresh candidate's slot.
+    /// Pins why ``PairingCandidateFlow/requestDeadlineElapsed()``'s fix must rely on
+    /// ``PairingWindow/requestDeadlineElapsed(_:)``'s own tri-state scoped to its own stale `token`
+    /// (E14-25), not a window-wide in-flight check -- a window-wide check would see a fresh
+    /// candidate already admitted (true) and wrongly no-op, leaving the stale connection open
+    /// (reintroducing the exact bug this file's other E14-24 test guards against). The stale
+    /// watcher must close only its own connection and never touch the fresh candidate's slot.
     @Test
     func pairingCandidateFlow_staleWatcherAfterFreshCandidateAdmitted_closesStaleOnlyNotFresh() async throws {
         let clock = ManualTestClock()

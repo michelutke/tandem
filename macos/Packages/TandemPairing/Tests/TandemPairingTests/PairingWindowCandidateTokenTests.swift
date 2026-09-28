@@ -44,6 +44,77 @@ struct PairingWindowCandidateTokenTests {
         #expect(window.closedReason == .expired)
     }
 
+    // MARK: - E14-25: atomic tri-state `requestDeadlineElapsed(_:)`, `.paired` exclusion
+
+    /// Regression, replacing the two separately-locked calls (this method plus a scoped
+    /// `candidateInFlight(_:)`) the pre-E14-25 fix used: a stale watcher whose own token has since
+    /// been superseded by a fresh candidate (admitted after the stale one's slot was freed by some
+    /// other path, so `deadlineBurnedToken` was never set for it) must resolve as `.gone` -- and,
+    /// resolved under the single lock acquisition this call now makes, must never touch the fresh
+    /// candidate's own slot while doing so.
+    @Test
+    func requestDeadlineElapsed_staleWatcherAfterFreshCandidateAdmitted_closesStaleOnlyNotFresh() throws {
+        let window = Self.makeWindow(clock: ManualTestClock()).window
+        window.open(secret: Data([1]))
+        let staleToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(staleToken) != nil)
+
+        // Freed by some path other than its own 10 s deadline (e.g. a peer disconnect), just like
+        // the whole-window-expiry branch this bug class also covers: `deadlineBurnedToken` is never
+        // set for `staleToken`.
+        window.releaseCandidate(staleToken)
+        let freshToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(freshToken) != nil)
+
+        #expect(window.requestDeadlineElapsed(staleToken) == .gone)
+
+        #expect(window.candidateInFlight, "the fresh candidate's slot must be untouched by the stale watcher")
+    }
+
+    /// The TOCTOU this fix closes (E14-25, a narrow follow-up to E14-16 finding #4's own `.paired`
+    /// exclusion): a `PairRequest` accepted and confirmed between the watcher's old two separate
+    /// lock acquisitions could move `token` all the way to `.closed(.paired)`, which the old,
+    /// separately-locked `candidateInFlight(_:)` call alone couldn't tell apart from any other
+    /// "no longer in flight" reason. Resolved under one lock now, `requestDeadlineElapsed(_:)` must
+    /// report `.stillInFlight` -- never `.gone` -- once pairing has actually succeeded, so the
+    /// caller never closes a session that just got trusted.
+    @Test
+    func requestDeadlineElapsed_windowAlreadyPaired_noOp() throws {
+        let window = Self.makeWindow(clock: ManualTestClock(), verifierResult: true).window
+        window.open(secret: Data([1]))
+        let token = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(token) != nil)
+        #expect(window.submitPairRequest(token, proof: Data([9])) == .pendingConfirmation)
+        #expect(window.ownerAccepted(token))
+
+        #expect(window.requestDeadlineElapsed(token) == .stillInFlight)
+
+        #expect(window.closedReason == .paired)
+    }
+
+    /// Fix #2 (E14-25 verifier finding): the `.paired` exclusion above must be scoped to the
+    /// token that actually paired. A regenerate drops an earlier candidate's slot without burning
+    /// its deadline watcher's token; if a *different*, later candidate then pairs, the earlier
+    /// watcher's stale token must still resolve `.gone` even though the window itself now reads
+    /// `.closed(.paired, _)` -- otherwise the stale watcher wrongly treats a slot it never
+    /// occupied as still in flight and never closes.
+    @Test
+    func requestDeadlineElapsed_windowPairedByDifferentToken_staleTokenGone() throws {
+        let window = Self.makeWindow(clock: ManualTestClock(), verifierResult: true).window
+        window.open(secret: Data([1]))
+        let staleToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(staleToken) != nil)
+
+        window.open(secret: Data([2]))
+        let freshToken = try #require(window.admitCandidate())
+        #expect(window.candidateHellosCompleted(freshToken) != nil)
+        #expect(window.submitPairRequest(freshToken, proof: Data([9])) == .pendingConfirmation)
+        #expect(window.ownerAccepted(freshToken))
+
+        #expect(window.requestDeadlineElapsed(staleToken) == .gone)
+        #expect(window.requestDeadlineElapsed(freshToken) == .stillInFlight)
+    }
+
     private static func makeWindow(
         clock: ManualTestClock,
         verifierResult: Bool = true
