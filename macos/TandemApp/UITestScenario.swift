@@ -31,6 +31,13 @@ enum UITestScenario: String {
     /// Fail-closed error state: version mismatch (E12-10).
     case failClosedError
 
+    /// Local Network privacy permission denied (E21-03): the menu shows
+    /// ``LocalNetworkPermissionViewModel``'s exact explanation text and an "Open System Settings"
+    /// button, seeded by a `BonjourPublishError.policyDenied` error on a plain
+    /// `AsyncStream<BonjourPublishError>` (TandemTransport, E21-02) rather than a real
+    /// `BonjourPublisher` -- no advertise/listener wiring exists in this scenario window.
+    case localNetworkDenied
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }
