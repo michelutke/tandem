@@ -8,13 +8,25 @@ import SwiftUI
 struct QuickActionsView: View {
     let viewModel: QuickActionsViewModel
 
+    /// Drives the "Find Phone"/"Stop Ringing" label (E23-07) -- the only one of the four actions
+    /// whose label changes at runtime, so it gets its own button rather than sharing
+    /// ``actionButton(_:identifier:)``'s static ``QuickActionsViewModel/Action/label``.
+    let findPhoneViewModel: FindPhoneViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             actionButton(.sendFile, identifier: "sendFileMenuItem")
             actionButton(.pushClipboard, identifier: "pushClipboardMenuItem")
-            actionButton(.findPhone, identifier: "findPhoneMenuItem")
+            findPhoneButton
             actionButton(.mirror, identifier: "mirrorPhoneMenuItem")
         }
+    }
+
+    private var findPhoneButton: some View {
+        Button(findPhoneViewModel.label) { viewModel.select(.findPhone) }
+            .disabled(!viewModel.isConnected)
+            .accessibilityIdentifier("findPhoneMenuItem")
+            .accessibilityLabel(findPhoneViewModel.label)
     }
 
     private func actionButton(_ action: QuickActionsViewModel.Action, identifier: String) -> some View {

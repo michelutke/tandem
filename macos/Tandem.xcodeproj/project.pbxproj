@@ -45,6 +45,8 @@
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
 		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
+		5BC594911F2522516690556B /* FindPhoneViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1080F862CDF9807DD55F07 /* FindPhoneViewModel.swift */; };
+		608591D94DC4AD290A93F808 /* FindPhoneViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC38EB664ABEDF4E0B552F0B /* FindPhoneViewModelTests.swift */; };
 		F9688097D3E090DD745B8855 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B585178A98786DB4AB6D5375 /* LoginItemService.swift */; };
 /* End PBXBuildFile section */
 
@@ -132,6 +134,8 @@
 		ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioPairedConnectedUITests.swift; sourceTree = "<group>"; };
 		EFE4F187257AE37E3EC7F0B2 /* ScenarioPairedDisconnectedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioPairedDisconnectedUITests.swift; sourceTree = "<group>"; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
+		3F1080F862CDF9807DD55F07 /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
+		BC38EB664ABEDF4E0B552F0B /* FindPhoneViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -198,6 +202,7 @@
 			children = (
 				08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */,
 				914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */,
+				BC38EB664ABEDF4E0B552F0B /* FindPhoneViewModelTests.swift */,
 				03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */,
 				2B9B2E23FF1A4091B5ED2B9E /* LocalNetworkPermissionViewModelTests.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
@@ -236,6 +241,7 @@
 			children = (
 				082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */,
 				2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */,
+				3F1080F862CDF9807DD55F07 /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
@@ -441,6 +447,7 @@
 			files = (
 				3CEE3ED42D968EA33509BDB2 /* DeviceStatusViewModelTests.swift in Sources */,
 				F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */,
+				608591D94DC4AD290A93F808 /* FindPhoneViewModelTests.swift in Sources */,
 				BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */,
 				181061876B4B9D392C41F0D3 /* LocalNetworkPermissionViewModelTests.swift in Sources */,
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
@@ -454,6 +461,7 @@
 			files = (
 				63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */,
 				F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */,
+				5BC594911F2522516690556B /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */,

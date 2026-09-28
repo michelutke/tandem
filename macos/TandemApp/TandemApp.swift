@@ -156,18 +156,29 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 struct MenuContentView: View {
     @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
 
-    /// No paired-session wiring exists yet for the four quick actions to react to (E22-02) -- the
-    /// same gap `menuBarViewModel`'s own `stateStream: nil` above already has -- so this is
-    /// `isConnected: false` with no-op stub closures until whichever issue first composes pairing
-    /// together with Send File (E40-10), Push Clipboard (E31-11), Find Phone (E23-07), and Mirror
-    /// (E61-12) into ``AppComposition``.
-    @State private var quickActionsViewModel = QuickActionsViewModel(
-        isConnected: false,
-        sendFile: {},
-        pushClipboard: {},
-        findPhone: {},
-        mirror: {}
-    )
+    /// No paired-session wiring exists yet for ``findPhoneViewModel`` to send/observe `Ring`/
+    /// `RingStop` on (E23-07's own `session: nil` below) -- until whichever issue first composes
+    /// pairing together with Send File (E40-10), Push Clipboard (E31-11), and Mirror (E61-12) into
+    /// ``AppComposition``, ``select()`` on this instance is a no-op.
+    @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
+
+    /// No paired-session wiring exists yet for the remaining three quick actions to react to
+    /// (E22-02) -- the same gap `menuBarViewModel`'s own `stateStream: nil` above already has --
+    /// so this is `isConnected: false` with no-op stub closures for those three, and
+    /// ``findPhoneViewModel`` itself (also presently sessionless) for "Find Phone".
+    @State private var quickActionsViewModel: QuickActionsViewModel
+
+    init() {
+        let findPhoneViewModel = FindPhoneViewModel(session: nil)
+        _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
+            isConnected: false,
+            sendFile: {},
+            pushClipboard: {},
+            findPhone: { findPhoneViewModel.select() },
+            mirror: {}
+        ))
+    }
 
     var body: some View {
         #if DEBUG
@@ -194,7 +205,7 @@ struct MenuContentView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
-                QuickActionsView(viewModel: quickActionsViewModel)
+                QuickActionsView(viewModel: quickActionsViewModel, findPhoneViewModel: findPhoneViewModel)
             }
         }
     }
@@ -210,11 +221,34 @@ private struct ScenarioView: View {
 
     @State private var pairedConnectedViewModel = ScenarioView.makePairedConnectedViewModel()
     @State private var pairedConnectedDeviceStatusViewModel = ScenarioView.makePairedConnectedDeviceStatusViewModel()
-    @State private var pairedConnectedQuickActionsViewModel =
-        ScenarioView.makeQuickActionsViewModel(isConnected: true)
+    /// Backed by ``pairedConnectedSession`` (E23-07), the same shared fake session
+    /// ``pairedConnectedViewModel`` and ``pairedConnectedDeviceStatusViewModel`` already observe,
+    /// so a `Ring`/`RingStop` selected here shows up exactly like production wiring would.
+    @State private var pairedConnectedFindPhoneViewModel: FindPhoneViewModel
+    @State private var pairedConnectedQuickActionsViewModel: QuickActionsViewModel
     @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
-    @State private var pairedDisconnectedQuickActionsViewModel =
-        ScenarioView.makeQuickActionsViewModel(isConnected: false)
+    /// No session (E23-07) -- ``pairedDisconnectedQuickActionsViewModel``'s `isConnected: false`
+    /// already disables this action, so there is nothing for it to send/observe.
+    @State private var pairedDisconnectedFindPhoneViewModel = FindPhoneViewModel(session: nil)
+    @State private var pairedDisconnectedQuickActionsViewModel: QuickActionsViewModel
+
+    init(scenario: UITestScenario) {
+        self.scenario = scenario
+
+        let pairedConnectedFindPhoneViewModel = FindPhoneViewModel(session: ScenarioView.pairedConnectedSession)
+        _pairedConnectedFindPhoneViewModel = State(initialValue: pairedConnectedFindPhoneViewModel)
+        _pairedConnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
+            isConnected: true,
+            findPhone: { pairedConnectedFindPhoneViewModel.select() }
+        ))
+
+        let pairedDisconnectedFindPhoneViewModel = FindPhoneViewModel(session: nil)
+        _pairedDisconnectedFindPhoneViewModel = State(initialValue: pairedDisconnectedFindPhoneViewModel)
+        _pairedDisconnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
+            isConnected: false,
+            findPhone: { pairedDisconnectedFindPhoneViewModel.select() }
+        ))
+    }
 
     var body: some View {
         switch scenario {
@@ -226,12 +260,18 @@ private struct ScenarioView: View {
                     viewModel: pairedConnectedViewModel,
                     deviceStatusViewModel: pairedConnectedDeviceStatusViewModel
                 )
-                QuickActionsView(viewModel: pairedConnectedQuickActionsViewModel)
+                QuickActionsView(
+                    viewModel: pairedConnectedQuickActionsViewModel,
+                    findPhoneViewModel: pairedConnectedFindPhoneViewModel
+                )
             }
         case .pairedDisconnected:
             VStack(alignment: .leading, spacing: 8) {
                 MenuBarContentView(viewModel: pairedDisconnectedViewModel, deviceStatusViewModel: nil)
-                QuickActionsView(viewModel: pairedDisconnectedQuickActionsViewModel)
+                QuickActionsView(
+                    viewModel: pairedDisconnectedQuickActionsViewModel,
+                    findPhoneViewModel: pairedDisconnectedFindPhoneViewModel
+                )
             }
         case .failClosedError:
             let presenter = ErrorPresenter(reasonName: "versionMismatch")
@@ -300,14 +340,19 @@ private struct ScenarioView: View {
         return LocalNetworkPermissionViewModel(errors: stream, urlOpener: WorkspaceURLOpener())
     }
 
-    /// No-op stub closures -- this seeds view state for XCUITest, not a unit test, so recording
-    /// call counts isn't needed here (``QuickActionsViewModelTests`` already covers that).
-    private static func makeQuickActionsViewModel(isConnected: Bool) -> QuickActionsViewModel {
+    /// No-op stub closures for the two actions with no wiring yet -- this seeds view state for
+    /// XCUITest, not a unit test, so recording call counts isn't needed here
+    /// (``QuickActionsViewModelTests`` already covers that). `findPhone` (E23-07) is real: it
+    /// dispatches to its own scenario's ``FindPhoneViewModel``.
+    private static func makeQuickActionsViewModel(
+        isConnected: Bool,
+        findPhone: @escaping () -> Void
+    ) -> QuickActionsViewModel {
         QuickActionsViewModel(
             isConnected: isConnected,
             sendFile: {},
             pushClipboard: {},
-            findPhone: {},
+            findPhone: findPhone,
             mirror: {}
         )
     }
