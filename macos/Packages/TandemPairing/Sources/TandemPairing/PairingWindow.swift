@@ -59,8 +59,8 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     private let candidateRequestDeadline: TimeInterval
     private let maxAttempts: Int
 
-    private let lock = NSLock()
-    private var phase: Phase = .closed(nil, attemptsRemaining: 0)
+    let lock = NSLock()
+    var phase: Phase = .closed(nil, attemptsRemaining: 0)
     /// Token ``settleLocked()`` most recently, lazily burned via its own 10s deadline check -- set
     /// there, consumed by ``requestDeadlineElapsed(_:)`` (any locked call, not just the watcher's,
     /// can be first to observe the deadline has passed).
@@ -355,7 +355,7 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
 
     /// Reconciles `dateProvider()` against the window's 120 s expiry and, failing that, an
     /// in-flight candidate's 10 s `PairRequest` deadline. Assumes `lock` is held.
-    private func settleLocked() {
+    func settleLocked() {
         guard case .open(var state) = phase else { return }
         let now = dateProvider()
 
