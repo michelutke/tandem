@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.psi.KtFile
 /**
  * E00-28 tapjacking baseline: every class extending `Activity`, `ComponentActivity`,
  * `AppCompatActivity`, `FragmentActivity`, `ListActivity`, `PreferenceActivity` or
- * `NativeActivity` must extend `dev.tandem.app.TandemActivity` instead, so
+ * `NativeActivity` must extend `dev.tandem.core.ui.TandemActivity` instead, so
  * `window.decorView.filterTouchesWhenObscured` is always set (invariants 1, 4). `TandemActivity`
  * itself is the one permitted direct subclass of those.
  *

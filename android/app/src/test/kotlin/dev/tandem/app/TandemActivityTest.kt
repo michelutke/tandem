@@ -2,23 +2,20 @@ package dev.tandem.app
 
 import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.core.ui.TandemActivity
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RuntimeEnvironment
 
 // E00-28 tdd:
-//   unit: tandemActivity_onCreate_decorViewFiltersTouchesWhenObscured
+//   unit: everyDeclaredActivity_extendsTandemActivity
+//
+// tandemActivity_onCreate_decorViewFiltersTouchesWhenObscured moved to
+// core/ui/src/test/kotlin/dev/tandem/core/ui/TandemActivityTest.kt in E31-06, alongside the class
+// itself.
 @RunWith(AndroidJUnit4::class)
 class TandemActivityTest {
-    @Test
-    fun tandemActivity_onCreate_decorViewFiltersTouchesWhenObscured() {
-        val activity = Robolectric.buildActivity(TandemActivity::class.java).setup().get()
-
-        assertTrue(activity.window.decorView.filterTouchesWhenObscured)
-    }
-
     /**
      * Closed-form backstop for the `TandemActivityBase` detekt rule (which only sees the source
      * file being linted, and has documented syntactic blind spots — a `typealias`, an unrelated

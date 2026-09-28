@@ -22,4 +22,7 @@
     <string name="notification_ring_title">Tandem is ringing</string>
     <string name="notification_ring_text">Your Mac is ringing this phone</string>
     <string name="notification_ring_stop_action">Stop</string>
+
+    <!-- Clipboard share-target / PROCESS_TEXT entry points (E31-06) -->
+    <string name="clipboard_send_to_mac_label">Send to Mac</string>
 </resources>

@@ -43,6 +43,7 @@ include(
     ":core:storage",
     ":core:testing",
     ":core:transport",
+    ":core:ui",
     ":feature:calls",
     ":feature:clipboard",
     ":feature:files",
