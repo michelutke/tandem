@@ -51,9 +51,14 @@ final class SettingsWindowUITests: XCTestCase {
 
         let toggle = app.checkBoxes["launchAtLoginToggle"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), "launchAtLoginToggle never appeared")
-        let initialValue = toggle.value as? String
+        // `.value`'s underlying dynamic type for a macOS checkbox isn't guaranteed to be `String`
+        // (it can bridge as `NSNumber`/`Bool` depending on the AX runtime) -- `as? String` can
+        // silently produce `nil` on both sides of a comparison even when the checkbox's real
+        // state did change, making this assertion pass or fail for the wrong reason.
+        // `String(describing:)` always captures the actual value's description instead.
+        let initialValue = String(describing: toggle.value as Any)
         toggle.click()
-        let toggledValue = toggle.value as? String
+        let toggledValue = String(describing: toggle.value as Any)
         XCTAssertNotEqual(initialValue, toggledValue, "toggle never changed on click")
 
         let pairedDevicesTab = app.buttons["pairedDevicesTab"]
@@ -67,7 +72,7 @@ final class SettingsWindowUITests: XCTestCase {
         let toggleAfterSwitch = app.checkBoxes["launchAtLoginToggle"]
         XCTAssertTrue(toggleAfterSwitch.waitForExistence(timeout: 10), "launchAtLoginToggle never reappeared")
         XCTAssertEqual(
-            toggleAfterSwitch.value as? String,
+            String(describing: toggleAfterSwitch.value as Any),
             toggledValue,
             "toggle value was not retained across a tab switch"
         )

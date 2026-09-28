@@ -43,17 +43,38 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            GeneralSettingsView(viewModel: launchAtLoginViewModel)
-                .tabItem { Text("General").accessibilityIdentifier("generalTab") }
-                .tag(SettingsTab.general)
+        VStack(spacing: 0) {
+            // A native `TabView`/`.tabItem` pair is the more idiomatic macOS Settings shell, but
+            // SwiftUI on macOS does not reliably propagate `.accessibilityIdentifier` set inside a
+            // `.tabItem` label closure to the resulting native tab button -- the label view only
+            // supplies the tab bar's rendered title/image, not a real node in the accessibility
+            // tree UI tests can address by identifier. Plain `Button`s driving `selectedTab`
+            // directly are ordinary SwiftUI views with a guaranteed `XCUIElementTypeButton` AX
+            // role, so `app.buttons["…Tab"]` reliably finds them (a segmented `Picker`'s AX role
+            // on macOS is not guaranteed to be `.buttons` the same way).
+            HStack(spacing: 8) {
+                tabButton("General", tab: .general, identifier: "generalTab")
+                tabButton("Paired Devices", tab: .pairedDevices, identifier: "pairedDevicesTab")
+                Spacer()
+            }
+            .padding([.horizontal, .top])
 
-            PairedDevicesSettingsView(viewModel: pairedDevicesViewModel)
-                .tabItem { Text("Paired Devices").accessibilityIdentifier("pairedDevicesTab") }
-                .tag(SettingsTab.pairedDevices)
+            switch selectedTab {
+            case .general:
+                GeneralSettingsView(viewModel: launchAtLoginViewModel)
+            case .pairedDevices:
+                PairedDevicesSettingsView(viewModel: pairedDevicesViewModel)
+            }
         }
         .frame(width: 420, height: 320)
         .onAppear { launchAtLoginViewModel.refreshStatus() }
+    }
+
+    private func tabButton(_ title: String, tab: SettingsTab, identifier: String) -> some View {
+        Button(title) { selectedTab = tab }
+            .buttonStyle(.borderless)
+            .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.primary)
+            .accessibilityIdentifier(identifier)
     }
 }
 
