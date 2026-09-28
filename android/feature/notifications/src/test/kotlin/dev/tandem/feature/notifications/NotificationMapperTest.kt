@@ -56,6 +56,10 @@ class NotificationMapperTest {
         val posted = NotificationMapper.toPosted(sbn, appVersionCode = 1L)
 
         assertEquals(listOf("Alice", "Bob", "Carol"), posted.messagingStyleSendersList)
+        // `text` must be the actual per-message content, newline-joined in sender order -- the
+        // Mac presenter (E30-07) pairs these lines with messagingStyleSenders positionally, not
+        // the OS's own auto-generated EXTRA_TEXT summary (typically just the newest message).
+        assertEquals("message 0\nmessage 1\nmessage 2", posted.text)
     }
 
     @Test
