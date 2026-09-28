@@ -1066,11 +1066,16 @@ epics:
         prd: [F-4.2]
         use_cases: [UC-07]
         invariants: []
-        depends_on: [E22-01, E14-14, E00-26]
+        depends_on: [E22-01, E14-14, E14-26, E00-26]
         description: |
           A SwiftUI Settings scene with General (launch at login, notification prefs placeholder)
           and Paired Devices tabs. The Paired Devices tab hosts the paired-devices list and revoke
           flow owned by E14-14 (no second implementation).
+          E14-26 already composed the real view model and unpair action
+          (`AppComposition.makePairedDevicesViewModel(lifecycle:)`, requires the
+          `AppComposition.RetainedLifecycle` from a successful `startListener()`) -- this issue's own
+          job is only to call that composition function from a real menu entry point, not to
+          reimplement the wiring.
           Tests: XCUITest (E00-26) with the `pairedConnected` scenario; the menu bar item is
           "Settings…".
         acceptance:
