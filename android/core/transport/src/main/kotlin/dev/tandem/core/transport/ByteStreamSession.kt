@@ -8,19 +8,43 @@ import dev.tandem.core.protocol.connection.ConnectionStateMachine
 import dev.tandem.core.protocol.handshake.HandshakeOutcome
 import dev.tandem.core.protocol.handshake.VersionHandshake
 import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
+import dev.tandem.core.transport.heartbeat.DeadPeerDetector
+import dev.tandem.core.transport.heartbeat.DeviceIdleSource
+import dev.tandem.core.transport.heartbeat.HeartbeatResponder
+import dev.tandem.core.transport.heartbeat.UnsolicitedHeartbeatTimer
+import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
+import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import java.time.Clock
+import java.util.concurrent.atomic.AtomicBoolean
+
+/**
+ * E20-15 liveness dependencies for [ByteStreamSession]: supplying this starts a [HeartbeatResponder],
+ * [UnsolicitedHeartbeatTimer] and [DeadPeerDetector] once this session reaches
+ * [ConnectionState.Ready]. Omitted by every caller not yet ready to supply a real
+ * [DeviceIdleSource] (e.g. `harness/jvm-client`, a plain JVM process with no Android runtime to back
+ * one) -- those sessions behave exactly as before this issue, with no liveness enforcement of their
+ * own (the JVM harness plays the Mac side of a connection, which never needed one; E20-05 is that
+ * side's own contract).
+ */
+class HeartbeatDependencies(
+    val elapsedRealtimeSource: ElapsedRealtimeSource,
+    val deviceIdleSource: DeviceIdleSource,
+)
 
 /**
  * [TandemSession] over a real [ByteStream] (E12-11; aligned with the macOS twin, E12-12). By the
@@ -41,17 +65,38 @@ import java.time.Clock
 class ByteStreamSession(
     private val byteStream: ByteStream,
     clock: Clock,
-    dispatcher: CoroutineDispatcher,
+    private val dispatcher: CoroutineDispatcher,
+    private val heartbeatDependencies: HeartbeatDependencies? = null,
 ) : TandemSession {
     private val frameSource =
         FrameSource { buffer, offset, length -> runInterruptible { byteStream.input.read(buffer, offset, length) } }
     private val frameSink =
         FrameSink { bytes -> runInterruptible { byteStream.output.write(bytes) } }
 
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    /**
+     * `internal` rather than `private` only so tests can assert this session leaves no leaked
+     * child coroutine behind once closed (E20-15 verifier finding #3's regression test).
+     */
+    internal val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val connection = ConnectionStateMachine(clock, dispatcher)
     private val multiplexer = ChannelMultiplexer(frameSource, frameSink)
     private val handshake = VersionHandshake(multiplexer, clock, dispatcher)
+
+    private var heartbeatResponder: HeartbeatResponder? = null
+    private var unsolicitedHeartbeatTimer: UnsolicitedHeartbeatTimer? = null
+    private var deadPeerDetector: DeadPeerDetector? = null
+
+    /**
+     * Guards [performClose] so it runs at most once, whether triggered by [close] or by
+     * [multiplexer]'s own [ChannelMultiplexer.closeReason] completing (E20-15 verifier #1/#2).
+     */
+    private val closed = AtomicBoolean(false)
+
+    /**
+     * The [startHeartbeatLifecycle] coroutine's own [Job], cancelled by [performClose] so a
+     * session that never reaches [ConnectionState.Ready] cannot leak it (E20-15 verifier #3).
+     */
+    private var heartbeatLifecycleJob: Job? = null
 
     override val state: StateFlow<ConnectionState> = connection.state
 
@@ -61,6 +106,84 @@ class ByteStreamSession(
         connection.handle(ConnectionEvent.HandshakeCompleted)
         scope.launch { multiplexer.start() }
         scope.launch { performHandshake() }
+        if (heartbeatDependencies != null) {
+            heartbeatLifecycleJob = scope.launch { startHeartbeatLifecycle(heartbeatDependencies) }
+        }
+    }
+
+    /**
+     * Starts the E20-15 liveness classes once this session reaches [ConnectionState.Ready] --
+     * mirroring the macOS twin's own `HeartbeatController`, constructed once its connection reaches
+     * the same state (E20-05's `ListenerFactory`) -- and stops them the moment [multiplexer] itself
+     * closes, for any reason, mirroring that same twin's `ListenerFactory` calling
+     * `HeartbeatController.stop()` "once this connection's own ChannelMultiplexer closes, for any
+     * reason" (E20-15 verifier finding #1: without this, a peer EOF/IOException/seq violation closes
+     * [multiplexer] but nothing stops the heartbeat trio, so its next send throws
+     * [MultiplexerClosedException] uncaught).
+     *
+     * If [close] races ahead of [ConnectionState.Ready] -- either before this resumes, or while the
+     * three heartbeat objects below are being constructed -- [closed] is already `true` and this
+     * either returns without constructing them or immediately stops the ones it just built (E20-15
+     * verifier finding #2): a [close] that races this coroutine can never leave an orphaned trio
+     * running against an already-dead session.
+     */
+    private suspend fun startHeartbeatLifecycle(dependencies: HeartbeatDependencies) {
+        state.first { it is ConnectionState.Ready }
+        if (closed.get()) return
+
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        val sendHeartbeat: suspend () -> Unit = {
+            try {
+                send(Channel.CHANNEL_CONTROL) { heartbeat = heartbeat {} }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (e: Exception) {
+                // The connection closed between this being scheduled and this running --
+                // [MultiplexerClosedException] if [multiplexer] had already completed
+                // [ChannelMultiplexer.closeReason] by the time [send] checked, or the raw
+                // [java.io.IOException] a write already in flight sees if [byteStream] itself gets
+                // torn down mid-write (mirrors the macOS twin's own `try?` around this same send,
+                // E20-15 verifier finding #1). Either way, nothing is left to send a heartbeat to --
+                // never let this crash the app.
+            }
+        }
+
+        heartbeatResponder =
+            HeartbeatResponder(
+                received = multiplexer.received,
+                sendHeartbeat = sendHeartbeat,
+                elapsedRealtimeSource = dependencies.elapsedRealtimeSource,
+                dispatcher = dispatcher,
+            ).apply { start() }
+
+        unsolicitedHeartbeatTimer =
+            UnsolicitedHeartbeatTimer(
+                sent = multiplexer.sent,
+                isIdle = dependencies.deviceIdleSource.isIdle,
+                sendHeartbeat = sendHeartbeat,
+                dispatcher = dispatcher,
+            ).apply { start() }
+
+        deadPeerDetector =
+            DeadPeerDetector(
+                received = multiplexer.received.map { },
+                deviceIdleSource = dependencies.deviceIdleSource,
+                elapsedRealtimeSource = dependencies.elapsedRealtimeSource,
+                onDead = { close() },
+                dispatcher = dispatcher,
+            ).apply { start() }
+
+        if (closed.get()) {
+            heartbeatResponder?.close()
+            unsolicitedHeartbeatTimer?.close()
+            deadPeerDetector?.close()
+            return
+        }
+
+        scope.launch {
+            multiplexer.closeReason.await()
+            performClose("connection closed")
+        }
     }
 
     /**
@@ -103,9 +226,24 @@ class ByteStreamSession(
 
     override fun receive(channel: Channel): Flow<Envelope> = multiplexer.inbound(channel).map { it.payload }
 
-    override fun close() {
+    override fun close() = performClose("closed locally")
+
+    /**
+     * The actual close logic, idempotent via [closed]: runs at most once whether reached through a
+     * caller's [close] or through [startHeartbeatLifecycle]'s own watcher observing
+     * [ChannelMultiplexer.closeReason] complete on its own (a peer EOF, an IOException, or a seq/ack
+     * violation -- E20-15 verifier finding #1). [heartbeatLifecycleJob] is cancelled here too, so a
+     * session that never reaches [ConnectionState.Ready] before this runs cannot leak that coroutine
+     * (E20-15 verifier finding #3).
+     */
+    private fun performClose(reason: String) {
+        if (!closed.compareAndSet(false, true)) return
+        heartbeatLifecycleJob?.cancel()
+        heartbeatResponder?.close()
+        unsolicitedHeartbeatTimer?.close()
+        deadPeerDetector?.close()
         byteStream.closeAbruptly()
-        connection.handle(ConnectionEvent.SocketClosed("closed locally"))
+        connection.handle(ConnectionEvent.SocketClosed(reason))
         connection.close()
     }
 }

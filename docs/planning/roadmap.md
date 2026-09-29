@@ -135,7 +135,7 @@ issues (gates the phase checklist); **all** includes P1/P2.
 | Phase | P0 issues | Exit path | All issues | Sum of P0 effort |
 |---|---|---|---|---|
 | 0 | 60 | 7.0 d | 7.0 d | 60.5 d |
-| 1 | 107 | 15.5 d | 16.5 d | 118.0 d |
+| 1 | 108 | 15.5 d | 16.5 d | 118.5 d |
 | 2 | 34 | 7.5 d | 8.5 d | 38.5 d |
 | 3 | 27 | 8.0 d | 8.0 d | 25.5 d |
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
@@ -297,7 +297,7 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 | Phase | android | macos | shared (protocol, docs, tools, ci, cross) |
 |---|---|---|---|
 | 0 | 11.0 d | 8.0 d | 41.5 d |
-| 1 | 42.5 d | 49.5 d | 26.0 d |
+| 1 | 43.0 d | 49.5 d | 26.0 d |
 | 2 | 23.0 d | 12.0 d | 3.5 d |
 | 3 | 11.0 d | 6.5 d | 8.0 d |
 | 4 | 19.5 d | 19.0 d | 8.0 d |

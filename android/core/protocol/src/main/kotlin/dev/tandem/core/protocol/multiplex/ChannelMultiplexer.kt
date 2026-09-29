@@ -20,6 +20,9 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -95,6 +98,27 @@ class ChannelMultiplexer(
      * [MultiplexerClose.PeerClosed]).
      */
     val closeReason: Deferred<MultiplexerClose> get() = closeResult
+
+    private val mutableSent = MutableSharedFlow<Unit>(extraBufferCapacity = SIGNAL_BUFFER_CAPACITY)
+
+    /**
+     * Fires once for every frame this multiplexer actually writes to [sink], on any channel
+     * (E20-15; SPEC.md #heartbeat: "any frame it sends" resets the unsolicited-heartbeat idle-send
+     * timer; aligned with the macOS twin's `ChannelMultiplexer.sent`, E20-05).
+     */
+    val sent: SharedFlow<Unit> = mutableSent.asSharedFlow()
+
+    private val mutableReceived = MutableSharedFlow<FrameArrival>(extraBufferCapacity = SIGNAL_BUFFER_CAPACITY)
+
+    /**
+     * Fires once for every frame this multiplexer accepts off the wire, on any channel, at the
+     * moment it clears D-57's seq/ack contract -- before its credit-related outcome is even
+     * considered, and regardless of whether any caller ever collects it off [inbound] (E20-15;
+     * SPEC.md #heartbeat: "any frame" received resets the dead-peer timer; aligned with the macOS
+     * twin's `ChannelMultiplexer.received`, E20-05). Never consumes [inbound] itself, so observing
+     * this never drops a frame another consumer would otherwise see.
+     */
+    val received: SharedFlow<FrameArrival> = mutableReceived.asSharedFlow()
 
     /**
      * Frames this multiplexer has routed for [channel] — never anything routed for a different
@@ -186,6 +210,12 @@ class ChannelMultiplexer(
                 if (violation != null) {
                     MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, violation)
                 } else {
+                    mutableReceived.tryEmit(
+                        FrameArrival(
+                            channel = result.envelope.channel,
+                            isHeartbeat = result.envelope.payloadCase == Envelope.PayloadCase.HEARTBEAT,
+                        ),
+                    )
                     creditOutcomeFor(result.envelope)
                 }
             }
@@ -296,6 +326,7 @@ class ChannelMultiplexer(
                 val result = outboundQueues.getValue(ROUTABLE_CHANNELS[index]).tryReceive()
                 if (result.isSuccess) {
                     sink.write(FrameEncoder.encodeFrame(result.getOrThrow()))
+                    mutableSent.tryEmit(Unit)
                     return (index + 1) % ROUTABLE_CHANNELS.size
                 }
             }
@@ -314,6 +345,7 @@ class ChannelMultiplexer(
                     for (channel in ROUTABLE_CHANNELS) {
                         outboundQueues.getValue(channel).onReceive { frame ->
                             sink.write(FrameEncoder.encodeFrame(frame))
+                            mutableSent.tryEmit(Unit)
                             ROUTABLE_CHANNELS.indexOf(channel)
                         }
                     }
@@ -524,5 +556,8 @@ class ChannelMultiplexer(
 
         /** [Writer.awaitAndWriteAny]'s sentinel return value for "[closeResult] completed first". */
         const val CLOSED_INDEX = -1
+
+        /** [sent]/[received]'s replay-less buffer: generous enough that a slow collector never blocks the hot path. */
+        const val SIGNAL_BUFFER_CAPACITY = 64
     }
 }
