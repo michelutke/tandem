@@ -38,7 +38,7 @@ enum ConformanceRunner {
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
-        "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding"
+        "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -140,6 +140,7 @@ enum ConformanceRunner {
         case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
         case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
         case "clipboard-encoding": return try runClipboardEncoding(data: data)
+        case "files-encoding": return try runFilesEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
     }
