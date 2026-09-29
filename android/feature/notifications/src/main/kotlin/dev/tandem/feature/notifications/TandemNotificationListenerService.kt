@@ -3,6 +3,7 @@ package dev.tandem.feature.notifications
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * E30-02: binds as the system notification listener (declared in `:app`'s manifest with
@@ -31,13 +32,25 @@ import android.service.notification.StatusBarNotification
  * `reason == REASON_LISTENER_CANCEL`. That removal is this listener's own echo of a macos-origin
  * dismiss it already applied, not a fresh user action, so it is never forwarded to [eventSink] --
  * otherwise a Mac dismissal would bounce back to the Mac as a phone dismissal forever.
+ *
+ * E30-09: [trackedNotifications] keeps the last-posted [StatusBarNotification] for every key this
+ * listener forwarded, so [NotificationActionExecutor]'s composition-root wiring (out of this
+ * issue's scope, same as E30-10's `startNotificationDismissReader`) can look up the source
+ * `Notification.Action`/`PendingIntent` a received `NotificationAction` refers to via
+ * [findTrackedNotification]. A notification that never passed [NotificationFilter] is never
+ * tracked either -- the Mac never learned its key, so it can never reference it. Entries are
+ * removed on every removal regardless of [reason]: the notification is genuinely gone either way,
+ * even when the removal itself is this listener's own E30-10 echo.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
 
+    private val trackedNotifications = ConcurrentHashMap<String, StatusBarNotification>()
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!NotificationFilter.shouldForward(sbn, packageName)) return
+        trackedNotifications[sbn.key] = sbn
         eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, appVersionCode(sbn.packageName)))
     }
 
@@ -46,9 +59,12 @@ class TandemNotificationListenerService : NotificationListenerService() {
         rankingMap: RankingMap,
         reason: Int,
     ) {
+        trackedNotifications.remove(sbn.key)
         if (reason == REASON_LISTENER_CANCEL) return
         eventSink.onNotificationDismissed(NotificationMapper.toDismiss(sbn))
     }
+
+    internal fun findTrackedNotification(key: String): StatusBarNotification? = trackedNotifications[key]
 
     private fun appVersionCode(packageName: String): Long =
         try {
