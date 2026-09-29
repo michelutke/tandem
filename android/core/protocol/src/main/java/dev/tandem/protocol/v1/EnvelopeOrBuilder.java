@@ -359,5 +359,35 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.FileResumeRequest getFileResumeRequest();
 
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   * @return Whether the contactsSyncRequest field is set.
+   */
+  boolean hasContactsSyncRequest();
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   * @return The contactsSyncRequest.
+   */
+  dev.tandem.protocol.v1.ContactsSyncRequest getContactsSyncRequest();
+
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   * @return Whether the contactsSyncResponse field is set.
+   */
+  boolean hasContactsSyncResponse();
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   * @return The contactsSyncResponse.
+   */
+  dev.tandem.protocol.v1.ContactsSyncResponse getContactsSyncResponse();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

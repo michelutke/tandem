@@ -245,6 +245,23 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .fileResumeRequest(newValue)}
   }
 
+  /// contacts.proto (E51-01) — CONTACTS channel.
+  public var contactsSyncRequest: Tandem_V1_ContactsSyncRequest {
+    get {
+      if case .contactsSyncRequest(let v)? = payload {return v}
+      return Tandem_V1_ContactsSyncRequest()
+    }
+    set {payload = .contactsSyncRequest(newValue)}
+  }
+
+  public var contactsSyncResponse: Tandem_V1_ContactsSyncResponse {
+    get {
+      if case .contactsSyncResponse(let v)? = payload {return v}
+      return Tandem_V1_ContactsSyncResponse()
+    }
+    set {payload = .contactsSyncResponse(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -278,6 +295,9 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case fileComplete(Tandem_V1_FileComplete)
     case fileCancel(Tandem_V1_FileCancel)
     case fileResumeRequest(Tandem_V1_FileResumeRequest)
+    /// contacts.proto (E51-01) — CONTACTS channel.
+    case contactsSyncRequest(Tandem_V1_ContactsSyncRequest)
+    case contactsSyncResponse(Tandem_V1_ContactsSyncResponse)
 
   }
 
@@ -290,7 +310,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}P\u{1}\u{a}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{18}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -626,6 +646,32 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .fileResumeRequest(v)
         }
       }()
+      case 80: try {
+        var v: Tandem_V1_ContactsSyncRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .contactsSyncRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .contactsSyncRequest(v)
+        }
+      }()
+      case 81: try {
+        var v: Tandem_V1_ContactsSyncResponse?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .contactsSyncResponse(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .contactsSyncResponse(v)
+        }
+      }()
       default: break
       }
     }
@@ -745,6 +791,14 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .fileResumeRequest?: try {
       guard case .fileResumeRequest(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 56)
+    }()
+    case .contactsSyncRequest?: try {
+      guard case .contactsSyncRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 80)
+    }()
+    case .contactsSyncResponse?: try {
+      guard case .contactsSyncResponse(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 81)
     }()
     case nil: break
     }

@@ -773,6 +773,66 @@ public object EnvelopeKt {
     public fun hasFileResumeRequest(): kotlin.Boolean {
       return _builder.hasFileResumeRequest()
     }
+
+    /**
+     * ```
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * ```
+     *
+     * `.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];`
+     */
+    public var contactsSyncRequest: dev.tandem.protocol.v1.ContactsSyncRequest
+      @kotlin.jvm.JvmName("getContactsSyncRequest")
+        get() = _builder.contactsSyncRequest
+      @kotlin.jvm.JvmName("setContactsSyncRequest")
+        set(value) {
+        _builder.contactsSyncRequest = value
+      }
+    /**
+     * ```
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * ```
+     *
+     * `.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];`
+     */
+    public fun clearContactsSyncRequest() {
+      _builder.clearContactsSyncRequest()
+    }
+    /**
+     * ```
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * ```
+     *
+     * `.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];`
+     * @return Whether the contactsSyncRequest field is set.
+     */
+    public fun hasContactsSyncRequest(): kotlin.Boolean {
+      return _builder.hasContactsSyncRequest()
+    }
+
+    /**
+     * `.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];`
+     */
+    public var contactsSyncResponse: dev.tandem.protocol.v1.ContactsSyncResponse
+      @kotlin.jvm.JvmName("getContactsSyncResponse")
+        get() = _builder.contactsSyncResponse
+      @kotlin.jvm.JvmName("setContactsSyncResponse")
+        set(value) {
+        _builder.contactsSyncResponse = value
+      }
+    /**
+     * `.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];`
+     */
+    public fun clearContactsSyncResponse() {
+      _builder.clearContactsSyncResponse()
+    }
+    /**
+     * `.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];`
+     * @return Whether the contactsSyncResponse field is set.
+     */
+    public fun hasContactsSyncResponse(): kotlin.Boolean {
+      return _builder.hasContactsSyncResponse()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -860,4 +920,10 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileCancelOrNull: dev.tandem
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileResumeRequestOrNull: dev.tandem.protocol.v1.FileResumeRequest?
   get() = if (hasFileResumeRequest()) getFileResumeRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncRequestOrNull: dev.tandem.protocol.v1.ContactsSyncRequest?
+  get() = if (hasContactsSyncRequest()) getContactsSyncRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncResponseOrNull: dev.tandem.protocol.v1.ContactsSyncResponse?
+  get() = if (hasContactsSyncResponse()) getContactsSyncResponse() else null
 
