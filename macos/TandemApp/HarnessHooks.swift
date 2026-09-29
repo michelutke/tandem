@@ -59,8 +59,7 @@ enum HarnessHooks {
     /// a CI driver script never has to reach into this process to drive a real dialog.
     static func startListenerIfRequested() {
         guard let portString = UserDefaults.standard.string(forKey: "HarnessListenerPort"),
-              let rawPort = UInt16(portString),
-              let port = NWEndpoint.Port(rawValue: rawPort) else { return }
+              let rawPort = UInt16(portString) else { return }
 
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = IdentityBootstrapper(keychainStore: keychainStore)
@@ -72,12 +71,17 @@ enum HarnessHooks {
         }
         printIdentitySpkiFingerprint(identity: identity)
 
+        // E23-08: kept concrete (not just `any ControlSessionRegistering`) so
+        // `HarnessStatusRingCommands` can look sessions up by fingerprint (`session(for:)`,
+        // not part of that protocol) the same way `-HarnessRevokeOnReady`'s decorator below
+        // wraps this same instance for its own purposes.
+        let concreteSessionRegistry = ControlSessionRegistry()
         let controller = makeController(
             identity: identity,
             identityBootstrapper: identityBootstrapper,
             keychainStore: keychainStore,
             rawPort: rawPort,
-            port: port
+            sessionRegistry: concreteSessionRegistry
         )
         let started: ListenerController.StartedListener?
         do {
@@ -90,6 +94,7 @@ enum HarnessHooks {
         }
         retainedListener = started.listener
         retainLifecycle(controller: controller, started: started)
+        HarnessStatusRingCommands.startIfRequested(registry: concreteSessionRegistry)
     }
 
     /// Builds `startListenerIfRequested()`'s ``ListenerController`` -- the session registry, verify
@@ -105,14 +110,18 @@ enum HarnessHooks {
         identityBootstrapper: IdentityBootstrapper,
         keychainStore: any KeychainStore,
         rawPort: UInt16,
-        port: NWEndpoint.Port
+        sessionRegistry concreteSessionRegistry: ControlSessionRegistry
     ) -> ListenerController {
+        guard let port = NWEndpoint.Port(rawValue: rawPort) else {
+            fatalError("-HarnessListenerPort became invalid between checks: \(rawPort)")
+        }
         let trustStore = TrustStore(keychainStore: keychainStore)
         let decisionCorrelator = PeerDecisionCorrelator()
         var sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
-            wrapping: ControlSessionRegistry(),
+            wrapping: concreteSessionRegistry,
             trustStore: trustStore,
-            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
+            revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady"),
+            streamStatus: UserDefaults.standard.bool(forKey: "HarnessStreamStatus")
         )
         if UserDefaults.standard.bool(forKey: "HarnessNotificationLoopback") {
             sessionRegistry = HarnessNotificationLoopbackRegistry(

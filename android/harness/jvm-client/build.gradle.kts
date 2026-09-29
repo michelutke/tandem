@@ -47,6 +47,11 @@ configurations.matching { it.isCanBeResolved }.configureEach {
         attribute(artifactTypeAttribute, "jar")
     }
     exclude(group = "com.google.dagger", module = "hilt-android")
+    // androidx.core (ContextCompat, for feature:status's battery/network observers, E23-02):
+    // AAR-only, no plain-jar runtime artifact -- same reasoning as hilt-android above. Nothing
+    // this harness calls (StatusPublisher, E23-03) touches those observer classes, so dropping
+    // this edge from the runtime classpath is harmless here.
+    exclude(group = "androidx.core", module = "core")
 }
 
 dependencies {
@@ -57,6 +62,18 @@ dependencies {
     // PairedMacMatcher (E21-05), for RotatingIdHarnessCli (E21-07): real rotating-id recognition
     // against a real Mac-produced id, without a reimplementation of PairedMacMatcher's logic.
     implementation(project(":core:discovery"))
+    // StatusPublisher (E23-03), for E23-08's throttle scenarios: the real throttle/coalescing
+    // logic against a real TandemSession, not a harness reimplementation of it.
+    implementation(project(":feature:status"))
+    // RingController/RingHandler live in `:app` (a `com.android.application` module whose runtime
+    // graph pulls in the full androidx.compose BOM -- AAR-only, no plain-jar variant, confirmed by
+    // actually attempting `implementation(project(":app"))` here: resolution fails on
+    // `androidx.compose.ui:ui-test-manifest` and siblings even after excluding hilt-android and
+    // androidx.core the same way this file already does). Reusing it here is infeasible without a
+    // much larger module-boundary change than this test-only issue's scope, so E23-08's ring
+    // scenarios drive a harness-local reactor (`HarnessRingReactor`, this module's `main`) that
+    // mirrors `RingController`/`RingHandler`'s documented behavior instead -- see that class's own
+    // kdoc for the exact deviation this documents.
     // SoftwareIdentityKeyStore (E10-15) is this harness's only IdentityKeyStore, wrapped by
     // PersistentIdentityKeyStore for cross-restart persistence (E15-21 acceptance); this module
     // never ships (no `:app` dependency reaches it), so depending on a testFixtures artifact from
