@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		099B5C0AB324CFDBD91266BA /* ScenarioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F699BF30256A4D5EB6B78999 /* ScenarioView.swift */; };
+		0A3A298C43F32A28221B88EE /* PushClipboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95666FAD904DCE786C503EA4 /* PushClipboardViewModelTests.swift */; };
 		1319A4BA69B9DFF7EBD7928A /* SettingsComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122B73053B0DCA6693D01A4B /* SettingsComposition.swift */; };
 		14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */; };
 		16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */; };
@@ -16,21 +16,23 @@
 		19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */; };
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
 		290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */; };
+		2EA4E666D9A56E9F1F9E5C5D /* HarnessLatencyNotificationPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8724FBC6D1663A37410C30D /* HarnessLatencyNotificationPresenter.swift */; };
 		34117C7BA25150F22D77D0DC /* LocalNetworkPermissionBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */; };
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
 		3A3D0508C5CF70D21E37460E /* QuickActionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF20C4F3C47025C0506B8DD /* QuickActionsViewModel.swift */; };
 		3CEE3ED42D968EA33509BDB2 /* DeviceStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */; };
-		43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */; };
+		41F95AAFA981843098DB9B8F /* PushClipboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8063093B7F6B60D4C2849975 /* PushClipboardViewModel.swift */; };
 		4CF15945A231CDA685E26206 /* LaunchAtLoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD74961775D9359BBD2C9A6 /* LaunchAtLoginViewModel.swift */; };
 		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
 		5DF35AD6ECA5BA6F17993B84 /* ErrorBannerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B18C5B6B167CD86E4E3118 /* ErrorBannerViewModelTests.swift */; };
 		61D27ABFF02400431B506DA8 /* SettingsScenarioSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51777D80561FB3A57A4D240 /* SettingsScenarioSupport.swift */; };
 		63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */; };
 		65CD6C14FBBB2A64DFF59A32 /* MenuBarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */; };
+		6EC7F1DF1053CDF9965226B3 /* HarnessHooks+RotatingId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0572A7C7A4FDCC67AA05FB6 /* HarnessHooks+RotatingId.swift */; };
 		714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = 1988BC0B564CCF8C41148DCF /* TandemProtocol */; };
 		725B0AE94A30C8D218739076 /* ScenarioPairedConnectedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */; };
 		73B62DA518FFEDCE79282EF0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 9CCF1B115421D313E1D549EA /* README.md */; };
-		7892A7F9309324AC2139F313 /* PushClipboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C597F851C7D900B9DC0E837F /* PushClipboardViewModel.swift */; };
+		7531CD3A7CAD8700F631C6C1 /* HarnessPeerRecordFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7EE7AB0B54951E6CD855DB1 /* HarnessPeerRecordFixture.swift */; };
 		7F259215F6C471C8D3A7933C /* SettingsWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */; };
 		81161460331011F52C3D9494 /* TandemCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 12FE37962CD7F002672F2964 /* TandemCrypto */; };
 		82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */; };
@@ -46,25 +48,26 @@
 		9F6E0E166FCAA1BDD2EC41C7 /* TandemDevices in Frameworks */ = {isa = PBXBuildFile; productRef = 357221C8D301D0173582718D /* TandemDevices */; };
 		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
-		A38363DBD5638B24DE5355B6 /* PushClipboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBFA14AFF5EE49FD7692E11D /* PushClipboardViewModelTests.swift */; };
 		A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */; };
 		A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86769ADA9F9034205A270081 /* URLOpener.swift */; };
 		AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */; };
+		B3BBAC2E3557B503EF72E2F7 /* HarnessNotificationLoopbackRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736EB6EF297239828266692C /* HarnessNotificationLoopbackRegistry.swift */; };
 		BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 19FA760857066CAA11B0A7B3 /* TandemPairing */; };
 		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
 		BD82E904F8A53F7D281986A1 /* SystemPowerEventsAndNetworkPathFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */; };
 		BE4ACE39CAE53BBE32C1A3A6 /* LocalNetworkPermissionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3932FFD187ADE277BE636353 /* LocalNetworkPermissionViewModel.swift */; };
 		BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */; };
-		C08469592B58384AA165332B /* FeatureClipboard in Frameworks */ = {isa = PBXBuildFile; productRef = 399343FD4F69C2B3FE050F15 /* FeatureClipboard */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
 		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
-		D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */; };
+		DC38A19F10E701FE5EE15839 /* FeatureNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = 614513E4625EC01DDE161E19 /* FeatureNotifications */; };
+		BC28D2588C096384F277B5B2 /* FeatureClipboard in Frameworks */ = {isa = PBXBuildFile; productRef = 5932F5742D62269C6BAF25EB /* FeatureClipboard */; };
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF66E68281898309742F036 /* UnpairComposition.swift */; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
+		F2D595E4C96E5F90215B4D85 /* ScenarioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F96D19DEF8D2626B7D6095 /* ScenarioView.swift */; };
 		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
 		F9688097D3E090DD745B8855 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B585178A98786DB4AB6D5375 /* LoginItemService.swift */; };
 		F9E0416499FC95D142722EF3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5E9400B6C02CECEDC03084 /* SettingsView.swift */; };
@@ -125,7 +128,6 @@
 		13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStoreFactory.swift; sourceTree = "<group>"; };
 		1957CF1E6A317FC4E549D489 /* MenuBarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModel.swift; sourceTree = "<group>"; };
 		1ADF46FA55FCA2970CBE9E9B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessPeerRecordFixture.swift; sourceTree = "<group>"; };
 		22B90C5D6D56E3A0E60531E0 /* TandemPairing */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemPairing; path = Packages/TandemPairing; sourceTree = SOURCE_ROOT; };
 		2B9B2E23FF1A4091B5ED2B9E /* LocalNetworkPermissionViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionViewModelTests.swift; sourceTree = "<group>"; };
 		2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStatusViewModel.swift; sourceTree = "<group>"; };
@@ -134,7 +136,6 @@
 		36ABA4431BCAC85E00C4C62F /* TandemUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3932FFD187ADE277BE636353 /* LocalNetworkPermissionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionViewModel.swift; sourceTree = "<group>"; };
 		39581A17C108C4B4F78C2DD1 /* TandemTransport */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemTransport; path = Packages/TandemTransport; sourceTree = SOURCE_ROOT; };
-		3BC6C063EF3080942C68C29F /* FeatureClipboard */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; name = FeatureClipboard; path = Packages/FeatureClipboard; sourceTree = SOURCE_ROOT; };
 		3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginPreferenceStore.swift; sourceTree = "<group>"; };
 		42DC6A25C8E86E1680563D5D /* TandemAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TandemAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModelTests.swift; sourceTree = "<group>"; };
@@ -142,15 +143,20 @@
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		736EB6EF297239828266692C /* HarnessNotificationLoopbackRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessNotificationLoopbackRegistry.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
 		7CF66E68281898309742F036 /* UnpairComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnpairComposition.swift; sourceTree = "<group>"; };
 		7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModel.swift; sourceTree = "<group>"; };
+		8063093B7F6B60D4C2849975 /* PushClipboardViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModel.swift; sourceTree = "<group>"; };
 		86769ADA9F9034205A270081 /* URLOpener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLOpener.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
 		8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedDevicesCompositionTests.swift; sourceTree = "<group>"; };
 		8BF20C4F3C47025C0506B8DD /* QuickActionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModel.swift; sourceTree = "<group>"; };
 		914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenterTests.swift; sourceTree = "<group>"; };
+		93E4D924BFC3117BB0689132 /* FeatureNotifications */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
+		3DC5A1AD8327F184F3A80517 /* FeatureClipboard */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FeatureClipboard; path = Packages/FeatureClipboard; sourceTree = SOURCE_ROOT; };
+		95666FAD904DCE786C503EA4 /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ManualTestClock.swift; path = ../Packages/TandemTestSupport/Sources/TandemTestSupport/ManualTestClock.swift; sourceTree = "<group>"; };
@@ -162,20 +168,20 @@
 		B585178A98786DB4AB6D5375 /* LoginItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemService.swift; sourceTree = "<group>"; };
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionBannerView.swift; sourceTree = "<group>"; };
-		C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
-		C597F851C7D900B9DC0E837F /* PushClipboardViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModel.swift; sourceTree = "<group>"; };
-		CBFA14AFF5EE49FD7692E11D /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
+		C0572A7C7A4FDCC67AA05FB6 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
+		C8724FBC6D1663A37410C30D /* HarnessLatencyNotificationPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessLatencyNotificationPresenter.swift; sourceTree = "<group>"; };
 		D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
 		D4D890067B09F0862A11DF58 /* TandemProtocol */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemProtocol; path = Packages/TandemProtocol; sourceTree = SOURCE_ROOT; };
 		D51777D80561FB3A57A4D240 /* SettingsScenarioSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScenarioSupport.swift; sourceTree = "<group>"; };
+		D7EE7AB0B54951E6CD855DB1 /* HarnessPeerRecordFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessPeerRecordFixture.swift; sourceTree = "<group>"; };
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF1A4DABE7F5BA206539775C /* QuickActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsView.swift; sourceTree = "<group>"; };
+		E0F96D19DEF8D2626B7D6095 /* ScenarioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioView.swift; sourceTree = "<group>"; };
 		EC03814D9752C7029BBEB1C2 /* TandemStore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemStore; path = Packages/TandemStore; sourceTree = SOURCE_ROOT; };
 		ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioPairedConnectedUITests.swift; sourceTree = "<group>"; };
 		EFE4F187257AE37E3EC7F0B2 /* ScenarioPairedDisconnectedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioPairedDisconnectedUITests.swift; sourceTree = "<group>"; };
 		F1B18C5B6B167CD86E4E3118 /* ErrorBannerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModelTests.swift; sourceTree = "<group>"; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
-		F699BF30256A4D5EB6B78999 /* ScenarioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,7 +195,8 @@
 				714112267413EC5B90D96FFA /* TandemProtocol in Frameworks */,
 				BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */,
 				9F6E0E166FCAA1BDD2EC41C7 /* TandemDevices in Frameworks */,
-				C08469592B58384AA165332B /* FeatureClipboard in Frameworks */,
+				DC38A19F10E701FE5EE15839 /* FeatureNotifications in Frameworks */,
+				BC28D2588C096384F277B5B2 /* FeatureClipboard in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,7 +263,7 @@
 				51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */,
 				041CF567C3AFCE26290A0483 /* README.md */,
 				029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */,
-				CBFA14AFF5EE49FD7692E11D /* PushClipboardViewModelTests.swift */,
+				95666FAD904DCE786C503EA4 /* PushClipboardViewModelTests.swift */,
 			);
 			path = TandemAppTests;
 			sourceTree = "<group>";
@@ -276,13 +283,14 @@
 		E761C8EF00E9F7D6EF4C817D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				93E4D924BFC3117BB0689132 /* FeatureNotifications */,
+				3DC5A1AD8327F184F3A80517 /* FeatureClipboard */,
 				A98336DD4416DB2CBF0ED481 /* TandemCrypto */,
 				0B3F7B2EC531ADC48A39DEFD /* TandemDevices */,
 				22B90C5D6D56E3A0E60531E0 /* TandemPairing */,
 				D4D890067B09F0862A11DF58 /* TandemProtocol */,
 				EC03814D9752C7029BBEB1C2 /* TandemStore */,
 				39581A17C108C4B4F78C2DD1 /* TandemTransport */,
-				3BC6C063EF3080942C68C29F /* FeatureClipboard */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -296,8 +304,10 @@
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
-				C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */,
-				203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */,
+				C0572A7C7A4FDCC67AA05FB6 /* HarnessHooks+RotatingId.swift */,
+				C8724FBC6D1663A37410C30D /* HarnessLatencyNotificationPresenter.swift */,
+				736EB6EF297239828266692C /* HarnessNotificationLoopbackRegistry.swift */,
+				D7EE7AB0B54951E6CD855DB1 /* HarnessPeerRecordFixture.swift */,
 				77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */,
 				1ADF46FA55FCA2970CBE9E9B /* Info.plist */,
 				13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */,
@@ -319,8 +329,8 @@
 				A5E30F71572BF267AF52CCFE /* UITestScenario.swift */,
 				7CF66E68281898309742F036 /* UnpairComposition.swift */,
 				86769ADA9F9034205A270081 /* URLOpener.swift */,
-				C597F851C7D900B9DC0E837F /* PushClipboardViewModel.swift */,
-				F699BF30256A4D5EB6B78999 /* ScenarioView.swift */,
+				8063093B7F6B60D4C2849975 /* PushClipboardViewModel.swift */,
+				E0F96D19DEF8D2626B7D6095 /* ScenarioView.swift */,
 			);
 			path = TandemApp;
 			sourceTree = "<group>";
@@ -383,7 +393,8 @@
 				1988BC0B564CCF8C41148DCF /* TandemProtocol */,
 				19FA760857066CAA11B0A7B3 /* TandemPairing */,
 				357221C8D301D0173582718D /* TandemDevices */,
-				399343FD4F69C2B3FE050F15 /* FeatureClipboard */,
+				614513E4625EC01DDE161E19 /* FeatureNotifications */,
+				5932F5742D62269C6BAF25EB /* FeatureClipboard */,
 			);
 			productName = TandemApp;
 			productReference = DA99F72F15344D7755773094 /* TandemApp.app */;
@@ -434,13 +445,14 @@
 			mainGroup = B4DBF71FB3128126612D5D3C;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				6B1A0549F2D39C32CA5501C7 /* XCLocalSwiftPackageReference "FeatureNotifications" */,
+				9B9ADEF3C0DC66D37AF04FCF /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 				0218E04C3402C3090FADECBF /* XCLocalSwiftPackageReference "TandemCrypto" */,
 				4A7276332FF58EA55BA12C73 /* XCLocalSwiftPackageReference "TandemDevices" */,
 				DFEA52698D47E79167671FD7 /* XCLocalSwiftPackageReference "TandemPairing" */,
 				7F7D28370B22FFA6B9153614 /* XCLocalSwiftPackageReference "TandemProtocol" */,
 				465E8D8E5336455AEFFF2E07 /* XCLocalSwiftPackageReference "TandemStore" */,
 				FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */,
-				96F293A30548772361BBA9EF /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 90B0D721ADB7BDABE34F39FF /* Products */;
@@ -520,7 +532,7 @@
 				19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */,
 				16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */,
 				BD82E904F8A53F7D281986A1 /* SystemPowerEventsAndNetworkPathFakes.swift in Sources */,
-				A38363DBD5638B24DE5355B6 /* PushClipboardViewModelTests.swift in Sources */,
+				0A3A298C43F32A28221B88EE /* PushClipboardViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -533,9 +545,11 @@
 				A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */,
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
+				6EC7F1DF1053CDF9965226B3 /* HarnessHooks+RotatingId.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
-				43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */,
-				D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */,
+				2EA4E666D9A56E9F1F9E5C5D /* HarnessLatencyNotificationPresenter.swift in Sources */,
+				B3BBAC2E3557B503EF72E2F7 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
+				7531CD3A7CAD8700F631C6C1 /* HarnessPeerRecordFixture.swift in Sources */,
 				AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */,
 				1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */,
 				82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */,
@@ -554,8 +568,8 @@
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 				A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */,
 				E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */,
-				7892A7F9309324AC2139F313 /* PushClipboardViewModel.swift in Sources */,
-				099B5C0AB324CFDBD91266BA /* ScenarioView.swift in Sources */,
+				41F95AAFA981843098DB9B8F /* PushClipboardViewModel.swift in Sources */,
+				F2D595E4C96E5F90215B4D85 /* ScenarioView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -910,13 +924,17 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemDevices;
 		};
+		6B1A0549F2D39C32CA5501C7 /* XCLocalSwiftPackageReference "FeatureNotifications" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureNotifications;
+		};
+		9B9ADEF3C0DC66D37AF04FCF /* XCLocalSwiftPackageReference "FeatureClipboard" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureClipboard;
+		};
 		7F7D28370B22FFA6B9153614 /* XCLocalSwiftPackageReference "TandemProtocol" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemProtocol;
-		};
-		96F293A30548772361BBA9EF /* XCLocalSwiftPackageReference "FeatureClipboard" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/FeatureClipboard;
 		};
 		DFEA52698D47E79167671FD7 /* XCLocalSwiftPackageReference "TandemPairing" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -945,9 +963,12 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = TandemDevices;
 		};
-		399343FD4F69C2B3FE050F15 /* FeatureClipboard */ = {
+		614513E4625EC01DDE161E19 /* FeatureNotifications */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 96F293A30548772361BBA9EF /* XCLocalSwiftPackageReference "FeatureClipboard" */;
+			productName = FeatureNotifications;
+		};
+		5932F5742D62269C6BAF25EB /* FeatureClipboard */ = {
+			isa = XCSwiftPackageProductDependency;
 			productName = FeatureClipboard;
 		};
 		84D30D39F94B2E8AE9912DBD /* TandemStore */ = {
