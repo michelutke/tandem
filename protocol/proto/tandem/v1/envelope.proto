@@ -14,6 +14,7 @@ import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
+import "tandem/v1/photos.proto";
 import "tandem/v1/status.proto";
 
 option java_package = "dev.tandem.protocol.v1";
@@ -50,7 +51,10 @@ message Envelope {
   // 50-59: files.proto (E40-01). 50-56 are FileOffer/FileAccept/FileReject/FileChunk/
   // FileComplete/FileCancel/FileResumeRequest; 57-59 held for future extensions.
   reserved 57 to 59;   // files.proto (E40-01): future FILES channel extensions
-  reserved 60 to 69;   // photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision)
+  // 60-69: photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision). 60-65 are
+  // PhotoPage/PhotoPageResult/ThumbRequest/ThumbResult/OriginalRequest/PhotoError; 66-69 held for
+  // future extensions.
+  reserved 66 to 69;   // photos.proto (E41-01): future FILES channel (photos) extensions
   reserved 70 to 79;   // sms.proto (E50-01) — SMS channel
   reserved 80 to 89;   // contacts.proto (E51-01) — CONTACTS channel
   reserved 90 to 99;   // calls.proto (E52-01) — CALLS channel
@@ -95,5 +99,13 @@ message Envelope {
     FileComplete file_complete = 54;
     FileCancel file_cancel = 55;
     FileResumeRequest file_resume_request = 56;
+
+    // photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+    PhotoPage photo_page = 60;
+    PhotoPageResult photo_page_result = 61;
+    ThumbRequest thumb_request = 62;
+    ThumbResult thumb_result = 63;
+    OriginalRequest original_request = 64;
+    PhotoError photo_error = 65;
   }
 }

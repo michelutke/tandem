@@ -1,4 +1,4 @@
-protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files).
+protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files, photos).
 
 ## Future proto files (E01-14)
 
@@ -11,7 +11,6 @@ reserved for it.
 
 | Future `.proto` file | Owning epic/issue | Channel | Reserved `Envelope.payload` field numbers |
 |---|---|---|---|
-| `photos.proto` | E41-01 | `CHANNEL_FILES` (no `PHOTOS` channel, E01-04 decision) | 60–69 |
 | `sms.proto` | E50-01 | `CHANNEL_SMS` | 70–79 |
 | `contacts.proto` | E51-01 | `CHANNEL_CONTACTS` | 80–89 |
 | `calls.proto` | E52-01 | `CHANNEL_CALLS` | 90–99 |

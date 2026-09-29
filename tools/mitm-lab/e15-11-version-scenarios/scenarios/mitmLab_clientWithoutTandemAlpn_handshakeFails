@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_clientWithoutTandemAlpn_handshakeFails
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 180
+#
+# E15-11 (6/6, Cycle 4): a client offering an ALPN other than `tandem/1`, and separately a client
+# offering no ALPN at all. `NWListenerFactory` configures
+# `sec_protocol_options_add_tls_application_protocol(sec, tandemALPN)`.
+#
+# DEVIATION from the backlog acceptance text ("fails with a no_application_protocol alert"),
+# recorded here rather than silently forced to match: verified empirically against a throwaway
+# `openssl s_server`, a mismatched ALPN there does produce the RFC 7301 `no_application_protocol`
+# alert (id 120) exactly as named. Verified empirically against the REAL Mac listener (Apple's
+# `Network`/`Security` framework, configured via `sec_protocol_options_add_tls_application_protocol`),
+# the exact same wrong-ALPN ClientHello instead produces a fatal `internal_error` alert (id 80) --
+# reproduced consistently across repeated runs. `docs/protocol/SPEC.md` itself never names a
+# specific alert for this case (it isn't in the "Errors and close codes" table at all, since this
+# is a pre-authentication TLS-layer rejection, not one of this protocol's own close codes); the
+# backlog text's assumption was apparently modeled on generic RFC 7301 ALPN behavior rather than
+# this specific OS TLS stack. This script asserts the alert Apple's stack actually sends
+# (`internal_error`), not the one the backlog names, and still greps for a *specific* named alert
+# rather than "the handshake failed" generically (E15-10's specificity lesson).
+#
+# The no-ALPN case (case B) is NOT itself a TLS-layer failure: TLS forbids a server from selecting a
+# protocol the client never offered, so "no `ALPN protocol: tandem/1` line" is true for ANY
+# correctly-behaving server and has no discriminating power -- the raw TLS 1.3 handshake actually
+# completes. The real security property here is that `handleReadyState`'s own explicit
+# negotiated-protocol check then closes the connection at the app layer, since there is nothing on
+# the wire (no alert) to grep for. This script reuses the exact timing-discriminator approach
+# `mitmLab_helloUnsupportedMajorVersion_closedWithVersionMismatch` already established
+# (`lib/version_hello_client.go`, extended with a no-ALPN mode) to detect that app-layer close: a
+# no-ALPN connection closes fast (well under the 5 s `helloDeadline`), while the same tool offering
+# the correct `tandem/1` ALPN stays open for the full read window.
+#
+# Positive control: the same seeded client identity offering the correct `tandem/1` ALPN must
+# complete a real TLS 1.3 handshake with that protocol negotiated (case A), and must NOT close fast
+# via the timing discriminator (case B).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-11-common.sh
+source "$here/../lib/e15-11-common.sh"
+trap e15_11_teardown EXIT
+
+e15_11_setup_mac
+e15_11_build_go_tools
+
+PORT="$(e15_11_free_port)"
+e15_11_launch_plain "$PORT"
+
+e15_11_gen_cert "$E15_11_TMP_DIR/client" "e15-11 client"
+CLIENT_FP_HEX="$(e15_11_spki_fingerprint_hex "$E15_11_TMP_DIR/client-cert.pem")"
+e15_11_seed_trust "$CLIENT_FP_HEX" "E15-11 seeded client" "$E15_11_TMP_DIR/seed.json"
+
+CERT="$E15_11_TMP_DIR/client-cert.pem"
+KEY="$E15_11_TMP_DIR/client-key.pem"
+FAST_CLOSE_BOUND_MS=2000
+READ_TIMEOUT_MS=4000
+FAILED=0
+
+e15_11_log "negative case A: wrong ALPN (wrong/1)"
+wrong_alpn_out="$(timeout 10 openssl s_client -connect "127.0.0.1:$PORT" -tls1_3 -alpn wrong/1 \
+  -cert "$CERT" -key "$KEY" -msg </dev/null 2>&1 || true)"
+if printf '%s' "$wrong_alpn_out" | grep -qi 'fatal internal_error\|alert internal error'; then
+  e15_11_log "OK: observed a fatal internal_error alert for the wrong-ALPN case (this is what the real Mac's TLS stack actually sends -- see this file's header comment)"
+else
+  e15_11_log "FAIL: no fatal internal_error alert observed for the wrong-ALPN case:"
+  printf '%s\n' "$wrong_alpn_out" >&2
+  FAILED=1
+fi
+
+e15_11_assert_mac_alive "$PORT" || FAILED=1
+
+e15_11_log "negative case B: no ALPN offered at all (timing discriminator -- see this file's header comment)"
+no_alpn_out="$(e15_11_version_hello_client "127.0.0.1" "$PORT" "$CERT" "$KEY" 1 "$READ_TIMEOUT_MS" "none")"
+e15_11_log "$no_alpn_out"
+if ! printf '%s' "$no_alpn_out" | grep -q '^HANDSHAKE_OK$'; then
+  e15_11_log "FAIL: the real TLS handshake itself never completed for the no-ALPN case:"
+  printf '%s\n' "$no_alpn_out" >&2
+  FAILED=1
+else
+  closed_ms="$(printf '%s' "$no_alpn_out" | sed -n 's/^CLOSED_MS //p')"
+  if [ -z "$closed_ms" ]; then
+    e15_11_log "FAIL: the no-ALPN connection was still open after ${READ_TIMEOUT_MS}ms:"
+    printf '%s\n' "$no_alpn_out" >&2
+    FAILED=1
+  elif [ "$closed_ms" -ge "$FAST_CLOSE_BOUND_MS" ]; then
+    e15_11_log "FAIL: the no-ALPN connection closed after ${closed_ms}ms -- too slow to be the app-layer rejection"
+    FAILED=1
+  else
+    e15_11_log "OK: the no-ALPN connection completed TLS but was closed at the app layer after ${closed_ms}ms, well under the ${FAST_CLOSE_BOUND_MS}ms bound"
+  fi
+fi
+
+e15_11_assert_mac_alive "$PORT" || FAILED=1
+
+e15_11_log "positive control A: same seeded client cert, correct ALPN (tandem/1), via openssl"
+positive_out="$(timeout 10 openssl s_client -connect "127.0.0.1:$PORT" -tls1_3 -alpn tandem/1 \
+  -cert "$CERT" -key "$KEY" -msg </dev/null 2>&1 || true)"
+if printf '%s' "$positive_out" | grep -qi 'ALPN protocol: tandem/1'; then
+  e15_11_log "OK: positive control negotiated tandem/1 ALPN"
+else
+  e15_11_log "FAIL: positive control did not negotiate tandem/1 ALPN either:"
+  printf '%s\n' "$positive_out" >&2
+  FAILED=1
+fi
+
+e15_11_assert_mac_alive "$PORT" || FAILED=1
+
+e15_11_log "positive control B: same timing-discriminator tool, correct ALPN (tandem/1), must NOT close fast"
+positive_timing_out="$(e15_11_version_hello_client "127.0.0.1" "$PORT" "$CERT" "$KEY" 1 "$READ_TIMEOUT_MS" "tandem/1")"
+e15_11_log "$positive_timing_out"
+if ! printf '%s' "$positive_timing_out" | grep -q '^HANDSHAKE_OK$'; then
+  e15_11_log "FAIL: the positive control's TLS handshake never completed:"
+  printf '%s\n' "$positive_timing_out" >&2
+  FAILED=1
+elif printf '%s' "$positive_timing_out" | grep -q '^CLOSED_MS '; then
+  e15_11_log "FAIL: the tandem/1-ALPN connection also closed quickly -- the timing discriminator is suspect:"
+  printf '%s\n' "$positive_timing_out" >&2
+  FAILED=1
+else
+  e15_11_log "OK: the tandem/1-ALPN connection stayed open for the full ${READ_TIMEOUT_MS}ms read window"
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi
