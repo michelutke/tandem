@@ -101,6 +101,7 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 zxingcpp-android = { group = "io.github.zxing-cpp", name = "android", version.ref = "zxingcpp" }
 kover-gradlePlugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 androidx-core = { group = "androidx.core", name = "core", version.ref = "androidx-core" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

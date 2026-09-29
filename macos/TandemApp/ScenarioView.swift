@@ -2,11 +2,15 @@ import SwiftUI
 import TandemTransport
 
 #if DEBUG
-// FakeTandemSession (E12-12) is internal to TandemProtocol -- deliberately not exposed publicly
-// (see `FakeTandemSession`'s own doc comment). Reached here, under DEBUG only, exactly the way
-// the E00-26 scenario seeding was always documented to.
+// FakeTandemSession (E12-12) is internal to TandemProtocol -- deliberately not exposed publicly,
+// since its `send`/`receive` requirements would otherwise have to carry non-public generated
+// protobuf types across the module boundary (see `FakeTandemSession`'s own doc comment). Reached
+// here, under DEBUG only, exactly the way the E00-26 scenario seeding was always documented to.
 @testable import TandemProtocol
 
+/// The menu bar popover content rendered under a DEBUG `-UITestScenario` launch argument (E00-26),
+/// split out of `TandemApp.swift` purely to keep that file under this repo's `file_length` lint
+/// budget.
 struct ScenarioView: View {
     /// The seeded peer name for the ``UITestScenario/pairedConnected`` scenario -- also asserted
     /// against by ``ScenarioPairedConnectedUITests``.
@@ -95,6 +99,10 @@ struct ScenarioView: View {
             }
         case .localNetworkDenied:
             LocalNetworkPermissionBannerView(viewModel: ScenarioView.makeLocalNetworkPermissionViewModel())
+        case .mainWindowOffline:
+            MainWindowView(viewModel: ScenarioView.makeMainWindowOfflineViewModel())
+        case .mainWindowFeatureDisabled:
+            MainWindowView(viewModel: ScenarioView.makeMainWindowFeatureDisabledViewModel())
         }
     }
 

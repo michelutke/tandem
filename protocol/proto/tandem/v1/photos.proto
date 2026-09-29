@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+// E41-01: photos.proto — PhotoPage, PhotoPageResult (and its PhotoMeta entries), ThumbRequest,
+// ThumbResult, OriginalRequest, and PhotoError, carried on the FILES channel (Channel.FILES,
+// envelope.proto) — there is no separate PHOTOS channel (E01-04 decision). The normative Photos
+// subsection of docs/protocol/SPEC.md's #files-channel section is written by this issue. Field
+// numbers 60-65 of envelope.proto's Envelope.payload oneof are used below; 66-69 are held for
+// future photos.proto extensions (see envelope.proto's reserved-range comment). An
+// OriginalRequest is answered with a real files.proto FileOffer whose `id` equals
+// OriginalRequest.transfer_id -- not a new message type -- and the transfer then proceeds through
+// the normal FILES handshake (docs/protocol/SPEC.md #files-channel "Handshake").
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// PhotoAccess: the phone's current media-library access grant (PRD F-7.4), reported on every
+// PhotoPageResult since it can change between requests -- the user can grant or revoke access
+// from system settings at any time, independent of any request the Mac has in flight.
+enum PhotoAccess {
+  PHOTO_ACCESS_UNSPECIFIED = 0;
+  PHOTO_ACCESS_FULL = 1;
+  PHOTO_ACCESS_PARTIAL = 2;
+  PHOTO_ACCESS_NONE = 3;
+}
+
+// PhotoErrorKind: which of the three photos.proto request types a PhotoError is reporting a
+// failure for.
+enum PhotoErrorKind {
+  PHOTO_ERROR_KIND_UNSPECIFIED = 0;
+  PHOTO_ERROR_KIND_PAGE = 1;
+  PHOTO_ERROR_KIND_THUMB = 2;
+  PHOTO_ERROR_KIND_ORIGINAL = 3;
+}
+
+// PhotoErrorReason: why the request named by PhotoError.kind/ref failed. BUSY is a Cycle 4
+// addition (E01-22): the receiver already has more than 8 outstanding ThumbRequests, or more
+// than 1 outstanding PhotoPage, from this peer (docs/protocol/SPEC.md #files-channel "Photos
+// Cycle 4 caps").
+enum PhotoErrorReason {
+  PHOTO_ERROR_REASON_UNSPECIFIED = 0;
+  PHOTO_ERROR_REASON_NOT_FOUND = 1;
+  PHOTO_ERROR_REASON_ACCESS_DENIED = 2;
+  PHOTO_ERROR_REASON_INVALID_CURSOR = 3;
+  PHOTO_ERROR_REASON_BUSY = 4;
+}
+
+// PhotoPage: PRD F-7.4, UC-17 -- the Mac requests one page of the phone's photo library, newest
+// first. `cursor` is opaque and phone-assigned: empty on the first request of a session, and
+// afterward set to the exact `next_cursor` a previous PhotoPageResult returned -- the Mac never
+// constructs or inspects a cursor itself (docs/protocol/SPEC.md #files-channel "Photos"). `limit`
+// is clamped by the phone to 1..200, defaulting to 100 when unset (0).
+message PhotoPage {
+  string cursor = 1;
+  uint32 limit = 2;
+}
+
+// PhotoMeta: one photo's metadata within a PhotoPageResult. `id` is phone-assigned and stable
+// across requests, reused by ThumbRequest and OriginalRequest to refer back to this photo.
+message PhotoMeta {
+  string id = 1;
+  int64 taken_at = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+}
+
+// PhotoPageResult: PRD F-7.4, UC-17 -- the phone's response to PhotoPage. `next_cursor` is empty
+// when this is the library's last page. `access` reports the phone's current media-library
+// access grant so the Mac can tell an empty/short page caused by PARTIAL/NONE access apart from
+// one caused simply by reaching the end of the library.
+message PhotoPageResult {
+  repeated PhotoMeta items = 1;
+  string next_cursor = 2;
+  PhotoAccess access = 3;
+}
+
+// ThumbRequest: PRD F-7.4 -- the Mac asks for a thumbnail of the photo named by `id`. `max_px`
+// is clamped by the phone to 32..384 (docs/protocol/SPEC.md #files-channel "Photos") so a
+// worst-case RGB PNG at that size fits within one 1 MiB frame.
+message ThumbRequest {
+  string id = 1;
+  uint32 max_px = 2;
+}
+
+// ThumbResult: PRD F-7.4 -- the phone's response to ThumbRequest: a PNG-encoded thumbnail of the
+// photo named by `id`, resized so its longest edge is <= the request's clamped `max_px`.
+message ThumbResult {
+  string id = 1;
+  bytes png_bytes = 2;
+}
+
+// OriginalRequest: PRD F-7.4, UC-17 -- the Mac asks the phone to send the full-resolution
+// original of the photo named by `id`. The phone answers by sending a files.proto FileOffer
+// whose `id` equals `transfer_id` (see this file's header comment).
+message OriginalRequest {
+  string id = 1;
+  string transfer_id = 2;
+}
+
+// PhotoError: reports that a PhotoPage, ThumbRequest, or OriginalRequest failed. `ref` is the
+// failed request's own identifying field: the rejected `cursor` for `kind: PAGE` (empty when the
+// first-page request itself failed), or the photo `id` for `kind: THUMB` / `kind: ORIGINAL`.
+message PhotoError {
+  PhotoErrorKind kind = 1;
+  string ref = 2;
+  PhotoErrorReason reason = 3;
+}

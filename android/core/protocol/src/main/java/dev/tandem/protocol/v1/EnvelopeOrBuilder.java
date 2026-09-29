@@ -361,6 +361,80 @@ public interface EnvelopeOrBuilder extends
 
   /**
    * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   * @return Whether the photoPage field is set.
+   */
+  boolean hasPhotoPage();
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   * @return The photoPage.
+   */
+  dev.tandem.protocol.v1.PhotoPage getPhotoPage();
+
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   * @return Whether the photoPageResult field is set.
+   */
+  boolean hasPhotoPageResult();
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   * @return The photoPageResult.
+   */
+  dev.tandem.protocol.v1.PhotoPageResult getPhotoPageResult();
+
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   * @return Whether the thumbRequest field is set.
+   */
+  boolean hasThumbRequest();
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   * @return The thumbRequest.
+   */
+  dev.tandem.protocol.v1.ThumbRequest getThumbRequest();
+
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   * @return Whether the thumbResult field is set.
+   */
+  boolean hasThumbResult();
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   * @return The thumbResult.
+   */
+  dev.tandem.protocol.v1.ThumbResult getThumbResult();
+
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   * @return Whether the originalRequest field is set.
+   */
+  boolean hasOriginalRequest();
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   * @return The originalRequest.
+   */
+  dev.tandem.protocol.v1.OriginalRequest getOriginalRequest();
+
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   * @return Whether the photoError field is set.
+   */
+  boolean hasPhotoError();
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   * @return The photoError.
+   */
+  dev.tandem.protocol.v1.PhotoError getPhotoError();
+
+  /**
+   * <pre>
    * contacts.proto (E51-01) — CONTACTS channel.
    * </pre>
    *

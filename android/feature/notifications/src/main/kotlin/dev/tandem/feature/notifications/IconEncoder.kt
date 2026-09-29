@@ -3,6 +3,7 @@ package dev.tandem.feature.notifications
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.createBitmap
 import java.io.ByteArrayOutputStream
 
 /**
@@ -15,7 +16,7 @@ object IconEncoder {
     const val MAX_DIMENSION = 256
 
     fun encode(drawable: Drawable): ByteArray {
-        val bitmap = Bitmap.createBitmap(MAX_DIMENSION, MAX_DIMENSION, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(MAX_DIMENSION, MAX_DIMENSION)
         val canvas = Canvas(bitmap)
         drawable.setBounds(0, 0, MAX_DIMENSION, MAX_DIMENSION)
         drawable.draw(canvas)

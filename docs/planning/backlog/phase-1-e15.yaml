@@ -426,7 +426,11 @@ epics:
           - (3) 0 early-data bytes reach the application layer.
           - (4) the connection closes with the `VERSION_MISMATCH` close code and the Mac menu shows a
             version-mismatch error within 2 s (invariant 5, UC-05).
-          - "(5) the next ClientHello carries no pre_shared_key or early_data extension; (6) the handshake fails with a no_application_protocol alert."
+          - "(5) the next ClientHello carries no pre_shared_key or early_data extension; (6) a wrong-ALPN
+            ClientHello fails the real Mac's TLS stack (Apple's Network/Security framework) with a
+            fatal `internal_error` alert (not the RFC 7301 `no_application_protocol` alert a generic
+            TLS stack would send), and a no-ALPN ClientHello completes the TLS handshake but is closed
+            at the app layer rather than reaching a tandem/1-negotiated, data-flowing state."
         tdd:
           - "security: mitmLab_tls12OnlyClientHello_protocolVersionAlert"
           - "security: mitmLab_fullHandshake_zeroSessionTicketsIssued"
@@ -437,6 +441,30 @@ epics:
           - "security: mitmLab_androidClientAfterTicketIssued_nextHelloOffersNoPsk"
           - "security: mitmLab_clientWithoutTandemAlpn_handshakeFails"
         notes: "Size S -> M in cycle 3 (four scenarios plus accessibility-tree check)."
+      - id: E15-16
+        title: "[tools] mitm-lab: menu-bar version-mismatch accessibility check (blocked on E22-11)"
+        type: test
+        platforms: [tools]
+        priority: P1
+        size: S
+        prd: [F-3.1]
+        use_cases: [UC-05]
+        invariants: [5]
+        depends_on: [E15-11]
+        description: |
+          E15-11's `mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError` tdd item (reading
+          the real Mac menu-bar status item's version-mismatch error via the accessibility tree
+          after a real E15-11 scenario-4 attack) could not be implemented: `MenuContentView` in
+          `macos/TandemApp/TandemApp.swift` hardcodes `MenuBarViewModel(stateStream: nil, ...)` and
+          `ErrorBannerViewModel(stateStream: nil, ...)` -- no real per-connection state is wired
+          from `AppComposition`'s production listener into either view model yet (comment there
+          cites the same gap). This is a genuine product wiring gap, not a mitm-lab tooling gap;
+          once E22-11 (files this exact wiring gap as its own issue)
+          lands, this scenario becomes implementable exactly as originally specified.
+        acceptance:
+          - The connection closes with the VERSION_MISMATCH close code and the real Mac menu bar shows a version-mismatch error within 2s, read via the accessibility tree (no debug API)
+        tdd:
+          - "security: mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError"
       - id: E15-12
         title: "[tools] nmap phone-listener check script"
         type: task

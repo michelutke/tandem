@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_pairedPhoneCertWithoutPrivateKey_handshakeFails
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-10 (5/6): a client presents the paired phone's genuine certificate but signs
+# `CertificateVerify` with a different (unrelated) key -- "pin alone must not authenticate"
+# (invariants 3/5). Distinct from scenario 3 (two legitimately paired devices, cert/key swapped
+# between them): here there is only ever one paired device, and the foreign key belongs to nobody
+# the Mac has ever trusted. Same TLS-level mechanics as scenario 3 (see
+# `lib/mismatched_cert_client.go`'s header for why a real cert/key mismatch can only be constructed
+# by building the `tls.Certificate` struct directly, never through `tls.X509KeyPair()` or any
+# OpenSSL-based binding).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-10-common.sh
+source "$here/../lib/e15-10-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_mac
+e15_10_mktmp
+e15_10_build_mismatch_tools
+
+e15_10_gen_cert "$E15_10_TMP_DIR/phone" phone.tandem.test
+e15_10_gen_cert "$E15_10_TMP_DIR/foreign" foreign.tandem.test
+PHONE_FP_HEX="$(e15_10_spki_fingerprint_hex "$E15_10_TMP_DIR/phone-cert.pem")"
+
+e15_10_seed_trust "$PHONE_FP_HEX" "paired phone" "$E15_10_TMP_DIR/seed-phone.json"
+
+PORT=$(( (RANDOM % 20000) + 20000 ))
+e15_10_launch_plain "$PORT"
+e15_10_log "seeded the paired phone ($PHONE_FP_HEX) into the Mac's real trust store"
+
+FAILED=0
+
+# Positive control (same tool, same code path, the phone's genuinely matched cert+key this time):
+# an already-trusted device reconnecting outside a pairing window must succeed, so the mismatched
+# case below failing can't just be this test double being unable to complete any handshake at all.
+control_output="$(e15_10_mismatched_cert_client 127.0.0.1 "$PORT" "$E15_10_TMP_DIR/phone-cert.pem" "$E15_10_TMP_DIR/phone-key.pem")"
+e15_10_log "positive control (paired phone's own matched cert+key): $control_output"
+if ! printf '%s\n' "$control_output" | grep -q '^HANDSHAKE_OK'; then
+  e15_10_log "FAIL: positive control did not complete the handshake, got: $control_output -- the mismatched case below is not meaningful"
+  FAILED=1
+fi
+
+output="$(e15_10_mismatched_cert_client 127.0.0.1 "$PORT" "$E15_10_TMP_DIR/phone-cert.pem" "$E15_10_TMP_DIR/foreign-key.pem")"
+e15_10_load_mismatch_ms
+e15_10_log "raw TLS client (paired phone's cert, an unrelated foreign key) took ${E15_10_LAST_MISMATCH_MS}ms"
+e15_10_log "--- raw client output ---"
+printf '%s\n' "$output" >&2
+
+# Must be a genuine signature/decrypt rejection (TLS alert 51, decrypt_error), not merely
+# "certificate required" (an anonymous-client rejection, identical to scenario 1) and not a
+# HANDSHAKE_TIMEOUT (the peer silently hanging is not evidence of rejection).
+case "$output" in
+  *HANDSHAKE_TIMEOUT*)
+    e15_10_log "FAIL: the Mac never responded within the read deadline -- not evidence of rejection, got: $output"
+    FAILED=1
+    ;;
+  *HANDSHAKE_FAILED*)
+    ;;
+  *)
+    e15_10_log "FAIL: expected HANDSHAKE_FAILED, got: $output"
+    FAILED=1
+    ;;
+esac
+if [ "$FAILED" -eq 0 ]; then
+  output_lower="$(printf '%s' "$output" | tr '[:upper:]' '[:lower:]')"
+  case "$output_lower" in
+    *"certificate required"*|*"certificate_required"*|*"bad_certificate"*)
+      e15_10_log "FAIL: rejected as an anonymous client (no cert), not as a bad signature -- indistinguishable from scenario 1, got: $output"
+      FAILED=1
+      ;;
+  esac
+fi
+if [ -z "$E15_10_LAST_MISMATCH_MS" ] || [ "$E15_10_LAST_MISMATCH_MS" -ge 5000 ]; then
+  e15_10_log "FAIL: handshake took ${E15_10_LAST_MISMATCH_MS:-<none>}ms, expected < 5000ms"
+  FAILED=1
+fi
+
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+
+TRUST_COUNT="$(e15_10_trust_record_count)"
+if [ "$TRUST_COUNT" != "1" ]; then
+  e15_10_log "FAIL: expected the phone's trust record to remain (1), found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

@@ -44,6 +44,7 @@ from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs 
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
+from photos_encoding import generate_photos_encoding_vectors  # noqa: E402 (needs sys.path above)
 from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
 from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
 from status_encoding import generate_status_encoding_vectors  # noqa: E402 (needs sys.path above)
@@ -65,6 +66,7 @@ CATEGORIES.append(("status-encoding.json", generate_status_encoding_vectors))  #
 CATEGORIES.append(("notify-encoding.json", generate_notify_encoding_vectors))  # E30-01
 CATEGORIES.append(("clipboard-encoding.json", generate_clipboard_encoding_vectors))  # E31-01
 CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E40-01
+CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  # E41-01
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
 
 

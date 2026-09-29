@@ -1738,6 +1738,53 @@ Restated here from §10 ("Feature caps") as the single source of truth for the F
   (opt-in, off by default); an offer over that cap always requires a manual accept regardless of
   the setting.
 
+### Photos (E41-01)
+
+*(PRD F-7.4 · UC-17, AC-19 · no separate PHOTOS channel, E01-04 decision — these messages ride
+FILES like every message above)*
+
+The phone's photo library is browsed, thumbnailed, and fetched in full resolution over the same
+FILES channel as file transfers, using six additional message types defined in
+`protocol/proto/tandem/v1/photos.proto`: `PhotoPage{cursor, limit}`,
+`PhotoPageResult{items: repeated PhotoMeta{id, taken_at, width, height}, next_cursor, access}`,
+`ThumbRequest{id, max_px}`, `ThumbResult{id, png_bytes}`, `OriginalRequest{id, transfer_id}`, and
+`PhotoError{kind, ref, reason}`.
+
+- **Paging.** `PhotoPage.cursor` is opaque and phone-assigned: empty on the first request of a
+  session, and on every later request set to the exact `next_cursor` a previous
+  `PhotoPageResult` returned. The Mac MUST NOT construct, parse, or otherwise interpret a cursor's
+  contents — it is a stable, round-trippable token only. `next_cursor` is empty when the returned
+  page is the library's last. `limit` MUST be clamped by the phone to 1..200 inclusive; `limit = 0`
+  (proto3's default) means "unset" and is treated as 100.
+- **Access.** Every `PhotoPageResult` reports the phone's current media-library access grant in
+  `access` (`FULL`, `PARTIAL`, or `NONE`) so the Mac can distinguish an empty or short page caused
+  by `PARTIAL`/`NONE` access from one caused simply by reaching the end of the library — access can
+  change between requests, since the user can grant or revoke it from system settings at any time.
+- **Thumbnails.** `ThumbRequest.max_px` MUST be clamped by the phone to 32..384 inclusive. This
+  range is chosen so that a worst-case uncompressed RGB PNG at the upper bound (384x384x3 bytes,
+  before PNG's own compression) still fits within a single 1 MiB `Envelope` frame
+  (`#framing-and-envelope`) — `ThumbResult.png_bytes` is never itself chunked or split across
+  frames. `ThumbResult` returns the photo resized so its longest edge is <= the clamped `max_px`.
+- **Originals.** `OriginalRequest{id, transfer_id}` asks for the full-resolution original of the
+  photo named by `id`. The phone answers by sending a real `files.proto` `FileOffer` whose own
+  `id` field equals `transfer_id` — never a new message type — and the transfer then proceeds
+  through the normal FILES "Handshake" above (accept/chunk/complete, or reject/cancel) exactly like
+  any other file transfer.
+- **Sender interleaving.** The FILES sender interleaves its outgoing frames per logical stream
+  (round-robin between any in-flight `FileChunk` transfer and pending `ThumbResult`/
+  `PhotoPageResult` responses) so that a large in-flight original-photo or file transfer never
+  blocks a `ThumbResult` or `PhotoPageResult` for more than one chunk's worth of latency. This
+  interleaving is implemented at the connection-writer level (E40-03/E40-04); this section
+  documents only the protocol-level expectation, not the scheduling algorithm itself.
+- **Errors.** `PhotoError{kind, ref, reason}` reports that a `PhotoPage`, `ThumbRequest`, or
+  `OriginalRequest` failed. `kind` (`PAGE`, `THUMB`, `ORIGINAL`) says which request type failed;
+  `ref` is that failed request's own identifying value — the rejected `cursor` for `PAGE` (empty
+  when the very first page request failed), or the photo `id` for `THUMB`/`ORIGINAL`. `reason` is
+  one of `NOT_FOUND`, `ACCESS_DENIED`, `INVALID_CURSOR`, or `BUSY`.
+- **Cycle 4 caps (E01-22).** `BUSY` is a Cycle-4 addition: a receiver holds at most 8 outstanding
+  `ThumbRequest`s and at most 1 outstanding `PhotoPage` per peer at once; a request arriving in
+  excess of either limit is rejected `PhotoError{kind, ref, reason: BUSY}` immediately.
+
 ### Conformance
 
 `protocol/vectors/files-encoding.json` (E15-01, E15-02) includes: a `FileOffer`/`FileAccept` pair
@@ -1745,6 +1792,12 @@ that decodes to identical fields on both codecs; a `FileResumeRequest` whose `fr
 exactly; a `FileReject` for every one of the 12 `TransferReason` values (including `BUSY` and
 `TOO_LARGE`) round-tripping on both codecs; and a `FileChunk` with a 262,145-byte `data` payload —
 one byte over the 262,144-byte cap above — rejected as oversized by both codecs.
+
+`protocol/vectors/photos-encoding.json` (E41-01) includes: a `PhotoPageResult` with
+`access: PARTIAL` decoding identically on both codecs; a `ThumbResult` whose `png_bytes` decodes to
+identical bytes on both codecs; an `OriginalRequest` whose `transfer_id` decodes exactly; and a
+`PhotoError` for every one of the 4 `PhotoErrorReason` values (`NOT_FOUND`, `ACCESS_DENIED`,
+`INVALID_CURSOR`, `BUSY`) round-tripping on both codecs.
 
 ---
 

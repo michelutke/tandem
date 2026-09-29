@@ -50,6 +50,12 @@ public  final class Envelope extends
     FILE_COMPLETE(54),
     FILE_CANCEL(55),
     FILE_RESUME_REQUEST(56),
+    PHOTO_PAGE(60),
+    PHOTO_PAGE_RESULT(61),
+    THUMB_REQUEST(62),
+    THUMB_RESULT(63),
+    ORIGINAL_REQUEST(64),
+    PHOTO_ERROR(65),
     CONTACTS_SYNC_REQUEST(80),
     CONTACTS_SYNC_RESPONSE(81),
     PAYLOAD_NOT_SET(0);
@@ -92,6 +98,12 @@ public  final class Envelope extends
         case 54: return FILE_COMPLETE;
         case 55: return FILE_CANCEL;
         case 56: return FILE_RESUME_REQUEST;
+        case 60: return PHOTO_PAGE;
+        case 61: return PHOTO_PAGE_RESULT;
+        case 62: return THUMB_REQUEST;
+        case 63: return THUMB_RESULT;
+        case 64: return ORIGINAL_REQUEST;
+        case 65: return PHOTO_ERROR;
         case 80: return CONTACTS_SYNC_REQUEST;
         case 81: return CONTACTS_SYNC_RESPONSE;
         case 0: return PAYLOAD_NOT_SET;
@@ -1638,6 +1650,338 @@ public  final class Envelope extends
    */
   private void clearFileResumeRequest() {
     if (payloadCase_ == 56) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PHOTO_PAGE_FIELD_NUMBER = 60;
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPhotoPage() {
+    return payloadCase_ == 60;
+  }
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PhotoPage getPhotoPage() {
+    if (payloadCase_ == 60) {
+       return (dev.tandem.protocol.v1.PhotoPage) payload_;
+    }
+    return dev.tandem.protocol.v1.PhotoPage.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPhotoPage(dev.tandem.protocol.v1.PhotoPage value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 60;
+  }
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePhotoPage(dev.tandem.protocol.v1.PhotoPage value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 60 &&
+        payload_ != dev.tandem.protocol.v1.PhotoPage.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PhotoPage.newBuilder((dev.tandem.protocol.v1.PhotoPage) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 60;
+  }
+  /**
+   * <pre>
+   * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+   * </pre>
+   *
+   * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+   */
+  private void clearPhotoPage() {
+    if (payloadCase_ == 60) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PHOTO_PAGE_RESULT_FIELD_NUMBER = 61;
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPhotoPageResult() {
+    return payloadCase_ == 61;
+  }
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PhotoPageResult getPhotoPageResult() {
+    if (payloadCase_ == 61) {
+       return (dev.tandem.protocol.v1.PhotoPageResult) payload_;
+    }
+    return dev.tandem.protocol.v1.PhotoPageResult.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPhotoPageResult(dev.tandem.protocol.v1.PhotoPageResult value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 61;
+  }
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePhotoPageResult(dev.tandem.protocol.v1.PhotoPageResult value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 61 &&
+        payload_ != dev.tandem.protocol.v1.PhotoPageResult.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PhotoPageResult.newBuilder((dev.tandem.protocol.v1.PhotoPageResult) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 61;
+  }
+  /**
+   * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+   */
+  private void clearPhotoPageResult() {
+    if (payloadCase_ == 61) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int THUMB_REQUEST_FIELD_NUMBER = 62;
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasThumbRequest() {
+    return payloadCase_ == 62;
+  }
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ThumbRequest getThumbRequest() {
+    if (payloadCase_ == 62) {
+       return (dev.tandem.protocol.v1.ThumbRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.ThumbRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setThumbRequest(dev.tandem.protocol.v1.ThumbRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 62;
+  }
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeThumbRequest(dev.tandem.protocol.v1.ThumbRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 62 &&
+        payload_ != dev.tandem.protocol.v1.ThumbRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ThumbRequest.newBuilder((dev.tandem.protocol.v1.ThumbRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 62;
+  }
+  /**
+   * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+   */
+  private void clearThumbRequest() {
+    if (payloadCase_ == 62) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int THUMB_RESULT_FIELD_NUMBER = 63;
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   */
+  @java.lang.Override
+  public boolean hasThumbResult() {
+    return payloadCase_ == 63;
+  }
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ThumbResult getThumbResult() {
+    if (payloadCase_ == 63) {
+       return (dev.tandem.protocol.v1.ThumbResult) payload_;
+    }
+    return dev.tandem.protocol.v1.ThumbResult.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setThumbResult(dev.tandem.protocol.v1.ThumbResult value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 63;
+  }
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeThumbResult(dev.tandem.protocol.v1.ThumbResult value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 63 &&
+        payload_ != dev.tandem.protocol.v1.ThumbResult.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ThumbResult.newBuilder((dev.tandem.protocol.v1.ThumbResult) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 63;
+  }
+  /**
+   * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+   */
+  private void clearThumbResult() {
+    if (payloadCase_ == 63) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int ORIGINAL_REQUEST_FIELD_NUMBER = 64;
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasOriginalRequest() {
+    return payloadCase_ == 64;
+  }
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.OriginalRequest getOriginalRequest() {
+    if (payloadCase_ == 64) {
+       return (dev.tandem.protocol.v1.OriginalRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.OriginalRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setOriginalRequest(dev.tandem.protocol.v1.OriginalRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 64;
+  }
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeOriginalRequest(dev.tandem.protocol.v1.OriginalRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 64 &&
+        payload_ != dev.tandem.protocol.v1.OriginalRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.OriginalRequest.newBuilder((dev.tandem.protocol.v1.OriginalRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 64;
+  }
+  /**
+   * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+   */
+  private void clearOriginalRequest() {
+    if (payloadCase_ == 64) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PHOTO_ERROR_FIELD_NUMBER = 65;
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPhotoError() {
+    return payloadCase_ == 65;
+  }
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PhotoError getPhotoError() {
+    if (payloadCase_ == 65) {
+       return (dev.tandem.protocol.v1.PhotoError) payload_;
+    }
+    return dev.tandem.protocol.v1.PhotoError.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPhotoError(dev.tandem.protocol.v1.PhotoError value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 65;
+  }
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePhotoError(dev.tandem.protocol.v1.PhotoError value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 65 &&
+        payload_ != dev.tandem.protocol.v1.PhotoError.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PhotoError.newBuilder((dev.tandem.protocol.v1.PhotoError) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 65;
+  }
+  /**
+   * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+   */
+  private void clearPhotoError() {
+    if (payloadCase_ == 65) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -3339,6 +3683,318 @@ public  final class Envelope extends
 
     /**
      * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPhotoPage() {
+      return instance.hasPhotoPage();
+    }
+    /**
+     * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PhotoPage getPhotoPage() {
+      return instance.getPhotoPage();
+    }
+    /**
+     * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    public Builder setPhotoPage(dev.tandem.protocol.v1.PhotoPage value) {
+      copyOnWrite();
+      instance.setPhotoPage(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    public Builder setPhotoPage(
+        dev.tandem.protocol.v1.PhotoPage.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPhotoPage(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    public Builder mergePhotoPage(dev.tandem.protocol.v1.PhotoPage value) {
+      copyOnWrite();
+      instance.mergePhotoPage(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * </pre>
+     *
+     * <code>.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];</code>
+     */
+    public Builder clearPhotoPage() {
+      copyOnWrite();
+      instance.clearPhotoPage();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPhotoPageResult() {
+      return instance.hasPhotoPageResult();
+    }
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PhotoPageResult getPhotoPageResult() {
+      return instance.getPhotoPageResult();
+    }
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    public Builder setPhotoPageResult(dev.tandem.protocol.v1.PhotoPageResult value) {
+      copyOnWrite();
+      instance.setPhotoPageResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    public Builder setPhotoPageResult(
+        dev.tandem.protocol.v1.PhotoPageResult.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPhotoPageResult(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    public Builder mergePhotoPageResult(dev.tandem.protocol.v1.PhotoPageResult value) {
+      copyOnWrite();
+      instance.mergePhotoPageResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];</code>
+     */
+    public Builder clearPhotoPageResult() {
+      copyOnWrite();
+      instance.clearPhotoPageResult();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasThumbRequest() {
+      return instance.hasThumbRequest();
+    }
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ThumbRequest getThumbRequest() {
+      return instance.getThumbRequest();
+    }
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    public Builder setThumbRequest(dev.tandem.protocol.v1.ThumbRequest value) {
+      copyOnWrite();
+      instance.setThumbRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    public Builder setThumbRequest(
+        dev.tandem.protocol.v1.ThumbRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setThumbRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    public Builder mergeThumbRequest(dev.tandem.protocol.v1.ThumbRequest value) {
+      copyOnWrite();
+      instance.mergeThumbRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];</code>
+     */
+    public Builder clearThumbRequest() {
+      copyOnWrite();
+      instance.clearThumbRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    @java.lang.Override
+    public boolean hasThumbResult() {
+      return instance.hasThumbResult();
+    }
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ThumbResult getThumbResult() {
+      return instance.getThumbResult();
+    }
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    public Builder setThumbResult(dev.tandem.protocol.v1.ThumbResult value) {
+      copyOnWrite();
+      instance.setThumbResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    public Builder setThumbResult(
+        dev.tandem.protocol.v1.ThumbResult.Builder builderForValue) {
+      copyOnWrite();
+      instance.setThumbResult(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    public Builder mergeThumbResult(dev.tandem.protocol.v1.ThumbResult value) {
+      copyOnWrite();
+      instance.mergeThumbResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];</code>
+     */
+    public Builder clearThumbResult() {
+      copyOnWrite();
+      instance.clearThumbResult();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasOriginalRequest() {
+      return instance.hasOriginalRequest();
+    }
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.OriginalRequest getOriginalRequest() {
+      return instance.getOriginalRequest();
+    }
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    public Builder setOriginalRequest(dev.tandem.protocol.v1.OriginalRequest value) {
+      copyOnWrite();
+      instance.setOriginalRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    public Builder setOriginalRequest(
+        dev.tandem.protocol.v1.OriginalRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setOriginalRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    public Builder mergeOriginalRequest(dev.tandem.protocol.v1.OriginalRequest value) {
+      copyOnWrite();
+      instance.mergeOriginalRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];</code>
+     */
+    public Builder clearOriginalRequest() {
+      copyOnWrite();
+      instance.clearOriginalRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPhotoError() {
+      return instance.hasPhotoError();
+    }
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PhotoError getPhotoError() {
+      return instance.getPhotoError();
+    }
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    public Builder setPhotoError(dev.tandem.protocol.v1.PhotoError value) {
+      copyOnWrite();
+      instance.setPhotoError(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    public Builder setPhotoError(
+        dev.tandem.protocol.v1.PhotoError.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPhotoError(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    public Builder mergePhotoError(dev.tandem.protocol.v1.PhotoError value) {
+      copyOnWrite();
+      instance.mergePhotoError(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];</code>
+     */
+    public Builder clearPhotoError() {
+      copyOnWrite();
+      instance.clearPhotoError();
+      return this;
+    }
+
+    /**
+     * <pre>
      * contacts.proto (E51-01) — CONTACTS channel.
      * </pre>
      *
@@ -3503,15 +4159,21 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.FileComplete.class,
             dev.tandem.protocol.v1.FileCancel.class,
             dev.tandem.protocol.v1.FileResumeRequest.class,
+            dev.tandem.protocol.v1.PhotoPage.class,
+            dev.tandem.protocol.v1.PhotoPageResult.class,
+            dev.tandem.protocol.v1.ThumbRequest.class,
+            dev.tandem.protocol.v1.ThumbResult.class,
+            dev.tandem.protocol.v1.OriginalRequest.class,
+            dev.tandem.protocol.v1.PhotoError.class,
             dev.tandem.protocol.v1.ContactsSyncRequest.class,
             dev.tandem.protocol.v1.ContactsSyncResponse.class,
           };
           java.lang.String info =
-              "\u0000\u001e\u0001\u0000\u0001Q\u001e\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
-              "\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000" +
-              "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
-              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
-              "\u00007<\u00008<\u0000P<\u0000Q<\u0000";
+              "\u0000$\u0001\u0000\u0001Q$\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000\f<\u0000\r<" +
+              "\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000" +
+              " <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<\u00007<\u0000" +
+              "8<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000P<\u0000Q<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

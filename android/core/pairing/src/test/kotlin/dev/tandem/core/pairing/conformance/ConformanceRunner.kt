@@ -82,6 +82,7 @@ object ConformanceRunner {
             "clipboard-encoding",
             "discovery-id",
             "files-encoding",
+            "photos-encoding",
             "contacts-encoding",
         )
 
@@ -181,6 +182,7 @@ object ConformanceRunner {
                 "clipboard-encoding" -> clipboardEncodingOutcome(vector)
                 "discovery-id" -> discoveryIdOutcome(vector)
                 "files-encoding" -> filesEncodingOutcome(vector)
+                "photos-encoding" -> photosEncodingOutcome(vector)
                 "contacts-encoding" -> contactsEncodingOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }

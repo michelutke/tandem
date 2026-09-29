@@ -245,6 +245,55 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .fileResumeRequest(newValue)}
   }
 
+  /// photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+  public var photoPage: Tandem_V1_PhotoPage {
+    get {
+      if case .photoPage(let v)? = payload {return v}
+      return Tandem_V1_PhotoPage()
+    }
+    set {payload = .photoPage(newValue)}
+  }
+
+  public var photoPageResult: Tandem_V1_PhotoPageResult {
+    get {
+      if case .photoPageResult(let v)? = payload {return v}
+      return Tandem_V1_PhotoPageResult()
+    }
+    set {payload = .photoPageResult(newValue)}
+  }
+
+  public var thumbRequest: Tandem_V1_ThumbRequest {
+    get {
+      if case .thumbRequest(let v)? = payload {return v}
+      return Tandem_V1_ThumbRequest()
+    }
+    set {payload = .thumbRequest(newValue)}
+  }
+
+  public var thumbResult: Tandem_V1_ThumbResult {
+    get {
+      if case .thumbResult(let v)? = payload {return v}
+      return Tandem_V1_ThumbResult()
+    }
+    set {payload = .thumbResult(newValue)}
+  }
+
+  public var originalRequest: Tandem_V1_OriginalRequest {
+    get {
+      if case .originalRequest(let v)? = payload {return v}
+      return Tandem_V1_OriginalRequest()
+    }
+    set {payload = .originalRequest(newValue)}
+  }
+
+  public var photoError: Tandem_V1_PhotoError {
+    get {
+      if case .photoError(let v)? = payload {return v}
+      return Tandem_V1_PhotoError()
+    }
+    set {payload = .photoError(newValue)}
+  }
+
   /// contacts.proto (E51-01) — CONTACTS channel.
   public var contactsSyncRequest: Tandem_V1_ContactsSyncRequest {
     get {
@@ -295,6 +344,13 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case fileComplete(Tandem_V1_FileComplete)
     case fileCancel(Tandem_V1_FileCancel)
     case fileResumeRequest(Tandem_V1_FileResumeRequest)
+    /// photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+    case photoPage(Tandem_V1_PhotoPage)
+    case photoPageResult(Tandem_V1_PhotoPageResult)
+    case thumbRequest(Tandem_V1_ThumbRequest)
+    case thumbResult(Tandem_V1_ThumbResult)
+    case originalRequest(Tandem_V1_OriginalRequest)
+    case photoError(Tandem_V1_PhotoError)
     /// contacts.proto (E51-01) — CONTACTS channel.
     case contactsSyncRequest(Tandem_V1_ContactsSyncRequest)
     case contactsSyncResponse(Tandem_V1_ContactsSyncResponse)
@@ -310,7 +366,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{18}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}<\u{a}\u{c}F\u{1}\u{a}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{f}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}F\u{1}\u{a}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -646,6 +702,84 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .fileResumeRequest(v)
         }
       }()
+      case 60: try {
+        var v: Tandem_V1_PhotoPage?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .photoPage(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .photoPage(v)
+        }
+      }()
+      case 61: try {
+        var v: Tandem_V1_PhotoPageResult?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .photoPageResult(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .photoPageResult(v)
+        }
+      }()
+      case 62: try {
+        var v: Tandem_V1_ThumbRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .thumbRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .thumbRequest(v)
+        }
+      }()
+      case 63: try {
+        var v: Tandem_V1_ThumbResult?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .thumbResult(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .thumbResult(v)
+        }
+      }()
+      case 64: try {
+        var v: Tandem_V1_OriginalRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .originalRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .originalRequest(v)
+        }
+      }()
+      case 65: try {
+        var v: Tandem_V1_PhotoError?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .photoError(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .photoError(v)
+        }
+      }()
       case 80: try {
         var v: Tandem_V1_ContactsSyncRequest?
         var hadOneofValue = false
@@ -791,6 +925,30 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .fileResumeRequest?: try {
       guard case .fileResumeRequest(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 56)
+    }()
+    case .photoPage?: try {
+      guard case .photoPage(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 60)
+    }()
+    case .photoPageResult?: try {
+      guard case .photoPageResult(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 61)
+    }()
+    case .thumbRequest?: try {
+      guard case .thumbRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 62)
+    }()
+    case .thumbResult?: try {
+      guard case .thumbResult(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 63)
+    }()
+    case .originalRequest?: try {
+      guard case .originalRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 64)
+    }()
+    case .photoError?: try {
+      guard case .photoError(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 65)
     }()
     case .contactsSyncRequest?: try {
       guard case .contactsSyncRequest(let v)? = self.payload else { preconditionFailure() }
