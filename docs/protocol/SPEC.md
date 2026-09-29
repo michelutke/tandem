@@ -54,6 +54,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
 | 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
+| 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -1641,5 +1642,108 @@ untrusted, potentially secret content regardless of `sensitive`'s value: per inv
 `sensitive = true` that round-trips byte-identically through both the Kotlin and Swift codecs, a
 `text` of exactly 1,048,576 bytes (accepted), and a `text` of 1,048,577 bytes — one byte over the
 cap above — rejected by both codecs rather than truncated.
+
+---
+
+## FILES channel
+
+*(E40-01 · PRD F-7.1 · UC-14, UC-15, UC-16, AC-19 · invariants — none)*
+
+The FILES channel (`Channel.FILES`, §4) transfers whole files between the two sides: offer,
+accept-or-reject, chunked transmission, completion, cancellation, and resume of an interrupted
+transfer. It carries seven message types, each sent directly as the Envelope payload (no wrapper
+message): `FileOffer{id, name, size, mime, sha256}`, `FileAccept{id}`,
+`FileReject{id, reason}`, `FileChunk{id, seq, offset, data}`, `FileComplete{id}`,
+`FileCancel{id, reason}`, and `FileResumeRequest{id, from_offset}`
+(`protocol/proto/tandem/v1/files.proto`). `id` is sender-assigned per transfer and threaded through
+every message referring back to it; it is never reused for a different transfer.
+
+`reason` (on `FileReject` and `FileCancel`) is the shared `TransferReason` enum:
+`DECLINED`, `TIMEOUT`, `INSUFFICIENT_SPACE`, `INVALID_NAME`, `HASH_MISMATCH`,
+`PROTOCOL_VIOLATION`, `USER_CANCELLED`, `UNKNOWN_TRANSFER`, `SOURCE_UNAVAILABLE`, `IO_ERROR`,
+`BUSY`, and `TOO_LARGE` (12 values; `BUSY`/`TOO_LARGE` are Cycle-4 additions, E01-22, added once the
+per-direction offer/transfer caps and the size cap below were defined).
+
+### Handshake
+
+1. The sender computes `sha256 = SHA-256(whole source file bytes)` in a single streaming pass
+   *before* building `FileOffer` — the digest is of the entire file as it exists on the sender's
+   side at offer time, never recomputed per chunk.
+2. The sender sends `FileOffer{id, name, size, mime, sha256}`.
+3. The receiver either sends `FileAccept{id}` (user action, or auto-accept — "Cycle 4 caps"
+   below) or `FileReject{id, reason}` (user declined, or a cap violation below). Either is
+   terminal for a rejection: no further FILES message referring to `id` is valid once
+   `FileReject` has been sent for it.
+4. Once `FileAccept` has been received, the sender streams `FileChunk{id, seq, offset, data}`
+   frames in contiguous `seq` order (0-based) until the whole file has been sent — see "Chunking"
+   below.
+5. The sender sends `FileComplete{id}` once every chunk has been sent. The receiver verifies its
+   reassembled file's SHA-256 against `FileOffer.sha256`; a mismatch is reported back with
+   `FileCancel{id, reason: HASH_MISMATCH}` (the transfer is not silently kept).
+6. Either side may send `FileCancel{id, reason}` at any point after step 2 to abort the transfer
+   mid-flight, for any `TransferReason`; it is terminal for `id`, like `FileReject`.
+7. A receiver that already retains a partial temp file for `id` from a previously interrupted
+   transfer sends `FileResumeRequest{id, from_offset}` instead of `FileAccept` — see "Resume"
+   below — and the sender resumes chunk transmission from `from_offset` rather than restarting at
+   `seq = 0`.
+
+### Chunking
+
+`FileChunk.data` is capped at 262,144 bytes (256 KiB, 2^18) per chunk. `seq` is 0-based and
+contiguous; `offset` MUST equal `seq * 262144`. A receiver validates every incoming chunk against
+its own current reassembly state, independent of what the sender claims `seq`/`offset` to be:
+
+- A chunk whose `offset` is not equal to the receiver's current reassembled length, or whose
+  `offset + len(data)` would exceed `FileOffer.size`, is a `PROTOCOL_VIOLATION`
+  (`FileCancel{id, reason: PROTOCOL_VIOLATION}`) — never silently clamped or reordered.
+- A chunk whose `data` is over the 262,144-byte cap is likewise rejected as a
+  `PROTOCOL_VIOLATION`, never truncated.
+
+### Unanswered-offer timeout
+
+A `FileOffer` the receiver has neither accepted, rejected, nor resumed within 300 s of receipt is
+rejected by the receiver with `FileReject{id, reason: TIMEOUT}`. This is a receiver-side timer
+only; the sender does not independently time out a pending offer.
+
+### Resume semantics
+
+A receiver that still retains a partial temp file for a previously interrupted transfer `id`
+reports `from_offset` in `FileResumeRequest` as that temp file's retained length, rounded *down*
+to the nearest 262,144-byte boundary (i.e. `from_offset = floor(retained_length / 262144) *
+262144`) — never the exact retained byte count, so the sender always resumes on a chunk boundary
+and never has to split a chunk. The sender resumes streaming `FileChunk` frames starting at
+`seq = from_offset / 262144`.
+
+A retained temp file expires 24 h after its last write; a `FileResumeRequest` (or any other FILES
+message) naming an `id` whose temp file has already expired, or that never existed, is rejected
+with `FileReject{id, reason: UNKNOWN_TRANSFER}` — the sender has no choice but to restart the
+transfer as a fresh `id` in that case.
+
+### Cycle 4 caps (E01-22)
+
+Restated here from §10 ("Feature caps") as the single source of truth for the FILES channel:
+
+- `FileOffer.size` MUST be <= 64 GiB (2^36 bytes), else the receiver responds
+  `FileReject{id, reason: TOO_LARGE}` without prompting the user.
+- `FileOffer.name`'s raw, pre-sanitization byte length MUST be <= 1024 UTF-8 bytes, else the
+  receiver responds `FileReject{id, reason: INVALID_NAME}` (the E40-02 filename-sanitization rule
+  applies only to a name that already passes this length cap).
+- `FileOffer.mime` MUST be <= 255 bytes, else the receiver responds
+  `FileReject{id, reason: INVALID_NAME}`.
+- A receiver holds at most 4 unanswered offers and 2 active transfers per direction at once;
+  an offer arriving in excess of either limit is rejected `FileReject{id, reason: BUSY}`
+  immediately, without ever prompting the user.
+- Auto-accept (sending `FileAccept` without a user prompt) applies only to offers with
+  `size <= 1 GiB` (2^30 bytes), and only when the receiver's auto-accept setting is enabled
+  (opt-in, off by default); an offer over that cap always requires a manual accept regardless of
+  the setting.
+
+### Conformance
+
+`protocol/vectors/files-encoding.json` (E15-01, E15-02) includes: a `FileOffer`/`FileAccept` pair
+that decodes to identical fields on both codecs; a `FileResumeRequest` whose `from_offset` decodes
+exactly; a `FileReject` for every one of the 12 `TransferReason` values (including `BUSY` and
+`TOO_LARGE`) round-tripping on both codecs; and a `FileChunk` with a 262,145-byte `data` payload —
+one byte over the 262,144-byte cap above — rejected as oversized by both codecs.
 
 ---

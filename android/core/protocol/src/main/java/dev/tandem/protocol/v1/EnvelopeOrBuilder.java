@@ -274,5 +274,90 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.ClipboardText getClipboardText();
 
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   * @return Whether the fileOffer field is set.
+   */
+  boolean hasFileOffer();
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   * @return The fileOffer.
+   */
+  dev.tandem.protocol.v1.FileOffer getFileOffer();
+
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   * @return Whether the fileAccept field is set.
+   */
+  boolean hasFileAccept();
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   * @return The fileAccept.
+   */
+  dev.tandem.protocol.v1.FileAccept getFileAccept();
+
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   * @return Whether the fileReject field is set.
+   */
+  boolean hasFileReject();
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   * @return The fileReject.
+   */
+  dev.tandem.protocol.v1.FileReject getFileReject();
+
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   * @return Whether the fileChunk field is set.
+   */
+  boolean hasFileChunk();
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   * @return The fileChunk.
+   */
+  dev.tandem.protocol.v1.FileChunk getFileChunk();
+
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   * @return Whether the fileComplete field is set.
+   */
+  boolean hasFileComplete();
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   * @return The fileComplete.
+   */
+  dev.tandem.protocol.v1.FileComplete getFileComplete();
+
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   * @return Whether the fileCancel field is set.
+   */
+  boolean hasFileCancel();
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   * @return The fileCancel.
+   */
+  dev.tandem.protocol.v1.FileCancel getFileCancel();
+
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   * @return Whether the fileResumeRequest field is set.
+   */
+  boolean hasFileResumeRequest();
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   * @return The fileResumeRequest.
+   */
+  dev.tandem.protocol.v1.FileResumeRequest getFileResumeRequest();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }
