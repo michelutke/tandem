@@ -133,12 +133,18 @@ enum ConformanceRunner {
         switch category {
         case "frame-encoding": return try await runFrameEncoding(data: data)
         case "heartbeat": return try await runHeartbeat(data: data)
+        case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
+        case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
+        default: return try runSynchronousCategory(category, data: data)
+        }
+    }
+
+    private static func runSynchronousCategory(_ category: String, data: Data) throws -> [VectorOutcome] {
+        switch category {
         case "spki-fingerprint": return try runSpkiFingerprint(data: data)
         case "pairing-proof": return try runPairingProof(data: data)
         case "display-strings": return try runDisplayStrings(data: data)
         case "discovery-id": return try runDiscoveryId(data: data)
-        case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
-        case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
         case "clipboard-encoding": return try runClipboardEncoding(data: data)
         case "files-encoding": return try runFilesEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)

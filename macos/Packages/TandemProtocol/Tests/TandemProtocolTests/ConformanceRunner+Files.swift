@@ -27,7 +27,7 @@ extension ConformanceRunner {
         "TRANSFER_REASON_SOURCE_UNAVAILABLE": 9,
         "TRANSFER_REASON_IO_ERROR": 10,
         "TRANSFER_REASON_BUSY": 11,
-        "TRANSFER_REASON_TOO_LARGE": 12,
+        "TRANSFER_REASON_TOO_LARGE": 12
     ]
 
     static func runFilesEncoding(data: Data) throws -> [VectorOutcome] {
