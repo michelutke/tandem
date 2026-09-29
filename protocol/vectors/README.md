@@ -198,6 +198,20 @@ gives a `dataRecipe` (`fillByte`/`fillLength`, the same "compact recipe" idea as
 and uses `expectedError: "fileChunkPayloadTooLarge"`, a message-level validation rejection rather
 than a frame-level close, so it carries no `closeCode`/`localReason`.
 
+### `photos-encoding.json` (E41-01)
+
+Vectors for `docs/protocol/SPEC.md` `#files-channel`'s "Photos" subsection's message types
+(`protocol/proto/tandem/v1/photos.proto`): `PhotoPageResult` (with its `PhotoMeta` entries),
+`ThumbResult`, `OriginalRequest`, and `PhotoError`. Like `files-encoding.json`, entries here are
+the raw serialized message bytes for one message type at a time (`input.messageHex`), not a full
+`Envelope` frame. `input.kind` selects which message type `messageHex` decodes as
+(`photoPageResult`/`thumbResult`/`originalRequest`/`photoError`); valid entries' `expected` gives
+the decoded fields directly (`pngBytesHex` hex-encoded plus a `pngBytesSha256` for independent
+verification, `access`/`kind`/`reason` as their enum name). The manifest includes a
+`PhotoPageResult` with `access: PHOTO_ACCESS_PARTIAL`, a `ThumbResult` carrying a minimal valid PNG
+fixture, an `OriginalRequest`, and a `PhotoError` for every one of the 4 `PhotoErrorReason` values
+(E01-22's Cycle-4 `BUSY` included).
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

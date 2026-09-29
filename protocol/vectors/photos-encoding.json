@@ -1,0 +1,110 @@
+{
+  "$schema": "./schema.json",
+  "category": "photos-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "photos-page-result-partial-access",
+      "description": "A PhotoPageResult with access PARTIAL, decoding to identical fields on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "photoPageResult",
+        "messageHex": "0a180a0a70686f746f2d303030311080e2cfaa0618c01f20d0170a180a0a70686f746f2d3030303210f4e5cfaa0618d01720c01f1210637572736f722d706167652d303030321802"
+      },
+      "expected": {
+        "items": [
+          {
+            "id": "photo-0001",
+            "takenAt": 1700000000,
+            "width": 4032,
+            "height": 3024
+          },
+          {
+            "id": "photo-0002",
+            "takenAt": 1700000500,
+            "width": 3024,
+            "height": 4032
+          }
+        ],
+        "nextCursor": "cursor-page-0002",
+        "access": "PHOTO_ACCESS_PARTIAL"
+      }
+    },
+    {
+      "id": "photos-thumb-result-valid",
+      "description": "A ThumbResult whose png_bytes decodes to identical bytes on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "thumbResult",
+        "messageHex": "0a0a70686f746f2d30303031124289504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a4944415478da6360000002000155273de50000000049454e44ae426082"
+      },
+      "expected": {
+        "id": "photo-0001",
+        "pngBytesHex": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a4944415478da6360000002000155273de50000000049454e44ae426082",
+        "pngBytesSha256": "3632cbb28f2abc06bc4da959e9a75978c654e738cbe57bf8eeded6740429ba6b"
+      }
+    },
+    {
+      "id": "photos-original-request-valid",
+      "description": "An OriginalRequest whose transfer_id decodes exactly (docs/protocol/SPEC.md #files-channel \"Photos\" -- the phone answers with a files.proto FileOffer whose id equals transfer_id).",
+      "input": {
+        "kind": "originalRequest",
+        "messageHex": "0a0a70686f746f2d30303031120f786665722d70686f746f2d30303031"
+      },
+      "expected": {
+        "id": "photo-0001",
+        "transferId": "xfer-photo-0001"
+      }
+    },
+    {
+      "id": "photos-error-not-found",
+      "description": "A PhotoError with reason PHOTO_ERROR_REASON_NOT_FOUND, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "photoError",
+        "messageHex": "0802120e70686f746f2d6572726f722d30311801"
+      },
+      "expected": {
+        "kind": "PHOTO_ERROR_KIND_THUMB",
+        "ref": "photo-error-01",
+        "reason": "PHOTO_ERROR_REASON_NOT_FOUND"
+      }
+    },
+    {
+      "id": "photos-error-access-denied",
+      "description": "A PhotoError with reason PHOTO_ERROR_REASON_ACCESS_DENIED, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "photoError",
+        "messageHex": "0802120e70686f746f2d6572726f722d30321802"
+      },
+      "expected": {
+        "kind": "PHOTO_ERROR_KIND_THUMB",
+        "ref": "photo-error-02",
+        "reason": "PHOTO_ERROR_REASON_ACCESS_DENIED"
+      }
+    },
+    {
+      "id": "photos-error-invalid-cursor",
+      "description": "A PhotoError with reason PHOTO_ERROR_REASON_INVALID_CURSOR, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "photoError",
+        "messageHex": "0802120e70686f746f2d6572726f722d30331803"
+      },
+      "expected": {
+        "kind": "PHOTO_ERROR_KIND_THUMB",
+        "ref": "photo-error-03",
+        "reason": "PHOTO_ERROR_REASON_INVALID_CURSOR"
+      }
+    },
+    {
+      "id": "photos-error-busy",
+      "description": "A PhotoError with reason PHOTO_ERROR_REASON_BUSY, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel \"Photos\").",
+      "input": {
+        "kind": "photoError",
+        "messageHex": "0802120e70686f746f2d6572726f722d30341804"
+      },
+      "expected": {
+        "kind": "PHOTO_ERROR_KIND_THUMB",
+        "ref": "photo-error-04",
+        "reason": "PHOTO_ERROR_REASON_BUSY"
+      }
+    }
+  ]
+}
