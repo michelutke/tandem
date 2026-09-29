@@ -1,6 +1,7 @@
 package dev.tandem.feature.notifications
 
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import java.util.concurrent.ConcurrentHashMap
@@ -41,17 +42,27 @@ import java.util.concurrent.ConcurrentHashMap
  * tracked either -- the Mac never learned its key, so it can never reference it. Entries are
  * removed on every removal regardless of [reason]: the notification is genuinely gone either way,
  * even when the removal itself is this listener's own E30-10 echo.
+ *
+ * E30-05: [iconSender] follows the same E30-03 filter decision as the notification it rides along
+ * with -- a filtered notification is never mapped, so its app's icon is never extracted or sent
+ * either (there would be nothing on the Mac to attach it to). Null by default: like [eventSink],
+ * the real [IconSender] is wired in by a composition root, out of this issue's scope.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
+    internal var iconSender: IconSender? = null
 
     private val trackedNotifications = ConcurrentHashMap<String, StatusBarNotification>()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!NotificationFilter.shouldForward(sbn, packageName)) return
         trackedNotifications[sbn.key] = sbn
-        eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, appVersionCode(sbn.packageName)))
+        val versionCode = appVersionCode(sbn.packageName)
+        eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, versionCode))
+        appIcon(sbn.packageName)?.let { icon ->
+            iconSender?.onNotificationPosted(sbn.packageName, versionCode, icon, eventSink::onIconData)
+        }
     }
 
     override fun onNotificationRemoved(
@@ -71,5 +82,12 @@ class TandemNotificationListenerService : NotificationListenerService() {
             packageManager.getPackageInfo(packageName, 0).longVersionCode
         } catch (_: PackageManager.NameNotFoundException) {
             0L
+        }
+
+    private fun appIcon(packageName: String): Drawable? =
+        try {
+            packageManager.getApplicationIcon(packageName)
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
         }
 }
