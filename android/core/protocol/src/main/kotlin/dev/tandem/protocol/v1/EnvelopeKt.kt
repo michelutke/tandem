@@ -773,6 +773,162 @@ public object EnvelopeKt {
     public fun hasFileResumeRequest(): kotlin.Boolean {
       return _builder.hasFileResumeRequest()
     }
+
+    /**
+     * ```
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * ```
+     *
+     * `.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];`
+     */
+    public var photoPage: dev.tandem.protocol.v1.PhotoPage
+      @kotlin.jvm.JvmName("getPhotoPage")
+        get() = _builder.photoPage
+      @kotlin.jvm.JvmName("setPhotoPage")
+        set(value) {
+        _builder.photoPage = value
+      }
+    /**
+     * ```
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * ```
+     *
+     * `.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];`
+     */
+    public fun clearPhotoPage() {
+      _builder.clearPhotoPage()
+    }
+    /**
+     * ```
+     * photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision).
+     * ```
+     *
+     * `.tandem.v1.PhotoPage photo_page = 60 [json_name = "photoPage"];`
+     * @return Whether the photoPage field is set.
+     */
+    public fun hasPhotoPage(): kotlin.Boolean {
+      return _builder.hasPhotoPage()
+    }
+
+    /**
+     * `.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];`
+     */
+    public var photoPageResult: dev.tandem.protocol.v1.PhotoPageResult
+      @kotlin.jvm.JvmName("getPhotoPageResult")
+        get() = _builder.photoPageResult
+      @kotlin.jvm.JvmName("setPhotoPageResult")
+        set(value) {
+        _builder.photoPageResult = value
+      }
+    /**
+     * `.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];`
+     */
+    public fun clearPhotoPageResult() {
+      _builder.clearPhotoPageResult()
+    }
+    /**
+     * `.tandem.v1.PhotoPageResult photo_page_result = 61 [json_name = "photoPageResult"];`
+     * @return Whether the photoPageResult field is set.
+     */
+    public fun hasPhotoPageResult(): kotlin.Boolean {
+      return _builder.hasPhotoPageResult()
+    }
+
+    /**
+     * `.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];`
+     */
+    public var thumbRequest: dev.tandem.protocol.v1.ThumbRequest
+      @kotlin.jvm.JvmName("getThumbRequest")
+        get() = _builder.thumbRequest
+      @kotlin.jvm.JvmName("setThumbRequest")
+        set(value) {
+        _builder.thumbRequest = value
+      }
+    /**
+     * `.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];`
+     */
+    public fun clearThumbRequest() {
+      _builder.clearThumbRequest()
+    }
+    /**
+     * `.tandem.v1.ThumbRequest thumb_request = 62 [json_name = "thumbRequest"];`
+     * @return Whether the thumbRequest field is set.
+     */
+    public fun hasThumbRequest(): kotlin.Boolean {
+      return _builder.hasThumbRequest()
+    }
+
+    /**
+     * `.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];`
+     */
+    public var thumbResult: dev.tandem.protocol.v1.ThumbResult
+      @kotlin.jvm.JvmName("getThumbResult")
+        get() = _builder.thumbResult
+      @kotlin.jvm.JvmName("setThumbResult")
+        set(value) {
+        _builder.thumbResult = value
+      }
+    /**
+     * `.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];`
+     */
+    public fun clearThumbResult() {
+      _builder.clearThumbResult()
+    }
+    /**
+     * `.tandem.v1.ThumbResult thumb_result = 63 [json_name = "thumbResult"];`
+     * @return Whether the thumbResult field is set.
+     */
+    public fun hasThumbResult(): kotlin.Boolean {
+      return _builder.hasThumbResult()
+    }
+
+    /**
+     * `.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];`
+     */
+    public var originalRequest: dev.tandem.protocol.v1.OriginalRequest
+      @kotlin.jvm.JvmName("getOriginalRequest")
+        get() = _builder.originalRequest
+      @kotlin.jvm.JvmName("setOriginalRequest")
+        set(value) {
+        _builder.originalRequest = value
+      }
+    /**
+     * `.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];`
+     */
+    public fun clearOriginalRequest() {
+      _builder.clearOriginalRequest()
+    }
+    /**
+     * `.tandem.v1.OriginalRequest original_request = 64 [json_name = "originalRequest"];`
+     * @return Whether the originalRequest field is set.
+     */
+    public fun hasOriginalRequest(): kotlin.Boolean {
+      return _builder.hasOriginalRequest()
+    }
+
+    /**
+     * `.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];`
+     */
+    public var photoError: dev.tandem.protocol.v1.PhotoError
+      @kotlin.jvm.JvmName("getPhotoError")
+        get() = _builder.photoError
+      @kotlin.jvm.JvmName("setPhotoError")
+        set(value) {
+        _builder.photoError = value
+      }
+    /**
+     * `.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];`
+     */
+    public fun clearPhotoError() {
+      _builder.clearPhotoError()
+    }
+    /**
+     * `.tandem.v1.PhotoError photo_error = 65 [json_name = "photoError"];`
+     * @return Whether the photoError field is set.
+     */
+    public fun hasPhotoError(): kotlin.Boolean {
+      return _builder.hasPhotoError()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -860,4 +1016,22 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileCancelOrNull: dev.tandem
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileResumeRequestOrNull: dev.tandem.protocol.v1.FileResumeRequest?
   get() = if (hasFileResumeRequest()) getFileResumeRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.photoPageOrNull: dev.tandem.protocol.v1.PhotoPage?
+  get() = if (hasPhotoPage()) getPhotoPage() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.photoPageResultOrNull: dev.tandem.protocol.v1.PhotoPageResult?
+  get() = if (hasPhotoPageResult()) getPhotoPageResult() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.thumbRequestOrNull: dev.tandem.protocol.v1.ThumbRequest?
+  get() = if (hasThumbRequest()) getThumbRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.thumbResultOrNull: dev.tandem.protocol.v1.ThumbResult?
+  get() = if (hasThumbResult()) getThumbResult() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.originalRequestOrNull: dev.tandem.protocol.v1.OriginalRequest?
+  get() = if (hasOriginalRequest()) getOriginalRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.photoErrorOrNull: dev.tandem.protocol.v1.PhotoError?
+  get() = if (hasPhotoError()) getPhotoError() else null
 
