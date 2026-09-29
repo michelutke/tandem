@@ -12,6 +12,11 @@ import android.service.notification.StatusBarNotification
 object NotificationFilter {
     private val SYSTEM_NOISE_PACKAGES = setOf("android", "com.android.systemui")
 
+    /** E30-04: whether [packageName] is on this filter's default-deny system-noise list, so
+     * [PerAppNotificationFilter] can show the right default toggle state without duplicating the
+     * list. */
+    fun isSystemNoisePackage(packageName: String): Boolean = packageName in SYSTEM_NOISE_PACKAGES
+
     fun shouldForward(
         sbn: StatusBarNotification,
         ownPackageName: String,
