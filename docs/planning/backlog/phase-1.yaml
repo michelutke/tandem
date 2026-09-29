@@ -933,6 +933,38 @@ epics:
           - "conformance: swiftFrameCodec_everyValidFrameVector_roundTripsToVectorBytes"
           - "conformance: swiftFrameCodec_everyInvalidFrameVector_rejectedWithTaggedCloseCode"
           - "unit: frameVectorLoader_extraFixtureInDirectory_discoveredWithoutCodeChange"
+      - id: E11-15
+        title: "[android] Fix ChannelMultiplexer.Writer crash on close during an in-flight write"
+        type: test
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-3.2]
+        use_cases: [UC-04]
+        invariants: []
+        depends_on: [E11-07]
+        description: |
+          `ChannelMultiplexer.Writer.run()`'s `sink.write` calls (drainOnePass and the
+          awaitAndWriteAny select clause) have no `IOException` guard. `Writer.run()` runs under
+          `ByteStreamSession.scope` (`SupervisorJob()` + dispatcher, no `CoroutineExceptionHandler`),
+          so an `IOException` there reaches the thread's default uncaught-exception handler and
+          crashes the app. `performClose()` calling `byteStream.closeAbruptly()` while a write is
+          in flight (blocked on backpressure, or mid-flight on a real socket) makes that write throw
+          synchronously on the writer's own thread, racing ahead of the reader's own
+          `IOException -> SourceFailed -> finish() -> writerJob.cancel()` path, so an `IOException`
+          (not `CancellationException`) escapes `coroutineScope` in `start()`.
+          Found while reviewing E20-15 (dead-peer detector): a black-holed peer (Wi-Fi drop with no
+          RST) during bulk traffic (clipboard/file transfer) fills the TCP send buffer, parking the
+          writer inside `write`; 45s of silence trips `DeadPeerDetector.onDead -> close()`, and the
+          writer crashes on exactly the path this feature exists to handle. Also reachable
+          pre-E20-15 via any user-initiated `close()` during an in-flight write. Introduced in
+          3f4b0a7 (E11-07), predates E20-15, and does not block it (E20-15's own regression test
+          deliberately routes around this by closing gracefully with a delay).
+        acceptance:
+          - A close() while ChannelMultiplexer.Writer is blocked mid-write does not crash the process
+          - closeReason completes (e.g. with SourceFailed or a new close reason for this case) instead of an uncaught exception escaping
+        tdd:
+          - "unit: channelMultiplexer_closeAbruptlyDuringInFlightWrite_noUncaughtExceptionAndCloseReasonCompletes"
 
   - id: E12
     title: Secure transport (mTLS 1.3 client/server, pinning)
