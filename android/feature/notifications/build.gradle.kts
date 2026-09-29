@@ -28,6 +28,8 @@ dependencies {
     // PerAppNotificationFilterScreen (E30-04).
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)
+    // Bitmap.createBitmap KTX extension (E30-05's IconEncoder).
+    implementation(libs.androidx.core.ktx)
 
     // NotificationSinkTest scripts TandemSession via FakeTandemSession (E12-11) and
     // ElapsedRealtimeSource via FakeElapsedRealtime (E00-18); test-only, never a release classpath.
