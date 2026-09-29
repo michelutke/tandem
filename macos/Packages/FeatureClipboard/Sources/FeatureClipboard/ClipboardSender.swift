@@ -26,6 +26,23 @@ import TandemProtocol
 /// always advances it, so the *next* oversized item, distinct or not, is warned about again once
 /// its own `changeCount` differs from the last one warned about.
 public actor ClipboardSender {
+    /// The outcome of ``pushCurrentItem()`` (E31-11): what an explicit "Push Clipboard" quick
+    /// action should show for the current pasteboard item.
+    public enum PushResult: Sendable, Equatable {
+        /// Sent as `ClipboardText`.
+        case sent
+        /// Skipped: the item's types carry a concealed/transient/auto-generated marker
+        /// (``ConcealedTypeFilter``). The menu must show only "Not sent: protected item" -- never
+        /// the item's actual content (invariant 7).
+        case notSentProtectedItem
+        /// Skipped: the item's UTF-8 text exceeds ``maxTextBytes``. The menu shows
+        /// ``tooLargeHint``.
+        case notSentTooLarge
+        /// Skipped: the current pasteboard item has no `public.utf8-plain-text` representation at
+        /// all (an image, a file, ...). Nothing to show -- there is no text to have rejected.
+        case notSentNoText
+    }
+
     /// docs/protocol/SPEC.md #clipboard-channel "Size limit", restated from #10
     /// (`#timeouts-connection-limits-and-resource-caps`, E01-22) "Feature caps": `text` MUST be at
     /// most 1,048,576 bytes (1 MiB, 2^20) of UTF-8.
@@ -87,10 +104,34 @@ public actor ClipboardSender {
 
         guard await !loopGuard.shouldSkip(changeCount: source.changeCount) else { return }
 
+        await sendIfWithinLimit(text: text)
+    }
+
+    /// Sends the CURRENT pasteboard item right now (E31-11), for an explicit "Push Clipboard"
+    /// quick action -- independent of ``PasteboardPoller``'s own changeCount-based detection, so
+    /// it also sends an item the poller already saw and skipped past (nothing changed since), or
+    /// one the poller hasn't polled for yet. Applies the exact same concealed/transient skip
+    /// (``ConcealedTypeFilter``) and ``maxTextBytes`` cap as ``handleChange(types:)``.
+    ///
+    /// Deliberately does *not* consult ``loopGuard``: that guard exists to stop an automatically
+    /// *detected* change from echoing a just-received clip back to the phone, but this is the
+    /// user's own explicit request to send "whatever is on the pasteboard right now" -- exactly
+    /// the "send it again" case this issue exists for (e.g. the phone cleared its clip after
+    /// receiving it), so it must not be silently swallowed by the same bookkeeping that guards the
+    /// automatic path.
+    public func pushCurrentItem() async -> PushResult {
+        let types = source.types()
+        guard !ConcealedTypeFilter.shouldSkip(types: types) else { return .notSentProtectedItem }
+        guard types.contains(.string), let text = source.string(forType: .string) else { return .notSentNoText }
+        return await sendIfWithinLimit(text: text) ? .sent : .notSentTooLarge
+    }
+
+    @discardableResult
+    private func sendIfWithinLimit(text: String) async -> Bool {
         let utf8Bytes = Array(text.utf8)
         guard utf8Bytes.count <= Self.maxTextBytes else {
             warnIfNeeded()
-            return
+            return false
         }
 
         var message = Tandem_V1_ClipboardText()
@@ -98,6 +139,7 @@ public actor ClipboardSender {
         message.contentHash = Data(SHA256.hash(data: Data(utf8Bytes)))
         message.text = text
         try? await session.send(.clipboard, payload: .clipboardText(message))
+        return true
     }
 
     private func warnIfNeeded() {

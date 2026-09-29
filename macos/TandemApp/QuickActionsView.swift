@@ -13,12 +13,25 @@ struct QuickActionsView: View {
     /// ``actionButton(_:identifier:)``'s static ``QuickActionsViewModel/Action/label``.
     let findPhoneViewModel: FindPhoneViewModel
 
+    /// Drives the "Not sent: protected item"/size-hint text shown under "Push Clipboard" (E31-11)
+    /// when a push doesn't send.
+    let pushClipboardViewModel: PushClipboardViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             actionButton(.sendFile, identifier: "sendFileMenuItem")
             actionButton(.pushClipboard, identifier: "pushClipboardMenuItem")
+            pushClipboardStatusLabel
             findPhoneButton
             actionButton(.mirror, identifier: "mirrorPhoneMenuItem")
+        }
+    }
+
+    @ViewBuilder
+    private var pushClipboardStatusLabel: some View {
+        if let statusMessage = pushClipboardViewModel.statusMessage {
+            Text(statusMessage)
+                .accessibilityIdentifier("pushClipboardStatusLabel")
         }
     }
 
