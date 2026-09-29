@@ -89,6 +89,63 @@ across scenario processes, matching the existing per-script convention in
 minutes) — this is deliberately not yet wired into CI as a required check, matching E15-08's own
 `tools/conformance/run.sh` precedent above.
 
+## E15-11: downgrade / resumption / 0-RTT / protocol-version scenarios
+
+`tools/mitm-lab/e15-11-version-scenarios/` — seven scenarios (four base scenarios, one of which
+splits into two files, plus two Cycle 4 additions) against the real Mac app and, for one of them,
+the real JVM (Android `core`) client. Six are TLS-handshake/version-negotiation attacks, driven the
+same self-contained-per-scenario way as E15-09/E15-10 (`lib/e15-11-common.sh`, no pairing window);
+the seventh (`mitmLab_androidClientAfterTicketIssued_nextHelloOffersNoPsk`) needs no real Mac app at
+all — a scripted Go server plays the "real Mac" role instead, to prove the real *client's* own
+resumption behavior.
+
+- `mitmLab_tls12OnlyClientHello_protocolVersionAlert` — a TLS 1.2-only ClientHello against the real
+  Mac's TLS-1.3-only listener fails with a `protocol_version` alert.
+- `mitmLab_fullHandshake_zeroSessionTicketsIssued` / `mitmLab_resumptionAttempt_neverResumed` — a
+  real full mTLS handshake issues 0 `NewSessionTicket` messages (`NWListenerFactory` disables both
+  TLS tickets and resumption), and a saved-session or forged-PSK resumption attempt always falls
+  back to a full handshake (or is rejected) — TLS 1.3 resumption being entirely ticket-based means
+  there is, empirically, no session file to even attempt `-sess_in` resumption with.
+- `mitmLab_zeroRttEarlyData_zeroEarlyBytesDelivered` — 0-RTT early data is structurally impossible
+  against a listener that never issues a ticket (same finding as the sibling scenario above),
+  verified against a real 0-RTT-capable throwaway server as this script's own positive control.
+- `mitmLab_helloUnsupportedMajorVersion_closedWithVersionMismatch` — a peer completing real mTLS
+  then sending a hand-built `VersionHello` with an unsupported major version gets closed within a
+  few milliseconds, versus staying open for the real client's own `major=1` on an otherwise
+  identical connection (`VERSION_MISMATCH` carries no wire signal at all per `docs/protocol/
+  SPEC.md #errors-and-close-codes`, so this scenario substitutes a by-construction timing
+  discriminator rather than inferring the close code after the fact).
+- `mitmLab_clientWithoutTandemAlpn_handshakeFails` (Cycle 4) — a wrong or missing ALPN fails the
+  handshake; empirically, the real Mac's TLS stack (Apple's `Network`/`Security` framework) sends a
+  fatal `internal_error` alert for a wrong ALPN, not the RFC 7301 `no_application_protocol` alert
+  the backlog text assumed — see that scenario file's own header for the reproduced discrepancy.
+- `mitmLab_androidClientAfterTicketIssued_nextHelloOffersNoPsk` (Cycle 4) — a scripted TLS 1.3
+  server (`lib/ticket_probe_server.go`, tickets left enabled) issues a real `NewSessionTicket` to
+  the real JVM harness client, then inspects that client's very next `ClientHello`'s raw extensions
+  for `pre_shared_key`/`early_data` — neither ever appears, confirming empirically that
+  `SslClientFactory`'s "fresh `SSLContext` per connection" design actually prevents resumption.
+
+Two scenarios need TLS/wire-level control no scripting-language binding offers: a hand-built
+app-layer `Envelope{VersionHello}` frame, and a server that issues real tickets and then parses a
+raw ClientHello's extensions. `lib/version_hello_client.go`/`lib/ticket_probe_server.go` (built on
+demand via `go build`) do exactly that, using the same real `crypto/tls` (never a reimplemented TLS
+stack) technique E15-10 established.
+
+Run the suite:
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-11-version-scenarios/scenarios --timeout 300
+```
+
+Every scenario completed in well under a minute in practice. `mitmLab_helloUnsupportedMajorVersion_
+menuShowsVersionError` (the UI half of the version-mismatch scenario, reading the real Mac menu-bar
+status item's text via the accessibility tree after the same attack) is not included here: the
+Mac app's `MenuContentView` does not yet wire any real per-connection state into
+`MenuBarViewModel`/`ErrorBannerViewModel` at all (both are constructed with `stateStream: nil`,
+`macos/TandemApp/TandemApp.swift`) — a real attack against the harness-launched app today has
+nothing to surface in that UI regardless of what closed it. See this issue's PR description for
+that gap; it blocks only this one UI-observability check, not the six scenarios above.
+
 ## E15-10: certificate-abuse scenarios
 
 `tools/mitm-lab/e15-10-cert-abuse/` — six TLS-handshake-level attacks (as opposed to E15-09's
