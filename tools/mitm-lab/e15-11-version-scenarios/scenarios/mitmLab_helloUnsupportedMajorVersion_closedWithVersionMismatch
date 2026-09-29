@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_helloUnsupportedMajorVersion_closedWithVersionMismatch
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(VERSION_MISMATCH)
+# mitm-scenario-timeout: 180
+#
+# E15-11 (4/6): a peer that completes real mTLS then sends a `VersionHello` with an unsupported
+# major version. `docs/protocol/SPEC.md #errors-and-close-codes` states this close code carries no
+# wire signal at all ("the peer observes only that the connection closed") -- there is nothing on
+# the wire to grep for the way the sibling scenarios grep for a named TLS alert. This scenario
+# substitutes a *timing* discriminator, built by construction rather than inferred after the fact:
+# `lib/version_hello_client.go` sends one hand-built, well-formed `Envelope{VersionHello{major}}`
+# frame and measures how long the Mac takes to close afterward.
+#
+#   - `major=99` (unsupported): `VersionHandshake.run()`'s own comparison
+#     (`peerHello.major == Self.ownMajor`) fails immediately on receipt -- the close should follow
+#     within a couple of seconds, nowhere near the 5s `helloDeadline`.
+#   - `major=1` (this protocol's real value, a positive control): the same frame, on the same
+#     connection setup, must NOT produce a fast close -- ruling out "this tool's own envelope
+#     encoding is malformed" (which would trigger `MALFORMED_FRAME`/`DECODE_FAILED`, not
+#     `VERSION_MISMATCH`, but would still close fast) and "any fresh connection here always closes
+#     quickly regardless of what's sent" as explanations for the major=99 case.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-11-common.sh
+source "$here/../lib/e15-11-common.sh"
+trap e15_11_teardown EXIT
+
+e15_11_setup_mac
+e15_11_build_go_tools
+
+PORT="$(e15_11_free_port)"
+e15_11_launch_plain "$PORT"
+
+e15_11_gen_cert "$E15_11_TMP_DIR/client" "e15-11 client"
+CLIENT_FP_HEX="$(e15_11_spki_fingerprint_hex "$E15_11_TMP_DIR/client-cert.pem")"
+e15_11_seed_trust "$CLIENT_FP_HEX" "E15-11 seeded client" "$E15_11_TMP_DIR/seed.json"
+
+CERT="$E15_11_TMP_DIR/client-cert.pem"
+KEY="$E15_11_TMP_DIR/client-key.pem"
+FAST_CLOSE_BOUND_MS=2000
+READ_TIMEOUT_MS=4000
+FAILED=0
+
+e15_11_log "negative case: VersionHello major=99 (unsupported)"
+negative_out="$(e15_11_version_hello_client "127.0.0.1" "$PORT" "$CERT" "$KEY" 99 "$READ_TIMEOUT_MS")"
+e15_11_log "$negative_out"
+if ! printf '%s' "$negative_out" | grep -q '^HANDSHAKE_OK$'; then
+  e15_11_log "FAIL: the real mTLS handshake itself never completed:"
+  printf '%s\n' "$negative_out" >&2
+  FAILED=1
+else
+  closed_ms="$(printf '%s' "$negative_out" | sed -n 's/^CLOSED_MS //p')"
+  if [ -z "$closed_ms" ]; then
+    e15_11_log "FAIL: the connection was still open after ${READ_TIMEOUT_MS}ms with major=99:"
+    printf '%s\n' "$negative_out" >&2
+    FAILED=1
+  elif [ "$closed_ms" -ge "$FAST_CLOSE_BOUND_MS" ]; then
+    e15_11_log "FAIL: closed after ${closed_ms}ms -- too slow to distinguish from PROTOCOL_TIMEOUT (5000ms)"
+    FAILED=1
+  else
+    e15_11_log "OK: closed after ${closed_ms}ms, well under the ${FAST_CLOSE_BOUND_MS}ms bound"
+  fi
+fi
+
+e15_11_assert_mac_alive "$PORT" || FAILED=1
+
+e15_11_log "positive control: VersionHello major=1 (this protocol's real value) on a fresh connection"
+positive_out="$(e15_11_version_hello_client "127.0.0.1" "$PORT" "$CERT" "$KEY" 1 "$READ_TIMEOUT_MS")"
+e15_11_log "$positive_out"
+if ! printf '%s' "$positive_out" | grep -q '^HANDSHAKE_OK$'; then
+  e15_11_log "FAIL: the positive control's mTLS handshake never completed:"
+  printf '%s\n' "$positive_out" >&2
+  FAILED=1
+elif printf '%s' "$positive_out" | grep -q '^CLOSED_MS '; then
+  e15_11_log "FAIL: the positive control (major=1) also closed quickly -- this tool's envelope encoding is suspect:"
+  printf '%s\n' "$positive_out" >&2
+  FAILED=1
+else
+  e15_11_log "OK: the positive control stayed open for the full ${READ_TIMEOUT_MS}ms read window"
+fi
+
+e15_11_assert_mac_alive "$PORT" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(VERSION_MISMATCH)"
+else
+  echo "OUTCOME: FAILED"
+fi

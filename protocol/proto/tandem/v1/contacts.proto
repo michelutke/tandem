@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+// E51-01: contacts.proto — Contact, ContactsSyncRequest, ContactsSyncResponse, carried on the
+// CONTACTS channel (Channel.CHANNEL_CONTACTS, channel.proto). The normative CONTACTS section of
+// docs/protocol/SPEC.md is written by this issue. Field numbers 80-89 of envelope.proto's
+// Envelope.payload oneof are used below; only ContactsSyncRequest/ContactsSyncResponse are sent
+// directly as an Envelope payload -- Contact, PhoneNumber and Email are always embedded inside
+// one of those two, never sent standalone.
+//
+// `displayName`, PhoneNumber.number and Email.address below are untrusted peer input:
+// docs/protocol/SPEC.md #untrusted-peer-strings-display-sanitization (E01-23) MUST run before any
+// of them is ever rendered.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// ContactsSyncStatus: PRD F-8.3, UC-18, UC-19 -- ContactsSyncResponse.status. OK is the normal
+// case; PERMISSION_REQUIRED is returned (with no contacts/deletedContactIds) when the phone has
+// not granted READ_CONTACTS; FULL_RESYNC_REQUIRED tells the Mac its retained watermark is stale
+// (e.g. the phone's contacts store was reset) and it must re-sync from sinceUpdatedAtMs = 0.
+enum ContactsSyncStatus {
+  CONTACTS_SYNC_STATUS_UNSPECIFIED = 0;
+  CONTACTS_SYNC_STATUS_OK = 1;
+  CONTACTS_SYNC_STATUS_PERMISSION_REQUIRED = 2;
+  CONTACTS_SYNC_STATUS_FULL_RESYNC_REQUIRED = 3;
+}
+
+// ContactAddressType: shared by Contact.PhoneNumber.type and Contact.Email.type. Values mirror
+// the common ContactsContract/CNLabeledValue label set; UNSPECIFIED/OTHER exist because the
+// phone's contacts store allows an unlabeled or custom-labeled entry.
+enum ContactAddressType {
+  CONTACT_ADDRESS_TYPE_UNSPECIFIED = 0;
+  CONTACT_ADDRESS_TYPE_HOME = 1;
+  CONTACT_ADDRESS_TYPE_WORK = 2;
+  CONTACT_ADDRESS_TYPE_MOBILE = 3;
+  CONTACT_ADDRESS_TYPE_OTHER = 4;
+}
+
+// Contact: PRD F-8.3, UC-18, UC-19, UC-20 -- one contact record synced from the phone's contacts
+// store to the Mac. `contactId` is the phone-assigned, stable identifier for this contact
+// (docs/protocol/SPEC.md #contacts-channel "Sync"); it is never reused for a different contact.
+// `photoThumbnail`, when present, is JPEG, <= 96 px longest edge, and <= 32768 bytes -- the cap is
+// expressed in bytes because a receiving parser cannot check pixel dimensions
+// (docs/planning/backlog/phase-5.yaml E51-01 notes); a larger thumbnail MUST be rejected by the
+// post-decode validator on both platforms (docs/protocol/SPEC.md #contacts-channel "Thumbnail
+// cap").
+message Contact {
+  // PhoneNumber: one phone number entry. `number` is the raw, sender-supplied digits/formatting,
+  // untrusted peer input; `normalizedE164` is the sender's best-effort E.164 normalization of
+  // `number` (empty if normalization failed) and is never trusted as validated input either.
+  message PhoneNumber {
+    string number = 1;
+    string normalized_e164 = 2;
+    ContactAddressType type = 3;
+  }
+
+  // Email: one email address entry. `address` is untrusted peer input.
+  message Email {
+    string address = 1;
+    ContactAddressType type = 2;
+  }
+
+  string contact_id = 1;
+  string display_name = 2;
+  repeated PhoneNumber phone_numbers = 3;
+  repeated Email emails = 4;
+  // JPEG bytes, <= 96 px longest edge, <= 32768 bytes. Empty when the contact has no photo.
+  bytes photo_thumbnail = 5;
+  // Milliseconds since epoch, phone-assigned, of this contact's last modification. Used by the
+  // Mac to detect which contacts changed since its last sync (docs/protocol/SPEC.md
+  // #contacts-channel "Sync").
+  uint64 updated_at_ms = 6;
+}
+
+// ContactsSyncRequest: PRD F-8.3, UC-18 -- the Mac asks the phone for every contact changed since
+// `sinceUpdatedAtMs` (0 requests a full sync). Sent in every request, per the Mac-authoritative
+// watermark rule (docs/protocol/SPEC.md #contacts-channel "Watermark").
+message ContactsSyncRequest {
+  uint64 since_updated_at_ms = 1;
+}
+
+// ContactsSyncResponse: PRD F-8.3, UC-18, UC-19, UC-20, UC-21 -- the phone's answer to a
+// ContactsSyncRequest, possibly paginated (`complete = false` while more pages follow;
+// docs/protocol/SPEC.md #contacts-channel "Sync"). `deletedContactIds` names contacts removed from
+// the phone's store since `sinceUpdatedAtMs` (tombstones, UC-20). `watermarkMs` is the
+// Mac-authoritative watermark the Mac should persist and echo back as the next
+// ContactsSyncRequest.sinceUpdatedAtMs once `complete = true` (docs/protocol/SPEC.md
+// #contacts-channel "Watermark").
+message ContactsSyncResponse {
+  ContactsSyncStatus status = 1;
+  repeated Contact contacts = 2;
+  repeated string deleted_contact_ids = 3;
+  uint64 watermark_ms = 4;
+  bool complete = 5;
+}

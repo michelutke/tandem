@@ -1193,6 +1193,36 @@ epics:
           - "ui: mainWindow_phoneOffline_sidebarShowsLastSeen"
           - "ui: mainWindow_featureDisabledOnPhone_showsTurnedOffState"
           - "unit: mainWindowState_relaunch_restoresSelectedSection"
+      - id: E22-11
+        title: "[macos] Wire real per-connection state into MenuBarViewModel/ErrorBannerViewModel"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-4.2]
+        use_cases: [UC-05]
+        invariants: [5]
+        depends_on: [E22-01, E12-08]
+        description: |
+          `MenuContentView` in `macos/TandemApp/TandemApp.swift` hardcodes
+          `MenuBarViewModel(stateStream: nil, peerName: nil)` and
+          `ErrorBannerViewModel(stateStream: nil, peerName: nil)` -- `AppComposition`'s real
+          production listener's per-connection `ConnectionState` (E12-08's state machine) is never
+          observed by either view model, so the menu bar and error banner never reflect a real
+          connection's actual state (connected/offline/version-mismatch/pin-mismatch/etc). This
+          blocks at least two other issues from being testable end-to-end against a real attack or
+          real device state: E15-11's `mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError`
+          (a real mitm-lab attack has nothing to show in the menu bar today, regardless of what
+          closed the connection) and E22-09's main window sidebar state (currently supplied by the
+          caller as a fixed stub, same gap). This issue wires the real stream in; downstream issues
+          then observe real behavior instead of a caller-supplied stub.
+        acceptance:
+          - MenuBarViewModel reflects AppComposition's real ConnectionState transitions (connected, offline, reconnecting) for the currently paired peer
+          - ErrorBannerViewModel shows the real error message (PIN_MISMATCH/REVOKED/version-mismatch/etc, ConnectionErrorMapper's existing text) when a real connection fails, not only when manually constructed with a stream in a test
+          - E15-11's mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError (currently blocked, E15-16) becomes implementable without further product changes
+        tdd:
+          - "unit: menuBarViewModel_realConnectionStateStream_reflectsReadyAndOfflineTransitions"
+          - "unit: errorBannerViewModel_realConnectionFailure_showsMappedErrorMessage"
   - id: E23
     title: Device status and find my phone
     labels: [area:status]

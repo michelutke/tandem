@@ -143,6 +143,52 @@ struct MenuBarViewModelTests {
         #expect(await viewModel.label == "Reconnecting…")
     }
 
+    // MARK: - menuBarViewModel_realConnectionStateStream_reflectsReadyAndOfflineTransitions
+
+    /// E22-11 tdd (unit): a real ``ConnectionStateRelay`` -- the same seam ``AppComposition`` wires
+    /// into production -- keeps forwarding into one ``MenuBarViewModel`` across a reconnect: a first
+    /// `FakeTandemSession` reaching `.ready` shows `.connected`, that same session closing shows
+    /// `.disconnected` (real "offline"), and a second session (this peer's own reconnect)
+    /// ``ConnectionStateRelay/attach(_:)``ed to the same relay reaching `.ready` again shows
+    /// `.connected` again -- proving the relay, not just the already-tested pure view model, is what
+    /// survives a real reconnect.
+    @Test
+    func menuBarViewModel_realConnectionStateStream_reflectsReadyAndOfflineTransitions() async throws {
+        let relay = ConnectionStateRelay()
+        let viewModel = await MenuBarViewModel(stateStream: relay.stream, peerName: "Pixel 8")
+
+        let firstSession = FakeTandemSession()
+        await relay.attach(firstSession)
+        await firstSession.emit(.ready)
+
+        var attempts = 0
+        while await viewModel.state != .connected(peerName: "Pixel 8"), attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        #expect(await viewModel.state == .connected(peerName: "Pixel 8"))
+
+        await firstSession.close()
+
+        attempts = 0
+        while await viewModel.state != .disconnected, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        #expect(await viewModel.state == .disconnected)
+
+        let secondSession = FakeTandemSession()
+        await relay.attach(secondSession)
+        await secondSession.emit(.ready)
+
+        attempts = 0
+        while await viewModel.state != .connected(peerName: "Pixel 8"), attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        #expect(await viewModel.state == .connected(peerName: "Pixel 8"))
+    }
+
     /// Yields several times so a view model's background observation `Task` has a chance to consume
     /// an event already sent on a fake stream, without an artificial wall-clock sleep -- mirrors
     /// `SleepWakeControllerTests`/`PathChangeControllerTests`'s own `settle()`.

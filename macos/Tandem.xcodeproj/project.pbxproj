@@ -16,6 +16,7 @@
 		193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */; };
 		19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */; };
 		1ECA3F68880D7035C6D1CC11 /* KeychainStoreFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13609B5F6378DC80B23B7284 /* KeychainStoreFactory.swift */; };
+		28A3FFB150F4336FC8BB6314 /* HarnessStatusRingCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */; };
 		290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */; };
 		3220619F8129C9BE3A774DD9 /* TandemDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 3DC26889FCB92D7B4111DCDC /* TandemDesign */; };
 		34117C7BA25150F22D77D0DC /* LocalNetworkPermissionBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */; };
@@ -56,7 +57,7 @@
 		A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */; };
 		A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86769ADA9F9034205A270081 /* URLOpener.swift */; };
 		AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */; };
-		28A3FFB150F4336FC8BB6314 /* HarnessStatusRingCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */; };
+		B3760AE1F08525B8B5D46CFD /* ConnectionStateRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */; };
 		BAFD4035ACF23ADA4DDF955B /* TandemPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 19FA760857066CAA11B0A7B3 /* TandemPairing */; };
 		BC7B187EE5AF3789F6775FFF /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 041CF567C3AFCE26290A0483 /* README.md */; };
 		BD82E904F8A53F7D281986A1 /* SystemPowerEventsAndNetworkPathFakes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */; };
@@ -153,6 +154,7 @@
 		4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModel.swift; sourceTree = "<group>"; };
 		51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModelTests.swift; sourceTree = "<group>"; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessStatusRingCommands.swift; sourceTree = "<group>"; };
 		55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HarnessNotificationLoopbackRegistry.swift; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
@@ -161,7 +163,6 @@
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
-		54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessStatusRingCommands.swift; sourceTree = "<group>"; };
 		7CF66E68281898309742F036 /* UnpairComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnpairComposition.swift; sourceTree = "<group>"; };
 		7CFD7E342E310F4350077F8D /* TandemDesign */ = {isa = PBXFileReference; includeInIndex = 1; name = TandemDesign; path = Packages/TandemDesign; sourceTree = SOURCE_ROOT; };
 		7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerViewModel.swift; sourceTree = "<group>"; };
@@ -189,6 +190,7 @@
 		BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionBannerView.swift; sourceTree = "<group>"; };
 		C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
 		D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
+		D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelay.swift; sourceTree = "<group>"; };
 		D4D890067B09F0862A11DF58 /* TandemProtocol */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemProtocol; path = Packages/TandemProtocol; sourceTree = SOURCE_ROOT; };
 		D51777D80561FB3A57A4D240 /* SettingsScenarioSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScenarioSupport.swift; sourceTree = "<group>"; };
 		DA99F72F15344D7755773094 /* TandemApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TandemApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -359,6 +361,7 @@
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
 				4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */,
+				D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */,
 			);
 			path = TandemApp;
 			sourceTree = "<group>";
@@ -608,6 +611,7 @@
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
 				E71B1A14376E189459382BAA /* PushClipboardViewModel.swift in Sources */,
+				B3760AE1F08525B8B5D46CFD /* ConnectionStateRelay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

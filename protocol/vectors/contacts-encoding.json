@@ -1,0 +1,82 @@
+{
+  "$schema": "./schema.json",
+  "category": "contacts-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "contacts-contact-full-record-valid",
+      "description": "A Contact with two phone numbers, one email and a photo_thumbnail, decoding to identical fields on both codecs (docs/protocol/SPEC.md #contacts-channel \"Sync\").",
+      "input": {
+        "kind": "contact",
+        "messageHex": "0a0c636f6e746163742d30303031120c416461204c6f76656c6163651a1a0a0b2b31203535352d3031303012092b313535353031303018011a170a083535352e3031303112092b3135353530313031180322130a0f616461406578616d706c652e636f6d10022a8002e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd23080d095ffbc31"
+      },
+      "expected": {
+        "contactId": "contact-0001",
+        "displayName": "Ada Lovelace",
+        "phoneNumbers": [
+          {
+            "number": "+1 555-0100",
+            "normalizedE164": "+15550100",
+            "type": "CONTACT_ADDRESS_TYPE_HOME"
+          },
+          {
+            "number": "555.0101",
+            "normalizedE164": "+15550101",
+            "type": "CONTACT_ADDRESS_TYPE_MOBILE"
+          }
+        ],
+        "emails": [
+          {
+            "address": "ada@example.com",
+            "type": "CONTACT_ADDRESS_TYPE_WORK"
+          }
+        ],
+        "photoThumbnailHex": "e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2e5666d925d44fbeec6c98119cd5b6ab1bb4a3911a49a7f43c89863afa1af9cd2",
+        "updatedAtMs": 1700000000000,
+        "contactSha256": "394ecab81f0fb397b784572922e34b642b8930ddc7d04656efa4415eaa744550"
+      }
+    },
+    {
+      "id": "contacts-sync-request-valid",
+      "description": "A ContactsSyncRequest whose since_updated_at_ms decodes exactly (docs/protocol/SPEC.md #contacts-channel \"Watermark\").",
+      "input": {
+        "kind": "contactsSyncRequest",
+        "messageHex": "08c0cbd8febc31"
+      },
+      "expected": {
+        "sinceUpdatedAtMs": 1699999000000
+      }
+    },
+    {
+      "id": "contacts-sync-response-three-deleted-ids",
+      "description": "A ContactsSyncResponse with three deleted_contact_ids (tombstones) and no contacts, decoding identically on both codecs (docs/protocol/SPEC.md #contacts-channel \"Sync\").",
+      "input": {
+        "kind": "contactsSyncResponse",
+        "messageHex": "08011a0c636f6e746163742d303031301a0c636f6e746163742d303031311a0c636f6e746163742d3030313220a0dd9bffbc312801"
+      },
+      "expected": {
+        "status": "CONTACTS_SYNC_STATUS_OK",
+        "contactCount": 0,
+        "deletedContactIds": [
+          "contact-0010",
+          "contact-0011",
+          "contact-0012"
+        ],
+        "watermarkMs": 1700000100000,
+        "complete": true
+      }
+    },
+    {
+      "id": "contacts-contact-thumbnail-over-32kib-oversized",
+      "description": "Contact.photo_thumbnail one byte past the 32,768-byte (32 KiB) cap (docs/protocol/SPEC.md #contacts-channel \"Thumbnail cap\"): MUST be rejected by both platforms' validators, not truncated.",
+      "input": {
+        "kind": "contact",
+        "thumbnailRecipe": {
+          "fillByte": "61",
+          "fillLength": 32769
+        }
+      },
+      "expectedError": "contactPhotoThumbnailTooLarge"
+    }
+  ]
+}

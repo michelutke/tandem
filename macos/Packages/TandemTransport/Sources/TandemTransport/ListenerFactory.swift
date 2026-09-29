@@ -37,6 +37,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// own kdoc on the PRD module-layering direction), so this calls `TandemStore`'s own
     /// `RevokeHandler.handle` directly rather than a facade reimplementing its effect.
     private let trustStore: TrustStore?
+    private let onSessionRegistered: SessionRegisteredHandler?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -45,13 +46,15 @@ public struct NWListenerFactory: ListenerFactory {
         decisionCorrelator: PeerDecisionCorrelator,
         clock: any Clock<Duration> = ContinuousClock(),
         pairingCandidateDriver: (any PairingCandidateDriver)? = nil,
-        trustStore: TrustStore? = nil
+        trustStore: TrustStore? = nil,
+        onSessionRegistered: SessionRegisteredHandler? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
         self.clock = clock
         self.pairingCandidateDriver = pairingCandidateDriver
         self.trustStore = trustStore
+        self.onSessionRegistered = onSessionRegistered
     }
 
     public func makeListener(
@@ -215,23 +218,6 @@ public struct NWListenerFactory: ListenerFactory {
         Task { await wireSession(adapter: adapter, metadataIdentifier: metadataIdentifier) }
     }
 
-    /// A connection that never reaches `.ready` (verify rejected it, or it reset/timed out first)
-    /// may still have a decision recorded for it (E12-02's `onDecision` fires before `complete(_:)`
-    /// regardless of outcome) -- drop it so a *later* connection can never inherit a stale
-    /// `.trusted` decision through a reused `sec_protocol_metadata_t` `ObjectIdentifier` (finding
-    /// #3: the address-reuse race this guards against). Returns the dropped entry, if any, so the
-    /// caller can still release a `.pairingCandidate` connection's window slot (E14-16 finding #1).
-    @discardableResult
-    private static func dropStaleDecision(
-        connection: NWConnection,
-        decisionCorrelator: PeerDecisionCorrelator
-    ) -> PeerDecisionCorrelator.Decision? {
-        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
-            return nil
-        }
-        return decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
-    }
-
     /// Releases `dropped`'s window slot (E14-16 finding #1) if it was ever recorded and was a
     /// `.pairingCandidate` decision -- every other case (no entry at all, `.trusted`, `.rejected`)
     /// is a no-op, since neither of those ever claims the slot in the first place. Fire-and-forget
@@ -344,6 +330,7 @@ public struct NWListenerFactory: ListenerFactory {
         case .trusted:
             guard let fingerprint = recorded.fingerprint else { return nil }
             await sessionRegistry.register(fingerprint, session: session)
+            onSessionRegistered?(fingerprint, session)
             return fingerprint
         case .pairingCandidate:
             guard let driver = pairingCandidateDriver, let token = recorded.candidateToken else { return nil }
@@ -390,5 +377,24 @@ public struct NWListenerFactory: ListenerFactory {
     private static func remoteHost(of connection: NWConnection) -> String? {
         guard case .hostPort(let host, _) = connection.endpoint else { return nil }
         return "\(host)"
+    }
+}
+
+extension NWListenerFactory {
+    /// A connection that never reaches `.ready` (verify rejected it, or it reset/timed out first)
+    /// may still have a decision recorded for it (E12-02's `onDecision` fires before `complete(_:)`
+    /// regardless of outcome) -- drop it so a *later* connection can never inherit a stale
+    /// `.trusted` decision through a reused `sec_protocol_metadata_t` `ObjectIdentifier` (finding
+    /// #3: the address-reuse race this guards against). Returns the dropped entry, if any, so the
+    /// caller can still release a `.pairingCandidate` connection's window slot (E14-16 finding #1).
+    @discardableResult
+    fileprivate static func dropStaleDecision(
+        connection: NWConnection,
+        decisionCorrelator: PeerDecisionCorrelator
+    ) -> PeerDecisionCorrelator.Decision? {
+        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
+            return nil
+        }
+        return decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
     }
 }
