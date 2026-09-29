@@ -109,4 +109,30 @@ struct ErrorBannerViewModelTests {
 
         #expect(await viewModel.message == nil)
     }
+
+    // MARK: - errorBannerViewModel_realConnectionFailure_showsMappedErrorMessage
+
+    /// E22-11 tdd (unit): a real ``ConnectionStateRelay`` -- the same seam ``AppComposition`` wires
+    /// into production -- forwards a real, `attach(_:)`ed session's ``ConnectionState/failed(_:)``
+    /// event into ``ErrorBannerViewModel``'s already-tested reducer, proving the relay itself (not
+    /// just a directly-passed `session.state`) carries a real connection failure through to the
+    /// banner's exact mapped text (``ConnectionErrorMapper``'s macOS equivalent, this view model's
+    /// own ``ErrorBannerViewModel/message(for:peerName:)``).
+    @Test
+    func errorBannerViewModel_realConnectionFailure_showsMappedErrorMessage() async throws {
+        let relay = ConnectionStateRelay()
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.stream, peerName: "Pixel 8")
+
+        let session = FakeTandemSession()
+        await relay.attach(session)
+        await session.emit(.failed(.versionMismatch))
+
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.message == "Pixel 8 runs an incompatible Tandem version. Update both apps.")
+    }
 }

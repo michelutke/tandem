@@ -163,21 +163,29 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 /// element to assert on. Otherwise, if identity bootstrap failed (E10-07b, D-75), that replaces
 /// the ordinary "Tandem" content with a visible error.
 struct MenuContentView: View {
-    @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
+    /// E22-11: real ``ConnectionStateMachine/ConnectionState`` stream + display name, wired from
+    /// ``AppComposition/startListener()``'s `RetainedLifecycle`.
+    @State private var menuBarViewModel: MenuBarViewModel
 
     /// No paired-session wiring exists yet for ``findPhoneViewModel`` to send/observe `Ring`/
-    /// `RingStop` on (E23-07's own `session: nil` below) -- until whichever issue first composes
-    /// pairing together with Send File (E40-10), Push Clipboard (E31-11), and Mirror (E61-12) into
-    /// ``AppComposition``, ``select()`` on this instance is a no-op.
+    /// `RingStop` on (E23-07's own `session: nil` below) -- ``select()`` on this instance is a
+    /// no-op until a future issue composes pairing together with Send File/Push Clipboard/Mirror.
     @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
 
-    /// No paired-session wiring exists yet for the remaining three quick actions to react to
-    /// (E22-02) -- the same gap `menuBarViewModel`'s own `stateStream: nil` above already has --
-    /// so this is `isConnected: false` with no-op stub closures for those three, and
-    /// ``findPhoneViewModel`` itself (also presently sessionless) for "Find Phone".
+    /// No paired-session wiring exists yet for the remaining three quick actions (E22-02) --
+    /// `isConnected: false` with no-op stub closures, and ``findPhoneViewModel`` for "Find Phone".
     @State private var quickActionsViewModel: QuickActionsViewModel
 
+    /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
+    /// D-59/D-76) never reach here.
+    @State private var errorBannerViewModel: ErrorBannerViewModel
+
     init() {
+        let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
+        let stateStream = lifecycle?.menuBarStateStream
+        let peerName = lifecycle?.pairedPeerName
+        _menuBarViewModel = State(initialValue: MenuBarViewModel(stateStream: stateStream, peerName: peerName))
+        _errorBannerViewModel = State(initialValue: ErrorBannerViewModel(stateStream: stateStream, peerName: peerName))
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
@@ -188,14 +196,6 @@ struct MenuContentView: View {
             mirror: {}
         ))
     }
-
-    /// Same wiring gap as ``menuBarViewModel``/``quickActionsViewModel`` above: no paired-session
-    /// stream exists yet (E22-02), so this never observes a real fail-closed event until a future
-    /// issue composes real session wiring into ``AppComposition``. `pinMismatch` specifically can
-    /// never be wired here from the Mac listener's own rejections either (E22-10,
-    /// `docs/planning/decisions.md` D-59/D-76): a `.rejected` verify-callback outcome is always
-    /// pre-pin-check, so SPEC.md forbids surfacing it as a per-connection banner at all.
-    @State private var errorBannerViewModel = ErrorBannerViewModel(stateStream: nil, peerName: nil)
 
     var body: some View {
         #if DEBUG
