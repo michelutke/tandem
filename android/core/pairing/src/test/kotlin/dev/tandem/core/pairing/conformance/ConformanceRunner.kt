@@ -83,6 +83,7 @@ object ConformanceRunner {
             "discovery-id",
             "files-encoding",
             "photos-encoding",
+            "contacts-encoding",
         )
 
     /** CLIPBOARD channel's text cap (docs/protocol/SPEC.md #clipboard-channel): 1 MiB, 2^20. */
@@ -180,10 +181,21 @@ object ConformanceRunner {
                 "notify-encoding" -> notifyEncodingOutcome(vector)
                 "clipboard-encoding" -> clipboardEncodingOutcome(vector)
                 "discovery-id" -> discoveryIdOutcome(vector)
-                "files-encoding" -> filesEncodingOutcome(vector)
-                "photos-encoding" -> photosEncodingOutcome(vector)
-                else -> throw UnknownVectorCategoryException(category)
+                else -> runDomainPayloadCategory(category, vector)
             }
+        }
+
+    /** FILES/CONTACTS-channel payload categories, split out of [runCategory] purely to keep that
+     * function under this repo's `CyclomaticComplexMethod` detekt budget. */
+    private fun runDomainPayloadCategory(
+        category: String,
+        vector: JsonObject,
+    ): VectorOutcome =
+        when (category) {
+            "files-encoding" -> filesEncodingOutcome(vector)
+            "photos-encoding" -> photosEncodingOutcome(vector)
+            "contacts-encoding" -> contactsEncodingOutcome(vector)
+            else -> throw UnknownVectorCategoryException(category)
         }
 
     private fun frameEncodingOutcome(vector: JsonObject): VectorOutcome =

@@ -39,7 +39,7 @@ enum ConformanceRunner {
     static let handledCategories: Set<String> = [
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
         "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding",
-        "photos-encoding"
+        "photos-encoding", "contacts-encoding"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -149,6 +149,7 @@ enum ConformanceRunner {
         case "clipboard-encoding": return try runClipboardEncoding(data: data)
         case "files-encoding": return try runFilesEncoding(data: data)
         case "photos-encoding": return try runPhotosEncoding(data: data)
+        case "contacts-encoding": return try runContactsEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
     }

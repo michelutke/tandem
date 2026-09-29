@@ -48,7 +48,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 12 | Media frame semantics | `#media-frame-semantics` | TBD in E61-01 (extends §9, Phase 6) |
 | 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
 | 14 | SMS channel | `#sms-channel` | TBD (Phase 5, epic E50) |
-| 15 | Contacts channel | `#contacts-channel` | TBD (Phase 5, epic E51) |
+| 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
 | 16 | Calls channel | `#calls-channel` | TBD (Phase 5, epic E52) |
 | 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
 | 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
@@ -1798,5 +1798,71 @@ one byte over the 262,144-byte cap above — rejected as oversized by both codec
 identical bytes on both codecs; an `OriginalRequest` whose `transfer_id` decodes exactly; and a
 `PhotoError` for every one of the 4 `PhotoErrorReason` values (`NOT_FOUND`, `ACCESS_DENIED`,
 `INVALID_CURSOR`, `BUSY`) round-tripping on both codecs.
+
+---
+
+## Contacts channel
+
+*(E51-01 · PRD F-8.3 · UC-18, UC-19, UC-20, UC-21 · invariants 7)*
+
+The CONTACTS channel (`Channel.CHANNEL_CONTACTS`, §4) syncs the phone's contacts store to the Mac:
+a full or incremental pull of contact records, plus tombstones for contacts the phone has deleted
+since the last sync. It carries two message types, each sent directly as the Envelope payload (no
+wrapper message): `ContactsSyncRequest{since_updated_at_ms}` and
+`ContactsSyncResponse{status, contacts, deleted_contact_ids, watermark_ms, complete}`
+(`protocol/proto/tandem/v1/contacts.proto`). A `Contact{contact_id, display_name, phone_numbers,
+emails, photo_thumbnail, updated_at_ms}` carries a contact record; `Contact.PhoneNumber{number,
+normalized_e164, type}` and `Contact.Email{address, type}` are its repeated child records, and
+`ContactAddressType` (`HOME`/`WORK`/`MOBILE`/`OTHER`, plus `UNSPECIFIED`) labels both. `contact_id`
+is phone-assigned and stable for a given contact; it is never reused for a different contact once
+sent.
+
+`display_name`, `PhoneNumber.number` and `Email.address` are untrusted peer input and MUST be
+sanitized per `#untrusted-peer-strings-display-sanitization` (E01-23) before ever being rendered.
+
+### Sync
+
+1. The Mac sends `ContactsSyncRequest{since_updated_at_ms}` to ask for every contact the phone's
+   store has created or modified since that timestamp; `since_updated_at_ms = 0` requests a full
+   sync of every contact.
+2. The phone responds with one or more `ContactsSyncResponse` pages. `status` is `OK` for a normal
+   response; `contacts` and `deleted_contact_ids` are populated only when `status = OK`.
+   `deleted_contact_ids` names contacts removed from the phone's store since `since_updated_at_ms`
+   (tombstones) so the Mac can remove its own copies rather than treating an absence as "unchanged".
+3. `complete` is `false` while more pages for this sync remain and `true` on the last page of the
+   sync. The Mac does not send a further `ContactsSyncRequest` mid-sync; the phone alone decides
+   how contacts are paginated across `ContactsSyncResponse` messages.
+4. `status = PERMISSION_REQUIRED` means the phone has not granted contacts-read permission; such a
+   response carries empty `contacts` and `deleted_contact_ids` and `complete = true` (there is
+   nothing more to page). `status = FULL_RESYNC_REQUIRED` tells the Mac its retained watermark is
+   stale (e.g. the phone's contacts store was reset or reinstalled) and it MUST discard its local
+   contacts and resend `ContactsSyncRequest{since_updated_at_ms: 0}`.
+
+### Watermark
+
+`watermark_ms` is Mac-authoritative: the Mac persists the `watermark_ms` from the last page of a
+completed sync (`complete = true`) and sends it back as the next `ContactsSyncRequest`'s
+`since_updated_at_ms` — the phone never persists sync state of its own across connections. Every
+`ContactsSyncRequest` therefore carries `since_updated_at_ms` explicitly, never an implicit
+"since last connection".
+
+### Thumbnail cap
+
+`Contact.photo_thumbnail`, when present, MUST be a JPEG no larger than 96 px on its longest edge
+and no larger than 32,768 bytes (32 KiB). The cap is expressed in bytes, not pixels: a receiving
+parser decodes `photo_thumbnail` as an opaque `bytes` field and cannot itself check the JPEG's
+decoded pixel dimensions, only its encoded byte length — the pixel-dimension rule is enforced by
+the sender's own thumbnail-generation step, not by the receiver. A `Contact` whose
+`photo_thumbnail` exceeds 32,768 bytes MUST be rejected by the receiving platform's own
+post-decode validator before the thumbnail is ever displayed or persisted — never silently
+truncated or accepted oversized.
+
+### Conformance
+
+`protocol/vectors/contacts-encoding.json` (E15-01, E15-02) includes: a full `Contact` record (two
+phone numbers, one email, a `photo_thumbnail`) round-tripping identically on both codecs; a
+`ContactsSyncRequest`; a `ContactsSyncResponse` with three `deleted_contact_ids` and zero
+`contacts`, decoding identically on both codecs; and a `Contact` with a `photo_thumbnail` one byte
+past the 32,768-byte cap above, rejected by both platforms' validators.
 
 ---

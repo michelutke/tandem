@@ -56,6 +56,8 @@ public  final class Envelope extends
     THUMB_RESULT(63),
     ORIGINAL_REQUEST(64),
     PHOTO_ERROR(65),
+    CONTACTS_SYNC_REQUEST(80),
+    CONTACTS_SYNC_RESPONSE(81),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -102,6 +104,8 @@ public  final class Envelope extends
         case 63: return THUMB_RESULT;
         case 64: return ORIGINAL_REQUEST;
         case 65: return PHOTO_ERROR;
+        case 80: return CONTACTS_SYNC_REQUEST;
+        case 81: return CONTACTS_SYNC_RESPONSE;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -1978,6 +1982,130 @@ public  final class Envelope extends
    */
   private void clearPhotoError() {
     if (payloadCase_ == 65) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CONTACTS_SYNC_REQUEST_FIELD_NUMBER = 80;
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasContactsSyncRequest() {
+    return payloadCase_ == 80;
+  }
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ContactsSyncRequest getContactsSyncRequest() {
+    if (payloadCase_ == 80) {
+       return (dev.tandem.protocol.v1.ContactsSyncRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.ContactsSyncRequest.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setContactsSyncRequest(dev.tandem.protocol.v1.ContactsSyncRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 80;
+  }
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeContactsSyncRequest(dev.tandem.protocol.v1.ContactsSyncRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 80 &&
+        payload_ != dev.tandem.protocol.v1.ContactsSyncRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ContactsSyncRequest.newBuilder((dev.tandem.protocol.v1.ContactsSyncRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 80;
+  }
+  /**
+   * <pre>
+   * contacts.proto (E51-01) — CONTACTS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+   */
+  private void clearContactsSyncRequest() {
+    if (payloadCase_ == 80) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CONTACTS_SYNC_RESPONSE_FIELD_NUMBER = 81;
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   */
+  @java.lang.Override
+  public boolean hasContactsSyncResponse() {
+    return payloadCase_ == 81;
+  }
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ContactsSyncResponse getContactsSyncResponse() {
+    if (payloadCase_ == 81) {
+       return (dev.tandem.protocol.v1.ContactsSyncResponse) payload_;
+    }
+    return dev.tandem.protocol.v1.ContactsSyncResponse.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setContactsSyncResponse(dev.tandem.protocol.v1.ContactsSyncResponse value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 81;
+  }
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeContactsSyncResponse(dev.tandem.protocol.v1.ContactsSyncResponse value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 81 &&
+        payload_ != dev.tandem.protocol.v1.ContactsSyncResponse.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ContactsSyncResponse.newBuilder((dev.tandem.protocol.v1.ContactsSyncResponse) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 81;
+  }
+  /**
+   * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+   */
+  private void clearContactsSyncResponse() {
+    if (payloadCase_ == 81) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -3865,6 +3993,126 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasContactsSyncRequest() {
+      return instance.hasContactsSyncRequest();
+    }
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ContactsSyncRequest getContactsSyncRequest() {
+      return instance.getContactsSyncRequest();
+    }
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    public Builder setContactsSyncRequest(dev.tandem.protocol.v1.ContactsSyncRequest value) {
+      copyOnWrite();
+      instance.setContactsSyncRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    public Builder setContactsSyncRequest(
+        dev.tandem.protocol.v1.ContactsSyncRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setContactsSyncRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    public Builder mergeContactsSyncRequest(dev.tandem.protocol.v1.ContactsSyncRequest value) {
+      copyOnWrite();
+      instance.mergeContactsSyncRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * contacts.proto (E51-01) — CONTACTS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.ContactsSyncRequest contacts_sync_request = 80 [json_name = "contactsSyncRequest"];</code>
+     */
+    public Builder clearContactsSyncRequest() {
+      copyOnWrite();
+      instance.clearContactsSyncRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    @java.lang.Override
+    public boolean hasContactsSyncResponse() {
+      return instance.hasContactsSyncResponse();
+    }
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ContactsSyncResponse getContactsSyncResponse() {
+      return instance.getContactsSyncResponse();
+    }
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    public Builder setContactsSyncResponse(dev.tandem.protocol.v1.ContactsSyncResponse value) {
+      copyOnWrite();
+      instance.setContactsSyncResponse(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    public Builder setContactsSyncResponse(
+        dev.tandem.protocol.v1.ContactsSyncResponse.Builder builderForValue) {
+      copyOnWrite();
+      instance.setContactsSyncResponse(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    public Builder mergeContactsSyncResponse(dev.tandem.protocol.v1.ContactsSyncResponse value) {
+      copyOnWrite();
+      instance.mergeContactsSyncResponse(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ContactsSyncResponse contacts_sync_response = 81 [json_name = "contactsSyncResponse"];</code>
+     */
+    public Builder clearContactsSyncResponse() {
+      copyOnWrite();
+      instance.clearContactsSyncResponse();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -3917,13 +4165,15 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.ThumbResult.class,
             dev.tandem.protocol.v1.OriginalRequest.class,
             dev.tandem.protocol.v1.PhotoError.class,
+            dev.tandem.protocol.v1.ContactsSyncRequest.class,
+            dev.tandem.protocol.v1.ContactsSyncResponse.class,
           };
           java.lang.String info =
-              "\u0000\"\u0001\u0000\u0001A\"\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "\u0000$\u0001\u0000\u0001Q$\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
               "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000\f<\u0000\r<" +
               "\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000" +
               " <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<\u00007<\u0000" +
-              "8<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000";
+              "8<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000P<\u0000Q<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

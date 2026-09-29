@@ -212,6 +212,25 @@ verification, `access`/`kind`/`reason` as their enum name). The manifest include
 fixture, an `OriginalRequest`, and a `PhotoError` for every one of the 4 `PhotoErrorReason` values
 (E01-22's Cycle-4 `BUSY` included).
 
+### `contacts-encoding.json` (E51-01)
+
+Vectors for `docs/protocol/SPEC.md` `#contacts-channel`'s message types
+(`protocol/proto/tandem/v1/contacts.proto`): `Contact` (with its nested `PhoneNumber`/`Email`),
+`ContactsSyncRequest`, `ContactsSyncResponse`. Like `files-encoding.json`, entries here are the raw
+serialized message bytes for one message type at a time (`input.messageHex`), not a full
+`Envelope` frame; `input.kind` selects which message type `messageHex` decodes as
+(`contact`/`contactsSyncRequest`/`contactsSyncResponse`). The manifest includes: a full `Contact`
+record with two phone numbers, one email and a `photo_thumbnail`, round-tripping identically on
+both codecs; a `ContactsSyncRequest`; a `ContactsSyncResponse` with three
+`deleted_contact_ids` (tombstones) and zero `contacts`; and a `Contact` whose `photo_thumbnail` is
+one byte past the 32,768-byte (32 KiB) cap (`#contacts-channel` "Thumbnail cap") -- given as a
+`thumbnailRecipe` (`fillByte`/`fillLength`, the same "compact recipe" idea as
+`frame-encoding.json`'s 1-MiB `Envelope` vector, above) -- using `expectedError:
+"contactPhotoThumbnailTooLarge"`, a message-level validation rejection rather than a frame-level
+close, so it carries no `closeCode`/`localReason`. This cap is expressed in bytes, not pixels: a
+parser decoding `photo_thumbnail` cannot check the JPEG's decoded pixel dimensions, only its byte
+length (`docs/planning/backlog/phase-5.yaml` E51-01 notes).
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
