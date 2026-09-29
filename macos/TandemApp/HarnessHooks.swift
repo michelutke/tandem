@@ -1,5 +1,6 @@
 #if DEBUG
 import AppKit
+import FeatureNotifications
 import Foundation
 import Network
 import Security
@@ -108,11 +109,17 @@ enum HarnessHooks {
     ) -> ListenerController {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let decisionCorrelator = PeerDecisionCorrelator()
-        let sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
+        var sessionRegistry: any ControlSessionRegistering = HarnessRevokeAwareSessionRegistry(
             wrapping: ControlSessionRegistry(),
             trustStore: trustStore,
             revokeOnReady: UserDefaults.standard.bool(forKey: "HarnessRevokeOnReady")
         )
+        if UserDefaults.standard.bool(forKey: "HarnessNotificationLoopback") {
+            sessionRegistry = HarnessNotificationLoopbackRegistry(
+                wrapping: sessionRegistry,
+                coordinator: NotificationPresentationCoordinator(presenter: HarnessLatencyNotificationPresenter())
+            )
+        }
         let (window, pairingCandidateDriver) = resolvePairingWindow(
             identity: identity,
             keychainStore: keychainStore,

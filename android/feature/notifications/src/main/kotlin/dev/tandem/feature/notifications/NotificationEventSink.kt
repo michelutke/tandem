@@ -1,5 +1,6 @@
 package dev.tandem.feature.notifications
 
+import dev.tandem.protocol.v1.IconData
 import dev.tandem.protocol.v1.NotificationDismiss
 import dev.tandem.protocol.v1.NotificationPosted
 
@@ -13,6 +14,10 @@ interface NotificationEventSink {
     fun onNotificationPosted(notification: NotificationPosted)
 
     fun onNotificationDismissed(dismiss: NotificationDismiss)
+
+    /** [IconSender]'s first-send-per-package-version callback (E30-05). Default no-op so existing
+     * implementations (fakes in particular) don't need to override it unless they care. */
+    fun onIconData(icon: IconData) = Unit
 
     companion object {
         val NoOp: NotificationEventSink =

@@ -18,6 +18,10 @@ dependencies {
     implementation(project(":core:protocol"))
     // NotificationSink (E30-16) sends over the real TandemSession seam.
     implementation(project(":core:transport"))
+    // IconSender persists its sent-icon records via SettingsStore (E13-04), the same
+    // DataStore-backed scaffold used for other small persisted, non-trust records (E30-05).
+    implementation(project(":core:storage"))
+    implementation(libs.androidx.datastore.preferences.core)
 
     // NotificationSinkTest scripts TandemSession via FakeTandemSession (E12-11) and
     // ElapsedRealtimeSource via FakeElapsedRealtime (E00-18); test-only, never a release classpath.

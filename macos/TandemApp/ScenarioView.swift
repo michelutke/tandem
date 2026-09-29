@@ -24,11 +24,13 @@ struct ScenarioView: View {
     /// ``pairedConnectedViewModel`` and ``pairedConnectedDeviceStatusViewModel`` already observe,
     /// so a `Ring`/`RingStop` selected here shows up exactly like production wiring would.
     @State private var pairedConnectedFindPhoneViewModel: FindPhoneViewModel
+    @State private var pairedConnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
     @State private var pairedConnectedQuickActionsViewModel: QuickActionsViewModel
     @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
     /// No session (E23-07) -- ``pairedDisconnectedQuickActionsViewModel``'s `isConnected: false`
     /// already disables this action, so there is nothing for it to send/observe.
     @State private var pairedDisconnectedFindPhoneViewModel = FindPhoneViewModel(session: nil)
+    @State private var pairedDisconnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
     @State private var pairedDisconnectedQuickActionsViewModel: QuickActionsViewModel
     @State private var failClosedErrorBannerViewModel = ScenarioView.makeFailClosedErrorBannerViewModel()
 
@@ -36,17 +38,23 @@ struct ScenarioView: View {
         self.scenario = scenario
 
         let pairedConnectedFindPhoneViewModel = FindPhoneViewModel(session: ScenarioView.pairedConnectedSession)
+        let pairedConnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pairedConnectedFindPhoneViewModel = State(initialValue: pairedConnectedFindPhoneViewModel)
+        _pairedConnectedPushClipboardViewModel = State(initialValue: pairedConnectedPushClipboardViewModel)
         _pairedConnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
             isConnected: true,
-            findPhone: { pairedConnectedFindPhoneViewModel.select() }
+            findPhone: { pairedConnectedFindPhoneViewModel.select() },
+            pushClipboard: { pairedConnectedPushClipboardViewModel.select() }
         ))
 
         let pairedDisconnectedFindPhoneViewModel = FindPhoneViewModel(session: nil)
+        let pairedDisconnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pairedDisconnectedFindPhoneViewModel = State(initialValue: pairedDisconnectedFindPhoneViewModel)
+        _pairedDisconnectedPushClipboardViewModel = State(initialValue: pairedDisconnectedPushClipboardViewModel)
         _pairedDisconnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
             isConnected: false,
-            findPhone: { pairedDisconnectedFindPhoneViewModel.select() }
+            findPhone: { pairedDisconnectedFindPhoneViewModel.select() },
+            pushClipboard: { pairedDisconnectedPushClipboardViewModel.select() }
         ))
     }
 
@@ -68,7 +76,8 @@ struct ScenarioView: View {
                 )
                 QuickActionsView(
                     viewModel: pairedConnectedQuickActionsViewModel,
-                    findPhoneViewModel: pairedConnectedFindPhoneViewModel
+                    findPhoneViewModel: pairedConnectedFindPhoneViewModel,
+                    pushClipboardViewModel: pairedConnectedPushClipboardViewModel
                 )
             }
         case .pairedDisconnected:
@@ -76,7 +85,8 @@ struct ScenarioView: View {
                 MenuBarContentView(viewModel: pairedDisconnectedViewModel, deviceStatusViewModel: nil)
                 QuickActionsView(
                     viewModel: pairedDisconnectedQuickActionsViewModel,
-                    findPhoneViewModel: pairedDisconnectedFindPhoneViewModel
+                    findPhoneViewModel: pairedDisconnectedFindPhoneViewModel,
+                    pushClipboardViewModel: pairedDisconnectedPushClipboardViewModel
                 )
             }
         case .failClosedError:
@@ -166,16 +176,18 @@ struct ScenarioView: View {
 
     /// No-op stub closures for the two actions with no wiring yet -- this seeds view state for
     /// XCUITest, not a unit test, so recording call counts isn't needed here
-    /// (``QuickActionsViewModelTests`` already covers that). `findPhone` (E23-07) is real: it
-    /// dispatches to its own scenario's ``FindPhoneViewModel``.
+    /// (``QuickActionsViewModelTests`` already covers that). `findPhone` (E23-07) and
+    /// `pushClipboard` (E31-11) are real: they dispatch to their own scenario's
+    /// ``FindPhoneViewModel``/``PushClipboardViewModel``.
     private static func makeQuickActionsViewModel(
         isConnected: Bool,
-        findPhone: @escaping () -> Void
+        findPhone: @escaping () -> Void,
+        pushClipboard: @escaping () -> Void
     ) -> QuickActionsViewModel {
         QuickActionsViewModel(
             isConnected: isConnected,
             sendFile: {},
-            pushClipboard: {},
+            pushClipboard: pushClipboard,
             findPhone: findPhone,
             mirror: {}
         )

@@ -1,12 +1,18 @@
+#if DEBUG
+// Test double only; compiled out of release builds (E00-30 release scan).
 import AppKit
 import Synchronization
-@testable import FeatureClipboard
 
 /// Test fixture for ``PasteboardSource`` (E31-02): a settable `changeCount` and `typesToReturn`
 /// a test can swap out before advancing a shared `ManualTestClock`, standing in for the real
 /// `NSPasteboard.general` that only ``NSPasteboardSource`` is permitted to touch. Backed by a
 /// `Mutex` (matching `TandemTestSupport.ManualTestClock`'s own convention) since
 /// ``PasteboardPoller`` reads it from its own actor while a test mutates it from the test task.
+///
+/// Lives in this main target rather than `FeatureClipboardTests`, mirroring
+/// `TandemProtocol.FakeTandemSession`'s own placement and reasoning (E12-12): a sibling package's
+/// test target (here, `TandemApp`/`TandemAppTests` for E31-11's ``PushClipboardViewModel``) can
+/// only reach this via `@testable import FeatureClipboard`, which needs it in the main target.
 final class FakePasteboardSource: PasteboardSource, Sendable {
     private struct State {
         var changeCount: Int
@@ -51,3 +57,4 @@ final class FakePasteboardSource: PasteboardSource, Sendable {
         return true
     }
 }
+#endif

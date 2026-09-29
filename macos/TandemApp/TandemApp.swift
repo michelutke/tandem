@@ -3,14 +3,6 @@ import TandemCrypto
 import TandemDevices
 import TandemTransport
 
-#if DEBUG
-// FakeTandemSession (E12-12) is internal to TandemProtocol -- deliberately not exposed publicly,
-// since its `send`/`receive` requirements would otherwise have to carry non-public generated
-// protobuf types across the module boundary (see `FakeTandemSession`'s own doc comment). Reached
-// here, under DEBUG only, exactly the way the E00-26 scenario seeding was always documented to.
-@testable import TandemProtocol
-#endif
-
 /// Maps a failure reason to a user-visible, secret-free error string (E12-10, invariant 5).
 /// Pure value type; no dependencies on the app state or UI framework.
 struct ErrorPresenter: Sendable {
@@ -169,25 +161,26 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 struct MenuContentView: View {
     @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
 
-    /// No paired-session wiring exists yet for ``findPhoneViewModel`` to send/observe `Ring`/
-    /// `RingStop` on (E23-07's own `session: nil` below) -- until whichever issue first composes
-    /// pairing together with Send File (E40-10), Push Clipboard (E31-11), and Mirror (E61-12) into
-    /// ``AppComposition``, ``select()`` on this instance is a no-op.
+    /// No paired-session/``ClipboardSender`` wiring exists yet for ``findPhoneViewModel``/
+    /// ``pushClipboardViewModel`` (E23-07/E31-11's own `nil` below) -- until whichever issue first
+    /// composes pairing together with Send File (E40-10) and Mirror (E61-12) into
+    /// ``AppComposition``, ``select()`` on either instance is a no-op.
     @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
+    @State private var pushClipboardViewModel = PushClipboardViewModel(sender: nil)
 
-    /// No paired-session wiring exists yet for the remaining three quick actions to react to
-    /// (E22-02) -- the same gap `menuBarViewModel`'s own `stateStream: nil` above already has --
-    /// so this is `isConnected: false` with no-op stub closures for those three, and
-    /// ``findPhoneViewModel`` itself (also presently sessionless) for "Find Phone".
+    /// The remaining two quick actions (E22-02) share `menuBarViewModel`'s own sessionless gap
+    /// above, so this is `isConnected: false` with no-op stub closures for those two.
     @State private var quickActionsViewModel: QuickActionsViewModel
 
     init() {
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
+        _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
             isConnected: false,
             sendFile: {},
-            pushClipboard: {},
+            pushClipboard: { pushClipboardViewModel.select() },
             findPhone: { findPhoneViewModel.select() },
             mirror: {}
         ))
@@ -227,7 +220,11 @@ struct MenuContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ErrorBannerView(viewModel: errorBannerViewModel)
                 MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
-                QuickActionsView(viewModel: quickActionsViewModel, findPhoneViewModel: findPhoneViewModel)
+                QuickActionsView(
+                    viewModel: quickActionsViewModel,
+                    findPhoneViewModel: findPhoneViewModel,
+                    pushClipboardViewModel: pushClipboardViewModel
+                )
                 OpenTandemMenuButton()
                 SettingsMenuButton()
             }

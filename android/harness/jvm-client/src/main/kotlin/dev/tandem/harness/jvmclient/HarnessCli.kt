@@ -23,6 +23,7 @@ import dev.tandem.core.transport.tls.SslClientFactory
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.deviceInfo
+import dev.tandem.protocol.v1.notificationPosted
 import dev.tandem.protocol.v1.pairRequest
 import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
@@ -166,6 +167,7 @@ private class HarnessCli(
             "UNPAIR" -> unpair(rest)
             "TRUSTED" -> trusted(rest)
             "DISCONNECT" -> disconnect()
+            "SENDNOTIFICATIONS" -> sendNotifications(rest)
             "RAWOPEN" -> rawOpen(rest)
             "RAWSEND" -> rawSend(rest)
             "RAWSENDPROOF" -> rawSendProof(rest)
@@ -364,6 +366,47 @@ private class HarnessCli(
         session = null
         connectedPeerFingerprintHex = null
         println("OK DISCONNECTED")
+    }
+
+    /**
+     * `SENDNOTIFICATIONS <count>` (E30-14): sends [count] `NotificationPosted` frames on NOTIFY
+     * over the already-`OK CONNECTED` [session], one per sequence number `1..count`. The
+     * notification text carries only that sequence number (never real content, invariant 7); `key`
+     * is the sequence number too, so every frame is a distinct notification rather than an update
+     * of the same one. Prints `EVENT SENT <sequence> <epochMillis>` immediately before each send --
+     * only a sequence number and a timing, matching the Mac harness's own
+     * `harness-notification-latency: <sequence> <epochMillis>` log line -- so
+     * `tools/harness/integration/e30-14.sh` can correlate the two by sequence number and compute
+     * this run's p95 without either side ever logging notification content.
+     */
+    private fun sendNotifications(countArg: String) {
+        val activeSession = session
+        if (activeSession == null) {
+            println("ERROR no session open (CONNECT first)")
+            return
+        }
+        val count = countArg.trim().toIntOrNull()
+        if (count == null || count <= 0) {
+            println("ERROR usage: SENDNOTIFICATIONS <count>")
+            return
+        }
+        runBlocking(dispatcher) {
+            for (sequence in 1..count) {
+                val sentAtEpochMillis = System.currentTimeMillis()
+                activeSession.send(Channel.CHANNEL_NOTIFY) {
+                    notificationPosted =
+                        notificationPosted {
+                            key = sequence.toString()
+                            packageName = "dev.tandem.harness"
+                            appVersionCode = 1
+                            title = "e30-14 latency harness"
+                            text = sequence.toString()
+                        }
+                }
+                println("EVENT SENT $sequence $sentAtEpochMillis")
+            }
+        }
+        println("OK SENT_ALL $count")
     }
 
     /**

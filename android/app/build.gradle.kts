@@ -73,6 +73,8 @@ dependencies {
     // E00-03 Hilt DI wiring skeleton: app assembles the SingletonComponent from every core
     // module's empty @Module @InstallIn shell.
     implementation(project(":core:crypto"))
+    // E20-17: Home screen composables (TitleBlock, DotRing, FloatingToolbar, CookieFab, etc.).
+    implementation(project(":core:designsystem"))
     implementation(project(":core:pairing"))
     implementation(project(":core:protocol"))
     implementation(project(":core:storage"))
