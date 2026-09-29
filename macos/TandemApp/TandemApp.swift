@@ -159,7 +159,9 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
 /// element to assert on. Otherwise, if identity bootstrap failed (E10-07b, D-75), that replaces
 /// the ordinary "Tandem" content with a visible error.
 struct MenuContentView: View {
-    @State private var menuBarViewModel = MenuBarViewModel(stateStream: nil, peerName: nil)
+    /// E22-11: real ``ConnectionStateMachine/ConnectionState`` stream + display name, wired from
+    /// ``AppComposition/startListener()``'s `RetainedLifecycle`.
+    @State private var menuBarViewModel: MenuBarViewModel
 
     /// No paired-session/``ClipboardSender`` wiring exists yet for ``findPhoneViewModel``/
     /// ``pushClipboardViewModel`` (E23-07/E31-11's own `nil` below) -- until whichever issue first
@@ -172,7 +174,16 @@ struct MenuContentView: View {
     /// above, so this is `isConnected: false` with no-op stub closures for those two.
     @State private var quickActionsViewModel: QuickActionsViewModel
 
+    /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
+    /// D-59/D-76) never reach here.
+    @State private var errorBannerViewModel: ErrorBannerViewModel
+
     init() {
+        let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
+        let stateStream = lifecycle?.menuBarStateStream
+        let peerName = lifecycle?.pairedPeerName
+        _menuBarViewModel = State(initialValue: MenuBarViewModel(stateStream: stateStream, peerName: peerName))
+        _errorBannerViewModel = State(initialValue: ErrorBannerViewModel(stateStream: stateStream, peerName: peerName))
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
@@ -185,14 +196,6 @@ struct MenuContentView: View {
             mirror: {}
         ))
     }
-
-    /// Same wiring gap as ``menuBarViewModel``/``quickActionsViewModel`` above: no paired-session
-    /// stream exists yet (E22-02), so this never observes a real fail-closed event until a future
-    /// issue composes real session wiring into ``AppComposition``. `pinMismatch` specifically can
-    /// never be wired here from the Mac listener's own rejections either (E22-10,
-    /// `docs/planning/decisions.md` D-59/D-76): a `.rejected` verify-callback outcome is always
-    /// pre-pin-check, so SPEC.md forbids surfacing it as a per-connection banner at all.
-    @State private var errorBannerViewModel = ErrorBannerViewModel(stateStream: nil, peerName: nil)
 
     var body: some View {
         #if DEBUG

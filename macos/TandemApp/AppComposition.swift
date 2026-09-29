@@ -40,6 +40,14 @@ enum AppComposition {
         /// own kdoc, E50-09/E51-04); retained here so every unpair -- incoming `Revoke` or an
         /// owner-initiated Devices-screen unpair -- runs against the same registry.
         let purgeRegistry: PeerDataPurgeRegistry
+        /// The currently-paired peer's real ``ConnectionStateMachine/ConnectionState`` stream
+        /// (E22-11), forwarded across reconnects by a ``ConnectionStateRelay`` -- `nil` if no peer
+        /// is paired at all (``MenuBarViewModel``/``ErrorBannerViewModel`` then show `.notPaired`/no
+        /// banner, exactly like their own `stateStream: nil` default already did).
+        let menuBarStateStream: AsyncStream<ConnectionStateMachine.ConnectionState>?
+        /// The same peer's display name (``TandemStore/PeerRecord/displayName``), or `nil` alongside
+        /// ``menuBarStateStream`` when none is paired.
+        let pairedPeerName: String?
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -71,12 +79,14 @@ enum AppComposition {
             decisionCorrelator: decisionCorrelator,
             pinMismatchBannerGate: pinMismatchBannerGate
         )
+        let menuBarWiring = makeMenuBarWiring(trustStore: trustStore)
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
-                trustStore: trustStore
+                trustStore: trustStore,
+                onSessionRegistered: menuBarWiring.onSessionRegistered
             ),
             port: .any,
             verify: verify
@@ -96,8 +106,39 @@ enum AppComposition {
                 pathChangeController: controllers.pathChangeController,
                 sessionRegistry: sessionRegistry,
                 trustStore: trustStore,
-                purgeRegistry: purgeRegistry
+                purgeRegistry: purgeRegistry,
+                menuBarStateStream: menuBarWiring.stream,
+                pairedPeerName: menuBarWiring.peerName
             )
+        )
+    }
+
+    /// Every ``RetainedLifecycle`` field E22-11 adds, split out purely to keep ``startListener()``
+    /// under this repo's `function_body_length` lint budget. No pairing UI exists yet (E14) to pair
+    /// more than one peer in practice, so the first (only, in practice) paired record is "the
+    /// currently paired peer" the menu bar and error banner observe -- a ``ConnectionStateRelay``
+    /// keeps forwarding that one peer's real ``ConnectionStateMachine/ConnectionState`` across
+    /// reconnects, since `onSessionRegistered` fires again each time a new `TandemSession` reaches
+    /// Ready for the same fingerprint.
+    private struct MenuBarWiring {
+        let stream: AsyncStream<ConnectionStateMachine.ConnectionState>?
+        let peerName: String?
+        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?
+    }
+
+    private static func makeMenuBarWiring(trustStore: TrustStore) -> MenuBarWiring {
+        guard let pairedPeer = (try? trustStore.list())?.first else {
+            return MenuBarWiring(stream: nil, peerName: nil, onSessionRegistered: nil)
+        }
+        let relay = ConnectionStateRelay()
+        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler = { fingerprint, session in
+            guard fingerprint == pairedPeer.fingerprint else { return }
+            Task { await relay.attach(session) }
+        }
+        return MenuBarWiring(
+            stream: relay.stream,
+            peerName: pairedPeer.displayName,
+            onSessionRegistered: onSessionRegistered
         )
     }
 

@@ -1,5 +1,7 @@
 import Network
 import Security
+import TandemCrypto
+import TandemProtocol
 
 /// The single ALPN identifier this protocol negotiates (`docs/protocol/SPEC.md`
 /// `#handshake-and-tls-profile`). No other value is ever offered or accepted.
@@ -55,4 +57,12 @@ public protocol ListenerFactory: Sendable {
         verify: @escaping @Sendable sec_protocol_verify_t,
         admission: ConnectionAdmission
     ) throws -> NWListener
+}
+
+extension NWListenerFactory {
+    /// Called right after a `.trusted` session is registered under its SPKI fingerprint (E22-11)
+    /// -- a purely additive composition-root seam, `nil` by default for every existing caller, so
+    /// ``AppComposition`` can forward a real, currently-paired peer's ``TandemSession/state`` into
+    /// its own long-lived relay without this package knowing anything about the menu bar.
+    public typealias SessionRegisteredHandler = @Sendable (SpkiFingerprint, any TandemSession) -> Void
 }
