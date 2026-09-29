@@ -16,9 +16,14 @@ import android.service.notification.StatusBarNotification
  * default is a no-op: the real session-facing sink with disconnected buffering is wired in by
  * E30-16.
  *
- * E30-03: every posted notification passes [NotificationFilter] before it reaches
+ * E30-03: every posted notification passes [notificationFilter] before it reaches
  * [NotificationMapper] -- a filtered notification is never mapped or forwarded. Dismissals are not
  * filtered (a filtered notification is never sent, so there is nothing on the Mac to withdraw).
+ *
+ * [notificationFilter] is the same seam idiom as [eventSink]: an `internal var` defaulting to
+ * [NotificationFilter]'s static rules, so a composition root can wire in E30-04's
+ * [PerAppNotificationFilter] (whose overrides apply to the next notification with no session
+ * reconnect) without this class knowing about DataStore or per-app overrides at all.
  *
  * [notificationCanceller] is the same seam pattern, defaulting to the inherited
  * `cancelNotification(String)`: E30-10's incoming-dismiss reader (`startNotificationDismissReader`)
@@ -35,9 +40,10 @@ import android.service.notification.StatusBarNotification
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
+    internal var notificationFilter: (StatusBarNotification, String) -> Boolean = NotificationFilter::shouldForward
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!NotificationFilter.shouldForward(sbn, packageName)) return
+        if (!notificationFilter(sbn, packageName)) return
         eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, appVersionCode(sbn.packageName)))
     }
 
