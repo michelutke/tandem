@@ -34,10 +34,16 @@ object ClipboardSender {
      * [onTooLarge] is a callback rather than a direct `Toast` call so this object stays
      * unit-testable (under Robolectric or plain JUnit) without a real UI `Context` -- a caller that
      * needs to show a toast (e.g. [ShareTargetActivity]) wires this to `Toast.makeText` itself.
+     *
+     * [sensitive] (E31-07) is carried straight onto `ClipboardText.sensitive` -- set it `true` only
+     * when the caller has already decided this content is sensitive and still wants it sent (e.g.
+     * the user explicitly tapped an in-app "Send clipboard to Mac" button); a passive capture path
+     * must never send a sensitive clip at all rather than send it with this flag set.
      */
     suspend fun send(
         text: String,
         session: TandemSession,
+        sensitive: Boolean = false,
         onTooLarge: () -> Unit = {},
     ): Boolean {
         val utf8Bytes = text.toByteArray(Charsets.UTF_8)
@@ -53,6 +59,7 @@ object ClipboardSender {
                     originTag = ORIGIN_TAG
                     this.contentHash = ByteString.copyFrom(contentHash)
                     this.text = text
+                    this.sensitive = sensitive
                 }
         }
         return true
