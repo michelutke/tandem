@@ -95,6 +95,51 @@ Prints one of:
 
 Exits 0 on pass (0 occurrences), 1 on fail.
 
+## canary.sh (E15-07)
+
+Automates the PRD test-strategy canary procedure: generates a fresh `TANDEM-CANARY-<random>`
+(128 random bits — two runs never reuse one) and runs the enabled injection steps.
+
+```sh
+tools/pcap-audit/canary.sh --dry-run                 # print planned steps + exact commands, no device touched
+tools/pcap-audit/canary.sh --dry-run --phase1-only    # plan only the automated display-name step (CI mode)
+tools/pcap-audit/canary.sh --phase1-only              # actually run the automated Phase 1 pairing + capture + scan
+tools/pcap-audit/canary.sh                            # run every enabled step against an attached adb device
+```
+
+Steps:
+
+1. **phase1 (display-name)** — always enabled, runs everywhere. Feeds the canary through the real
+   E15-15 JVM harness client's production `DeviceInfoProvider` as `--display-name`, pairs it with
+   the real Mac app, restart-reconnects, all inside one whole-interface tshark capture that
+   `canary_scan.py` then scans (`tools/harness/integration/e15-07-canary-phase1.sh`). No test-only
+   wire payload or debug channel exists for this — the canary only ever rides
+   `PairRequest.deviceInfo.displayName` during a genuine pairing.
+2. **notification (E30)** — `adb shell am broadcast -a dev.tandem.companion.POST --es kind canary
+   --es nonce <nonce>` through the companion app (E00-22).
+3. **clipboard (E31-06)** — `adb shell am start -a android.intent.action.SEND` with the canary as
+   `text/plain`, targeting the share-target activity.
+4. **file (E40-11)** — not built yet (Phase 4 file transfer); disabled until that issue lands.
+
+Steps 2-4 need a live phone with adb attached; they are not runnable in CI. Each is gated by a flag
+naming its owning feature issue (`--disable-e30`, `--disable-e31-06`, `--enable-e40-11`) — once
+that issue is done, `--disable-<issue>` exits non-zero rather than silently skipping the step, and
+`--enable-e40-11` exits non-zero until E40-11 actually lands. `--phase1-only` is the separate,
+always-legal mode for an automated/CI run with no Android device at all.
+
+The live-phone capture/scan for steps 2-4 is done by wrapping a real (non-`--dry-run`) invocation
+of this script in `capture.sh`, per the manual gate procedure in `docs/testing/manual-gates.md`.
+
+## check-proto-schema.sh (E15-07 CI check)
+
+```sh
+tools/pcap-audit/check-proto-schema.sh   # scans protocol/proto/** by default
+```
+
+Fails (exit 1, offending lines on stdout) if any `message` declaration under `protocol/proto/**`
+has a name containing `Debug`, `Echo`, or `Test` — there is no test-only wire message for canary
+injection or anything else. Exits 0 otherwise.
+
 ## Fixtures
 
 `fixtures/` holds small pcaps generated once from real local traffic:

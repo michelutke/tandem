@@ -9,3 +9,4 @@
 # a human-readable comment. Blank lines and lines starting with # are ignored.
 #
 CompanionNotifications.kt#buildReplyAction — E00-22 — RemoteInput direct-reply requires a mutable PendingIntent so the system can attach the typed reply text to the Intent it fires.
+NotificationActionExecutorTest.kt#mutableReplyPendingIntent — E30-09 — RemoteInput direct-reply requires a mutable PendingIntent so the fill-in Intent's RemoteInput results actually reach the fired Intent.

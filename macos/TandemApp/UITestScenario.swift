@@ -38,6 +38,15 @@ enum UITestScenario: String {
     /// `BonjourPublisher` -- no advertise/listener wiring exists in this scenario window.
     case localNetworkDenied
 
+    /// Main window (E22-09), phone offline: the sidebar's state line reads "Offline · seen HH:MM"
+    /// with a grey dot, backed by a fixed local time so the assertion is deterministic regardless
+    /// of the host's real clock.
+    case mainWindowOffline
+
+    /// Main window (E22-09), the selected section's feature is turned off on the phone: the
+    /// content area shows the shared "Turned off on the phone." empty state.
+    case mainWindowFeatureDisabled
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }
