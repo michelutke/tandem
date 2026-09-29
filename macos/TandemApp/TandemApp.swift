@@ -105,6 +105,10 @@ struct TandemMenuBarApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        Window("Tandem", id: "main") {
+            MainWindowView(viewModel: Self.mainWindowViewModel)
+        }
+
         Settings {
             SettingsView(pairedDevicesViewModel: Self.settingsPairedDevicesViewModel)
         }
@@ -221,6 +225,7 @@ struct MenuContentView: View {
                     findPhoneViewModel: findPhoneViewModel,
                     pushClipboardViewModel: pushClipboardViewModel
                 )
+                OpenTandemMenuButton()
                 SettingsMenuButton()
             }
         }
