@@ -442,7 +442,7 @@ epics:
           - "security: mitmLab_clientWithoutTandemAlpn_handshakeFails"
         notes: "Size S -> M in cycle 3 (four scenarios plus accessibility-tree check)."
       - id: E15-16
-        title: "[tools] mitm-lab: menu-bar version-mismatch accessibility check (blocked on E22-02)"
+        title: "[tools] mitm-lab: menu-bar version-mismatch accessibility check (blocked on E22-11)"
         type: test
         platforms: [tools]
         priority: P1
@@ -459,7 +459,7 @@ epics:
           `ErrorBannerViewModel(stateStream: nil, ...)` -- no real per-connection state is wired
           from `AppComposition`'s production listener into either view model yet (comment there
           cites the same gap). This is a genuine product wiring gap, not a mitm-lab tooling gap;
-          once E22-02 (or whichever issue wires real session/connection state into the menu bar)
+          once E22-11 (files this exact wiring gap as its own issue)
           lands, this scenario becomes implementable exactly as originally specified.
         acceptance:
           - The connection closes with the VERSION_MISMATCH close code and the real Mac menu bar shows a version-mismatch error within 2s, read via the accessibility tree (no debug API)

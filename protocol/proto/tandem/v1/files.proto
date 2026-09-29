@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+// E40-01: files.proto — FileOffer, FileAccept, FileReject, FileChunk, FileComplete, FileCancel,
+// FileResumeRequest, and the shared TransferReason enum, carried on the FILES channel
+// (Channel.FILES, envelope.proto). The normative FILES section of docs/protocol/SPEC.md is
+// written by this issue. Field numbers 50-56 of envelope.proto's Envelope.payload oneof are used
+// below; 57-59 are held for future FILES extensions (see envelope.proto's reserved-range
+// comment). `photos.proto` (E41-01) also rides the FILES channel (no PHOTOS channel, E01-04
+// decision) but has its own separate 60-69 range and does not reuse TransferReason.
+//
+// Every `name`/`mime` value below is untrusted peer input: docs/protocol/SPEC.md
+// #untrusted-peer-strings-display-sanitization (E01-23) and the filename-sanitization rule
+// (E40-02) MUST run before either is used as a destination filename or rendered.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// TransferReason: shared by FileReject and FileCancel (and reused by FileResumeRequest's own
+// transfer, indirectly, via a later FileReject/FileCancel on the same id). Values 1-10 are the
+// original Cycle-1 set; BUSY and TOO_LARGE were added in Cycle 4 (E01-22) once the per-direction
+// unanswered-offer/active-transfer caps and the 64 GiB size cap were defined
+// (docs/protocol/SPEC.md #files-channel "Cycle 4 caps"). Numbers are frozen once released: never
+// renumber or reuse.
+enum TransferReason {
+  TRANSFER_REASON_UNSPECIFIED = 0;
+  TRANSFER_REASON_DECLINED = 1;
+  TRANSFER_REASON_TIMEOUT = 2;
+  TRANSFER_REASON_INSUFFICIENT_SPACE = 3;
+  TRANSFER_REASON_INVALID_NAME = 4;
+  TRANSFER_REASON_HASH_MISMATCH = 5;
+  TRANSFER_REASON_PROTOCOL_VIOLATION = 6;
+  TRANSFER_REASON_USER_CANCELLED = 7;
+  TRANSFER_REASON_UNKNOWN_TRANSFER = 8;
+  TRANSFER_REASON_SOURCE_UNAVAILABLE = 9;
+  TRANSFER_REASON_IO_ERROR = 10;
+  // Cycle 4 (E01-22): the receiver already has 4 unanswered offers or 2 active transfers in this
+  // direction; the excess offer is rejected BUSY without ever prompting the user
+  // (docs/protocol/SPEC.md #files-channel "Cycle 4 caps").
+  TRANSFER_REASON_BUSY = 11;
+  // Cycle 4 (E01-22): FileOffer.size exceeds the 64 GiB cap (docs/protocol/SPEC.md #files-channel
+  // "Cycle 4 caps").
+  TRANSFER_REASON_TOO_LARGE = 12;
+}
+
+// FileOffer: PRD F-7.1, UC-14 — the sender announces a file transfer before sending any bytes.
+// `id` is sender-assigned and reused by every other message type below to refer back to this
+// transfer. `sha256` is the digest of the *whole* source file, computed by the sender before this
+// message is ever built (docs/protocol/SPEC.md #files-channel "Handshake"); the receiver compares
+// it against its own digest of the fully-reassembled file once every chunk has arrived
+// (FileReject/FileCancel with HASH_MISMATCH on failure).
+message FileOffer {
+  string id = 1;
+  // Raw, sender-supplied filename, untrusted peer input. Cap: <= 1024 UTF-8 bytes, else the
+  // receiver responds FileReject INVALID_NAME (docs/protocol/SPEC.md #files-channel "Cycle 4
+  // caps", E01-22). MUST be sanitized per the E40-02 filename-sanitization rule before use as a
+  // destination filename — never trusted as a path.
+  string name = 2;
+  // Whole-file size in bytes. Cap: <= 64 GiB (2^36), else the receiver responds FileReject
+  // TOO_LARGE (docs/protocol/SPEC.md #files-channel "Cycle 4 caps", E01-22).
+  uint64 size = 3;
+  // Sender-supplied MIME type, untrusted peer input. Cap: <= 255 bytes, else the receiver
+  // responds FileReject INVALID_NAME (docs/protocol/SPEC.md #files-channel "Cycle 4 caps",
+  // E01-22).
+  string mime = 4;
+  // SHA-256 digest (32 bytes) of the whole source file's bytes, computed by the sender before
+  // offering (docs/protocol/SPEC.md #files-channel "Handshake").
+  bytes sha256 = 5;
+}
+
+// FileAccept: PRD F-7.1, UC-14 — the receiver agrees to receive the transfer named by `id`,
+// either by explicit user action or auto-accept (offers <= 1 GiB, docs/protocol/SPEC.md
+// #files-channel "Cycle 4 caps", E01-22). The sender starts sending FileChunk frames only after
+// receiving this.
+message FileAccept {
+  string id = 1;
+}
+
+// FileReject: PRD F-7.1, UC-14, UC-16 — the receiver declines the transfer named by `id`, or the
+// sender/receiver reports it cannot proceed for a caps-related reason (BUSY, TOO_LARGE) before
+// any FileAccept has been sent. Terminal for `id`: no further FILES message referring to `id` is
+// valid afterward (docs/protocol/SPEC.md #files-channel "Handshake").
+message FileReject {
+  string id = 1;
+  TransferReason reason = 2;
+}
+
+// FileChunk: PRD F-7.1, UC-15 — one fixed-size slice of the file named by `id`, sent only after
+// FileAccept. `seq` is 0-based and contiguous; `offset` MUST equal `seq * 262144`
+// (docs/protocol/SPEC.md #files-channel "Chunking"). `data` is capped at 262144 bytes (256 KiB) —
+// oversized payloads are a PROTOCOL_VIOLATION (docs/protocol/SPEC.md #files-channel "Chunking").
+message FileChunk {
+  string id = 1;
+  uint64 seq = 2;
+  uint64 offset = 3;
+  bytes data = 4;
+}
+
+// FileComplete: PRD F-7.1, UC-15 — the sender has sent every chunk of the file named by `id`; the
+// receiver verifies its reassembled file's SHA-256 against FileOffer.sha256 and reports success or
+// HASH_MISMATCH (docs/protocol/SPEC.md #files-channel "Handshake").
+message FileComplete {
+  string id = 1;
+}
+
+// FileCancel: PRD F-7.1, UC-16 — either side aborts the transfer named by `id` mid-flight, for
+// any TransferReason (docs/protocol/SPEC.md #files-channel "Handshake"). Terminal for `id`.
+message FileCancel {
+  string id = 1;
+  TransferReason reason = 2;
+}
+
+// FileResumeRequest: PRD F-7.1, UC-15 — the receiver asks the sender to resume a previously
+// interrupted transfer named by `id` starting at `from_offset`, computed as the receiver's
+// retained temp file length rounded down to a 262144-byte boundary (docs/protocol/SPEC.md
+// #files-channel "Resume"). Retained temp files expire 24 h after their last write; a resume
+// request for an id whose temp file has expired or never existed gets FileReject
+// UNKNOWN_TRANSFER.
+message FileResumeRequest {
+  string id = 1;
+  uint64 from_offset = 2;
+}

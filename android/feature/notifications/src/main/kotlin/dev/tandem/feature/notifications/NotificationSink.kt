@@ -4,6 +4,7 @@ import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.IconData
 import dev.tandem.protocol.v1.NotificationDismiss
 import dev.tandem.protocol.v1.NotificationPosted
 import kotlinx.coroutines.CoroutineDispatcher
@@ -77,6 +78,20 @@ class NotificationSink(
                 while (buffer.size > MAX_BUFFERED) {
                     buffer.removeFirst()
                 }
+            }
+        }
+    }
+
+    /**
+     * [IconSender] (E30-05) has already decided this icon needs sending exactly once; this only
+     * needs to get it on the wire while [session] is [ConnectionState.Ready] -- unlike
+     * [onNotificationPosted], a not-yet-ready icon is dropped rather than buffered (see
+     * [IconSender]'s KDoc for why that tradeoff is acceptable for now).
+     */
+    override fun onIconData(icon: IconData) {
+        scope.launch {
+            if (session.state.value is ConnectionState.Ready) {
+                session.send(Channel.CHANNEL_NOTIFY) { iconData = icon }
             }
         }
     }

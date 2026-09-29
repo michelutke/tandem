@@ -145,3 +145,45 @@ Mac app's `MenuContentView` does not yet wire any real per-connection state into
 `macos/TandemApp/TandemApp.swift`) — a real attack against the harness-launched app today has
 nothing to surface in that UI regardless of what closed it. See this issue's PR description for
 that gap; it blocks only this one UI-observability check, not the six scenarios above.
+
+## E15-10: certificate-abuse scenarios
+
+`tools/mitm-lab/e15-10-cert-abuse/` — six TLS-handshake-level attacks (as opposed to E15-09's
+pairing-*protocol*-level ones) against the real Mac app and the real JVM client (`lib/e15-10-
+common.sh`, same self-contained-per-scenario convention as E15-09): an unknown client cert outside
+a pairing window, an impostor server whose cert fingerprint doesn't match what the client pinned,
+certificates swapped between two paired devices, a phone reconnecting after its trust record was
+deleted on the Mac while it was offline (AC-09), a client presenting a paired phone's genuine cert
+signed with a foreign key, and an impostor server presenting the Mac's own genuine cert without its
+private key.
+
+No new raw `HarnessCli.kt` commands were needed — every scenario is a TLS-handshake attack, so the
+existing `RAWOPEN` (E15-09) is enough to dial and observe rejection. Trust is bound to SPKI
+fingerprints only (invariant 3): `-HarnessSeedTrust` accepts any fingerprint regardless of how its
+cert was generated, so the "paired device" certs these scenarios swap or borrow keys from are the
+same ephemeral `openssl`-generated P-256 certs the E15-08 self-tests already use
+(`selftest/lib/gen-cert.sh`/`spki-fingerprint.sh`, reused as-is).
+
+The cert/key-mismatch scenarios (3, 5, 6) cannot be built with `openssl s_client`/`s_server`, Ruby's
+`OpenSSL::SSL::SSLContext`, Python's `ssl` module, or even a hand-rolled OpenSSL C program — every
+one of them calls the equivalent of `ossl_x509_check_private_key()` internally whenever a
+certificate and a key end up attached to the same `CERT_PKEY` slot, and *silently drops the
+mismatched key* on failure instead of erroring (verified empirically against OpenSSL 3.6.4: loading
+the key before the certificate does **not** avoid this, contrary to an earlier assumption here — the
+check runs regardless of load order, so that approach would have silently tested "no client
+certificate at all" in every mismatch scenario, never a real signature mismatch). Go's `crypto/tls`
+performs the equivalent check only inside its `tls.X509KeyPair()` convenience constructor; a
+`tls.Certificate{}` struct literal built directly, with an unrelated `PrivateKey`, is never passed
+through it. `lib/mismatched_cert_client.go`/`mismatched_cert_server.go` (built on demand via `go
+build`) do exactly that, then perform a real TLS 1.3 handshake and a post-handshake read (TLS 1.3:
+the client's own `Handshake()` succeeds the instant it has *sent* its
+Certificate/CertificateVerify/Finished, before the peer has verified any of it — only a subsequent
+read surfaces the peer's rejection alert).
+
+Run the suite:
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-10-cert-abuse/scenarios --timeout 300
+```
+
+All six scenarios pass in well under a minute each (no pairing-window expiry wait, unlike E15-09).

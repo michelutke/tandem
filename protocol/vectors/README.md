@@ -179,6 +179,25 @@ the reconstructed message bytes to verify reconstruction); the one-byte-over-cap
 `expectedError: "clipboardTextTooLarge"` — this is a message-level validation rejection, not a
 frame-level close, so it carries no `closeCode`/`localReason`.
 
+### `files-encoding.json` (E40-01)
+
+Vectors for `docs/protocol/SPEC.md` `#files-channel`'s message types
+(`protocol/proto/tandem/v1/files.proto`): `FileOffer`, `FileAccept`, `FileReject`, `FileChunk`,
+`FileResumeRequest`. Like `clipboard-encoding.json`, entries here are the raw serialized message
+bytes for one message type at a time (`input.messageHex`), not a full `Envelope` frame — necessary
+because `FileChunk.data`'s own 262,144-byte (256 KiB) cap (`#files-channel` "Chunking") is a
+message-level, app-enforced limit that protobuf's `bytes` wire type does not itself impose, and
+which would otherwise interact confusingly with the unrelated 1 MiB `Envelope` frame-length cap
+`frame-encoding.json` already covers. `input.kind` selects which message type `messageHex` decodes
+as (`fileOffer`/`fileAccept`/`fileReject`/`fileChunk`/`fileResumeRequest`); valid entries'
+`expected` gives the decoded fields directly (`sha256Hex`/`dataHex` hex-encoded, `reason` as the
+`TRANSFER_REASON_*` name). The manifest includes a `FileReject` for every one of the 12
+`TransferReason` values (E01-22's `BUSY` and `TOO_LARGE` included). The one oversized-chunk entry
+gives a `dataRecipe` (`fillByte`/`fillLength`, the same "compact recipe" idea as
+`frame-encoding.json`'s 1-MiB `Envelope` vector, above) at 262,145 bytes — one byte past the cap —
+and uses `expectedError: "fileChunkPayloadTooLarge"`, a message-level validation rejection rather
+than a frame-level close, so it carries no `closeCode`/`localReason`.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

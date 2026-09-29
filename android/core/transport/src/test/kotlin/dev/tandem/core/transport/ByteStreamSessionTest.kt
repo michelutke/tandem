@@ -3,19 +3,30 @@ package dev.tandem.core.transport
 import app.cash.turbine.test
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.testing.InMemoryDuplexPipe
+import dev.tandem.core.testing.ManualElapsedRealtime
+import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
+import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.time.Clock
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -88,6 +99,82 @@ class ByteStreamSessionTest {
 
             client.close()
         }
+
+    @Test
+    fun byteStreamSession_peerClosesWhileHeartbeatActive_noCrashAndSessionCloses() =
+        sessionTest {
+            // E20-15 verifier finding #1 regression: a peer EOF/IOException used to close
+            // `ChannelMultiplexer` without anything stopping the heartbeat trio or transitioning
+            // this session's own state, and the trio's next send threw `MultiplexerClosedException`
+            // uncaught -- on Android that reaches the thread's default `UncaughtExceptionHandler`
+            // and crashes the app, which this asserts against directly.
+            val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+            val uncaught = AtomicReference<Throwable?>(null)
+            Thread.setDefaultUncaughtExceptionHandler { _, throwable -> uncaught.compareAndSet(null, throwable) }
+            try {
+                val pipe = InMemoryDuplexPipe()
+                val dependencies = HeartbeatDependencies(ManualElapsedRealtime(), FakeDeviceIdleSource())
+                val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO, dependencies)
+                val b = ByteStreamSession(pipe.endpointB, Clock.systemUTC(), Dispatchers.IO)
+
+                a.state.first { it is ConnectionState.Ready }
+                b.state.first { it is ConnectionState.Ready }
+
+                // The heartbeat trio genuinely active -- `a` receives and replies to a heartbeat --
+                // then the peer EOFs. `closeGracefully` (FIN-like) rather than `closeAbruptly` so
+                // only `a`'s own multiplexer closes here -- `b`'s incoming direction is left open,
+                // so this never also crashes `b`'s own reader/writer loops with an unrelated
+                // `IOException`, which is no part of this fix. The brief delay lets `a`'s reply
+                // actually finish writing before the peer EOFs, so this exercises finding #1's
+                // close-while-heartbeat-active wiring without also landing on the pre-existing,
+                // separately scoped race where `ChannelMultiplexer`'s writer loop is caught
+                // mid-write by this same session's own `byteStream.closeAbruptly()`.
+                b.send(Channel.CHANNEL_CONTROL) { heartbeat = heartbeat {} }
+                delay(200.milliseconds)
+                pipe.endpointB.closeGracefully()
+
+                withTimeout(5.seconds) {
+                    a.state.first { it is ConnectionState.Disconnected }
+                }
+
+                // Give any in-flight reply attempt -- now caught, not propagated -- a chance to run.
+                delay(200.milliseconds)
+                assertNull(uncaught.get(), "no exception should escape the heartbeat trio")
+
+                b.close()
+            } finally {
+                Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+            }
+        }
+
+    @Test
+    fun byteStreamSession_closeBeforeReady_leavesNoLeakedCoroutine() =
+        sessionTest {
+            // E20-15 verifier finding #3 regression: `state.first { it is Ready }` suspends forever
+            // for a session that never reaches `Ready`, and `close()` used to never cancel `scope`,
+            // so that coroutine (and everything it held) leaked. `endpointA` here never gets a peer
+            // hello -- nothing else is ever constructed on the other end of the pipe -- so `a` never
+            // leaves `HelloExchange`.
+            val pipe = InMemoryDuplexPipe()
+            val dependencies = HeartbeatDependencies(ManualElapsedRealtime(), FakeDeviceIdleSource())
+            val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO, dependencies)
+
+            withTimeout(5.seconds) {
+                while (pipe.capturedAToB().isEmpty()) delay(10)
+            }
+
+            a.close()
+
+            val sessionJob = a.scope.coroutineContext.job
+            withTimeout(5.seconds) {
+                while (sessionJob.children.any { it.isActive }) delay(10)
+            }
+        }
+
+    private class FakeDeviceIdleSource : DeviceIdleSource {
+        override val isIdle: StateFlow<Boolean> = MutableStateFlow(false)
+        override val screenOn: Flow<Unit> = emptyFlow()
+    }
 
     private companion object {
         fun sessionTest(block: suspend CoroutineScope.() -> Unit) {

@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_macCertWithoutPrivateKey_phoneHandshakeFails
+# mitm-scenario-role: server
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-10 (6/6): an impostor server presents the Mac's genuine certificate without possessing its
+# private key. Captures the real Mac's own leaf certificate straight off a live TLS handshake (the
+# same technique `selftest/lib/pinning-client.sh` already uses: the server's `Certificate` message
+# is sent, and visible in the transcript, before it ever gets to validating -- or in this
+# unauthenticated probe, even requesting -- a client certificate), so the impostor's cert really is
+# the Mac's, byte for byte, never touching the Mac's real Secure Enclave/Keychain-held private key.
+# The real JVM client (E15-15) pins that identical fingerprint and dials the impostor: the pin check
+# passes (same SPKI), but the impostor cannot produce a valid `CertificateVerify` signature over the
+# handshake transcript with a key it doesn't hold -- invariant 3/5, "pin alone must not
+# authenticate" from the server side this time.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-10-common.sh
+source "$here/../lib/e15-10-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_setup_mac
+e15_10_build_mismatch_tools
+
+MAC_PORT=$(( (RANDOM % 20000) + 20000 ))
+e15_10_launch_plain "$MAC_PORT"
+MAC_SPKI_HEX="$(harness_identity_spki)"
+if [ -z "$MAC_SPKI_HEX" ]; then
+  e15_10_log "no harness-identity-spki line from the Mac app"
+  exit 1
+fi
+MAC_FP_B64="$(e15_10_hex_to_b64url "$MAC_SPKI_HEX")"
+
+MAC_CERT_PEM="$E15_10_TMP_DIR/mac-cert.pem"
+e15_10_capture_server_cert_pem 127.0.0.1 "$MAC_PORT" > "$MAC_CERT_PEM"
+if [ ! -s "$MAC_CERT_PEM" ]; then
+  e15_10_log "FAIL: could not capture the real Mac's certificate off a live handshake"
+  exit 1
+fi
+CAPTURED_FP_HEX="$(e15_10_spki_fingerprint_hex "$MAC_CERT_PEM")"
+e15_10_log "captured Mac cert SPKI: $CAPTURED_FP_HEX (real Mac identity: $MAC_SPKI_HEX)"
+if [ "$CAPTURED_FP_HEX" != "$MAC_SPKI_HEX" ]; then
+  e15_10_log "FAIL: captured certificate's SPKI does not match the Mac's real identity -- capture is not genuine"
+  exit 1
+fi
+
+# No longer need the real Mac running -- the impostor takes over the SPKI fingerprint on a fresh
+# port, presenting the just-captured genuine certificate.
+harness_kill
+
+e15_10_gen_cert "$E15_10_TMP_DIR/other" other.tandem.test
+
+# Positive control (the same `mismatched_cert_server` tool, a genuinely matched cert+key pair this
+# time): proves the tool/TLS code path can complete a real handshake successfully at all, so the
+# mismatched case below failing isn't just this test double being broken. Dialed with the raw Go
+# client (TLS-layer only, no Tandem Hello/CONTROL exchange needed for this) rather than the full
+# JVM harness/RAWOPEN, since a bare TLS server like this one never reaches the harness's own Ready
+# state -- only the TLS handshake result matters here.
+e15_10_gen_cert "$E15_10_TMP_DIR/control" control.tandem.test
+CONTROL_PORT=$(( (RANDOM % 20000) + 20000 ))
+e15_10_start_mismatched_cert_server "$CONTROL_PORT" "$E15_10_TMP_DIR/control-cert.pem" "$E15_10_TMP_DIR/control-key.pem"
+
+FAILED=0
+control_output="$(e15_10_mismatched_cert_client 127.0.0.1 "$CONTROL_PORT" "$E15_10_TMP_DIR/control-cert.pem" "$E15_10_TMP_DIR/control-key.pem")"
+e15_10_log "positive control (matched cert+key pair, same server tool): $control_output"
+if ! printf '%s\n' "$control_output" | grep -q '^HANDSHAKE_OK'; then
+  e15_10_log "FAIL: positive control did not succeed, got: $control_output -- the mismatched case below is not meaningful"
+  FAILED=1
+fi
+wait "$E15_10_MISMATCH_SERVER_PID" 2>/dev/null || true
+E15_10_MISMATCH_SERVER_PID=""
+
+IMPOSTOR_PORT=$(( (RANDOM % 20000) + 20000 ))
+e15_10_start_mismatched_cert_server "$IMPOSTOR_PORT" "$MAC_CERT_PEM" "$E15_10_TMP_DIR/other-key.pem"
+
+e15_10_start_client
+response="$(e15_10_rawopen 127.0.0.1 "$IMPOSTOR_PORT" "$MAC_FP_B64")"
+e15_10_load_rawopen_ms
+e15_10_log "phone RAWOPEN against the impostor (Mac's genuine cert, an unrelated key): $response (took ${E15_10_LAST_RAWOPEN_MS}ms)"
+
+# Must be a signature/decrypt rejection at the TLS layer, not merely "some HANDSHAKE_REJECTED
+# happened" (that would also fire for an unrelated failure, e.g. a version mismatch, which would
+# mean the phone's own signature check was never exercised). "reason=null" (a bare
+# SSLHandshakeException/CertificateException with no message) is accepted too -- some JDK TLS
+# stacks throw those with a null message for exactly this failure -- but a reason that is clearly
+# about something else (timeout, version, ALPN) is not.
+case "$response" in
+  "ERROR HANDSHAKE_REJECTED"*)
+    reason_lower="$(printf '%s' "$response" | tr '[:upper:]' '[:lower:]')"
+    case "$reason_lower" in
+      *timeout*|*"protocol version"*|*"no application protocol"*|*unrecognized_name*)
+        e15_10_log "FAIL: rejection reason looks unrelated to the signature check, got: $response"
+        FAILED=1
+        ;;
+      *)
+        e15_10_log "OK: the phone rejected the impostor despite the correct pin -- no CONTROL frame, no application byte, was ever exchanged"
+        ;;
+    esac
+    ;;
+  *)
+    e15_10_log "FAIL: expected the handshake to be rejected, got: $response"
+    FAILED=1
+    ;;
+esac
+if [ "$E15_10_LAST_RAWOPEN_MS" -ge 5000 ]; then
+  e15_10_log "FAIL: rejection took ${E15_10_LAST_RAWOPEN_MS}ms, expected < 5000ms"
+  FAILED=1
+fi
+e15_10_stop_client
+
+server_output="$(cat "$E15_10_TMP_DIR/mismatch_server.out" 2>/dev/null)"
+e15_10_log "impostor server's own view: $server_output"
+# Must be the server's own handshake failing for real (its bad CertificateVerify signature
+# rejected by the real phone) -- not a version-negotiation failure that happened before the server
+# ever got to send its Certificate at all (that would mean the phone's pin/signature check was
+# never reached).
+server_output_lower="$(printf '%s' "$server_output" | tr '[:upper:]' '[:lower:]')"
+case "$server_output_lower" in
+  *"handshake_failed"*"protocol version"*|*"handshake_failed"*"no application protocol"*)
+    e15_10_log "FAIL: impostor server's failure looks like a version/ALPN negotiation failure, not a rejected signature: $server_output"
+    FAILED=1
+    ;;
+  *handshake_failed*)
+    e15_10_log "OK: the impostor server itself observed its own handshake fail (the phone rejected its bad signature)"
+    ;;
+  *)
+    e15_10_log "FAIL: expected the impostor server itself to also observe a failed handshake, got: $server_output"
+    FAILED=1
+    ;;
+esac
+wait "$E15_10_MISMATCH_SERVER_PID" 2>/dev/null || true
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

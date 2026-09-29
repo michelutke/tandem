@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from clipboard_encoding import generate_clipboard_encoding_vectors  # noqa: E402 (needs sys.path above)
 from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
 from display_strings import generate_display_string_vectors  # noqa: E402 (needs sys.path above)
+from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
@@ -62,6 +63,7 @@ CATEGORIES.append(("display-strings.json", generate_display_string_vectors))  # 
 CATEGORIES.append(("status-encoding.json", generate_status_encoding_vectors))  # E23-01
 CATEGORIES.append(("notify-encoding.json", generate_notify_encoding_vectors))  # E30-01
 CATEGORIES.append(("clipboard-encoding.json", generate_clipboard_encoding_vectors))  # E31-01
+CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E40-01
 
 
 def render(manifest: Manifest) -> str:

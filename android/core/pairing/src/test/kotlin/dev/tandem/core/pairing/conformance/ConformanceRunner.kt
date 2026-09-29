@@ -16,7 +16,13 @@ import dev.tandem.core.protocol.FrameDecoder
 import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.protocol.v1.ClipboardText
 import dev.tandem.protocol.v1.Envelope
+import dev.tandem.protocol.v1.FileAccept
+import dev.tandem.protocol.v1.FileChunk
+import dev.tandem.protocol.v1.FileOffer
+import dev.tandem.protocol.v1.FileReject
+import dev.tandem.protocol.v1.FileResumeRequest
 import dev.tandem.protocol.v1.clipboardText
+import dev.tandem.protocol.v1.fileChunk
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -75,6 +81,7 @@ object ConformanceRunner {
             "notify-encoding",
             "clipboard-encoding",
             "discovery-id",
+            "files-encoding",
         )
 
     /** CLIPBOARD channel's text cap (docs/protocol/SPEC.md #clipboard-channel): 1 MiB, 2^20. */
@@ -172,6 +179,7 @@ object ConformanceRunner {
                 "notify-encoding" -> notifyEncodingOutcome(vector)
                 "clipboard-encoding" -> clipboardEncodingOutcome(vector)
                 "discovery-id" -> discoveryIdOutcome(vector)
+                "files-encoding" -> filesEncodingOutcome(vector)
                 else -> throw UnknownVectorCategoryException(category)
             }
         }

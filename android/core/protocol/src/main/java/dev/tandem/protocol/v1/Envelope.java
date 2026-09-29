@@ -43,6 +43,13 @@ public  final class Envelope extends
     NOTIFICATION_DISMISS(33),
     NOTIFICATION_ACTION_RESULT(34),
     CLIPBOARD_TEXT(40),
+    FILE_OFFER(50),
+    FILE_ACCEPT(51),
+    FILE_REJECT(52),
+    FILE_CHUNK(53),
+    FILE_COMPLETE(54),
+    FILE_CANCEL(55),
+    FILE_RESUME_REQUEST(56),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -76,6 +83,13 @@ public  final class Envelope extends
         case 33: return NOTIFICATION_DISMISS;
         case 34: return NOTIFICATION_ACTION_RESULT;
         case 40: return CLIPBOARD_TEXT;
+        case 50: return FILE_OFFER;
+        case 51: return FILE_ACCEPT;
+        case 52: return FILE_REJECT;
+        case 53: return FILE_CHUNK;
+        case 54: return FILE_COMPLETE;
+        case 55: return FILE_CANCEL;
+        case 56: return FILE_RESUME_REQUEST;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -1236,6 +1250,390 @@ public  final class Envelope extends
    */
   private void clearClipboardText() {
     if (payloadCase_ == 40) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_OFFER_FIELD_NUMBER = 50;
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileOffer() {
+    return payloadCase_ == 50;
+  }
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileOffer getFileOffer() {
+    if (payloadCase_ == 50) {
+       return (dev.tandem.protocol.v1.FileOffer) payload_;
+    }
+    return dev.tandem.protocol.v1.FileOffer.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileOffer(dev.tandem.protocol.v1.FileOffer value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 50;
+  }
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileOffer(dev.tandem.protocol.v1.FileOffer value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 50 &&
+        payload_ != dev.tandem.protocol.v1.FileOffer.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileOffer.newBuilder((dev.tandem.protocol.v1.FileOffer) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 50;
+  }
+  /**
+   * <pre>
+   * files.proto (E40-01) — FILES channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+   */
+  private void clearFileOffer() {
+    if (payloadCase_ == 50) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_ACCEPT_FIELD_NUMBER = 51;
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileAccept() {
+    return payloadCase_ == 51;
+  }
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileAccept getFileAccept() {
+    if (payloadCase_ == 51) {
+       return (dev.tandem.protocol.v1.FileAccept) payload_;
+    }
+    return dev.tandem.protocol.v1.FileAccept.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileAccept(dev.tandem.protocol.v1.FileAccept value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 51;
+  }
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileAccept(dev.tandem.protocol.v1.FileAccept value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 51 &&
+        payload_ != dev.tandem.protocol.v1.FileAccept.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileAccept.newBuilder((dev.tandem.protocol.v1.FileAccept) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 51;
+  }
+  /**
+   * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+   */
+  private void clearFileAccept() {
+    if (payloadCase_ == 51) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_REJECT_FIELD_NUMBER = 52;
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileReject() {
+    return payloadCase_ == 52;
+  }
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileReject getFileReject() {
+    if (payloadCase_ == 52) {
+       return (dev.tandem.protocol.v1.FileReject) payload_;
+    }
+    return dev.tandem.protocol.v1.FileReject.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileReject(dev.tandem.protocol.v1.FileReject value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 52;
+  }
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileReject(dev.tandem.protocol.v1.FileReject value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 52 &&
+        payload_ != dev.tandem.protocol.v1.FileReject.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileReject.newBuilder((dev.tandem.protocol.v1.FileReject) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 52;
+  }
+  /**
+   * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+   */
+  private void clearFileReject() {
+    if (payloadCase_ == 52) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_CHUNK_FIELD_NUMBER = 53;
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileChunk() {
+    return payloadCase_ == 53;
+  }
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileChunk getFileChunk() {
+    if (payloadCase_ == 53) {
+       return (dev.tandem.protocol.v1.FileChunk) payload_;
+    }
+    return dev.tandem.protocol.v1.FileChunk.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileChunk(dev.tandem.protocol.v1.FileChunk value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 53;
+  }
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileChunk(dev.tandem.protocol.v1.FileChunk value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 53 &&
+        payload_ != dev.tandem.protocol.v1.FileChunk.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileChunk.newBuilder((dev.tandem.protocol.v1.FileChunk) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 53;
+  }
+  /**
+   * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+   */
+  private void clearFileChunk() {
+    if (payloadCase_ == 53) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_COMPLETE_FIELD_NUMBER = 54;
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileComplete() {
+    return payloadCase_ == 54;
+  }
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileComplete getFileComplete() {
+    if (payloadCase_ == 54) {
+       return (dev.tandem.protocol.v1.FileComplete) payload_;
+    }
+    return dev.tandem.protocol.v1.FileComplete.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileComplete(dev.tandem.protocol.v1.FileComplete value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 54;
+  }
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileComplete(dev.tandem.protocol.v1.FileComplete value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 54 &&
+        payload_ != dev.tandem.protocol.v1.FileComplete.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileComplete.newBuilder((dev.tandem.protocol.v1.FileComplete) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 54;
+  }
+  /**
+   * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+   */
+  private void clearFileComplete() {
+    if (payloadCase_ == 54) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_CANCEL_FIELD_NUMBER = 55;
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileCancel() {
+    return payloadCase_ == 55;
+  }
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileCancel getFileCancel() {
+    if (payloadCase_ == 55) {
+       return (dev.tandem.protocol.v1.FileCancel) payload_;
+    }
+    return dev.tandem.protocol.v1.FileCancel.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileCancel(dev.tandem.protocol.v1.FileCancel value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 55;
+  }
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileCancel(dev.tandem.protocol.v1.FileCancel value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 55 &&
+        payload_ != dev.tandem.protocol.v1.FileCancel.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileCancel.newBuilder((dev.tandem.protocol.v1.FileCancel) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 55;
+  }
+  /**
+   * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+   */
+  private void clearFileCancel() {
+    if (payloadCase_ == 55) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FILE_RESUME_REQUEST_FIELD_NUMBER = 56;
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFileResumeRequest() {
+    return payloadCase_ == 56;
+  }
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FileResumeRequest getFileResumeRequest() {
+    if (payloadCase_ == 56) {
+       return (dev.tandem.protocol.v1.FileResumeRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.FileResumeRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFileResumeRequest(dev.tandem.protocol.v1.FileResumeRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 56;
+  }
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFileResumeRequest(dev.tandem.protocol.v1.FileResumeRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 56 &&
+        payload_ != dev.tandem.protocol.v1.FileResumeRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FileResumeRequest.newBuilder((dev.tandem.protocol.v1.FileResumeRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 56;
+  }
+  /**
+   * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+   */
+  private void clearFileResumeRequest() {
+    if (payloadCase_ == 56) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -2451,6 +2849,366 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileOffer() {
+      return instance.hasFileOffer();
+    }
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileOffer getFileOffer() {
+      return instance.getFileOffer();
+    }
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    public Builder setFileOffer(dev.tandem.protocol.v1.FileOffer value) {
+      copyOnWrite();
+      instance.setFileOffer(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    public Builder setFileOffer(
+        dev.tandem.protocol.v1.FileOffer.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileOffer(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    public Builder mergeFileOffer(dev.tandem.protocol.v1.FileOffer value) {
+      copyOnWrite();
+      instance.mergeFileOffer(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * files.proto (E40-01) — FILES channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];</code>
+     */
+    public Builder clearFileOffer() {
+      copyOnWrite();
+      instance.clearFileOffer();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileAccept() {
+      return instance.hasFileAccept();
+    }
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileAccept getFileAccept() {
+      return instance.getFileAccept();
+    }
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    public Builder setFileAccept(dev.tandem.protocol.v1.FileAccept value) {
+      copyOnWrite();
+      instance.setFileAccept(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    public Builder setFileAccept(
+        dev.tandem.protocol.v1.FileAccept.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileAccept(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    public Builder mergeFileAccept(dev.tandem.protocol.v1.FileAccept value) {
+      copyOnWrite();
+      instance.mergeFileAccept(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];</code>
+     */
+    public Builder clearFileAccept() {
+      copyOnWrite();
+      instance.clearFileAccept();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileReject() {
+      return instance.hasFileReject();
+    }
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileReject getFileReject() {
+      return instance.getFileReject();
+    }
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    public Builder setFileReject(dev.tandem.protocol.v1.FileReject value) {
+      copyOnWrite();
+      instance.setFileReject(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    public Builder setFileReject(
+        dev.tandem.protocol.v1.FileReject.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileReject(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    public Builder mergeFileReject(dev.tandem.protocol.v1.FileReject value) {
+      copyOnWrite();
+      instance.mergeFileReject(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];</code>
+     */
+    public Builder clearFileReject() {
+      copyOnWrite();
+      instance.clearFileReject();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileChunk() {
+      return instance.hasFileChunk();
+    }
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileChunk getFileChunk() {
+      return instance.getFileChunk();
+    }
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    public Builder setFileChunk(dev.tandem.protocol.v1.FileChunk value) {
+      copyOnWrite();
+      instance.setFileChunk(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    public Builder setFileChunk(
+        dev.tandem.protocol.v1.FileChunk.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileChunk(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    public Builder mergeFileChunk(dev.tandem.protocol.v1.FileChunk value) {
+      copyOnWrite();
+      instance.mergeFileChunk(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];</code>
+     */
+    public Builder clearFileChunk() {
+      copyOnWrite();
+      instance.clearFileChunk();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileComplete() {
+      return instance.hasFileComplete();
+    }
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileComplete getFileComplete() {
+      return instance.getFileComplete();
+    }
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    public Builder setFileComplete(dev.tandem.protocol.v1.FileComplete value) {
+      copyOnWrite();
+      instance.setFileComplete(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    public Builder setFileComplete(
+        dev.tandem.protocol.v1.FileComplete.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileComplete(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    public Builder mergeFileComplete(dev.tandem.protocol.v1.FileComplete value) {
+      copyOnWrite();
+      instance.mergeFileComplete(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];</code>
+     */
+    public Builder clearFileComplete() {
+      copyOnWrite();
+      instance.clearFileComplete();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileCancel() {
+      return instance.hasFileCancel();
+    }
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileCancel getFileCancel() {
+      return instance.getFileCancel();
+    }
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    public Builder setFileCancel(dev.tandem.protocol.v1.FileCancel value) {
+      copyOnWrite();
+      instance.setFileCancel(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    public Builder setFileCancel(
+        dev.tandem.protocol.v1.FileCancel.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileCancel(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    public Builder mergeFileCancel(dev.tandem.protocol.v1.FileCancel value) {
+      copyOnWrite();
+      instance.mergeFileCancel(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];</code>
+     */
+    public Builder clearFileCancel() {
+      copyOnWrite();
+      instance.clearFileCancel();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFileResumeRequest() {
+      return instance.hasFileResumeRequest();
+    }
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FileResumeRequest getFileResumeRequest() {
+      return instance.getFileResumeRequest();
+    }
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    public Builder setFileResumeRequest(dev.tandem.protocol.v1.FileResumeRequest value) {
+      copyOnWrite();
+      instance.setFileResumeRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    public Builder setFileResumeRequest(
+        dev.tandem.protocol.v1.FileResumeRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFileResumeRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    public Builder mergeFileResumeRequest(dev.tandem.protocol.v1.FileResumeRequest value) {
+      copyOnWrite();
+      instance.mergeFileResumeRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];</code>
+     */
+    public Builder clearFileResumeRequest() {
+      copyOnWrite();
+      instance.clearFileResumeRequest();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -2490,12 +3248,20 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.NotificationDismiss.class,
             dev.tandem.protocol.v1.NotificationActionResult.class,
             dev.tandem.protocol.v1.ClipboardText.class,
+            dev.tandem.protocol.v1.FileOffer.class,
+            dev.tandem.protocol.v1.FileAccept.class,
+            dev.tandem.protocol.v1.FileReject.class,
+            dev.tandem.protocol.v1.FileChunk.class,
+            dev.tandem.protocol.v1.FileComplete.class,
+            dev.tandem.protocol.v1.FileCancel.class,
+            dev.tandem.protocol.v1.FileResumeRequest.class,
           };
           java.lang.String info =
-              "\u0000\u0015\u0001\u0000\u0001(\u0015\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
+              "\u0000\u001c\u0001\u0000\u00018\u001c\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003" +
               "\u0003\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000" +
               "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
-              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u0000";
+              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
+              "\u00007<\u00008<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {
