@@ -66,6 +66,7 @@ private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
 fun main(args: Array<String>) {
     HarnessConscryptProvider.ensureInstalled()
     val identityFile = File(argValue(args, "--identity-file") ?: DEFAULT_IDENTITY_FILE)
+    val displayName = argValue(args, "--display-name") ?: HarnessDeviceInfoProvider.DEFAULT_DISPLAY_NAME
     val dispatcher = Dispatchers.IO
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
@@ -75,7 +76,8 @@ fun main(args: Array<String>) {
     printIdentitySpkiFingerprint(keyManager)
 
     val knownPeerStore = HarnessKnownPeerStore(identityFile)
-    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore)
+    val deviceInfoProvider = HarnessDeviceInfoProvider(displayName)
+    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore, deviceInfoProvider)
     try {
         while (true) {
             val line = readlnOrNull() ?: break
@@ -127,6 +129,7 @@ private class HarnessCli(
     private val dispatcher: CoroutineDispatcher,
     private val scope: CoroutineScope,
     private val knownPeerStore: HarnessKnownPeerStore,
+    private val deviceInfoProvider: DeviceInfoProvider,
 ) {
     private var session: TandemSession? = null
     private var connectedPeerFingerprintHex: String? = null
@@ -323,7 +326,7 @@ private class HarnessCli(
                         connector,
                         trustCommitter,
                         result.invite,
-                        HarnessDeviceInfoProvider,
+                        deviceInfoProvider,
                     )
                 pairing = machine
                 scope.launch { machine.state.collect { println("EVENT ${harnessEventLine(it)}") } }
@@ -646,9 +649,21 @@ private class HarnessCli(
     }
 }
 
-/** Fixed, non-hardware-identifying device info for this JVM harness process (E14-06). */
-private object HarnessDeviceInfoProvider : DeviceInfoProvider {
-    override fun displayName(): String = "JVM Harness Client"
+/**
+ * Non-hardware-identifying device info for this JVM harness process (E14-06). `displayName`
+ * defaults to [DEFAULT_DISPLAY_NAME] but is overridable via `--display-name` (E15-07): the canary
+ * procedure's Phase 1 step feeds a fresh `TANDEM-CANARY-<random>` string through this same
+ * production [DeviceInfoProvider] so it rides `PairRequest.deviceInfo.displayName` during a real
+ * pairing -- no test-only wire payload or debug channel exists for canary injection.
+ */
+private class HarnessDeviceInfoProvider(
+    private val displayName: String,
+) : DeviceInfoProvider {
+    override fun displayName(): String = displayName
 
     override fun model(): String = "jvm-client"
+
+    companion object {
+        const val DEFAULT_DISPLAY_NAME = "JVM Harness Client"
+    }
 }
