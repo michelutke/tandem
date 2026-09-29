@@ -593,6 +593,186 @@ public object EnvelopeKt {
     public fun hasClipboardText(): kotlin.Boolean {
       return _builder.hasClipboardText()
     }
+
+    /**
+     * ```
+     * files.proto (E40-01) — FILES channel.
+     * ```
+     *
+     * `.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];`
+     */
+    public var fileOffer: dev.tandem.protocol.v1.FileOffer
+      @kotlin.jvm.JvmName("getFileOffer")
+        get() = _builder.fileOffer
+      @kotlin.jvm.JvmName("setFileOffer")
+        set(value) {
+        _builder.fileOffer = value
+      }
+    /**
+     * ```
+     * files.proto (E40-01) — FILES channel.
+     * ```
+     *
+     * `.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];`
+     */
+    public fun clearFileOffer() {
+      _builder.clearFileOffer()
+    }
+    /**
+     * ```
+     * files.proto (E40-01) — FILES channel.
+     * ```
+     *
+     * `.tandem.v1.FileOffer file_offer = 50 [json_name = "fileOffer"];`
+     * @return Whether the fileOffer field is set.
+     */
+    public fun hasFileOffer(): kotlin.Boolean {
+      return _builder.hasFileOffer()
+    }
+
+    /**
+     * `.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];`
+     */
+    public var fileAccept: dev.tandem.protocol.v1.FileAccept
+      @kotlin.jvm.JvmName("getFileAccept")
+        get() = _builder.fileAccept
+      @kotlin.jvm.JvmName("setFileAccept")
+        set(value) {
+        _builder.fileAccept = value
+      }
+    /**
+     * `.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];`
+     */
+    public fun clearFileAccept() {
+      _builder.clearFileAccept()
+    }
+    /**
+     * `.tandem.v1.FileAccept file_accept = 51 [json_name = "fileAccept"];`
+     * @return Whether the fileAccept field is set.
+     */
+    public fun hasFileAccept(): kotlin.Boolean {
+      return _builder.hasFileAccept()
+    }
+
+    /**
+     * `.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];`
+     */
+    public var fileReject: dev.tandem.protocol.v1.FileReject
+      @kotlin.jvm.JvmName("getFileReject")
+        get() = _builder.fileReject
+      @kotlin.jvm.JvmName("setFileReject")
+        set(value) {
+        _builder.fileReject = value
+      }
+    /**
+     * `.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];`
+     */
+    public fun clearFileReject() {
+      _builder.clearFileReject()
+    }
+    /**
+     * `.tandem.v1.FileReject file_reject = 52 [json_name = "fileReject"];`
+     * @return Whether the fileReject field is set.
+     */
+    public fun hasFileReject(): kotlin.Boolean {
+      return _builder.hasFileReject()
+    }
+
+    /**
+     * `.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];`
+     */
+    public var fileChunk: dev.tandem.protocol.v1.FileChunk
+      @kotlin.jvm.JvmName("getFileChunk")
+        get() = _builder.fileChunk
+      @kotlin.jvm.JvmName("setFileChunk")
+        set(value) {
+        _builder.fileChunk = value
+      }
+    /**
+     * `.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];`
+     */
+    public fun clearFileChunk() {
+      _builder.clearFileChunk()
+    }
+    /**
+     * `.tandem.v1.FileChunk file_chunk = 53 [json_name = "fileChunk"];`
+     * @return Whether the fileChunk field is set.
+     */
+    public fun hasFileChunk(): kotlin.Boolean {
+      return _builder.hasFileChunk()
+    }
+
+    /**
+     * `.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];`
+     */
+    public var fileComplete: dev.tandem.protocol.v1.FileComplete
+      @kotlin.jvm.JvmName("getFileComplete")
+        get() = _builder.fileComplete
+      @kotlin.jvm.JvmName("setFileComplete")
+        set(value) {
+        _builder.fileComplete = value
+      }
+    /**
+     * `.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];`
+     */
+    public fun clearFileComplete() {
+      _builder.clearFileComplete()
+    }
+    /**
+     * `.tandem.v1.FileComplete file_complete = 54 [json_name = "fileComplete"];`
+     * @return Whether the fileComplete field is set.
+     */
+    public fun hasFileComplete(): kotlin.Boolean {
+      return _builder.hasFileComplete()
+    }
+
+    /**
+     * `.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];`
+     */
+    public var fileCancel: dev.tandem.protocol.v1.FileCancel
+      @kotlin.jvm.JvmName("getFileCancel")
+        get() = _builder.fileCancel
+      @kotlin.jvm.JvmName("setFileCancel")
+        set(value) {
+        _builder.fileCancel = value
+      }
+    /**
+     * `.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];`
+     */
+    public fun clearFileCancel() {
+      _builder.clearFileCancel()
+    }
+    /**
+     * `.tandem.v1.FileCancel file_cancel = 55 [json_name = "fileCancel"];`
+     * @return Whether the fileCancel field is set.
+     */
+    public fun hasFileCancel(): kotlin.Boolean {
+      return _builder.hasFileCancel()
+    }
+
+    /**
+     * `.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];`
+     */
+    public var fileResumeRequest: dev.tandem.protocol.v1.FileResumeRequest
+      @kotlin.jvm.JvmName("getFileResumeRequest")
+        get() = _builder.fileResumeRequest
+      @kotlin.jvm.JvmName("setFileResumeRequest")
+        set(value) {
+        _builder.fileResumeRequest = value
+      }
+    /**
+     * `.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];`
+     */
+    public fun clearFileResumeRequest() {
+      _builder.clearFileResumeRequest()
+    }
+    /**
+     * `.tandem.v1.FileResumeRequest file_resume_request = 56 [json_name = "fileResumeRequest"];`
+     * @return Whether the fileResumeRequest field is set.
+     */
+    public fun hasFileResumeRequest(): kotlin.Boolean {
+      return _builder.hasFileResumeRequest()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -659,4 +839,25 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.notificationActionResultOrNu
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.clipboardTextOrNull: dev.tandem.protocol.v1.ClipboardText?
   get() = if (hasClipboardText()) getClipboardText() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileOfferOrNull: dev.tandem.protocol.v1.FileOffer?
+  get() = if (hasFileOffer()) getFileOffer() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileAcceptOrNull: dev.tandem.protocol.v1.FileAccept?
+  get() = if (hasFileAccept()) getFileAccept() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileRejectOrNull: dev.tandem.protocol.v1.FileReject?
+  get() = if (hasFileReject()) getFileReject() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileChunkOrNull: dev.tandem.protocol.v1.FileChunk?
+  get() = if (hasFileChunk()) getFileChunk() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileCompleteOrNull: dev.tandem.protocol.v1.FileComplete?
+  get() = if (hasFileComplete()) getFileComplete() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileCancelOrNull: dev.tandem.protocol.v1.FileCancel?
+  get() = if (hasFileCancel()) getFileCancel() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.fileResumeRequestOrNull: dev.tandem.protocol.v1.FileResumeRequest?
+  get() = if (hasFileResumeRequest()) getFileResumeRequest() else null
 

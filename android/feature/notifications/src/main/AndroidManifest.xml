@@ -1,3 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- E30-04: SystemInstalledAppsSource lists apps with a launcher entry for the per-app
+         notification filter screen (Android 11+ package-visibility rules, QueryPermissionsNeeded). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
 </manifest>

@@ -11,6 +11,7 @@ package tandem.v1;
 import "tandem/v1/channel.proto";
 import "tandem/v1/clipboard.proto";
 import "tandem/v1/control.proto";
+import "tandem/v1/files.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
 import "tandem/v1/status.proto";
@@ -46,7 +47,9 @@ message Envelope {
   reserved 35 to 39;   // notify.proto (E30-01): future NOTIFY channel extensions
   // 40-49: clipboard.proto (E31-01). 40 is ClipboardText; 41-49 held for future extensions.
   reserved 41 to 49;   // clipboard.proto (E31-01): future CLIPBOARD channel extensions
-  reserved 50 to 59;   // files.proto (E40-01) — FILES channel
+  // 50-59: files.proto (E40-01). 50-56 are FileOffer/FileAccept/FileReject/FileChunk/
+  // FileComplete/FileCancel/FileResumeRequest; 57-59 held for future extensions.
+  reserved 57 to 59;   // files.proto (E40-01): future FILES channel extensions
   reserved 60 to 69;   // photos.proto (E41-01) — FILES channel (no PHOTOS channel, E01-04 decision)
   reserved 70 to 79;   // sms.proto (E50-01) — SMS channel
   reserved 80 to 89;   // contacts.proto (E51-01) — CONTACTS channel
@@ -83,5 +86,14 @@ message Envelope {
 
     // clipboard.proto (E31-01) — CLIPBOARD channel.
     ClipboardText clipboard_text = 40;
+
+    // files.proto (E40-01) — FILES channel.
+    FileOffer file_offer = 50;
+    FileAccept file_accept = 51;
+    FileReject file_reject = 52;
+    FileChunk file_chunk = 53;
+    FileComplete file_complete = 54;
+    FileCancel file_cancel = 55;
+    FileResumeRequest file_resume_request = 56;
   }
 }

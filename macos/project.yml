@@ -26,6 +26,10 @@ packages:
   # Devices screen can actually revoke a phone in production.
   TandemDevices:
     path: Packages/TandemDevices
+  # E30-14: NotificationPresentationCoordinator/startNotificationPresentationReader, used by the
+  # DEBUG-only notification-latency loopback harness hooks.
+  FeatureNotifications:
+    path: Packages/FeatureNotifications
 
 targets:
   TandemApp:
@@ -63,6 +67,7 @@ targets:
       - package: TandemProtocol
       - package: TandemPairing
       - package: TandemDevices
+      - package: FeatureNotifications
 
   TandemShare:
     type: app-extension

@@ -106,7 +106,11 @@ class CompanionReceiver : BroadcastReceiver() {
     // NotificationManagerService sheds (silently drops, not delays) notification *updates* to the
     // same id/tag above ~10/sec per package (Android N+); requesting a faster pace than that would
     // make some updates never land no matter how long a caller waits, so MIN_STEP_MS floors the
-    // pace at the platform-recommended safe rate instead of honoring an unsafe `intervalMs`.
+    // pace at the platform-recommended safe rate instead of honoring an unsafe `intervalMs`. Even
+    // at that paced rate, a loaded CI emulator can still shed an occasional update (observed:
+    // several updates missing from a 50-update burst under concurrent CI load) -- so each update is
+    // read back via [activeNotificationText] and re-`notify()`'d (with backoff) until it is
+    // confirmed to have actually landed, rather than assuming a single `notify()` call is enough.
     private fun postBurst(
         context: Context,
         intent: Intent,
@@ -120,15 +124,7 @@ class CompanionReceiver : BroadcastReceiver() {
         Thread {
             try {
                 for (update in 1..count) {
-                    post(
-                        context,
-                        key,
-                        Notification
-                            .Builder(context, CompanionContract.CHANNEL_ID)
-                            .setSmallIcon(android.R.drawable.stat_notify_chat)
-                            .setContentTitle("Companion")
-                            .setContentText("burst $update/$count"),
-                    )
+                    postBurstStepUntilConfirmed(context, key, update, count)
                     if (update < count && stepMs > 0) Thread.sleep(stepMs)
                 }
             } finally {
@@ -137,10 +133,51 @@ class CompanionReceiver : BroadcastReceiver() {
         }.start()
     }
 
+    private fun postBurstStepUntilConfirmed(
+        context: Context,
+        key: String,
+        update: Int,
+        count: Int,
+    ) {
+        val expectedText = "burst $update/$count"
+        repeat(BURST_STEP_MAX_ATTEMPTS) {
+            post(
+                context,
+                key,
+                Notification
+                    .Builder(context, CompanionContract.CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.stat_notify_chat)
+                    .setContentTitle("Companion")
+                    .setContentText(expectedText),
+            )
+            Thread.sleep(BURST_STEP_CONFIRM_POLL_MS)
+            if (activeNotificationText(context, key) == expectedText) return
+        }
+    }
+
+    private fun activeNotificationText(
+        context: Context,
+        key: String,
+    ): String? =
+        context
+            .getSystemService(NotificationManager::class.java)
+            .activeNotifications
+            .firstOrNull { it.tag == key }
+            ?.notification
+            ?.extras
+            ?.getCharSequence(Notification.EXTRA_TEXT)
+            ?.toString()
+
     private companion object {
         // NotificationManagerService's ~10/sec shedding threshold (Android N+) is measured with
         // enough slack/jitter that even a steady 5/sec (200ms) pace occasionally sheds one or two
         // updates on a loaded emulator; ~3/sec leaves real margin.
         const val MIN_STEP_MS = 500L
+
+        // How long to wait after a notify() call before reading the notification back to confirm
+        // it landed, and how many times to retry a step before giving up (the awaiting test itself
+        // has a much longer overall timeout and will report the true final count either way).
+        const val BURST_STEP_CONFIRM_POLL_MS = 100L
+        const val BURST_STEP_MAX_ATTEMPTS = 20
     }
 }
