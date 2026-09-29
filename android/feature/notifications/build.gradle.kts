@@ -19,7 +19,8 @@ dependencies {
     implementation(project(":core:protocol"))
     // NotificationSink (E30-16) sends over the real TandemSession seam.
     implementation(project(":core:transport"))
-    // SettingsStore (E13-04): PerAppNotificationFilter's DataStore-backed overrides (E30-04).
+    // SettingsStore (E13-04): PerAppNotificationFilter's (E30-04) and IconSender's (E30-05)
+    // DataStore-backed overrides/sent-icon records.
     implementation(project(":core:storage"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.datastore.preferences.core)

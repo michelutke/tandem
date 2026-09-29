@@ -1,0 +1,219 @@
+{
+  "$schema": "./schema.json",
+  "category": "files-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "files-offer-valid",
+      "description": "A FileOffer decoding to identical fields on both codecs (docs/protocol/SPEC.md #files-channel \"Handshake\").",
+      "input": {
+        "kind": "fileOffer",
+        "messageHex": "0a09786665722d3030303112127661636174696f6e2d70686f746f2e6a70671880808002220a696d6167652f6a7065672a20fb8193629b1c799f47c51671d609e35e066e0822988251fa0f9a1a0e2145dcb4"
+      },
+      "expected": {
+        "id": "xfer-0001",
+        "name": "vacation-photo.jpg",
+        "size": 4194304,
+        "mime": "image/jpeg",
+        "sha256Hex": "fb8193629b1c799f47c51671d609e35e066e0822988251fa0f9a1a0e2145dcb4"
+      }
+    },
+    {
+      "id": "files-accept-valid",
+      "description": "A FileAccept for the offer above, decoding to identical fields on both codecs.",
+      "input": {
+        "kind": "fileAccept",
+        "messageHex": "0a09786665722d30303031"
+      },
+      "expected": {
+        "id": "xfer-0001"
+      }
+    },
+    {
+      "id": "files-chunk-valid",
+      "description": "A FileChunk within the 262,144-byte cap (docs/protocol/SPEC.md #files-channel \"Chunking\"), decoding to identical fields on both codecs.",
+      "input": {
+        "kind": "fileChunk",
+        "messageHex": "0a09786665722d30303031100318808030228008000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+      },
+      "expected": {
+        "id": "xfer-0001",
+        "seq": 3,
+        "offset": 786432,
+        "dataHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+        "dataByteLength": 1024
+      }
+    },
+    {
+      "id": "files-resume-request-valid",
+      "description": "A FileResumeRequest whose from_offset decodes exactly (docs/protocol/SPEC.md #files-channel \"Resume\").",
+      "input": {
+        "kind": "fileResumeRequest",
+        "messageHex": "0a09786665722d3030303210808050"
+      },
+      "expected": {
+        "id": "xfer-0002",
+        "fromOffset": 1310720
+      }
+    },
+    {
+      "id": "files-chunk-262145-byte-payload-oversized",
+      "description": "FileChunk.data one byte past the 262,144-byte (256 KiB) cap (docs/protocol/SPEC.md #files-channel \"Chunking\"): MUST be rejected as oversized by both codecs, not truncated.",
+      "input": {
+        "kind": "fileChunk",
+        "id": "xfer-0003",
+        "seq": 0,
+        "offset": 0,
+        "dataRecipe": {
+          "fillByte": "61",
+          "fillLength": 262145
+        }
+      },
+      "expectedError": "fileChunkPayloadTooLarge"
+    },
+    {
+      "id": "files-reject-declined",
+      "description": "A FileReject with reason TRANSFER_REASON_DECLINED, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30311001"
+      },
+      "expected": {
+        "id": "xfer-reject-01",
+        "reason": "TRANSFER_REASON_DECLINED"
+      }
+    },
+    {
+      "id": "files-reject-timeout",
+      "description": "A FileReject with reason TRANSFER_REASON_TIMEOUT, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30321002"
+      },
+      "expected": {
+        "id": "xfer-reject-02",
+        "reason": "TRANSFER_REASON_TIMEOUT"
+      }
+    },
+    {
+      "id": "files-reject-insufficient-space",
+      "description": "A FileReject with reason TRANSFER_REASON_INSUFFICIENT_SPACE, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30331003"
+      },
+      "expected": {
+        "id": "xfer-reject-03",
+        "reason": "TRANSFER_REASON_INSUFFICIENT_SPACE"
+      }
+    },
+    {
+      "id": "files-reject-invalid-name",
+      "description": "A FileReject with reason TRANSFER_REASON_INVALID_NAME, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30341004"
+      },
+      "expected": {
+        "id": "xfer-reject-04",
+        "reason": "TRANSFER_REASON_INVALID_NAME"
+      }
+    },
+    {
+      "id": "files-reject-hash-mismatch",
+      "description": "A FileReject with reason TRANSFER_REASON_HASH_MISMATCH, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30351005"
+      },
+      "expected": {
+        "id": "xfer-reject-05",
+        "reason": "TRANSFER_REASON_HASH_MISMATCH"
+      }
+    },
+    {
+      "id": "files-reject-protocol-violation",
+      "description": "A FileReject with reason TRANSFER_REASON_PROTOCOL_VIOLATION, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30361006"
+      },
+      "expected": {
+        "id": "xfer-reject-06",
+        "reason": "TRANSFER_REASON_PROTOCOL_VIOLATION"
+      }
+    },
+    {
+      "id": "files-reject-user-cancelled",
+      "description": "A FileReject with reason TRANSFER_REASON_USER_CANCELLED, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30371007"
+      },
+      "expected": {
+        "id": "xfer-reject-07",
+        "reason": "TRANSFER_REASON_USER_CANCELLED"
+      }
+    },
+    {
+      "id": "files-reject-unknown-transfer",
+      "description": "A FileReject with reason TRANSFER_REASON_UNKNOWN_TRANSFER, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30381008"
+      },
+      "expected": {
+        "id": "xfer-reject-08",
+        "reason": "TRANSFER_REASON_UNKNOWN_TRANSFER"
+      }
+    },
+    {
+      "id": "files-reject-source-unavailable",
+      "description": "A FileReject with reason TRANSFER_REASON_SOURCE_UNAVAILABLE, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d30391009"
+      },
+      "expected": {
+        "id": "xfer-reject-09",
+        "reason": "TRANSFER_REASON_SOURCE_UNAVAILABLE"
+      }
+    },
+    {
+      "id": "files-reject-io-error",
+      "description": "A FileReject with reason TRANSFER_REASON_IO_ERROR, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d3130100a"
+      },
+      "expected": {
+        "id": "xfer-reject-10",
+        "reason": "TRANSFER_REASON_IO_ERROR"
+      }
+    },
+    {
+      "id": "files-reject-busy",
+      "description": "A FileReject with reason TRANSFER_REASON_BUSY, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d3131100b"
+      },
+      "expected": {
+        "id": "xfer-reject-11",
+        "reason": "TRANSFER_REASON_BUSY"
+      }
+    },
+    {
+      "id": "files-reject-too-large",
+      "description": "A FileReject with reason TRANSFER_REASON_TOO_LARGE, round-tripping identically on both codecs (docs/protocol/SPEC.md #files-channel).",
+      "input": {
+        "kind": "fileReject",
+        "messageHex": "0a0e786665722d72656a6563742d3132100c"
+      },
+      "expected": {
+        "id": "xfer-reject-12",
+        "reason": "TRANSFER_REASON_TOO_LARGE"
+      }
+    }
+  ]
+}
