@@ -20,17 +20,24 @@ import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
+import dev.tandem.feature.status.StatusPublisher
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
+import dev.tandem.protocol.v1.NetworkType
 import dev.tandem.protocol.v1.deviceInfo
+import dev.tandem.protocol.v1.deviceStatus
+import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.pairRequest
 import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -133,6 +140,19 @@ private class HarnessCli(
     private var pairing: PairingStateMachine? = null
 
     /**
+     * E23-08 status/ring wiring, (re)created on a successful [connect] and torn down on
+     * [disconnect]/[exit]: [statusFlow] feeds the real [StatusPublisher] (E23-03) so the `STATUS`
+     * command exercises its actual throttle/coalescing logic against [session], and
+     * [ringWatchJob] drives [ringReactor] (E23-05/E23-06/E23-07's documented behavior, see that
+     * class's own kdoc for why it isn't the real `RingController`) off every `Ring`/`RingStop`
+     * this session's STATUS channel actually receives.
+     */
+    private var statusFlow: MutableSharedFlow<DeviceStatus>? = null
+    private var statusPublisher: StatusPublisher? = null
+    private var ringReactor: HarnessRingReactor? = null
+    private var ringWatchJob: Job? = null
+
+    /**
      * State for the `RAWOPEN`/`RAWSEND`/`RAWSENDPROOF`/`RAWREVOKE`/`RAWCLOSE` commands (E15-09
      * mitm-lab pairing-abuse scenarios): a *separate* low-level pairing-candidate connection from
      * [session]/[pairing] above, deliberately bypassing [PairingStateMachine]/[PairRequestBuilder]
@@ -165,6 +185,8 @@ private class HarnessCli(
             "CONFIRM" -> confirm()
             "UNPAIR" -> unpair(rest)
             "TRUSTED" -> trusted(rest)
+            "STATUS" -> status(rest)
+            "RINGSTATE" -> ringState()
             "DISCONNECT" -> disconnect()
             "RAWOPEN" -> rawOpen(rest)
             "RAWSEND" -> rawSend(rest)
@@ -183,6 +205,107 @@ private class HarnessCli(
     fun shutdown() {
         session?.close()
         pairing?.close()
+        stopStatusAndRingWiring()
+    }
+
+    /**
+     * Builds this connection's [statusFlow]/[statusPublisher]/[ringReactor]/[ringWatchJob]
+     * (E23-08), replacing whatever a previous connection left wired up.
+     */
+    private fun startStatusAndRingWiring(activeSession: TandemSession) {
+        stopStatusAndRingWiring()
+        val flow = MutableSharedFlow<DeviceStatus>(extraBufferCapacity = STATUS_FLOW_BUFFER)
+        statusFlow = flow
+        statusPublisher = StatusPublisher(flow, activeSession, Clock.systemUTC(), dispatcher)
+        val reactor = HarnessRingReactor()
+        ringReactor = reactor
+        ringWatchJob =
+            scope.launch {
+                activeSession.receive(Channel.CHANNEL_STATUS).collect { envelope ->
+                    when (envelope.payloadCase) {
+                        Envelope.PayloadCase.RING -> {
+                            if (reactor.ring()) {
+                                println("EVENT RING_STARTED ${reactor.startCount}")
+                            } else {
+                                println("EVENT RING_SUPPRESSED")
+                            }
+                        }
+                        Envelope.PayloadCase.RING_STOP -> {
+                            if (reactor.ringStopReceived()) {
+                                println("EVENT RING_STOPPED ${envelope.ringStop.origin}")
+                            }
+                        }
+                        else -> Unit
+                    }
+                }
+            }
+    }
+
+    private fun stopStatusAndRingWiring() {
+        statusPublisher?.close()
+        statusPublisher = null
+        statusFlow = null
+        ringWatchJob?.cancel()
+        ringWatchJob = null
+        ringReactor = null
+    }
+
+    /**
+     * `STATUS <batteryLevel> <isCharging:0|1> <networkType> <signalLevel>` (E23-08): pushes one
+     * `DeviceStatus` value change into the real [StatusPublisher]'s input flow -- exactly like a
+     * real battery/network/signal observer emitting a new value (E23-02) -- so the throttle
+     * decision of whether/when to actually send it onto the wire is the real E23-03 logic, not
+     * this CLI's own. `networkType` is one of `WIFI`, `CELLULAR`, `OFFLINE`, `UNSPECIFIED`
+     * (`NetworkType`'s wire names without the `NETWORK_TYPE_` prefix).
+     */
+    private fun status(argsLine: String) {
+        val flow = statusFlow
+        if (flow == null) {
+            println("ERROR not connected")
+            return
+        }
+        val args = argsLine.split(" ").filter { it.isNotEmpty() }
+        if (args.size != STATUS_ARG_COUNT) {
+            println("ERROR usage: STATUS <batteryLevel> <isCharging:0|1> <networkType> <signalLevel>")
+            return
+        }
+        val (batteryArg, chargingArg, networkArg, signalArg) = args
+        val battery = batteryArg.toIntOrNull()
+        val signal = signalArg.toIntOrNull()
+        val networkType =
+            when (networkArg.uppercase()) {
+                "WIFI" -> NetworkType.NETWORK_TYPE_WIFI
+                "CELLULAR" -> NetworkType.NETWORK_TYPE_CELLULAR
+                "OFFLINE" -> NetworkType.NETWORK_TYPE_OFFLINE
+                "UNSPECIFIED" -> NetworkType.NETWORK_TYPE_UNSPECIFIED
+                else -> null
+            }
+        if (battery == null || signal == null || networkType == null || (chargingArg != "0" && chargingArg != "1")) {
+            println("ERROR invalid STATUS arguments")
+            return
+        }
+        val value =
+            deviceStatus {
+                batteryLevel = battery
+                isCharging = chargingArg == "1"
+                this.networkType = networkType
+                signalLevel = signal
+            }
+        if (flow.tryEmit(value)) {
+            println("OK STATUS_QUEUED")
+        } else {
+            println("ERROR STATUS_QUEUE_FULL")
+        }
+    }
+
+    /** `RINGSTATE` (E23-08): the harness's current [HarnessRingReactor] counters, for scenario assertions. */
+    private fun ringState() {
+        val reactor = ringReactor
+        if (reactor == null) {
+            println("ERROR not connected")
+            return
+        }
+        println("OK RINGING=${reactor.isCurrentlyRinging} STARTS=${reactor.startCount} STOPS=${reactor.stopCount}")
     }
 
     private fun connect(argsLine: String) {
@@ -223,6 +346,7 @@ private class HarnessCli(
                         connectedPeerFingerprintHex = fingerprintHex
                         knownPeerStore.recordPinned(fingerprintHex)
                         watchForRevoke(newSession, fingerprint)
+                        startStatusAndRingWiring(newSession)
                         println("OK CONNECTED")
                     }
                     is ConnectionState.Failed -> println("ERROR ${classify(fingerprintHex)} ${outcome.reason}")
@@ -254,11 +378,29 @@ private class HarnessCli(
     ) {
         scope.launch {
             activeSession.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
-                if (envelope.payloadCase == Envelope.PayloadCase.REVOKE) {
-                    val handler = RevokeHandler(activeSession, peer) { fp -> locallyRevoked += hexOf(fp) }
-                    if (handler.handleRevoke()) {
-                        println("EVENT REVOKED ${hexOf(peer)}")
+                when (envelope.payloadCase) {
+                    Envelope.PayloadCase.REVOKE -> {
+                        val handler = RevokeHandler(activeSession, peer) { fp -> locallyRevoked += hexOf(fp) }
+                        if (handler.handleRevoke()) {
+                            println("EVENT REVOKED ${hexOf(peer)}")
+                        }
                     }
+                    // E20-15 (Android heartbeat responder) isn't implemented anywhere in this
+                    // repo yet (no HeartbeatResponder/PeerDead class under android/core or
+                    // android/feature) -- without this, the real Mac's own HeartbeatController
+                    // (macos/Packages/TandemTransport/.../HeartbeatController.swift,
+                    // deadPeerThreshold = 45s) closes any connection that sits idle across one of
+                    // E23-08's long throttle-window waits, confirmed by reproducing it directly
+                    // (a `MultiplexerClosedException: ... PeerClosed` after ~50s of app-level
+                    // silence). Answering every Heartbeat the Mac's own 15s idle-send timer
+                    // produces is the minimum slice of E20-15's own acceptance criterion #1 this
+                    // harness needs to keep a long-idle session alive; CHANNEL_CONTROL already has
+                    // exactly one consumer (this collector), so it lives here rather than as a
+                    // second, competing collector on the same channel.
+                    Envelope.PayloadCase.HEARTBEAT -> {
+                        runCatching { activeSession.send(Channel.CHANNEL_CONTROL) { heartbeat = heartbeat {} } }
+                    }
+                    else -> Unit
                 }
             }
         }
@@ -363,6 +505,7 @@ private class HarnessCli(
         session?.close()
         session = null
         connectedPeerFingerprintHex = null
+        stopStatusAndRingWiring()
         println("OK DISCONNECTED")
     }
 
@@ -643,6 +786,8 @@ private class HarnessCli(
 
     private companion object {
         const val CONNECT_ARG_COUNT = 3
+        const val STATUS_ARG_COUNT = 4
+        const val STATUS_FLOW_BUFFER = 64
     }
 }
 
