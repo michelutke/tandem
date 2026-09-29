@@ -6,14 +6,22 @@ public struct NumberedActionRow: View {
     private let index: Int
     private let title: String
     private let trailingMeta: String?
+    private let identifier: String?
     private let action: () -> Void
 
     @State private var isHovering = false
 
-    public init(index: Int, title: String, trailingMeta: String? = nil, action: @escaping () -> Void) {
+    public init(
+        index: Int,
+        title: String,
+        trailingMeta: String? = nil,
+        identifier: String? = nil,
+        action: @escaping () -> Void
+    ) {
         self.index = index
         self.title = title
         self.trailingMeta = trailingMeta
+        self.identifier = identifier
         self.action = action
     }
 
@@ -40,6 +48,7 @@ public struct NumberedActionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .accessibilityIdentifier(identifier ?? title)
     }
 }
 
