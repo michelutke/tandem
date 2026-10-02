@@ -187,3 +187,22 @@ ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-10-cert-abuse/scenarios --timeo
 ```
 
 All six scenarios pass in well under a minute each (no pairing-window expiry wait, unlike E15-09).
+
+## E15-20: pre-auth DoS and timeout scenarios
+
+`tools/mitm-lab/e15-20-preauth-dos/` -- five scenarios against the real Mac app (SPEC.md §10, E01-22):
+stalled TCP (closed <= 11 s), TLS done without `VersionHello` (closed <= 6 s after TLS, observed as a
+close -- no pre-auth close code exists on the wire), a 20-connection single-source flood (<= 2 open per
+source, paired peer from another source Ready <= 5 s), a 10-failed-handshake burst (source refused 60 s,
+other source Ready), and three idle pairing candidates exhausting the window (later correct
+`PairRequest` gets no `PairAccepted`).
+
+Distinct sources are loopback aliases 127.0.0.2..127.0.0.4. macOS only configures 127.0.0.1, so each
+scenario adds missing aliases with `sudo -n ifconfig lo0 alias` (removed at teardown) and exits 1 with
+the exact command to run if passwordless sudo is unavailable. `lib/preauth_probe.go` (built via `go
+build`) supplies source-bound sockets.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-20-preauth-dos/scenarios --timeout 300
+ruby tools/mitm-lab/test/e15_20_scenarios_test.rb   # structure checks only
+```
