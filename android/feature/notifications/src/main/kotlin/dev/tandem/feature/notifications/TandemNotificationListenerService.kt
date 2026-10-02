@@ -52,12 +52,16 @@ import java.util.concurrent.ConcurrentHashMap
  * with -- a filtered notification is never mapped, so its app's icon is never extracted or sent
  * either (there would be nothing on the Mac to attach it to). Null by default: like [eventSink],
  * the real [IconSender] is wired in by a composition root, out of this issue's scope.
+ *
+ * E30-11: [showSecretContent] is the same seam idiom, defaulting to opted-out; a composition root
+ * wires it to [SecretNotificationPolicy.showContent] so a toggle applies to the next notification.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
     internal var notificationFilter: (StatusBarNotification, String) -> Boolean = NotificationFilter::shouldForward
     internal var iconSender: IconSender? = null
+    internal var showSecretContent: () -> Boolean = { false }
 
     private val trackedNotifications = ConcurrentHashMap<String, StatusBarNotification>()
 
@@ -65,7 +69,8 @@ class TandemNotificationListenerService : NotificationListenerService() {
         if (!notificationFilter(sbn, packageName)) return
         trackedNotifications[sbn.key] = sbn
         val versionCode = appVersionCode(sbn.packageName)
-        eventSink.onNotificationPosted(NotificationMapper.toPosted(sbn, versionCode))
+        val posted = NotificationMapper.toPosted(sbn, versionCode, appLabel(sbn.packageName), showSecretContent())
+        eventSink.onNotificationPosted(posted)
         appIcon(sbn.packageName)?.let { icon ->
             iconSender?.onNotificationPosted(sbn.packageName, versionCode, icon, eventSink::onIconData)
         }
@@ -88,6 +93,13 @@ class TandemNotificationListenerService : NotificationListenerService() {
             packageManager.getPackageInfo(packageName, 0).longVersionCode
         } catch (_: PackageManager.NameNotFoundException) {
             0L
+        }
+
+    private fun appLabel(packageName: String): String =
+        try {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+        } catch (_: PackageManager.NameNotFoundException) {
+            packageName
         }
 
     private fun appIcon(packageName: String): Drawable? =

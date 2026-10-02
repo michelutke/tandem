@@ -6,6 +6,7 @@ import android.os.Parcelable
 import android.service.notification.StatusBarNotification
 import dev.tandem.protocol.v1.NotificationDismiss
 import dev.tandem.protocol.v1.NotificationPosted
+import dev.tandem.protocol.v1.Visibility
 import dev.tandem.protocol.v1.notificationDismiss
 import dev.tandem.protocol.v1.notificationPosted
 
@@ -19,13 +20,28 @@ object NotificationMapper {
     /**
      * [appVersionCode] is resolved by the caller (a `PackageManager` lookup on
      * [StatusBarNotification.getPackageName]) rather than looked up here, so this function stays
-     * a plain mapping over its arguments.
+     * a plain mapping over its arguments, as are [appName] and [showSecretContent] (E30-11): a
+     * `VISIBILITY_SECRET` notification forwards only [appName] as its title, empty text and no
+     * messaging-style senders unless [showSecretContent] is true.
      */
     fun toPosted(
         sbn: StatusBarNotification,
         appVersionCode: Long,
-    ): NotificationPosted =
-        notificationPosted {
+        appName: String = "",
+        showSecretContent: Boolean = false,
+    ): NotificationPosted {
+        val visibility = sbn.notification.visibility.toProtoVisibility()
+        if (visibility == Visibility.VISIBILITY_SECRET && !showSecretContent) {
+            return notificationPosted {
+                key = sbn.key
+                packageName = sbn.packageName
+                this.appVersionCode = appVersionCode
+                title = appName
+                text = ""
+                this.visibility = visibility
+            }
+        }
+        return notificationPosted {
             // sbn.key is the system-assigned key for this notification, stable across updates of
             // the same notification (same pkg/id/tag/user) -- matches NotificationPosted.key's
             // "phone-assigned, reused by updates" semantics.
@@ -53,6 +69,15 @@ object NotificationMapper {
                     messages.joinToString("\n") { it.text }
                 }
             messagingStyleSenders.addAll(messages.map { it.sender })
+            this.visibility = visibility
+        }
+    }
+
+    private fun Int.toProtoVisibility(): Visibility =
+        when (this) {
+            Notification.VISIBILITY_PUBLIC -> Visibility.VISIBILITY_PUBLIC
+            Notification.VISIBILITY_SECRET -> Visibility.VISIBILITY_SECRET
+            else -> Visibility.VISIBILITY_PRIVATE
         }
 
     /** Called from the listener's `onNotificationRemoved` callback (E30-02 acceptance criterion 3). */

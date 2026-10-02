@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabDos_failedHandshakeBurst_sourceThrottledOtherSourceReady
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E15-20 (4/5): 10 failed handshakes (TCP connect then close before any ClientHello -- SPEC.md §10
+# "failed handshake") in well under 60 s from 127.0.0.2. The source MUST then be refused for 60 s, even
+# for a legitimate client certificate; a paired client from 127.0.0.3 is unaffected. The throttle
+# lifts after 60 s (control: the same seeded cert from 127.0.0.2 reaches Ready again).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-20-common.sh
+source "$here/../lib/e15-20-common.sh"
+trap e15_20_teardown EXIT
+
+e15_20_require_alias 127.0.0.2
+e15_20_require_alias 127.0.0.3
+e15_20_setup
+e15_20_launch_plain
+
+paired_fp="$(e15_20_gen_cert_fp "$E15_20_TMP_DIR/paired")"
+e15_20_seed_trust "$paired_fp" "E15-20 paired"
+CERT="$E15_20_TMP_DIR/paired-cert.pem"
+KEY="$E15_20_TMP_DIR/paired-key.pem"
+
+FAILED=0
+
+e15_20_expect_ready 127.0.0.2 "$CERT" "$KEY" || {
+  e15_20_log "FAIL: pre-burst control: the seeded client cannot reach Ready from 127.0.0.2"
+  FAILED=1
+}
+
+e15_20_log "10 failed handshakes from 127.0.0.2"
+e15_20_probe burst 127.0.0.2 10 >&2
+burst_done_at=$SECONDS
+
+check_refused() {
+  local label="$1" out
+  out="$(e15_20_probe ready 127.0.0.2 "$CERT" "$KEY" 3000)"
+  e15_20_log "$label: seeded client from the flooding source: $out"
+  case "$out" in
+    READY_MS*)
+      e15_20_log "FAIL: flooding source was NOT refused ($label)"
+      FAILED=1
+      ;;
+    *) e15_20_log "OK: flooding source refused ($label)" ;;
+  esac
+}
+
+check_refused "t+1s"
+e15_20_expect_ready 127.0.0.3 "$CERT" "$KEY" || {
+  e15_20_log "FAIL: paired client from 127.0.0.3 did not reach Ready while 127.0.0.2 was throttled"
+  FAILED=1
+}
+
+while [ $((SECONDS - burst_done_at)) -lt 50 ]; do sleep 1; done
+check_refused "t+50s (still inside the 60 s refusal)"
+
+while [ $((SECONDS - burst_done_at)) -lt 66 ]; do sleep 1; done
+e15_20_expect_ready 127.0.0.2 "$CERT" "$KEY" || {
+  e15_20_log "FAIL: throttle did not lift: seeded client from 127.0.0.2 still not Ready at t+66s"
+  FAILED=1
+}
+
+e15_20_assert_mac_alive || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi
