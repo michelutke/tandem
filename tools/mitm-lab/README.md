@@ -197,6 +197,18 @@ ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-10-cert-abuse/scenarios --timeo
 
 All six scenarios pass in well under a minute each (no pairing-window expiry wait, unlike E15-09).
 
+## E20-20: authenticated CONTROL-flood scenarios
+
+`tools/mitm-lab/e20-20-auth-flood/` — an already-paired, authenticated phone (JVM harness client,
+identity seeded via `-HarnessSeedTrust`, reusing `e15-10-common.sh`) floods the real Mac's CONTROL
+channel with the harness `FLOOD HEARTBEAT|CONTROL <perSecond> <seconds>` command. Both scenarios
+expect the Mac to close the session with `LIMIT_EXCEEDED` and leave its trust store unchanged:
+non-Heartbeat CONTROL past 60/s (D-61), and 1000 Heartbeats/s (D-66 counts Heartbeats the Mac
+receives toward the same cap). Needs the real Mac app, so they run only on macOS and are not part
+of `audit-step.sh`; `test/e20_20_scenarios_test.rb` checks their structure. The phone-side D-60
+reply cap (at most one reply/s) is covered by `HeartbeatResponderTest`; a Mac test double that
+floods a phone does not exist yet.
+
 ## E15-20: pre-auth DoS and timeout scenarios
 
 `tools/mitm-lab/e15-20-preauth-dos/` -- five scenarios against the real Mac app (SPEC.md §10, E01-22):

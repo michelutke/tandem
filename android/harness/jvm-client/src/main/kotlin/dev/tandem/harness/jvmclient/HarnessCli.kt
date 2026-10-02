@@ -25,6 +25,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.NetworkType
+import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.deviceInfo
 import dev.tandem.protocol.v1.deviceStatus
 import dev.tandem.protocol.v1.heartbeat
@@ -38,6 +39,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -51,8 +53,11 @@ import java.security.KeyPairGenerator
 import java.security.spec.ECGenParameterSpec
 import java.time.Clock
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val RAW_CHALLENGE_TIMEOUT_MS = 10_000L
+private const val FLOOD_TICKS_PER_SECOND = 10
+private const val MILLIS_PER_SECOND = 1_000L
 private const val RAW_OUTCOME_TIMEOUT_MS = 15_000L
 
 private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
@@ -178,6 +183,8 @@ private class HarnessCli(
      */
     private val locallyRevoked = mutableSetOf<String>()
 
+    private val heartbeatsReceived = AtomicInteger()
+
     /** Handles one command line; returns `false` if the CLI should stop reading further commands. */
     fun handle(line: String): Boolean {
         val parts = line.split(" ", limit = 2)
@@ -193,6 +200,7 @@ private class HarnessCli(
             "RINGSTATE" -> ringState()
             "DISCONNECT" -> disconnect()
             "SENDNOTIFICATIONS" -> sendNotifications(rest)
+            "FLOOD" -> flood(rest)
             "RAWOPEN" -> rawOpen(rest)
             "RAWSEND" -> rawSend(rest)
             "RAWSENDPROOF" -> rawSendProof(rest)
@@ -403,6 +411,7 @@ private class HarnessCli(
                     // exactly one consumer (this collector), so it lives here rather than as a
                     // second, competing collector on the same channel.
                     Envelope.PayloadCase.HEARTBEAT -> {
+                        heartbeatsReceived.incrementAndGet()
                         runCatching { activeSession.send(Channel.CHANNEL_CONTROL) { heartbeat = heartbeat {} } }
                     }
                     else -> Unit
@@ -553,6 +562,51 @@ private class HarnessCli(
             }
         }
         println("OK SENT_ALL $count")
+    }
+
+    /**
+     * `FLOOD HEARTBEAT|CONTROL <perSecond> <seconds>` (E20-20): an authenticated, Ready [session]
+     * floods CONTROL with `Heartbeat`s or well-formed zero-amount `CreditGrant`s (a no-op
+     * non-Heartbeat CONTROL frame) at [perSecond], stopping early once a send fails. Prints the
+     * frames sent, the `Heartbeat`s received back, and the final connection state.
+     */
+    private fun flood(argsLine: String) {
+        val args = argsLine.split(" ").filter { it.isNotEmpty() }
+        val kind = args.getOrNull(0)?.uppercase()
+        val perSecond = args.getOrNull(1)?.toIntOrNull()
+        val seconds = args.getOrNull(2)?.toIntOrNull()
+        val activeSession = session
+        if (kind !in setOf("HEARTBEAT", "CONTROL") || perSecond == null || perSecond <= 0 || seconds == null || seconds <= 0) {
+            println("ERROR usage: FLOOD HEARTBEAT|CONTROL <perSecond> <seconds>")
+            return
+        }
+        if (activeSession == null) {
+            println("ERROR no session open (CONNECT first)")
+            return
+        }
+        heartbeatsReceived.set(0)
+        var sent = 0
+        runBlocking(dispatcher) {
+            val perTick = (perSecond / FLOOD_TICKS_PER_SECOND).coerceAtLeast(1)
+            repeat(seconds * FLOOD_TICKS_PER_SECOND) {
+                val sentOk =
+                    runCatching {
+                        repeat(perTick) {
+                            activeSession.send(Channel.CHANNEL_CONTROL) {
+                                if (kind == "HEARTBEAT") {
+                                    heartbeat = heartbeat {}
+                                } else {
+                                    creditGrant = creditGrant { channel = Channel.CHANNEL_NOTIFY }
+                                }
+                            }
+                            sent++
+                        }
+                    }.isSuccess
+                if (!sentOk) return@runBlocking
+                delay(MILLIS_PER_SECOND / FLOOD_TICKS_PER_SECOND)
+            }
+        }
+        println("OK FLOOD SENT=$sent HEARTBEATS_RECEIVED=${heartbeatsReceived.get()} STATE=${activeSession.state.value}")
     }
 
     /**
