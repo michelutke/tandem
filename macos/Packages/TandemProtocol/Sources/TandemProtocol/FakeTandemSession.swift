@@ -15,22 +15,22 @@ import Foundation
 /// be a package-graph cycle. This stays alongside ``ByteStreamSession`` in `TandemProtocol`
 /// instead, exercised via `@testable import TandemProtocol` the same way every other fake in this
 /// package's own test target already is (``InMemoryFrameSource``, `TandemProtocolTests`).
-actor FakeTandemSession: TandemSession {
+public actor FakeTandemSession: TandemSession {
     /// One recorded ``send(_:payload:)`` call, in call order.
-    struct SentFrame: Sendable, Equatable {
-        let channel: Tandem_V1_Channel
-        let payload: Tandem_V1_Envelope.OneOf_Payload
+    public struct SentFrame: Sendable, Equatable {
+        public let channel: Tandem_V1_Channel
+        public let payload: Tandem_V1_Envelope.OneOf_Payload
     }
 
-    private(set) var sent: [SentFrame] = []
+    public private(set) var sent: [SentFrame] = []
 
     private var streams: [Tandem_V1_Channel: AsyncStream<InboundFrame>] = [:]
     private var continuations: [Tandem_V1_Channel: AsyncStream<InboundFrame>.Continuation] = [:]
 
-    nonisolated let state: AsyncStream<ConnectionStateMachine.ConnectionState>
+    public nonisolated let state: AsyncStream<ConnectionStateMachine.ConnectionState>
     private let stateContinuation: AsyncStream<ConnectionStateMachine.ConnectionState>.Continuation
 
-    init() {
+    public init() {
         let (state, continuation) = AsyncStream<ConnectionStateMachine.ConnectionState>.makeStream(
             bufferingPolicy: .unbounded
         )
@@ -38,14 +38,14 @@ actor FakeTandemSession: TandemSession {
         stateContinuation = continuation
     }
 
-    func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
+    public func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
         sent.append(SentFrame(channel: channel, payload: payload))
     }
 
     /// Returns an equivalent stream on every call for a given `channel`, matching
     /// ``ChannelMultiplexer/inbound(_:)``, so a frame ``inject(_:)``ed before this is ever called
     /// for that channel is not dropped.
-    func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
+    public func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
         InboundFrameStream(base: streamFor(channel), onConsumed: {})
     }
 
@@ -61,7 +61,7 @@ actor FakeTandemSession: TandemSession {
         stateContinuation.yield(newState)
     }
 
-    func close() async {
+    public func close() async {
         for continuation in continuations.values {
             continuation.finish()
         }
