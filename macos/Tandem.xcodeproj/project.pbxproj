@@ -45,6 +45,7 @@
 		82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */; };
 		8323362E16C87F0E1570D3A7 /* FeatureClipboard in Frameworks */ = {isa = PBXBuildFile; productRef = EECB08419E116CE4C7224F72 /* FeatureClipboard */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
+		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
 		85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */; };
 		85AC58E2BE2BC6A252F0A390 /* MenuBarContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132ECF02E619377AEA48E71F /* MenuBarContentView.swift */; };
 		86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */; };
@@ -184,6 +185,7 @@
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ManualTestClock.swift; path = ../Packages/TandemTestSupport/Sources/TandemTestSupport/ManualTestClock.swift; sourceTree = "<group>"; };
+		E1516000000000000000F001 /* InMemoryConnectionPair.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = InMemoryConnectionPair.swift; path = ../Packages/TandemTestSupport/Sources/TandemTestSupport/InMemoryConnectionPair.swift; sourceTree = "<group>"; };
 		9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioView.swift; sourceTree = "<group>"; };
 		9ED3304BEEFB2EF47223CBA6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		A5E30F71572BF267AF52CCFE /* UITestScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestScenario.swift; sourceTree = "<group>"; };
@@ -287,6 +289,7 @@
 				03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */,
 				2B9B2E23FF1A4091B5ED2B9E /* LocalNetworkPermissionViewModelTests.swift */,
 				9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */,
+				E1516000000000000000F001 /* InMemoryConnectionPair.swift */,
 				89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */,
 				8B68E4FB6B008E666248596A /* PairedDevicesCompositionTests.swift */,
 				51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */,
@@ -572,6 +575,7 @@
 				BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */,
 				181061876B4B9D392C41F0D3 /* LocalNetworkPermissionViewModelTests.swift in Sources */,
 				838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */,
+				E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */,
 				193173BAE27FCCA74C46943B /* MenuBarViewModelTests.swift in Sources */,
 				19EA664750CE895AA9E113B6 /* PairedDevicesCompositionTests.swift in Sources */,
 				16DD614E6C363E82F410BA94 /* QuickActionsViewModelTests.swift in Sources */,
