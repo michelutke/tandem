@@ -26,7 +26,9 @@ dev.tandem.feature.notifications.TandemNotificationListenerService android.permi
 dev.tandem.feature.clipboard.ShareTargetActivity -
 dev.tandem.feature.clipboard.ProcessTextActivity -
 
+# Quick Settings "Send clip" tile (E31-12); only the system may bind it.
+dev.tandem.feature.clipboard.ClipboardTileService android.permission.BIND_QUICK_SETTINGS_TILE
+
 # Expected v1 set (added as each issue lands; nothing below is registered yet, since none of these
 # components exist in the app module today):
-#   - the quick-settings TileService (E31-12)           android.permission.BIND_QUICK_SETTINGS_TILE
 #   - the AccessibilityService (remote input)            android.permission.BIND_ACCESSIBILITY_SERVICE
