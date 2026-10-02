@@ -312,6 +312,18 @@ Vectors for `docs/protocol/SPEC.md` `#media-frame-semantics` (`protocol/proto/ta
 - `mediaFrameLengthPrefix`: `input.frameHex` is a bare 4-byte `length_prefix` (1 MiB + 1) that the
   framing layer rejects `MALFORMED_FRAME`/`TOO_LARGE`.
 
+### `input-encoding.json` (E62-01)
+
+Vectors for `docs/protocol/SPEC.md` `#input-events` (`protocol/proto/tandem/v1/input.proto`).
+`input.kind` is always `inputEvent`: `input.messageHex` is a serialized `InputEvent`,
+`input.activeSessionIdHex` the active mirror session's id and `input.windowWidth`/`windowHeight` the
+reported window size. Positive entries give `expected.summary` (`variant=tap|x=..|y=..`,
+`variant=swipe|..|durationMs=..`, `variant=scroll|..`, `variant=globalAction|action=..`,
+`variant=setText|text=..`, `variant=textEdit|insert=..`/`deleteBackward=..`/`imeEnter`) and
+`messageSha256`; both codecs also re-encode to the same bytes. Negative entries give `expectedError`,
+the first violated rule: `missingSessionReference`, `sessionMismatch`, `coordinatesOutOfRange`,
+`durationOutOfRange`, `unknownGlobalAction`, `textTooLong` or `deleteCountOutOfRange`.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

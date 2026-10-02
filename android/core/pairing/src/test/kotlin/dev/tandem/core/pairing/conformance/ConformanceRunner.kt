@@ -88,6 +88,7 @@ object ConformanceRunner {
             "calls-encoding",
             "media-encoding",
             "media-frame-encoding",
+            "input-encoding",
             "rotation-encoding",
             "focus-encoding",
             "media-control-encoding",
@@ -207,6 +208,7 @@ object ConformanceRunner {
             "calls-encoding" -> callsEncodingOutcome(vector)
             "media-encoding" -> mediaEncodingOutcome(vector)
             "media-frame-encoding" -> mediaFrameEncodingOutcome(vector)
+            "input-encoding" -> inputEncodingOutcome(vector)
             "rotation-encoding" -> rotationEncodingOutcome(vector)
             "focus-encoding" -> focusEncodingOutcome(vector)
             "media-control-encoding" -> mediaControlEncodingOutcome(vector)
