@@ -294,6 +294,47 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .photoError(newValue)}
   }
 
+  /// sms.proto (E50-01) — SMS channel.
+  public var smsSyncRequest: Tandem_V1_SmsSyncRequest {
+    get {
+      if case .smsSyncRequest(let v)? = payload {return v}
+      return Tandem_V1_SmsSyncRequest()
+    }
+    set {payload = .smsSyncRequest(newValue)}
+  }
+
+  public var smsSyncResponse: Tandem_V1_SmsSyncResponse {
+    get {
+      if case .smsSyncResponse(let v)? = payload {return v}
+      return Tandem_V1_SmsSyncResponse()
+    }
+    set {payload = .smsSyncResponse(newValue)}
+  }
+
+  public var sendSmsRequest: Tandem_V1_SendSmsRequest {
+    get {
+      if case .sendSmsRequest(let v)? = payload {return v}
+      return Tandem_V1_SendSmsRequest()
+    }
+    set {payload = .sendSmsRequest(newValue)}
+  }
+
+  public var sendSmsStatus: Tandem_V1_SendSmsStatus {
+    get {
+      if case .sendSmsStatus(let v)? = payload {return v}
+      return Tandem_V1_SendSmsStatus()
+    }
+    set {payload = .sendSmsStatus(newValue)}
+  }
+
+  public var simList: Tandem_V1_SimList {
+    get {
+      if case .simList(let v)? = payload {return v}
+      return Tandem_V1_SimList()
+    }
+    set {payload = .simList(newValue)}
+  }
+
   /// contacts.proto (E51-01) — CONTACTS channel.
   public var contactsSyncRequest: Tandem_V1_ContactsSyncRequest {
     get {
@@ -351,6 +392,12 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case thumbResult(Tandem_V1_ThumbResult)
     case originalRequest(Tandem_V1_OriginalRequest)
     case photoError(Tandem_V1_PhotoError)
+    /// sms.proto (E50-01) — SMS channel.
+    case smsSyncRequest(Tandem_V1_SmsSyncRequest)
+    case smsSyncResponse(Tandem_V1_SmsSyncResponse)
+    case sendSmsRequest(Tandem_V1_SendSmsRequest)
+    case sendSmsStatus(Tandem_V1_SendSmsStatus)
+    case simList(Tandem_V1_SimList)
     /// contacts.proto (E51-01) — CONTACTS channel.
     case contactsSyncRequest(Tandem_V1_ContactsSyncRequest)
     case contactsSyncResponse(Tandem_V1_ContactsSyncResponse)
@@ -366,7 +413,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{f}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}F\u{1}\u{a}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -780,6 +827,71 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .photoError(v)
         }
       }()
+      case 70: try {
+        var v: Tandem_V1_SmsSyncRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .smsSyncRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .smsSyncRequest(v)
+        }
+      }()
+      case 71: try {
+        var v: Tandem_V1_SmsSyncResponse?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .smsSyncResponse(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .smsSyncResponse(v)
+        }
+      }()
+      case 72: try {
+        var v: Tandem_V1_SendSmsRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .sendSmsRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .sendSmsRequest(v)
+        }
+      }()
+      case 73: try {
+        var v: Tandem_V1_SendSmsStatus?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .sendSmsStatus(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .sendSmsStatus(v)
+        }
+      }()
+      case 74: try {
+        var v: Tandem_V1_SimList?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .simList(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .simList(v)
+        }
+      }()
       case 80: try {
         var v: Tandem_V1_ContactsSyncRequest?
         var hadOneofValue = false
@@ -949,6 +1061,26 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .photoError?: try {
       guard case .photoError(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 65)
+    }()
+    case .smsSyncRequest?: try {
+      guard case .smsSyncRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 70)
+    }()
+    case .smsSyncResponse?: try {
+      guard case .smsSyncResponse(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 71)
+    }()
+    case .sendSmsRequest?: try {
+      guard case .sendSmsRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 72)
+    }()
+    case .sendSmsStatus?: try {
+      guard case .sendSmsStatus(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 73)
+    }()
+    case .simList?: try {
+      guard case .simList(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 74)
     }()
     case .contactsSyncRequest?: try {
       guard case .contactsSyncRequest(let v)? = self.payload else { preconditionFailure() }

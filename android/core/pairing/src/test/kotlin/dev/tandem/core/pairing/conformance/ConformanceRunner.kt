@@ -84,6 +84,7 @@ object ConformanceRunner {
             "files-encoding",
             "photos-encoding",
             "contacts-encoding",
+            "sms-encoding",
         )
 
     /** CLIPBOARD channel's text cap (docs/protocol/SPEC.md #clipboard-channel): 1 MiB, 2^20. */
@@ -195,6 +196,7 @@ object ConformanceRunner {
             "files-encoding" -> filesEncodingOutcome(vector)
             "photos-encoding" -> photosEncodingOutcome(vector)
             "contacts-encoding" -> contactsEncodingOutcome(vector)
+            "sms-encoding" -> smsEncodingOutcome(vector)
             else -> throw UnknownVectorCategoryException(category)
         }
 

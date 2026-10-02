@@ -46,6 +46,7 @@ from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (need
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
 from photos_encoding import generate_photos_encoding_vectors  # noqa: E402 (needs sys.path above)
 from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
+from sms_encoding import generate_sms_encoding_vectors  # noqa: E402 (needs sys.path above)
 from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
 from status_encoding import generate_status_encoding_vectors  # noqa: E402 (needs sys.path above)
 
@@ -68,6 +69,7 @@ CATEGORIES.append(("clipboard-encoding.json", generate_clipboard_encoding_vector
 CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E40-01
 CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  # E41-01
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
+CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
 
 
 def render(manifest: Manifest) -> str:
