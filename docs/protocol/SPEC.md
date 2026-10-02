@@ -49,7 +49,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
 | 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
-| 16 | Calls channel | `#calls-channel` | TBD (Phase 5, epic E52) |
+| 16 | Calls channel | [`#calls-channel`](#calls-channel) | Written (E52-01) |
 | 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
 | 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
 | 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
@@ -1958,5 +1958,76 @@ identically on both codecs; a `SendSmsStatus` for every `SendSmsState` value (`S
 `DELIVERED`, `FAILED`); an `SmsSyncResponse` carrying `high_watermark_id`, `backfill_cursor_id` and
 `backfill_complete = false`; and an SMS Envelope frame whose length prefix exceeds the 1 MiB
 maximum (§3), rejected from the 4 prefix bytes alone before any body buffer is allocated.
+
+---
+
+## Calls channel
+
+*(E52-01 · PRD F-8.4 · UC-20, UC-21, AC-19 · invariant 7)*
+
+The Calls channel (`Channel.CHANNEL_CALLS`, §4) mirrors the phone's call state to the Mac and
+carries the Mac's call controls. It uses four message types, each sent directly as the Envelope
+payload (no wrapper message; `Envelope.payload` fields 90-93, 94-99 held for future extensions):
+`CallEvent{call_id, direction, state, address, normalized_e164, timestamp_ms}`,
+`CallAction{request_id, call_id, action}`, `PlaceCallRequest{request_id, address, subscription_id}`
+and `CallActionResult{request_id, call_id, success, error_code}`
+(`protocol/proto/tandem/v1/calls.proto`).
+
+`address` and `normalized_e164` are phone numbers and therefore message content: invariant 7 forbids
+logging them in release builds. `address` is untrusted peer input and MUST be sanitized per
+`#untrusted-peer-strings-display-sanitization` (E01-23) before ever being rendered. The caller name
+is resolved on the Mac (E51-04) from `normalized_e164` and is never sent.
+
+### Call events
+
+The phone sends a `CallEvent` on every call state change (phone -> Mac only). `call_id` is generated
+by the phone per RINGING/DIALING-to-ENDED cycle and is stable across every event of that cycle; a
+later call gets a new `call_id`. States progress:
+
+- incoming: `RINGING` -> `ACTIVE` -> `ENDED`
+- outgoing: `DIALING` -> `ACTIVE` -> `ENDED`
+- `ENDED` may follow `RINGING` or `DIALING` directly (missed, declined, cancelled or failed call).
+
+`ENDED` is terminal for its `call_id`. `normalized_e164` is the E.164 form of `address`, empty when
+it cannot be normalized. `timestamp_ms` is Unix epoch milliseconds.
+
+### Call actions
+
+The Mac sends `CallAction` with a Mac-generated `request_id`: `ANSWER` or `DECLINE` for a `RINGING`
+call, `HANGUP` for a `DIALING` or `ACTIVE` call. The phone answers every `CallAction` and every
+`PlaceCallRequest` with exactly one `CallActionResult` echoing `request_id`. On success
+`success = true` and `error_code` is `UNSPECIFIED`; on failure `success = false` and `error_code`
+is one of:
+
+| `error_code` | Meaning |
+|---|---|
+| `UNKNOWN_CALL` | `call_id` does not name a call the phone knows. |
+| `NOT_RINGING` | `ANSWER`/`DECLINE` for a call that is not `RINGING`. |
+| `NO_ACTIVE_CALL` | `HANGUP` for a call that is neither `DIALING` nor `ACTIVE`. |
+| `PERMISSION_DENIED` | The phone has not granted the permission the action needs. |
+| `INVALID_SUBSCRIPTION` | `PlaceCallRequest.subscription_id` is not an active subscription in the latest `SimList` (§14). |
+| `NEEDS_PHONE_TAP` | The phone OS refuses to perform the action without a tap on the phone. |
+| `INVALID_NUMBER` | `PlaceCallRequest.address` fails the address rule below. |
+| `RATE_LIMITED` | A second `PlaceCallRequest` arrived within 5 s of the previous one. |
+
+`call_id` in the result is empty when no call is involved.
+
+### Place call
+
+`PlaceCallRequest{request_id, address, subscription_id}` asks the phone to dial. `subscription_id`
+selects a SIM from the latest `SimList` (§14); `0` means the phone's default.
+
+- `address` MUST match `^\+?[0-9]{3,20}$` after removing spaces and dashes. MMI/USSD strings
+  (`*`, `#`) and pause/wait characters (`,`, `;`) are therefore rejected with `INVALID_NUMBER`.
+- At most one `PlaceCallRequest` per 5 s is accepted; a request within 5 s of the previous one is
+  rejected with `RATE_LIMITED` (§10, E01-22).
+- Both rejections are made before any call is placed.
+
+### Conformance
+
+`protocol/vectors/calls-encoding.json` (E15-01, E15-02) includes: an incoming `RINGING`
+`CallEvent` round-tripping to its golden bytes; the `RINGING` -> `ACTIVE` -> `ENDED` event sequence
+of one call decoding identically on both codecs; and failed `CallActionResult`s carrying
+`UNKNOWN_CALL`, `INVALID_NUMBER` and `RATE_LIMITED`.
 
 ---

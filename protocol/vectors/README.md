@@ -244,6 +244,17 @@ of a frame one byte over the 1 MiB maximum (`input.frameHex`) and is run through
 real frame decoder: `expectedError: "malformedFrame"` with `closeCode`/`localReason`
 (`MALFORMED_FRAME`/`TOO_LARGE`), rejected before any payload buffer is allocated.
 
+### `calls-encoding.json` (E52-01)
+
+Vectors for `docs/protocol/SPEC.md` `#calls-channel`'s message types
+(`protocol/proto/tandem/v1/calls.proto`): `CallEvent`, `CallActionResult`. Entries are the raw
+serialized message bytes (`input.messageHex`); `input.kind` selects the type
+(`callEvent`/`callActionResult`). The `callStateSequence` kind carries an ordered list of `CallEvent`
+bodies for one call (`input.messageHexes`). The manifest includes an incoming `RINGING` `CallEvent`
+(with a `messageSha256`; both codecs also re-encode it to the same bytes), the
+`RINGING`/`ACTIVE`/`ENDED` sequence of one call, and failed `CallActionResult`s for `UNKNOWN_CALL`,
+`INVALID_NUMBER` and `RATE_LIMITED`.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
