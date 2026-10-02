@@ -29,6 +29,18 @@ class ControlRevokeConsumerTest {
             assertTrue(session.state.value is ConnectionState.Disconnected)
         }
 
+    @Test
+    fun controlRevokeConsumer_sessionClosedWithoutRevoke_returnsWithoutThrowing() =
+        runTest {
+            val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+            val removed = mutableListOf<SpkiFingerprint>()
+            session.close()
+
+            consumeControlRevoke(RegisteredSession(session, peer), TrustRemover { removed += it })
+
+            assertTrue(removed.isEmpty())
+        }
+
     private fun revokeEnvelope() =
         envelope {
             channel = Channel.CHANNEL_CONTROL

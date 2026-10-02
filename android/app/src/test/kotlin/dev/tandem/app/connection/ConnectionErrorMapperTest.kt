@@ -72,7 +72,7 @@ class ConnectionErrorMapperTest {
     fun connectionErrorMapper_previouslyPinnedPeerHandshakeFailed_mapsToRevoked() {
         val classified =
             ConnectionFailureClassifier.classify(
-                ConnectionFailure.HandshakeError("PIN_MISMATCH"),
+                ConnectionFailure.HandshakeError("Received fatal alert: certificate_unknown"),
                 wasPreviouslyPinned = true,
             )
 
@@ -83,16 +83,20 @@ class ConnectionErrorMapperTest {
 
     @Test
     fun connectionErrorMapper_neverPinnedPeerHandshakeFailed_staysPinMismatch() {
-        val failure = ConnectionFailure.HandshakeError("PIN_MISMATCH")
+        val failure = ConnectionFailure.HandshakeError("Received fatal alert: certificate_unknown")
 
         assertEquals(failure, ConnectionFailureClassifier.classify(failure, wasPreviouslyPinned = false))
     }
 
     @Test
-    fun connectionErrorMapper_previouslyPinnedPeerVersionMismatchOrTimeout_unchanged() {
+    fun connectionErrorMapper_previouslyPinnedPeerOtherFailure_unchanged() {
         val versionMismatch = ConnectionFailure.HandshakeError("VERSION_MISMATCH")
+        val connectionReset = ConnectionFailure.HandshakeError("Connection reset")
+        val pinMismatch = ConnectionFailure.HandshakeError("PIN_MISMATCH")
 
         assertEquals(versionMismatch, ConnectionFailureClassifier.classify(versionMismatch, true))
+        assertEquals(connectionReset, ConnectionFailureClassifier.classify(connectionReset, true))
+        assertEquals(pinMismatch, ConnectionFailureClassifier.classify(pinMismatch, true))
         assertEquals(ConnectionFailure.Timeout, ConnectionFailureClassifier.classify(ConnectionFailure.Timeout, true))
     }
 }
