@@ -1,5 +1,6 @@
 plugins {
     id("tandem.android.feature")
+    id("tandem.android.instrumented")
     id("tandem.android.robolectric")
     id("tandem.android.compose-ui-test")
 }

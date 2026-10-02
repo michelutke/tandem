@@ -187,3 +187,34 @@ ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-10-cert-abuse/scenarios --timeo
 ```
 
 All six scenarios pass in well under a minute each (no pairing-window expiry wait, unlike E15-09).
+
+## E20-20: authenticated CONTROL-flood scenarios
+
+`tools/mitm-lab/e20-20-auth-flood/` — an already-paired, authenticated phone (JVM harness client,
+identity seeded via `-HarnessSeedTrust`, reusing `e15-10-common.sh`) floods the real Mac's CONTROL
+channel with the harness `FLOOD HEARTBEAT|CONTROL <perSecond> <seconds>` command. Both scenarios
+expect the Mac to close the session with `LIMIT_EXCEEDED` and leave its trust store unchanged:
+non-Heartbeat CONTROL past 60/s (D-61), and 1000 Heartbeats/s (D-66 counts Heartbeats the Mac
+receives toward the same cap). Needs the real Mac app, so they run only on macOS and are not part
+of `audit-step.sh`; `test/e20_20_scenarios_test.rb` checks their structure. The phone-side D-60
+reply cap (at most one reply/s) is covered by `HeartbeatResponderTest`; a Mac test double that
+floods a phone does not exist yet.
+
+## E15-20: pre-auth DoS and timeout scenarios
+
+`tools/mitm-lab/e15-20-preauth-dos/` -- five scenarios against the real Mac app (SPEC.md §10, E01-22):
+stalled TCP (closed <= 11 s), TLS done without `VersionHello` (closed <= 6 s after TLS, observed as a
+close -- no pre-auth close code exists on the wire), a 20-connection single-source flood (<= 2 open per
+source, paired peer from another source Ready <= 5 s), a 10-failed-handshake burst (source refused 60 s,
+other source Ready), and three idle pairing candidates exhausting the window (later correct
+`PairRequest` gets no `PairAccepted`).
+
+Distinct sources are loopback aliases 127.0.0.2..127.0.0.4. macOS only configures 127.0.0.1, so each
+scenario adds missing aliases with `sudo -n ifconfig lo0 alias` (removed at teardown) and exits 1 with
+the exact command to run if passwordless sudo is unavailable. `lib/preauth_probe.go` (built via `go
+build`) supplies source-bound sockets.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-20-preauth-dos/scenarios --timeout 300
+ruby tools/mitm-lab/test/e15_20_scenarios_test.rb   # structure checks only
+```

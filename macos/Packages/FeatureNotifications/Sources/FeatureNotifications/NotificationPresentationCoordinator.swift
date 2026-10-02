@@ -54,8 +54,9 @@ public actor NotificationPresentationCoordinator: PeerDataPurging {
 /// given, storing every `IconData` frame it sees there (E30-06 -- `IconData` shares the NOTIFY
 /// channel with `NotificationPosted`, so it is routed here rather than through a second, separate
 /// channel reader: two independent readers pulling from the same channel's single stream would
-/// race each other for frames). Every other NOTIFY payload is ignored here
-/// (`NotificationDismiss`/`NotificationActionResult` handling is E30-18/E30-08). Mirrors
+/// race each other for frames). When `actionHandler` is given, every `NotificationActionResult`
+/// goes to it (E30-08). Every other NOTIFY payload is ignored here
+/// (`NotificationDismiss` handling is E30-18). Mirrors
 /// `TandemTransport`'s `startControlRevokeReader`: a free function so a composition root can spawn
 /// one per registered session without this package depending on `TandemTransport`'s
 /// session-registry types. Where exactly that spawn happens in the app's composition root is out
@@ -74,7 +75,8 @@ public func startNotificationPresentationReader(
     peer: SpkiFingerprint,
     session: any TandemSession,
     coordinator: NotificationPresentationCoordinator,
-    iconCache: IconCache? = nil
+    iconCache: IconCache? = nil,
+    actionHandler: NotificationActionHandler? = nil
 ) -> Task<Void, Never> {
     Task {
         let frames = await session.receive(.notify)
@@ -84,6 +86,8 @@ public func startNotificationPresentationReader(
                 await coordinator.present(posted, from: peer)
             case .iconData(let icon):
                 await iconCache?.store(icon, from: peer)
+            case .notificationActionResult(let result):
+                await actionHandler?.handle(result)
             default:
                 continue
             }
