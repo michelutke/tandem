@@ -45,3 +45,5 @@ becomes a regression test as above.
 Local short run: `tools/fuzz/campaign/run_campaign.sh jazzer 60 60 "$TMPDIR/jz-campaign"`.
 A crash reproducer becomes a regression test: add the bytes as a seed vector in
 `protocol/vectors/frame-encoding.json`.
+
+E71-03 adds the `qr` target (Android QR pairing payload parser, Jazzer only; see `jazzer/README.md` and `campaign/README.md`).

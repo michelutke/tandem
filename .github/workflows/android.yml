@@ -86,3 +86,6 @@ jobs:
       - name: Jazzer fuzz smoke (frame/envelope parser)
         working-directory: .
         run: tools/fuzz/jazzer/smoke.sh dev.tandem.core.protocol.fuzz.FrameDecoderFuzzTest 300 "$RUNNER_TEMP/jazzer-artifacts"
+      - name: Jazzer fuzz smoke (QR pairing payload parser)
+        working-directory: .
+        run: JAZZER_MODULE=core:pairing tools/fuzz/jazzer/smoke.sh dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest 120 "$RUNNER_TEMP/jazzer-artifacts-qr"
