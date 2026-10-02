@@ -311,10 +311,14 @@ class ChannelMultiplexer(
      */
     private inner class Writer {
         suspend fun run() {
-            var startIndex = 0
-            while (!closeResult.isCompleted) {
-                val nextIndex = drainOnePass(startIndex)
-                startIndex = nextIndex ?: awaitAndWriteAny() ?: continue
+            try {
+                var startIndex = 0
+                while (!closeResult.isCompleted) {
+                    val nextIndex = drainOnePass(startIndex)
+                    startIndex = nextIndex ?: awaitAndWriteAny() ?: continue
+                }
+            } catch (cause: IOException) {
+                finish(MultiplexerClose.SourceFailed(cause))
             }
             failQueued()
         }
