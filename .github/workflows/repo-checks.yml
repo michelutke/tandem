@@ -33,4 +33,5 @@ jobs:
       - name: Supply chain (E00-29)
         run: |
           ruby tools/ci/check_actions_pinned.rb
+          ruby tools/ci/check_instrumented_modules.rb
           ruby tools/lint/dependency_registry.rb .

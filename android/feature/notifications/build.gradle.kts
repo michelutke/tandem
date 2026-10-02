@@ -15,6 +15,34 @@ android {
     testOptions.unitTests.isIncludeAndroidResources = true
 }
 
+// E00-33: SecretVisibilityInstrumentedTest posts through the companion app (E00-22), so its debug
+// APK ships as an androidTest asset and the test installs it onto the managed device before posting.
+abstract class CopyCompanionApk : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val apkDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val apk = apkDir.get().asFile.listFiles { file -> file.extension == "apk" }.orEmpty().single()
+        apk.copyTo(outputDir.get().asFile.resolve("companion.apk"), overwrite = true)
+    }
+}
+
+val copyCompanionApk by tasks.registering(CopyCompanionApk::class) {
+    dependsOn(":companion-app:assembleDebug")
+    apkDir.set(project(":companion-app").layout.buildDirectory.dir("outputs/apk/debug"))
+}
+
+extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension> {
+    onVariants { variant ->
+        variant.androidTest?.sources?.assets?.addGeneratedSourceDirectory(copyCompanionApk, CopyCompanionApk::outputDir)
+    }
+}
+
 dependencies {
     // NotificationPosted/NotificationDismiss DSL builders (E30-01).
     implementation(project(":core:protocol"))
