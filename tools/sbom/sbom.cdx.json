@@ -5933,6 +5933,34 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/com.googlecode.libphonenumber/libphonenumber@9.0.40",
+      "name": "com.googlecode.libphonenumber:libphonenumber",
+      "version": "9.0.40",
+      "purl": "pkg:maven/com.googlecode.libphonenumber/libphonenumber@9.0.40",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.googlecode.libphonenumber/libphonenumber-parent@9.0.40",
+      "name": "com.googlecode.libphonenumber:libphonenumber-parent",
+      "version": "9.0.40",
+      "purl": "pkg:maven/com.googlecode.libphonenumber/libphonenumber-parent@9.0.40",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/com.ibm.icu/icu4j@78.3",
       "name": "com.ibm.icu:icu4j",
       "version": "78.3",
