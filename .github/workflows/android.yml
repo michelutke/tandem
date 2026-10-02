@@ -58,6 +58,12 @@ jobs:
       - name: Android manifest hardening check (E00-28)
         working-directory: .
         run: tools/release-audit/test/android_manifest_check_test.sh
+      - name: Debug vs release protocol descriptors (E71-09)
+        working-directory: .
+        run: |
+          classes=android/core/protocol/build/intermediates/javac
+          ruby tools/release-audit/check-proto-descriptors.rb --debug "$classes/debug/compileDebugJavaWithJavac/classes/dev/tandem/protocol" \
+            --release "$classes/release/compileReleaseJavaWithJavac/classes/dev/tandem/protocol"
 
   fuzz-smoke:
     # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing

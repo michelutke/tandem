@@ -1,0 +1,16 @@
+# E71-09: the exact set of permissions the merged release manifest may declare via
+# <uses-permission> / <uses-permission-sdk-23>, one per line:
+#   <permission> <issue ID that justifies it>
+#
+# The declared set must equal this list in both directions. Blank lines and lines starting with #
+# are ignored. DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION is merged in by androidx.core; the others come
+# from :app and the feature and core library manifests.
+android.permission.FOREGROUND_SERVICE E20-02
+android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE E20-02
+android.permission.CHANGE_NETWORK_STATE E20-02
+android.permission.POST_NOTIFICATIONS E20-02
+android.permission.ACCESS_NOTIFICATION_POLICY E23-05
+android.permission.RECEIVE_BOOT_COMPLETED E20-08
+android.permission.ACCESS_NETWORK_STATE E20-07
+android.permission.CAMERA E14-10
+dev.tandem.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION E00-28
