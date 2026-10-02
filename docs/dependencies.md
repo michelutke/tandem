@@ -66,6 +66,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.conscrypt:conscrypt-openjdk-uber` | Apache-2.0 | JVM-only TLS 1.3 stack for the E12-04 in-process loopback test server / session-ticket-disable test harness | E12-04 |
 | `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
 | `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
+| `com.googlecode.libphonenumber:libphonenumber` | Apache-2.0 | Phone number parsing/E.164 normalization for contacts, SMS and call matching | E51-03 |
 | `androidx.camera:camera-core` | Apache-2.0 | CameraX core use cases (`Preview`, `ImageAnalysis`, `ImageProxy`) for the QR scanner | E14-10 |
 | `androidx.camera:camera-camera2` | Apache-2.0 | CameraX Camera2 hardware implementation | E14-10 |
 | `androidx.camera:camera-lifecycle` | Apache-2.0 | `ProcessCameraProvider`/`bindToLifecycle` | E14-10 |
