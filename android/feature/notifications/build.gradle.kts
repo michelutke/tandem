@@ -27,7 +27,13 @@ abstract class CopyCompanionApk : DefaultTask() {
 
     @TaskAction
     fun copy() {
-        val apk = apkDir.get().asFile.listFiles { file -> file.extension == "apk" }.orEmpty().single()
+        val apk =
+            apkDir
+                .get()
+                .asFile
+                .listFiles { file -> file.extension == "apk" }
+                .orEmpty()
+                .single()
         apk.copyTo(outputDir.get().asFile.resolve("companion.apk"), overwrite = true)
     }
 }
@@ -39,7 +45,10 @@ val copyCompanionApk by tasks.registering(CopyCompanionApk::class) {
 
 extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension> {
     onVariants { variant ->
-        variant.androidTest?.sources?.assets?.addGeneratedSourceDirectory(copyCompanionApk, CopyCompanionApk::outputDir)
+        variant.androidTest
+            ?.sources
+            ?.assets
+            ?.addGeneratedSourceDirectory(copyCompanionApk, CopyCompanionApk::outputDir)
     }
 }
 

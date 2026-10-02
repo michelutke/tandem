@@ -78,7 +78,8 @@ class SecretVisibilityInstrumentedTest {
     }
 
     private fun shellOutput(command: String): String =
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
+        ParcelFileDescriptor
+            .AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
             .use { it.readBytes().decodeToString() }
 
     private fun shell(command: String) {
