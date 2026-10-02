@@ -249,3 +249,10 @@ real frame decoder: `expectedError: "malformedFrame"` with `closeCode`/`localRea
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
 platform teams must be able to reproduce the same expected outputs independently before any
 downstream issue that consumes a category (E01-17..E01-21) is marked done.
+
+### `filenames.json` (E40-02)
+
+Vectors for SPEC.md `#filename-sanitization`. `input.rawUtf8Hex` is the UTF-8 of
+`FileOffer.name` (hex, so NUL, bidi controls and NFD text survive editors) and
+`input.transferId` is `FileOffer.id`. Valid entries give `expected.filename`; a name containing
+U+0000 uses `expectedError: "invalidName"` (the receiver answers `FileReject{INVALID_NAME}`).

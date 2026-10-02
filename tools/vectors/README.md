@@ -71,10 +71,11 @@ the committed manifests, catching hand-edits as well as generator non-determinis
   QR-payload parser.
 - `display_strings.py` — E01-24 `display-strings.json` generator plus its reference
   untrusted-peer-string sanitizer.
+- `filenames.py` — E40-02 `filenames.json` generator plus its reference filename sanitizer.
 - `requirements.txt` — pinned `jsonschema` / `pytest` versions.
 - `tests/` — pytest suite (`test_generate.py`, `test_schema.py`, `test_discovery_id.py`,
   `test_frame_encoding.py`, `test_spki_fingerprint.py`, `test_pairing_proof.py`,
-  `test_qr_payload.py`, `test_display_strings.py`).
+  `test_qr_payload.py`, `test_display_strings.py`, `test_filenames.py`).
 
 ## CI
 

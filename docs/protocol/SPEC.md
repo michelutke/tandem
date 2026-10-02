@@ -1738,6 +1738,33 @@ Restated here from §10 ("Feature caps") as the single source of truth for the F
   (opt-in, off by default); an offer over that cap always requires a manual accept regardless of
   the setting.
 
+### Filename sanitization
+
+*(E40-02 · PRD F-7.1 · UC-14, UC-15)*
+
+A receiver MUST sanitize every incoming `FileOffer.name` before using it as a destination
+filename, independently of the sender, which is never trusted. The name passes the 1024-byte
+pre-sanitization cap above first. Steps, in this exact order:
+
+1. If the name contains U+0000, reject with `FileReject{id, reason: INVALID_NAME}`; no later step runs.
+2. Split on `/` and `\` and keep only the last component (possibly empty).
+3. Normalize to NFC.
+4. Remove the bidi controls U+202A–U+202E and U+2066–U+2069.
+5. Replace every other C0 control (U+0001–U+001F), U+007F and `:` with `_`.
+6. Strip all leading `.`.
+7. If the result is empty, use `file-<first 8 characters of FileOffer.id>`.
+8. If the part before the first `.` equals (case-insensitively) `CON`, `PRN`, `AUX`, `NUL`,
+   `COM1`–`COM9` or `LPT1`–`LPT9`, prefix `_`.
+9. If the UTF-8 length exceeds 255 bytes, truncate the stem (everything before the last `.`) on a
+   code-point boundary, keeping the extension (the last `.` and what follows), until the UTF-8
+   length is at most 255 bytes. If the extension alone leaves no room, truncate the whole name
+   instead.
+
+The result is only a filename; collision handling and the destination directory are the
+receiver's concern. `protocol/vectors/filenames.json` (E40-02) holds the shared vectors; both
+platforms' receivers (E40-16 Android, E40-17 macOS) MUST produce the vector's `expected.filename`
+(or `expectedError: invalidName`) for every case.
+
 ### Photos (E41-01)
 
 *(PRD F-7.4 · UC-17, AC-19 · no separate PHOTOS channel, E01-04 decision — these messages ride

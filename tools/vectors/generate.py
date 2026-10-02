@@ -39,6 +39,7 @@ from clipboard_encoding import generate_clipboard_encoding_vectors  # noqa: E402
 from contacts_encoding import generate_contacts_encoding_vectors  # noqa: E402 (needs sys.path above)
 from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
 from display_strings import generate_display_string_vectors  # noqa: E402 (needs sys.path above)
+from filenames import generate_filename_vectors  # noqa: E402 (needs sys.path above)
 from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
@@ -70,6 +71,7 @@ CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E
 CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  # E41-01
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
 CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
+CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 
 def render(manifest: Manifest) -> str:
