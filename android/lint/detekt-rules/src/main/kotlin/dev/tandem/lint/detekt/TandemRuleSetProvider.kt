@@ -9,7 +9,7 @@ import io.gitlab.arturbosch.detekt.api.RuleSetProvider
  * NoSensitiveReleaseLog (E00-17), PendingIntentImmutable, ImplicitInternalIntent,
  * TandemActivityBase (E00-28) and NoListenerSockets (invariant 4, E12-04).
  * NoSensitiveReleaseLog (E00-17), PendingIntentImmutable, ImplicitInternalIntent and
- * TandemActivityBase (E00-28), KeyMaterialOnlyInCrypto (E10-14).
+ * TandemActivityBase (E00-28), KeyMaterialOnlyInCrypto (E10-14), DiscoveryTrustBoundary (E21-06).
  */
 class TandemRuleSetProvider : RuleSetProvider {
     override val ruleSetId: String = "tandem"
@@ -26,6 +26,7 @@ class TandemRuleSetProvider : RuleSetProvider {
                 TandemActivityBase(config),
                 NoListenerSockets(config),
                 KeyMaterialOnlyInCrypto(config),
+                DiscoveryTrustBoundary(config),
             ),
         )
 }
