@@ -35,6 +35,7 @@ VECTORS_DIR = REPO_ROOT / "protocol" / "vectors"
 # imported (e.g. from tools/vectors/tests/).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from calls_encoding import generate_calls_encoding_vectors  # noqa: E402 (needs sys.path above)
 from clipboard_encoding import generate_clipboard_encoding_vectors  # noqa: E402 (needs sys.path above)
 from contacts_encoding import generate_contacts_encoding_vectors  # noqa: E402 (needs sys.path above)
 from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
@@ -71,6 +72,7 @@ CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E
 CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  # E41-01
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
 CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
+CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E52-01
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 

@@ -1,0 +1,11 @@
+# E71-09: exact entitlement sets per macOS target, one per line:
+#   <target> <entitlement> <issue ID that justifies it> [optional]
+#
+# target `app` is TandemApp, `share` is the TandemShare extension. A signed target's entitlements
+# must equal its list in both directions; `optional` entries may be absent but nothing outside the
+# list may appear. Blank lines and lines starting with # are ignored.
+app com.apple.security.app-sandbox E22-04
+app com.apple.security.network.server E22-04
+app com.apple.security.network.client E22-04
+share com.apple.security.app-sandbox E00-07
+share com.apple.security.application-groups E00-07 optional
