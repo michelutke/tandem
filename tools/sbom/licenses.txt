@@ -38,6 +38,7 @@ com.squareup* Apache-2.0
 commons-* Apache-2.0
 dev.drewhamilton.poko* Apache-2.0
 github.com/apple/* Apache-2.0
+github.com/groue/* MIT
 io.github* Apache-2.0
 io.gitlab.arturbosch.detekt* Apache-2.0
 jakarta.inject* Apache-2.0
