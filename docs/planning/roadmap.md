@@ -137,7 +137,7 @@ issues (gates the phase checklist); **all** includes P1/P2.
 | 0 | 60 | 7.0 d | 7.0 d | 60.5 d |
 | 1 | 108 | 15.5 d | 16.5 d | 118.5 d |
 | 2 | 35 | 7.5 d | 8.5 d | 39.0 d |
-| 3 | 27 | 8.0 d | 8.0 d | 25.5 d |
+| 3 | 28 | 8.0 d | 8.0 d | 26.0 d |
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
 | 5 | 30 | 12.0 d | 12.0 d | 42.0 d |
 | 6 | 33 | 12.0 d | 16.0 d | 44.0 d |
@@ -274,8 +274,8 @@ How:
 | Fan-out (most dependents) | n | Fan-in (most dependencies) | n |
 |---|---|---|---|
 | E00-20 [android] Robolectric + Compose UI test setup on the JVM | 45 | E71-13 [tools] Fuzz targets: per-domain message decoders, macOS libFuzzer (24 h each) | 14 |
-| E00-23 [docs] Physical device matrix and manual-gate procedure | 40 | E15-23 [tools] Phase 1 security audit gate: every Phase 1 step green in one report | 13 |
-| E00-21 [ci] Android emulator instrumented-test job (Gradle Managed Devices) | 39 | E71-04 [tools] Fuzz targets: per-domain message decoders, Android Jazzer (24 h each) | 13 |
+| E00-21 [ci] Android emulator instrumented-test job (Gradle Managed Devices) | 40 | E15-23 [tools] Phase 1 security audit gate: every Phase 1 step green in one report | 13 |
+| E00-23 [docs] Physical device matrix and manual-gate procedure | 40 | E71-04 [tools] Fuzz targets: per-domain message decoders, Android Jazzer (24 h each) | 13 |
 | E12-11 [android] Transport session abstraction exposing channels | 37 | E71-12 [docs] Release security audit checklist and sign-off | 12 |
 | E12-12 [macos] Transport session abstraction exposing channels | 36 | E14-18 [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM) | 11 |
 | E00-24 [macos] TandemTestSupport package: injectable Clock and ManualTestClock | 34 | E30-13 [cross] Phase 3 notification exit test | 9 |
@@ -299,7 +299,7 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 | 0 | 11.0 d | 8.0 d | 41.5 d |
 | 1 | 43.0 d | 49.5 d | 26.0 d |
 | 2 | 23.0 d | 12.5 d | 3.5 d |
-| 3 | 11.0 d | 6.5 d | 8.0 d |
+| 3 | 11.0 d | 6.5 d | 8.5 d |
 | 4 | 19.5 d | 19.0 d | 8.0 d |
 | 5 | 19.0 d | 12.0 d | 11.0 d |
 | 6 | 16.5 d | 11.0 d | 16.5 d |
