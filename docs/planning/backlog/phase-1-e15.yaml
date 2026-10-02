@@ -442,7 +442,7 @@ epics:
           - "security: mitmLab_clientWithoutTandemAlpn_handshakeFails"
         notes: "Size S -> M in cycle 3 (four scenarios plus accessibility-tree check)."
       - id: E15-16
-        title: "[tools] mitm-lab: menu-bar version-mismatch accessibility check (blocked on E22-11)"
+        title: "[tools] mitm-lab: menu-bar version-mismatch accessibility check"
         type: test
         platforms: [tools]
         priority: P1

@@ -1,0 +1,118 @@
+name: fuzz-campaign
+
+# E71-01 / E71-02 / E71-03: 24 h campaign for the frame length-prefix parser, the Envelope protobuf
+# decoder or the Android QR pairing payload parser (`target` input; Jazzer on Kotlin, libFuzzer on
+# Swift; qr is Jazzer only, macOS never parses QR).
+# Manually dispatched only. A hosted job is capped at 6 h, so each engine runs as sequential
+# segments (max-parallel 1) that resume the previous segment's corpus and counters from the cache;
+# tools/fuzz/campaign/run_campaign.sh stops at `total-seconds` of accumulated wall clock.
+# Each engine's campaign-log.json (duration, total execs, corpus size, crash count) is uploaded as
+# E71-12 evidence; the final segment's log is the campaign result.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Fuzz target: frame (E71-01), envelope (E71-02) or qr (E71-03, jazzer only)"
+        required: true
+        type: choice
+        options: [frame, envelope, qr]
+        default: frame
+      total-seconds:
+        description: "Campaign length per engine in seconds (acceptance: 86400)"
+        required: true
+        default: "86400"
+
+permissions:
+  contents: read
+
+env:
+  SEGMENT_SECONDS: "17400"
+
+jobs:
+  jazzer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        segment: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: corretto
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Install Android SDK platform
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: Restore campaign state
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/campaign
+          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          restore-keys: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-
+      - name: Fuzz segment
+        run: tools/fuzz/campaign/run_campaign.sh jazzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign" "${{ inputs.target }}"
+      - name: Save campaign state
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/campaign
+          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+      - name: Upload campaign log and reproducers
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jazzer-${{ inputs.target }}-campaign-seg${{ matrix.segment }}
+          path: |
+            ${{ runner.temp }}/campaign/campaign-log.json
+            ${{ runner.temp }}/campaign/artifacts/
+          if-no-files-found: ignore
+
+  libfuzzer:
+    if: ${{ inputs.target != 'qr' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    container: swift:6.1
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        segment: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install python3 (seed corpus generation)
+        run: command -v python3 >/dev/null || (apt-get update && apt-get install -y python3)
+      - name: Restore campaign state
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/campaign
+          key: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          restore-keys: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-
+      - name: Build target and seed corpus
+        run: |
+          tools/fuzz/libfuzzer/build_fuzz_target.sh "$RUNNER_TEMP/fuzz-target" "${{ inputs.target }}"
+          mkdir -p "$RUNNER_TEMP/campaign"
+          if [ ! -d "$RUNNER_TEMP/campaign/corpus" ]; then
+            python3 tools/fuzz/libfuzzer/generate_seed_corpus.py "$RUNNER_TEMP/campaign/corpus" "${{ inputs.target }}"
+          fi
+      - name: Fuzz segment
+        env:
+          FUZZ_TARGET: ${{ runner.temp }}/fuzz-target
+        run: tools/fuzz/campaign/run_campaign.sh libfuzzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign" "${{ inputs.target }}"
+      - name: Save campaign state
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/campaign
+          key: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+      - name: Upload campaign log and reproducers
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: libfuzzer-${{ inputs.target }}-campaign-seg${{ matrix.segment }}
+          path: |
+            ${{ runner.temp }}/campaign/campaign-log.json
+            ${{ runner.temp }}/campaign/artifacts/
+          if-no-files-found: ignore

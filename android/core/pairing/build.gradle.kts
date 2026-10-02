@@ -25,6 +25,8 @@ dependencies {
     // FakeTandemSession (E12-11) for PairingStateMachineTest (E14-05); test-only.
     // TestClock/StandardTestDispatcher pairing for virtual-time timeouts (E00-18); test-only.
     testImplementation(project(":core:testing"))
+    // Jazzer JUnit fuzz target for QrPayloadParser (E71-03); test-only, never on a release classpath.
+    testImplementation(libs.jazzer.junit)
 }
 
 // E14-03: QrPayloadParserTest reads the E01-21 vectors committed at protocol/vectors/ (outside this

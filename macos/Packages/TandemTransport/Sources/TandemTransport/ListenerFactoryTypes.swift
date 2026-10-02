@@ -60,9 +60,24 @@ public protocol ListenerFactory: Sendable {
 }
 
 extension NWListenerFactory {
-    /// Called right after a `.trusted` session is registered under its SPKI fingerprint (E22-11)
-    /// -- a purely additive composition-root seam, `nil` by default for every existing caller, so
-    /// ``AppComposition`` can forward a real, currently-paired peer's ``TandemSession/state`` into
-    /// its own long-lived relay without this package knowing anything about the menu bar.
+    /// Called right after a `.trusted` session is registered under its SPKI fingerprint (E22-11), and
+    /// also (E15-16, without registering it) for a `.trusted` peer's session whose handshake failed,
+    /// so a fail-closed outcome such as a version mismatch is observable -- a purely additive
+    /// composition-root seam, `nil` by default for every existing caller, so ``AppComposition`` can
+    /// forward a real, currently-paired peer's ``TandemSession/state`` into its own long-lived relay
+    /// without this package knowing anything about the menu bar.
     public typealias SessionRegisteredHandler = @Sendable (SpkiFingerprint, any TandemSession) -> Void
+
+    /// Drops `metadataIdentifier`'s recorded decision and, for a `.trusted` peer whose handshake
+    /// failed (E15-16), reports the failed `session` to ``onSessionRegistered`` -- never registered.
+    func dropReportingFailure(
+        _ metadataIdentifier: ObjectIdentifier,
+        session: any TandemSession
+    ) -> PeerDecisionCorrelator.Decision? {
+        let dropped = decisionCorrelator.drop(metadataIdentifier: metadataIdentifier)
+        if let dropped, dropped.decision == .trusted, let fingerprint = dropped.fingerprint {
+            onSessionRegistered?(fingerprint, session)
+        }
+        return dropped
+    }
 }

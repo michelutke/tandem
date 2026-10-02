@@ -12,19 +12,37 @@ import TandemStore
 public actor NotificationPresentationCoordinator: PeerDataPurging {
     private let presenter: any NotificationPresenter
     private let iconCache: IconCache?
+    private let screenLockState: (any ScreenLockState)?
+    private let hidesContentWhenLocked: @Sendable () -> Bool
     private var identifiersByPeer: [SpkiFingerprint: Set<String>] = [:]
 
     /// `iconCache` (E30-06) is optional so a coordinator built with no icon cache still presents
     /// notifications, just with no icon attachment.
-    public init(presenter: any NotificationPresenter, iconCache: IconCache? = nil) {
+    ///
+    /// `screenLockState` and `hidesContentWhenLocked` (E30-15) are read on every ``present(_:from:)``,
+    /// so toggling the setting applies to the next notification. Content is hidden only when
+    /// both say so; with no `screenLockState` nothing is ever hidden.
+    public init(
+        presenter: any NotificationPresenter,
+        iconCache: IconCache? = nil,
+        screenLockState: (any ScreenLockState)? = nil,
+        hidesContentWhenLocked: @escaping @Sendable () -> Bool = { false }
+    ) {
         self.presenter = presenter
         self.iconCache = iconCache
+        self.screenLockState = screenLockState
+        self.hidesContentWhenLocked = hidesContentWhenLocked
     }
 
     /// Builds and presents `posted`, then records its request identifier (``Tandem_V1_NotificationPosted/key``)
     /// against `peer` for later ``purgeAll(peer:)``.
     public func present(_ posted: Tandem_V1_NotificationPosted, from peer: SpkiFingerprint) async {
-        let request = NotificationRequestBuilder.build(posted, iconAttachment: await iconAttachment(for: posted))
+        let hideContent = (screenLockState?.isLocked ?? false) && hidesContentWhenLocked()
+        let request = NotificationRequestBuilder.build(
+            posted,
+            iconAttachment: await iconAttachment(for: posted),
+            hideContent: hideContent
+        )
         await presenter.add(request)
         identifiersByPeer[peer, default: []].insert(request.identifier)
     }
@@ -55,8 +73,8 @@ public actor NotificationPresentationCoordinator: PeerDataPurging {
 /// channel with `NotificationPosted`, so it is routed here rather than through a second, separate
 /// channel reader: two independent readers pulling from the same channel's single stream would
 /// race each other for frames). When `actionHandler` is given, every `NotificationActionResult`
-/// goes to it (E30-08). Every other NOTIFY payload is ignored here
-/// (`NotificationDismiss` handling is E30-18). Mirrors
+/// goes to it (E30-08); when `dismissSync` is given, every `NotificationDismiss` goes to it
+/// (E30-18). Every other NOTIFY payload is ignored here. Mirrors
 /// `TandemTransport`'s `startControlRevokeReader`: a free function so a composition root can spawn
 /// one per registered session without this package depending on `TandemTransport`'s
 /// session-registry types. Where exactly that spawn happens in the app's composition root is out
@@ -76,7 +94,8 @@ public func startNotificationPresentationReader(
     session: any TandemSession,
     coordinator: NotificationPresentationCoordinator,
     iconCache: IconCache? = nil,
-    actionHandler: NotificationActionHandler? = nil
+    actionHandler: NotificationActionHandler? = nil,
+    dismissSync: NotificationDismissSync? = nil
 ) -> Task<Void, Never> {
     Task {
         let frames = await session.receive(.notify)
@@ -86,6 +105,8 @@ public func startNotificationPresentationReader(
                 await coordinator.present(posted, from: peer)
             case .iconData(let icon):
                 await iconCache?.store(icon, from: peer)
+            case .notificationDismiss(let dismiss):
+                await dismissSync?.handle(dismiss)
             case .notificationActionResult(let result):
                 await actionHandler?.handle(result)
             default:

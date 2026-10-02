@@ -231,6 +231,40 @@ close, so it carries no `closeCode`/`localReason`. This cap is expressed in byte
 parser decoding `photo_thumbnail` cannot check the JPEG's decoded pixel dimensions, only its byte
 length (`docs/planning/backlog/phase-5.yaml` E51-01 notes).
 
+### `sms-encoding.json` (E50-01)
+
+Vectors for `docs/protocol/SPEC.md` `#sms-channel`'s message types
+(`protocol/proto/tandem/v1/sms.proto`): `SmsMessage`, `SendSmsStatus`, `SmsSyncResponse`. Entries
+are the raw serialized message bytes for one message type at a time (`input.messageHex`);
+`input.kind` selects the type (`smsMessage`/`sendSmsStatus`/`smsSyncResponse`). The manifest
+includes a full `SmsMessage` (with a `messageSha256`), a `SendSmsStatus` for each of the four
+`SendSmsState` values (`FAILED` carrying `TOO_LONG`), and an `SmsSyncResponse` with one thread, two
+messages and a backfill cursor. The `smsEnvelopeFrame` vector gives only the 4-byte length prefix
+of a frame one byte over the 1 MiB maximum (`input.frameHex`) and is run through each platform's
+real frame decoder: `expectedError: "malformedFrame"` with `closeCode`/`localReason`
+(`MALFORMED_FRAME`/`TOO_LARGE`), rejected before any payload buffer is allocated.
+
+### `calls-encoding.json` (E52-01)
+
+Vectors for `docs/protocol/SPEC.md` `#calls-channel`'s message types
+(`protocol/proto/tandem/v1/calls.proto`): `CallEvent`, `CallActionResult`. Entries are the raw
+serialized message bytes (`input.messageHex`); `input.kind` selects the type
+(`callEvent`/`callActionResult`). The `callStateSequence` kind carries an ordered list of `CallEvent`
+bodies for one call (`input.messageHexes`). The manifest includes an incoming `RINGING` `CallEvent`
+(with a `messageSha256`; both codecs also re-encode it to the same bytes), the
+`RINGING`/`ACTIVE`/`ENDED` sequence of one call, and failed `CallActionResult`s for `UNKNOWN_CALL`,
+`INVALID_NUMBER` and `RATE_LIMITED`.
+
+### `media-encoding.json` (E60-01)
+
+Vectors for `docs/protocol/SPEC.md` `#media-ticket`'s message types (`protocol/proto/tandem/v1/media.proto`,
+`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`. Entries are the raw serialized
+message bytes (`input.messageHex`); `input.kind` selects the type
+(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`). Positive entries carry a `messageSha256` (both
+codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
+carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
+both parsers reject any `ticket` that is not exactly 32 bytes.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

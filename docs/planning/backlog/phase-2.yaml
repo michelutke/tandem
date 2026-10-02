@@ -697,6 +697,37 @@ epics:
         tdd:
           - "instrumented: tandemService_revokeFrameReceived_trustDeletedAndSessionClosedWithin2s"
           - "unit: connectionErrorMapper_previouslyPinnedPeerHandshakeFailed_mapsToRevoked"
+      - id: E20-22
+        title: "[android] Per-channel inbound dispatcher (CONTROL: Revoke/pairing/rotation; FILES: AcceptFlow/FileSender)"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-2.3]
+        use_cases: [UC-07]
+        invariants: [3, 5]
+        depends_on: [E20-21]
+        description: |
+          Found by E20-21's verifier pass: each channel's inbound flow is single-consumer
+          (`ChannelMultiplexer` uses `KtChannel.receiveAsFlow`), while `PairingStateMachine`, E70
+          rotation and E20-21's `ControlRevokeConsumer` each call `receive(CONTROL).first(...)`.
+          Two concurrent consumers on one session would steal each other's frames (a swallowed
+          `RotationChallenge` or `Revoke`). E20-21 guards this only by contract (`SessionRegistry`
+          KDoc: no other long-lived CONTROL collector on a registered session). Before E20-05 starts
+          registering real sessions, add one CONTROL dispatcher per session that fans frames out to
+          typed subscribers, and move all CONTROL consumers onto it. The same applies to FILES:
+          E40-07 `AcceptFlow` and E40-03 `FileSender` both collect `receive(CHANNEL_FILES)`.
+        acceptance:
+          - Revoke, pairing and rotation consumers on the same session each receive every frame addressed to them
+          - No production code calls receive(CONTROL) except the dispatcher (lint or test enforced)
+        tdd:
+          - "unit: controlDispatcher_concurrentRevokeAndRotationSubscribers_eachReceivesItsFrame"
+        notes: |
+          Follow-up to E20-21 verifier findings (2026-10-02). Also: give TandemService's scope a
+          CoroutineExceptionHandler so a throwing trust removal can't crash the process or silently
+          stop the Revoke consumer; and E20-05's dialer must pass the SSLHandshakeException cause
+          chain to ConnectionFailureClassifier (it matches the certificate_unknown/bad_certificate
+          alert text, which Conscrypt's top-level "Handshake failed" message lacks).
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
