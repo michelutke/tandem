@@ -104,6 +104,30 @@ final class ScenarioPairedConnectedUITests: XCTestCase {
         }
     }
 
+    // MARK: - menuBarSendFile_connectedScenario_menuItemEnabledAndOpensPicker
+
+    /// E40-10 tdd: ui: menuBarSendFile_connectedScenario_menuItemEnabledAndOpensPicker. The
+    /// scenario's picker records that it opened (and cancels) rather than showing a real panel.
+    func test_menuBarSendFile_connectedScenario_menuItemEnabledAndOpensPicker() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestScenario", "pairedConnected"]
+        app.launch()
+
+        let window = app.windows["Tandem UI Test Scenario"]
+        XCTAssertTrue(window.waitForExistence(timeout: 10), "ui test scenario window never appeared")
+
+        let button = window.buttons["sendFileMenuItem"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "sendFileMenuItem never appeared")
+        XCTAssertTrue(button.isEnabled, "sendFileMenuItem should be enabled when connected")
+
+        button.click()
+
+        XCTAssertTrue(
+            window.staticTexts["filePickerOpenedLabel"].waitForExistence(timeout: 10),
+            "file picker never opened after selecting Send File"
+        )
+    }
+
     // MARK: - menuBarExtra_findPhoneSelected_itemShowsStopRinging
 
     /// E23-07 tdd: ui: menuBarExtra_findPhoneSelected_itemShowsStopRinging. Clicking "Find Phone"
