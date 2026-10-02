@@ -16,6 +16,7 @@ data class FakeContactRow(
     val updatedAtMs: Long,
     val phones: List<Pair<String, Int>> = emptyList(),
     val emails: List<Pair<String, Int>> = emptyList(),
+    val photoThumbnailUri: String? = null,
 )
 
 class FakeContactsProvider : ContentProvider() {
@@ -66,10 +67,15 @@ class FakeContactsProvider : ContentProvider() {
     ): Cursor {
         val cursor =
             MatrixCursor(
-                arrayOf(Contacts._ID, Contacts.DISPLAY_NAME_PRIMARY, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP),
+                arrayOf(
+                    Contacts._ID,
+                    Contacts.DISPLAY_NAME_PRIMARY,
+                    Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+                    Contacts.PHOTO_THUMBNAIL_URI,
+                ),
             )
         val matching = rows.filter { it.id > afterId && it.updatedAtMs > sinceMs }.sortedBy { it.id }
-        matching.forEach { cursor.addRow(arrayOf<Any>(it.id, it.name, it.updatedAtMs)) }
+        matching.forEach { cursor.addRow(arrayOf<Any?>(it.id, it.name, it.updatedAtMs, it.photoThumbnailUri)) }
         return cursor
     }
 

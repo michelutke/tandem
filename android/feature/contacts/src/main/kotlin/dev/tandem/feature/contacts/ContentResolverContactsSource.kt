@@ -14,6 +14,7 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Contacts
 import android.provider.ContactsContract.DeletedContacts
+import com.google.protobuf.ByteString
 import dev.tandem.protocol.v1.Contact
 import dev.tandem.protocol.v1.ContactAddressType
 import dev.tandem.protocol.v1.ContactKt.email
@@ -22,6 +23,7 @@ import dev.tandem.protocol.v1.contact
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import java.io.IOException
 
 /**
  * [ContactsSource] over `ContactsContract` (PRD F-8.3). Pages `Contacts` by `_ID` window and joins
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.callbackFlow
  */
 class ContentResolverContactsSource(
     private val context: Context,
+    private val thumbnailScaler: ThumbnailScaler = ThumbnailScaler(),
 ) : ContactsSource {
     private val resolver: ContentResolver get() = context.contentResolver
 
@@ -96,11 +99,23 @@ class ContentResolverContactsSource(
                 putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "${Contacts._ID} ASC")
                 putInt(ContentResolver.QUERY_ARG_LIMIT, ContactsSource.PAGE_SIZE + 1)
             }
-        val projection = arrayOf(Contacts._ID, Contacts.DISPLAY_NAME_PRIMARY, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP)
+        val projection =
+            arrayOf(
+                Contacts._ID,
+                Contacts.DISPLAY_NAME_PRIMARY,
+                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+                Contacts.PHOTO_THUMBNAIL_URI,
+            )
         val rows = mutableListOf<ContactRow>()
         resolver.query(Contacts.CONTENT_URI, projection, queryArgs, null)?.use { cursor ->
             while (rows.size <= ContactsSource.PAGE_SIZE && cursor.moveToNext()) {
-                rows += ContactRow(cursor.getLong(0), cursor.getString(1).orEmpty(), cursor.getLong(2))
+                rows +=
+                    ContactRow(
+                        cursor.getLong(0),
+                        cursor.getString(1).orEmpty(),
+                        cursor.getLong(2),
+                        cursor.getString(PHOTO_URI_COLUMN),
+                    )
             }
         }
         return rows
@@ -142,6 +157,7 @@ class ContentResolverContactsSource(
         val id: Long,
         val displayName: String,
         val updatedAtMs: Long,
+        val photoThumbnailUri: String?,
     )
 
     private class DataRow(
@@ -157,6 +173,7 @@ class ContentResolverContactsSource(
             contactId = id.toString()
             displayName = this@toContact.displayName
             updatedAtMs = this@toContact.updatedAtMs
+            readThumbnail(photoThumbnailUri)?.let { photoThumbnail = ByteString.copyFrom(it) }
             phoneNumbers +=
                 phones.map { row ->
                     phoneNumber {
@@ -173,24 +190,34 @@ class ContentResolverContactsSource(
                 }
         }
 
-    private fun phoneType(type: Int): ContactAddressType =
-        when (type) {
-            Phone.TYPE_HOME -> ContactAddressType.CONTACT_ADDRESS_TYPE_HOME
-            Phone.TYPE_WORK -> ContactAddressType.CONTACT_ADDRESS_TYPE_WORK
-            Phone.TYPE_MOBILE -> ContactAddressType.CONTACT_ADDRESS_TYPE_MOBILE
-            else -> ContactAddressType.CONTACT_ADDRESS_TYPE_OTHER
-        }
-
-    private fun emailType(type: Int): ContactAddressType =
-        when (type) {
-            Email.TYPE_HOME -> ContactAddressType.CONTACT_ADDRESS_TYPE_HOME
-            Email.TYPE_WORK -> ContactAddressType.CONTACT_ADDRESS_TYPE_WORK
-            Email.TYPE_MOBILE -> ContactAddressType.CONTACT_ADDRESS_TYPE_MOBILE
-            else -> ContactAddressType.CONTACT_ADDRESS_TYPE_OTHER
+    private fun readThumbnail(uri: String?): ByteArray? =
+        uri?.let {
+            try {
+                resolver.openInputStream(Uri.parse(it))?.use { stream -> thumbnailScaler.scale(stream.readBytes()) }
+            } catch (_: IOException) {
+                null
+            }
         }
 
     private companion object {
+        const val PHOTO_URI_COLUMN = 3
         val PHONE_COLUMNS = DataColumns(Phone.CONTENT_URI, Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE)
         val EMAIL_COLUMNS = DataColumns(Email.CONTENT_URI, Email.CONTACT_ID, Email.ADDRESS, Email.TYPE)
     }
 }
+
+private fun phoneType(type: Int): ContactAddressType =
+    when (type) {
+        Phone.TYPE_HOME -> ContactAddressType.CONTACT_ADDRESS_TYPE_HOME
+        Phone.TYPE_WORK -> ContactAddressType.CONTACT_ADDRESS_TYPE_WORK
+        Phone.TYPE_MOBILE -> ContactAddressType.CONTACT_ADDRESS_TYPE_MOBILE
+        else -> ContactAddressType.CONTACT_ADDRESS_TYPE_OTHER
+    }
+
+private fun emailType(type: Int): ContactAddressType =
+    when (type) {
+        Email.TYPE_HOME -> ContactAddressType.CONTACT_ADDRESS_TYPE_HOME
+        Email.TYPE_WORK -> ContactAddressType.CONTACT_ADDRESS_TYPE_WORK
+        Email.TYPE_MOBILE -> ContactAddressType.CONTACT_ADDRESS_TYPE_MOBILE
+        else -> ContactAddressType.CONTACT_ADDRESS_TYPE_OTHER
+    }
