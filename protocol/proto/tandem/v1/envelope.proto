@@ -8,14 +8,17 @@ syntax = "proto3";
 // envelope.proto and control.proto importing each other — a cyclic import protoc/buf reject.
 package tandem.v1;
 
+import "tandem/v1/calls.proto";
 import "tandem/v1/channel.proto";
 import "tandem/v1/clipboard.proto";
 import "tandem/v1/contacts.proto";
 import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
+import "tandem/v1/media.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
 import "tandem/v1/photos.proto";
+import "tandem/v1/sms.proto";
 import "tandem/v1/status.proto";
 
 option java_package = "dev.tandem.protocol.v1";
@@ -40,7 +43,7 @@ message Envelope {
   // (docs/planning/decisions.md AC-11); an unset oneof, or a payload type this receiver's
   // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
   // MALFORMED_FRAME).
-  reserved 8 to 9;     // control.proto (E01-12): remaining CONTROL payload slots
+  reserved 9;          // control.proto (E01-12): remaining CONTROL payload slot
   reserved 15 to 19;   // pairing.proto (E01-11): remaining CONTROL payload slots
   // 20-29: status.proto (E01-13). 22 is RingStop (E23-01); 23-29 held for future extensions.
   reserved 23 to 29;   // status.proto (E01-13): future STATUS channel extensions
@@ -56,15 +59,20 @@ message Envelope {
   // PhotoPage/PhotoPageResult/ThumbRequest/ThumbResult/OriginalRequest/PhotoError; 66-69 held for
   // future extensions.
   reserved 66 to 69;   // photos.proto (E41-01): future FILES channel (photos) extensions
-  reserved 70 to 79;   // sms.proto (E50-01) — SMS channel
+  // 70-79: sms.proto (E50-01). 70-74 are SmsSyncRequest/SmsSyncResponse/SendSmsRequest/
+  // SendSmsStatus/SimList; 75-79 held for future SMS extensions.
+  reserved 75 to 79;   // sms.proto (E50-01): future SMS channel extensions
   // 80-89: contacts.proto (E51-01). 80-81 are ContactsSyncRequest/ContactsSyncResponse; 82-89
   // held for future CONTACTS extensions.
   reserved 82 to 89;   // contacts.proto (E51-01): future CONTACTS channel extensions
-  reserved 90 to 99;   // calls.proto (E52-01) — CALLS channel
+  // 90-99: calls.proto (E52-01). 90-93 are CallEvent/CallAction/PlaceCallRequest/
+  // CallActionResult; 94-99 held for future CALLS extensions.
+  reserved 94 to 99;   // calls.proto (E52-01): future CALLS channel extensions
   reserved 100 to 109; // input.proto (E62-01) — INPUT channel
   reserved 110 to 119; // rotation.proto (E70-01) — CONTROL channel
-  // media.proto (E60-01/E61-01) frames ride the separate media connection, which has no
-  // channel and therefore no Envelope payload slot (E01-14).
+  // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
+  // the separate media connection, which has no channel and therefore no Envelope payload slot
+  // (E01-14).
 
   oneof payload {
     // control.proto (E01-12) — CONTROL channel.
@@ -72,6 +80,7 @@ message Envelope {
     Heartbeat heartbeat = 5;
     CreditGrant credit_grant = 6;
     MediaTicketGrant media_ticket_grant = 7;
+    RequestMediaTicket request_media_ticket = 8;  // media.proto (E60-01)
 
     // pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
     PairChallenge pair_challenge = 10;
@@ -111,8 +120,21 @@ message Envelope {
     OriginalRequest original_request = 64;
     PhotoError photo_error = 65;
 
+    // sms.proto (E50-01) — SMS channel.
+    SmsSyncRequest sms_sync_request = 70;
+    SmsSyncResponse sms_sync_response = 71;
+    SendSmsRequest send_sms_request = 72;
+    SendSmsStatus send_sms_status = 73;
+    SimList sim_list = 74;
+
     // contacts.proto (E51-01) — CONTACTS channel.
     ContactsSyncRequest contacts_sync_request = 80;
     ContactsSyncResponse contacts_sync_response = 81;
+
+    // calls.proto (E52-01) — CALLS channel.
+    CallEvent call_event = 90;
+    CallAction call_action = 91;
+    PlaceCallRequest place_call_request = 92;
+    CallActionResult call_action_result = 93;
   }
 }

@@ -31,6 +31,11 @@ enum UITestScenario: String {
     /// Fail-closed error state: version mismatch (E12-10).
     case failClosedError
 
+    /// A paired peer whose real-shaped connection state (a ``ConnectionStateRelay`` fed by a
+    /// `FakeTandemSession`, the E22-11 production seam) failed with a version mismatch (E15-16):
+    /// both the menu bar's state label and the error banner show the version-mismatch error.
+    case versionMismatchMenu
+
     /// Local Network privacy permission denied (E21-03): the menu shows
     /// ``LocalNetworkPermissionViewModel``'s exact explanation text and an "Open System Settings"
     /// button, seeded by a `BonjourPublishError.policyDenied` error on a plain

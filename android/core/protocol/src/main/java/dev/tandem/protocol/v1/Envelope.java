@@ -29,6 +29,7 @@ public  final class Envelope extends
     HEARTBEAT(5),
     CREDIT_GRANT(6),
     MEDIA_TICKET_GRANT(7),
+    REQUEST_MEDIA_TICKET(8),
     PAIR_CHALLENGE(10),
     PAIR_REQUEST(11),
     PAIR_ACCEPTED(12),
@@ -56,8 +57,17 @@ public  final class Envelope extends
     THUMB_RESULT(63),
     ORIGINAL_REQUEST(64),
     PHOTO_ERROR(65),
+    SMS_SYNC_REQUEST(70),
+    SMS_SYNC_RESPONSE(71),
+    SEND_SMS_REQUEST(72),
+    SEND_SMS_STATUS(73),
+    SIM_LIST(74),
     CONTACTS_SYNC_REQUEST(80),
     CONTACTS_SYNC_RESPONSE(81),
+    CALL_EVENT(90),
+    CALL_ACTION(91),
+    PLACE_CALL_REQUEST(92),
+    CALL_ACTION_RESULT(93),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -77,6 +87,7 @@ public  final class Envelope extends
         case 5: return HEARTBEAT;
         case 6: return CREDIT_GRANT;
         case 7: return MEDIA_TICKET_GRANT;
+        case 8: return REQUEST_MEDIA_TICKET;
         case 10: return PAIR_CHALLENGE;
         case 11: return PAIR_REQUEST;
         case 12: return PAIR_ACCEPTED;
@@ -104,8 +115,17 @@ public  final class Envelope extends
         case 63: return THUMB_RESULT;
         case 64: return ORIGINAL_REQUEST;
         case 65: return PHOTO_ERROR;
+        case 70: return SMS_SYNC_REQUEST;
+        case 71: return SMS_SYNC_RESPONSE;
+        case 72: return SEND_SMS_REQUEST;
+        case 73: return SEND_SMS_STATUS;
+        case 74: return SIM_LIST;
         case 80: return CONTACTS_SYNC_REQUEST;
         case 81: return CONTACTS_SYNC_RESPONSE;
+        case 90: return CALL_EVENT;
+        case 91: return CALL_ACTION;
+        case 92: return PLACE_CALL_REQUEST;
+        case 93: return CALL_ACTION_RESULT;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -478,6 +498,78 @@ public  final class Envelope extends
    */
   private void clearMediaTicketGrant() {
     if (payloadCase_ == 7) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int REQUEST_MEDIA_TICKET_FIELD_NUMBER = 8;
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRequestMediaTicket() {
+    return payloadCase_ == 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RequestMediaTicket getRequestMediaTicket() {
+    if (payloadCase_ == 8) {
+       return (dev.tandem.protocol.v1.RequestMediaTicket) payload_;
+    }
+    return dev.tandem.protocol.v1.RequestMediaTicket.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 8 &&
+        payload_ != dev.tandem.protocol.v1.RequestMediaTicket.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RequestMediaTicket.newBuilder((dev.tandem.protocol.v1.RequestMediaTicket) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  private void clearRequestMediaTicket() {
+    if (payloadCase_ == 8) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -1987,6 +2079,286 @@ public  final class Envelope extends
     }
   }
 
+  public static final int SMS_SYNC_REQUEST_FIELD_NUMBER = 70;
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasSmsSyncRequest() {
+    return payloadCase_ == 70;
+  }
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.SmsSyncRequest getSmsSyncRequest() {
+    if (payloadCase_ == 70) {
+       return (dev.tandem.protocol.v1.SmsSyncRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.SmsSyncRequest.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setSmsSyncRequest(dev.tandem.protocol.v1.SmsSyncRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 70;
+  }
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeSmsSyncRequest(dev.tandem.protocol.v1.SmsSyncRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 70 &&
+        payload_ != dev.tandem.protocol.v1.SmsSyncRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.SmsSyncRequest.newBuilder((dev.tandem.protocol.v1.SmsSyncRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 70;
+  }
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   */
+  private void clearSmsSyncRequest() {
+    if (payloadCase_ == 70) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int SMS_SYNC_RESPONSE_FIELD_NUMBER = 71;
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   */
+  @java.lang.Override
+  public boolean hasSmsSyncResponse() {
+    return payloadCase_ == 71;
+  }
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.SmsSyncResponse getSmsSyncResponse() {
+    if (payloadCase_ == 71) {
+       return (dev.tandem.protocol.v1.SmsSyncResponse) payload_;
+    }
+    return dev.tandem.protocol.v1.SmsSyncResponse.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setSmsSyncResponse(dev.tandem.protocol.v1.SmsSyncResponse value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 71;
+  }
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeSmsSyncResponse(dev.tandem.protocol.v1.SmsSyncResponse value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 71 &&
+        payload_ != dev.tandem.protocol.v1.SmsSyncResponse.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.SmsSyncResponse.newBuilder((dev.tandem.protocol.v1.SmsSyncResponse) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 71;
+  }
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   */
+  private void clearSmsSyncResponse() {
+    if (payloadCase_ == 71) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int SEND_SMS_REQUEST_FIELD_NUMBER = 72;
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasSendSmsRequest() {
+    return payloadCase_ == 72;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.SendSmsRequest getSendSmsRequest() {
+    if (payloadCase_ == 72) {
+       return (dev.tandem.protocol.v1.SendSmsRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.SendSmsRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setSendSmsRequest(dev.tandem.protocol.v1.SendSmsRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 72;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeSendSmsRequest(dev.tandem.protocol.v1.SendSmsRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 72 &&
+        payload_ != dev.tandem.protocol.v1.SendSmsRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.SendSmsRequest.newBuilder((dev.tandem.protocol.v1.SendSmsRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 72;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   */
+  private void clearSendSmsRequest() {
+    if (payloadCase_ == 72) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int SEND_SMS_STATUS_FIELD_NUMBER = 73;
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   */
+  @java.lang.Override
+  public boolean hasSendSmsStatus() {
+    return payloadCase_ == 73;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.SendSmsStatus getSendSmsStatus() {
+    if (payloadCase_ == 73) {
+       return (dev.tandem.protocol.v1.SendSmsStatus) payload_;
+    }
+    return dev.tandem.protocol.v1.SendSmsStatus.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setSendSmsStatus(dev.tandem.protocol.v1.SendSmsStatus value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 73;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeSendSmsStatus(dev.tandem.protocol.v1.SendSmsStatus value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 73 &&
+        payload_ != dev.tandem.protocol.v1.SendSmsStatus.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.SendSmsStatus.newBuilder((dev.tandem.protocol.v1.SendSmsStatus) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 73;
+  }
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   */
+  private void clearSendSmsStatus() {
+    if (payloadCase_ == 73) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int SIM_LIST_FIELD_NUMBER = 74;
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   */
+  @java.lang.Override
+  public boolean hasSimList() {
+    return payloadCase_ == 74;
+  }
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.SimList getSimList() {
+    if (payloadCase_ == 74) {
+       return (dev.tandem.protocol.v1.SimList) payload_;
+    }
+    return dev.tandem.protocol.v1.SimList.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setSimList(dev.tandem.protocol.v1.SimList value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 74;
+  }
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeSimList(dev.tandem.protocol.v1.SimList value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 74 &&
+        payload_ != dev.tandem.protocol.v1.SimList.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.SimList.newBuilder((dev.tandem.protocol.v1.SimList) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 74;
+  }
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   */
+  private void clearSimList() {
+    if (payloadCase_ == 74) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
   public static final int CONTACTS_SYNC_REQUEST_FIELD_NUMBER = 80;
   /**
    * <pre>
@@ -2106,6 +2478,234 @@ public  final class Envelope extends
    */
   private void clearContactsSyncResponse() {
     if (payloadCase_ == 81) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CALL_EVENT_FIELD_NUMBER = 90;
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   */
+  @java.lang.Override
+  public boolean hasCallEvent() {
+    return payloadCase_ == 90;
+  }
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.CallEvent getCallEvent() {
+    if (payloadCase_ == 90) {
+       return (dev.tandem.protocol.v1.CallEvent) payload_;
+    }
+    return dev.tandem.protocol.v1.CallEvent.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setCallEvent(dev.tandem.protocol.v1.CallEvent value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 90;
+  }
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeCallEvent(dev.tandem.protocol.v1.CallEvent value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 90 &&
+        payload_ != dev.tandem.protocol.v1.CallEvent.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.CallEvent.newBuilder((dev.tandem.protocol.v1.CallEvent) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 90;
+  }
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   */
+  private void clearCallEvent() {
+    if (payloadCase_ == 90) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CALL_ACTION_FIELD_NUMBER = 91;
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   */
+  @java.lang.Override
+  public boolean hasCallAction() {
+    return payloadCase_ == 91;
+  }
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.CallAction getCallAction() {
+    if (payloadCase_ == 91) {
+       return (dev.tandem.protocol.v1.CallAction) payload_;
+    }
+    return dev.tandem.protocol.v1.CallAction.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setCallAction(dev.tandem.protocol.v1.CallAction value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 91;
+  }
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeCallAction(dev.tandem.protocol.v1.CallAction value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 91 &&
+        payload_ != dev.tandem.protocol.v1.CallAction.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.CallAction.newBuilder((dev.tandem.protocol.v1.CallAction) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 91;
+  }
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   */
+  private void clearCallAction() {
+    if (payloadCase_ == 91) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PLACE_CALL_REQUEST_FIELD_NUMBER = 92;
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPlaceCallRequest() {
+    return payloadCase_ == 92;
+  }
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PlaceCallRequest getPlaceCallRequest() {
+    if (payloadCase_ == 92) {
+       return (dev.tandem.protocol.v1.PlaceCallRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.PlaceCallRequest.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPlaceCallRequest(dev.tandem.protocol.v1.PlaceCallRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 92;
+  }
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePlaceCallRequest(dev.tandem.protocol.v1.PlaceCallRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 92 &&
+        payload_ != dev.tandem.protocol.v1.PlaceCallRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PlaceCallRequest.newBuilder((dev.tandem.protocol.v1.PlaceCallRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 92;
+  }
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   */
+  private void clearPlaceCallRequest() {
+    if (payloadCase_ == 92) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CALL_ACTION_RESULT_FIELD_NUMBER = 93;
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   */
+  @java.lang.Override
+  public boolean hasCallActionResult() {
+    return payloadCase_ == 93;
+  }
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.CallActionResult getCallActionResult() {
+    if (payloadCase_ == 93) {
+       return (dev.tandem.protocol.v1.CallActionResult) payload_;
+    }
+    return dev.tandem.protocol.v1.CallActionResult.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setCallActionResult(dev.tandem.protocol.v1.CallActionResult value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 93;
+  }
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeCallActionResult(dev.tandem.protocol.v1.CallActionResult value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 93 &&
+        payload_ != dev.tandem.protocol.v1.CallActionResult.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.CallActionResult.newBuilder((dev.tandem.protocol.v1.CallActionResult) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 93;
+  }
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   */
+  private void clearCallActionResult() {
+    if (payloadCase_ == 93) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -2574,6 +3174,78 @@ public  final class Envelope extends
     public Builder clearMediaTicketGrant() {
       copyOnWrite();
       instance.clearMediaTicketGrant();
+      return this;
+    }
+
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRequestMediaTicket() {
+      return instance.hasRequestMediaTicket();
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RequestMediaTicket getRequestMediaTicket() {
+      return instance.getRequestMediaTicket();
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder setRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+      copyOnWrite();
+      instance.setRequestMediaTicket(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder setRequestMediaTicket(
+        dev.tandem.protocol.v1.RequestMediaTicket.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRequestMediaTicket(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder mergeRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+      copyOnWrite();
+      instance.mergeRequestMediaTicket(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder clearRequestMediaTicket() {
+      copyOnWrite();
+      instance.clearRequestMediaTicket();
       return this;
     }
 
@@ -3995,6 +4667,270 @@ public  final class Envelope extends
 
     /**
      * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasSmsSyncRequest() {
+      return instance.hasSmsSyncRequest();
+    }
+    /**
+     * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.SmsSyncRequest getSmsSyncRequest() {
+      return instance.getSmsSyncRequest();
+    }
+    /**
+     * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    public Builder setSmsSyncRequest(dev.tandem.protocol.v1.SmsSyncRequest value) {
+      copyOnWrite();
+      instance.setSmsSyncRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    public Builder setSmsSyncRequest(
+        dev.tandem.protocol.v1.SmsSyncRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setSmsSyncRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    public Builder mergeSmsSyncRequest(dev.tandem.protocol.v1.SmsSyncRequest value) {
+      copyOnWrite();
+      instance.mergeSmsSyncRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * sms.proto (E50-01) — SMS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+     */
+    public Builder clearSmsSyncRequest() {
+      copyOnWrite();
+      instance.clearSmsSyncRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    @java.lang.Override
+    public boolean hasSmsSyncResponse() {
+      return instance.hasSmsSyncResponse();
+    }
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.SmsSyncResponse getSmsSyncResponse() {
+      return instance.getSmsSyncResponse();
+    }
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    public Builder setSmsSyncResponse(dev.tandem.protocol.v1.SmsSyncResponse value) {
+      copyOnWrite();
+      instance.setSmsSyncResponse(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    public Builder setSmsSyncResponse(
+        dev.tandem.protocol.v1.SmsSyncResponse.Builder builderForValue) {
+      copyOnWrite();
+      instance.setSmsSyncResponse(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    public Builder mergeSmsSyncResponse(dev.tandem.protocol.v1.SmsSyncResponse value) {
+      copyOnWrite();
+      instance.mergeSmsSyncResponse(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+     */
+    public Builder clearSmsSyncResponse() {
+      copyOnWrite();
+      instance.clearSmsSyncResponse();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasSendSmsRequest() {
+      return instance.hasSendSmsRequest();
+    }
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.SendSmsRequest getSendSmsRequest() {
+      return instance.getSendSmsRequest();
+    }
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    public Builder setSendSmsRequest(dev.tandem.protocol.v1.SendSmsRequest value) {
+      copyOnWrite();
+      instance.setSendSmsRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    public Builder setSendSmsRequest(
+        dev.tandem.protocol.v1.SendSmsRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setSendSmsRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    public Builder mergeSendSmsRequest(dev.tandem.protocol.v1.SendSmsRequest value) {
+      copyOnWrite();
+      instance.mergeSendSmsRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+     */
+    public Builder clearSendSmsRequest() {
+      copyOnWrite();
+      instance.clearSendSmsRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    @java.lang.Override
+    public boolean hasSendSmsStatus() {
+      return instance.hasSendSmsStatus();
+    }
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.SendSmsStatus getSendSmsStatus() {
+      return instance.getSendSmsStatus();
+    }
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    public Builder setSendSmsStatus(dev.tandem.protocol.v1.SendSmsStatus value) {
+      copyOnWrite();
+      instance.setSendSmsStatus(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    public Builder setSendSmsStatus(
+        dev.tandem.protocol.v1.SendSmsStatus.Builder builderForValue) {
+      copyOnWrite();
+      instance.setSendSmsStatus(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    public Builder mergeSendSmsStatus(dev.tandem.protocol.v1.SendSmsStatus value) {
+      copyOnWrite();
+      instance.mergeSendSmsStatus(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+     */
+    public Builder clearSendSmsStatus() {
+      copyOnWrite();
+      instance.clearSendSmsStatus();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    @java.lang.Override
+    public boolean hasSimList() {
+      return instance.hasSimList();
+    }
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.SimList getSimList() {
+      return instance.getSimList();
+    }
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    public Builder setSimList(dev.tandem.protocol.v1.SimList value) {
+      copyOnWrite();
+      instance.setSimList(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    public Builder setSimList(
+        dev.tandem.protocol.v1.SimList.Builder builderForValue) {
+      copyOnWrite();
+      instance.setSimList(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    public Builder mergeSimList(dev.tandem.protocol.v1.SimList value) {
+      copyOnWrite();
+      instance.mergeSimList(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+     */
+    public Builder clearSimList() {
+      copyOnWrite();
+      instance.clearSimList();
+      return this;
+    }
+
+    /**
+     * <pre>
      * contacts.proto (E51-01) — CONTACTS channel.
      * </pre>
      *
@@ -4113,6 +5049,222 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    @java.lang.Override
+    public boolean hasCallEvent() {
+      return instance.hasCallEvent();
+    }
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.CallEvent getCallEvent() {
+      return instance.getCallEvent();
+    }
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    public Builder setCallEvent(dev.tandem.protocol.v1.CallEvent value) {
+      copyOnWrite();
+      instance.setCallEvent(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    public Builder setCallEvent(
+        dev.tandem.protocol.v1.CallEvent.Builder builderForValue) {
+      copyOnWrite();
+      instance.setCallEvent(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    public Builder mergeCallEvent(dev.tandem.protocol.v1.CallEvent value) {
+      copyOnWrite();
+      instance.mergeCallEvent(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * calls.proto (E52-01) — CALLS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+     */
+    public Builder clearCallEvent() {
+      copyOnWrite();
+      instance.clearCallEvent();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    @java.lang.Override
+    public boolean hasCallAction() {
+      return instance.hasCallAction();
+    }
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.CallAction getCallAction() {
+      return instance.getCallAction();
+    }
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    public Builder setCallAction(dev.tandem.protocol.v1.CallAction value) {
+      copyOnWrite();
+      instance.setCallAction(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    public Builder setCallAction(
+        dev.tandem.protocol.v1.CallAction.Builder builderForValue) {
+      copyOnWrite();
+      instance.setCallAction(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    public Builder mergeCallAction(dev.tandem.protocol.v1.CallAction value) {
+      copyOnWrite();
+      instance.mergeCallAction(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+     */
+    public Builder clearCallAction() {
+      copyOnWrite();
+      instance.clearCallAction();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPlaceCallRequest() {
+      return instance.hasPlaceCallRequest();
+    }
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PlaceCallRequest getPlaceCallRequest() {
+      return instance.getPlaceCallRequest();
+    }
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    public Builder setPlaceCallRequest(dev.tandem.protocol.v1.PlaceCallRequest value) {
+      copyOnWrite();
+      instance.setPlaceCallRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    public Builder setPlaceCallRequest(
+        dev.tandem.protocol.v1.PlaceCallRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPlaceCallRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    public Builder mergePlaceCallRequest(dev.tandem.protocol.v1.PlaceCallRequest value) {
+      copyOnWrite();
+      instance.mergePlaceCallRequest(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+     */
+    public Builder clearPlaceCallRequest() {
+      copyOnWrite();
+      instance.clearPlaceCallRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    @java.lang.Override
+    public boolean hasCallActionResult() {
+      return instance.hasCallActionResult();
+    }
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.CallActionResult getCallActionResult() {
+      return instance.getCallActionResult();
+    }
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    public Builder setCallActionResult(dev.tandem.protocol.v1.CallActionResult value) {
+      copyOnWrite();
+      instance.setCallActionResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    public Builder setCallActionResult(
+        dev.tandem.protocol.v1.CallActionResult.Builder builderForValue) {
+      copyOnWrite();
+      instance.setCallActionResult(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    public Builder mergeCallActionResult(dev.tandem.protocol.v1.CallActionResult value) {
+      copyOnWrite();
+      instance.mergeCallActionResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+     */
+    public Builder clearCallActionResult() {
+      copyOnWrite();
+      instance.clearCallActionResult();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -4138,6 +5290,7 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.Heartbeat.class,
             dev.tandem.protocol.v1.CreditGrant.class,
             dev.tandem.protocol.v1.MediaTicketGrant.class,
+            dev.tandem.protocol.v1.RequestMediaTicket.class,
             dev.tandem.protocol.v1.PairChallenge.class,
             dev.tandem.protocol.v1.PairRequest.class,
             dev.tandem.protocol.v1.PairAccepted.class,
@@ -4165,15 +5318,25 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.ThumbResult.class,
             dev.tandem.protocol.v1.OriginalRequest.class,
             dev.tandem.protocol.v1.PhotoError.class,
+            dev.tandem.protocol.v1.SmsSyncRequest.class,
+            dev.tandem.protocol.v1.SmsSyncResponse.class,
+            dev.tandem.protocol.v1.SendSmsRequest.class,
+            dev.tandem.protocol.v1.SendSmsStatus.class,
+            dev.tandem.protocol.v1.SimList.class,
             dev.tandem.protocol.v1.ContactsSyncRequest.class,
             dev.tandem.protocol.v1.ContactsSyncResponse.class,
+            dev.tandem.protocol.v1.CallEvent.class,
+            dev.tandem.protocol.v1.CallAction.class,
+            dev.tandem.protocol.v1.PlaceCallRequest.class,
+            dev.tandem.protocol.v1.CallActionResult.class,
           };
           java.lang.String info =
-              "\u0000$\u0001\u0000\u0001Q$\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
-              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000\f<\u0000\r<" +
-              "\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000" +
-              " <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<\u00007<\u0000" +
-              "8<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000P<\u0000Q<\u0000";
+              "\u0000.\u0001\u0000\u0001].\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000\f<" +
+              "\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
+              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
+              "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
+              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

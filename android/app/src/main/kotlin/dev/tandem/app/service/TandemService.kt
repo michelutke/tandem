@@ -11,6 +11,7 @@ import android.os.IBinder
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.core.pairing.revoke.TrustRemover
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -37,10 +38,21 @@ import kotlinx.coroutines.launch
  * from Room's per-`RoomDatabase`-instance `InvalidationTracker`, so a second connection to the
  * same file would never see writes made through the first (e.g. an unpair action elsewhere in
  * `:app`), and this service would never stop.
+ *
+ * Also consumes the CONTROL channel of whichever session is registered in [sessionRegistry]
+ * (E20-21): an incoming `Revoke` deletes that peer's trust record through [trustRemoverFactory]
+ * and closes the session (AC-09), via the real `RevokeHandler`.
  */
 class TandemService : Service() {
     internal var pairedPeerRepositoryFactory: (Context) -> PairedPeerRepository = { context ->
         TrustStorePairedPeerRepository((context.applicationContext as TandemApplication).trustStore)
+    }
+    internal var sessionRegistryFactory: (Context) -> SessionRegistry = { context ->
+        (context.applicationContext as TandemApplication).sessionRegistry
+    }
+    internal var trustRemoverFactory: (Context) -> TrustRemover = { context ->
+        val trustStore = (context.applicationContext as TandemApplication).trustStore
+        TrustRemover { fingerprint -> trustStore.unpair(fingerprint) }
     }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
 
@@ -52,15 +64,23 @@ class TandemService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
 
         val pairedPeerRepository = pairedPeerRepositoryFactory(applicationContext)
-        job =
-            CoroutineScope(SupervisorJob() + dispatcher).launch {
-                pairedPeerRepository.observeHasPairedPeer().collectLatest { hasPairedPeer ->
-                    if (!hasPairedPeer) {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
+        val sessionRegistry = sessionRegistryFactory(applicationContext)
+        val trustRemover = trustRemoverFactory(applicationContext)
+        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        job = scope.coroutineContext[Job]
+        scope.launch {
+            pairedPeerRepository.observeHasPairedPeer().collectLatest { hasPairedPeer ->
+                if (!hasPairedPeer) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
                 }
             }
+        }
+        scope.launch {
+            sessionRegistry.current.collectLatest { registered ->
+                if (registered != null) consumeControlRevoke(registered, trustRemover)
+            }
+        }
     }
 
     override fun onStartCommand(
