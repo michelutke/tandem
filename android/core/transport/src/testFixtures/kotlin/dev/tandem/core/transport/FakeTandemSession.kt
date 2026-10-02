@@ -34,6 +34,7 @@ class FakeTandemSession : TandemSession {
 
     private var nextSendException: Exception? = null
     private var hangingSend = false
+    private var closed = false
 
     override suspend fun send(
         channel: Channel,
@@ -78,10 +79,11 @@ class FakeTandemSession : TandemSession {
     }
 
     override fun close() {
+        closed = true
         mutableState.value = ConnectionState.Disconnected()
         inboundQueues.values.forEach { it.close() }
     }
 
     private fun queueFor(channel: Channel): KtChannel<Envelope> =
-        inboundQueues.getOrPut(channel) { KtChannel(KtChannel.UNLIMITED) }
+        inboundQueues.getOrPut(channel) { KtChannel<Envelope>(KtChannel.UNLIMITED).also { if (closed) it.close() } }
 }

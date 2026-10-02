@@ -79,4 +79,24 @@ struct ControlSessionRegistryTests {
         // Session should not have received any closes yet
         #expect(sent.count >= 0)
     }
+
+    @Test("sessionRegistry_shouldForwardState_staleUnregisteredWhileOtherLive_false")
+    func shouldForwardStateStaleUnregisteredWhileOtherLiveFalse() async throws {
+        let registry = ControlSessionRegistry()
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let live = FakeTandemSession()
+        let stale = FakeTandemSession()
+        await registry.register(fingerprint, session: live)
+
+        #expect(await registry.shouldForwardState(of: live, for: fingerprint))
+        #expect(await registry.shouldForwardState(of: stale, for: fingerprint) == false)
+    }
+
+    @Test("sessionRegistry_shouldForwardState_noneRegistered_true")
+    func shouldForwardStateNoneRegisteredTrue() async throws {
+        let registry = ControlSessionRegistry()
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+
+        #expect(await registry.shouldForwardState(of: FakeTandemSession(), for: fingerprint))
+    }
 }

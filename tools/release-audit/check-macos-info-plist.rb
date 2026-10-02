@@ -6,6 +6,9 @@
 #   - NSLocalNetworkUsageDescription: a non-empty string
 #   - NSBonjourServices: an array containing _tandem._tcp
 #
+# E71-09: also fails when the plist carries any ATS exception key (NSAllowsLocalNetworking,
+# NSAllowsArbitraryLoads*, NSExceptionDomains) anywhere, including inside NSAppTransportSecurity.
+#
 # Usage:
 #   ruby tools/release-audit/check-macos-info-plist.rb --info-plist PATH
 #
@@ -16,6 +19,13 @@ require 'optparse'
 
 module MacOSInfoPlistCheck
   REQUIRED_BONJOUR_SERVICE = '_tandem._tcp'
+  FORBIDDEN_ATS_KEYS = %w[
+    NSAllowsLocalNetworking
+    NSAllowsArbitraryLoads
+    NSAllowsArbitraryLoadsInWebContent
+    NSAllowsArbitraryLoadsForMedia
+    NSExceptionDomains
+  ].freeze
 
   def self.check(info_plist_path)
     doc = REXML::Document.new(File.read(info_plist_path))
@@ -27,6 +37,12 @@ module MacOSInfoPlistCheck
     end
 
     parsed = parse_plist_dict(dict)
+
+    forbidden = doc.get_elements('//key').map(&:text) & FORBIDDEN_ATS_KEYS
+    unless forbidden.empty?
+      warn "Error: Forbidden ATS exception key(s) in Info.plist: #{forbidden.join(', ')}"
+      exit 1
+    end
 
     description = parsed['NSLocalNetworkUsageDescription']
     unless description.is_a?(String) && !description.strip.empty?

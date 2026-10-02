@@ -44,9 +44,9 @@ enum AppComposition {
         /// (E22-11), forwarded across reconnects by a ``ConnectionStateRelay`` -- `nil` if no peer
         /// is paired at all (``MenuBarViewModel``/``ErrorBannerViewModel`` then show `.notPaired`/no
         /// banner, exactly like their own `stateStream: nil` default already did).
-        let menuBarStateStream: AsyncStream<ConnectionStateMachine.ConnectionState>?
+        let makeMenuBarStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
         /// The same peer's display name (``TandemStore/PeerRecord/displayName``), or `nil` alongside
-        /// ``menuBarStateStream`` when none is paired.
+        /// ``makeMenuBarStateStream`` when none is paired.
         let pairedPeerName: String?
     }
 
@@ -79,7 +79,7 @@ enum AppComposition {
             decisionCorrelator: decisionCorrelator,
             pinMismatchBannerGate: pinMismatchBannerGate
         )
-        let menuBarWiring = makeMenuBarWiring(trustStore: trustStore)
+        let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
             listenerFactory: NWListenerFactory(
@@ -107,7 +107,7 @@ enum AppComposition {
                 sessionRegistry: sessionRegistry,
                 trustStore: trustStore,
                 purgeRegistry: purgeRegistry,
-                menuBarStateStream: menuBarWiring.stream,
+                makeMenuBarStateStream: menuBarWiring.makeStream,
                 pairedPeerName: menuBarWiring.peerName
             )
         )
@@ -121,22 +121,28 @@ enum AppComposition {
     /// reconnects, since `onSessionRegistered` fires again each time a new `TandemSession` reaches
     /// Ready for the same fingerprint.
     private struct MenuBarWiring {
-        let stream: AsyncStream<ConnectionStateMachine.ConnectionState>?
+        let makeStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
         let peerName: String?
         let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?
     }
 
-    private static func makeMenuBarWiring(trustStore: TrustStore) -> MenuBarWiring {
+    private static func makeMenuBarWiring(
+        trustStore: TrustStore,
+        sessionRegistry: ControlSessionRegistry
+    ) -> MenuBarWiring {
         guard let pairedPeer = (try? trustStore.list())?.first else {
-            return MenuBarWiring(stream: nil, peerName: nil, onSessionRegistered: nil)
+            return MenuBarWiring(makeStream: nil, peerName: nil, onSessionRegistered: nil)
         }
         let relay = ConnectionStateRelay()
         let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler = { fingerprint, session in
             guard fingerprint == pairedPeer.fingerprint else { return }
-            Task { await relay.attach(session) }
+            Task {
+                guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
+                await relay.attach(session)
+            }
         }
         return MenuBarWiring(
-            stream: relay.stream,
+            makeStream: { relay.makeStream() },
             peerName: pairedPeer.displayName,
             onSessionRegistered: onSessionRegistered
         )

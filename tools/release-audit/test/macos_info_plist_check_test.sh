@@ -45,6 +45,8 @@ run_test "usage description and tandem service present" "$FIXTURES_DIR/info-plis
 run_test "missing usage description fails" "$FIXTURES_DIR/info-plist-missing-usage-description.plist" "fail"
 run_test "missing NSBonjourServices fails" "$FIXTURES_DIR/info-plist-missing-bonjour-services.plist" "fail"
 run_test "wrong bonjour service fails" "$FIXTURES_DIR/info-plist-wrong-bonjour-service.plist" "fail"
+run_test "NSAllowsLocalNetworking fails" "$FIXTURES_DIR/info-plist-allows-local-networking.plist" "fail"
+run_test "NSAllowsArbitraryLoads fails" "$FIXTURES_DIR/info-plist-allows-arbitrary-loads.plist" "fail"
 run_test "checked-in TandemApp Info.plist passes" "$REPO_ROOT/macos/TandemApp/Info.plist" "pass"
 
 echo
