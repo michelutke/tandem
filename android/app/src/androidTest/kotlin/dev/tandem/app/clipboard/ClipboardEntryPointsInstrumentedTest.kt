@@ -74,6 +74,11 @@ class ClipboardEntryPointsInstrumentedTest {
                         ClipboardReader { if (armed) ClipboardClip("button text", sensitive = false) else null }
                     }
                 }
+            waitUntil {
+                var focused = false
+                scenario.onActivity { focused = it.hasWindowFocus() }
+                focused
+            }
             armed = true
             scenario.onActivity { it.onSendClipboardButtonTapped() }
             scenario
