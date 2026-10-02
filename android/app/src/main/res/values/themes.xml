@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- E31-12: invisible host for ClipboardCaptureActivity -->
+    <style name="Theme.Tandem.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
+</resources>
