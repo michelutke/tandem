@@ -1,0 +1,11 @@
+{
+  "pins" : [
+    {
+      "identity" : "swift-thing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/example/swift-thing.git",
+      "state" : { "revision" : "abc", "version" : "3.1.0" }
+    }
+  ],
+  "version" : 3
+}
