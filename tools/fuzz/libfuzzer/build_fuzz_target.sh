@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # E15-14: builds the real libFuzzer binary for TandemProtocol's FrameDecoder.
 #
-#   tools/fuzz/libfuzzer/build_fuzz_target.sh <output-path>
+#   tools/fuzz/libfuzzer/build_fuzz_target.sh <output-path> [frame|envelope]
+#
+# The optional target (default frame) picks the libFuzzer entry point: frame fuzzes whole frames
+# (LLVMFuzzerEntry.swift), envelope fuzzes serialized Envelope bytes (E71-02,
+# LLVMFuzzerEnvelopeEntry.swift).
 #
 # `FrameEnvelopeFuzzerCore` (swift/) is a plain SwiftPM library: `swift build`/`swift test` never
 # need `-sanitize=fuzzer`, so they work on any Swift 6.1+ toolchain. This script does the one part
@@ -16,11 +20,19 @@
 # (smoke.sh) treat that as "skip the real-target run" rather than a hard failure.
 set -uo pipefail
 
-if [ "$#" -ne 1 ]; then
-  echo "usage: build_fuzz_target.sh <output-path>" >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  echo "usage: build_fuzz_target.sh <output-path> [frame|envelope]" >&2
   exit 2
 fi
 output="$1"
+case "${2:-frame}" in
+  frame) entry_file="LLVMFuzzerEntry.swift" ;;
+  envelope) entry_file="LLVMFuzzerEnvelopeEntry.swift" ;;
+  *)
+    echo "build_fuzz_target.sh: target must be frame or envelope, got '$2'" >&2
+    exit 2
+    ;;
+esac
 dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 swift_pkg="$dir/swift"
 
@@ -39,7 +51,7 @@ if ! swiftc \
   -I "$bin_path/Modules" \
   -L "$bin_path" \
   -lFrameEnvelopeFuzzerCore \
-  "$dir/swift/fuzzer-entry/LLVMFuzzerEntry.swift" \
+  "$dir/swift/fuzzer-entry/$entry_file" \
   -o "$output" 2>&1; then
   echo "build_fuzz_target.sh: this Swift toolchain cannot link -sanitize=fuzzer (expected on the" \
        "Xcode toolchain; use the Swift.org toolchain or the swift Docker image instead — see README.md)" >&2

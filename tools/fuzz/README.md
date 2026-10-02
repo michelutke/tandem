@@ -2,6 +2,7 @@ tools/fuzz — E15-13, E15-14: Jazzer (Kotlin) and libFuzzer (Swift) frame/envel
 
 - `libfuzzer/` — E15-14: the Swift/libFuzzer target and its CI smoke run (see its own README.md).
 - `jazzer/` — E15-13: the Kotlin/Jazzer CI wrapper (layout below).
+- `campaign/` — E71-01: 24 h campaign runner (see below).
 
 ## E15-13 (Jazzer / Android) layout
 
@@ -18,3 +19,31 @@ project. `tools/fuzz/jazzer/` is the operational/CI-facing home:
   budget-exhausted run).
 
 See `tools/fuzz/jazzer/README.md` for the full contract.
+
+## E71-01 (24 h campaign)
+
+`campaign/run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope]` fuzzes
+in chunks and resumes from `<state-dir>` (corpus + `state.env` counters), so a campaign longer than
+a 6 h runner job runs as several segments. It writes `<state-dir>/campaign-log.json` (duration,
+total execs, final corpus size, crash count; E71-12 evidence) and exits 1 on a crash or hang
+(libFuzzer runs use `-timeout=10`), leaving the reproducer in `<state-dir>/artifacts`. Self-test:
+`campaign/test/run_campaign_test.sh`.
+
+`.github/workflows/fuzz-campaign.yml` (manual `workflow_dispatch`, `total-seconds` default 86400)
+runs both engines as 5 sequential segments of 17 400 s with the state in the Actions cache.
+The libFuzzer engine needs `FUZZ_TARGET` (built by `libfuzzer/build_fuzz_target.sh`). Jazzer's
+JUnit mode does not report an exec count, so `total_execs` stays 0 for Jazzer and its per-input
+hang limit is Jazzer's own default timeout.
+
+E71-02 reuses the same runner and workflow for the Envelope protobuf decoder: pass `envelope` as the
+runner's target (the workflow's `target` input). Jazzer runs `EnvelopeDecoderFuzzTest`, libFuzzer a
+binary built with `libfuzzer/build_fuzz_target.sh <out> envelope`. Both feed every input through
+`FrameDecoder` with a matching length prefix so each execution reaches `Envelope.parseFrom`; seeds
+are the vectors' envelope bytes (`libfuzzer/generate_seed_corpus.py <dir> envelope`). A reproducer
+becomes a regression test as above.
+
+Local short run: `tools/fuzz/campaign/run_campaign.sh jazzer 60 60 "$TMPDIR/jz-campaign"`.
+A crash reproducer becomes a regression test: add the bytes as a seed vector in
+`protocol/vectors/frame-encoding.json`.
+
+E71-03 adds the `qr` target (Android QR pairing payload parser, Jazzer only; see `jazzer/README.md` and `campaign/README.md`).

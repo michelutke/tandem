@@ -1,0 +1,91 @@
+{
+  "$schema": "./schema.json",
+  "category": "calls-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "call-event-ringing-incoming-round-trip",
+      "description": "An incoming RINGING CallEvent decoding to identical fields on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #calls-channel).",
+      "input": {
+        "kind": "callEvent",
+        "messageHex": "0a2463316434653861322d376233662d346139302d386536352d3266396430623661316333341001180122102b3431203739203535352030312030302a0c2b34313739353535303130303080d095ffbc31"
+      },
+      "expected": {
+        "callId": "c1d4e8a2-7b3f-4a90-8e65-2f9d0b6a1c34",
+        "direction": "CALL_DIRECTION_INCOMING",
+        "state": "CALL_STATE_RINGING",
+        "address": "+41 79 555 01 00",
+        "normalizedE164": "+41795550100",
+        "timestampMs": 1700000000000,
+        "messageSha256": "0812553c5ba8632da893ceedc1f11cec1b3e0518f5c7df68fd4a7a156608a467"
+      }
+    },
+    {
+      "id": "call-state-sequence-ringing-active-ended",
+      "description": "The CallEvent sequence of one incoming call (RINGING, ACTIVE, ENDED) decoding to the same callId, states and timestamps on both codecs (docs/protocol/SPEC.md #calls-channel \"Call events\").",
+      "input": {
+        "kind": "callStateSequence",
+        "messageHexes": [
+          "0a2463316434653861322d376233662d346139302d386536352d3266396430623661316333341001180122102b3431203739203535352030312030302a0c2b34313739353535303130303080d095ffbc31",
+          "0a2463316434653861322d376233662d346139302d386536352d3266396430623661316333341001180322102b3431203739203535352030312030302a0c2b343137393535353031303030a0ef95ffbc31",
+          "0a2463316434653861322d376233662d346139302d386536352d3266396430623661316333341001180422102b3431203739203535352030312030302a0c2b34313739353535303130303080c499ffbc31"
+        ]
+      },
+      "expected": {
+        "callId": "c1d4e8a2-7b3f-4a90-8e65-2f9d0b6a1c34",
+        "states": [
+          "CALL_STATE_RINGING",
+          "CALL_STATE_ACTIVE",
+          "CALL_STATE_ENDED"
+        ],
+        "timestampsMs": [
+          1700000000000,
+          1700000004000,
+          1700000064000
+        ]
+      }
+    },
+    {
+      "id": "call-action-result-unknown-call",
+      "description": "A failed CallActionResult with errorCode CALL_ACTION_ERROR_CODE_UNKNOWN_CALL decoding to the same enum value and echoing requestId on both codecs (docs/protocol/SPEC.md #calls-channel).",
+      "input": {
+        "kind": "callActionResult",
+        "messageHex": "0a2439613765356333312d346432382d346236662d613063332d356531663864326237613436122430303030303030302d303030302d343030302d383030302d3030303030303030303030302001"
+      },
+      "expected": {
+        "requestId": "9a7e5c31-4d28-4b6f-a0c3-5e1f8d2b7a46",
+        "callId": "00000000-0000-4000-8000-000000000000",
+        "success": false,
+        "errorCode": "CALL_ACTION_ERROR_CODE_UNKNOWN_CALL"
+      }
+    },
+    {
+      "id": "call-action-result-invalid-number",
+      "description": "A failed CallActionResult with errorCode CALL_ACTION_ERROR_CODE_INVALID_NUMBER decoding to the same enum value and echoing requestId on both codecs (docs/protocol/SPEC.md #calls-channel).",
+      "input": {
+        "kind": "callActionResult",
+        "messageHex": "0a2439613765356333312d346432382d346236662d613063332d3565316638643262376134362007"
+      },
+      "expected": {
+        "requestId": "9a7e5c31-4d28-4b6f-a0c3-5e1f8d2b7a46",
+        "callId": "",
+        "success": false,
+        "errorCode": "CALL_ACTION_ERROR_CODE_INVALID_NUMBER"
+      }
+    },
+    {
+      "id": "call-action-result-rate-limited",
+      "description": "A failed CallActionResult with errorCode CALL_ACTION_ERROR_CODE_RATE_LIMITED decoding to the same enum value and echoing requestId on both codecs (docs/protocol/SPEC.md #calls-channel).",
+      "input": {
+        "kind": "callActionResult",
+        "messageHex": "0a2439613765356333312d346432382d346236662d613063332d3565316638643262376134362008"
+      },
+      "expected": {
+        "requestId": "9a7e5c31-4d28-4b6f-a0c3-5e1f8d2b7a46",
+        "callId": "",
+        "success": false,
+        "errorCode": "CALL_ACTION_ERROR_CODE_RATE_LIMITED"
+      }
+    }
+  ]
+}

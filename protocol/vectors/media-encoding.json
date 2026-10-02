@@ -1,0 +1,76 @@
+{
+  "$schema": "./schema.json",
+  "category": "media-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "request-media-ticket-round-trip",
+      "description": "RequestMediaTicket, an empty message, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-ticket).",
+      "input": {
+        "kind": "requestMediaTicket",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "media-ticket-grant-round-trip",
+      "description": "MediaTicketGrant with a 32-byte ticket and expiresAt 30 s after issuance decoding to identical fields on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #media-ticket \"Issuance\").",
+      "input": {
+        "kind": "mediaTicketGrant",
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e210b0ba97ffbc31"
+      },
+      "expected": {
+        "ticketHex": "e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2",
+        "expiresAt": 1700000030000,
+        "messageSha256": "4ae718c2d6743abb5061b87e469814dec1d5827ce35933e1894fbb2b79d38a56"
+      }
+    },
+    {
+      "id": "media-hello-round-trip",
+      "description": "MediaHello with a 32-byte ticket decoding to the same ticket on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #media-ticket \"Consumption and single use\").",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2"
+      },
+      "expected": {
+        "ticketHex": "e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2",
+        "messageSha256": "9228098ecf33a603ed453a68f91b3c4202910711839e518bfdadd0e975a805d4"
+      }
+    },
+    {
+      "id": "media-hello-missing-ticket-field",
+      "description": "A MediaHello with no ticket field (empty message) MUST be rejected TICKET_REJECTED/MISSING by both parsers before any further frame is read (docs/protocol/SPEC.md #media-ticket, case 0).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": ""
+      },
+      "expectedError": "ticketRejected",
+      "closeCode": "TICKET_REJECTED",
+      "localReason": "MISSING"
+    },
+    {
+      "id": "media-hello-ticket-31-bytes",
+      "description": "A MediaHello whose ticket is 31 bytes (one short) MUST be rejected TICKET_REJECTED/MISSING by both parsers (docs/protocol/SPEC.md #media-ticket, case 0).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a1fe9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412"
+      },
+      "expectedError": "ticketRejected",
+      "closeCode": "TICKET_REJECTED",
+      "localReason": "MISSING"
+    },
+    {
+      "id": "media-hello-ticket-33-bytes",
+      "description": "A MediaHello whose ticket is 33 bytes (one over) MUST be rejected TICKET_REJECTED/MISSING by both parsers (docs/protocol/SPEC.md #media-ticket, case 0).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a21e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2e9"
+      },
+      "expectedError": "ticketRejected",
+      "closeCode": "TICKET_REJECTED",
+      "localReason": "MISSING"
+    }
+  ]
+}

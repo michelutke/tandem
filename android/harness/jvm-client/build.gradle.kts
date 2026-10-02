@@ -52,6 +52,11 @@ configurations.matching { it.isCanBeResolved }.configureEach {
     // this harness calls (StatusPublisher, E23-03) touches those observer classes, so dropping
     // this edge from the runtime classpath is harmless here.
     exclude(group = "androidx.core", module = "core")
+    // feature:files (E40-15): same AAR-only reasoning; FileSender/FilesScheduler touch neither
+    // androidx.core-ktx nor the Compose UI classes feature:files pulls in via core:ui.
+    exclude(group = "androidx.core", module = "core-ktx")
+    exclude(group = "androidx.compose")
+    exclude(group = "androidx.activity")
 }
 
 dependencies {
@@ -65,6 +70,9 @@ dependencies {
     // StatusPublisher (E23-03), for E23-08's throttle scenarios: the real throttle/coalescing
     // logic against a real TandemSession, not a harness reimplementation of it.
     implementation(project(":feature:status"))
+    // FileSender/FilesScheduler (E40-03), for E40-15's no-starvation scenarios: the real FILES
+    // sender against a real TLS mux, not a reimplementation of its chunk loop.
+    implementation(project(":feature:files"))
     // RingController/RingHandler live in `:app` (a `com.android.application` module whose runtime
     // graph pulls in the full androidx.compose BOM -- AAR-only, no plain-jar variant, confirmed by
     // actually attempting `implementation(project(":app"))` here: resolution fails on

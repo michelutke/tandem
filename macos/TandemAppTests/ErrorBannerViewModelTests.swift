@@ -121,7 +121,7 @@ struct ErrorBannerViewModelTests {
     @Test
     func errorBannerViewModel_realConnectionFailure_showsMappedErrorMessage() async throws {
         let relay = ConnectionStateRelay()
-        let viewModel = await ErrorBannerViewModel(stateStream: relay.stream, peerName: "Pixel 8")
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
 
         let session = FakeTandemSession()
         await relay.attach(session)
