@@ -45,7 +45,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 9 | Media ticket | [`#media-ticket`](#media-ticket) | Written (E01-09, E60-01) |
 | 10 | Timeouts, connection limits and resource caps | [`#timeouts-connection-limits-and-resource-caps`](#timeouts-connection-limits-and-resource-caps) | Written (E01-22) |
 | 11 | Untrusted peer strings (display sanitization) | [`#untrusted-peer-strings-display-sanitization`](#untrusted-peer-strings-display-sanitization) | Written (E01-23) |
-| 12 | Media frame semantics | `#media-frame-semantics` | TBD in E61-01 (extends §9, Phase 6) |
+| 12 | Media frame semantics | [`#media-frame-semantics`](#media-frame-semantics) | Written (E61-01) |
 | 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
 | 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
@@ -1253,6 +1253,55 @@ therefore no ticket — was ever presented to reject.
 
 ---
 
+## Media frame semantics
+
+*(E61-01 · PRD F-9.1, F-9.2 · UC-22, AC-07, AC-19 · invariant 1 · `docs/planning/decisions.md` D-26)*
+
+After the `MediaHello` first frame (§9), every length-prefixed frame (§3) on the media connection
+carries exactly one serialized `MediaMessage` (`media.proto`, E61-01) as its body. The media
+connection carries no `Envelope` and has no channel, no `seq` and no `ack`; the `MediaMessage`
+`oneof payload` is the only discriminator. A `MediaMessage` with no payload set, or a `MediaHello`
+after the first frame, is rejected `UNKNOWN_PAYLOAD_TYPE`, closing with `MALFORMED_FRAME` (§5). The
+1 MiB frame maximum of §3 applies to every media frame: an oversize `length_prefix` is rejected from
+the 4 prefix bytes alone.
+
+| `MediaMessage` field | Message | Direction | Meaning |
+|---|---|---|---|
+| 1 | `MediaFormat { codec, width, height, fps }` | phone → Mac | Encoded stream format. Sent before the first `MediaFrame` and again whenever codec, size or frame rate changes. `codec` is `H264` or `HEVC` (PRD F-9.1: HEVC only if both sides support it). |
+| 2 | `MediaFrame { pts, flags, data, fragment_index, fragment_count }` | phone → Mac | One fragment of one encoded access unit. |
+| 3 | `KeyframeRequest {}` | Mac → phone | Asks the encoder for a keyframe (decoder error, new viewer). |
+| 4 | `RotationChanged { orientation }` | phone → Mac | The device display rotated (`PORTRAIT`, `LANDSCAPE`, `REVERSE_PORTRAIT`, `REVERSE_LANDSCAPE`). A `MediaFormat` with the new size follows before the next `MediaFrame`. |
+
+`MediaFrame.pts` is the presentation time in microseconds on the phone's monotonic clock.
+`MediaFrame.flags` is a bit set: `0x1` keyframe (a sync access unit the decoder can start from),
+`0x2` codec-config (codec-specific data such as SPS/PPS, not a displayable picture). The flags are
+identical on every fragment of an access unit.
+
+### Fragmentation
+
+This is the only fragmentation mechanism in the protocol (§3, E01-03). An encoded access unit larger
+than 960 KiB is split into fragments of at most 960 KiB, all sharing one `pts`. `fragment_count` is
+1..8 on every `MediaFrame` (an unfragmented access unit is `fragment_index` 0 of `fragment_count`
+1), so a reassembled access unit is at most 7.5 MiB, under the 8 MiB cap of §10. The fragments of one
+access unit are contiguous and in index order. The receiver MUST close the media connection with
+`MALFORMED_FRAME` (local reason `FRAGMENT_VIOLATION`) on:
+
+- a first fragment whose `fragment_index` is not 0, or an index gap or reorder within an access unit;
+- a `fragment_count` of 0, or over 8, or different from the access unit's first fragment;
+- a fragment of another `pts` arriving before the current access unit is complete (interleaving);
+- a reassembled size over 8 MiB.
+
+### Conformance
+
+`protocol/vectors/media-frame-encoding.json` (E61-01; E15-01, E15-02) includes: `MediaFrame` (keyframe
+and codec-config), `MediaFormat`, `KeyframeRequest` and `RotationChanged`, each as a `MediaMessage`
+round-tripping to golden bytes on both codecs; a frame with `length_prefix` 1 MiB + 1 rejected by the
+framing layer; a 3-fragment access unit reassembled identically on both codecs; and an index gap, a
+count change, a count of 9 and an interleaved `pts`, each rejected `MALFORMED_FRAME`/`FRAGMENT_VIOLATION`
+at the fragment that violates the rule.
+
+---
+
 ## Timeouts, connection limits and resource caps
 
 *(E01-22 · PRD F-3.1, F-3.2, F-3.3 · AC-04, AC-13, AC-19 · invariants 1, 3, 5)*
@@ -1313,7 +1362,7 @@ an accepted residual noted alongside the related pre-auth-budget residual in `do
 | Media connections per control session | ≤ 1 | second media connection for a session that already has one closes `LIMIT_EXCEEDED` (§5 row 9) | E60-04 |
 | Frame size | ≤ 1 MiB (§3) | `MALFORMED_FRAME` | E11-02, E11-04 |
 | Per-channel credit cap | ≤ 64 credits, receiver's own choice per channel (§4) | `CREDIT_VIOLATION` | E11-07, E11-08, E11-13, E11-14 |
-| Media access unit | ≤ 8 fragments, ≤ 8 MiB reassembled (§12, TBD in E61-01) | `MALFORMED_FRAME`, local reason `FRAGMENT_VIOLATION` | E61-01 |
+| Media access unit | ≤ 8 fragments, ≤ 8 MiB reassembled (§12) | `MALFORMED_FRAME`, local reason `FRAGMENT_VIOLATION` | E61-01 |
 | Media ticket validity | 30 s from issuance (§9, Issuance) | `TICKET_REJECTED`, local reason `EXPIRED` | E01-09, E60-08 |
 
 ### `CONTROL` channel caps
