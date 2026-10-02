@@ -101,6 +101,7 @@ jobs:
           :feature:pairing:ciGroupDebugAndroidTest
           :feature:contacts:ciGroupDebugAndroidTest
           :feature:notifications:ciGroupDebugAndroidTest
+          :feature:files:ciGroupDebugAndroidTest
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
       - name: Upload feature and discovery test reports
         if: failure()
