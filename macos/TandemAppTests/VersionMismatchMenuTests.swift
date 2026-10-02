@@ -37,7 +37,10 @@ struct VersionMismatchMenuTests {
         await stateMachine.handle(.handshakeError(.versionMismatch))
 
         var attempts = 0
-        while await banner.message == nil || menuBar.state != .error, attempts < 10_000 {
+        while attempts < 10_000 {
+            let bannerMessage = await banner.message
+            let menuState = await menuBar.state
+            if bannerMessage != nil, menuState == .error { break }
             await Task.yield()
             attempts += 1
         }
