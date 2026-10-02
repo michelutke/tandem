@@ -1121,6 +1121,114 @@ public object EnvelopeKt {
     public fun hasContactsSyncResponse(): kotlin.Boolean {
       return _builder.hasContactsSyncResponse()
     }
+
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     */
+    public var callEvent: dev.tandem.protocol.v1.CallEvent
+      @kotlin.jvm.JvmName("getCallEvent")
+        get() = _builder.callEvent
+      @kotlin.jvm.JvmName("setCallEvent")
+        set(value) {
+        _builder.callEvent = value
+      }
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     */
+    public fun clearCallEvent() {
+      _builder.clearCallEvent()
+    }
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     * @return Whether the callEvent field is set.
+     */
+    public fun hasCallEvent(): kotlin.Boolean {
+      return _builder.hasCallEvent()
+    }
+
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     */
+    public var callAction: dev.tandem.protocol.v1.CallAction
+      @kotlin.jvm.JvmName("getCallAction")
+        get() = _builder.callAction
+      @kotlin.jvm.JvmName("setCallAction")
+        set(value) {
+        _builder.callAction = value
+      }
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     */
+    public fun clearCallAction() {
+      _builder.clearCallAction()
+    }
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     * @return Whether the callAction field is set.
+     */
+    public fun hasCallAction(): kotlin.Boolean {
+      return _builder.hasCallAction()
+    }
+
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     */
+    public var placeCallRequest: dev.tandem.protocol.v1.PlaceCallRequest
+      @kotlin.jvm.JvmName("getPlaceCallRequest")
+        get() = _builder.placeCallRequest
+      @kotlin.jvm.JvmName("setPlaceCallRequest")
+        set(value) {
+        _builder.placeCallRequest = value
+      }
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     */
+    public fun clearPlaceCallRequest() {
+      _builder.clearPlaceCallRequest()
+    }
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     * @return Whether the placeCallRequest field is set.
+     */
+    public fun hasPlaceCallRequest(): kotlin.Boolean {
+      return _builder.hasPlaceCallRequest()
+    }
+
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     */
+    public var callActionResult: dev.tandem.protocol.v1.CallActionResult
+      @kotlin.jvm.JvmName("getCallActionResult")
+        get() = _builder.callActionResult
+      @kotlin.jvm.JvmName("setCallActionResult")
+        set(value) {
+        _builder.callActionResult = value
+      }
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     */
+    public fun clearCallActionResult() {
+      _builder.clearCallActionResult()
+    }
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     * @return Whether the callActionResult field is set.
+     */
+    public fun hasCallActionResult(): kotlin.Boolean {
+      return _builder.hasCallActionResult()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1247,4 +1355,16 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncRequestOrNull: d
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncResponseOrNull: dev.tandem.protocol.v1.ContactsSyncResponse?
   get() = if (hasContactsSyncResponse()) getContactsSyncResponse() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callEventOrNull: dev.tandem.protocol.v1.CallEvent?
+  get() = if (hasCallEvent()) getCallEvent() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionOrNull: dev.tandem.protocol.v1.CallAction?
+  get() = if (hasCallAction()) getCallAction() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.placeCallRequestOrNull: dev.tandem.protocol.v1.PlaceCallRequest?
+  get() = if (hasPlaceCallRequest()) getPlaceCallRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionResultOrNull: dev.tandem.protocol.v1.CallActionResult?
+  get() = if (hasCallActionResult()) getCallActionResult() else null
 
