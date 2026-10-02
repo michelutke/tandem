@@ -1398,8 +1398,8 @@ epics:
         acceptance:
           - Pairing completes and pins the peer only after the user confirms the SAS matches on
             both screens.
-          - The user reporting a mismatch aborts the pairing without pinning anything and burns
-            one window attempt.
+          - The user reporting a mismatch aborts the pairing without pinning anything and closes
+            the window, like an owner decline (D-16).
           - A Reveal received before the peer's Commitment aborts without pinning.
           - A peer Reveal that does not match its Commitment aborts without pinning.
           - A peer offering only a matching fingerprint prefix is rejected without pinning.
