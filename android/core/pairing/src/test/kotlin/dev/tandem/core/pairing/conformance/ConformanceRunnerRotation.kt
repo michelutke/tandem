@@ -20,6 +20,10 @@ import java.security.spec.X509EncodedKeySpec
 
 private const val ROTATION_CATEGORY = "rotation-encoding"
 private const val ROTATION_CHALLENGE_LENGTH = 32
+private const val P256_SPKI_LENGTH = 91
+private const val P256_SPKI_POINT_OFFSET = 26
+private const val UNCOMPRESSED_POINT_TAG = 0x04
+private val P256_SPKI_HEADER = hexToBytes("3059301306072a8648ce3d020106082a8648ce3d030107034200")
 private val ROTATE_LABEL = "tandem-rotate-v1".toByteArray(Charsets.US_ASCII)
 
 /** `rotation-encoding` category (E70-01): decodes the raw message bytes each vector describes
@@ -143,7 +147,8 @@ private fun keyRotationOutcome(
     val newSpkiDer = decoded.newSpkiDer.toByteArray()
     val transcript = rotationTranscript(oldSpkiDer, newSpkiDer, cb)
     val verified =
-        verifyEcdsa(oldSpkiDer, transcript, decoded.sigOldKey.toByteArray()) &&
+        isStrictP256Spki(newSpkiDer) &&
+            verifyEcdsa(oldSpkiDer, transcript, decoded.sigOldKey.toByteArray()) &&
             verifyEcdsa(newSpkiDer, transcript, decoded.sigNewKey.toByteArray())
     if ("expected" in vector) {
         val roundTrip = rotationRoundTripOutcome(id, messageBytes, vector, decoded.toByteArray())
@@ -154,6 +159,11 @@ private fun keyRotationOutcome(
     val actual = if (verified) "valid" else "invalidSignature"
     return VectorOutcome(id, ROTATION_CATEGORY, if (actual == expectedError) "pass" else "fail", expectedError, actual)
 }
+
+private fun isStrictP256Spki(spkiDer: ByteArray): Boolean =
+    spkiDer.size == P256_SPKI_LENGTH &&
+        spkiDer.copyOfRange(0, P256_SPKI_POINT_OFFSET).contentEquals(P256_SPKI_HEADER) &&
+        spkiDer[P256_SPKI_POINT_OFFSET].toInt() == UNCOMPRESSED_POINT_TAG
 
 private fun rotationTranscript(
     oldSpkiDer: ByteArray,
