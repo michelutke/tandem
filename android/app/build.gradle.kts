@@ -90,6 +90,8 @@ dependencies {
     implementation(project(":feature:notifications"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
+    // E61-02: MirrorCaptureService (mediaProjection foreground service), merged from this module's manifest.
+    implementation(project(":feature:mirror"))
 
     // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
     // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a

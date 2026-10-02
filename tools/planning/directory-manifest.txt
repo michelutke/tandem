@@ -66,6 +66,7 @@ tools/audit
 tools/companion-app
 tools/conformance
 tools/fuzz
+tools/fuzz/campaign
 tools/fuzz/jazzer
 tools/fuzz/libfuzzer
 tools/log-audit
