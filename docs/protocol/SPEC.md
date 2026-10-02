@@ -372,6 +372,10 @@ for an address it never reached.
 
 ### Frame order on a pairing-candidate connection
 
+The steps below are the QR window's order. On a manual-pairing window, steps 1–2 are identical and
+the `PairRequest`/`PairAccepted` steps are replaced by the Commitment/Reveal exchange in
+§ Manual pairing.
+
 1. Both sides exchange `VersionHello` (§6, `#versioning-and-capability-negotiation`) — exactly as on
    any other connection, this is the only legal payload before the exchange completes (§3, §6).
 2. Once both hellos are exchanged, the Mac MUST send `PairChallenge { challenge }` (§1,
@@ -501,7 +505,9 @@ Manual pairing is an additional pairing method for camera-less setups; it never 
 QR pairing. `docs/adr/ADR-008-manual-pairing-commitment-sas.md` is the design record; this section is
 the wire contract. Messages are defined in `manual_pairing.proto` and ride the CONTROL channel
 (`Envelope.payload` fields 15-17) on a pairing-candidate connection, inside the unchanged pairing
-window (§ Pairing window: 120 s, 3 attempts, one candidate at a time).
+window (§ Pairing window: 120 s, 3 attempts, one candidate at a time). The phone's `Commitment` is
+subject to the same 10 s first-message deadline that bounds `PairRequest` on a QR window, measured
+from the Mac's `PairChallenge`.
 
 Notation: `LP(x) = u16be(len(x)) || x`; `macSpkiDer` and `phoneSpkiDer` are the 91-byte SPKI DER taken
 from the certificates presented on this TLS handshake, never from a message body; `cb` is this
