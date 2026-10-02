@@ -20,6 +20,8 @@ dependencies {
     // ContactsSyncSession sends over the real TandemSession seam.
     implementation(project(":core:transport"))
     implementation(libs.kotlinx.coroutines.core)
+    // PhoneNormalizer (E51-03).
+    implementation(libs.libphonenumber)
 
     // ContactsSyncSessionTest scripts TandemSession via FakeTandemSession (E12-11); test-only,
     // never a release classpath.
