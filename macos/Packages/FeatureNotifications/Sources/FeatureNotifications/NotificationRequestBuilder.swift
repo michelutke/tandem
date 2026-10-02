@@ -23,14 +23,23 @@ public enum NotificationRequestBuilder {
     /// `iconAttachment` (E30-06), when non-nil, becomes the request's single attachment: the
     /// source app's icon, resolved by ``IconCache`` from `posted.packageName` +
     /// `posted.appVersionCode` (a cached icon, or the generic placeholder if none is cached).
+    ///
+    /// `hideContent` (E30-15) presents only the app name as the title, with empty subtitle and
+    /// body, so no title, text or sender name is shown.
     public static func build(
         _ posted: Tandem_V1_NotificationPosted,
-        iconAttachment: UNNotificationAttachment? = nil
+        iconAttachment: UNNotificationAttachment? = nil,
+        hideContent: Bool = false
     ) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
-        content.title = DisplayStringSanitizer.sanitize(Data(posted.title.utf8), kind: .title)
-        content.subtitle = DisplayStringSanitizer.sanitize(Data(posted.packageName.utf8), kind: .title)
-        content.body = body(for: posted)
+        let appName = DisplayStringSanitizer.sanitize(Data(posted.packageName.utf8), kind: .title)
+        if hideContent {
+            content.title = appName
+        } else {
+            content.title = DisplayStringSanitizer.sanitize(Data(posted.title.utf8), kind: .title)
+            content.subtitle = appName
+            content.body = body(for: posted)
+        }
         if let iconAttachment {
             content.attachments = [iconAttachment]
         }

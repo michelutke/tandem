@@ -39,7 +39,7 @@ enum ConformanceRunner {
     static let handledCategories: Set<String> = [
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
         "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding",
-        "photos-encoding", "contacts-encoding", "filenames"
+        "photos-encoding", "contacts-encoding", "sms-encoding", "filenames"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -136,6 +136,7 @@ enum ConformanceRunner {
         case "heartbeat": return try await runHeartbeat(data: data)
         case "status-encoding": return try await runFrameRoundTrip(category: "status-encoding", data: data)
         case "notify-encoding": return try await runFrameRoundTrip(category: "notify-encoding", data: data)
+        case "sms-encoding": return try await runSmsEncoding(data: data)
         default: return try runSynchronousCategory(category, data: data)
         }
     }

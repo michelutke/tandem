@@ -231,6 +231,19 @@ close, so it carries no `closeCode`/`localReason`. This cap is expressed in byte
 parser decoding `photo_thumbnail` cannot check the JPEG's decoded pixel dimensions, only its byte
 length (`docs/planning/backlog/phase-5.yaml` E51-01 notes).
 
+### `sms-encoding.json` (E50-01)
+
+Vectors for `docs/protocol/SPEC.md` `#sms-channel`'s message types
+(`protocol/proto/tandem/v1/sms.proto`): `SmsMessage`, `SendSmsStatus`, `SmsSyncResponse`. Entries
+are the raw serialized message bytes for one message type at a time (`input.messageHex`);
+`input.kind` selects the type (`smsMessage`/`sendSmsStatus`/`smsSyncResponse`). The manifest
+includes a full `SmsMessage` (with a `messageSha256`), a `SendSmsStatus` for each of the four
+`SendSmsState` values (`FAILED` carrying `TOO_LONG`), and an `SmsSyncResponse` with one thread, two
+messages and a backfill cursor. The `smsEnvelopeFrame` vector gives only the 4-byte length prefix
+of a frame one byte over the 1 MiB maximum (`input.frameHex`) and is run through each platform's
+real frame decoder: `expectedError: "malformedFrame"` with `closeCode`/`localReason`
+(`MALFORMED_FRAME`/`TOO_LARGE`), rejected before any payload buffer is allocated.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
