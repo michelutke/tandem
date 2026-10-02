@@ -242,7 +242,7 @@ public struct NWListenerFactory: ListenerFactory {
     private func wireSession(adapter: NWConnectionByteStreamConnection, metadataIdentifier: ObjectIdentifier) async {
         let source = ByteStreamConnectionFrameSource(adapter)
         let multiplexer = ChannelMultiplexer(source: source, sink: { data in try await adapter.send(data) })
-        let stateMachine = ConnectionStateMachine(clock: clock)
+        let stateMachine = ConnectionStateMachine(clock: clock, markers: OSLogReconnectMarkers())
         let handshake = VersionHandshake(multiplexer: multiplexer, clock: clock)
         let session = ByteStreamSession(multiplexer: multiplexer, stateMachine: stateMachine)
 
