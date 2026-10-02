@@ -101,6 +101,7 @@ jobs:
           :feature:pairing:ciGroupDebugAndroidTest
           :feature:contacts:ciGroupDebugAndroidTest
           :feature:notifications:ciGroupDebugAndroidTest
+          :feature:messaging:ciGroupDebugAndroidTest
           :feature:files:ciGroupDebugAndroidTest
           :feature:mirror:ciGroupDebugAndroidTest
           -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
