@@ -69,6 +69,9 @@ dependencies {
     // resolves transitively via activity-compose (see the version catalog comment).
     implementation(libs.androidx.activity)
     implementation(libs.androidx.activity.compose)
+    // E20-18: ActivityStore persists the metadata-only feed in a Preferences DataStore.
+    implementation(libs.androidx.datastore.preferences.core)
+    implementation(libs.kotlinx.coroutines.core)
 
     // E00-03 Hilt DI wiring skeleton: app assembles the SingletonComponent from every core
     // module's empty @Module @InstallIn shell.
