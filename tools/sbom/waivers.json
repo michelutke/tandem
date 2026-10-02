@@ -1,0 +1,27 @@
+[
+  {
+    "id": "GHSA-3677-xxcr-wjqv",
+    "reason": "Build-time jose4j (AGP signing tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
+  },
+  {
+    "id": "GHSA-9pwp-9qqc-pr26",
+    "reason": "Build-time bcprov (AGP signing tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
+  },
+  {
+    "id": "GHSA-qp49-qgx5-5m26",
+    "reason": "Build-time bcprov (AGP signing tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
+  },
+  {
+    "id": "GHSA-27j2-h3m2-8237",
+    "reason": "Build-time freemarker (AGP/lint tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
+  },
+  {
+    "id": "GHSA-2363-cqg2-863c",
+    "reason": "Build-time jdom2 (ktlint tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
+  }
+]

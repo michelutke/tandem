@@ -52,12 +52,19 @@ jobs:
           tools/lint/test/detekt_no_listener_sockets_test.sh
           tools/lint/test/android_foreground_service_manifest_check_test.sh
           tools/lint/test/android_boot_receiver_manifest_check_test.sh
+          tools/lint/test/android_mirror_service_manifest_check_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh
       - name: Android manifest hardening check (E00-28)
         working-directory: .
         run: tools/release-audit/test/android_manifest_check_test.sh
+      - name: Debug vs release protocol descriptors (E71-09)
+        working-directory: .
+        run: |
+          classes=android/core/protocol/build/intermediates/javac
+          ruby tools/release-audit/check-proto-descriptors.rb --debug "$classes/debug/compileDebugJavaWithJavac/classes/dev/tandem/protocol" \
+            --release "$classes/release/compileReleaseJavaWithJavac/classes/dev/tandem/protocol"
 
   fuzz-smoke:
     # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing
@@ -85,3 +92,6 @@ jobs:
       - name: Jazzer fuzz smoke (frame/envelope parser)
         working-directory: .
         run: tools/fuzz/jazzer/smoke.sh dev.tandem.core.protocol.fuzz.FrameDecoderFuzzTest 300 "$RUNNER_TEMP/jazzer-artifacts"
+      - name: Jazzer fuzz smoke (QR pairing payload parser)
+        working-directory: .
+        run: JAZZER_MODULE=core:pairing tools/fuzz/jazzer/smoke.sh dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest 120 "$RUNNER_TEMP/jazzer-artifacts-qr"

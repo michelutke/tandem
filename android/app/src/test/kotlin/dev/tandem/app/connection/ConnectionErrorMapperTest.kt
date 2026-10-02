@@ -1,6 +1,7 @@
 package dev.tandem.app.connection
 
 import dev.tandem.core.protocol.connection.ConnectionFailure
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -65,5 +66,37 @@ class ConnectionErrorMapperTest {
             message.contains("pin") || message.contains("mismatch") ||
                 message.contains("trusted"),
         )
+    }
+
+    @Test
+    fun connectionErrorMapper_previouslyPinnedPeerHandshakeFailed_mapsToRevoked() {
+        val classified =
+            ConnectionFailureClassifier.classify(
+                ConnectionFailure.HandshakeError("Received fatal alert: certificate_unknown"),
+                wasPreviouslyPinned = true,
+            )
+
+        val message = ConnectionErrorMapper.mapToErrorMessage(classified, macName = "Test Mac")
+
+        assertTrue(message.contains("no longer paired"))
+    }
+
+    @Test
+    fun connectionErrorMapper_neverPinnedPeerHandshakeFailed_staysPinMismatch() {
+        val failure = ConnectionFailure.HandshakeError("Received fatal alert: certificate_unknown")
+
+        assertEquals(failure, ConnectionFailureClassifier.classify(failure, wasPreviouslyPinned = false))
+    }
+
+    @Test
+    fun connectionErrorMapper_previouslyPinnedPeerOtherFailure_unchanged() {
+        val versionMismatch = ConnectionFailure.HandshakeError("VERSION_MISMATCH")
+        val connectionReset = ConnectionFailure.HandshakeError("Connection reset")
+        val pinMismatch = ConnectionFailure.HandshakeError("PIN_MISMATCH")
+
+        assertEquals(versionMismatch, ConnectionFailureClassifier.classify(versionMismatch, true))
+        assertEquals(connectionReset, ConnectionFailureClassifier.classify(connectionReset, true))
+        assertEquals(pinMismatch, ConnectionFailureClassifier.classify(pinMismatch, true))
+        assertEquals(ConnectionFailure.Timeout, ConnectionFailureClassifier.classify(ConnectionFailure.Timeout, true))
     }
 }

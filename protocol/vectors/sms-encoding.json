@@ -1,0 +1,113 @@
+{
+  "$schema": "./schema.json",
+  "category": "sms-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "sms-message-full-record-valid",
+      "description": "A fully populated SmsMessage decoding to identical fields on both codecs (docs/protocol/SPEC.md #sms-channel).",
+      "input": {
+        "kind": "smsMessage",
+        "messageHex": "08922110111a092b3135353530313030222453656520796f75206174203720e28094206272696e6720746865206b65797320f09f94912880d095ffbc31300138034002"
+      },
+      "expected": {
+        "id": 4242,
+        "threadId": 17,
+        "address": "+15550100",
+        "body": "See you at 7 — bring the keys 🔑",
+        "timestampMs": 1700000000000,
+        "type": "SMS_MESSAGE_TYPE_INBOX",
+        "subscriptionId": 3,
+        "deliveryStatus": "SMS_DELIVERY_STATUS_COMPLETE",
+        "messageSha256": "1b16e41d4bb85173bb33d16d17137c72f3573a2efd1c3b9cc6d222e78ca1ef57"
+      }
+    },
+    {
+      "id": "sms-send-status-sending",
+      "description": "A SendSmsStatus with state SEND_SMS_STATE_SENDING decoding to the same enum value and echoing client_message_id on both codecs (docs/protocol/SPEC.md #sms-channel \"Send\").",
+      "input": {
+        "kind": "sendSmsStatus",
+        "messageHex": "0a2436663163326239652d336437612d346335322d396134312d3062386535643266376131301001"
+      },
+      "expected": {
+        "clientMessageId": "6f1c2b9e-3d7a-4c52-9a41-0b8e5d2f7a10",
+        "state": "SEND_SMS_STATE_SENDING",
+        "errorCode": "SEND_SMS_ERROR_CODE_UNSPECIFIED",
+        "providerMessageId": 0
+      }
+    },
+    {
+      "id": "sms-send-status-sent",
+      "description": "A SendSmsStatus with state SEND_SMS_STATE_SENT decoding to the same enum value and echoing client_message_id on both codecs (docs/protocol/SPEC.md #sms-channel \"Send\").",
+      "input": {
+        "kind": "sendSmsStatus",
+        "messageHex": "0a2436663163326239652d336437612d346335322d396134312d3062386535643266376131301002209321"
+      },
+      "expected": {
+        "clientMessageId": "6f1c2b9e-3d7a-4c52-9a41-0b8e5d2f7a10",
+        "state": "SEND_SMS_STATE_SENT",
+        "errorCode": "SEND_SMS_ERROR_CODE_UNSPECIFIED",
+        "providerMessageId": 4243
+      }
+    },
+    {
+      "id": "sms-send-status-delivered",
+      "description": "A SendSmsStatus with state SEND_SMS_STATE_DELIVERED decoding to the same enum value and echoing client_message_id on both codecs (docs/protocol/SPEC.md #sms-channel \"Send\").",
+      "input": {
+        "kind": "sendSmsStatus",
+        "messageHex": "0a2436663163326239652d336437612d346335322d396134312d3062386535643266376131301003209321"
+      },
+      "expected": {
+        "clientMessageId": "6f1c2b9e-3d7a-4c52-9a41-0b8e5d2f7a10",
+        "state": "SEND_SMS_STATE_DELIVERED",
+        "errorCode": "SEND_SMS_ERROR_CODE_UNSPECIFIED",
+        "providerMessageId": 4243
+      }
+    },
+    {
+      "id": "sms-send-status-failed",
+      "description": "A SendSmsStatus with state SEND_SMS_STATE_FAILED decoding to the same enum value and echoing client_message_id on both codecs (docs/protocol/SPEC.md #sms-channel \"Send\").",
+      "input": {
+        "kind": "sendSmsStatus",
+        "messageHex": "0a2436663163326239652d336437612d346335322d396134312d30623865356432663761313010041806"
+      },
+      "expected": {
+        "clientMessageId": "6f1c2b9e-3d7a-4c52-9a41-0b8e5d2f7a10",
+        "state": "SEND_SMS_STATE_FAILED",
+        "errorCode": "SEND_SMS_ERROR_CODE_TOO_LONG",
+        "providerMessageId": 0
+      }
+    },
+    {
+      "id": "sms-sync-response-with-backfill-cursor",
+      "description": "An SmsSyncResponse page carrying one thread, two messages, high_watermark_id, backfill_cursor_id and backfill_complete = false, decoding identically on both codecs (docs/protocol/SPEC.md #sms-channel \"Cursors\").",
+      "input": {
+        "kind": "smsSyncResponse",
+        "messageHex": "08011224081112092b31353535303130301a0c53656520796f7520617420372080d095ffbc3128021a2308840710111a092b313535353031303022064c617465737428a0dd9bffbc31300138031a2608830710111a092b313535353031303022074561726c69657228908f9bffbc31300238034002208407288307"
+      },
+      "expected": {
+        "status": "SMS_SYNC_STATUS_OK",
+        "threadCount": 1,
+        "messageIds": [
+          900,
+          899
+        ],
+        "highWatermarkId": 900,
+        "backfillCursorId": 899,
+        "backfillComplete": false
+      }
+    },
+    {
+      "id": "sms-envelope-body-over-max-frame-rejected",
+      "description": "An SMS Envelope frame whose body pushes length_prefix to 1 MiB + 1: rejected from the 4 prefix bytes alone, before any payload byte is read or buffered (docs/protocol/SPEC.md #framing-and-envelope, #sms-channel).",
+      "input": {
+        "kind": "smsEnvelopeFrame",
+        "frameHex": "00100001",
+        "lengthPrefix": 1048577
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "TOO_LARGE"
+    }
+  ]
+}

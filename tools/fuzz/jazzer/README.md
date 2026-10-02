@@ -22,6 +22,11 @@ Jazzer JUnit fuzz scaffolding for the Android frame/envelope parser
   - `smoke.sh` — the wrapper described below.
   - `test/*.sh` — the wrapper's own self-tests.
 
+- `android/core/pairing/src/test/kotlin/dev/tandem/core/pairing/fuzz/QrPayloadFuzzTest` (E71-03) — fuzzes
+  `QrPayloadParser.parse` with UTF-8 bytes seeded from `protocol/vectors/qr-payload.json`. Run it with
+  `JAZZER_MODULE=core:pairing tools/fuzz/jazzer/smoke.sh dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest <s> <dir>`
+  (`JAZZER_MODULE` selects the Gradle module, default `core:protocol`).
+
 ## Running fuzz tests normally
 
 `./gradlew :core:protocol:test` (part of the existing `build` job's `./gradlew build`) runs both

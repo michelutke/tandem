@@ -44,6 +44,15 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
         sessions[spkiFingerprint]
     }
 
+    /// Whether `session`'s state may be surfaced for `spkiFingerprint` (E15-16): the registered
+    /// session itself, or any session while none is registered (a handshake that failed before
+    /// ever registering, e.g. a version mismatch). `false` for an unregistered session while a
+    /// different live one is registered, so a stale failure never overrides a connected peer.
+    public func shouldForwardState(of session: any TandemSession, for spkiFingerprint: SpkiFingerprint) -> Bool {
+        guard let current = sessions[spkiFingerprint] else { return true }
+        return current === session
+    }
+
     /// Removes and closes the session for `spkiFingerprint` only if it is still exactly `session`
     /// (identity-checked, since both are actor references) -- so a disconnect notification for an
     /// older, already-replaced session never removes a newer session registered later for the same

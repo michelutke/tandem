@@ -292,10 +292,10 @@ Reference — E20-12 acceptance criteria:
 - Quick gate with `adb shell dumpsys deviceidle force-idle` for 10 min, then `unforce` and screen-on, ends Connected within 5 s
 - JVM client idle for 120 s against the real Mac server stays connected, with every Mac Heartbeat answered
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Phone paired with the Mac and Connected; build emits `TandemReconnect` markers (`LogcatReconnectMarkers`); phone attached over adb; two known Wi-Fi networks that both reach the Mac; FGS running, battery unrestricted.
+**Steps:** Run `tools/reconnect-harness/scenario-wifi-switch.sh <ssid-a> <pass-a> <ssid-b> <pass-b> 20`. It alternates networks via `adb shell cmd wifi connect-network`, saves the logcat and pipes it through `run.rb --min-trials 20`.
+**Pass threshold:** `run.rb` exits 0: at least 20 trials, none unrecovered, p95 < 5 s.
+**Evidence required (log excerpt / screen recording / pcap path):** The harness output line (`trials=... p95=...`) plus the saved `wifi-switch.logcat` path.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -313,10 +313,10 @@ Reference — E20-12 acceptance criteria:
 - Quick gate with `adb shell dumpsys deviceidle force-idle` for 10 min, then `unforce` and screen-on, ends Connected within 5 s
 - JVM client idle for 120 s against the real Mac server stays connected, with every Mac Heartbeat answered
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Phone paired with the Mac and Connected; build emits `TandemReconnect` markers; phone attached over adb to the Mac running the script; sudo available for `pmset schedule`; Mac on AC power.
+**Steps:** Run `tools/reconnect-harness/scenario-mac-wake.sh 20 60`. Each trial schedules a wake with `pmset schedule wake`, runs `pmset sleepnow` and waits; the phone logcat is then piped through `run.rb --min-trials 20`.
+**Pass threshold:** `run.rb` exits 0: at least 20 trials, none unrecovered, p95 < 5 s.
+**Evidence required (log excerpt / screen recording / pcap path):** The harness output line (`trials=... p95=...`) plus the saved `mac-wake.logcat` path.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -334,10 +334,10 @@ Reference — E20-12 acceptance criteria:
 - Quick gate with `adb shell dumpsys deviceidle force-idle` for 10 min, then `unforce` and screen-on, ends Connected within 5 s
 - JVM client idle for 120 s against the real Mac server stays connected, with every Mac Heartbeat answered
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Phone paired and Connected, FGS running, battery set to Unrestricted, charger unplugged, screen off, `adb logcat` capturing `TandemReconnect:I` to a file (`adb logcat -v threadtime -s TandemReconnect:I > overnight.logcat`) over Wi-Fi adb or a tethered host; Mac awake.
+**Steps:** Leave the phone idle for at least 8 h with zero interaction. In the morning wake the screen, wait 10 s, stop the capture and run `ruby tools/reconnect-harness/run.rb overnight.logcat`.
+**Pass threshold:** `run.rb` exits 0: every dead/disconnected episode reached ready (none unrecovered) with p95 < 5 s; episode count and per-episode latency are recorded.
+**Evidence required (log excerpt / screen recording / pcap path):** The harness output line, the number of episodes, and `overnight.logcat`.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -355,10 +355,10 @@ Reference — E20-12 acceptance criteria:
 - Quick gate with `adb shell dumpsys deviceidle force-idle` for 10 min, then `unforce` and screen-on, ends Connected within 5 s
 - JVM client idle for 120 s against the real Mac server stays connected, with every Mac Heartbeat answered
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Phone paired and Connected, FGS running, battery Unrestricted, phone attached over adb.
+**Steps:** Run `tools/reconnect-harness/scenario-force-idle.sh 10`. It runs `dumpsys deviceidle force-idle` for 10 min, then `unforce`, wakes the screen and pipes the logcat through `run.rb`.
+**Pass threshold:** `run.rb` exits 0 (p95 < 5 s, no unrecovered episode); the phone ends Connected within 5 s of screen-on.
+**Evidence required (log excerpt / screen recording / pcap path):** The harness output line, the saved `force-idle.logcat` path, and a screenshot of the Connected state.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -585,10 +585,14 @@ Reference — E30-13 acceptance criteria:
 - pcap-audit canary scan of the run finds zero occurrences of the notification canary
 - log-audit over both apps' logs for the run finds zero occurrences of the canary or any reply text
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Paired physical Mac and Android phone on the same Wi-Fi, release builds, session connected; notification access granted on the phone with WhatsApp allowed and content forwarding opted in (F-5.4); Mac notification permission granted; a second device with a WhatsApp contact able to message the phone.
+**Steps:**
+1. From the contact, send a WhatsApp message to the phone; confirm a banner with the contact name and text appears on the Mac.
+2. Use the banner Reply action on the Mac to send a short reply (`R1`); start a stopwatch on send.
+3. Confirm the reply is delivered in the WhatsApp contact's chat; note the elapsed time.
+4. Repeat steps 1-3 for five replies (`R1`..`R5`).
+**Pass threshold:** 5 of 5 replies reach the WhatsApp contact within 10 s of sending from the Mac.
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of the five replies with timestamps, elapsed times per reply.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -606,10 +610,14 @@ Reference — E30-13 acceptance criteria:
 - pcap-audit canary scan of the run finds zero occurrences of the notification canary
 - log-audit over both apps' logs for the run finds zero occurrences of the canary or any reply text
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Paired physical Mac and Android phone on the same Wi-Fi, release builds, session connected; notification access granted on the phone with Signal allowed and content forwarding opted in (F-5.4); Mac notification permission granted; a second device with a Signal contact able to message the phone.
+**Steps:**
+1. From the contact, send a Signal message to the phone; confirm a banner with the contact name and text appears on the Mac.
+2. Use the banner Reply action on the Mac to send a short reply (`R1`); start a stopwatch on send.
+3. Confirm the reply is delivered in the Signal contact's chat; note the elapsed time.
+4. Repeat steps 1-3 for five replies (`R1`..`R5`).
+**Pass threshold:** 5 of 5 replies reach the Signal contact within 10 s of sending from the Mac.
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of the five replies with timestamps, elapsed times per reply.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -627,10 +635,14 @@ Reference — E30-13 acceptance criteria:
 - pcap-audit canary scan of the run finds zero occurrences of the notification canary
 - log-audit over both apps' logs for the run finds zero occurrences of the canary or any reply text
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Paired physical Mac and Android phone on the same Wi-Fi, release builds, session connected; notification access granted on the phone; Mac notification permission granted; the companion app (E00-22) installed on the phone to post notifications; pcap capture (whole interface) and log capture (`adb logcat`, macOS unified log) running; fresh canary `TANDEM-CANARY-<nonce>` generated by tools/pcap-audit/canary.sh.
+**Steps:**
+1. Phone-to-Mac: post 10 notifications (`adb shell am broadcast -a dev.tandem.companion.POST --es kind plain --es key k<N>`), dismiss each on the phone, and time until its banner leaves the Mac Notification Center.
+2. Mac-to-phone: post 10 more, dismiss each on the Mac, and time until the notification leaves the phone shade.
+3. Run the E15-07 notification step of tools/pcap-audit/canary.sh (companion `kind canary` broadcast) inside the capture while both apps run.
+4. Run the pcap-audit canary scan on the capture and log-audit (`tools/log-audit/log-audit.sh --canary <canary> --logcat <file> --unified-log <file>`) on both apps' logs, also scanning for every reply text used in the WhatsApp and Signal gates.
+**Pass threshold:** 10 of 10 dismissals in each direction remove the peer notification within 1 s; pcap-audit finds zero occurrences of the canary; log-audit finds zero occurrences of the canary or any reply text in either app's logs.
+**Evidence required (log excerpt / screen recording / pcap path):** Per-dismissal timings for both directions, pcap path, pcap-audit and log-audit output.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|

@@ -73,6 +73,15 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .mediaTicketGrant(newValue)}
   }
 
+  /// media.proto (E60-01)
+  public var requestMediaTicket: Tandem_V1_RequestMediaTicket {
+    get {
+      if case .requestMediaTicket(let v)? = payload {return v}
+      return Tandem_V1_RequestMediaTicket()
+    }
+    set {payload = .requestMediaTicket(newValue)}
+  }
+
   /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
   public var pairChallenge: Tandem_V1_PairChallenge {
     get {
@@ -294,6 +303,47 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .photoError(newValue)}
   }
 
+  /// sms.proto (E50-01) — SMS channel.
+  public var smsSyncRequest: Tandem_V1_SmsSyncRequest {
+    get {
+      if case .smsSyncRequest(let v)? = payload {return v}
+      return Tandem_V1_SmsSyncRequest()
+    }
+    set {payload = .smsSyncRequest(newValue)}
+  }
+
+  public var smsSyncResponse: Tandem_V1_SmsSyncResponse {
+    get {
+      if case .smsSyncResponse(let v)? = payload {return v}
+      return Tandem_V1_SmsSyncResponse()
+    }
+    set {payload = .smsSyncResponse(newValue)}
+  }
+
+  public var sendSmsRequest: Tandem_V1_SendSmsRequest {
+    get {
+      if case .sendSmsRequest(let v)? = payload {return v}
+      return Tandem_V1_SendSmsRequest()
+    }
+    set {payload = .sendSmsRequest(newValue)}
+  }
+
+  public var sendSmsStatus: Tandem_V1_SendSmsStatus {
+    get {
+      if case .sendSmsStatus(let v)? = payload {return v}
+      return Tandem_V1_SendSmsStatus()
+    }
+    set {payload = .sendSmsStatus(newValue)}
+  }
+
+  public var simList: Tandem_V1_SimList {
+    get {
+      if case .simList(let v)? = payload {return v}
+      return Tandem_V1_SimList()
+    }
+    set {payload = .simList(newValue)}
+  }
+
   /// contacts.proto (E51-01) — CONTACTS channel.
   public var contactsSyncRequest: Tandem_V1_ContactsSyncRequest {
     get {
@@ -311,6 +361,39 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .contactsSyncResponse(newValue)}
   }
 
+  /// calls.proto (E52-01) — CALLS channel.
+  public var callEvent: Tandem_V1_CallEvent {
+    get {
+      if case .callEvent(let v)? = payload {return v}
+      return Tandem_V1_CallEvent()
+    }
+    set {payload = .callEvent(newValue)}
+  }
+
+  public var callAction: Tandem_V1_CallAction {
+    get {
+      if case .callAction(let v)? = payload {return v}
+      return Tandem_V1_CallAction()
+    }
+    set {payload = .callAction(newValue)}
+  }
+
+  public var placeCallRequest: Tandem_V1_PlaceCallRequest {
+    get {
+      if case .placeCallRequest(let v)? = payload {return v}
+      return Tandem_V1_PlaceCallRequest()
+    }
+    set {payload = .placeCallRequest(newValue)}
+  }
+
+  public var callActionResult: Tandem_V1_CallActionResult {
+    get {
+      if case .callActionResult(let v)? = payload {return v}
+      return Tandem_V1_CallActionResult()
+    }
+    set {payload = .callActionResult(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -319,6 +402,8 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case heartbeat(Tandem_V1_Heartbeat)
     case creditGrant(Tandem_V1_CreditGrant)
     case mediaTicketGrant(Tandem_V1_MediaTicketGrant)
+    /// media.proto (E60-01)
+    case requestMediaTicket(Tandem_V1_RequestMediaTicket)
     /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
     case pairChallenge(Tandem_V1_PairChallenge)
     case pairRequest(Tandem_V1_PairRequest)
@@ -351,9 +436,20 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case thumbResult(Tandem_V1_ThumbResult)
     case originalRequest(Tandem_V1_OriginalRequest)
     case photoError(Tandem_V1_PhotoError)
+    /// sms.proto (E50-01) — SMS channel.
+    case smsSyncRequest(Tandem_V1_SmsSyncRequest)
+    case smsSyncResponse(Tandem_V1_SmsSyncResponse)
+    case sendSmsRequest(Tandem_V1_SendSmsRequest)
+    case sendSmsStatus(Tandem_V1_SendSmsStatus)
+    case simList(Tandem_V1_SimList)
     /// contacts.proto (E51-01) — CONTACTS channel.
     case contactsSyncRequest(Tandem_V1_ContactsSyncRequest)
     case contactsSyncResponse(Tandem_V1_ContactsSyncResponse)
+    /// calls.proto (E52-01) — CALLS channel.
+    case callEvent(Tandem_V1_CallEvent)
+    case callAction(Tandem_V1_CallAction)
+    case placeCallRequest(Tandem_V1_PlaceCallRequest)
+    case callActionResult(Tandem_V1_CallActionResult)
 
   }
 
@@ -366,7 +462,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{f}contacts_sync_request\0\u{3}contacts_sync_response\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}F\u{1}\u{a}\u{c}R\u{1}\u{8}\u{c}Z\u{1}\u{a}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{c}\u{9}\u{1}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -427,6 +523,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
           self.payload = .mediaTicketGrant(v)
+        }
+      }()
+      case 8: try {
+        var v: Tandem_V1_RequestMediaTicket?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .requestMediaTicket(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .requestMediaTicket(v)
         }
       }()
       case 10: try {
@@ -780,6 +889,71 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .photoError(v)
         }
       }()
+      case 70: try {
+        var v: Tandem_V1_SmsSyncRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .smsSyncRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .smsSyncRequest(v)
+        }
+      }()
+      case 71: try {
+        var v: Tandem_V1_SmsSyncResponse?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .smsSyncResponse(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .smsSyncResponse(v)
+        }
+      }()
+      case 72: try {
+        var v: Tandem_V1_SendSmsRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .sendSmsRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .sendSmsRequest(v)
+        }
+      }()
+      case 73: try {
+        var v: Tandem_V1_SendSmsStatus?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .sendSmsStatus(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .sendSmsStatus(v)
+        }
+      }()
+      case 74: try {
+        var v: Tandem_V1_SimList?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .simList(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .simList(v)
+        }
+      }()
       case 80: try {
         var v: Tandem_V1_ContactsSyncRequest?
         var hadOneofValue = false
@@ -804,6 +978,58 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
           self.payload = .contactsSyncResponse(v)
+        }
+      }()
+      case 90: try {
+        var v: Tandem_V1_CallEvent?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .callEvent(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .callEvent(v)
+        }
+      }()
+      case 91: try {
+        var v: Tandem_V1_CallAction?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .callAction(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .callAction(v)
+        }
+      }()
+      case 92: try {
+        var v: Tandem_V1_PlaceCallRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .placeCallRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .placeCallRequest(v)
+        }
+      }()
+      case 93: try {
+        var v: Tandem_V1_CallActionResult?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .callActionResult(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .callActionResult(v)
         }
       }()
       default: break
@@ -841,6 +1067,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .mediaTicketGrant?: try {
       guard case .mediaTicketGrant(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .requestMediaTicket?: try {
+      guard case .requestMediaTicket(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     case .pairChallenge?: try {
       guard case .pairChallenge(let v)? = self.payload else { preconditionFailure() }
@@ -950,6 +1180,26 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
       guard case .photoError(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 65)
     }()
+    case .smsSyncRequest?: try {
+      guard case .smsSyncRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 70)
+    }()
+    case .smsSyncResponse?: try {
+      guard case .smsSyncResponse(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 71)
+    }()
+    case .sendSmsRequest?: try {
+      guard case .sendSmsRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 72)
+    }()
+    case .sendSmsStatus?: try {
+      guard case .sendSmsStatus(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 73)
+    }()
+    case .simList?: try {
+      guard case .simList(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 74)
+    }()
     case .contactsSyncRequest?: try {
       guard case .contactsSyncRequest(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 80)
@@ -957,6 +1207,22 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .contactsSyncResponse?: try {
       guard case .contactsSyncResponse(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 81)
+    }()
+    case .callEvent?: try {
+      guard case .callEvent(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 90)
+    }()
+    case .callAction?: try {
+      guard case .callAction(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 91)
+    }()
+    case .placeCallRequest?: try {
+      guard case .placeCallRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 92)
+    }()
+    case .callActionResult?: try {
+      guard case .callActionResult(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 93)
     }()
     case nil: break
     }
