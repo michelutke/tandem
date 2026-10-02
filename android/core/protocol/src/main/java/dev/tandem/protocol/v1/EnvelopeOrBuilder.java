@@ -526,5 +526,57 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.ContactsSyncResponse getContactsSyncResponse();
 
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   * @return Whether the callEvent field is set.
+   */
+  boolean hasCallEvent();
+  /**
+   * <pre>
+   * calls.proto (E52-01) — CALLS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];</code>
+   * @return The callEvent.
+   */
+  dev.tandem.protocol.v1.CallEvent getCallEvent();
+
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   * @return Whether the callAction field is set.
+   */
+  boolean hasCallAction();
+  /**
+   * <code>.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];</code>
+   * @return The callAction.
+   */
+  dev.tandem.protocol.v1.CallAction getCallAction();
+
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   * @return Whether the placeCallRequest field is set.
+   */
+  boolean hasPlaceCallRequest();
+  /**
+   * <code>.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];</code>
+   * @return The placeCallRequest.
+   */
+  dev.tandem.protocol.v1.PlaceCallRequest getPlaceCallRequest();
+
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   * @return Whether the callActionResult field is set.
+   */
+  boolean hasCallActionResult();
+  /**
+   * <code>.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];</code>
+   * @return The callActionResult.
+   */
+  dev.tandem.protocol.v1.CallActionResult getCallActionResult();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

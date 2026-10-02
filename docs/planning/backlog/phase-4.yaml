@@ -941,7 +941,7 @@ epics:
           - 250 items with limit 100 yield pages of 100, 100, 50; the last page has no nextCursor
           - Items sharing one dateTaken are split across pages without duplicates or gaps (id tie-break)
           - A photo inserted newer than the first page does not shift or duplicate later pages
-          - limit 0 is served as 1 and limit 500 as 200
+          - limit 0 (unset) is served as 100 and limit 500 as 200
           - A cursor containing `') OR 1=1 --` returns PhotoError INVALID_CURSOR and no items
           - On the emulator with 250 seeded images, paging returns exactly 250 unique ids
         tdd:
