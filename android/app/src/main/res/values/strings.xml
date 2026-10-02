@@ -25,4 +25,7 @@
 
     <!-- Clipboard share-target / PROCESS_TEXT entry points (E31-06) -->
     <string name="clipboard_send_to_mac_label">Send to Mac</string>
+
+    <!-- Quick Settings tile (E31-12) -->
+    <string name="clipboard_tile_label">Send clip</string>
 </resources>
