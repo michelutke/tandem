@@ -56,7 +56,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
 | 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
 | 22 | Focus sync | [`#focus-sync`](#focus-sync) | Written (E72-04) |
-| 23 | MEDIA_CONTROL channel | [`#media-control-channel`](#media-control-channel) | Written (E72-02) |
+| 23 | Media control | [`#media-control`](#media-control) | Written (E72-02) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -526,7 +526,7 @@ envelope_bytes = length_prefix octets, a serialized Envelope message
 
 `Envelope` carries, at the wire-contract level:
 
-- `channel` — identifies which of the ten channels (`CONTROL`, `NOTIFY`, `CLIPBOARD`,
+- `channel` — identifies which of the nine F-3.2 channels (`CONTROL`, `NOTIFY`, `CLIPBOARD`,
   `FILES`, `SMS`, `CONTACTS`, `CALLS`, `INPUT`, `STATUS`; enumerated normatively in §4,
   `#channels-and-flow-control-credits`) this frame belongs to.
 - `seq` — an unsigned 64-bit counter (`uint64`), maintained independently per channel and per
@@ -557,7 +557,7 @@ separate close code (`docs/planning/decisions.md` D-13 — no parser oracle on t
 | Bad length | `BAD_LENGTH` | `length_prefix` == 0 |
 | Truncated | `TRUNCATED` | the connection's byte stream ends via an orderly close (EOF, or a TLS `close_notify`) after at least 1 byte of a new frame — the length prefix or the envelope bytes — has arrived, but before that frame is complete. A TCP reset (RST) is a transport-layer error, not a framing rejection: it MUST be reported by the transport layer as a connection error, never as `MALFORMED_FRAME`/`TRUNCATED` (E11-02, E11-04). |
 | Malformed | `DECODE_FAILED` | the `length_prefix` bytes received fail to decode as a well-formed `Envelope` protobuf message |
-| Unknown channel | `UNKNOWN_CHANNEL` | `channel` is not one of the ten values enumerated in §4, including the reserved `CHANNEL_UNSPECIFIED = 0` value |
+| Unknown channel | `UNKNOWN_CHANNEL` | `channel` is not one of the nine values enumerated in §4, including the reserved `CHANNEL_UNSPECIFIED = 0` value |
 | Unknown payload | `UNKNOWN_PAYLOAD_TYPE` | the `oneof payload` is unset, or set to a payload type this receiver's protocol version does not define (AC-11) |
 
 A receiver MUST check `length_prefix` against the 1 MiB maximum (the oversize case) before reading
@@ -659,10 +659,9 @@ reserved across every enum in this protocol (`Channel`, `PairRejected.reason`, c
 | 6 | `CONTACTS` | Contacts sync (F-8.3). |
 | 7 | `CALLS` | Call control (F-8.4). |
 | 8 | `INPUT` | Remote input events (F-9.3). |
-| 9 | `STATUS` | Device status, `Ring`/`RingStop` (F-4.3, F-4.4). |
-| 10 | `MEDIA_CONTROL` | Now-playing metadata and transport commands (F-10.1, E72-02). |
+| 9 | `STATUS` | Device status, `Ring`/`RingStop`, media control (F-4.3, F-4.4, F-10.1). |
 
-This channel set is closed and exhaustive: the ten values above, plus the reserved
+This channel set is closed and exhaustive: the nine values above, plus the reserved
 `CHANNEL_UNSPECIFIED = 0`, are the only channel values this version of the protocol ever defines.
 There is no tenth `PHOTOS` channel: the photo browser's paged listings, thumbnail requests and
 thumbnail results (F-7.4) are `FILES`-channel payloads, sharing `FILES`'s credit ledger with any
@@ -689,7 +688,7 @@ already reason in (E40-03/E40-04: "one credit grant releases exactly the granted
 Every channel except `CONTROL` (the exemption is defined below) has its own credit ledger, tracked
 independently by each side for its own outgoing direction:
 
-- **Per-channel cap.** For each of the nine feature channels (`NOTIFY`, `CLIPBOARD`, `FILES`, `SMS`,
+- **Per-channel cap.** For each of the eight feature channels (`NOTIFY`, `CLIPBOARD`, `FILES`, `SMS`,
   `CONTACTS`, `CALLS`, `INPUT`, `STATUS`), a receiver chooses its own cap for that channel: the
   maximum credit it will ever have outstanding to its peer on that channel at one time. A chosen cap
   MUST NOT exceed 64 credits; a receiver MAY choose a smaller cap for a given channel (for example, a
@@ -729,7 +728,7 @@ independently by each side for its own outgoing direction:
   connection with the close code `CREDIT_VIOLATION`. A receiver MUST NOT silently drop an
   over-credit frame instead of closing.
 - **`CreditGrant` naming an ineligible channel.** A `CreditGrant.channel` naming `CONTROL`,
-  `CHANNEL_UNSPECIFIED`, or any value outside the ten defined channels MUST be rejected with the
+  `CHANNEL_UNSPECIFIED`, or any value outside the nine defined channels MUST be rejected with the
   close code `MALFORMED_FRAME`, local reason `UNKNOWN_CHANNEL` (§3) — `CONTROL` carries no credit
   ledger to grant against (below), and the other two values never name a real channel. A
   `CreditGrant.amount` of 0 is well-formed and MUST be treated as a no-op (ignored, not an error and
@@ -2168,15 +2167,16 @@ the phone cannot apply Focus. The Mac stops sending `FocusState` until it sees `
 `protocol/vectors/focus-encoding.json` (E72-04; E15-01, E15-02) includes `FocusState` (on and off) and
 `FocusSyncCapability` (unavailable and available) round-tripping to golden bytes on both codecs.
 
-## MEDIA_CONTROL channel
+## Media control
 
 F-10.1 (design note `docs/design/design-note-media-control-f-10-1.md`, E72-01). The paired Mac shows
 the phone's now-playing metadata and sends transport commands to the phone's active media session.
-Channel `MEDIA_CONTROL` (`CHANNEL_MEDIA_CONTROL = 10`, §4) carries six `Envelope` payloads
-(`media_control.proto`, E72-02) in the reserved range 130-139: `NowPlaying` (130), `PlayPause` (131),
-`Next` (132), `Previous` (133), `Stop` (134) and `CapabilityUnavailable` (135); 136-139 are held. It has
-its own credit ledger like every feature channel (§4). All payloads are legal only on an
-authenticated session that has reached Ready.
+The channel set of §4 is closed for this protocol version, so media control rides the existing
+`STATUS` channel (device-state domain, like `Ring`/`RingStop`) and uses `STATUS`'s credit ledger.
+Six `Envelope` payloads (`media_control.proto`, E72-02) occupy the reserved range 130-139:
+`NowPlaying` (130), `PlayPause` (131), `Next` (132), `Previous` (133), `Stop` (134) and
+`CapabilityUnavailable` (135); 136-139 are held. All payloads are legal only on an authenticated
+session that has reached Ready.
 
 ### NowPlaying
 

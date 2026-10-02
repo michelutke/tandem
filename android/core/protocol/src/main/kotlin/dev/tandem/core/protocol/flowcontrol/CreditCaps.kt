@@ -35,7 +35,6 @@ object CreditCaps {
             Channel.CHANNEL_CALLS,
             Channel.CHANNEL_INPUT,
             Channel.CHANNEL_STATUS,
-            Channel.CHANNEL_MEDIA_CONTROL,
             -> {
                 PROTOCOL_MAX
             }

@@ -1,8 +1,8 @@
 syntax = "proto3";
 
 // E72-02: media_control.proto — now-playing metadata and transport commands for F-10.1, defined by
-// docs/protocol/SPEC.md #media-control-channel (design note docs/design/design-note-media-control-f-10-1.md).
-// All messages ride CHANNEL_MEDIA_CONTROL and are embedded directly in envelope.proto's
+// docs/protocol/SPEC.md #media-control (design note docs/design/design-note-media-control-f-10-1.md).
+// All messages ride CHANNEL_STATUS and are embedded directly in envelope.proto's
 // Envelope.payload oneof, which reserves field numbers 130-139 for this file. They are legal only
 // on an authenticated session that has reached Ready.
 package tandem.v1;

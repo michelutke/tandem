@@ -96,7 +96,7 @@ class MediaControlBridgeTest {
             runCurrent()
 
             val frame = session.sentFrames.single()
-            assertEquals(Channel.CHANNEL_MEDIA_CONTROL, frame.channel)
+            assertEquals(Channel.CHANNEL_STATUS, frame.channel)
             assertTrue(frame.hasNowPlaying())
             assertEquals("So What", frame.nowPlaying.title)
             assertEquals("Miles Davis", frame.nowPlaying.artist)
@@ -169,7 +169,7 @@ class MediaControlBridgeTest {
             runCurrent()
 
             val frame = session.sentFrames.single()
-            assertEquals(Channel.CHANNEL_MEDIA_CONTROL, frame.channel)
+            assertEquals(Channel.CHANNEL_STATUS, frame.channel)
             assertTrue(frame.hasCapabilityUnavailable())
             assertEquals(CapabilityUnavailable.Feature.FEATURE_MEDIA_CONTROL, frame.capabilityUnavailable.feature)
             assertTrue(gateway.commands.isEmpty())
@@ -194,7 +194,7 @@ class MediaControlBridgeTest {
     private fun FakeTandemSession.emitCommand(payload: EnvelopeKt.Dsl.() -> Unit) {
         emitIncoming(
             envelope {
-                channel = Channel.CHANNEL_MEDIA_CONTROL
+                channel = Channel.CHANNEL_STATUS
                 payload()
             },
         )

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 // E01-10: Envelope, the message every frame on every mTLS connection carries once the TLS
 // handshake completes (docs/protocol/SPEC.md #framing-and-envelope, E01-03). Channel, the frozen
-// enumeration of the ten channels, lives in channel.proto (E01-12): control.proto's
+// enumeration of the nine F-3.2 channels, lives in channel.proto (E01-12): control.proto's
 // CreditGrant also needs Channel, and this file's oneof below embeds control.proto's and
 // pairing.proto's message types directly, so Channel could not stay in this file without
 // envelope.proto and control.proto importing each other — a cyclic import protoc/buf reject.
@@ -78,7 +78,7 @@ message Envelope {
   reserved 122 to 129; // focus.proto (E72-04): future CONTROL focus-sync extensions
   // 130-139: media_control.proto (E72-02). 130-135 are NowPlaying/PlayPause/Next/Previous/Stop/
   // CapabilityUnavailable; 136-139 held for future media-control extensions.
-  reserved 136 to 139; // media_control.proto (E72-02): future MEDIA_CONTROL channel extensions
+  reserved 136 to 139; // media_control.proto (E72-02): future STATUS channel media-control extensions
   // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
   // the separate media connection, which has no channel and therefore no Envelope payload slot
   // (E01-14).
@@ -156,7 +156,7 @@ message Envelope {
     FocusState focus_state = 120;
     FocusSyncCapability focus_sync_capability = 121;
 
-    // media_control.proto (E72-02) — MEDIA_CONTROL channel.
+    // media_control.proto (E72-02) — STATUS channel.
     NowPlaying now_playing = 130;
     PlayPause play_pause = 131;
     Next next = 132;

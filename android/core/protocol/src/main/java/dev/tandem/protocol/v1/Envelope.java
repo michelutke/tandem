@@ -3090,7 +3090,7 @@ public  final class Envelope extends
   public static final int NOW_PLAYING_FIELD_NUMBER = 130;
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -3101,7 +3101,7 @@ public  final class Envelope extends
   }
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -3115,7 +3115,7 @@ public  final class Envelope extends
   }
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -3128,7 +3128,7 @@ public  final class Envelope extends
   }
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -3147,7 +3147,7 @@ public  final class Envelope extends
   }
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6311,7 +6311,7 @@ public  final class Envelope extends
 
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6322,7 +6322,7 @@ public  final class Envelope extends
     }
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6333,7 +6333,7 @@ public  final class Envelope extends
     }
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6345,7 +6345,7 @@ public  final class Envelope extends
     }
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6358,7 +6358,7 @@ public  final class Envelope extends
     }
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -6370,7 +6370,7 @@ public  final class Envelope extends
     }
     /**
      * <pre>
-     * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+     * media_control.proto (E72-02) — STATUS channel.
      * </pre>
      *
      * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>

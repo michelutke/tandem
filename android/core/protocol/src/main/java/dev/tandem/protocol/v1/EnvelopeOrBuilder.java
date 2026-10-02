@@ -681,7 +681,7 @@ public interface EnvelopeOrBuilder extends
 
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
@@ -690,7 +690,7 @@ public interface EnvelopeOrBuilder extends
   boolean hasNowPlaying();
   /**
    * <pre>
-   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * media_control.proto (E72-02) — STATUS channel.
    * </pre>
    *
    * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>

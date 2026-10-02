@@ -72,7 +72,7 @@ public nonisolated struct Tandem_V1_Heartbeat: Sendable {
 /// CreditGrant: docs/protocol/SPEC.md #channels-and-flow-control-credits
 /// (docs/planning/decisions.md D-64). The replenishment message for the per-channel credit
 /// ledger: rides CONTROL itself, since it must never be subject to the credit system it manages.
-/// A CreditGrant naming CONTROL, CHANNEL_UNSPECIFIED, or any value outside the ten defined
+/// A CreditGrant naming CONTROL, CHANNEL_UNSPECIFIED, or any value outside the nine defined
 /// channels is rejected UNKNOWN_CHANNEL (MALFORMED_FRAME); CONTROL carries no credit ledger to
 /// grant against.
 public nonisolated struct Tandem_V1_CreditGrant: Sendable {

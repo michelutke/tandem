@@ -444,7 +444,7 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .focusSyncCapability(newValue)}
   }
 
-  /// media_control.proto (E72-02) — MEDIA_CONTROL channel.
+  /// media_control.proto (E72-02) — STATUS channel.
   public var nowPlaying: Tandem_V1_NowPlaying {
     get {
       if case .nowPlaying(let v)? = payload {return v}
@@ -557,7 +557,7 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     /// focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
     case focusState(Tandem_V1_FocusState)
     case focusSyncCapability(Tandem_V1_FocusSyncCapability)
-    /// media_control.proto (E72-02) — MEDIA_CONTROL channel.
+    /// media_control.proto (E72-02) — STATUS channel.
     case nowPlaying(Tandem_V1_NowPlaying)
     case playPause(Tandem_V1_PlayPause)
     case next(Tandem_V1_Next)

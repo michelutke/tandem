@@ -23,10 +23,10 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 /// Channel: docs/protocol/SPEC.md #channels-and-flow-control-credits. CHANNEL_UNSPECIFIED = 0 is
 /// never valid on the wire; receiving it (or any value outside this list) is rejected
 /// UNKNOWN_CHANNEL (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at
-/// exactly these ten values (docs/planning/backlog/phase-0.yaml E01-04 acceptance, extended by
-/// E72-02's MEDIA_CONTROL — there is no PHOTOS channel, photo-browser messages ride FILES). Numbers
-/// are frozen once released: never renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf
-/// lint's STANDARD ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
+/// exactly these nine values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no
+/// PHOTOS channel, photo-browser messages ride FILES). Numbers are frozen once released: never
+/// renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD
+/// ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
 /// names (CONTROL, NOTIFY, ...).
 public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
@@ -40,7 +40,6 @@ public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterabl
   case calls // = 7
   case input // = 8
   case status // = 9
-  case mediaControl // = 10
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -59,7 +58,6 @@ public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterabl
     case 7: self = .calls
     case 8: self = .input
     case 9: self = .status
-    case 10: self = .mediaControl
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -76,7 +74,6 @@ public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterabl
     case .calls: return 7
     case .input: return 8
     case .status: return 9
-    case .mediaControl: return 10
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -93,7 +90,6 @@ public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterabl
     .calls,
     .input,
     .status,
-    .mediaControl,
   ]
 
 }
@@ -101,5 +97,5 @@ public nonisolated enum Tandem_V1_Channel: SwiftProtobuf.Enum, Swift.CaseIterabl
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 nonisolated extension Tandem_V1_Channel: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CHANNEL_UNSPECIFIED\0\u{1}CHANNEL_CONTROL\0\u{1}CHANNEL_NOTIFY\0\u{1}CHANNEL_CLIPBOARD\0\u{1}CHANNEL_FILES\0\u{1}CHANNEL_SMS\0\u{1}CHANNEL_CONTACTS\0\u{1}CHANNEL_CALLS\0\u{1}CHANNEL_INPUT\0\u{1}CHANNEL_STATUS\0\u{1}CHANNEL_MEDIA_CONTROL\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0CHANNEL_UNSPECIFIED\0\u{1}CHANNEL_CONTROL\0\u{1}CHANNEL_NOTIFY\0\u{1}CHANNEL_CLIPBOARD\0\u{1}CHANNEL_FILES\0\u{1}CHANNEL_SMS\0\u{1}CHANNEL_CONTACTS\0\u{1}CHANNEL_CALLS\0\u{1}CHANNEL_INPUT\0\u{1}CHANNEL_STATUS\0")
 }

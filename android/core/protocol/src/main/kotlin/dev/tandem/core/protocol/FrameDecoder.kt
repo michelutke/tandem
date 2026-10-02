@@ -165,7 +165,7 @@ enum class MalformedFrameReason {
     /** The `length_prefix` bytes were fully delivered but failed to decode as a well-formed `Envelope`. */
     DECODE_FAILED,
 
-    /** `channel` is not one of the ten enumerated values (including the reserved `CHANNEL_UNSPECIFIED = 0`). */
+    /** `channel` is not one of the nine enumerated values (including the reserved `CHANNEL_UNSPECIFIED = 0`). */
     UNKNOWN_CHANNEL,
 
     /** The `oneof payload` is unset, or set to a payload type this receiver's protocol version does not define. */

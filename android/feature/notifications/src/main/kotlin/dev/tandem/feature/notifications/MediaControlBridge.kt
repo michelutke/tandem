@@ -19,7 +19,7 @@ private const val ARTIST_MAX_CHARS = 128
 private const val ALBUM_MAX_CHARS = 128
 
 /**
- * E72-02 (F-10.1, docs/protocol/SPEC.md #media-control-channel): pushes the active media session's
+ * E72-02 (F-10.1, docs/protocol/SPEC.md #media-control): pushes the active media session's
  * metadata to the Mac as `NowPlaying` and dispatches the Mac's `PlayPause`/`Next`/`Previous`/`Stop`
  * to the session's transport controls through [gateway]. Without notification-listener access
  * nothing is read or dispatched and the Mac is told `CapabilityUnavailable`. Track text is never
@@ -29,24 +29,24 @@ class MediaControlBridge(
     private val session: TandemSession,
     private val gateway: MediaSessionGateway,
 ) {
-    /** Bridges [gateway] and [session]'s MEDIA_CONTROL channel until cancelled. */
+    /** Bridges [gateway] and [session]'s STATUS channel until cancelled. */
     suspend fun run() {
         if (!gateway.hasListenerAccess()) {
-            session.send(Channel.CHANNEL_MEDIA_CONTROL) {
+            session.send(Channel.CHANNEL_STATUS) {
                 capabilityUnavailable =
                     capabilityUnavailable { feature = CapabilityUnavailable.Feature.FEATURE_MEDIA_CONTROL }
             }
             return
         }
         coroutineScope {
-            launch { session.receive(Channel.CHANNEL_MEDIA_CONTROL).collect(::dispatch) }
+            launch { session.receive(Channel.CHANNEL_STATUS).collect(::dispatch) }
             gateway.sessionChanges().publishDistinct()
         }
     }
 
     private suspend fun Flow<MediaSessionSnapshot?>.publishDistinct() {
         filterNotNull().distinctUntilChanged().collect { snapshot ->
-            session.send(Channel.CHANNEL_MEDIA_CONTROL) { nowPlaying = snapshot.toNowPlaying() }
+            session.send(Channel.CHANNEL_STATUS) { nowPlaying = snapshot.toNowPlaying() }
         }
     }
 

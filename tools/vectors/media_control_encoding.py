@@ -1,6 +1,6 @@
 """Generator for protocol/vectors/media-control-encoding.json (E72-02).
 
-Covers encode/decode vectors for the message types of docs/protocol/SPEC.md #media-control-channel:
+Covers encode/decode vectors for the message types of docs/protocol/SPEC.md #media-control:
 
     NowPlaying { title (string, 1), artist (string, 2), state (PlaybackState, 3),
                  album (optional string, 4), duration_ms (optional int64, 5) }
@@ -128,7 +128,7 @@ def _command_vector(slug: str, kind: str, name: str) -> dict[str, Any]:
         (
             f"{name}, an empty message under proto3 default elision, decoding on both codecs and "
             "re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md "
-            "#media-control-channel)."
+            "#media-control)."
         ),
         kind,
         b"",
@@ -145,7 +145,7 @@ def generate_media_control_encoding_vectors() -> dict[str, Any]:
             (
                 "NowPlaying with title, artist and PLAYING state and no album or duration, "
                 "round-tripping to the same golden bytes on both codecs (docs/protocol/SPEC.md "
-                "#media-control-channel)."
+                "#media-control)."
             ),
             title="Blue in Green",
             artist="Miles Davis",

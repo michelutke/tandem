@@ -28,7 +28,7 @@ enum CreditCaps {
     ///   matching ``CreditLedger``'s existing convention for caller-error input.
     static func capFor(_ channel: Tandem_V1_Channel) -> UInt32 {
         switch channel {
-        case .notify, .clipboard, .files, .sms, .contacts, .calls, .input, .status, .mediaControl:
+        case .notify, .clipboard, .files, .sms, .contacts, .calls, .input, .status:
             return protocolMax
         case .control, .unspecified, .UNRECOGNIZED:
             preconditionFailure("\(channel) carries no credit ledger")

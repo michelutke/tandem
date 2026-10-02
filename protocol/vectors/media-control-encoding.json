@@ -5,7 +5,7 @@
   "vectors": [
     {
       "id": "now-playing-playing-title-artist-round-trip",
-      "description": "NowPlaying with title, artist and PLAYING state and no album or duration, round-tripping to the same golden bytes on both codecs (docs/protocol/SPEC.md #media-control-channel).",
+      "description": "NowPlaying with title, artist and PLAYING state and no album or duration, round-tripping to the same golden bytes on both codecs (docs/protocol/SPEC.md #media-control).",
       "input": {
         "kind": "nowPlaying",
         "messageHex": "0a0d426c756520696e20477265656e120b4d696c65732044617669731801"
@@ -65,7 +65,7 @@
     },
     {
       "id": "play-pause-round-trip",
-      "description": "PlayPause, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control-channel).",
+      "description": "PlayPause, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
       "input": {
         "kind": "playPause",
         "messageHex": ""
@@ -77,7 +77,7 @@
     },
     {
       "id": "next-round-trip",
-      "description": "Next, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control-channel).",
+      "description": "Next, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
       "input": {
         "kind": "next",
         "messageHex": ""
@@ -89,7 +89,7 @@
     },
     {
       "id": "previous-round-trip",
-      "description": "Previous, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control-channel).",
+      "description": "Previous, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
       "input": {
         "kind": "previous",
         "messageHex": ""
@@ -101,7 +101,7 @@
     },
     {
       "id": "stop-round-trip",
-      "description": "Stop, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control-channel).",
+      "description": "Stop, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
       "input": {
         "kind": "stop",
         "messageHex": ""

@@ -553,7 +553,6 @@ class ChannelMultiplexer(
                 Channel.CHANNEL_CALLS,
                 Channel.CHANNEL_INPUT,
                 Channel.CHANNEL_STATUS,
-                Channel.CHANNEL_MEDIA_CONTROL,
             )
 
         /** [ROUTABLE_CHANNELS] minus `CONTROL`, which is exempt from credit accounting (SPEC.md D-64). */
