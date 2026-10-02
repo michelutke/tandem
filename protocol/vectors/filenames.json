@@ -1,0 +1,192 @@
+{
+  "$schema": "./schema.json",
+  "category": "filenames",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "filename-parent-traversal-reduced-to-last-component",
+      "description": "../../etc/passwd keeps only the last component after splitting on '/' and '\\'.",
+      "input": {
+        "rawUtf8Hex": "2e2e2f2e2e2f6574632f706173737764",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "passwd"
+      }
+    },
+    {
+      "id": "filename-absolute-posix-path-reduced-to-last-component",
+      "description": "An absolute POSIX path keeps only its last component.",
+      "input": {
+        "rawUtf8Hex": "2f55736572732f782f7365637265742e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "secret.txt"
+      }
+    },
+    {
+      "id": "filename-windows-path-reduced-to-last-component",
+      "description": "A Windows path with a drive letter and backslashes keeps only its last component.",
+      "input": {
+        "rawUtf8Hex": "433a5c57696e646f77735c6576696c2e657865",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "evil.exe"
+      }
+    },
+    {
+      "id": "filename-nul-byte-rejected-invalid-name",
+      "description": "U+0000 anywhere in the name rejects the offer with INVALID_NAME before any other step.",
+      "input": {
+        "rawUtf8Hex": "6100622e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expectedError": "invalidName"
+    },
+    {
+      "id": "filename-leading-dot-stripped",
+      "description": "Leading dots are stripped so the file is never hidden.",
+      "input": {
+        "rawUtf8Hex": "2e626173687263",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "bashrc"
+      }
+    },
+    {
+      "id": "filename-double-dot-replaced-with-transfer-id-name",
+      "description": "'..' is all dots, so the name becomes file-<first 8 chars of the transfer id>.",
+      "input": {
+        "rawUtf8Hex": "2e2e",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "file-1a2b3c4d"
+      }
+    },
+    {
+      "id": "filename-empty-replaced-with-transfer-id-name",
+      "description": "An empty name becomes file-<first 8 chars of the transfer id>.",
+      "input": {
+        "rawUtf8Hex": "",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "file-1a2b3c4d"
+      }
+    },
+    {
+      "id": "filename-trailing-separator-replaced-with-transfer-id-name",
+      "description": "A trailing separator leaves an empty last component.",
+      "input": {
+        "rawUtf8Hex": "70686f746f732f",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "file-1a2b3c4d"
+      }
+    },
+    {
+      "id": "filename-windows-reserved-stem-prefixed",
+      "description": "A Windows-reserved stem (CON) is prefixed with '_'.",
+      "input": {
+        "rawUtf8Hex": "434f4e",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "_CON"
+      }
+    },
+    {
+      "id": "filename-windows-reserved-stem-lowercase-with-extension-prefixed",
+      "description": "Windows-reserved stems match case-insensitively and regardless of extension.",
+      "input": {
+        "rawUtf8Hex": "6e756c2e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "_nul.txt"
+      }
+    },
+    {
+      "id": "filename-windows-reserved-lookalike-unchanged",
+      "description": "A stem that merely starts with a reserved name (CONSOLE) is not reserved.",
+      "input": {
+        "rawUtf8Hex": "434f4e534f4c452e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "CONSOLE.txt"
+      }
+    },
+    {
+      "id": "filename-nfd-normalized-to-nfc",
+      "description": "NFD input (e + U+0301) is normalized to NFC (U+00E9).",
+      "input": {
+        "rawUtf8Hex": "65cc812e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "é.txt"
+      }
+    },
+    {
+      "id": "filename-bidi-override-removed",
+      "description": "U+202E (RIGHT-TO-LEFT OVERRIDE) is removed so the extension cannot be disguised.",
+      "input": {
+        "rawUtf8Hex": "696e766f696365e280ae6664702e657865",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "invoicefdp.exe"
+      }
+    },
+    {
+      "id": "filename-bidi-isolate-removed",
+      "description": "U+2066-U+2069 (isolates) are removed.",
+      "input": {
+        "rawUtf8Hex": "7265e281a6706fe281a972742e706466",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "report.pdf"
+      }
+    },
+    {
+      "id": "filename-colon-and-control-characters-replaced",
+      "description": "':' , C0 controls and U+007F are replaced with '_'.",
+      "input": {
+        "rawUtf8Hex": "613a6209637f642e747874",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "a_b_c_d.txt"
+      }
+    },
+    {
+      "id": "filename-long-ascii-stem-truncated-keeping-extension",
+      "description": "300 x 'a' + '.pdf' truncates the stem to 251 bytes so the whole name is 255 bytes.",
+      "input": {
+        "rawUtf8Hex": "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612e706466",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pdf"
+      }
+    },
+    {
+      "id": "filename-long-multibyte-stem-truncated-on-code-point-boundary",
+      "description": "200 x 'é' + '.jpg' truncates to 125 'é' (250 bytes) + '.jpg' (254 bytes), never splitting a code point.",
+      "input": {
+        "rawUtf8Hex": "c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a9c3a92e6a7067",
+        "transferId": "1a2b3c4d5e6f4a7b8c9d0e1f2a3b4c5d"
+      },
+      "expected": {
+        "filename": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé.jpg"
+      }
+    }
+  ]
+}
