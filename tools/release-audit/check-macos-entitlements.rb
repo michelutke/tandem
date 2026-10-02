@@ -2,33 +2,47 @@
 # frozen_string_literal: true
 
 # E22-04: App Sandbox entitlements check for the TandemApp Release build.
-# Verifies that the Release app has exactly the required entitlements:
-#   - com.apple.security.app-sandbox: true
-#   - com.apple.security.network.server: true
-#   - com.apple.security.network.client: true
-# And no other entitlements (e.g., no code-signing exceptions, no get-task-allow).
+# E71-09: the entitlements of a target must equal that target's list in
+# tools/release-audit/mac-entitlements.allowlist (set difference empty in both directions;
+# `optional` entries may be absent). com.apple.security.cs.* and get-task-allow are never allowed.
 #
 # Usage:
-#   ruby tools/release-audit/check-macos-entitlements.rb --entitlements PATH
+#   ruby tools/release-audit/check-macos-entitlements.rb --entitlements PATH [--target app|share] [--allowlist PATH]
 #
-# The PATH should point to the TandemApp.entitlements plist file.
+# The PATH should point to the target's .entitlements plist (or entitlements extracted with
+# `codesign -d --entitlements - --xml` from the signed release artifact).
 
 require 'rexml/document'
 require 'optparse'
 
 module MacOSEntitlementsCheck
-  REQUIRED_ENTITLEMENTS = {
-    'com.apple.security.app-sandbox' => true,
-    'com.apple.security.network.server' => true,
-    'com.apple.security.network.client' => true
-  }.freeze
+  DEFAULT_ALLOWLIST = File.expand_path('mac-entitlements.allowlist', __dir__)
 
   FORBIDDEN_PATTERNS = [
     /com\.apple\.security\.cs\./,  # Code-signing exceptions (allow-jit, allow-unsigned-executable-memory, etc.)
     /get-task-allow/               # Debugger entitlement
   ].freeze
 
-  def self.check(entitlements_path)
+  def self.load_allowlist(path, target)
+    required = []
+    optional = []
+    File.readlines(path).each_with_index do |raw_line, index|
+      line = raw_line.strip
+      next if line.empty? || line.start_with?('#')
+
+      tokens = line.split(/\s+/)
+      valid = [3, 4].include?(tokens.size) && tokens[2].match?(/\AE\d+-\d+\z/) &&
+              (tokens.size == 3 || tokens[3] == 'optional')
+      abort "Error: #{path}:#{index + 1}: expected `<target> <entitlement> <issue ID> [optional]`, got: #{line.inspect}" unless valid
+      next unless tokens[0] == target
+
+      (tokens.size == 4 ? optional : required) << tokens[1]
+    end
+    abort "Error: no allowlist entries for target #{target.inspect} in #{path}" if required.empty? && optional.empty?
+    [required, optional]
+  end
+
+  def self.check(entitlements_path, target: 'app', allowlist_path: DEFAULT_ALLOWLIST)
     doc = REXML::Document.new(File.read(entitlements_path))
     dict = doc.root.elements['dict']
 
@@ -37,24 +51,9 @@ module MacOSEntitlementsCheck
       exit 1
     end
 
-    # Parse the plist dict into a hash
     parsed = parse_plist_dict(dict)
+    required, optional = load_allowlist(allowlist_path, target)
 
-    # Check required entitlements
-    REQUIRED_ENTITLEMENTS.each do |key, expected_value|
-      unless parsed.key?(key)
-        warn "Error: Missing required entitlement: #{key}"
-        exit 1
-      end
-
-      actual_value = parsed[key]
-      unless actual_value == expected_value
-        warn "Error: Entitlement #{key} has value #{actual_value.inspect}, expected #{expected_value.inspect}"
-        exit 1
-      end
-    end
-
-    # Check for forbidden entitlements
     parsed.each_key do |key|
       FORBIDDEN_PATTERNS.each do |pattern|
         if key =~ pattern
@@ -64,14 +63,11 @@ module MacOSEntitlementsCheck
       end
     end
 
-    # Check that only the required entitlements are present
-    extra_keys = parsed.keys - REQUIRED_ENTITLEMENTS.keys
-    if extra_keys.any?
-      warn "Error: Found unexpected entitlements: #{extra_keys.join(', ')}"
-      exit 1
-    end
+    (required - parsed.keys).each { |key| warn "Error: Missing required entitlement: #{key}" }
+    (parsed.keys - required - optional).each { |key| warn "Error: Found unexpected entitlement: #{key}" }
+    exit 1 unless (required - parsed.keys).empty? && (parsed.keys - required - optional).empty?
 
-    puts "✓ Entitlements check passed: exactly #{REQUIRED_ENTITLEMENTS.size} required entitlements found"
+    puts "✓ Entitlements check passed (#{target}): #{parsed.size} entitlements match the allowlist"
   end
 
   private
@@ -103,13 +99,15 @@ module MacOSEntitlementsCheck
   end
 end
 
-options = {}
+options = { target: 'app', allowlist: MacOSEntitlementsCheck::DEFAULT_ALLOWLIST }
 OptionParser.new do |opts|
-  opts.banner = 'Usage: check-macos-entitlements.rb --entitlements PATH'
+  opts.banner = 'Usage: check-macos-entitlements.rb --entitlements PATH [--target app|share] [--allowlist PATH]'
 
-  opts.on('--entitlements PATH', 'Path to TandemApp.entitlements file') do |path|
+  opts.on('--entitlements PATH', 'Path to the target entitlements file') do |path|
     options[:entitlements] = path
   end
+  opts.on('--target TARGET', 'Allowlist target: app (default) or share') { |target| options[:target] = target }
+  opts.on('--allowlist PATH', 'Path to mac-entitlements.allowlist') { |path| options[:allowlist] = path }
 end.parse!
 
 unless options[:entitlements]
@@ -117,4 +115,4 @@ unless options[:entitlements]
   exit 1
 end
 
-MacOSEntitlementsCheck.check(options[:entitlements])
+MacOSEntitlementsCheck.check(options[:entitlements], target: options[:target], allowlist_path: options[:allowlist])
