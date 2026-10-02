@@ -67,6 +67,7 @@ class ByteStreamSession(
     clock: Clock,
     private val dispatcher: CoroutineDispatcher,
     private val heartbeatDependencies: HeartbeatDependencies? = null,
+    private val markers: ReconnectMarkers = ReconnectMarkers.None,
 ) : TandemSession {
     private val frameSource =
         FrameSource { buffer, offset, length -> runInterruptible { byteStream.input.read(buffer, offset, length) } }
@@ -169,7 +170,10 @@ class ByteStreamSession(
                 received = multiplexer.received.map { },
                 deviceIdleSource = dependencies.deviceIdleSource,
                 elapsedRealtimeSource = dependencies.elapsedRealtimeSource,
-                onDead = { close() },
+                onDead = {
+                    markers.dead()
+                    close()
+                },
                 dispatcher = dispatcher,
             ).apply { start() }
 
@@ -203,6 +207,7 @@ class ByteStreamSession(
             when (val outcome = handshake.perform()) {
                 is HandshakeOutcome.Ready -> {
                     connection.handle(ConnectionEvent.CompatibleHelloReceived)
+                    markers.ready()
                 }
 
                 is HandshakeOutcome.Failed -> {
@@ -243,6 +248,7 @@ class ByteStreamSession(
         unsolicitedHeartbeatTimer?.close()
         deadPeerDetector?.close()
         byteStream.closeAbruptly()
+        if (state.value is ConnectionState.Ready) markers.disconnected()
         connection.handle(ConnectionEvent.SocketClosed(reason))
         connection.close()
     }

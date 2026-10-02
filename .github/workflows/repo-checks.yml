@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Tool self-tests
         run: |
-          for t in tools/planning/test/*_test.rb tools/ci/test/*_test.rb tools/audit/test/*_test.rb tools/release-audit/test/*_test.rb tools/lint/test/dependency_registry_test.rb; do
+          for t in tools/planning/test/*_test.rb tools/ci/test/*_test.rb tools/audit/test/*_test.rb tools/release-audit/test/*_test.rb tools/lint/test/dependency_registry_test.rb tools/sbom/test/sbom_test.rb; do
             ruby "$t"
           done
       - name: Backlog and planning docs
@@ -34,3 +34,4 @@ jobs:
         run: |
           ruby tools/ci/check_actions_pinned.rb
           ruby tools/lint/dependency_registry.rb .
+          ruby tools/sbom/sbom.rb check
