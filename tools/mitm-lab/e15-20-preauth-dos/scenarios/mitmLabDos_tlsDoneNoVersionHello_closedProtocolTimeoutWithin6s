@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabDos_tlsDoneNoVersionHello_closedProtocolTimeoutWithin6s
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(PROTOCOL_TIMEOUT)
+# mitm-scenario-timeout: 180
+#
+# E15-20 (2/5): a pinned (seeded) client completes mTLS and then sends no VersionHello. SPEC.md §10
+# (E01-22): the VersionHello deadline is 5 s after TLS completion; the miss closes the connection
+# with PROTOCOL_TIMEOUT (§5 row 8), which must happen within 6 s of TLS completion.
+#
+# PROTOCOL_TIMEOUT is never written to the wire (no pre-Ready close frame -- same limitation E15-11
+# recorded for VERSION_MISMATCH), so it is observed as a close inside the 5..6 s window. A control
+# peer that does send its VersionHello must NOT be closed in that window (rules out an unrelated close).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-20-common.sh
+source "$here/../lib/e15-20-common.sh"
+trap e15_20_teardown EXIT
+
+e15_20_require_alias 127.0.0.2
+e15_20_setup
+e15_20_launch_plain
+
+paired_fp="$(e15_20_gen_cert_fp "$E15_20_TMP_DIR/paired")"
+e15_20_seed_trust "$paired_fp" "E15-20 paired"
+CERT="$E15_20_TMP_DIR/paired-cert.pem"
+KEY="$E15_20_TMP_DIR/paired-key.pem"
+
+FAILED=0
+CLOSE_BOUND_MS=6000
+
+out="$(e15_20_probe tls-silent 127.0.0.2 "$CERT" "$KEY" 9000)"
+e15_20_log "TLS-complete-but-silent connection: $(printf '%s' "$out" | tr '\n' ' ')"
+if ! printf '%s' "$out" | grep -q '^HANDSHAKE_OK$'; then
+  e15_20_log "FAIL: the seeded client's TLS handshake never completed"
+  FAILED=1
+else
+  closed_ms="$(printf '%s' "$out" | sed -n 's/^CLOSED_MS //p')"
+  if [ -z "$closed_ms" ]; then
+    e15_20_log "FAIL: connection still open 9 s after TLS completion"
+    FAILED=1
+  elif [ "$closed_ms" -gt "$CLOSE_BOUND_MS" ]; then
+    e15_20_log "FAIL: closed ${closed_ms}ms after TLS completion, bound is ${CLOSE_BOUND_MS}ms"
+    FAILED=1
+  elif [ "$closed_ms" -lt 4000 ]; then
+    e15_20_log "FAIL: closed after only ${closed_ms}ms -- too early to be the 5 s VersionHello deadline"
+    FAILED=1
+  else
+    e15_20_log "OK: closed ${closed_ms}ms after TLS completion (deadline 5 s, bound ${CLOSE_BOUND_MS}ms)"
+  fi
+fi
+
+e15_20_assert_mac_alive || FAILED=1
+e15_20_expect_ready 127.0.0.2 "$CERT" "$KEY" || {
+  e15_20_log "FAIL: control peer sending VersionHello did not reach Ready"
+  FAILED=1
+}
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(PROTOCOL_TIMEOUT)"
+else
+  echo "OUTCOME: FAILED"
+fi

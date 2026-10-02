@@ -11,6 +11,9 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <receiver
+            android:name="dev.tandem.feature.files.TransferActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

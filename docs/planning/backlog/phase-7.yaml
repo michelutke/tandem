@@ -1102,8 +1102,12 @@ epics:
           confirms the direction is Mac-to-phone only per the PRD, and chooses the carrying
           channel.
         acceptance:
-          - A design doc is approved before E72-04 starts, stating the Focus-state source API on
-            macOS and whether it is feasible inside the App Sandbox (go/no-go).
+          - |
+            A design doc at docs/spikes/focus-dnd-sync.md is approved before E72-04 starts, with:
+            (a) macOS Focus-state source API and App Sandbox feasibility (go/no-go);
+            (b) Android interruption filter target API and required permissions;
+            (c) message shape and carrying channel (control channel vs. separate);
+            (d) direction confirmed (Mac → phone only per PRD).
         tdd: []
         notes: ""
       - id: E72-04
