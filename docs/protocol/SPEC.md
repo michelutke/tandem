@@ -47,7 +47,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 11 | Untrusted peer strings (display sanitization) | [`#untrusted-peer-strings-display-sanitization`](#untrusted-peer-strings-display-sanitization) | Written (E01-23) |
 | 12 | Media frame semantics | `#media-frame-semantics` | TBD in E61-01 (extends §9, Phase 6) |
 | 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
-| 14 | SMS channel | `#sms-channel` | TBD (Phase 5, epic E50) |
+| 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
 | 16 | Calls channel | `#calls-channel` | TBD (Phase 5, epic E52) |
 | 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
@@ -1396,7 +1396,7 @@ field, in which case that cap applies instead of the default for its category:
 - Files (§ TBD, E40): file names shown in accept/progress prompts, after E40-02's separate
   path-safety filename rule has already run (`name`; the on-disk filename rule itself is out of scope
   here).
-- SMS (§ TBD, E50): sender/recipient addresses (`name`); message snippets and *displayed incoming*
+- SMS (§ 14, E50): sender/recipient addresses (`name`); message snippets and *displayed incoming*
   bodies (`body`, capped at 1600 characters — §10's SMS cap is defined there as an outgoing
   `SendSmsRequest` *send* limit, `TOO_LONG`; this section applies that same 1600 number to an incoming
   body as the display cap, since no larger displayed-body cap has been separately decided).
@@ -1891,5 +1891,72 @@ phone numbers, one email, a `photo_thumbnail`) round-tripping identically on bot
 `ContactsSyncRequest`; a `ContactsSyncResponse` with three `deleted_contact_ids` and zero
 `contacts`, decoding identically on both codecs; and a `Contact` with a `photo_thumbnail` one byte
 past the 32,768-byte cap above, rejected by both platforms' validators.
+
+---
+
+## SMS channel
+
+*(E50-01 · PRD F-8.1, F-8.2 · UC-18, UC-19, AC-19 · invariant 7)*
+
+The SMS channel (`Channel.CHANNEL_SMS`, §4) syncs the phone's SMS store to the Mac and carries
+outgoing sends. It uses five message types, each sent directly as the Envelope payload (no wrapper
+message; `Envelope.payload` fields 70-74, 75-79 held for future extensions):
+`SmsSyncRequest{since_id, backfill_before_id, page_size}`,
+`SmsSyncResponse{status, threads, messages, high_watermark_id, backfill_cursor_id,
+backfill_complete}`, `SendSmsRequest{client_message_id, thread_id, address, subscription_id, body}`,
+`SendSmsStatus{client_message_id, state, error_code, provider_message_id}` and
+`SimList{subscriptions: Subscription{subscription_id, display_name, slot_index}}`
+(`protocol/proto/tandem/v1/sms.proto`). `SmsThread{thread_id, address, snippet, last_message_at_ms,
+unread_count}` and `SmsMessage{id, thread_id, address, body, timestamp_ms, type, subscription_id,
+delivery_status}` are embedded in `SmsSyncResponse` only. `SmsMessage.id` is the phone provider's
+`_id` and defines the cursor space below.
+
+`address`, `snippet` and `body` are untrusted peer input and MUST be sanitized per
+`#untrusted-peer-strings-display-sanitization` (E01-23) before ever being rendered. They are
+message content: invariant 7 forbids logging them in release builds.
+
+### Cursors
+
+Cursors are Mac-authoritative: the Mac persists `high_watermark_id` and `backfill_cursor_id` from
+the last page it processed and sends them back; the phone keeps no sync state across connections.
+At most one `SmsSyncRequest` is in flight per connection; a new one supersedes the previous
+(§10, E01-22).
+
+- **Fresh sync.** `since_id = 0` and `backfill_before_id = 0`. The phone snapshots the maximum
+  provider `_id` M, sends rows backfilling in descending `_id` order starting below-and-including
+  M, and sets `high_watermark_id = M` on every page.
+- **Forward sync.** Otherwise the phone first sends every row with `_id > since_id` in ascending
+  order, then continues the backfill with rows whose `_id < backfill_before_id` (descending).
+- **Backfill.** Each page sets `backfill_cursor_id` to the smallest `_id` it has sent so far; the
+  Mac echoes it as the next request's `backfill_before_id`. `backfill_complete = true` on the page
+  that reaches the oldest row; later requests then use only `since_id`.
+- `page_size` bounds the number of `messages` in one `SmsSyncResponse` page.
+- `status = PERMISSION_REQUIRED` is returned, with no `threads` or `messages`, when the phone has
+  not granted READ_SMS; `status = OK` otherwise.
+
+### Send
+
+1. The Mac sends `SendSmsRequest` with a Mac-generated UUID `client_message_id`; `thread_id = 0`
+   means a new conversation; `subscription_id` selects a SIM from the latest `SimList`.
+2. The phone answers with zero or more `SendSmsStatus`, each echoing `client_message_id` so the
+   Mac matches its optimistic bubble without guessing. States progress `SENDING` -> `SENT` ->
+   `DELIVERED`; `FAILED` may follow any non-terminal state and sets `error_code`.
+3. `provider_message_id` is the `SmsMessage.id` the provider assigned (0 until known), letting the
+   Mac reconcile the sent row with the next sync.
+4. A `body` over 1600 characters fails with `TOO_LONG`, and more than 10 sends in a rolling 60 s
+   fail with `RATE_LIMITED`; both are rejected before `SmsManager` is called (§10).
+
+### SIM list
+
+The phone sends `SimList` on connect and again whenever the set of active subscriptions changes
+(publish-on-change); the Mac never requests it. The newest `SimList` replaces the previous one.
+
+### Conformance
+
+`protocol/vectors/sms-encoding.json` (E15-01, E15-02) includes: a full `SmsMessage` decoding
+identically on both codecs; a `SendSmsStatus` for every `SendSmsState` value (`SENDING`, `SENT`,
+`DELIVERED`, `FAILED`); an `SmsSyncResponse` carrying `high_watermark_id`, `backfill_cursor_id` and
+`backfill_complete = false`; and an SMS Envelope frame whose length prefix exceeds the 1 MiB
+maximum (§3), rejected from the 4 prefix bytes alone before any body buffer is allocated.
 
 ---
