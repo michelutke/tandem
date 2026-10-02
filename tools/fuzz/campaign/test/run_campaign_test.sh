@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# E71-03 tdd:
+#   unit: fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
 # E71-02 tdd:
 #   unit: fuzzCampaignRunner_envelopeTarget_logsTarget
 #   unit: fuzzCampaignRunner_unknownTarget_exitsTwo
@@ -67,5 +69,11 @@ echo "OK $name"
 # --- unknownTarget --------------------------------------------------------------------------
 name=fuzzCampaignRunner_unknownTarget_exitsTwo
 "$RUNNER" libfuzzer 2 2 "$work/unknown" bogus > /dev/null 2>&1
+[ "$?" -eq 2 ] || fail "$name: did not exit 2"
+echo "OK $name"
+
+# --- qrTargetWithLibfuzzer ------------------------------------------------------------------
+name=fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
+"$RUNNER" libfuzzer 2 2 "$work/qr" qr > /dev/null 2>&1
 [ "$?" -eq 2 ] || fail "$name: did not exit 2"
 echo "OK $name"

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# E71-01 / E71-02: long-campaign driver for the frame length-prefix parser and Envelope decoder
+# E71-01 / E71-02 / E71-03: long-campaign driver for the frame length-prefix parser and Envelope decoder
 # fuzz targets.
 #
-#   run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope]
+#   run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr]
 #
 # The optional target (default frame) selects the fuzz target: frame is the frame length-prefix
-# parser (E71-01), envelope the Envelope protobuf decoder (E71-02).
+# parser (E71-01), envelope the Envelope protobuf decoder (E71-02), qr the Android QR pairing
+# payload parser (E71-03, jazzer only: macOS never parses QR).
 #
 # Fuzzes in chunks (CHUNK_SECONDS, default 1800) until <segment-seconds> of wall clock have been
 # spent in this invocation or the campaign total (accumulated in <state-dir>/state.env across
@@ -14,7 +15,7 @@
 #
 #   libfuzzer: FUZZ_TARGET=<path to built -sanitize=fuzzer,address binary> (build_fuzz_target.sh);
 #              every input is limited to 10 s (-timeout=10), a longer one counts as a hang.
-#   jazzer:    runs FrameDecoderFuzzTest (frame) or EnvelopeDecoderFuzzTest (envelope) through tools/fuzz/jazzer/smoke.sh.
+#   jazzer:    runs FrameDecoderFuzzTest (frame), EnvelopeDecoderFuzzTest (envelope) or QrPayloadFuzzTest (qr) through tools/fuzz/jazzer/smoke.sh.
 #
 # <state-dir>/campaign-log.json carries duration, total execs, corpus size and crash count
 # (E71-12 evidence). Exit 0: no crash so far. Exit 1: crash/hang found (reproducer in
@@ -22,7 +23,7 @@
 set -uo pipefail
 
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
-  echo "usage: run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope]" >&2
+  echo "usage: run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr]" >&2
   exit 2
 fi
 ENGINE="$1"
@@ -41,6 +42,7 @@ for value in "$TOTAL_SECONDS" "$SEGMENT_SECONDS" "$CHUNK_SECONDS"; do
   esac
 done
 
+JAZZER_MODULE="core:protocol"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
 case "$TARGET" in
@@ -52,16 +54,26 @@ case "$TARGET" in
     JAZZER_CLASS="dev.tandem.core.protocol.fuzz.EnvelopeDecoderFuzzTest"
     JAZZER_METHOD="fuzzTargetEnvelopeDecoder"
     ;;
+  qr)
+    JAZZER_CLASS="dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest"
+    JAZZER_METHOD="fuzzTargetQrPayloadParser"
+    JAZZER_MODULE="core:pairing"
+    ;;
   *)
-    echo "run_campaign.sh: target must be frame or envelope, got '$TARGET'" >&2
+    echo "run_campaign.sh: target must be frame, envelope or qr, got '$TARGET'" >&2
     exit 2
     ;;
 esac
-JAZZER_CORPUS="$REPO_ROOT/android/core/protocol/.cifuzz-corpus/$JAZZER_CLASS/$JAZZER_METHOD"
-JAZZER_RESULTS="$REPO_ROOT/android/core/protocol/build/test-results/testDebugUnitTest"
+JAZZER_MODULE_DIR="$REPO_ROOT/android/${JAZZER_MODULE//://}"
+JAZZER_CORPUS="$JAZZER_MODULE_DIR/.cifuzz-corpus/$JAZZER_CLASS/$JAZZER_METHOD"
+JAZZER_RESULTS="$JAZZER_MODULE_DIR/build/test-results/testDebugUnitTest"
 
 case "$ENGINE" in
   libfuzzer)
+    if [ "$TARGET" = qr ]; then
+      echo "run_campaign.sh: the qr target has no libfuzzer engine (macOS never parses QR)" >&2
+      exit 2
+    fi
     if [ -z "${FUZZ_TARGET:-}" ] || [ ! -x "$FUZZ_TARGET" ]; then
       echo "run_campaign.sh: FUZZ_TARGET must name an executable libFuzzer binary" >&2
       exit 2
@@ -110,7 +122,7 @@ run_jazzer_chunk() {
   local budget="$1"
   mkdir -p "$JAZZER_CORPUS"
   cp -R "$CORPUS_DIR/." "$JAZZER_CORPUS/"
-  "$REPO_ROOT/tools/fuzz/jazzer/smoke.sh" "$JAZZER_CLASS" "$budget" "$ARTIFACT_DIR"
+  JAZZER_MODULE="$JAZZER_MODULE" "$REPO_ROOT/tools/fuzz/jazzer/smoke.sh" "$JAZZER_CLASS" "$budget" "$ARTIFACT_DIR"
   local status=$?
   cp -R "$JAZZER_CORPUS/." "$CORPUS_DIR/"
   EXECS=$((EXECS + $(sed -n 's/.*stat::number_of_executed_units: *//p' "$JAZZER_RESULTS"/*.xml 2> /dev/null | tail -n 1 | grep -E '^[0-9]+$' || echo 0)))

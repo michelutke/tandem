@@ -1,7 +1,8 @@
 name: fuzz-campaign
 
-# E71-01 / E71-02: 24 h campaign for the frame length-prefix parser or the Envelope protobuf decoder
-# (`target` input; Jazzer on Kotlin, libFuzzer on Swift).
+# E71-01 / E71-02 / E71-03: 24 h campaign for the frame length-prefix parser, the Envelope protobuf
+# decoder or the Android QR pairing payload parser (`target` input; Jazzer on Kotlin, libFuzzer on
+# Swift; qr is Jazzer only, macOS never parses QR).
 # Manually dispatched only. A hosted job is capped at 6 h, so each engine runs as sequential
 # segments (max-parallel 1) that resume the previous segment's corpus and counters from the cache;
 # tools/fuzz/campaign/run_campaign.sh stops at `total-seconds` of accumulated wall clock.
@@ -11,10 +12,10 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Fuzz target: frame (E71-01) or envelope (E71-02)"
+        description: "Fuzz target: frame (E71-01), envelope (E71-02) or qr (E71-03, jazzer only)"
         required: true
         type: choice
-        options: [frame, envelope]
+        options: [frame, envelope, qr]
         default: frame
       total-seconds:
         description: "Campaign length per engine in seconds (acceptance: 86400)"
@@ -70,6 +71,7 @@ jobs:
           if-no-files-found: ignore
 
   libfuzzer:
+    if: ${{ inputs.target != 'qr' }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
     container: swift:6.1
