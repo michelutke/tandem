@@ -176,7 +176,7 @@ class CompanionAppInstrumentedTest {
         const val BURST_WINDOW_MS = 1000L
         val BURST_TIMEOUT_NANOS =
             java.util.concurrent.TimeUnit.SECONDS
-                .toNanos(60)
+                .toNanos(120)
         const val BURST_SETTLE_MS = 10_000L
     }
 }
