@@ -57,6 +57,7 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.network.server: true
         com.apple.security.network.client: true
+        com.apple.security.application-groups: [group.dev.tandem]
     dependencies:
       - target: TandemShare
         embed: true
@@ -85,11 +86,15 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
-            NSExtensionActivationRule: TRUEPREDICATE
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 20
     entitlements:
       path: TandemShare/TandemShare.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [group.dev.tandem]
+    dependencies:
+      - package: FeatureFiles
 
   # Hosted unit-test bundle for TandemApp's own types (ErrorPresenter, MenuBarViewModel): Swift
   # Testing (`import Testing`) cannot be imported from a `bundle.ui-testing` target at all

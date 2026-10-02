@@ -47,7 +47,7 @@ run_test "extra entitlement fails" "$FIXTURES_DIR/extra-entitlement.plist" "fail
 run_test "missing network.server fails" "$FIXTURES_DIR/missing-network-server.plist" "fail"
 run_test "get-task-allow forbidden" "$FIXTURES_DIR/get-task-allow.plist" "fail"
 run_test "cs.allow-jit exception fails" "$FIXTURES_DIR/cs-exception.plist" "fail"
-run_test "share: app-sandbox only passes" "$FIXTURES_DIR/share-valid.plist" "pass" --target share
+run_test "share: app-sandbox only fails (application-groups required)" "$FIXTURES_DIR/share-valid.plist" "fail" --target share
 run_test "share: app-sandbox + application-groups passes" "$FIXTURES_DIR/share-app-groups.plist" "pass" --target share
 run_test "share: network.client fails" "$FIXTURES_DIR/share-network-client.plist" "fail" --target share
 run_test "share: app entitlements fail" "$FIXTURES_DIR/exact-3-entitlements.plist" "fail" --target share
