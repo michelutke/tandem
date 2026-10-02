@@ -17,4 +17,8 @@ paths = [
   '''^ui-design\.pen$''',
   # E15-17: log-audit fixtures deliberately contain fake canary/secret strings.
   '''^tools/log-audit/test/fixtures/.*''',
+  # Generated protobuf code (tools/protocol/generate.sh): message type names such as
+  # `Tandem_V1_KeyRotation` trip generic-api-key; the sources are protocol/proto/*.proto.
+  '''^macos/Packages/TandemProtocol/Sources/TandemProtocol/tandem/v1/.*\.pb\.swift$''',
+  '''^android/core/protocol/src/main/(java|kotlin)/dev/tandem/protocol/v1/.*''',
 ]

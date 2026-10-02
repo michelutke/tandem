@@ -68,6 +68,10 @@ public  final class Envelope extends
     CALL_ACTION(91),
     PLACE_CALL_REQUEST(92),
     CALL_ACTION_RESULT(93),
+    ROTATION_CHALLENGE(110),
+    KEY_ROTATION(111),
+    ROTATION_ACK(112),
+    ROTATION_REJECT(113),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -126,6 +130,10 @@ public  final class Envelope extends
         case 91: return CALL_ACTION;
         case 92: return PLACE_CALL_REQUEST;
         case 93: return CALL_ACTION_RESULT;
+        case 110: return ROTATION_CHALLENGE;
+        case 111: return KEY_ROTATION;
+        case 112: return ROTATION_ACK;
+        case 113: return ROTATION_REJECT;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -2711,6 +2719,234 @@ public  final class Envelope extends
     }
   }
 
+  public static final int ROTATION_CHALLENGE_FIELD_NUMBER = 110;
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRotationChallenge() {
+    return payloadCase_ == 110;
+  }
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RotationChallenge getRotationChallenge() {
+    if (payloadCase_ == 110) {
+       return (dev.tandem.protocol.v1.RotationChallenge) payload_;
+    }
+    return dev.tandem.protocol.v1.RotationChallenge.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRotationChallenge(dev.tandem.protocol.v1.RotationChallenge value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 110;
+  }
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRotationChallenge(dev.tandem.protocol.v1.RotationChallenge value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 110 &&
+        payload_ != dev.tandem.protocol.v1.RotationChallenge.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RotationChallenge.newBuilder((dev.tandem.protocol.v1.RotationChallenge) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 110;
+  }
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   */
+  private void clearRotationChallenge() {
+    if (payloadCase_ == 110) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int KEY_ROTATION_FIELD_NUMBER = 111;
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   */
+  @java.lang.Override
+  public boolean hasKeyRotation() {
+    return payloadCase_ == 111;
+  }
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.KeyRotation getKeyRotation() {
+    if (payloadCase_ == 111) {
+       return (dev.tandem.protocol.v1.KeyRotation) payload_;
+    }
+    return dev.tandem.protocol.v1.KeyRotation.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setKeyRotation(dev.tandem.protocol.v1.KeyRotation value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 111;
+  }
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeKeyRotation(dev.tandem.protocol.v1.KeyRotation value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 111 &&
+        payload_ != dev.tandem.protocol.v1.KeyRotation.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.KeyRotation.newBuilder((dev.tandem.protocol.v1.KeyRotation) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 111;
+  }
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   */
+  private void clearKeyRotation() {
+    if (payloadCase_ == 111) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int ROTATION_ACK_FIELD_NUMBER = 112;
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRotationAck() {
+    return payloadCase_ == 112;
+  }
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RotationAck getRotationAck() {
+    if (payloadCase_ == 112) {
+       return (dev.tandem.protocol.v1.RotationAck) payload_;
+    }
+    return dev.tandem.protocol.v1.RotationAck.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRotationAck(dev.tandem.protocol.v1.RotationAck value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 112;
+  }
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRotationAck(dev.tandem.protocol.v1.RotationAck value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 112 &&
+        payload_ != dev.tandem.protocol.v1.RotationAck.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RotationAck.newBuilder((dev.tandem.protocol.v1.RotationAck) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 112;
+  }
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   */
+  private void clearRotationAck() {
+    if (payloadCase_ == 112) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int ROTATION_REJECT_FIELD_NUMBER = 113;
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRotationReject() {
+    return payloadCase_ == 113;
+  }
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RotationReject getRotationReject() {
+    if (payloadCase_ == 113) {
+       return (dev.tandem.protocol.v1.RotationReject) payload_;
+    }
+    return dev.tandem.protocol.v1.RotationReject.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRotationReject(dev.tandem.protocol.v1.RotationReject value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 113;
+  }
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRotationReject(dev.tandem.protocol.v1.RotationReject value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 113 &&
+        payload_ != dev.tandem.protocol.v1.RotationReject.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RotationReject.newBuilder((dev.tandem.protocol.v1.RotationReject) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 113;
+  }
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   */
+  private void clearRotationReject() {
+    if (payloadCase_ == 113) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
   public static dev.tandem.protocol.v1.Envelope parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -5265,6 +5501,222 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRotationChallenge() {
+      return instance.hasRotationChallenge();
+    }
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RotationChallenge getRotationChallenge() {
+      return instance.getRotationChallenge();
+    }
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    public Builder setRotationChallenge(dev.tandem.protocol.v1.RotationChallenge value) {
+      copyOnWrite();
+      instance.setRotationChallenge(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    public Builder setRotationChallenge(
+        dev.tandem.protocol.v1.RotationChallenge.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRotationChallenge(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    public Builder mergeRotationChallenge(dev.tandem.protocol.v1.RotationChallenge value) {
+      copyOnWrite();
+      instance.mergeRotationChallenge(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+     */
+    public Builder clearRotationChallenge() {
+      copyOnWrite();
+      instance.clearRotationChallenge();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    @java.lang.Override
+    public boolean hasKeyRotation() {
+      return instance.hasKeyRotation();
+    }
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.KeyRotation getKeyRotation() {
+      return instance.getKeyRotation();
+    }
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    public Builder setKeyRotation(dev.tandem.protocol.v1.KeyRotation value) {
+      copyOnWrite();
+      instance.setKeyRotation(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    public Builder setKeyRotation(
+        dev.tandem.protocol.v1.KeyRotation.Builder builderForValue) {
+      copyOnWrite();
+      instance.setKeyRotation(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    public Builder mergeKeyRotation(dev.tandem.protocol.v1.KeyRotation value) {
+      copyOnWrite();
+      instance.mergeKeyRotation(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+     */
+    public Builder clearKeyRotation() {
+      copyOnWrite();
+      instance.clearKeyRotation();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRotationAck() {
+      return instance.hasRotationAck();
+    }
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RotationAck getRotationAck() {
+      return instance.getRotationAck();
+    }
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    public Builder setRotationAck(dev.tandem.protocol.v1.RotationAck value) {
+      copyOnWrite();
+      instance.setRotationAck(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    public Builder setRotationAck(
+        dev.tandem.protocol.v1.RotationAck.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRotationAck(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    public Builder mergeRotationAck(dev.tandem.protocol.v1.RotationAck value) {
+      copyOnWrite();
+      instance.mergeRotationAck(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+     */
+    public Builder clearRotationAck() {
+      copyOnWrite();
+      instance.clearRotationAck();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRotationReject() {
+      return instance.hasRotationReject();
+    }
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RotationReject getRotationReject() {
+      return instance.getRotationReject();
+    }
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    public Builder setRotationReject(dev.tandem.protocol.v1.RotationReject value) {
+      copyOnWrite();
+      instance.setRotationReject(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    public Builder setRotationReject(
+        dev.tandem.protocol.v1.RotationReject.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRotationReject(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    public Builder mergeRotationReject(dev.tandem.protocol.v1.RotationReject value) {
+      copyOnWrite();
+      instance.mergeRotationReject(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+     */
+    public Builder clearRotationReject() {
+      copyOnWrite();
+      instance.clearRotationReject();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -5329,14 +5781,19 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.CallAction.class,
             dev.tandem.protocol.v1.PlaceCallRequest.class,
             dev.tandem.protocol.v1.CallActionResult.class,
+            dev.tandem.protocol.v1.RotationChallenge.class,
+            dev.tandem.protocol.v1.KeyRotation.class,
+            dev.tandem.protocol.v1.RotationAck.class,
+            dev.tandem.protocol.v1.RotationReject.class,
           };
           java.lang.String info =
-              "\u0000.\u0001\u0000\u0001].\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "\u00002\u0001\u0000\u0001q2\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
               "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000\f<" +
               "\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
               "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
               "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
-              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000";
+              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000n" +
+              "<\u0000o<\u0000p<\u0000q<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

@@ -48,6 +48,7 @@ from media_encoding import generate_media_encoding_vectors  # noqa: E402 (needs 
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
 from photos_encoding import generate_photos_encoding_vectors  # noqa: E402 (needs sys.path above)
+from rotation_encoding import generate_rotation_encoding_vectors  # noqa: E402 (needs sys.path above)
 from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
 from sms_encoding import generate_sms_encoding_vectors  # noqa: E402 (needs sys.path above)
 from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
@@ -75,6 +76,7 @@ CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors)
 CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
 CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E52-01
 CATEGORIES.append(("media-encoding.json", generate_media_encoding_vectors))  # E60-01
+CATEGORIES.append(("rotation-encoding.json", generate_rotation_encoding_vectors))  # E70-01
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 
