@@ -137,14 +137,23 @@ Run the suite:
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-11-version-scenarios/scenarios --timeout 300
 ```
 
-Every scenario completed in well under a minute in practice. `mitmLab_helloUnsupportedMajorVersion_
-menuShowsVersionError` (the UI half of the version-mismatch scenario, reading the real Mac menu-bar
-status item's text via the accessibility tree after the same attack) is not included here: the
-Mac app's `MenuContentView` does not yet wire any real per-connection state into
-`MenuBarViewModel`/`ErrorBannerViewModel` at all (both are constructed with `stateStream: nil`,
-`macos/TandemApp/TandemApp.swift`) — a real attack against the harness-launched app today has
-nothing to surface in that UI regardless of what closed it. See this issue's PR description for
-that gap; it blocks only this one UI-observability check, not the six scenarios above.
+Every scenario completed in well under a minute in practice.
+
+## E15-16: menu-bar version-mismatch check
+
+`mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError` (the UI half of E15-11's version-mismatch
+scenario) is deliberately not a mitm-lab script: reading the status item through the accessibility tree
+needs OS Accessibility permission, which CI and dev machines don't grant to scripts. It is covered by
+CI-runnable tests instead:
+
+- `macos/Packages/TandemTransport/Tests/TandemTransportTests/VersionMismatchHookLoopbackTests.swift` --
+  real mTLS listener, trusted peer sends `VersionHello` major 99: not registered, but
+  `onSessionRegistered` sees the session ending in `.failed(.versionMismatch)`.
+- `macos/TandemAppTests/VersionMismatchMenuTests.swift` -- real `ByteStreamSession`/`VersionHandshake`
+  over an in-memory stream, through `ConnectionStateRelay`: `MenuBarViewModel` and
+  `ErrorBannerViewModel` both show the version-mismatch error.
+- `macos/TandemUITests/ScenarioVersionMismatchMenuUITests.swift` -- XCUITest of the seeded
+  `versionMismatchMenu` scenario window (menu label and banner text).
 
 ## E15-10: certificate-abuse scenarios
 
