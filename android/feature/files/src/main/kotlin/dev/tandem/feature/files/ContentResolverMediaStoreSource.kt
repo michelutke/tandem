@@ -1,6 +1,7 @@
 package dev.tandem.feature.files
 
 import android.content.ContentResolver
+import android.content.ContentUris
 import android.database.Cursor
 import android.os.Bundle
 import android.provider.MediaStore
@@ -31,6 +32,22 @@ class ContentResolverMediaStoreSource(
         return cursor.use { readRows(it) }
     }
 
+    override fun item(id: Long): MediaItem? {
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        val cursor = contentResolver.query(uri, ITEM_PROJECTION, null, null) ?: return null
+        return cursor.use {
+            if (!it.moveToFirst()) {
+                null
+            } else {
+                MediaItem(
+                    uri = uri.toString(),
+                    displayName = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)),
+                    mime = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)),
+                )
+            }
+        }
+    }
+
     private fun readRows(cursor: Cursor): List<MediaRow> {
         val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
         val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
@@ -55,6 +72,8 @@ class ContentResolverMediaStoreSource(
         const val KEYSET_SELECTION =
             "${MediaStore.Images.Media.DATE_TAKEN} < ? OR " +
                 "(${MediaStore.Images.Media.DATE_TAKEN} = ? AND ${MediaStore.Images.Media._ID} < ?)"
+        val ITEM_PROJECTION =
+            arrayOf(MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE)
         val PROJECTION =
             arrayOf(
                 MediaStore.Images.Media._ID,
