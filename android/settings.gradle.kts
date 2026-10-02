@@ -46,6 +46,7 @@ include(
     ":core:ui",
     ":feature:calls",
     ":feature:clipboard",
+    ":feature:contacts",
     ":feature:files",
     ":feature:input",
     ":feature:messaging",
