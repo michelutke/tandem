@@ -54,7 +54,7 @@ Trust boundaries crossed by the flows below:
 | B3 | Phone/Mac process ↔ local network (Wi-Fi) | Untrusted: attacker may be on the same L2/L3 segment (AC-01, AC-02, AC-04, AC-13). |
 | B4 | Pairing window (temporary trust relaxation) | The Mac listener accepts an unpinned client certificate *only* while a pairing window is open (F-2.1); this is the one deliberate, time- and attempt-bounded hole in Inv 3/5. |
 | B5 | Optical channel (QR code) | One-way, out-of-band; carries the Mac's fingerprint and a single-use secret, not a key exchange in itself. |
-| B6 | Authenticated session ↔ application channels | Once mTLS completes, all nine channels (F-3.2) and the media connection share the same peer identity; per-channel caps (D-21, D-26, D-27) are the only remaining boundary between channels. |
+| B6 | Authenticated session ↔ application channels | Once mTLS completes, all ten channels (F-3.2, F-10.1) and the media connection share the same peer identity; per-channel caps (D-21, D-26, D-27) are the only remaining boundary between channels. |
 | B7 | OS-granted data source ↔ mux | NotificationListener, clipboard, MediaStore/SAF, SMS provider, Contacts, Telecom, MediaProjection, AccessibilityService each cross from an OS permission surface into an Envelope destined for the wire; the OS-permission side of this boundary is E02-08. |
 
 ## 3. Data-flow diagram

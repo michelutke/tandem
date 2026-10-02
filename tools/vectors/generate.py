@@ -45,6 +45,7 @@ from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs 
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from focus_encoding import generate_focus_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
+from media_control_encoding import generate_media_control_encoding_vectors  # noqa: E402 (needs sys.path above)
 from media_encoding import generate_media_encoding_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
@@ -79,6 +80,7 @@ CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E
 CATEGORIES.append(("media-encoding.json", generate_media_encoding_vectors))  # E60-01
 CATEGORIES.append(("rotation-encoding.json", generate_rotation_encoding_vectors))  # E70-01
 CATEGORIES.append(("focus-encoding.json", generate_focus_encoding_vectors))  # E72-04
+CATEGORIES.append(("media-control-encoding.json", generate_media_control_encoding_vectors))  # E72-02
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 

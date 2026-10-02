@@ -79,7 +79,7 @@ Two encodings were not fully pinned down by SPEC.md/decisions.md at the wire-byt
 chosen here, following SPEC.md's prose definitions:
 
 - **Unknown channel**: `channel` (field 1) set to `99`, a value the varint wire format accepts
-  but that is outside the nine enumerated `Channel` values (0-9) — an otherwise well-formed
+  but that is outside the ten enumerated `Channel` values (0-10) — an otherwise well-formed
   Envelope.
 - **Unknown payload type**: the `oneof payload` left unset by omitting fields 20 (`device_status`)
   and 21 (`ring`) entirely and instead writing field 25 — a number inside `envelope.proto`'s
@@ -285,6 +285,16 @@ Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/pro
 `input.kind` selects the type (`focusState`/`focusSyncCapability`). Every entry carries
 `expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
 both codecs also re-encode to the same bytes.
+
+### `media-control-encoding.json` (E72-02)
+
+Vectors for `docs/protocol/SPEC.md` `#media-control-channel`'s message types
+(`protocol/proto/tandem/v1/media_control.proto`): `NowPlaying`, `PlayPause`, `Next`, `Previous`,
+`Stop`, `CapabilityUnavailable`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`nowPlaying`/`playPause`/`next`/`previous`/`stop`/`capabilityUnavailable`).
+Every entry carries `expected.summary` (the canonical decoded view: `title=..|artist=..|state=<n>|album=..|durationMs=..`
+with `<absent>` for unset optionals, `empty` for commands, `feature=<n>`) and a `messageSha256`; both
+codecs also re-encode to the same bytes.
 
 ## Authoritativeness
 

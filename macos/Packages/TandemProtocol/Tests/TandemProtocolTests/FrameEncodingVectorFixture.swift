@@ -80,7 +80,8 @@ enum FrameEncodingVectorFixture {
         "CHANNEL_CONTACTS": 6,
         "CHANNEL_CALLS": 7,
         "CHANNEL_INPUT": 8,
-        "CHANNEL_STATUS": 9
+        "CHANNEL_STATUS": 9,
+        "CHANNEL_MEDIA_CONTROL": 10
     ]
 
     private static let ringFieldNumber = 21

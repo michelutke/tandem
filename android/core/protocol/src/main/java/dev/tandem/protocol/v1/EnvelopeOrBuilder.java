@@ -679,5 +679,79 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.FocusSyncCapability getFocusSyncCapability();
 
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   * @return Whether the nowPlaying field is set.
+   */
+  boolean hasNowPlaying();
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — MEDIA_CONTROL channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   * @return The nowPlaying.
+   */
+  dev.tandem.protocol.v1.NowPlaying getNowPlaying();
+
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   * @return Whether the playPause field is set.
+   */
+  boolean hasPlayPause();
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   * @return The playPause.
+   */
+  dev.tandem.protocol.v1.PlayPause getPlayPause();
+
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   * @return Whether the next field is set.
+   */
+  boolean hasNext();
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   * @return The next.
+   */
+  dev.tandem.protocol.v1.Next getNext();
+
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   * @return Whether the previous field is set.
+   */
+  boolean hasPrevious();
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   * @return The previous.
+   */
+  dev.tandem.protocol.v1.Previous getPrevious();
+
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   * @return Whether the stop field is set.
+   */
+  boolean hasStop();
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   * @return The stop.
+   */
+  dev.tandem.protocol.v1.Stop getStop();
+
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   * @return Whether the capabilityUnavailable field is set.
+   */
+  boolean hasCapabilityUnavailable();
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   * @return The capabilityUnavailable.
+   */
+  dev.tandem.protocol.v1.CapabilityUnavailable getCapabilityUnavailable();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

@@ -15,7 +15,7 @@ public inline fun creditGrant(block: dev.tandem.protocol.v1.CreditGrantKt.Dsl.()
  * CreditGrant: docs/protocol/SPEC.md #channels-and-flow-control-credits
  * (docs/planning/decisions.md D-64). The replenishment message for the per-channel credit
  * ledger: rides CONTROL itself, since it must never be subject to the credit system it manages.
- * A CreditGrant naming CONTROL, CHANNEL_UNSPECIFIED, or any value outside the nine defined
+ * A CreditGrant naming CONTROL, CHANNEL_UNSPECIFIED, or any value outside the ten defined
  * channels is rejected UNKNOWN_CHANNEL (MALFORMED_FRAME); CONTROL carries no credit ledger to
  * grant against.
  * ```

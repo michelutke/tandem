@@ -218,6 +218,7 @@ class ChannelMultiplexerTest {
                 Channel.CHANNEL_CALLS,
                 Channel.CHANNEL_INPUT,
                 Channel.CHANNEL_STATUS,
+                Channel.CHANNEL_MEDIA_CONTROL,
             )
 
         fun sourceFor(endpoint: InMemoryDuplexPipe.Endpoint): FrameSource =

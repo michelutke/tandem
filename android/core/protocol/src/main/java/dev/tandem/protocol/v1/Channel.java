@@ -10,10 +10,10 @@ package dev.tandem.protocol.v1;
  * Channel: docs/protocol/SPEC.md #channels-and-flow-control-credits. CHANNEL_UNSPECIFIED = 0 is
  * never valid on the wire; receiving it (or any value outside this list) is rejected
  * UNKNOWN_CHANNEL (#errors-and-close-codes, MALFORMED_FRAME). The channel set is closed at
- * exactly these nine values (docs/planning/backlog/phase-0.yaml E01-04 acceptance — there is no
- * PHOTOS channel, photo-browser messages ride FILES). Numbers are frozen once released: never
- * renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf lint's STANDARD
- * ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
+ * exactly these ten values (docs/planning/backlog/phase-0.yaml E01-04 acceptance, extended by
+ * E72-02's MEDIA_CONTROL — there is no PHOTOS channel, photo-browser messages ride FILES). Numbers
+ * are frozen once released: never renumber or reuse. Values are prefixed CHANNEL_* to satisfy buf
+ * lint's STANDARD ENUM_VALUE_PREFIX rule; SPEC.md and the backlog refer to the same channels by their unprefixed
  * names (CONTROL, NOTIFY, ...).
  * </pre>
  *
@@ -62,6 +62,10 @@ public enum Channel
    * <code>CHANNEL_STATUS = 9;</code>
    */
   CHANNEL_STATUS(9),
+  /**
+   * <code>CHANNEL_MEDIA_CONTROL = 10;</code>
+   */
+  CHANNEL_MEDIA_CONTROL(10),
   UNRECOGNIZED(-1),
   ;
 
@@ -105,6 +109,10 @@ public enum Channel
    * <code>CHANNEL_STATUS = 9;</code>
    */
   public static final int CHANNEL_STATUS_VALUE = 9;
+  /**
+   * <code>CHANNEL_MEDIA_CONTROL = 10;</code>
+   */
+  public static final int CHANNEL_MEDIA_CONTROL_VALUE = 10;
 
 
   @java.lang.Override
@@ -137,6 +145,7 @@ public enum Channel
       case 7: return CHANNEL_CALLS;
       case 8: return CHANNEL_INPUT;
       case 9: return CHANNEL_STATUS;
+      case 10: return CHANNEL_MEDIA_CONTROL;
       default: return null;
     }
   }

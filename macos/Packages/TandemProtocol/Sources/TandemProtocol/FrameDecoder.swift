@@ -137,7 +137,7 @@ enum FrameDecoder {
         switch envelope.channel {
         case .unspecified, .UNRECOGNIZED:
             return .rejected(.malformedFrame, .unknownChannel)
-        case .control, .notify, .clipboard, .files, .sms, .contacts, .calls, .input, .status:
+        case .control, .notify, .clipboard, .files, .sms, .contacts, .calls, .input, .status, .mediaControl:
             break
         }
 

@@ -1234,7 +1234,7 @@ epics:
           - "Section defines the credit unit (frames or bytes), the numeric initial grant per channel, the replenishment message name and the trigger (e.g. receiver consumed >= half the grant), and states a sender MUST NOT send on a channel with zero remaining credit."
           - "Section states as a MUST that a peer sending past its granted credit causes a connection close with the E01-05 `CREDIT_VIOLATION` close code (no silent drop)."
           - "Section states CONTROL is exempt from or has a reserved credit so heartbeats and credit updates cannot be starved (a MUST, with the chosen mechanism)."
-          - "Section states the channel set is closed and exactly the nine F-3.2 channels; there is no PHOTOS channel: photo-browser messages (E41-01) ride FILES (decision recorded here and in E41-01)."
+          - "Section states the channel set is closed and the nine F-3.2 channels plus MEDIA_CONTROL (E72-02); there is no PHOTOS channel: photo-browser messages (E41-01) ride FILES (decision recorded here and in E41-01)."
           - Section states, as a MUST NOT, that no debug, echo, loopback, or test-only message type or channel exists; debug and release builds speak an identical protocol, and an unknown payload type closes the connection (AC-11).
           - "Section states a numeric upper bound on the credit a receiver may grant per channel (and so on its per-channel receive buffer); a grant that would take the outstanding credit above that bound, or a peer exceeding it, closes the connection with `CREDIT_VIOLATION`."
         tdd: []
@@ -1405,7 +1405,7 @@ epics:
         acceptance:
           - "`buf lint` passes on the new file with the repo's configured ruleset."
           - Generated Kotlin and Swift types compile (via E00-09's codegen pipeline) with no manual edits.
-          - "`Channel` has exactly the nine F-3.2 values plus `CHANNEL_UNSPECIFIED = 0`, with numbers frozen as documented in the file."
+          - "`Channel` has the nine F-3.2 values plus `CHANNEL_MEDIA_CONTROL = 10` (E72-02) and `CHANNEL_UNSPECIFIED = 0`, with numbers frozen as documented in the file."
           - "Every message and enum in the file has a leading comment naming its SPEC.md section anchor, and each anchor resolves."
         tdd:
           - "ci: envelopeProto_bufLint_exitsZero"
