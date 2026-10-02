@@ -1013,6 +1013,34 @@ epics:
         notes: |
           Added with the UI spec. The dot-QR renderer must keep the QR scannable (finder patterns as
           rounded squares, modules as dots, quiet zone >= 4 modules) — verified by E14-11 tests.
+
+      - id: E00-33
+        title: "[ci] Run feature-module instrumented tests in android-instrumented.yml"
+        type: task
+        platforms: [ci, android]
+        priority: P0
+        lands_in_phase: 3
+        size: S
+        prd: []
+        use_cases: []
+        invariants: []
+        depends_on: [E00-21, E00-22]
+        description: |
+          `android-instrumented.yml` only runs `:companion-app`, `:core:crypto` and `:app`
+          `ciGroupDebugAndroidTest`. Feature modules now carry `instrumented:` tests that never run
+          in CI: `:feature:notifications` (E30-11 `SecretVisibilityInstrumentedTest`, needs the
+          companion APK installed on the same managed device) and `:feature:contacts` (E51-02
+          `ContentResolverContactsSourceInstrumentedTest`). Add a step per module that applies
+          `tandem.android.instrumented`, and make the companion APK an install dependency of
+          `:feature:notifications`'s androidTest (e.g. `installation { installApk }` or an
+          `adb install` in the test runner's setup) so the companion kinds are postable.
+        acceptance:
+          - A deliberately failing assertion in either feature module's androidTest fails the workflow
+          - The E30-11 and E51-02 instrumented tests pass on api29 and api35
+        tdd:
+          - "ci: instrumentedWorkflow_featureModuleFailingTest_workflowFails"
+        notes: |
+          Found while shipping E30-11 and E51-02 (2026-10-02): both tests compile but no CI job runs them.
   - id: E01
     title: "Wire protocol: SPEC.md, .proto schema, test vectors"
     labels: [area:protocol]
