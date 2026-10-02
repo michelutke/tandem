@@ -20,6 +20,7 @@ android/core/ui
 android/feature
 android/feature/calls
 android/feature/clipboard
+android/feature/contacts
 android/feature/files
 android/feature/input
 android/feature/messaging

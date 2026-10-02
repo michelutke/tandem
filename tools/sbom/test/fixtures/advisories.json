@@ -1,0 +1,6 @@
+{
+  "pkg:maven/org.example/vulnerable-lib@1.0.0": [
+    { "id": "GHSA-fixture-crit", "severity": "CRITICAL" },
+    { "id": "GHSA-fixture-low", "severity": "LOW" }
+  ]
+}
