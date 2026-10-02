@@ -13,8 +13,13 @@ import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.envelope
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -22,7 +27,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -154,6 +162,34 @@ class ChannelMultiplexerTest {
             )
             b.inbound(Channel.CHANNEL_NOTIFY).test { awaitComplete() }
             readerJob.join()
+        }
+
+    @Test
+    fun channelMultiplexer_closeAbruptlyDuringInFlightWrite_noUncaughtExceptionAndCloseReasonCompletes() =
+        muxTest {
+            val writeStarted = CompletableDeferred<Unit>()
+            val abruptClose = CompletableDeferred<Unit>()
+            val uncaught = CopyOnWriteArrayList<Throwable>()
+            val source = FrameSource { _, _, _ -> awaitCancellation() }
+            val sink =
+                FrameSink {
+                    writeStarted.complete(Unit)
+                    abruptClose.await()
+                    throw IOException("closed abruptly")
+                }
+            val mux = ChannelMultiplexer(source, sink)
+            val handler = CoroutineExceptionHandler { _, e -> uncaught += e }
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)
+            val startJob = scope.launch { mux.start() }
+
+            mux.send(Channel.CHANNEL_NOTIFY) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            writeStarted.await()
+            abruptClose.complete(Unit)
+
+            val close = withTimeout(5.seconds) { mux.closeReason.await() }
+            assertTrue(close is MultiplexerClose.SourceFailed, "close reason: $close")
+            startJob.cancelAndJoin()
+            assertEquals(emptyList<Throwable>(), uncaught)
         }
 
     private companion object {
