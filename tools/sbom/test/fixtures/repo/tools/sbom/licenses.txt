@@ -1,0 +1,3 @@
+org.example:vulnerable-lib Apache-2.0
+org.example:gpl-lib GPL-3.0-only
+github.com/example/* MIT

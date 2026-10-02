@@ -1,0 +1,27 @@
+name: sbom
+
+# Vulnerability scan of the committed SBOM against OSV (public API, no credentials). Weekly so new
+# advisories surface without a dependency change.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'tools/sbom/**'
+      - 'android/gradle/verification-metadata.xml'
+      - 'macos/Packages/*/Package.resolved'
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: SBOM is current
+        run: ruby tools/sbom/sbom.rb check
+      - name: Vulnerability scan
+        run: ruby tools/sbom/sbom.rb scan
