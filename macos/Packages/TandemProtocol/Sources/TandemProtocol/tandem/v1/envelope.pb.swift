@@ -73,6 +73,15 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .mediaTicketGrant(newValue)}
   }
 
+  /// media.proto (E60-01)
+  public var requestMediaTicket: Tandem_V1_RequestMediaTicket {
+    get {
+      if case .requestMediaTicket(let v)? = payload {return v}
+      return Tandem_V1_RequestMediaTicket()
+    }
+    set {payload = .requestMediaTicket(newValue)}
+  }
+
   /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
   public var pairChallenge: Tandem_V1_PairChallenge {
     get {
@@ -393,6 +402,8 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case heartbeat(Tandem_V1_Heartbeat)
     case creditGrant(Tandem_V1_CreditGrant)
     case mediaTicketGrant(Tandem_V1_MediaTicketGrant)
+    /// media.proto (E60-01)
+    case requestMediaTicket(Tandem_V1_RequestMediaTicket)
     /// pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
     case pairChallenge(Tandem_V1_PairChallenge)
     case pairRequest(Tandem_V1_PairRequest)
@@ -451,7 +462,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{4}\u{3}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{c}\u{8}\u{2}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{c}\u{9}\u{1}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}d\u{1}\u{a}\u{c}n\u{1}\u{a}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -512,6 +523,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
           self.payload = .mediaTicketGrant(v)
+        }
+      }()
+      case 8: try {
+        var v: Tandem_V1_RequestMediaTicket?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .requestMediaTicket(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .requestMediaTicket(v)
         }
       }()
       case 10: try {
@@ -1043,6 +1067,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .mediaTicketGrant?: try {
       guard case .mediaTicketGrant(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 7)
+    }()
+    case .requestMediaTicket?: try {
+      guard case .requestMediaTicket(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 8)
     }()
     case .pairChallenge?: try {
       guard case .pairChallenge(let v)? = self.payload else { preconditionFailure() }

@@ -224,6 +224,42 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     */
+    public var requestMediaTicket: dev.tandem.protocol.v1.RequestMediaTicket
+      @kotlin.jvm.JvmName("getRequestMediaTicket")
+        get() = _builder.requestMediaTicket
+      @kotlin.jvm.JvmName("setRequestMediaTicket")
+        set(value) {
+        _builder.requestMediaTicket = value
+      }
+    /**
+     * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     */
+    public fun clearRequestMediaTicket() {
+      _builder.clearRequestMediaTicket()
+    }
+    /**
+     * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     * @return Whether the requestMediaTicket field is set.
+     */
+    public fun hasRequestMediaTicket(): kotlin.Boolean {
+      return _builder.hasRequestMediaTicket()
+    }
+
+    /**
+     * ```
      * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
      * ```
      *
@@ -1253,6 +1289,9 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.creditGrantOrNull: dev.tande
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mediaTicketGrantOrNull: dev.tandem.protocol.v1.MediaTicketGrant?
   get() = if (hasMediaTicketGrant()) getMediaTicketGrant() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.requestMediaTicketOrNull: dev.tandem.protocol.v1.RequestMediaTicket?
+  get() = if (hasRequestMediaTicket()) getRequestMediaTicket() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairChallengeOrNull: dev.tandem.protocol.v1.PairChallenge?
   get() = if (hasPairChallenge()) getPairChallenge() else null
