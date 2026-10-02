@@ -1,5 +1,6 @@
 plugins {
     id("tandem.android.feature")
+    id("tandem.android.instrumented")
     id("tandem.android.robolectric")
 }
 
@@ -14,6 +15,9 @@ android {
 dependencies {
     // FileOffer/FileAccept/FileReject DSL builders and DisplayStringSanitizer (E14-21).
     implementation(project(":core:protocol"))
+    // MediaPermissionRequestActivity extends TandemActivity (E00-28).
+    implementation(project(":core:ui"))
+    implementation(libs.androidx.core)
     // AcceptFlow (E40-07) reads and replies over the real TandemSession seam.
     implementation(project(":core:transport"))
     implementation(libs.kotlinx.coroutines.core)
