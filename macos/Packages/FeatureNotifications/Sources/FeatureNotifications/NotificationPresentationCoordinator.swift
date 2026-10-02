@@ -12,19 +12,37 @@ import TandemStore
 public actor NotificationPresentationCoordinator: PeerDataPurging {
     private let presenter: any NotificationPresenter
     private let iconCache: IconCache?
+    private let screenLockState: (any ScreenLockState)?
+    private let hidesContentWhenLocked: @Sendable () -> Bool
     private var identifiersByPeer: [SpkiFingerprint: Set<String>] = [:]
 
     /// `iconCache` (E30-06) is optional so a coordinator built with no icon cache still presents
     /// notifications, just with no icon attachment.
-    public init(presenter: any NotificationPresenter, iconCache: IconCache? = nil) {
+    ///
+    /// `screenLockState` and `hidesContentWhenLocked` (E30-15) are read on every ``present(_:from:)``,
+    /// so toggling the setting applies to the next notification. Content is hidden only when
+    /// both say so; with no `screenLockState` nothing is ever hidden.
+    public init(
+        presenter: any NotificationPresenter,
+        iconCache: IconCache? = nil,
+        screenLockState: (any ScreenLockState)? = nil,
+        hidesContentWhenLocked: @escaping @Sendable () -> Bool = { false }
+    ) {
         self.presenter = presenter
         self.iconCache = iconCache
+        self.screenLockState = screenLockState
+        self.hidesContentWhenLocked = hidesContentWhenLocked
     }
 
     /// Builds and presents `posted`, then records its request identifier (``Tandem_V1_NotificationPosted/key``)
     /// against `peer` for later ``purgeAll(peer:)``.
     public func present(_ posted: Tandem_V1_NotificationPosted, from peer: SpkiFingerprint) async {
-        let request = NotificationRequestBuilder.build(posted, iconAttachment: await iconAttachment(for: posted))
+        let hideContent = (screenLockState?.isLocked ?? false) && hidesContentWhenLocked()
+        let request = NotificationRequestBuilder.build(
+            posted,
+            iconAttachment: await iconAttachment(for: posted),
+            hideContent: hideContent
+        )
         await presenter.add(request)
         identifiersByPeer[peer, default: []].insert(request.identifier)
     }
