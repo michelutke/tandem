@@ -435,6 +435,69 @@ public interface EnvelopeOrBuilder extends
 
   /**
    * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   * @return Whether the smsSyncRequest field is set.
+   */
+  boolean hasSmsSyncRequest();
+  /**
+   * <pre>
+   * sms.proto (E50-01) — SMS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];</code>
+   * @return The smsSyncRequest.
+   */
+  dev.tandem.protocol.v1.SmsSyncRequest getSmsSyncRequest();
+
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   * @return Whether the smsSyncResponse field is set.
+   */
+  boolean hasSmsSyncResponse();
+  /**
+   * <code>.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];</code>
+   * @return The smsSyncResponse.
+   */
+  dev.tandem.protocol.v1.SmsSyncResponse getSmsSyncResponse();
+
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   * @return Whether the sendSmsRequest field is set.
+   */
+  boolean hasSendSmsRequest();
+  /**
+   * <code>.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];</code>
+   * @return The sendSmsRequest.
+   */
+  dev.tandem.protocol.v1.SendSmsRequest getSendSmsRequest();
+
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   * @return Whether the sendSmsStatus field is set.
+   */
+  boolean hasSendSmsStatus();
+  /**
+   * <code>.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];</code>
+   * @return The sendSmsStatus.
+   */
+  dev.tandem.protocol.v1.SendSmsStatus getSendSmsStatus();
+
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   * @return Whether the simList field is set.
+   */
+  boolean hasSimList();
+  /**
+   * <code>.tandem.v1.SimList sim_list = 74 [json_name = "simList"];</code>
+   * @return The simList.
+   */
+  dev.tandem.protocol.v1.SimList getSimList();
+
+  /**
+   * <pre>
    * contacts.proto (E51-01) — CONTACTS channel.
    * </pre>
    *

@@ -174,4 +174,41 @@ struct ConnectionStateMachineTests {
             .disconnected(reason: "peer reset")
         ])
     }
+
+    @Test
+    func connectionSm_readyThenSocketClosed_emitsReadyThenDisconnectedMarkers() async {
+        let markers = RecordingReconnectMarkers()
+        let machine = ConnectionStateMachine(clock: ManualTestClock(), markers: markers)
+        _ = await machine.handle(.incomingConnection)
+        _ = await machine.handle(.handshakeStarted)
+        _ = await machine.handle(.handshakeCompleted)
+        _ = await machine.handle(.compatibleHelloReceived)
+        _ = await machine.handle(.socketClosed(reason: "closed locally"))
+
+        #expect(markers.events == ["ready", "disconnected"])
+    }
+
+    @Test
+    func connectionSm_readyThenDeadPeerTimeout_emitsReadyThenDeadMarkers() async {
+        let markers = RecordingReconnectMarkers()
+        let machine = ConnectionStateMachine(clock: ManualTestClock(), markers: markers)
+        _ = await machine.handle(.incomingConnection)
+        _ = await machine.handle(.handshakeStarted)
+        _ = await machine.handle(.handshakeCompleted)
+        _ = await machine.handle(.compatibleHelloReceived)
+        _ = await machine.handle(.deadPeerTimeout)
+
+        #expect(markers.events == ["ready", "dead"])
+    }
+}
+
+private final class RecordingReconnectMarkers: ReconnectMarkers, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [String] = []
+
+    var events: [String] { lock.withLock { recorded } }
+
+    func disconnected() { lock.withLock { recorded.append("disconnected") } }
+    func dead() { lock.withLock { recorded.append("dead") } }
+    func ready() { lock.withLock { recorded.append("ready") } }
 }

@@ -1,0 +1,7 @@
+# <group:name or group-prefix*> <reason>; components whose license is off the E00-29 allowlist but accepted.
+# All are Gradle build/test tooling (AGP, Robolectric, Detekt); none are packaged into the release APK.
+com.ibm.icu:icu4j Unicode-3.0 is permissive; Android lint tooling only
+com.googlecode.juniversalchardet* MPL-1.1 file-level copyleft; Android lint tooling only, unmodified
+javax.annotation* CDDL-1.0 (GPLv2+CE alternative not elected); AGP build tooling only
+org.jdom* JDOM license is BSD-style, no SPDX id; ktlint tooling only
+org.jetbrains.intellij.deps:trove4j LGPL-2.1-only; Kotlin/Detekt compiler tooling only, unmodified

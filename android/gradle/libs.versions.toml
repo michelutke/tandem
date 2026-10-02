@@ -37,6 +37,8 @@ jazzer = "0.30.0"
 # docs/spikes/trust-store-persistence.md; datastore-preferences-core is the pure Kotlin/JVM
 # artifact (no Android Context dependency), so unit tests run on plain JUnit5, no Robolectric.
 androidx-datastore = "1.2.1"
+# Google libphonenumber for E.164 normalization (E51-03); pure JVM artifact, latest on Maven Central.
+libphonenumber = "9.0.40"
 # CameraX for the E14-10 QR scanner preview + frame analysis. 1.6.2 is the current stable release
 # (developer.android.com/jetpack/androidx/releases/camera, 2026-08-26); camera-core/camera-camera2/
 # camera-lifecycle/camera-view are released in lockstep at the same version.
@@ -93,6 +95,7 @@ room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "sqlite" }
 jazzer-junit = { group = "com.code-intelligence", name = "jazzer-junit", version.ref = "jazzer" }
+libphonenumber = { group = "com.googlecode.libphonenumber", name = "libphonenumber", version.ref = "libphonenumber" }
 androidx-datastore-preferences-core = { group = "androidx.datastore", name = "datastore-preferences-core", version.ref = "androidx-datastore" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "androidx-camera" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidx-camera" }
