@@ -14,6 +14,7 @@ import "tandem/v1/clipboard.proto";
 import "tandem/v1/contacts.proto";
 import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
+import "tandem/v1/media.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
 import "tandem/v1/photos.proto";
@@ -42,7 +43,7 @@ message Envelope {
   // (docs/planning/decisions.md AC-11); an unset oneof, or a payload type this receiver's
   // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
   // MALFORMED_FRAME).
-  reserved 8 to 9;     // control.proto (E01-12): remaining CONTROL payload slots
+  reserved 9;          // control.proto (E01-12): remaining CONTROL payload slot
   reserved 15 to 19;   // pairing.proto (E01-11): remaining CONTROL payload slots
   // 20-29: status.proto (E01-13). 22 is RingStop (E23-01); 23-29 held for future extensions.
   reserved 23 to 29;   // status.proto (E01-13): future STATUS channel extensions
@@ -69,8 +70,9 @@ message Envelope {
   reserved 94 to 99;   // calls.proto (E52-01): future CALLS channel extensions
   reserved 100 to 109; // input.proto (E62-01) — INPUT channel
   reserved 110 to 119; // rotation.proto (E70-01) — CONTROL channel
-  // media.proto (E60-01/E61-01) frames ride the separate media connection, which has no
-  // channel and therefore no Envelope payload slot (E01-14).
+  // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
+  // the separate media connection, which has no channel and therefore no Envelope payload slot
+  // (E01-14).
 
   oneof payload {
     // control.proto (E01-12) — CONTROL channel.
@@ -78,6 +80,7 @@ message Envelope {
     Heartbeat heartbeat = 5;
     CreditGrant credit_grant = 6;
     MediaTicketGrant media_ticket_grant = 7;
+    RequestMediaTicket request_media_ticket = 8;  // media.proto (E60-01)
 
     // pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
     PairChallenge pair_challenge = 10;

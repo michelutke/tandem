@@ -98,6 +98,25 @@ public interface EnvelopeOrBuilder extends
 
   /**
    * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   * @return Whether the requestMediaTicket field is set.
+   */
+  boolean hasRequestMediaTicket();
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   * @return The requestMediaTicket.
+   */
+  dev.tandem.protocol.v1.RequestMediaTicket getRequestMediaTicket();
+
+  /**
+   * <pre>
    * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
    * </pre>
    *

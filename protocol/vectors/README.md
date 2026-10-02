@@ -255,6 +255,16 @@ bodies for one call (`input.messageHexes`). The manifest includes an incoming `R
 `RINGING`/`ACTIVE`/`ENDED` sequence of one call, and failed `CallActionResult`s for `UNKNOWN_CALL`,
 `INVALID_NUMBER` and `RATE_LIMITED`.
 
+### `media-encoding.json` (E60-01)
+
+Vectors for `docs/protocol/SPEC.md` `#media-ticket`'s message types (`protocol/proto/tandem/v1/media.proto`,
+`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`. Entries are the raw serialized
+message bytes (`input.messageHex`); `input.kind` selects the type
+(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`). Positive entries carry a `messageSha256` (both
+codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
+carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
+both parsers reject any `ticket` that is not exactly 32 bytes.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

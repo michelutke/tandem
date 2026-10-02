@@ -29,6 +29,7 @@ public  final class Envelope extends
     HEARTBEAT(5),
     CREDIT_GRANT(6),
     MEDIA_TICKET_GRANT(7),
+    REQUEST_MEDIA_TICKET(8),
     PAIR_CHALLENGE(10),
     PAIR_REQUEST(11),
     PAIR_ACCEPTED(12),
@@ -86,6 +87,7 @@ public  final class Envelope extends
         case 5: return HEARTBEAT;
         case 6: return CREDIT_GRANT;
         case 7: return MEDIA_TICKET_GRANT;
+        case 8: return REQUEST_MEDIA_TICKET;
         case 10: return PAIR_CHALLENGE;
         case 11: return PAIR_REQUEST;
         case 12: return PAIR_ACCEPTED;
@@ -496,6 +498,78 @@ public  final class Envelope extends
    */
   private void clearMediaTicketGrant() {
     if (payloadCase_ == 7) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int REQUEST_MEDIA_TICKET_FIELD_NUMBER = 8;
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.Override
+  public boolean hasRequestMediaTicket() {
+    return payloadCase_ == 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.RequestMediaTicket getRequestMediaTicket() {
+    if (payloadCase_ == 8) {
+       return (dev.tandem.protocol.v1.RequestMediaTicket) payload_;
+    }
+    return dev.tandem.protocol.v1.RequestMediaTicket.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 8 &&
+        payload_ != dev.tandem.protocol.v1.RequestMediaTicket.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.RequestMediaTicket.newBuilder((dev.tandem.protocol.v1.RequestMediaTicket) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 8;
+  }
+  /**
+   * <pre>
+   * media.proto (E60-01)
+   * </pre>
+   *
+   * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+   */
+  private void clearRequestMediaTicket() {
+    if (payloadCase_ == 8) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -3105,6 +3179,78 @@ public  final class Envelope extends
 
     /**
      * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    @java.lang.Override
+    public boolean hasRequestMediaTicket() {
+      return instance.hasRequestMediaTicket();
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.RequestMediaTicket getRequestMediaTicket() {
+      return instance.getRequestMediaTicket();
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder setRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+      copyOnWrite();
+      instance.setRequestMediaTicket(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder setRequestMediaTicket(
+        dev.tandem.protocol.v1.RequestMediaTicket.Builder builderForValue) {
+      copyOnWrite();
+      instance.setRequestMediaTicket(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder mergeRequestMediaTicket(dev.tandem.protocol.v1.RequestMediaTicket value) {
+      copyOnWrite();
+      instance.mergeRequestMediaTicket(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E60-01)
+     * </pre>
+     *
+     * <code>.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];</code>
+     */
+    public Builder clearRequestMediaTicket() {
+      copyOnWrite();
+      instance.clearRequestMediaTicket();
+      return this;
+    }
+
+    /**
+     * <pre>
      * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
      * </pre>
      *
@@ -5144,6 +5290,7 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.Heartbeat.class,
             dev.tandem.protocol.v1.CreditGrant.class,
             dev.tandem.protocol.v1.MediaTicketGrant.class,
+            dev.tandem.protocol.v1.RequestMediaTicket.class,
             dev.tandem.protocol.v1.PairChallenge.class,
             dev.tandem.protocol.v1.PairRequest.class,
             dev.tandem.protocol.v1.PairAccepted.class,
@@ -5184,12 +5331,12 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.CallActionResult.class,
           };
           java.lang.String info =
-              "\u0000-\u0001\u0000\u0001]-\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
-              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\n<\u0000\u000b<\u0000\f<\u0000\r<" +
-              "\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000" +
-              " <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<\u00007<\u0000" +
-              "8<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<\u0000H<\u0000" +
-              "I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000";
+              "\u0000.\u0001\u0000\u0001].\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000\f<" +
+              "\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
+              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
+              "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
+              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

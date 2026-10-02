@@ -44,6 +44,7 @@ from filenames import generate_filename_vectors  # noqa: E402 (needs sys.path ab
 from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
+from media_encoding import generate_media_encoding_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
 from photos_encoding import generate_photos_encoding_vectors  # noqa: E402 (needs sys.path above)
@@ -73,6 +74,7 @@ CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  #
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
 CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
 CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E52-01
+CATEGORIES.append(("media-encoding.json", generate_media_encoding_vectors))  # E60-01
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 
