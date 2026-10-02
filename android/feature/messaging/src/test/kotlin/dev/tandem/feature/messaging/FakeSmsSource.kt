@@ -1,6 +1,7 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.protocol.v1.SmsMessage
+import dev.tandem.protocol.v1.SmsMessageType
 import dev.tandem.protocol.v1.SmsThread
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +36,16 @@ class FakeSmsSource(
         return messages.maxOfOrNull { it.id } ?: 0
     }
 
+    override fun newestOutgoingId(
+        address: String,
+        afterId: Long,
+    ): Long {
+        requirePermission()
+        return messages
+            .filter { it.address == address && it.id > afterId && it.type in OUTGOING_TYPES }
+            .maxOfOrNull { it.id } ?: 0
+    }
+
     override fun changes(): Flow<Unit> = changeEvents
 
     private fun requirePermission() {
@@ -43,5 +54,9 @@ class FakeSmsSource(
 
     fun emitChange() {
         changeEvents.tryEmit(Unit)
+    }
+
+    private companion object {
+        val OUTGOING_TYPES = setOf(SmsMessageType.SMS_MESSAGE_TYPE_SENT, SmsMessageType.SMS_MESSAGE_TYPE_OUTBOX)
     }
 }
