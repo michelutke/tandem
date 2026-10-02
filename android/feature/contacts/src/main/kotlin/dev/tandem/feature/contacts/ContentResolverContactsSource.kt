@@ -4,17 +4,24 @@ import android.Manifest
 import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Contacts
+import android.provider.ContactsContract.DeletedContacts
 import dev.tandem.protocol.v1.Contact
 import dev.tandem.protocol.v1.ContactAddressType
 import dev.tandem.protocol.v1.ContactKt.email
 import dev.tandem.protocol.v1.ContactKt.phoneNumber
 import dev.tandem.protocol.v1.contact
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * [ContactsSource] over `ContactsContract` (PRD F-8.3). Pages `Contacts` by `_ID` window and joins
@@ -29,8 +36,11 @@ class ContentResolverContactsSource(
     override fun hasReadPermission(): Boolean =
         context.checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
 
-    override fun readPage(afterContactId: Long): ContactsPage {
-        val rows = readContactRows(afterContactId)
+    override fun readPage(
+        afterContactId: Long,
+        sinceUpdatedAtMs: Long,
+    ): ContactsPage {
+        val rows = readContactRows(afterContactId, sinceUpdatedAtMs)
         val pageRows = rows.take(ContactsSource.PAGE_SIZE)
         if (pageRows.isEmpty()) return ContactsPage(emptyList(), null)
 
@@ -44,11 +54,45 @@ class ContentResolverContactsSource(
         return ContactsPage(contacts, if (hasMore) maxId else null)
     }
 
-    private fun readContactRows(afterContactId: Long): List<ContactRow> {
+    override fun readDeletedContactIds(sinceDeletedAtMs: Long): List<String> {
+        val ids = mutableListOf<String>()
+        resolver
+            .query(
+                DeletedContacts.CONTENT_URI,
+                arrayOf(DeletedContacts.CONTACT_ID),
+                "${DeletedContacts.CONTACT_DELETED_TIMESTAMP} > ?",
+                arrayOf(sinceDeletedAtMs.toString()),
+                "${DeletedContacts.CONTACT_ID} ASC",
+            )?.use { cursor -> cursor.forEachRow { ids += it.getLong(0).toString() } }
+        return ids
+    }
+
+    override fun changes(): Flow<Unit> =
+        callbackFlow {
+            val observer =
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(Unit)
+                    }
+                }
+            resolver.registerContentObserver(Contacts.CONTENT_URI, true, observer)
+            awaitClose { resolver.unregisterContentObserver(observer) }
+        }
+
+    private fun readContactRows(
+        afterContactId: Long,
+        sinceUpdatedAtMs: Long,
+    ): List<ContactRow> {
         val queryArgs =
             Bundle().apply {
-                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${Contacts._ID} > ?")
-                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(afterContactId.toString()))
+                putString(
+                    ContentResolver.QUERY_ARG_SQL_SELECTION,
+                    "${Contacts._ID} > ? AND ${Contacts.CONTACT_LAST_UPDATED_TIMESTAMP} > ?",
+                )
+                putStringArray(
+                    ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                    arrayOf(afterContactId.toString(), sinceUpdatedAtMs.toString()),
+                )
                 putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "${Contacts._ID} ASC")
                 putInt(ContentResolver.QUERY_ARG_LIMIT, ContactsSource.PAGE_SIZE + 1)
             }

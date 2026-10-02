@@ -82,4 +82,20 @@ class ContentResolverContactsSourceTest {
 
         assertTrue(source.hasReadPermission())
     }
+
+    @Test
+    fun contactsSource_sinceUpdatedAt_returnsOnlyNewerContacts() {
+        provider.rows = listOf(FakeContactRow(1, "Old", 10), FakeContactRow(2, "New", 99))
+
+        val page = source.readPage(afterContactId = 0, sinceUpdatedAtMs = 10)
+
+        assertEquals(listOf("2"), page.contacts.map { it.contactId })
+    }
+
+    @Test
+    fun contactsSource_deletedContacts_returnsIdsDeletedAfterSince() {
+        provider.deletedContacts = listOf(4L to 5L, 8L to 50L, 6L to 60L)
+
+        assertEquals(listOf("6", "8"), source.readDeletedContactIds(sinceDeletedAtMs = 10))
+    }
 }
