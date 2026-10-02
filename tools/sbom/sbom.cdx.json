@@ -3679,6 +3679,20 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/androidx.test.uiautomator/uiautomator@2.3.0",
+      "name": "androidx.test.uiautomator:uiautomator",
+      "version": "2.3.0",
+      "purl": "pkg:maven/androidx.test.uiautomator/uiautomator@2.3.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/androidx.test/core@1.7.0",
       "name": "androidx.test:core",
       "version": "1.7.0",
