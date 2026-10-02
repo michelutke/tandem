@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabDos_threeIdlePairingCandidates_windowExhaustedNoPairAccepted
+# mitm-scenario-role: client
+# mitm-scenario-expect: noPairAccepted
+# mitm-scenario-timeout: 300
+#
+# E15-20 (5/5): with a pairing window open, three idle pairing candidates (unknown client certs that
+# complete TLS and never send VersionHello). SPEC.md §5 row 8 / decisions.md D-70: each candidate's
+# VersionHello-deadline miss (PROTOCOL_TIMEOUT, 5 s) is a candidate-slot connection closing before
+# PairAccepted and burns one pairing attempt, so the window is exhausted after three. A later,
+# *correct* PairRequest (real proof, E15-09's RAWOPEN/RAWSENDPROOF) must find the window refused in the
+# verify callback and never get PairAccepted; no trust record is written.
+#
+# Candidates run one after another because only one candidate may be in flight (§10).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e15-09-common.sh
+source "$here/../../e15-09-pairing-abuse/lib/e15-09-common.sh"
+# shellcheck source=../lib/e15-20-common.sh
+source "$here/../lib/e15-20-common.sh"
+cleanup() { e15_20_teardown; e15_09_teardown; }
+trap cleanup EXIT
+
+e15_20_require_alias 127.0.0.2
+e15_20_require_alias 127.0.0.3
+e15_20_require_alias 127.0.0.4
+e15_20_setup no-mac
+e15_09_setup
+
+FAILED=0
+sources=(127.0.0.2 127.0.0.3 127.0.0.4)
+for i in 0 1 2; do
+  "$E15_20_SELFTEST_LIB/gen-cert.sh" "$E15_20_TMP_DIR/cand$i" "e15-20 candidate $i" >/dev/null
+  out="$("$E15_20_PROBE" tls-silent "${sources[$i]}" 127.0.0.1 "$MAC_PORT" \
+    "$E15_20_TMP_DIR/cand$i-cert.pem" "$E15_20_TMP_DIR/cand$i-key.pem" 9000)"
+  e15_20_log "idle candidate $((i + 1)) from ${sources[$i]}: $(printf '%s' "$out" | tr '\n' ' ')"
+  if ! printf '%s' "$out" | grep -q '^HANDSHAKE_OK$'; then
+    e15_20_log "FAIL: idle candidate $((i + 1)) was not admitted as a pairing candidate"
+    FAILED=1
+    break
+  fi
+  if ! printf '%s' "$out" | grep -q '^CLOSED_MS '; then
+    e15_20_log "FAIL: idle candidate $((i + 1)) was never closed by the VersionHello deadline"
+    FAILED=1
+    break
+  fi
+done
+
+if [ "$FAILED" -eq 0 ]; then
+  e15_09_start_client
+  response="$(e15_09_rawopen 127.0.0.1 "$MAC_PORT" "$MAC_FP_B64")"
+  e15_20_log "correct-PairRequest client RAWOPEN after three idle candidates: $response"
+  case "$response" in
+    "ERROR HANDSHAKE_REJECTED"*) e15_20_log "OK: window exhausted, candidate refused in the handshake" ;;
+    "OK OPENED"*)
+      e15_20_log "FAIL: window not exhausted after three idle candidates (idle candidates did not burn attempts)"
+      FAILED=1
+      ;;
+    *)
+      e15_20_log "FAIL: unexpected RAWOPEN response: $response"
+      FAILED=1
+      ;;
+  esac
+  e15_09_stop_client
+fi
+
+e15_09_assert_mac_alive || FAILED=1
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e15_20_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: noPairAccepted"
+else
+  echo "OUTCOME: FAILED"
+fi
