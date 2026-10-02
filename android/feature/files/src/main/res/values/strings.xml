@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="select_more_photos_channel_name">Photo access</string>
+    <string name="select_more_photos_title">Select more photos</string>
+    <string name="select_more_photos_text">Your Mac asked for more photos than you shared.</string>
+</resources>
