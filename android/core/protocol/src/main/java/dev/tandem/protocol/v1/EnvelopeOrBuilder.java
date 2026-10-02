@@ -597,5 +597,57 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.CallActionResult getCallActionResult();
 
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   * @return Whether the rotationChallenge field is set.
+   */
+  boolean hasRotationChallenge();
+  /**
+   * <pre>
+   * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];</code>
+   * @return The rotationChallenge.
+   */
+  dev.tandem.protocol.v1.RotationChallenge getRotationChallenge();
+
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   * @return Whether the keyRotation field is set.
+   */
+  boolean hasKeyRotation();
+  /**
+   * <code>.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];</code>
+   * @return The keyRotation.
+   */
+  dev.tandem.protocol.v1.KeyRotation getKeyRotation();
+
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   * @return Whether the rotationAck field is set.
+   */
+  boolean hasRotationAck();
+  /**
+   * <code>.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];</code>
+   * @return The rotationAck.
+   */
+  dev.tandem.protocol.v1.RotationAck getRotationAck();
+
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   * @return Whether the rotationReject field is set.
+   */
+  boolean hasRotationReject();
+  /**
+   * <code>.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];</code>
+   * @return The rotationReject.
+   */
+  dev.tandem.protocol.v1.RotationReject getRotationReject();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }
