@@ -3,8 +3,10 @@ package dev.tandem.app
 import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
+import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.service.ServiceStarter
+import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
 import dev.tandem.core.storage.trust.TrustStore
@@ -32,6 +34,8 @@ import java.io.File
 @HiltAndroidApp
 class TandemApplication : Application() {
     val trustStore: TrustStore by lazy { TrustStore.open(this, File(filesDir, TRUST_STORE_FILE_NAME)) }
+    val sessionRegistry = SessionRegistry()
+    val knownPeerStore: KnownPeerStore by lazy { KnownPeerStore(File(filesDir, KNOWN_PEERS_FILE_NAME)) }
 
     override fun onCreate() {
         super.onCreate()
@@ -46,5 +50,6 @@ class TandemApplication : Application() {
 
     companion object {
         const val TRUST_STORE_FILE_NAME = "trust.db"
+        const val KNOWN_PEERS_FILE_NAME = "known-peers"
     }
 }
