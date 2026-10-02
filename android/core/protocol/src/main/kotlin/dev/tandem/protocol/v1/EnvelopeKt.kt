@@ -224,6 +224,42 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     */
+    public var requestMediaTicket: dev.tandem.protocol.v1.RequestMediaTicket
+      @kotlin.jvm.JvmName("getRequestMediaTicket")
+        get() = _builder.requestMediaTicket
+      @kotlin.jvm.JvmName("setRequestMediaTicket")
+        set(value) {
+        _builder.requestMediaTicket = value
+      }
+    /**
+     * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     */
+    public fun clearRequestMediaTicket() {
+      _builder.clearRequestMediaTicket()
+    }
+    /**
+     * ```
+     * media.proto (E60-01)
+     * ```
+     *
+     * `.tandem.v1.RequestMediaTicket request_media_ticket = 8 [json_name = "requestMediaTicket"];`
+     * @return Whether the requestMediaTicket field is set.
+     */
+    public fun hasRequestMediaTicket(): kotlin.Boolean {
+      return _builder.hasRequestMediaTicket()
+    }
+
+    /**
+     * ```
      * pairing.proto (E01-11) — CONTROL channel, pairing-candidate connections only.
      * ```
      *
@@ -932,6 +968,138 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     */
+    public var smsSyncRequest: dev.tandem.protocol.v1.SmsSyncRequest
+      @kotlin.jvm.JvmName("getSmsSyncRequest")
+        get() = _builder.smsSyncRequest
+      @kotlin.jvm.JvmName("setSmsSyncRequest")
+        set(value) {
+        _builder.smsSyncRequest = value
+      }
+    /**
+     * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     */
+    public fun clearSmsSyncRequest() {
+      _builder.clearSmsSyncRequest()
+    }
+    /**
+     * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     * @return Whether the smsSyncRequest field is set.
+     */
+    public fun hasSmsSyncRequest(): kotlin.Boolean {
+      return _builder.hasSmsSyncRequest()
+    }
+
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     */
+    public var smsSyncResponse: dev.tandem.protocol.v1.SmsSyncResponse
+      @kotlin.jvm.JvmName("getSmsSyncResponse")
+        get() = _builder.smsSyncResponse
+      @kotlin.jvm.JvmName("setSmsSyncResponse")
+        set(value) {
+        _builder.smsSyncResponse = value
+      }
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     */
+    public fun clearSmsSyncResponse() {
+      _builder.clearSmsSyncResponse()
+    }
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     * @return Whether the smsSyncResponse field is set.
+     */
+    public fun hasSmsSyncResponse(): kotlin.Boolean {
+      return _builder.hasSmsSyncResponse()
+    }
+
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     */
+    public var sendSmsRequest: dev.tandem.protocol.v1.SendSmsRequest
+      @kotlin.jvm.JvmName("getSendSmsRequest")
+        get() = _builder.sendSmsRequest
+      @kotlin.jvm.JvmName("setSendSmsRequest")
+        set(value) {
+        _builder.sendSmsRequest = value
+      }
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     */
+    public fun clearSendSmsRequest() {
+      _builder.clearSendSmsRequest()
+    }
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     * @return Whether the sendSmsRequest field is set.
+     */
+    public fun hasSendSmsRequest(): kotlin.Boolean {
+      return _builder.hasSendSmsRequest()
+    }
+
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     */
+    public var sendSmsStatus: dev.tandem.protocol.v1.SendSmsStatus
+      @kotlin.jvm.JvmName("getSendSmsStatus")
+        get() = _builder.sendSmsStatus
+      @kotlin.jvm.JvmName("setSendSmsStatus")
+        set(value) {
+        _builder.sendSmsStatus = value
+      }
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     */
+    public fun clearSendSmsStatus() {
+      _builder.clearSendSmsStatus()
+    }
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     * @return Whether the sendSmsStatus field is set.
+     */
+    public fun hasSendSmsStatus(): kotlin.Boolean {
+      return _builder.hasSendSmsStatus()
+    }
+
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     */
+    public var simList: dev.tandem.protocol.v1.SimList
+      @kotlin.jvm.JvmName("getSimList")
+        get() = _builder.simList
+      @kotlin.jvm.JvmName("setSimList")
+        set(value) {
+        _builder.simList = value
+      }
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     */
+    public fun clearSimList() {
+      _builder.clearSimList()
+    }
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     * @return Whether the simList field is set.
+     */
+    public fun hasSimList(): kotlin.Boolean {
+      return _builder.hasSimList()
+    }
+
+    /**
+     * ```
      * contacts.proto (E51-01) — CONTACTS channel.
      * ```
      *
@@ -989,6 +1157,114 @@ public object EnvelopeKt {
     public fun hasContactsSyncResponse(): kotlin.Boolean {
       return _builder.hasContactsSyncResponse()
     }
+
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     */
+    public var callEvent: dev.tandem.protocol.v1.CallEvent
+      @kotlin.jvm.JvmName("getCallEvent")
+        get() = _builder.callEvent
+      @kotlin.jvm.JvmName("setCallEvent")
+        set(value) {
+        _builder.callEvent = value
+      }
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     */
+    public fun clearCallEvent() {
+      _builder.clearCallEvent()
+    }
+    /**
+     * ```
+     * calls.proto (E52-01) — CALLS channel.
+     * ```
+     *
+     * `.tandem.v1.CallEvent call_event = 90 [json_name = "callEvent"];`
+     * @return Whether the callEvent field is set.
+     */
+    public fun hasCallEvent(): kotlin.Boolean {
+      return _builder.hasCallEvent()
+    }
+
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     */
+    public var callAction: dev.tandem.protocol.v1.CallAction
+      @kotlin.jvm.JvmName("getCallAction")
+        get() = _builder.callAction
+      @kotlin.jvm.JvmName("setCallAction")
+        set(value) {
+        _builder.callAction = value
+      }
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     */
+    public fun clearCallAction() {
+      _builder.clearCallAction()
+    }
+    /**
+     * `.tandem.v1.CallAction call_action = 91 [json_name = "callAction"];`
+     * @return Whether the callAction field is set.
+     */
+    public fun hasCallAction(): kotlin.Boolean {
+      return _builder.hasCallAction()
+    }
+
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     */
+    public var placeCallRequest: dev.tandem.protocol.v1.PlaceCallRequest
+      @kotlin.jvm.JvmName("getPlaceCallRequest")
+        get() = _builder.placeCallRequest
+      @kotlin.jvm.JvmName("setPlaceCallRequest")
+        set(value) {
+        _builder.placeCallRequest = value
+      }
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     */
+    public fun clearPlaceCallRequest() {
+      _builder.clearPlaceCallRequest()
+    }
+    /**
+     * `.tandem.v1.PlaceCallRequest place_call_request = 92 [json_name = "placeCallRequest"];`
+     * @return Whether the placeCallRequest field is set.
+     */
+    public fun hasPlaceCallRequest(): kotlin.Boolean {
+      return _builder.hasPlaceCallRequest()
+    }
+
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     */
+    public var callActionResult: dev.tandem.protocol.v1.CallActionResult
+      @kotlin.jvm.JvmName("getCallActionResult")
+        get() = _builder.callActionResult
+      @kotlin.jvm.JvmName("setCallActionResult")
+        set(value) {
+        _builder.callActionResult = value
+      }
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     */
+    public fun clearCallActionResult() {
+      _builder.clearCallActionResult()
+    }
+    /**
+     * `.tandem.v1.CallActionResult call_action_result = 93 [json_name = "callActionResult"];`
+     * @return Whether the callActionResult field is set.
+     */
+    public fun hasCallActionResult(): kotlin.Boolean {
+      return _builder.hasCallActionResult()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1013,6 +1289,9 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.creditGrantOrNull: dev.tande
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mediaTicketGrantOrNull: dev.tandem.protocol.v1.MediaTicketGrant?
   get() = if (hasMediaTicketGrant()) getMediaTicketGrant() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.requestMediaTicketOrNull: dev.tandem.protocol.v1.RequestMediaTicket?
+  get() = if (hasRequestMediaTicket()) getRequestMediaTicket() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairChallengeOrNull: dev.tandem.protocol.v1.PairChallenge?
   get() = if (hasPairChallenge()) getPairChallenge() else null
@@ -1095,9 +1374,36 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.originalRequestOrNull: dev.t
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.photoErrorOrNull: dev.tandem.protocol.v1.PhotoError?
   get() = if (hasPhotoError()) getPhotoError() else null
 
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.smsSyncRequestOrNull: dev.tandem.protocol.v1.SmsSyncRequest?
+  get() = if (hasSmsSyncRequest()) getSmsSyncRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.smsSyncResponseOrNull: dev.tandem.protocol.v1.SmsSyncResponse?
+  get() = if (hasSmsSyncResponse()) getSmsSyncResponse() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.sendSmsRequestOrNull: dev.tandem.protocol.v1.SendSmsRequest?
+  get() = if (hasSendSmsRequest()) getSendSmsRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.sendSmsStatusOrNull: dev.tandem.protocol.v1.SendSmsStatus?
+  get() = if (hasSendSmsStatus()) getSendSmsStatus() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.simListOrNull: dev.tandem.protocol.v1.SimList?
+  get() = if (hasSimList()) getSimList() else null
+
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncRequestOrNull: dev.tandem.protocol.v1.ContactsSyncRequest?
   get() = if (hasContactsSyncRequest()) getContactsSyncRequest() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncResponseOrNull: dev.tandem.protocol.v1.ContactsSyncResponse?
   get() = if (hasContactsSyncResponse()) getContactsSyncResponse() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callEventOrNull: dev.tandem.protocol.v1.CallEvent?
+  get() = if (hasCallEvent()) getCallEvent() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionOrNull: dev.tandem.protocol.v1.CallAction?
+  get() = if (hasCallAction()) getCallAction() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.placeCallRequestOrNull: dev.tandem.protocol.v1.PlaceCallRequest?
+  get() = if (hasPlaceCallRequest()) getPlaceCallRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionResultOrNull: dev.tandem.protocol.v1.CallActionResult?
+  get() = if (hasCallActionResult()) getCallActionResult() else null
 

@@ -7,8 +7,8 @@ license and the issue that introduced it. `tools/lint/dependency_registry.rb` en
 fails the build naming it.
 
 Transitive dependencies are covered by `android/gradle/verification-metadata.xml` (checksums) and
-each Swift package's `Package.resolved` (pins); they don't need a row here. The release SBOM and
-CVE scan are E71-10.
+each Swift package's `Package.resolved` (pins); they don't need a row here. The CycloneDX SBOM
+(`tools/sbom/sbom.cdx.json`) and CVE scan are E71-10; see "SBOM and vulnerability scan" below.
 
 Allowed licenses: **Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, EPL-2.0, EPL-1.0**.
 EPL-2.0 and EPL-1.0 are added beyond D-32's literal list for pre-existing, test-only JUnit
@@ -51,6 +51,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `io.gitlab.arturbosch.detekt:detekt-api` | Apache-2.0 | Custom detekt rules (`:lint:detekt-rules`) | E00-14 |
 | `io.gitlab.arturbosch.detekt:detekt-test` | Apache-2.0 | Detekt rule unit-test fixtures (`:lint:detekt-rules`) | E00-17 |
 | `androidx.test:runner` | Apache-2.0 | Instrumented test runner (Gradle Managed Devices) | E00-21 |
+| `androidx.test.uiautomator:uiautomator` | Apache-2.0 | Test-only: drives the system MediaProjection consent dialog in instrumented tests | E61-02 |
 | `androidx.test.espresso:espresso-core` | Apache-2.0 | Instrumented UI test actions/assertions | E00-21 |
 | `androidx.test.ext:junit` | Apache-2.0 | JUnit4 rules/runners for instrumented tests | E00-21 |
 | `junit:junit` | EPL-1.0 | JUnit 4 runner required by Robolectric/`androidx.test` | E00-20 |
@@ -66,6 +67,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.conscrypt:conscrypt-openjdk-uber` | Apache-2.0 | JVM-only TLS 1.3 stack for the E12-04 in-process loopback test server / session-ticket-disable test harness | E12-04 |
 | `com.code-intelligence:jazzer-junit` | Apache-2.0 | Jazzer JUnit fuzz target for FrameDecoder/Envelope (frame/envelope parser fuzzing, E15-13) | E15-13 |
 | `androidx.datastore:datastore-preferences-core` | Apache-2.0 | Preferences DataStore engine for the settings store; pure Kotlin/JVM artifact, no Robolectric needed | E13-04 |
+| `com.googlecode.libphonenumber:libphonenumber` | Apache-2.0 | Phone number parsing/E.164 normalization for contacts, SMS and call matching | E51-03 |
 | `androidx.camera:camera-core` | Apache-2.0 | CameraX core use cases (`Preview`, `ImageAnalysis`, `ImageProxy`) for the QR scanner | E14-10 |
 | `androidx.camera:camera-camera2` | Apache-2.0 | CameraX Camera2 hardware implementation | E14-10 |
 | `androidx.camera:camera-lifecycle` | Apache-2.0 | `ProcessCameraProvider`/`bindToLifecycle` | E14-10 |
@@ -91,6 +93,7 @@ entries were needed or added for Jazzer.
 |---|---|---|---|
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
 | `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
+| `GRDB.swift` | MIT | SQLite persistence for the Mac SMS store and contacts cache (`TandemStore`; D-12) | E50-09 |
 
 ## Update bot
 
@@ -143,3 +146,17 @@ Swift has no equivalent regeneration step: each `macos/Packages/*/Package.resolv
 `swift package update` (or Xcode's "Update to Latest Package Versions") in the normal course of
 adding/upgrading a Swift dependency, and CI (`macos.yml`) fails if that would still change the
 checked-in file (`--only-use-versions-from-resolved-file`).
+
+## SBOM and vulnerability scan (E71-10)
+
+`tools/sbom/sbom.cdx.json` lists every resolved Gradle component (`android/gradle/verification-metadata.xml`)
+and SwiftPM pin (`macos/Packages/*/Package.resolved`) with a license.
+
+- `ruby tools/sbom/sbom.rb generate` rewrites the SBOM; commit it with any dependency change.
+  `ruby tools/sbom/sbom.rb check` (in `repo-checks.yml`) fails when it is stale or a license is off the allowlist above.
+- Licenses are mapped in `tools/sbom/licenses.txt` (dual-licensed components record the permissive option elected).
+  An unmapped component is `UNKNOWN` and fails. Off-allowlist licenses on build/test tooling need a row with a reason in
+  `tools/sbom/license-exceptions.txt`.
+- `ruby tools/sbom/sbom.rb scan` (`sbom.yml`, also weekly) queries api.osv.dev (no credentials) and fails on any unwaived
+  HIGH or CRITICAL advisory; advisories OSV leaves unrated count as HIGH. Waivers go in `tools/sbom/waivers.json` as
+  `{"id", "reason", "expires": "YYYY-MM-DD"}`; an expired waiver fails.

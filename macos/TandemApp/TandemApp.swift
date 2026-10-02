@@ -180,10 +180,15 @@ struct MenuContentView: View {
 
     init() {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
-        let stateStream = lifecycle?.menuBarStateStream
         let peerName = lifecycle?.pairedPeerName
-        _menuBarViewModel = State(initialValue: MenuBarViewModel(stateStream: stateStream, peerName: peerName))
-        _errorBannerViewModel = State(initialValue: ErrorBannerViewModel(stateStream: stateStream, peerName: peerName))
+        _menuBarViewModel = State(initialValue: MenuBarViewModel(
+            stateStream: lifecycle?.makeMenuBarStateStream?(),
+            peerName: peerName
+        ))
+        _errorBannerViewModel = State(initialValue: ErrorBannerViewModel(
+            stateStream: lifecycle?.makeMenuBarStateStream?(),
+            peerName: peerName
+        ))
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)

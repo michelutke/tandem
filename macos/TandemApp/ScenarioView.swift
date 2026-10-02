@@ -33,6 +33,7 @@ struct ScenarioView: View {
     @State private var pairedDisconnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
     @State private var pairedDisconnectedQuickActionsViewModel: QuickActionsViewModel
     @State private var failClosedErrorBannerViewModel = ScenarioView.makeFailClosedErrorBannerViewModel()
+    @State private var versionMismatchMenuViewModels = ScenarioView.makeVersionMismatchMenuViewModels()
 
     init(scenario: UITestScenario) {
         self.scenario = scenario
@@ -97,6 +98,11 @@ struct ScenarioView: View {
                     .accessibilityLabel(presenter.localizedTitle)
                 ErrorBannerView(viewModel: failClosedErrorBannerViewModel)
             }
+        case .versionMismatchMenu:
+            VStack(alignment: .leading, spacing: 8) {
+                ErrorBannerView(viewModel: versionMismatchMenuViewModels.banner)
+                MenuBarContentView(viewModel: versionMismatchMenuViewModels.menuBar, deviceStatusViewModel: nil)
+            }
         case .localNetworkDenied:
             LocalNetworkPermissionBannerView(viewModel: ScenarioView.makeLocalNetworkPermissionViewModel())
         case .mainWindowOffline:
@@ -158,6 +164,24 @@ struct ScenarioView: View {
         let viewModel = ErrorBannerViewModel(stateStream: session.state, peerName: pairedConnectedPeerName)
         Task { await session.emit(.failed(.versionMismatch)) }
         return viewModel
+    }
+
+    /// E15-16: both view models observe their own stream from one ``ConnectionStateRelay`` -- the
+    /// same fan-out `MenuContentView` uses in production -- fed by a `FakeTandemSession` that fails
+    /// with a version mismatch.
+    private static func makeVersionMismatchMenuViewModels()
+        -> (menuBar: MenuBarViewModel, banner: ErrorBannerViewModel) {
+        let relay = ConnectionStateRelay()
+        let session = FakeTandemSession()
+        let viewModels = (
+            menuBar: MenuBarViewModel(stateStream: relay.makeStream(), peerName: pairedConnectedPeerName),
+            banner: ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: pairedConnectedPeerName)
+        )
+        Task {
+            await relay.attach(session)
+            await session.emit(.failed(.versionMismatch))
+        }
+        return viewModels
     }
 
     /// Seeds a `BonjourPublishError.policyDenied` error before the view model even starts

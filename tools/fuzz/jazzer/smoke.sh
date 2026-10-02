@@ -14,6 +14,9 @@
 #      as an accidental permanent regression fixture.
 #   2  usage or setup error (bad arguments, gradle invocation itself failed to even start).
 #
+# The Gradle module hosting the fuzz test defaults to core:protocol; JAZZER_MODULE overrides it
+# (E71-03: core:pairing).
+#
 # See tools/fuzz/jazzer/README.md for the full CLI contract.
 set -euo pipefail
 
@@ -39,7 +42,8 @@ esac
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ANDROID_DIR="$REPO_ROOT/android"
-MODULE_DIR="$ANDROID_DIR/core/protocol"
+JAZZER_MODULE="${JAZZER_MODULE:-core:protocol}"
+MODULE_DIR="$ANDROID_DIR/${JAZZER_MODULE//://}"
 GRADLEW="$ANDROID_DIR/gradlew"
 
 if [ ! -x "$GRADLEW" ]; then
@@ -59,7 +63,7 @@ trap cleanup EXIT
 
 STATUS=0
 JAZZER_FUZZ=1 JAZZER_MAX_DURATION="${DURATION_SECONDS}s" \
-  "$GRADLEW" -p "$ANDROID_DIR" ":core:protocol:testDebugUnitTest" --tests "$CLASS_FQCN" --rerun --console=plain \
+  "$GRADLEW" -p "$ANDROID_DIR" ":${JAZZER_MODULE}:testDebugUnitTest" --tests "$CLASS_FQCN" --rerun --console=plain \
   || STATUS=$?
 
 if [ "$STATUS" -eq 0 ]; then

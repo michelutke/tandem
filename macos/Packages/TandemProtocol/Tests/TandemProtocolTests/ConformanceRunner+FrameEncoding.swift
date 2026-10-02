@@ -77,14 +77,14 @@ extension ConformanceRunner {
         )
     }
 
-    private static func decodeFrame(_ bytes: Data) async throws -> DecodeResult? {
+    static func decodeFrame(_ bytes: Data) async throws -> DecodeResult? {
         let pair = InMemoryConnectionPair(bufferCapacity: bytes.count + 8)
         try await pair.endA.send(bytes)
         await pair.endA.close()
         return try await FrameDecoder.decode(from: InMemoryFrameSource(pair.endB))
     }
 
-    private static func frameReasonName(_ reason: MalformedFrameReason) -> String {
+    static func frameReasonName(_ reason: MalformedFrameReason) -> String {
         switch reason {
         case .tooLarge: return "TOO_LARGE"
         case .badLength: return "BAD_LENGTH"

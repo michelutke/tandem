@@ -35,6 +35,7 @@ VECTORS_DIR = REPO_ROOT / "protocol" / "vectors"
 # imported (e.g. from tools/vectors/tests/).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from calls_encoding import generate_calls_encoding_vectors  # noqa: E402 (needs sys.path above)
 from clipboard_encoding import generate_clipboard_encoding_vectors  # noqa: E402 (needs sys.path above)
 from contacts_encoding import generate_contacts_encoding_vectors  # noqa: E402 (needs sys.path above)
 from discovery_id import generate_discovery_id_vectors  # noqa: E402 (needs sys.path above)
@@ -43,10 +44,12 @@ from filenames import generate_filename_vectors  # noqa: E402 (needs sys.path ab
 from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
+from media_encoding import generate_media_encoding_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
 from pairing_proof import generate_pairing_proof_vectors  # noqa: E402 (needs sys.path above)
 from photos_encoding import generate_photos_encoding_vectors  # noqa: E402 (needs sys.path above)
 from qr_payload import generate_qr_payload_vectors  # noqa: E402 (needs sys.path above)
+from sms_encoding import generate_sms_encoding_vectors  # noqa: E402 (needs sys.path above)
 from spki_fingerprint import generate_spki_fingerprint_vectors  # noqa: E402 (needs sys.path above)
 from status_encoding import generate_status_encoding_vectors  # noqa: E402 (needs sys.path above)
 
@@ -69,6 +72,9 @@ CATEGORIES.append(("clipboard-encoding.json", generate_clipboard_encoding_vector
 CATEGORIES.append(("files-encoding.json", generate_files_encoding_vectors))  # E40-01
 CATEGORIES.append(("photos-encoding.json", generate_photos_encoding_vectors))  # E41-01
 CATEGORIES.append(("contacts-encoding.json", generate_contacts_encoding_vectors))  # E51-01
+CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-01
+CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E52-01
+CATEGORIES.append(("media-encoding.json", generate_media_encoding_vectors))  # E60-01
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 
 
