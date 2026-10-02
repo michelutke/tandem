@@ -55,6 +55,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
 | 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
+| 22 | Focus sync | [`#focus-sync`](#focus-sync) | Written (E72-04) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -2135,3 +2136,32 @@ old-key and new-key signatures verify over the transcript; and `KeyRotation`s th
 made by an unrelated key, a truncated DER signature, signatures made over another session's
 `RotationChallenge`, and a `sigNewKey` made by a key other than `newSpkiDer`. Replay and idempotency
 are receiver state, tested in E70-04/E70-05.
+
+## Focus sync
+
+F-10.2 (design note `docs/spikes/focus-dnd-sync.md`, E72-03). The Mac's Focus state drives the phone's
+Do Not Disturb interruption filter. Direction is Mac to phone only: the phone never reports its own
+filter. Both messages (`focus.proto`, E72-04) ride the `CONTROL` channel as `Envelope` payloads 120
+(`FocusState`) and 121 (`FocusSyncCapability`), on an authenticated control session that has reached
+Ready.
+
+### FocusState
+
+- `FocusState { on }` is sent by the Mac on every Focus change.
+- `on = true`: a receiver holding notification-policy access records the interruption filter
+  currently active (only if sync has not already recorded one) and sets the priority-only filter.
+- `on = false`: a receiver that previously applied a filter restores the recorded filter and forgets
+  it; a receiver that never applied one changes nothing.
+- A receiver without notification-policy access MUST NOT change the interruption filter and MUST
+  answer `FocusSyncCapability { available: false }`. A receiver that applies the state sends nothing.
+- `FocusState` carries no secret material; invariants 1 and 8 are inherited from the control session.
+
+### FocusSyncCapability
+
+`FocusSyncCapability { available }` is sent by the phone only; `available = false` tells the Mac that
+the phone cannot apply Focus. The Mac stops sending `FocusState` until it sees `available = true`.
+
+### Conformance
+
+`protocol/vectors/focus-encoding.json` (E72-04; E15-01, E15-02) includes `FocusState` (on and off) and
+`FocusSyncCapability` (unavailable and available) round-tripping to golden bytes on both codecs.
