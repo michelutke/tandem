@@ -43,6 +43,11 @@ actor RecordingNotificationPresenter: @preconcurrency NotificationPresenter {
         addedRequests.map(\.identifier)
     }
 
+    /// Bodies of every ``add(_:)``-ed request, in call order (E30-08).
+    var addedBodies: [String] {
+        addedRequests.map(\.content.body)
+    }
+
     /// Attachment counts of every ``add(_:)``-ed request, in call order (E30-06). Isolated
     /// accessor for the same reason as ``addedIdentifiers``.
     var addedAttachmentCounts: [Int] {
