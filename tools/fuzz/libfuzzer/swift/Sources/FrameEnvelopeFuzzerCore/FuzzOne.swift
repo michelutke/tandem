@@ -42,3 +42,18 @@ public func fuzzOne(_ data: Data) {
     }
     semaphore.wait()
 }
+
+/// E71-02: treats `data` as serialized `Envelope` bytes and prepends the matching big-endian
+/// length prefix, so every fuzz iteration reaches the Envelope protobuf decoder and the
+/// channel/payload checks instead of being rejected on the prefix. Inputs that are empty or over
+/// `FrameEncoder.maxEnvelopeBytes` are skipped (the prefix checks cover them).
+public func fuzzOneEnvelope(_ data: Data) {
+    guard !data.isEmpty, data.count <= FrameEncoder.maxEnvelopeBytes else { return }
+    let length = UInt32(data.count)
+    var frame = Data(capacity: 4 + data.count)
+    for shift in [24, 16, 8, 0] {
+        frame.append(UInt8(truncatingIfNeeded: length >> UInt32(shift)))
+    }
+    frame.append(data)
+    fuzzOne(frame)
+}
