@@ -52,6 +52,7 @@ jobs:
           tools/lint/test/detekt_no_listener_sockets_test.sh
           tools/lint/test/android_foreground_service_manifest_check_test.sh
           tools/lint/test/android_boot_receiver_manifest_check_test.sh
+          tools/lint/test/android_mirror_service_manifest_check_test.sh
       - name: Release-artifact test-code scan
         working-directory: .
         run: tools/release-audit/test/android_release_scan_test.sh

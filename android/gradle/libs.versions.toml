@@ -25,6 +25,7 @@ ksp = "2.3.12"
 hilt = "2.60.1"
 androidx-activity = "1.13.0"
 androidx-test-core = "1.7.0"
+androidx-test-uiautomator = "2.3.0"
 conscrypt = "2.7.0"
 # Room + sqlite-bundled: E13-01 spike (docs/spikes/trust-store-persistence.md), current stable as
 # of Room's own release notes (developer.android.com/jetpack/androidx/releases/room, 2026-09-09).
@@ -37,6 +38,8 @@ jazzer = "0.30.0"
 # docs/spikes/trust-store-persistence.md; datastore-preferences-core is the pure Kotlin/JVM
 # artifact (no Android Context dependency), so unit tests run on plain JUnit5, no Robolectric.
 androidx-datastore = "1.2.1"
+# Google libphonenumber for E.164 normalization (E51-03); pure JVM artifact, latest on Maven Central.
+libphonenumber = "9.0.40"
 # CameraX for the E14-10 QR scanner preview + frame analysis. 1.6.2 is the current stable release
 # (developer.android.com/jetpack/androidx/releases/camera, 2026-08-26); camera-core/camera-camera2/
 # camera-lifecycle/camera-view are released in lockstep at the same version.
@@ -88,11 +91,13 @@ hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activity" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidx-test-uiautomator" }
 conscrypt-openjdk-uber = { group = "org.conscrypt", name = "conscrypt-openjdk-uber", version.ref = "conscrypt" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "sqlite" }
 jazzer-junit = { group = "com.code-intelligence", name = "jazzer-junit", version.ref = "jazzer" }
+libphonenumber = { group = "com.googlecode.libphonenumber", name = "libphonenumber", version.ref = "libphonenumber" }
 androidx-datastore-preferences-core = { group = "androidx.datastore", name = "datastore-preferences-core", version.ref = "androidx-datastore" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "androidx-camera" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidx-camera" }
