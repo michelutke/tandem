@@ -1,6 +1,7 @@
 name: fuzz-campaign
 
-# E71-01: 24 h campaign for the frame length-prefix parser (Jazzer on Kotlin, libFuzzer on Swift).
+# E71-01 / E71-02: 24 h campaign for the frame length-prefix parser or the Envelope protobuf decoder
+# (`target` input; Jazzer on Kotlin, libFuzzer on Swift).
 # Manually dispatched only. A hosted job is capped at 6 h, so each engine runs as sequential
 # segments (max-parallel 1) that resume the previous segment's corpus and counters from the cache;
 # tools/fuzz/campaign/run_campaign.sh stops at `total-seconds` of accumulated wall clock.
@@ -9,6 +10,12 @@ name: fuzz-campaign
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Fuzz target: frame (E71-01) or envelope (E71-02)"
+        required: true
+        type: choice
+        options: [frame, envelope]
+        default: frame
       total-seconds:
         description: "Campaign length per engine in seconds (acceptance: 86400)"
         required: true
@@ -42,21 +49,21 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-jazzer-${{ github.run_id }}-seg${{ matrix.segment }}
-          restore-keys: fuzz-jazzer-${{ github.run_id }}-
+          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          restore-keys: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-
       - name: Fuzz segment
-        run: tools/fuzz/campaign/run_campaign.sh jazzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign"
+        run: tools/fuzz/campaign/run_campaign.sh jazzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign" "${{ inputs.target }}"
       - name: Save campaign state
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-jazzer-${{ github.run_id }}-seg${{ matrix.segment }}
+          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
       - name: Upload campaign log and reproducers
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: jazzer-campaign-seg${{ matrix.segment }}
+          name: jazzer-${{ inputs.target }}-campaign-seg${{ matrix.segment }}
           path: |
             ${{ runner.temp }}/campaign/campaign-log.json
             ${{ runner.temp }}/campaign/artifacts/
@@ -79,30 +86,30 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-libfuzzer-${{ github.run_id }}-seg${{ matrix.segment }}
-          restore-keys: fuzz-libfuzzer-${{ github.run_id }}-
+          key: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          restore-keys: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-
       - name: Build target and seed corpus
         run: |
-          tools/fuzz/libfuzzer/build_fuzz_target.sh "$RUNNER_TEMP/fuzz-target"
+          tools/fuzz/libfuzzer/build_fuzz_target.sh "$RUNNER_TEMP/fuzz-target" "${{ inputs.target }}"
           mkdir -p "$RUNNER_TEMP/campaign"
           if [ ! -d "$RUNNER_TEMP/campaign/corpus" ]; then
-            python3 tools/fuzz/libfuzzer/generate_seed_corpus.py "$RUNNER_TEMP/campaign/corpus"
+            python3 tools/fuzz/libfuzzer/generate_seed_corpus.py "$RUNNER_TEMP/campaign/corpus" "${{ inputs.target }}"
           fi
       - name: Fuzz segment
         env:
           FUZZ_TARGET: ${{ runner.temp }}/fuzz-target
-        run: tools/fuzz/campaign/run_campaign.sh libfuzzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign"
+        run: tools/fuzz/campaign/run_campaign.sh libfuzzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign" "${{ inputs.target }}"
       - name: Save campaign state
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-libfuzzer-${{ github.run_id }}-seg${{ matrix.segment }}
+          key: fuzz-libfuzzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
       - name: Upload campaign log and reproducers
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: libfuzzer-campaign-seg${{ matrix.segment }}
+          name: libfuzzer-${{ inputs.target }}-campaign-seg${{ matrix.segment }}
           path: |
             ${{ runner.temp }}/campaign/campaign-log.json
             ${{ runner.temp }}/campaign/artifacts/
