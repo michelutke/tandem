@@ -932,6 +932,138 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     */
+    public var smsSyncRequest: dev.tandem.protocol.v1.SmsSyncRequest
+      @kotlin.jvm.JvmName("getSmsSyncRequest")
+        get() = _builder.smsSyncRequest
+      @kotlin.jvm.JvmName("setSmsSyncRequest")
+        set(value) {
+        _builder.smsSyncRequest = value
+      }
+    /**
+     * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     */
+    public fun clearSmsSyncRequest() {
+      _builder.clearSmsSyncRequest()
+    }
+    /**
+     * ```
+     * sms.proto (E50-01) — SMS channel.
+     * ```
+     *
+     * `.tandem.v1.SmsSyncRequest sms_sync_request = 70 [json_name = "smsSyncRequest"];`
+     * @return Whether the smsSyncRequest field is set.
+     */
+    public fun hasSmsSyncRequest(): kotlin.Boolean {
+      return _builder.hasSmsSyncRequest()
+    }
+
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     */
+    public var smsSyncResponse: dev.tandem.protocol.v1.SmsSyncResponse
+      @kotlin.jvm.JvmName("getSmsSyncResponse")
+        get() = _builder.smsSyncResponse
+      @kotlin.jvm.JvmName("setSmsSyncResponse")
+        set(value) {
+        _builder.smsSyncResponse = value
+      }
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     */
+    public fun clearSmsSyncResponse() {
+      _builder.clearSmsSyncResponse()
+    }
+    /**
+     * `.tandem.v1.SmsSyncResponse sms_sync_response = 71 [json_name = "smsSyncResponse"];`
+     * @return Whether the smsSyncResponse field is set.
+     */
+    public fun hasSmsSyncResponse(): kotlin.Boolean {
+      return _builder.hasSmsSyncResponse()
+    }
+
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     */
+    public var sendSmsRequest: dev.tandem.protocol.v1.SendSmsRequest
+      @kotlin.jvm.JvmName("getSendSmsRequest")
+        get() = _builder.sendSmsRequest
+      @kotlin.jvm.JvmName("setSendSmsRequest")
+        set(value) {
+        _builder.sendSmsRequest = value
+      }
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     */
+    public fun clearSendSmsRequest() {
+      _builder.clearSendSmsRequest()
+    }
+    /**
+     * `.tandem.v1.SendSmsRequest send_sms_request = 72 [json_name = "sendSmsRequest"];`
+     * @return Whether the sendSmsRequest field is set.
+     */
+    public fun hasSendSmsRequest(): kotlin.Boolean {
+      return _builder.hasSendSmsRequest()
+    }
+
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     */
+    public var sendSmsStatus: dev.tandem.protocol.v1.SendSmsStatus
+      @kotlin.jvm.JvmName("getSendSmsStatus")
+        get() = _builder.sendSmsStatus
+      @kotlin.jvm.JvmName("setSendSmsStatus")
+        set(value) {
+        _builder.sendSmsStatus = value
+      }
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     */
+    public fun clearSendSmsStatus() {
+      _builder.clearSendSmsStatus()
+    }
+    /**
+     * `.tandem.v1.SendSmsStatus send_sms_status = 73 [json_name = "sendSmsStatus"];`
+     * @return Whether the sendSmsStatus field is set.
+     */
+    public fun hasSendSmsStatus(): kotlin.Boolean {
+      return _builder.hasSendSmsStatus()
+    }
+
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     */
+    public var simList: dev.tandem.protocol.v1.SimList
+      @kotlin.jvm.JvmName("getSimList")
+        get() = _builder.simList
+      @kotlin.jvm.JvmName("setSimList")
+        set(value) {
+        _builder.simList = value
+      }
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     */
+    public fun clearSimList() {
+      _builder.clearSimList()
+    }
+    /**
+     * `.tandem.v1.SimList sim_list = 74 [json_name = "simList"];`
+     * @return Whether the simList field is set.
+     */
+    public fun hasSimList(): kotlin.Boolean {
+      return _builder.hasSimList()
+    }
+
+    /**
+     * ```
      * contacts.proto (E51-01) — CONTACTS channel.
      * ```
      *
@@ -1094,6 +1226,21 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.originalRequestOrNull: dev.t
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.photoErrorOrNull: dev.tandem.protocol.v1.PhotoError?
   get() = if (hasPhotoError()) getPhotoError() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.smsSyncRequestOrNull: dev.tandem.protocol.v1.SmsSyncRequest?
+  get() = if (hasSmsSyncRequest()) getSmsSyncRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.smsSyncResponseOrNull: dev.tandem.protocol.v1.SmsSyncResponse?
+  get() = if (hasSmsSyncResponse()) getSmsSyncResponse() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.sendSmsRequestOrNull: dev.tandem.protocol.v1.SendSmsRequest?
+  get() = if (hasSendSmsRequest()) getSendSmsRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.sendSmsStatusOrNull: dev.tandem.protocol.v1.SendSmsStatus?
+  get() = if (hasSendSmsStatus()) getSendSmsStatus() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.simListOrNull: dev.tandem.protocol.v1.SimList?
+  get() = if (hasSimList()) getSimList() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.contactsSyncRequestOrNull: dev.tandem.protocol.v1.ContactsSyncRequest?
   get() = if (hasContactsSyncRequest()) getContactsSyncRequest() else null

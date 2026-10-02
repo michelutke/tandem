@@ -51,14 +51,18 @@ public actor NotificationActionHandler {
     }
 }
 
-/// Feeds every ``NotificationPresenter/responses`` event to `handler` until the stream finishes.
+/// Feeds every ``NotificationPresenter/responses`` event to `handler` (and to `dismissSync` when
+/// given, E30-18 -- one consumer, since two readers of the same stream would split its events)
+/// until the stream finishes.
 public func startNotificationActionResponseReader(
     presenter: any NotificationPresenter,
-    handler: NotificationActionHandler
+    handler: NotificationActionHandler,
+    dismissSync: NotificationDismissSync? = nil
 ) -> Task<Void, Never> {
     Task {
         for await event in presenter.responses {
             await handler.handle(event)
+            await dismissSync?.handle(event)
         }
     }
 }

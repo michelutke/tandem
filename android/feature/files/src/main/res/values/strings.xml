@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="select_more_photos_channel_name">Photo access</string>
+    <string name="select_more_photos_title">Select more photos</string>
+    <string name="select_more_photos_text">Your Mac asked for more photos than you shared.</string>
+    <string name="files_offer_channel_name">Incoming files</string>
+    <string name="files_offer_title">Incoming file</string>
+    <string name="files_offer_text">%1$s (%2$s)</string>
+    <string name="files_offer_accept">Accept</string>
+    <string name="files_offer_decline">Decline</string>
+</resources>
