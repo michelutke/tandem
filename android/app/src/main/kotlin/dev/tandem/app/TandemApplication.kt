@@ -3,15 +3,20 @@ package dev.tandem.app
 import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
+import dev.tandem.app.activity.ActivityStore
+import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
+import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.time.Duration.Companion.days
 
 /**
  * Root Hilt application (E00-03). The generated `Hilt_TandemApplication` superclass builds the
@@ -33,6 +38,13 @@ import java.io.File
 class TandemApplication : Application() {
     val trustStore: TrustStore by lazy { TrustStore.open(this, File(filesDir, TRUST_STORE_FILE_NAME)) }
 
+    val activityStore: ActivityStore by lazy {
+        ActivityStore(
+            createSettingsDataStore(File(filesDir, ACTIVITY_STORE_FILE_NAME), AppDispatchers.default),
+            AppClock.system,
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -41,10 +53,18 @@ class TandemApplication : Application() {
                 pairedPeerRepository = TrustStorePairedPeerRepository(trustStore),
                 startForegroundService = { startForegroundService(Intent(this, TandemService::class.java)) },
             )
-        CoroutineScope(SupervisorJob() + AppDispatchers.default).launch { serviceStarter.start() }
+        val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+        appScope.launch { serviceStarter.start() }
+        appScope.launch {
+            while (true) {
+                activityStore.purgeExpired()
+                delay(1.days)
+            }
+        }
     }
 
     companion object {
         const val TRUST_STORE_FILE_NAME = "trust.db"
+        const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"
     }
 }

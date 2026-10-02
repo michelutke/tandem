@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+// E50-01: sms.proto — SmsThread, SmsMessage, SmsSyncRequest, SmsSyncResponse, SendSmsRequest,
+// SendSmsStatus and SimList, carried on the SMS channel (Channel.CHANNEL_SMS, channel.proto). The
+// normative SMS section of docs/protocol/SPEC.md is written by this issue. Field numbers 70-74 of
+// envelope.proto's Envelope.payload oneof are used below; SmsThread, SmsMessage and
+// SimList.Subscription are always embedded inside one of the five Envelope payload messages,
+// never sent standalone.
+//
+// `address`, `snippet` and `body` below are untrusted peer input:
+// docs/protocol/SPEC.md #untrusted-peer-strings-display-sanitization (E01-23) MUST run before any
+// of them is ever rendered. They are also message content: invariant 7 forbids logging them in
+// release builds.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// SmsMessageType: SmsMessage.type, mirroring Telephony.Sms.MESSAGE_TYPE_* (INBOX = 1 .. QUEUED = 6).
+enum SmsMessageType {
+  SMS_MESSAGE_TYPE_UNSPECIFIED = 0;
+  SMS_MESSAGE_TYPE_INBOX = 1;
+  SMS_MESSAGE_TYPE_SENT = 2;
+  SMS_MESSAGE_TYPE_DRAFT = 3;
+  SMS_MESSAGE_TYPE_OUTBOX = 4;
+  SMS_MESSAGE_TYPE_FAILED = 5;
+  SMS_MESSAGE_TYPE_QUEUED = 6;
+}
+
+// SmsDeliveryStatus: SmsMessage.delivery_status, the phone's delivery-report state for an
+// outgoing message (UNSPECIFIED for an incoming message or when no report was requested).
+enum SmsDeliveryStatus {
+  SMS_DELIVERY_STATUS_UNSPECIFIED = 0;
+  SMS_DELIVERY_STATUS_PENDING = 1;
+  SMS_DELIVERY_STATUS_COMPLETE = 2;
+  SMS_DELIVERY_STATUS_FAILED = 3;
+}
+
+// SmsSyncStatus: SmsSyncResponse.status. PERMISSION_REQUIRED is returned (with no
+// threads/messages) when the phone has not granted READ_SMS.
+enum SmsSyncStatus {
+  SMS_SYNC_STATUS_UNSPECIFIED = 0;
+  SMS_SYNC_STATUS_OK = 1;
+  SMS_SYNC_STATUS_PERMISSION_REQUIRED = 2;
+}
+
+// SendSmsState: SendSmsStatus.state. SENDING -> SENT -> DELIVERED, or FAILED from any
+// non-terminal state.
+enum SendSmsState {
+  SEND_SMS_STATE_UNSPECIFIED = 0;
+  SEND_SMS_STATE_SENDING = 1;
+  SEND_SMS_STATE_SENT = 2;
+  SEND_SMS_STATE_DELIVERED = 3;
+  SEND_SMS_STATE_FAILED = 4;
+}
+
+// SendSmsErrorCode: SendSmsStatus.error_code, set only when state = FAILED. TOO_LONG (body over
+// 1600 characters) and RATE_LIMITED (more than 10 sends per 60 s) are rejected before
+// SmsManager is called (docs/protocol/SPEC.md #sms-channel "Send").
+enum SendSmsErrorCode {
+  SEND_SMS_ERROR_CODE_UNSPECIFIED = 0;
+  SEND_SMS_ERROR_CODE_GENERIC_FAILURE = 1;
+  SEND_SMS_ERROR_CODE_NO_SERVICE = 2;
+  SEND_SMS_ERROR_CODE_RADIO_OFF = 3;
+  SEND_SMS_ERROR_CODE_PERMISSION_REQUIRED = 4;
+  SEND_SMS_ERROR_CODE_INVALID_ADDRESS = 5;
+  SEND_SMS_ERROR_CODE_TOO_LONG = 6;
+  SEND_SMS_ERROR_CODE_RATE_LIMITED = 7;
+}
+
+// SmsThread: one conversation (Telephony.Threads row). `thread_id` is the phone's provider
+// thread id; `last_message_at_ms` is Unix epoch milliseconds.
+message SmsThread {
+  uint64 thread_id = 1;
+  string address = 2;
+  string snippet = 3;
+  uint64 last_message_at_ms = 4;
+  uint32 unread_count = 5;
+}
+
+// SmsMessage: one message (Telephony.Sms row). `id` is the provider `_id`, the sync cursor
+// space (docs/protocol/SPEC.md #sms-channel "Cursors"). `subscription_id` is the SIM
+// subscription the message was received on / sent from (SimList.Subscription.subscription_id).
+message SmsMessage {
+  uint64 id = 1;
+  uint64 thread_id = 2;
+  string address = 3;
+  string body = 4;
+  uint64 timestamp_ms = 5;
+  SmsMessageType type = 6;
+  int32 subscription_id = 7;
+  SmsDeliveryStatus delivery_status = 8;
+}
+
+// SmsSyncRequest: Mac -> phone. Cursor semantics (Mac-authoritative) are in
+// docs/protocol/SPEC.md #sms-channel "Cursors". At most one is in flight; a new one supersedes
+// the previous (E01-22).
+message SmsSyncRequest {
+  uint64 since_id = 1;
+  uint64 backfill_before_id = 2;
+  uint32 page_size = 3;
+}
+
+// SmsSyncResponse: phone -> Mac, one page of a sync.
+message SmsSyncResponse {
+  SmsSyncStatus status = 1;
+  repeated SmsThread threads = 2;
+  repeated SmsMessage messages = 3;
+  uint64 high_watermark_id = 4;
+  uint64 backfill_cursor_id = 5;
+  bool backfill_complete = 6;
+}
+
+// SendSmsRequest: Mac -> phone. `client_message_id` is a Mac-generated UUID echoed by every
+// SendSmsStatus for this send. `thread_id` may be 0 for a new conversation.
+message SendSmsRequest {
+  string client_message_id = 1;
+  uint64 thread_id = 2;
+  string address = 3;
+  int32 subscription_id = 4;
+  string body = 5;
+}
+
+// SendSmsStatus: phone -> Mac, zero or more per SendSmsRequest, matched by `client_message_id`.
+// `provider_message_id` is the SmsMessage.id the phone's provider assigned (0 until known).
+message SendSmsStatus {
+  string client_message_id = 1;
+  SendSmsState state = 2;
+  SendSmsErrorCode error_code = 3;
+  uint64 provider_message_id = 4;
+}
+
+// SimList: phone -> Mac, the active SIM subscriptions. Published on connect and whenever the
+// set changes (docs/protocol/SPEC.md #sms-channel "SIM list").
+message SimList {
+  message Subscription {
+    int32 subscription_id = 1;
+    string display_name = 2;
+    int32 slot_index = 3;
+  }
+  repeated Subscription subscriptions = 1;
+}

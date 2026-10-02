@@ -148,6 +148,36 @@ class ByteStreamSessionTest {
         }
 
     @Test
+    fun byteStreamSession_readyThenClose_emitsReadyThenDisconnectedMarkers() =
+        sessionTest {
+            val pipe = InMemoryDuplexPipe()
+            val events = java.util.Collections.synchronizedList(mutableListOf<String>())
+            val markers =
+                object : ReconnectMarkers {
+                    override fun disconnected() {
+                        events += "disconnected"
+                    }
+
+                    override fun dead() {
+                        events += "dead"
+                    }
+
+                    override fun ready() {
+                        events += "ready"
+                    }
+                }
+            val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO, markers = markers)
+            val b = ByteStreamSession(pipe.endpointB, Clock.systemUTC(), Dispatchers.IO)
+
+            a.state.first { it is ConnectionState.Ready }
+            b.state.first { it is ConnectionState.Ready }
+            a.close()
+            b.close()
+
+            assertEquals(listOf("ready", "disconnected"), events.toList())
+        }
+
+    @Test
     fun byteStreamSession_closeBeforeReady_leavesNoLeakedCoroutine() =
         sessionTest {
             // E20-15 verifier finding #3 regression: `state.first { it is Ready }` suspends forever

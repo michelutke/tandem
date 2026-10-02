@@ -7,14 +7,19 @@ let package = Package(
     products: [
         .library(name: "FeatureFiles", targets: ["FeatureFiles"])
     ],
+    dependencies: [
+        .package(path: "../TandemProtocol"),
+        .package(path: "../TandemTestSupport")
+    ],
     targets: [
         .target(
             name: "FeatureFiles",
+            dependencies: ["TandemProtocol"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureFilesTests",
-            dependencies: ["FeatureFiles"],
+            dependencies: ["FeatureFiles", "TandemProtocol", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

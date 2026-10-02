@@ -1,0 +1,2 @@
+2026-10-02 09:00:00.250000+0200 0x1a2 Default 0x0 77 0 Tandem: [dev.tandem.transport:Reconnect] TandemReconnect event=dead
+2026-10-02 09:00:02.750000+0200 0x1a2 Default 0x0 77 0 Tandem: [dev.tandem.transport:Reconnect] TandemReconnect event=ready
