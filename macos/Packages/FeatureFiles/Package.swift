@@ -9,29 +9,18 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../TandemProtocol"),
-<<<<<<< Updated upstream
-        .package(path: "../TandemTestSupport")
-=======
+        .package(path: "../TandemTestSupport"),
         .package(path: "../TandemDesign")
->>>>>>> Stashed changes
     ],
     targets: [
         .target(
             name: "FeatureFiles",
-<<<<<<< Updated upstream
-            dependencies: ["TandemProtocol"],
-=======
             dependencies: ["TandemProtocol", "TandemDesign"],
->>>>>>> Stashed changes
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureFilesTests",
-<<<<<<< Updated upstream
             dependencies: ["FeatureFiles", "TandemProtocol", "TandemTestSupport"],
-=======
-            dependencies: ["FeatureFiles", "TandemProtocol"],
->>>>>>> Stashed changes
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
