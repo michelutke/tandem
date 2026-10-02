@@ -65,6 +65,7 @@ public actor ConnectionStateMachine {
     static let handshakeDeadline: Duration = .seconds(10)
 
     private let clock: any Clock<Duration>
+    private let markers: any ReconnectMarkers
     private(set) var state: ConnectionState = .disconnected(reason: nil)
     private var deadlineTask: Task<Void, Never>?
     private let continuation: AsyncStream<ConnectionState>.Continuation
@@ -75,8 +76,9 @@ public actor ConnectionStateMachine {
     /// connection's ``ConnectionState/disconnected(reason:)``).
     public nonisolated let states: AsyncStream<ConnectionState>
 
-    public init(clock: any Clock<Duration>) {
+    public init(clock: any Clock<Duration>, markers: any ReconnectMarkers = NoOpReconnectMarkers()) {
         self.clock = clock
+        self.markers = markers
         let (states, continuation) = AsyncStream<ConnectionState>.makeStream(bufferingPolicy: .unbounded)
         self.states = states
         self.continuation = continuation
@@ -92,7 +94,9 @@ public actor ConnectionStateMachine {
     @discardableResult
     public func handle(_ event: Event) -> Bool {
         guard let next = Self.transition(from: state, event: event) else { return false }
+        let previous = state
         state = next
+        emitMarker(from: previous, to: next)
         continuation.yield(next)
 
         switch (event, next) {
@@ -116,6 +120,15 @@ public actor ConnectionStateMachine {
         }
 
         return true
+    }
+
+    private func emitMarker(from previous: ConnectionState, to next: ConnectionState) {
+        switch (previous, next) {
+        case (_, .ready): markers.ready()
+        case (_, .dead): markers.dead()
+        case (.ready, .disconnected): markers.disconnected()
+        default: break
+        }
     }
 
     private func startHandshakeDeadline() {
