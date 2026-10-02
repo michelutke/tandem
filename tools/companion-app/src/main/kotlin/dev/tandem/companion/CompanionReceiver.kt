@@ -150,9 +150,22 @@ class CompanionReceiver : BroadcastReceiver() {
                     .setContentTitle("Companion")
                     .setContentText(expectedText),
             )
-            Thread.sleep(BURST_STEP_CONFIRM_POLL_MS)
-            if (activeNotificationText(context, key) == expectedText) return
+            if (awaitLanded(context, key, expectedText)) return
         }
+    }
+
+    // Re-posting faster than the shedding threshold would itself get shed, so wait up to
+    // BURST_STEP_CONFIRM_WINDOW_MS for an update to land before re-posting it.
+    private fun awaitLanded(
+        context: Context,
+        key: String,
+        expectedText: String,
+    ): Boolean {
+        repeat((BURST_STEP_CONFIRM_WINDOW_MS / BURST_STEP_CONFIRM_POLL_MS).toInt()) {
+            Thread.sleep(BURST_STEP_CONFIRM_POLL_MS)
+            if (activeNotificationText(context, key) == expectedText) return true
+        }
+        return false
     }
 
     private fun activeNotificationText(
@@ -174,10 +187,11 @@ class CompanionReceiver : BroadcastReceiver() {
         // updates on a loaded emulator; ~3/sec leaves real margin.
         const val MIN_STEP_MS = 500L
 
-        // How long to wait after a notify() call before reading the notification back to confirm
-        // it landed, and how many times to retry a step before giving up (the awaiting test itself
+        // How often to read the notification back after a notify() call, how long to wait for it
+        // to land before re-posting, and how many times to retry a step before giving up (the awaiting test itself
         // has a much longer overall timeout and will report the true final count either way).
         const val BURST_STEP_CONFIRM_POLL_MS = 100L
-        const val BURST_STEP_MAX_ATTEMPTS = 20
+        const val BURST_STEP_CONFIRM_WINDOW_MS = 1_000L
+        const val BURST_STEP_MAX_ATTEMPTS = 5
     }
 }
