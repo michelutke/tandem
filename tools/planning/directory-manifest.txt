@@ -20,6 +20,7 @@ android/core/ui
 android/feature
 android/feature/calls
 android/feature/clipboard
+android/feature/contacts
 android/feature/files
 android/feature/input
 android/feature/messaging
@@ -65,6 +66,7 @@ tools/audit
 tools/companion-app
 tools/conformance
 tools/fuzz
+tools/fuzz/campaign
 tools/fuzz/jazzer
 tools/fuzz/libfuzzer
 tools/log-audit

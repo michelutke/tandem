@@ -91,3 +91,28 @@ jobs:
             android/app/build/reports/androidTests/managedDevice
             android/app/build/outputs/androidTest-results
           if-no-files-found: ignore
+      # E00-33: every remaining module applying `tandem.android.instrumented`. One invocation,
+      # `--no-parallel` (gradle.properties enables parallel) so only one module's two devices boot
+      # at a time. `:feature:notifications` bundles and installs the companion APK itself.
+      - name: Run feature and discovery instrumented tests on managed devices
+        run: >-
+          ./gradlew --no-parallel
+          :core:discovery:ciGroupDebugAndroidTest
+          :feature:pairing:ciGroupDebugAndroidTest
+          :feature:contacts:ciGroupDebugAndroidTest
+          :feature:notifications:ciGroupDebugAndroidTest
+          :feature:messaging:ciGroupDebugAndroidTest
+          :feature:files:ciGroupDebugAndroidTest
+          :feature:mirror:ciGroupDebugAndroidTest
+          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Upload feature and discovery test reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: feature-test-report
+          path: |
+            android/core/discovery/build/reports/androidTests/managedDevice
+            android/core/discovery/build/outputs/androidTest-results
+            android/feature/*/build/reports/androidTests/managedDevice
+            android/feature/*/build/outputs/androidTest-results
+          if-no-files-found: ignore

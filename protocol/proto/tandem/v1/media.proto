@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+// E60-01: media.proto — RequestMediaTicket and MediaHello, the ticket-issuance request and the
+// required first frame of the media connection (docs/protocol/SPEC.md #media-ticket). The grant is
+// control.proto's MediaTicketGrant (E01-12), reused and not redefined here. RequestMediaTicket is
+// sent as the Envelope payload (field 8) on CHANNEL_CONTROL; MediaHello is not an Envelope payload:
+// the media connection carries no Envelope and has no channel, so MediaHello is the serialized body
+// of the first length-prefixed frame on that connection.
+//
+// `ticket` is a bearer secret binding the media connection to the control session that requested
+// it: invariant 6 requires constant-time comparison and single use, invariant 7 forbids logging it.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// RequestMediaTicket: phone -> Mac over CONTROL. Asks the Mac to issue a media ticket for the
+// requesting control session; answered with MediaTicketGrant (control.proto). Carries no fields:
+// the Mac derives the session and peer identity from the authenticated control connection.
+message RequestMediaTicket {}
+
+// MediaHello: phone -> Mac, the first frame on the media connection. A receiver MUST reject a
+// MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
+// MISSING) before comparing it against anything and before reading any further frame.
+message MediaHello {
+  // Exactly 32 bytes (256 bits) as issued in MediaTicketGrant.ticket.
+  bytes ticket = 1;
+}

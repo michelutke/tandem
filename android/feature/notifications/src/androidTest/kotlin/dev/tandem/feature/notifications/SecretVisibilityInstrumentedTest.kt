@@ -2,6 +2,7 @@ package dev.tandem.feature.notifications
 
 import android.content.Context
 import android.content.Intent
+import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.NotificationPosted
@@ -12,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 // E30-11 tdd:
@@ -27,6 +29,7 @@ class SecretVisibilityInstrumentedTest {
 
     @Before
     fun grantAccess() {
+        installCompanion()
         shell("pm grant $COMPANION_PACKAGE android.permission.POST_NOTIFICATIONS")
         shell("cmd notification allow_listener ${context.packageName}/${CapturingListenerService::class.java.name}")
         CapturingListenerService.captured.clear()
@@ -66,12 +69,26 @@ class SecretVisibilityInstrumentedTest {
         error("no companion notification captured within ${TIMEOUT_SECONDS}s")
     }
 
+    private fun installCompanion() {
+        val apk = File(context.externalCacheDir, COMPANION_APK_ASSET)
+        context.assets.open(COMPANION_APK_ASSET).use { input -> apk.outputStream().use(input::copyTo) }
+        apk.setReadable(true, false)
+        val output = shellOutput("pm install -r -g ${apk.absolutePath}")
+        assertTrue("companion install failed: $output", output.contains("Success"))
+    }
+
+    private fun shellOutput(command: String): String =
+        ParcelFileDescriptor
+            .AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
+            .use { it.readBytes().decodeToString() }
+
     private fun shell(command: String) {
         instrumentation.uiAutomation.executeShellCommand(command).close()
     }
 
     private companion object {
         const val COMPANION_PACKAGE = CapturingListenerService.COMPANION_PACKAGE
+        const val COMPANION_APK_ASSET = "companion.apk"
         const val KIND_SECRET = "secret"
         const val KIND_CANCEL = "cancel"
         const val POST_KEY = "secret-visibility-test"
