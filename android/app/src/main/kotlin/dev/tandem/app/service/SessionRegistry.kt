@@ -24,9 +24,8 @@ class SessionRegistry {
     val current: StateFlow<RegisteredSession?> = mutableCurrent.asStateFlow()
 
     /**
-     * Only for a [session] that is already Ready, i.e. whose pairing or rotation exchange has
-     * finished: CONTROL inbound is single-consumer, so a registered session must have no other
-     * long-lived CONTROL collector competing with the Revoke consumer.
+     * Only for a [session] that is already Ready; CONTROL is fanned out per subscriber (E20-22),
+     * so other CONTROL collectors on it do not compete with the Revoke consumer.
      */
     fun register(
         session: TandemSession,

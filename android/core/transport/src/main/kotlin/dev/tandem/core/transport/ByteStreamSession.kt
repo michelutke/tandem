@@ -25,7 +25,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
@@ -82,6 +84,18 @@ class ByteStreamSession(
     private val connection = ConnectionStateMachine(clock, dispatcher)
     private val multiplexer = ChannelMultiplexer(frameSource, frameSink)
     private val handshake = VersionHandshake(multiplexer, clock, dispatcher)
+
+    /**
+     * Sole collector of [multiplexer]'s inbound flows; each channel's source waits for
+     * [VersionHandshake.awaitReady] first so the handshake's own CONTROL read is never raced.
+     */
+    private val inboundDispatcher =
+        ChannelDispatcher(scope) { channel ->
+            flow {
+                handshake.awaitReady()
+                emitAll(multiplexer.inbound(channel).map { it.payload })
+            }
+        }
 
     private var heartbeatResponder: HeartbeatResponder? = null
     private var unsolicitedHeartbeatTimer: UnsolicitedHeartbeatTimer? = null
@@ -229,7 +243,7 @@ class ByteStreamSession(
         multiplexer.send(channel, payload)
     }
 
-    override fun receive(channel: Channel): Flow<Envelope> = multiplexer.inbound(channel).map { it.payload }
+    override fun receive(channel: Channel): Flow<Envelope> = inboundDispatcher.subscribe(channel)
 
     override fun close() = performClose("closed locally")
 
