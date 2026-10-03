@@ -16,4 +16,8 @@ internal data class PeerRecordEntity(
     val pairedAtEpochMs: Long,
     val lastSeenEpochMs: Long,
     val capabilitiesCsv: String,
+    val graceSpkiSha256Base64Url: String? = null,
+    val graceExpiresAtEpochMs: Long? = null,
+    val pendingSpkiSha256Base64Url: String? = null,
+    val pendingSinceEpochMs: Long? = null,
 )

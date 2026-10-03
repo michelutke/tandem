@@ -171,7 +171,7 @@ class TrustStoreTest {
     }
 
     @Test
-    fun migration_v1FixtureOpened_allRecordsReadableVersionStill1() =
+    fun migration_v1FixtureOpened_allRecordsReadableUpgradedToVersion2() =
         runTest {
             val context = RuntimeEnvironment.getApplication()
             val dbFile = File(tempFolder.root, "trust_v1_fixture.db")
@@ -187,8 +187,15 @@ class TrustStoreTest {
                 records.map { it.deviceId }.toSet(),
             )
 
+            records.forEach {
+                assertNull(it.graceSpkiSha256Base64Url)
+                assertNull(it.graceExpiresAtEpochMs)
+                assertNull(it.pendingSpkiSha256Base64Url)
+                assertNull(it.pendingSinceEpochMs)
+            }
+
             val rawDb = SQLiteDatabase.openOrCreateDatabase(dbFile.absolutePath, null)
-            assertEquals(1, rawDb.version)
+            assertEquals(2, rawDb.version)
             rawDb.close()
         }
 
