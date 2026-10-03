@@ -334,7 +334,8 @@ epics:
           truncate to a 256 KiB boundary, re-hash the retained prefix, and send
           FileResumeRequest{id, fromOffset}. Sender role: on FileResumeRequest for a known id,
           seek the source to fromOffset and continue with `seq = fromOffset / 262144`; unknown id
-          or an unreadable source replies FileCancel UNKNOWN_TRANSFER / SOURCE_UNAVAILABLE.
+          replies FileReject UNKNOWN_TRANSFER; an unreadable source replies FileCancel
+          SOURCE_UNAVAILABLE.
           Retained `.part` files older than 24 h are deleted on the next sweep. Tests wire a real
           Android sender and receiver over an `InMemoryDuplexPipe` (E00-19), sever it with
           `closeAbruptly()` mid-transfer, reconnect a new pipe, and use `TestClock` (E00-18) for
@@ -344,13 +345,13 @@ epics:
             to 256 KiB) and the sender's first resumed chunk has seq fromOffset / 262144
           - After resume the published file's SHA-256 equals the source digest
           - Bytes re-sent after resume are at most the credit window plus 256 KiB
-          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - FileResumeRequest for an unknown id is answered with FileReject UNKNOWN_TRANSFER
           - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
         tdd:
           - "unit: androidResume_severedAt40MiB_resumeRequestFromOffset40MiB"
           - "unit: androidResume_resumedTransfer_publishedSha256MatchesSource"
           - "unit: androidResume_afterResume_resentBytesAtMostCreditWindowPlusOneChunk"
-          - "unit: androidResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: androidResume_unknownTransferId_fileRejectUnknownTransfer"
           - "unit: androidResume_partOlderThan24h_deletedAndNoResumeRequest"
         notes: "Split from E40-08 in review cycle 3: macOS half is E40-19."
 
