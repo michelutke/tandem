@@ -167,6 +167,10 @@ epics:
           - "unit: mediaRegistry_newTicketRequestedWhileActive_closesPriorBeforeIssuing"
           - "unit: mediaRegistry_perControlSession_atMostOneOpenMediaConnection"
         notes: |
+          E60-03 verifier (2026-10-03): when wiring mediaConnectionHandler, a trusted peer whose media
+          connection times out or sends a bad first frame is dropped via plain decisionCorrelator.drop
+          (ListenerFactory+Media.swift) — route it through dropReportingFailure / the state machine so
+          the failure is observable (E15-16 menu reporting). CloseCode.ticketRejected is currently unused.
           Split from [cross] in review cycle 3: this issue keeps the macOS half; the Android half
           is E60-09.
       - id: E60-05
