@@ -7,14 +7,17 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 
-/** Publishes a verified file into `Download/Tandem/`; never overwrites an existing entry (E40-05). */
+/**
+ * Publishes a verified file into `Download/Tandem/`; never overwrites an existing entry (E40-05).
+ * Returns the content URI of the published entry.
+ */
 fun interface DownloadsPublisher {
     @Throws(IOException::class)
     fun publish(
         name: String,
         mime: String,
         content: InputStream,
-    )
+    ): String
 }
 
 /**
@@ -28,7 +31,7 @@ class MediaStoreDownloadsPublisher(
         name: String,
         mime: String,
         content: InputStream,
-    ) {
+    ): String {
         val pending =
             ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
@@ -44,6 +47,7 @@ class MediaStoreDownloadsPublisher(
             output.use { content.copyTo(it) }
             val published = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
             contentResolver.update(uri, published, null, null)
+            return uri.toString()
         } catch (e: IOException) {
             contentResolver.delete(uri, null, null)
             throw e
