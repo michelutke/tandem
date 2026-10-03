@@ -33,11 +33,12 @@ public struct IdentityKeyProvider: Sendable {
     /// persists one (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, non-synchronizable) if
     /// none exists yet.
     public func getOrCreateIdentityKey() throws -> SecKey {
+        let tag = try IdentityKeySlots(keychainStore: keychainStore).activeTag()
         do {
-            return try keychainStore.copyKey(tag: identityKeyApplicationTag)
+            return try keychainStore.copyKey(tag: tag)
         } catch KeychainError.itemNotFound {
             return try keychainStore.addKey(
-                tag: identityKeyApplicationTag,
+                tag: tag,
                 accessibility: .afterFirstUnlockThisDeviceOnly
             )
         }
@@ -58,7 +59,7 @@ public struct IdentityKeyProvider: Sendable {
     public func hasUsableIdentityKey() throws -> Bool {
         let key: SecKey
         do {
-            key = try keychainStore.copyKey(tag: identityKeyApplicationTag)
+            key = try keychainStore.copyKey(tag: IdentityKeySlots(keychainStore: keychainStore).activeTag())
         } catch KeychainError.itemNotFound {
             return false
         }
