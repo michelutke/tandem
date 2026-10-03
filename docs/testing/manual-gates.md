@@ -887,10 +887,10 @@ Reference — E41-08 acceptance criteria:
 - Emulator with full access; paging the 500 seeded images at limit 100 yields exactly 500 unique ids in 5 pages
 - Manual, Android 14+ device, partial access with 3 photos selected; the Mac's "Select more on phone" posts the notification, selecting 2 more makes exactly 5 items listed on the Mac's next refresh
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Android 14+ phone paired with the Mac and Connected; Tandem granted only "Select photos and videos" with exactly 3 photos selected; photo browser open on the Mac.
+**Steps:** On the Mac tap "Select more on phone" and confirm the phone posts the select-more notification. Tap it, choose 2 more photos in the system picker, return to Tandem. Refresh the Mac photo browser.
+**Pass threshold:** The notification appears on the phone and, after the refresh, the Mac lists exactly 5 items (the 3 original plus the 2 new).
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of the phone notification and picker plus a Mac screenshot of the 5-item grid.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
