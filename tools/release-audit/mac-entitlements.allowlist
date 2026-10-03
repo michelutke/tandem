@@ -7,5 +7,6 @@
 app com.apple.security.app-sandbox E22-04
 app com.apple.security.network.server E22-04
 app com.apple.security.network.client E22-04
+app com.apple.security.files.downloads.read-write E40-06
 share com.apple.security.app-sandbox E00-07
 share com.apple.security.application-groups E00-07 optional
