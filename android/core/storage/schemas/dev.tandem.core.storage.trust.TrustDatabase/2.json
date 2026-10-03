@@ -1,0 +1,81 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "3a258b8f44946ef62798296f6c8f33ab",
+    "entities": [
+      {
+        "tableName": "peer_record",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`spkiSha256Base64Url` TEXT NOT NULL, `deviceId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `pairedAtEpochMs` INTEGER NOT NULL, `lastSeenEpochMs` INTEGER NOT NULL, `capabilitiesCsv` TEXT NOT NULL, `graceSpkiSha256Base64Url` TEXT, `graceExpiresAtEpochMs` INTEGER, `pendingSpkiSha256Base64Url` TEXT, `pendingSinceEpochMs` INTEGER, PRIMARY KEY(`spkiSha256Base64Url`))",
+        "fields": [
+          {
+            "fieldPath": "spkiSha256Base64Url",
+            "columnName": "spkiSha256Base64Url",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "deviceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pairedAtEpochMs",
+            "columnName": "pairedAtEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenEpochMs",
+            "columnName": "lastSeenEpochMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capabilitiesCsv",
+            "columnName": "capabilitiesCsv",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "graceSpkiSha256Base64Url",
+            "columnName": "graceSpkiSha256Base64Url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "graceExpiresAtEpochMs",
+            "columnName": "graceExpiresAtEpochMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "pendingSpkiSha256Base64Url",
+            "columnName": "pendingSpkiSha256Base64Url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pendingSinceEpochMs",
+            "columnName": "pendingSinceEpochMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "spkiSha256Base64Url"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3a258b8f44946ef62798296f6c8f33ab')"
+    ]
+  }
+}
