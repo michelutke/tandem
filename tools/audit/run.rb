@@ -11,10 +11,11 @@
 #
 #   ruby tools/audit/run.rb --subset ci|full
 #   ruby tools/audit/run.rb --only <tool>
+#   ruby tools/audit/run.rb --expected tools/audit/expected-steps.txt   (E15-23 gate: fail on any missing step)
 #   ruby tools/audit/run.rb --tools-root <dir> --report-dir <dir>
 #
-# Fan-in across every *expected* tool (proving nothing is missing) is a separate Phase 1 gate,
-# E15-23 — this runner only reports on what it discovers.
+# Fan-in across every *expected* tool (proving nothing is missing) is the Phase 1 gate, E15-23:
+# with --expected, a listed step that is not discovered fails the run naming the step.
 
 require 'json'
 require 'open3'
@@ -34,7 +35,12 @@ module AuditRunner
     end.sort
   end
 
-  def run(tools_root:, subset:, only: nil)
+  # Step names from an expected-steps file: one per line, blank lines and `#` comments ignored.
+  def read_expected(path)
+    File.readlines(path, chomp: true).map(&:strip).reject { |line| line.empty? || line.start_with?('#') }
+  end
+
+  def run(tools_root:, subset:, only: nil, expected: nil)
     tools = discover(tools_root)
 
     if only
@@ -46,9 +52,14 @@ module AuditRunner
     end
 
     results = tools.map { |tool| run_one(tools_root, tool, subset) }
+    results += missing_results(expected - tools) if expected && !only
     overall = results.any? { |r| r.status == 'failed' } ? 'FAIL' : 'PASS'
 
     { subset: subset, overall: overall, results: results.map { |r| r.to_h } }
+  end
+
+  def missing_results(names)
+    names.map { |name| Result.new(tool: name, status: 'failed', detail: "expected step not discovered: #{name}") }
   end
 
   def run_one(tools_root, tool, subset)
@@ -103,11 +114,14 @@ if $PROGRAM_NAME == __FILE__
   tools_root_idx = ARGV.index('--tools-root')
   tools_root = tools_root_idx ? ARGV[tools_root_idx + 1] : File.expand_path('..', __dir__)
 
+  expected_idx = ARGV.index('--expected')
+  expected = expected_idx ? AuditRunner.read_expected(ARGV[expected_idx + 1]) : nil
+
   report_dir_idx = ARGV.index('--report-dir')
   report_dir = report_dir_idx ? ARGV[report_dir_idx + 1] : __dir__
 
   begin
-    report = AuditRunner.run(tools_root: tools_root, subset: subset, only: only)
+    report = AuditRunner.run(tools_root: tools_root, subset: subset, only: only, expected: expected)
   rescue ArgumentError => e
     warn e.message
     exit 1

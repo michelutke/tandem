@@ -472,7 +472,7 @@ epics:
           - "security: logAudit_physicalPhoneSmsCanarySession_zeroMatchesInLogcatAndMacLog"
           - "security: mitmLab_smsSendBurst20In60s_atMost10SentRestRateLimited"
           - "security: mitmLab_smsBodyOver1600Chars_failedTooLongNoSmsSent"
-        notes: ""
+        notes: "The two mitmLab_* entries are JVM integration tests (SmsSendLimitsIntegrationTest in harness/jvm-client) because TOO_LONG and RATE_LIMITED are enforced phone-side by SendSmsHandler; the Mac does not enforce them."
       - id: E50-12
         title: "[android] Spike: confirm MMS/RCS scope from the owner's real message mix (Appendix C.4)"
         type: spike

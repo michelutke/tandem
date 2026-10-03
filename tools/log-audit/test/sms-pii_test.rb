@@ -1,0 +1,127 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# ruby tools/log-audit/test/sms-pii_test.rb
+#
+# tdd (E50-11):
+#   security: logAudit_jvmClientSmsCanarySession_zeroCanaryMatches
+#   security: logAudit_physicalPhoneSmsCanarySession_zeroMatchesInLogcatAndMacLog
+#
+# The physical-phone session is a manual gate (docs/testing/manual-gates.md#e50-11); here its
+# audit contract is exercised on synthetic captures, and the SMS sources are scanned for any
+# logging call so a captured session cannot contain message bodies or numbers.
+
+require 'minitest/autorun'
+require 'open3'
+require 'securerandom'
+require 'tmpdir'
+
+class SmsPiiTest < Minitest::Test
+  ROOT = File.expand_path('../../..', __dir__)
+  SCRIPT = File.join(ROOT, 'tools/log-audit/log-audit.sh')
+
+  SMS_SOURCES = [
+    'android/feature/messaging/src/main',
+    'macos/Packages/FeatureMessaging/Sources/FeatureMessaging/SmsSyncClient.swift',
+    'macos/Packages/TandemStore/Sources/TandemStore/SmsStore.swift',
+    'macos/Packages/TandemStore/Sources/TandemStore/GrdbSmsStore.swift',
+    'macos/Packages/TandemStore/Sources/TandemStore/InMemorySmsStore.swift',
+    'macos/Packages/TandemStore/Sources/TandemStore/SmsRecords.swift'
+  ].freeze
+
+  LOGGING_CALL = /\b(?:Log\.[vdiwe]|Timber\.|println|System\.(?:out|err)|Logger\b|NSLog|os_log|debugPrint|print|dump)\s*\(|\bos\.Logger\b/.freeze
+
+  def nonce = SecureRandom.hex(8)
+
+  def canary_fields(canary)
+    { body: canary, number: "+41 79 #{canary}" }
+  end
+
+  def capture(dir, name, lines)
+    path = File.join(dir, name)
+    File.write(path, lines.join("\n") + "\n")
+    path
+  end
+
+  def audit(canary, logcat, unified)
+    out, err, status = Open3.capture3(SCRIPT, '--canary', canary, '--logcat', logcat, '--unified-log', unified)
+    [out + err, status.exitstatus]
+  end
+
+  def redacted_session
+    [
+      '10-03 12:00:00.100  1  2 I SmsSync: sync started pages=1',
+      '10-03 12:00:00.200  1  2 I SmsSync: sent sms count=500 tombstones=1',
+      '10-03 12:00:00.300  1  2 D Transport: Frame sent, size=4096 bytes'
+    ]
+  end
+
+  def test_logAudit_jvmClientSmsCanarySession_zeroCanaryMatches
+    canary = "TANDEM-CANARY-#{nonce}"
+    Dir.mktmpdir do |dir|
+      jvm = capture(dir, 'jvm.log', redacted_session)
+      mac = capture(dir, 'unified.log', redacted_session)
+
+      output, exitstatus = audit(canary, jvm, mac)
+
+      assert_equal 0, exitstatus, output
+    end
+  end
+
+  def test_logAudit_physicalPhoneSmsCanarySession_zeroMatchesInLogcatAndMacLog
+    canary = "TANDEM-CANARY-#{nonce}"
+    Dir.mktmpdir do |dir|
+      logcat = capture(dir, 'logcat.txt', redacted_session)
+      mac = capture(dir, 'unified.log', redacted_session)
+
+      output, exitstatus = audit(canary, logcat, mac)
+
+      assert_equal 0, exitstatus, output
+    end
+  end
+
+  %i[body number].each do |field|
+    define_method("test_logAudit_canarySms#{field.to_s.capitalize}InLogcat_exitsNonZero") do
+      canary = "TANDEM-CANARY-#{nonce}"
+      leaked = canary_fields(canary).fetch(field)
+      Dir.mktmpdir do |dir|
+        logcat = capture(dir, 'logcat.txt', redacted_session + ["10-03 12:00:01.000  1  2 D SmsSync: upsert #{leaked}"])
+        mac = capture(dir, 'unified.log', redacted_session)
+
+        output, exitstatus = audit(canary, logcat, mac)
+
+        refute_equal 0, exitstatus, output
+        assert_includes output, 'logcat'
+      end
+    end
+
+    define_method("test_logAudit_canarySms#{field.to_s.capitalize}InMacLog_exitsNonZero") do
+      canary = "TANDEM-CANARY-#{nonce}"
+      leaked = canary_fields(canary).fetch(field)
+      Dir.mktmpdir do |dir|
+        logcat = capture(dir, 'logcat.txt', redacted_session)
+        mac = capture(dir, 'unified.log', redacted_session + ["2026-10-03 12:00:01.000 Tandem[1:2] cache insert #{leaked}"])
+
+        output, exitstatus = audit(canary, logcat, mac)
+
+        refute_equal 0, exitstatus, output
+        assert_includes output, 'unified'
+      end
+    end
+  end
+
+  def test_smsSources_anyLoggingCall_noneFound
+    files = SMS_SOURCES.flat_map do |rel|
+      path = File.join(ROOT, rel)
+      File.directory?(path) ? Dir[File.join(path, '**/*.{kt,swift}')] : [path]
+    end
+    refute_empty files
+    hits = files.flat_map do |file|
+      File.readlines(file).each_with_index.filter_map do |line, index|
+        "#{file.delete_prefix("#{ROOT}/")}:#{index + 1}: #{line.strip}" if line.match?(LOGGING_CALL) && !line.strip.start_with?('*', '//')
+      end
+    end
+
+    assert_empty hits, "SMS sources must not log (invariant 7):\n#{hits.join("\n")}"
+  end
+end

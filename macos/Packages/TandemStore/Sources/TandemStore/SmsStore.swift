@@ -26,7 +26,8 @@ public protocol SmsStore: PeerDataPurging {
 
     func insertOutbound(peer: SpkiFingerprint, _ record: SmsOutboundRecord) async throws
 
-    /// No-op when no row has `clientMessageId`.
+    /// No-op when no row has `clientMessageId`. When a synced message with `providerMessageId`
+    /// already exists, the optimistic row is dropped instead of updated.
     func updateOutbound(
         peer: SpkiFingerprint,
         clientMessageId: String,

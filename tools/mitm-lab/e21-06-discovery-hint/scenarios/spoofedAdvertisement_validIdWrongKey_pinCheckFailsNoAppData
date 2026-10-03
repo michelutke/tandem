@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: spoofedAdvertisement_validIdWrongKey_pinCheckFailsNoAppData
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 60
+#
+# E21-06: an impostor at a discovery-resolved candidate address (it replays the paired Mac's
+# currently valid rotating id, which E21-05 states still matches) presents a different key. Discovery
+# only supplies the address; the real JVM client's PinningTrustManager must reject the handshake
+# (invariants 1, 3), and the impostor must receive zero application bytes -- its decrypted stdout
+# (`openssl s_server -quiet` prints every application byte it reads) stays empty. The mDNS replay
+# itself is not re-staged here: a replayed id yields exactly a candidate address, which is what
+# dialing the impostor's port below models (matching is proven in E21-05's PairedMacMatcher tests).
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../e15-10-cert-abuse/lib/e15-10-common.sh
+source "$here/../../e15-10-cert-abuse/lib/e15-10-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_mktmp
+
+e15_10_gen_cert "$E15_10_TMP_DIR/pinned" pinned.tandem.test
+e15_10_gen_cert "$E15_10_TMP_DIR/wrong" wrong.tandem.test
+PINNED_FP_HEX="$(e15_10_spki_fingerprint_hex "$E15_10_TMP_DIR/pinned-cert.pem")"
+WRONG_FP_HEX="$(e15_10_spki_fingerprint_hex "$E15_10_TMP_DIR/wrong-cert.pem")"
+if [ "$PINNED_FP_HEX" = "$WRONG_FP_HEX" ]; then
+  e15_10_log "FAIL: infrastructure bug -- generated 'pinned' and 'wrong' certs share a fingerprint"
+  exit 1
+fi
+PINNED_FP_B64="$(e15_10_hex_to_b64url "$PINNED_FP_HEX")"
+
+PORT="$(e15_10_free_port)"
+SERVER_PID=""
+openssl s_server -quiet -tls1_3 -alpn "$E15_10_TANDEM_ALPN" \
+  -cert "$E15_10_TMP_DIR/wrong-cert.pem" -key "$E15_10_TMP_DIR/wrong-key.pem" \
+  -accept "$PORT" -naccept 1 >"$E15_10_TMP_DIR/s_server.log" 2>&1 &
+SERVER_PID=$!
+trap 'kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null || true; e15_10_teardown' EXIT
+sleep 0.3
+
+FAILED=0
+e15_10_start_client
+e15_10_log "client pins fingerprint: $PINNED_FP_HEX (impostor server actually presents: $WRONG_FP_HEX)"
+
+response="$(e15_10_rawopen 127.0.0.1 "$PORT" "$PINNED_FP_B64")"
+e15_10_load_rawopen_ms
+e15_10_log "RAWOPEN response: $response (took ${E15_10_LAST_RAWOPEN_MS}ms)"
+
+case "$response" in
+  "ERROR HANDSHAKE_REJECTED"*)
+    e15_10_log "OK: impostor key behind a replayed discovery id rejected at the TLS handshake -- no CONTROL frame, no application byte, was ever exchanged"
+    ;;
+  *)
+    e15_10_log "FAIL: expected the handshake to be rejected, got: $response"
+    FAILED=1
+    ;;
+esac
+
+if [ -s "$E15_10_TMP_DIR/s_server.log" ] && grep -q . "$E15_10_TMP_DIR/s_server.log"; then
+  case "$(grep -v -e '^$' -e 'ERROR' -e 'error' -e 'alert' -e 'SSL' -e 'ssl' "$E15_10_TMP_DIR/s_server.log")" in
+    "") ;;
+    *) e15_10_log "FAIL: impostor received application bytes"; FAILED=1 ;;
+  esac
+fi
+
+if [ "$E15_10_LAST_RAWOPEN_MS" -ge 5000 ]; then
+  e15_10_log "FAIL: rejection took ${E15_10_LAST_RAWOPEN_MS}ms, expected < 5000ms"
+  FAILED=1
+fi
+
+e15_10_stop_client
+kill "$SERVER_PID" 2>/dev/null || true
+wait "$SERVER_PID" 2>/dev/null || true
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

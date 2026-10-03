@@ -66,6 +66,8 @@ enum SendSmsErrorCode {
   SEND_SMS_ERROR_CODE_INVALID_ADDRESS = 5;
   SEND_SMS_ERROR_CODE_TOO_LONG = 6;
   SEND_SMS_ERROR_CODE_RATE_LIMITED = 7;
+  SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED = 8;
+  SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION = 9;
 }
 
 // SmsThread: one conversation (Telephony.Threads row). `thread_id` is the phone's provider

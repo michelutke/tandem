@@ -78,6 +78,24 @@ class ContentResolverSmsSource(
             ),
         ) { it.long(Telephony.Sms._ID) }.firstOrNull() ?: 0L
 
+    override fun newestOutgoingId(
+        address: String,
+        afterId: Long,
+    ): Long =
+        query(
+            SmsQuery(
+                uri = Telephony.Sms.CONTENT_URI,
+                projection = arrayOf(Telephony.Sms._ID),
+                selection =
+                    "${Telephony.Sms._ID} > ? AND ${Telephony.Sms.ADDRESS} = ? AND " +
+                        "${Telephony.Sms.TYPE} IN " +
+                        "(${Telephony.Sms.MESSAGE_TYPE_SENT}, ${Telephony.Sms.MESSAGE_TYPE_OUTBOX})",
+                selectionArgs = arrayOf(afterId.toString(), address),
+                sortOrder = "${Telephony.Sms._ID} DESC",
+                limit = 1,
+            ),
+        ) { it.long(Telephony.Sms._ID) }.firstOrNull() ?: 0L
+
     override fun changes(): Flow<Unit> =
         callbackFlow {
             val observer =

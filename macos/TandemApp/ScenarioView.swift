@@ -145,6 +145,12 @@ struct ScenarioView: View {
             MainWindowView(viewModel: ScenarioView.makeMainWindowOfflineViewModel())
         case .mainWindowFeatureDisabled:
             MainWindowView(viewModel: ScenarioView.makeMainWindowFeatureDisabledViewModel())
+        case .photoGridPartialAccess:
+            ScenarioView.makePhotoGridPartialAccessView()
+        case .threadListSeeded:
+            ScenarioView.makeThreadListSeededView()
+        case .incomingCallActive:
+            ScenarioView.makeIncomingCallActiveView()
         }
     }
 

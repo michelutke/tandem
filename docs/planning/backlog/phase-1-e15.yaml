@@ -818,13 +818,15 @@ epics:
         description: |
           Split from E15-18 in review cycle 5: the runner framework lands early with no dependencies; this
           small gate proves that at Phase 1 exit every expected tool exposes its audit step and the full run
-          produces one report. The expected-step list lives in `tools/audit/expected-steps.txt` (conformance,
-          pcap-tls13, pcap-canary, canary-procedure, mitm-pairing, mitm-cert, mitm-downgrade, mitm-dos, nmap,
-          fuzz-smoke-kotlin, fuzz-smoke-swift, log-audit); later phases append to it (E71-12 checks the
-          release list).
+          produces one report. The expected-step list lives in `tools/audit/expected-steps.txt` and uses the
+          discovered `tools/<tool>/` directory names (D-39): conformance, fuzz, log-audit, mitm-lab,
+          nmap-audit, pcap-audit; later phases append to it (E71-12 checks the release list). The logical
+          steps map onto them: pcap-tls13, pcap-canary and canary-procedure -> pcap-audit; mitm-pairing,
+          mitm-cert, mitm-downgrade and mitm-dos -> mitm-lab; nmap -> nmap-audit; fuzz-smoke-kotlin and
+          fuzz-smoke-swift -> fuzz.
         acceptance:
-          - "`tools/audit/run.sh --subset full` against the E15-15 harness lists every step in
-            expected-steps.txt; automatable steps pass and device-only steps (nmap, live canary) are `pending`
+          - "`tools/audit/run.sh --subset full --expected tools/audit/expected-steps.txt` against the
+            E15-15 harness lists every step in expected-steps.txt; automatable steps pass and device-only steps (nmap, live canary) are `pending`
             with a manual-gate reference."
           - A step named in expected-steps.txt but not discovered fails the run naming the step.
         tdd:
