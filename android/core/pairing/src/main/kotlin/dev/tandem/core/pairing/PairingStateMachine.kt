@@ -13,6 +13,7 @@ import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
@@ -286,7 +287,8 @@ class PairingStateMachine(
         predicate: (Envelope) -> Boolean,
     ): WaitOutcome =
         coroutineScope {
-            val received = async { session.receive(Channel.CHANNEL_CONTROL).first(predicate) }
+            val received =
+                async(start = CoroutineStart.UNDISPATCHED) { session.receive(Channel.CHANNEL_CONTROL).first(predicate) }
             val disconnected = async { session.state.first { it is ConnectionState.Disconnected } }
             try {
                 select {

@@ -87,6 +87,20 @@ struct SmsStoreContractTests {
     }
 
     @Test(arguments: StoreKind.allCases)
+    private func updateOutbound_providerMessageAlreadySynced_dropsOptimisticRow(kind: StoreKind) async throws {
+        let store = try makeStore(kind)
+        let record = SmsOutboundRecord(clientMessageId: "c1", threadId: 1, address: "+41", body: "hi", timestampMs: 5)
+        try await store.insertOutbound(peer: peerA, record)
+        try await store.applyPage(
+            peer: peerA, threads: [], messages: [SmsFixtures.message(42)], cursors: SmsFixtures.cursors
+        )
+        try await store.updateOutbound(peer: peerA, clientMessageId: "c1", state: .sent, providerMessageId: 42)
+
+        #expect(try await store.outbound(peer: peerA, threadId: 1).isEmpty)
+        #expect(try await store.diagnostics(peer: peerA).messageIds == [42])
+    }
+
+    @Test(arguments: StoreKind.allCases)
     private func applyPage_messageMatchingProviderId_replacesOptimisticRow(kind: StoreKind) async throws {
         let store = try makeStore(kind)
         let record = SmsOutboundRecord(clientMessageId: "c1", threadId: 1, address: "+41", body: "hi", timestampMs: 5)

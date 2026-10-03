@@ -43,6 +43,7 @@ from display_strings import generate_display_string_vectors  # noqa: E402 (needs
 from filenames import generate_filename_vectors  # noqa: E402 (needs sys.path above)
 from files_encoding import generate_files_encoding_vectors  # noqa: E402 (needs sys.path above)
 from frame_encoding import generate_frame_encoding_vectors  # noqa: E402 (needs sys.path above)
+from focus_encoding import generate_focus_encoding_vectors  # noqa: E402 (needs sys.path above)
 from heartbeat import generate_heartbeat_vectors  # noqa: E402 (needs sys.path above)
 from media_encoding import generate_media_encoding_vectors  # noqa: E402 (needs sys.path above)
 from notify_encoding import generate_notify_encoding_vectors  # noqa: E402 (needs sys.path above)
@@ -78,6 +79,7 @@ CATEGORIES.append(("sms-encoding.json", generate_sms_encoding_vectors))  # E50-0
 CATEGORIES.append(("calls-encoding.json", generate_calls_encoding_vectors))  # E52-01
 CATEGORIES.append(("media-encoding.json", generate_media_encoding_vectors))  # E60-01
 CATEGORIES.append(("rotation-encoding.json", generate_rotation_encoding_vectors))  # E70-01
+CATEGORIES.append(("focus-encoding.json", generate_focus_encoding_vectors))  # E72-04
 CATEGORIES.append(("filenames.json", generate_filename_vectors))  # E40-02
 CATEGORIES.append(("phone-normalization.json", generate_phone_normalization_vectors))  # E51-06
 

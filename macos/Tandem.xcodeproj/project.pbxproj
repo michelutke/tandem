@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A40100000000000000E40B02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40B01 /* FeatureFiles */; };
 		068B5A08BDA957503ED99CFA /* MainWindowViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B271E84F6097E2F3274655CB /* MainWindowViewModelTests.swift */; };
 		0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */; };
 		1319A4BA69B9DFF7EBD7928A /* SettingsComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122B73053B0DCA6693D01A4B /* SettingsComposition.swift */; };
@@ -46,6 +47,11 @@
 		82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */; };
 		8323362E16C87F0E1570D3A7 /* FeatureClipboard in Frameworks */ = {isa = PBXBuildFile; productRef = EECB08419E116CE4C7224F72 /* FeatureClipboard */; };
 		A40100000000000000E40A02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40A01 /* FeatureFiles */; };
+		E52060000000000000000001 /* FeatureCalls in Frameworks */ = {isa = PBXBuildFile; productRef = E52060000000000000000012 /* FeatureCalls */; };
+		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
+		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
+		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
+		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
 		85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */; };
@@ -168,6 +174,11 @@
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6ED2665CA312B3675E91769A /* FeatureClipboard */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureClipboard; path = Packages/FeatureClipboard; sourceTree = SOURCE_ROOT; };
 		A40100000000000000E40A03 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
+		E52060000000000000000010 /* FeatureCalls */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureCalls; path = Packages/FeatureCalls; sourceTree = SOURCE_ROOT; };
+		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
+		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
+		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
+		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
@@ -219,6 +230,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A40100000000000000E40B03 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A40100000000000000E40B02 /* FeatureFiles in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4218F3F64192388F1889EF41 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -232,6 +251,7 @@
 				3220619F8129C9BE3A774DD9 /* TandemDesign in Frameworks */,
 				8323362E16C87F0E1570D3A7 /* FeatureClipboard in Frameworks */,
 				A40100000000000000E40A02 /* FeatureFiles in Frameworks */,
+				E52060000000000000000001 /* FeatureCalls in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -271,6 +291,7 @@
 				D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */,
 				928A0A048645C8946F50E0EF /* MainWindowUITests.swift */,
 				E41050700000000000000000 /* PhotoGridUITests.swift */,
+				E52060000000000000000009 /* CallAlertUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
 			);
 			path = TandemUITests;
@@ -335,6 +356,7 @@
 				7CFD7E342E310F4350077F8D /* TandemDesign */,
 				6ED2665CA312B3675E91769A /* FeatureClipboard */,
 				A40100000000000000E40A03 /* FeatureFiles */,
+				E52060000000000000000010 /* FeatureCalls */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -379,6 +401,9 @@
 				9142DE963CC6331F9BAE0251 /* OpenTandemMenuButton.swift */,
 				81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */,
 				E41050500000000000000000 /* ScenarioPhotoGrid.swift */,
+				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
+				E52060000000000000000007 /* CallHangUpView.swift */,
+				E52060000000000000000008 /* ScenarioCallAlert.swift */,
 				9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */,
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
@@ -397,12 +422,16 @@
 			buildPhases = (
 				E6C0D035596B8AB2F87A804F /* Sources */,
 				49B17D310B02CAFE6AEB90BF /* Resources */,
+				A40100000000000000E40B03 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = TandemShare;
+			packageProductDependencies = (
+				A40100000000000000E40B01 /* FeatureFiles */,
+			);
 			productName = TandemShare;
 			productReference = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -449,6 +478,7 @@
 				3DC26889FCB92D7B4111DCDC /* TandemDesign */,
 				EECB08419E116CE4C7224F72 /* FeatureClipboard */,
 				A40100000000000000E40A01 /* FeatureFiles */,
+				E52060000000000000000012 /* FeatureCalls */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -509,6 +539,7 @@
 				73EE49CC2108D74C59165AC9 /* XCLocalSwiftPackageReference "TandemDesign" */,
 				F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 				A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */,
+				E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -573,6 +604,7 @@
 				7F259215F6C471C8D3A7933C /* SettingsWindowUITests.swift in Sources */,
 				ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */,
 				E41050600000000000000000 /* PhotoGridUITests.swift in Sources */,
+				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -637,6 +669,9 @@
 				CB7B161ECCC149BF2700377B /* OpenTandemMenuButton.swift in Sources */,
 				5298599E544DCDD0447D8A66 /* MainWindowScenarioSupport.swift in Sources */,
 				E41050400000000000000000 /* ScenarioPhotoGrid.swift in Sources */,
+				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
+				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
+				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
 				C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */,
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
@@ -1020,6 +1055,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureFiles;
 		};
+		E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureCalls;
+		};
 		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemTransport;
@@ -1070,10 +1109,20 @@
 			package = F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */;
 			productName = FeatureClipboard;
 		};
+		A40100000000000000E40B01 /* FeatureFiles */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */;
+			productName = FeatureFiles;
+		};
 		A40100000000000000E40A01 /* FeatureFiles */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */;
 			productName = FeatureFiles;
+		};
+		E52060000000000000000012 /* FeatureCalls */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */;
+			productName = FeatureCalls;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

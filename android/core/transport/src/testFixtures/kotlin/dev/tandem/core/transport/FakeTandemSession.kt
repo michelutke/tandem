@@ -5,7 +5,11 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
 import dev.tandem.protocol.v1.envelope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,7 +60,10 @@ class FakeTandemSession : TandemSession {
             }
     }
 
-    override fun receive(channel: Channel): Flow<Envelope> = queueFor(channel).receiveAsFlow()
+    private val laneScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    private val inboundDispatcher = ChannelDispatcher(laneScope) { queueFor(it).receiveAsFlow() }
+
+    override fun receive(channel: Channel): Flow<Envelope> = inboundDispatcher.subscribe(channel)
 
     /** Emits [envelope] on [receive] for `envelope.channel`, as if a peer had sent it. */
     fun emitIncoming(envelope: Envelope) {
@@ -82,6 +89,7 @@ class FakeTandemSession : TandemSession {
         closed = true
         mutableState.value = ConnectionState.Disconnected()
         inboundQueues.values.forEach { it.close() }
+        laneScope.cancel()
     }
 
     private fun queueFor(channel: Channel): KtChannel<Envelope> =
