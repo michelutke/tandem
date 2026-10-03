@@ -136,6 +136,7 @@ class FileCancelTest {
                 receiverSession,
                 store,
                 publisher,
+                ReceivedFileNotifier { _, _, _ -> },
                 SpkiFingerprint(ByteArray(32) { 1 }),
                 TestClock(testScheduler, START),
                 StandardTestDispatcher(testScheduler),
@@ -225,8 +226,9 @@ class FileCancelTest {
             name: String,
             mime: String,
             content: InputStream,
-        ) {
+        ): String {
             published += content.readBytes()
+            return "content://downloads/${published.size}"
         }
     }
 
