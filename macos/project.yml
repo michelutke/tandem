@@ -33,6 +33,9 @@ packages:
   # E41-05: PhotoGridView, composed here under the DEBUG-only photo grid scenario.
   FeatureFiles:
     path: Packages/FeatureFiles
+  # E50-07: ThreadListView, composed here under the DEBUG-only thread list scenario.
+  FeatureMessaging:
+    path: Packages/FeatureMessaging
   # E52-06: CallAlertViewModel and the incoming-call alert.
   FeatureCalls:
     path: Packages/FeatureCalls
@@ -76,6 +79,7 @@ targets:
       - package: TandemDevices
       - package: FeatureNotifications
       - package: FeatureFiles
+      - package: FeatureMessaging
       - package: FeatureCalls
 
   TandemShare:
