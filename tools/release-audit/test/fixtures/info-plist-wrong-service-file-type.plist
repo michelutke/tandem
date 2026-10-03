@@ -22,7 +22,7 @@
 			<string>sendToPhone</string>
 			<key>NSSendFileTypes</key>
 			<array>
-				<string>public.item</string>
+				<string>public.image</string>
 			</array>
 		</dict>
 	</array>
