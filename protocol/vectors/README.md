@@ -290,3 +290,14 @@ Vectors for SPEC.md `#filename-sanitization`. `input.rawUtf8Hex` is the UTF-8 of
 `FileOffer.name` (hex, so NUL, bidi controls and NFD text survive editors) and
 `input.transferId` is `FileOffer.id`. Valid entries give `expected.filename`; a name containing
 U+0000 uses `expectedError: "invalidName"` (the receiver answers `FileReject{INVALID_NAME}`).
+
+### `phone-normalization.json` (E51-06)
+
+Raw-to-E.164 cases for the contacts/SMS/call matching key. `input.raw` is the phone string as read
+from the device, `input.region` the ISO 3166-1 alpha-2 default region used for national formats.
+`expected.e164` is the E.164 string for a valid number (libphonenumber `isValidNumber` semantics;
+extensions are dropped) or `null` for invalid numbers, short codes and alphanumeric sender ids.
+The category is run against the production normalizers by `:feature:contacts`
+`PhoneNormalizationVectorsTest` (libphonenumber) and TandemStore's
+`PhoneNormalizationVectorsTests` (PhoneNumberKit); both core conformance runners report it as
+deferred to those suites because the normalizers live outside the core modules.

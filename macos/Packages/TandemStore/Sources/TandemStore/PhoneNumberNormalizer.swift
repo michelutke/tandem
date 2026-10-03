@@ -14,13 +14,15 @@ public final class PhoneNumberNormalizer: @unchecked Sendable {
     }
 
     public func lookupKey(for number: String, senderE164: String = "") -> String {
-        if let parsed = e164(of: number) { return parsed }
+        if let parsed = normalizedE164(of: number) { return parsed }
         if !senderE164.isEmpty { return senderE164 }
         let digits = number.filter(\.isNumber)
         return digits.isEmpty ? number : digits
     }
 
-    private func e164(of number: String) -> String? {
+    /// The E.164 form of a valid number, `nil` for anything libphonenumber would not call valid
+    /// (invalid, short codes, alphanumeric sender ids); matches Android's `PhoneNormalizer`.
+    public func normalizedE164(of number: String) -> String? {
         lock.lock()
         defer { lock.unlock() }
         guard let parsed = try? utility.parse(number, withRegion: defaultRegion) else { return nil }
