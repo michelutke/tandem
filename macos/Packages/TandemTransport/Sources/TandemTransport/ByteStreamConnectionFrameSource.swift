@@ -31,4 +31,16 @@ final class ByteStreamConnectionFrameSource: FrameSource, @unchecked Sendable {
         buffer.removeFirst(count)
         return result
     }
+
+    /// Returns `data` to the front of the buffer, so bytes read ahead to classify a connection are
+    /// seen again by the reader that actually owns it.
+    func pushBack(_ data: Data) {
+        buffer = data + buffer
+    }
+
+    /// Bytes already read from the connection but not yet consumed by a `read(exactly:)` call.
+    func takeBuffered() -> Data {
+        defer { buffer.removeAll() }
+        return buffer
+    }
 }
