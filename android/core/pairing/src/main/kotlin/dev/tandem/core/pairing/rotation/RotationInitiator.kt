@@ -34,6 +34,9 @@ sealed interface RotationOutcome {
     /** No reply in time; the old key stays active and the new key is kept for a re-send on a later session. */
     data object TimedOut : RotationOutcome
 
+    /** The session ended before a reply; the old key stays active and the rotation stays pending. */
+    data object SessionDropped : RotationOutcome
+
     /** The Mac rejected; trust is unchanged, the old key stays active and the new key is deleted. */
     data class Rejected(
         val reason: RotationRejectReason,
@@ -68,21 +71,25 @@ class RotationInitiator(
 
     /** Suspends for the life of the session; returns when its CONTROL receive flow completes. */
     suspend fun run() {
-        session.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
-            when {
-                envelope.hasRotationChallenge() -> {
-                    val cb = envelope.rotationChallenge.challenge.toByteArray()
-                    if (cb.size == ROTATION_CHALLENGE_LENGTH) challenge = cb
-                }
+        try {
+            session.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
+                when {
+                    envelope.hasRotationChallenge() -> {
+                        val cb = envelope.rotationChallenge.challenge.toByteArray()
+                        if (cb.size == ROTATION_CHALLENGE_LENGTH) challenge = cb
+                    }
 
-                envelope.hasRotationAck() -> {
-                    pendingReply?.complete(RotationOutcome.Committed)
-                }
+                    envelope.hasRotationAck() -> {
+                        pendingReply?.complete(RotationOutcome.Committed)
+                    }
 
-                envelope.hasRotationReject() -> {
-                    pendingReply?.complete(RotationOutcome.Rejected(envelope.rotationReject.reason))
+                    envelope.hasRotationReject() -> {
+                        pendingReply?.complete(RotationOutcome.Rejected(envelope.rotationReject.reason))
+                    }
                 }
             }
+        } finally {
+            pendingReply?.complete(RotationOutcome.SessionDropped)
         }
     }
 
