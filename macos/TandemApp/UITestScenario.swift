@@ -59,6 +59,8 @@ enum UITestScenario: String {
     /// Photo grid (E41-09) over a seeded 10 000-item ``PhotoService`` (pages of 100, synthetic
     /// 256 px thumbnails) for the memory-bound scroll test.
     case photoGrid10k
+    /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
+    case incomingCallActive
 
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),

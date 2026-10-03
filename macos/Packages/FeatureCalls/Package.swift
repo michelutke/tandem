@@ -7,14 +7,21 @@ let package = Package(
     products: [
         .library(name: "FeatureCalls", targets: ["FeatureCalls"])
     ],
+    dependencies: [
+        .package(path: "../TandemCrypto"),
+        .package(path: "../TandemProtocol"),
+        .package(path: "../TandemStore"),
+        .package(path: "../TandemTestSupport")
+    ],
     targets: [
         .target(
             name: "FeatureCalls",
+            dependencies: ["TandemCrypto", "TandemProtocol", "TandemStore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureCallsTests",
-            dependencies: ["FeatureCalls"],
+            dependencies: ["FeatureCalls", "TandemCrypto", "TandemProtocol", "TandemStore", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

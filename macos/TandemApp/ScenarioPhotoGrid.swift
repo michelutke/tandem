@@ -68,5 +68,7 @@ private struct SeededPartialAccessPhotoService: PhotoService {
     func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Data() }
 
     func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
 }
 #endif

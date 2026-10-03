@@ -5,11 +5,13 @@ import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileCancel
+import dev.tandem.protocol.v1.FileResumeRequest
 import dev.tandem.protocol.v1.TransferReason
 import dev.tandem.protocol.v1.fileCancel
 import dev.tandem.protocol.v1.fileChunk
 import dev.tandem.protocol.v1.fileComplete
 import dev.tandem.protocol.v1.fileOffer
+import dev.tandem.protocol.v1.fileReject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +37,42 @@ data class SendRequest(
     val mime: String,
 )
 
+/**
+ * Sends that outlive their session (E40-08), so a sender on a reconnected session can resume them.
+ * Hold exactly one per paired peer and pass it to every [FileSender] for that peer: a resume is
+ * only honoured for ids this peer was offered. Holds at most [MAX_RETAINED] sends, oldest evicted first.
+ */
+class RetainedSends {
+    private val entries = LinkedHashMap<String, Retained>()
+
+    @Synchronized
+    internal fun put(
+        request: SendRequest,
+        size: Long,
+    ) {
+        entries.remove(request.id)
+        entries[request.id] = Retained(request, size)
+        while (entries.size > MAX_RETAINED) entries.remove(entries.keys.first())
+    }
+
+    @Synchronized
+    internal fun find(id: String): Retained? = entries[id]
+
+    @Synchronized
+    internal fun remove(id: String) {
+        entries.remove(id)
+    }
+
+    internal class Retained(
+        val request: SendRequest,
+        val size: Long,
+    )
+
+    private companion object {
+        const val MAX_RETAINED = 64
+    }
+}
+
 sealed interface SenderState {
     data object Hashing : SenderState
 
@@ -59,13 +97,22 @@ sealed interface SenderState {
  * 256 KiB chunks (`offset = seq * 262144`) through [scheduler], then `FileComplete`. A source read
  * failure after the offer sends `FileCancel IO_ERROR`. Reads run on [ioDispatcher]; protocol state
  * is confined to [dispatcher], which MUST be single-threaded. Invariant 7: never logs names or content.
+ *
+ * Resume (E40-08; SPEC.md "Resume semantics"): a transfer cut off by a lost session stays in
+ * [retained] (kept after the last chunk too: chunks may be in flight when the session drops).
+ * `FileResumeRequest{id, fromOffset}` for a retained id seeks the source to a
+ * chunk-aligned `fromOffset <= size` and streams from `seq = fromOffset / 262144`; an unknown id
+ * answers `FileReject UNKNOWN_TRANSFER`, an unreadable source `SOURCE_UNAVAILABLE`, a misaligned
+ * or oversized offset `PROTOCOL_VIOLATION`.
  */
+@Suppress("TooManyFunctions") // sender protocol steps, kept together to share state
 class FileSender(
     private val session: TandemSession,
     private val scheduler: FilesScheduler,
     private val reader: SourceFileReader,
     private val ioDispatcher: CoroutineDispatcher,
     dispatcher: CoroutineDispatcher,
+    private val retained: RetainedSends = RetainedSends(),
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val replies = ConcurrentHashMap<String, CompletableDeferred<Reply>>()
@@ -89,6 +136,11 @@ class FileSender(
                         val cancel = envelope.fileCancel
                         if (replies.containsKey(cancel.id)) peerCancels[cancel.id] = cancel.reason
                         replies[cancel.id]?.complete(Reply.Cancelled(cancel.reason))
+                    }
+
+                    envelope.hasFileResumeRequest() -> {
+                        val resume = envelope.fileResumeRequest
+                        scope.launch { resume(resume) }
                     }
                 }
             }.launchIn(scope)
@@ -124,6 +176,7 @@ class FileSender(
                 state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_SOURCE_UNAVAILABLE)
                 return
             }
+        retained.put(request, source.size)
         val reply = CompletableDeferred<Reply>().also { replies[request.id] = it }
         scheduler.sendPriority {
             fileOffer =
@@ -137,9 +190,19 @@ class FileSender(
         }
         state.value = SenderState.Offered
         when (val answer = reply.await()) {
-            is Reply.Rejected -> state.value = SenderState.Rejected(answer.reason)
-            is Reply.Cancelled -> state.value = SenderState.Cancelled(answer.reason)
-            Reply.Accepted -> stream(request, state)
+            is Reply.Rejected -> {
+                retained.remove(request.id)
+                state.value = SenderState.Rejected(answer.reason)
+            }
+
+            is Reply.Cancelled -> {
+                retained.remove(request.id)
+                state.value = SenderState.Cancelled(answer.reason)
+            }
+
+            Reply.Accepted -> {
+                stream(request, state)
+            }
         }
     }
 
@@ -155,7 +218,99 @@ class FileSender(
                 cancel(request.id, state)
                 return
             }
-        input.use { scheduler.run(ChunkStream(request.id, it, state)) }
+        input.use { scheduler.run(ChunkStream(request.id, it, state, startSeq = 0)) }
+    }
+
+    private suspend fun resume(resume: FileResumeRequest) {
+        val known = retained.find(resume.id)
+        when {
+            replies.containsKey(resume.id) -> {
+                Unit
+            }
+
+            known == null -> {
+                rejectUnknown(resume.id)
+            }
+
+            resume.fromOffset < 0 || resume.fromOffset % CHUNK_BYTES != 0L || resume.fromOffset > known.size -> {
+                refuse(resume.id, TransferReason.TRANSFER_REASON_PROTOCOL_VIOLATION)
+            }
+
+            else -> {
+                resumeStream(known, resume.fromOffset)
+            }
+        }
+    }
+
+    private suspend fun resumeStream(
+        known: RetainedSends.Retained,
+        fromOffset: Long,
+    ) {
+        val id = known.request.id
+        val input =
+            try {
+                withContext(ioDispatcher) { reader.open(known.request.uri).also { it.skipOrClose(fromOffset) } }
+            } catch (_: IOException) {
+                return refuse(id, TransferReason.TRANSFER_REASON_SOURCE_UNAVAILABLE)
+            }
+        replies[id] = CompletableDeferred()
+        val state = MutableStateFlow<SenderState>(SenderState.Sending)
+        try {
+            input.use { scheduler.run(ChunkStream(id, it, state, startSeq = fromOffset / CHUNK_BYTES)) }
+        } catch (_: MultiplexerClosedException) {
+            return
+        } finally {
+            replies.remove(id)
+            peerCancels.remove(id)
+        }
+    }
+
+    private suspend fun rejectUnknown(id: String) {
+        try {
+            scheduler.sendPriority {
+                fileReject =
+                    fileReject {
+                        this.id = id
+                        reason = TransferReason.TRANSFER_REASON_UNKNOWN_TRANSFER
+                    }
+            }
+        } catch (_: MultiplexerClosedException) {
+            return
+        }
+    }
+
+    private suspend fun refuse(
+        id: String,
+        why: TransferReason,
+    ) {
+        try {
+            scheduler.sendPriority {
+                fileCancel =
+                    fileCancel {
+                        this.id = id
+                        reason = why
+                    }
+            }
+        } catch (_: MultiplexerClosedException) {
+            return
+        }
+    }
+
+    private fun InputStream.skipOrClose(count: Long) {
+        try {
+            var left = count
+            while (left > 0) left -= skipSome(left)
+        } catch (e: IOException) {
+            close()
+            throw e
+        }
+    }
+
+    private fun InputStream.skipSome(left: Long): Long {
+        val skipped = skip(left)
+        if (skipped > 0) return skipped
+        if (read() < 0) throw IOException("source shorter than resume offset")
+        return 1
     }
 
     private suspend fun cancel(
@@ -185,9 +340,10 @@ class FileSender(
         private val id: String,
         private val input: InputStream,
         private val state: MutableStateFlow<SenderState>,
+        startSeq: Long,
     ) : FrameStream {
         private val buffer = ByteArray(CHUNK_BYTES)
-        private var seq = 0L
+        private var seq = startSeq
 
         override suspend fun sendNext(): Boolean {
             val peerCancel = peerCancels[id]

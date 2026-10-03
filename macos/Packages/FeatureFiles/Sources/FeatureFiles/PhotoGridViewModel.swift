@@ -19,10 +19,20 @@ public final class PhotoGridViewModel {
     public private(set) var access: Tandem_V1_PhotoAccess = .unspecified
     public private(set) var thumbnails: [String: Data] = [:]
     public private(set) var loadFailed = false
+    public private(set) var downloadStates: [String: DownloadState] = [:]
+
+    public enum DownloadState: Sendable, Equatable {
+        case downloading
+        case downloaded
+        case failed
+    }
 
     public var showsLimitedAccessBanner: Bool { access == .partial }
 
     @ObservationIgnored private let service: any PhotoService
+    @ObservationIgnored private let offerExpecting: (any OriginalOfferExpecting)?
+    @ObservationIgnored private let makeTransferID: @Sendable () -> String
+    @ObservationIgnored private var pendingOriginals: [String: String] = [:]
     @ObservationIgnored private var nextCursor = ""
     @ObservationIgnored private var hasMorePages = true
     @ObservationIgnored private var pageInFlight = false
@@ -31,8 +41,14 @@ public final class PhotoGridViewModel {
     @ObservationIgnored private var desiredThumbIDs: Set<String> = []
     @ObservationIgnored private var thumbLoaderRunning = false
 
-    public init(service: any PhotoService) {
+    public init(
+        service: any PhotoService,
+        offerExpecting: (any OriginalOfferExpecting)? = nil,
+        makeTransferID: @escaping @Sendable () -> String = { UUID().uuidString }
+    ) {
         self.service = service
+        self.offerExpecting = offerExpecting
+        self.makeTransferID = makeTransferID
     }
 
     public func loadFirstPage() async {
@@ -67,6 +83,37 @@ public final class PhotoGridViewModel {
 
     public func selectMoreOnPhone() async {
         try? await service.requestMorePhotos()
+    }
+
+    public func download(id: String) async {
+        guard downloadStates[id] != .downloading else { return }
+        let transferId = makeTransferID()
+        pendingOriginals[transferId] = id
+        downloadStates[id] = .downloading
+        await offerExpecting?.expectOriginal(transferId: transferId)
+        do {
+            try await service.requestOriginal(id: id, transferId: transferId)
+        } catch {
+            await failDownload(transferId: transferId, photoId: id)
+        }
+    }
+
+    public func photoErrorReceived(_ error: Tandem_V1_PhotoError) async {
+        guard error.kind == .original,
+            let entry = pendingOriginals.first(where: { $0.value == error.ref })
+        else { return }
+        await failDownload(transferId: entry.key, photoId: entry.value)
+    }
+
+    public func originalTransferFinished(transferId: String) {
+        guard let photoId = pendingOriginals.removeValue(forKey: transferId) else { return }
+        downloadStates[photoId] = .downloaded
+    }
+
+    private func failDownload(transferId: String, photoId: String) async {
+        pendingOriginals.removeValue(forKey: transferId)
+        downloadStates[photoId] = .failed
+        await offerExpecting?.forgetOriginal(transferId: transferId)
     }
 
     private func thumbnailWindowIDs() -> [String] {
