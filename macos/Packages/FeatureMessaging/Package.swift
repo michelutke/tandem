@@ -21,7 +21,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureMessagingTests",
-            dependencies: ["FeatureMessaging", "TandemTestSupport", "TandemProtocol", "TandemCrypto"],
+            dependencies: ["FeatureMessaging", "TandemTestSupport", "TandemProtocol", "TandemCrypto", "TandemStore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

@@ -1942,6 +1942,9 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
   Mac echoes it as the next request's `backfill_before_id`. `backfill_complete = true` on the page
   that reaches the oldest row; later requests then use only `since_id`.
 - `page_size` bounds the number of `messages` in one `SmsSyncResponse` page.
+- During a live session the phone may also send unsolicited incremental `SmsSyncResponse` pushes: they
+  carry only new rows/threads and `high_watermark_id`; unset `backfill_cursor_id` and
+  `backfill_complete` mean "backfill state unchanged", and receivers MUST NOT treat them as a reset.
 - `status = PERMISSION_REQUIRED` is returned, with no `threads` or `messages`, when the phone has
   not granted READ_SMS; `status = OK` otherwise.
 
@@ -1961,6 +1964,29 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
 
 The phone sends `SimList` on connect and again whenever the set of active subscriptions changes
 (publish-on-change); the Mac never requests it. The newest `SimList` replaces the previous one.
+
+### Non-default-SMS-app behavior
+
+*(E50-06 · PRD F-8.2 · UC-19)*
+
+Since Android 4.4 only the holder of the default-SMS-app role may insert, update or delete rows in
+the SMS provider. Tandem does not request that role in v1 (revisit in v2; mark-as-read and
+delete-on-phone stay out of scope until then). Consequences:
+
+- **The system writes Sent rows.** For an app that is not the default, the platform itself records
+  messages sent through `SmsManager.sendTextMessage`/`sendMultipartTextMessage` in the provider, so
+  Tandem-originated sends appear as Sent rows and flow back through incremental sync (§ Cursors,
+  E50-03) like any other message.
+- **Tandem cannot change provider rows.** It reads via `query()` only (`READ_SMS`); it cannot mark
+  messages read, delete them, or repair a missing row.
+- **Reconciliation.** The Mac tracks each send by `client_message_id` and, when a `SendSmsStatus`
+  reports `provider_message_id` (the `_id` of the system-written row), merges that row with its
+  optimistic outbound message instead of storing a duplicate (E50-04, E50-14).
+- **Local-only fallback.** If no provider row is reported (an OEM deviation from the documented
+  behavior), the Mac keeps its own row as local-only send history.
+
+Evidence: the E50-04 manual gate `smsSender_nonDefaultAppSend_systemWritesOneSentProviderRow` in `docs/testing/manual-gates.md` records the device model and
+Android version on which a non-default send produced exactly one Sent provider row.
 
 ### Conformance
 

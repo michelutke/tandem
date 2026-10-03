@@ -9,12 +9,13 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../TandemProtocol"),
-        .package(path: "../TandemTestSupport")
+        .package(path: "../TandemTestSupport"),
+        .package(path: "../TandemDesign")
     ],
     targets: [
         .target(
             name: "FeatureFiles",
-            dependencies: ["TandemProtocol"],
+            dependencies: ["TandemProtocol", "TandemDesign"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

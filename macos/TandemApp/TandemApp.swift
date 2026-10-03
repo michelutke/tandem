@@ -200,6 +200,7 @@ struct MenuContentView: View {
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
         _sendEntryHandler = State(initialValue: sendEntryHandler)
+        NSApplication.shared.servicesProvider = Self.finderServicesProvider(handler: sendEntryHandler)
         _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
             isConnected: false,
             sendFile: { Task { _ = await sendEntryHandler.sendFileQuickAction() } },
@@ -207,6 +208,14 @@ struct MenuContentView: View {
             findPhone: { findPhoneViewModel.select() },
             mirror: {}
         ))
+    }
+
+    private static var retainedFinderServicesProvider: FinderServicesProvider?
+
+    private static func finderServicesProvider(handler: SendEntryHandler) -> FinderServicesProvider {
+        let provider = FinderServicesProvider(handler: handler)
+        retainedFinderServicesProvider = provider
+        return provider
     }
 
     var body: some View {
