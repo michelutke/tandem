@@ -178,4 +178,39 @@ class AuditRunnerTest < Minitest::Test
     refute_equal 'passed', nmap_step['status']
     assert_includes File.read(md_path), 'pending'
   end
+
+  # tdd (E15-23)
+  def test_auditGate_phase1FullRun_everyExpectedStepReported
+    write_tool('alpha', PASS_SCRIPT)
+    write_tool('beta', MANUAL_GATE_SCRIPT)
+    expected = File.join(@tmp, 'expected-steps.txt')
+    File.write(expected, "# comment\nalpha\n\nbeta\n")
+
+    report = AuditRunner.run(tools_root: @tmp, subset: 'full', expected: AuditRunner.read_expected(expected))
+
+    assert_equal 'PASS', report[:overall]
+    assert_equal %w[alpha beta], report[:results].map { |r| r[:tool] }
+    assert_equal %w[passed pending], report[:results].map { |r| r[:status] }
+  end
+
+  def test_auditGate_expectedStepMissing_runFailsNamingStep
+    write_tool('alpha', PASS_SCRIPT)
+    expected = File.join(@tmp, 'expected-steps.txt')
+    File.write(expected, "alpha\nghost\n")
+    report_dir = File.join(@tmp, 'reports')
+    FileUtils.mkdir_p(report_dir)
+
+    report = AuditRunner.run(tools_root: @tmp, subset: 'full', expected: AuditRunner.read_expected(expected))
+
+    assert_equal 'FAIL', report[:overall]
+    ghost = report[:results].find { |r| r[:tool] == 'ghost' }
+    assert_equal 'failed', ghost[:status]
+    assert_includes ghost[:detail], 'expected step not discovered'
+
+    out, _err, status = Open3.capture3(
+      'ruby', RUN_RB, '--tools-root', @tmp, '--report-dir', report_dir, '--subset', 'full', '--expected', expected
+    )
+    refute status.success?
+    assert_includes out, 'ghost'
+  end
 end

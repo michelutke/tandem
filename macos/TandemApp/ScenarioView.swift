@@ -1,3 +1,5 @@
+import FeatureFiles
+import Observation
 import SwiftUI
 import TandemTransport
 
@@ -7,6 +9,24 @@ import TandemTransport
 // protobuf types across the module boundary (see `FakeTandemSession`'s own doc comment). Reached
 // here, under DEBUG only, exactly the way the E00-26 scenario seeding was always documented to.
 @testable import TandemProtocol
+
+/// Records that the Send File picker opened, then cancels it, so the scenario never shows a real panel.
+@MainActor
+@Observable
+private final class ScenarioFilePicker: FilePicker {
+    private(set) var opened = false
+
+    func pickFiles() async -> [URL] {
+        opened = true
+        return []
+    }
+}
+
+private struct ScenarioConnectedTransferService: FileTransferService {
+    let isConnected = true
+
+    func startOffer(for url: URL) async {}
+}
 
 /// The menu bar popover content rendered under a DEBUG `-UITestScenario` launch argument (E00-26),
 /// split out of `TandemApp.swift` purely to keep that file under this repo's `file_length` lint
@@ -26,6 +46,8 @@ struct ScenarioView: View {
     @State private var pairedConnectedFindPhoneViewModel: FindPhoneViewModel
     @State private var pairedConnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
     @State private var pairedConnectedQuickActionsViewModel: QuickActionsViewModel
+    @State private var pairedConnectedFilePicker: ScenarioFilePicker
+    @State private var pairedConnectedSendEntryHandler: SendEntryHandler
     @State private var pairedDisconnectedViewModel = ScenarioView.makePairedDisconnectedViewModel()
     /// No session (E23-07) -- ``pairedDisconnectedQuickActionsViewModel``'s `isConnected: false`
     /// already disables this action, so there is nothing for it to send/observe.
@@ -42,8 +64,16 @@ struct ScenarioView: View {
         let pairedConnectedPushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pairedConnectedFindPhoneViewModel = State(initialValue: pairedConnectedFindPhoneViewModel)
         _pairedConnectedPushClipboardViewModel = State(initialValue: pairedConnectedPushClipboardViewModel)
+        let pairedConnectedFilePicker = ScenarioFilePicker()
+        let pairedConnectedSendEntryHandler = SendEntryHandler(
+            picker: pairedConnectedFilePicker,
+            transfer: ScenarioConnectedTransferService()
+        )
+        _pairedConnectedFilePicker = State(initialValue: pairedConnectedFilePicker)
+        _pairedConnectedSendEntryHandler = State(initialValue: pairedConnectedSendEntryHandler)
         _pairedConnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
             isConnected: true,
+            sendFile: { Task { _ = await pairedConnectedSendEntryHandler.sendFileQuickAction() } },
             findPhone: { pairedConnectedFindPhoneViewModel.select() },
             pushClipboard: { pairedConnectedPushClipboardViewModel.select() }
         ))
@@ -54,6 +84,7 @@ struct ScenarioView: View {
         _pairedDisconnectedPushClipboardViewModel = State(initialValue: pairedDisconnectedPushClipboardViewModel)
         _pairedDisconnectedQuickActionsViewModel = State(initialValue: ScenarioView.makeQuickActionsViewModel(
             isConnected: false,
+            sendFile: {},
             findPhone: { pairedDisconnectedFindPhoneViewModel.select() },
             pushClipboard: { pairedDisconnectedPushClipboardViewModel.select() }
         ))
@@ -80,7 +111,12 @@ struct ScenarioView: View {
                     findPhoneViewModel: pairedConnectedFindPhoneViewModel,
                     pushClipboardViewModel: pairedConnectedPushClipboardViewModel
                 )
+                if pairedConnectedFilePicker.opened {
+                    Text("File picker opened")
+                        .accessibilityIdentifier("filePickerOpenedLabel")
+                }
             }
+            .acceptsFileDrops(pairedConnectedSendEntryHandler)
         case .pairedDisconnected:
             VStack(alignment: .leading, spacing: 8) {
                 MenuBarContentView(viewModel: pairedDisconnectedViewModel, deviceStatusViewModel: nil)
@@ -109,6 +145,8 @@ struct ScenarioView: View {
             MainWindowView(viewModel: ScenarioView.makeMainWindowOfflineViewModel())
         case .mainWindowFeatureDisabled:
             MainWindowView(viewModel: ScenarioView.makeMainWindowFeatureDisabledViewModel())
+        case .photoGridPartialAccess:
+            ScenarioView.makePhotoGridPartialAccessView()
         }
     }
 
@@ -198,19 +236,20 @@ struct ScenarioView: View {
         return LocalNetworkPermissionViewModel(errors: stream, urlOpener: WorkspaceURLOpener())
     }
 
-    /// No-op stub closures for the two actions with no wiring yet -- this seeds view state for
+    /// A no-op stub closure for the one action with no wiring yet -- this seeds view state for
     /// XCUITest, not a unit test, so recording call counts isn't needed here
-    /// (``QuickActionsViewModelTests`` already covers that). `findPhone` (E23-07) and
-    /// `pushClipboard` (E31-11) are real: they dispatch to their own scenario's
-    /// ``FindPhoneViewModel``/``PushClipboardViewModel``.
+    /// (``QuickActionsViewModelTests`` already covers that). `sendFile` (E40-10), `findPhone`
+    /// (E23-07) and `pushClipboard` (E31-11) are real: they dispatch to their own scenario's
+    /// handler/view model.
     private static func makeQuickActionsViewModel(
         isConnected: Bool,
+        sendFile: @escaping () -> Void,
         findPhone: @escaping () -> Void,
         pushClipboard: @escaping () -> Void
     ) -> QuickActionsViewModel {
         QuickActionsViewModel(
             isConnected: isConnected,
-            sendFile: {},
+            sendFile: sendFile,
             pushClipboard: pushClipboard,
             findPhone: findPhone,
             mirror: {}

@@ -49,6 +49,14 @@ public enum SendSmsErrorCode
    * <code>SEND_SMS_ERROR_CODE_RATE_LIMITED = 7;</code>
    */
   SEND_SMS_ERROR_CODE_RATE_LIMITED(7),
+  /**
+   * <code>SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED = 8;</code>
+   */
+  SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED(8),
+  /**
+   * <code>SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION = 9;</code>
+   */
+  SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION(9),
   UNRECOGNIZED(-1),
   ;
 
@@ -84,6 +92,14 @@ public enum SendSmsErrorCode
    * <code>SEND_SMS_ERROR_CODE_RATE_LIMITED = 7;</code>
    */
   public static final int SEND_SMS_ERROR_CODE_RATE_LIMITED_VALUE = 7;
+  /**
+   * <code>SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED = 8;</code>
+   */
+  public static final int SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED_VALUE = 8;
+  /**
+   * <code>SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION = 9;</code>
+   */
+  public static final int SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION_VALUE = 9;
 
 
   @java.lang.Override
@@ -114,6 +130,8 @@ public enum SendSmsErrorCode
       case 5: return SEND_SMS_ERROR_CODE_INVALID_ADDRESS;
       case 6: return SEND_SMS_ERROR_CODE_TOO_LONG;
       case 7: return SEND_SMS_ERROR_CODE_RATE_LIMITED;
+      case 8: return SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED;
+      case 9: return SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION;
       default: return null;
     }
   }

@@ -19,6 +19,8 @@ require 'optparse'
 
 module MacOSInfoPlistCheck
   REQUIRED_BONJOUR_SERVICE = '_tandem._tcp'
+  REQUIRED_SERVICE_MENU_ITEM = 'Send to phone'
+  REQUIRED_SERVICE_SEND_FILE_TYPE = 'public.item'
   FORBIDDEN_ATS_KEYS = %w[
     NSAllowsLocalNetworking
     NSAllowsArbitraryLoads
@@ -56,11 +58,38 @@ module MacOSInfoPlistCheck
       exit 1
     end
 
+    unless send_to_phone_service?(dict)
+      warn "Error: NSServices missing '#{REQUIRED_SERVICE_MENU_ITEM}' with NSSendFileTypes " \
+           "#{REQUIRED_SERVICE_SEND_FILE_TYPE}"
+      exit 1
+    end
+
     puts "✓ Info.plist check passed: NSLocalNetworkUsageDescription and NSBonjourServices " \
          "(#{REQUIRED_BONJOUR_SERVICE}) present"
   end
 
   private
+
+  def self.send_to_phone_service?(root_dict)
+    services_key = root_dict.elements.to_a('key').find { |key| key.text == 'NSServices' }
+    return false unless services_key
+
+    services = services_key.next_element
+    return false unless services&.name == 'array'
+
+    services.elements.to_a('dict').any? do |service|
+      entries = dict_entries(service)
+      menu_item = entries['NSMenuItem']
+      next false unless menu_item&.name == 'dict'
+
+      dict_entries(menu_item)['default']&.text == REQUIRED_SERVICE_MENU_ITEM &&
+        entries['NSSendFileTypes']&.elements&.map(&:text)&.include?(REQUIRED_SERVICE_SEND_FILE_TYPE)
+    end
+  end
+
+  def self.dict_entries(dict)
+    dict.elements.to_a('key').to_h { |key| [key.text, key.next_element] }
+  end
 
   def self.parse_plist_dict(dict)
     result = {}

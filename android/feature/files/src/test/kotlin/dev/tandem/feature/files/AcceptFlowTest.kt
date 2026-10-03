@@ -146,9 +146,30 @@ class AcceptFlowTest {
         runTest {
             newFlow()
 
-            offer("a", size = MIB, name = "evil‮txt.exe\u0000")
+            offer("a", size = MIB, name = "evil‮txt.exe")
 
             assertEquals("eviltxt.exe", prompter.posted.single().name)
+        }
+
+    @Test
+    fun androidAcceptFlow_nulInName_invalidNameRejectNoPrompt() =
+        runTest {
+            newFlow()
+
+            offer("a", size = MIB, name = "a\u0000b.txt")
+
+            assertEquals(listOf("a" to TransferReason.TRANSFER_REASON_INVALID_NAME), rejects())
+            assertTrue(prompter.posted.isEmpty())
+        }
+
+    @Test
+    fun androidAcceptFlow_traversalName_promptShowsLastComponentOnly() =
+        runTest {
+            newFlow()
+
+            offer("a", size = MIB, name = "../../etc/passwd")
+
+            assertEquals("passwd", prompter.posted.single().name)
         }
 
     private fun TestScope.newFlow(): AcceptFlow =
