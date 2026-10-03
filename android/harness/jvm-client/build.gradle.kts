@@ -73,6 +73,9 @@ dependencies {
     // FileSender/FilesScheduler (E40-03), for E40-15's no-starvation scenarios: the real FILES
     // sender against a real TLS mux, not a reimplementation of its chunk loop.
     implementation(project(":feature:files"))
+    // ContactsSyncSession (E51-02/05), for E51-07: the real phone-side contacts sync against a real
+    // TLS mux, not a reimplementation of its paging/tombstone/watermark logic.
+    implementation(project(":feature:contacts"))
     // SendSmsHandler (E50-04), for E50-11's send-limit scenarios: the real phone-side validation and
     // rate limiting against a real TLS session, not a reimplementation of them.
     implementation(project(":feature:messaging"))

@@ -1056,10 +1056,10 @@ Reference — E51-07 acceptance criteria:
 - Editing one fixture contact then deleting another results in the Mac cache reflecting both within 2 s, with one updated record and one tombstone sent (no full resync).
 - Physical phone: a contact edited on the phone shows its new name in the Mac thread list within 10 s.
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Physical phone paired with the Mac, session Ready; READ_CONTACTS granted; initial contacts sync complete; Messages thread list open on the Mac showing a thread with a known contact.
+**Steps:** 1. On the phone, rename that contact in the Contacts app. 2. Start a stopwatch on save. 3. Watch the Mac thread list until the thread shows the new name; stop the stopwatch. 4. Repeat 3 times.
+**Pass threshold:** New name appears on the Mac within 10 s in all 3 runs, with no manual refresh and no full resync.
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of phone and Mac with a visible clock; redacted log excerpt showing one incremental ContactsSyncResponse (no names).
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
