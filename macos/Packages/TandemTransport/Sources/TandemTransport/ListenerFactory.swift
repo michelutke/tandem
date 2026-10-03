@@ -17,7 +17,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// Recovers the decision and fingerprint `PeerVerifier`'s `onDecision` hook already computed
     /// for a connection's own verify callback (E12-02), keyed by that connection's TLS metadata
     /// object.
-    private let decisionCorrelator: PeerDecisionCorrelator
+    let decisionCorrelator: PeerDecisionCorrelator
     /// Drives `ConnectionStateMachine`'s handshake deadline and `VersionHandshake`'s hello
     /// deadline for every session this listener wires up (E00-24 seam rule).
     private let clock: any Clock<Duration>
@@ -37,7 +37,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// own kdoc on the PRD module-layering direction), so this calls `TandemStore`'s own
     /// `RevokeHandler.handle` directly rather than a facade reimplementing its effect.
     private let trustStore: TrustStore?
-    private let onSessionRegistered: SessionRegisteredHandler?
+    let onSessionRegistered: SessionRegisteredHandler?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -270,7 +270,7 @@ public struct NWListenerFactory: ListenerFactory {
             }
             await stateMachine.handle(.handshakeError(closeCode))
             adapter.cancel()
-            abandonIfPairingCandidate(decisionCorrelator.drop(metadataIdentifier: metadataIdentifier))
+            abandonIfPairingCandidate(dropReportingFailure(metadataIdentifier, session: session))
             return
         case .pending:
             abandonIfPairingCandidate(decisionCorrelator.drop(metadataIdentifier: metadataIdentifier))

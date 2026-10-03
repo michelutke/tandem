@@ -4,7 +4,13 @@ import android.app.Service
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.TandemApplication
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.pairing.revoke.TrustRemover
+import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.storage.trust.PeerRecord
+import dev.tandem.core.transport.FakeTandemSession
+import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.envelope
+import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -16,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import java.time.Instant
 
 // E20-02 tdd:
 //   unit: tandemService_lastMacUnpaired_stopsAndRemovesNotification
@@ -96,6 +103,72 @@ class TandemServiceTest {
         assertTrue(shadowService.isForegroundStopped)
         assertTrue(shadowService.notificationShouldRemoved)
         assertTrue(shadowService.isStoppedBySelf)
+    }
+
+    @Test
+    fun tandemService_revokeFrameOnRegisteredSession_trustRemovedAndSessionClosed() {
+        val peer = SpkiFingerprint(ByteArray(32) { 3 })
+        val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+        val registry = SessionRegistry()
+        val removed = mutableListOf<SpkiFingerprint>()
+        val controller = Robolectric.buildService(TandemService::class.java)
+        controller.get().apply {
+            pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
+            sessionRegistryFactory = { registry }
+            trustRemoverFactory = { TrustRemover { removed += it } }
+            dispatcher = UnconfinedTestDispatcher()
+        }
+        controller.create()
+        registry.register(session, peer)
+
+        session.emitIncoming(
+            envelope {
+                channel = Channel.CHANNEL_CONTROL
+                revoke = revoke {}
+            },
+        )
+
+        assertEquals(listOf(peer), removed)
+        assertTrue(session.state.value is ConnectionState.Disconnected)
+    }
+
+    @Test
+    fun tandemService_trustRemovalThrows_nextRegisteredSessionStillRevoked() {
+        val peer = SpkiFingerprint(ByteArray(32) { 3 })
+        val failing = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+        val healthy = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+        val registry = SessionRegistry()
+        val removed = mutableListOf<SpkiFingerprint>()
+        val controller = Robolectric.buildService(TandemService::class.java)
+        controller.get().apply {
+            pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
+            sessionRegistryFactory = { registry }
+            trustRemoverFactory =
+                {
+                    TrustRemover {
+                        if (removed.isEmpty()) {
+                            removed += it
+                            error("trust store unavailable")
+                        }
+                        removed += it
+                    }
+                }
+            dispatcher = UnconfinedTestDispatcher()
+        }
+        controller.create()
+        val revokeFrame =
+            envelope {
+                channel = Channel.CHANNEL_CONTROL
+                revoke = revoke {}
+            }
+
+        registry.register(failing, peer)
+        failing.emitIncoming(revokeFrame)
+        registry.register(healthy, peer)
+        healthy.emitIncoming(revokeFrame)
+
+        assertEquals(listOf(peer, peer), removed)
+        assertTrue(healthy.state.value is ConnectionState.Disconnected)
     }
 
     private fun awaitTrue(

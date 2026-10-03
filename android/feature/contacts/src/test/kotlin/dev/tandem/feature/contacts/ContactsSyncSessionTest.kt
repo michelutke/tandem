@@ -1,5 +1,6 @@
 package dev.tandem.feature.contacts
 
+import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
@@ -14,11 +15,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 /** ContactsSyncSession tests (E51-02; `docs/planning/backlog/phase-5.yaml` E51-02's `tdd:` list). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -112,20 +115,97 @@ class ContactsSyncSessionTest {
             assertTrue(sent.complete)
         }
 
+    @Test
+    fun contactsIncrementalSync_editedContact_pushesSingleUpdatedRecord() =
+        runTest {
+            val inner = FakeTandemSession()
+            val source = FakeContactsSource(contacts(2) + contact(id = 3, updatedAtMs = 50))
+            val sync = syncSession(source, inner)
+
+            sync.handle(request(sinceUpdatedAtMs = 10))
+
+            val sent = inner.sentFrames.single().contactsSyncResponse
+            assertEquals(listOf("3"), sent.contactsList.map { it.contactId })
+            assertEquals(50L, sent.watermarkMs)
+        }
+
+    @Test
+    fun contactsIncrementalSync_deletedContact_idInDeletedContactIds() =
+        runTest {
+            val inner = FakeTandemSession()
+            val source = FakeContactsSource(contacts(2), deletedContactIds = listOf("9"))
+
+            syncSession(source, inner).handle(request(sinceUpdatedAtMs = 1))
+
+            assertEquals(
+                listOf("9"),
+                inner.sentFrames
+                    .single()
+                    .contactsSyncResponse.deletedContactIdsList,
+            )
+        }
+
+    @Test
+    fun contactsIncrementalSync_sinceOlderThanRetention_respondsFullResyncRequired() =
+        runTest {
+            val inner = FakeTandemSession()
+            val source = FakeContactsSource(contacts(2))
+            val thirtyOneDaysMs = 31L * 24 * 60 * 60 * 1000
+            val sync = syncSession(source, inner, clockEpoch = Instant.ofEpochMilli(thirtyOneDaysMs + 1))
+
+            sync.handle(request(sinceUpdatedAtMs = 1))
+
+            val sent = inner.sentFrames.single().contactsSyncResponse
+            assertEquals(ContactsSyncStatus.CONTACTS_SYNC_STATUS_FULL_RESYNC_REQUIRED, sent.status)
+            assertTrue(sent.complete)
+            assertEquals(0, source.pagesRead)
+        }
+
+    @Test
+    fun contactsIncrementalSync_fiftyCallbacksWithin1s_singleQuery() =
+        runTest {
+            val inner = FakeTandemSession()
+            val source = FakeContactsSource(contacts(2))
+            val sync = syncSession(source, inner)
+            sync.handle(request(0))
+            val readsAfterInitialSync = source.pagesRead
+            val job = launch { sync.observeChanges() }
+            runCurrent()
+
+            repeat(50) {
+                source.changeEvents.emit(Unit)
+                advanceTimeBy(10)
+            }
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(readsAfterInitialSync + 1, source.pagesRead)
+            job.cancel()
+        }
+
     private fun TestScope.syncSession(
         source: ContactsSource,
         session: TandemSession,
-    ) = ContactsSyncSession(source, session, StandardTestDispatcher(testScheduler))
+        clockEpoch: Instant = Instant.EPOCH,
+    ) = ContactsSyncSession(
+        source,
+        session,
+        StandardTestDispatcher(testScheduler),
+        TestClock(testScheduler, clockEpoch),
+    )
 
     private fun request(sinceUpdatedAtMs: Long) = contactsSyncRequest { this.sinceUpdatedAtMs = sinceUpdatedAtMs }
 
-    private fun contacts(count: Int): List<Contact> =
-        (1..count).map {
-            contact {
-                contactId = it.toString()
-                displayName = "Contact $it"
-                updatedAtMs = it.toLong()
-            }
+    private fun contacts(count: Int): List<Contact> = (1..count).map { contact(it, it.toLong()) }
+
+    private fun contact(
+        id: Int,
+        updatedAtMs: Long,
+    ): Contact =
+        contact {
+            contactId = id.toString()
+            displayName = "Contact $id"
+            this.updatedAtMs = updatedAtMs
         }
 
     private class CreditGatedSession(

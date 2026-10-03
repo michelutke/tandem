@@ -1,6 +1,24 @@
 {
-  "originHash" : "810794ea51a941d2204bd72b58f8f208d00e1eab67759a46537680561fefee64",
+  "originHash" : "b8cfa9d3026e13e008a161a4bf85db57e56f1040a652539e89f34d1491779f79",
   "pins" : [
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift.git",
+      "state" : {
+        "revision" : "b83108d10f42680d78f23fe4d4d80fc88dab3212",
+        "version" : "7.11.1"
+      }
+    },
+    {
+      "identity" : "phonenumberkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PhoneNumberKit/PhoneNumberKit.git",
+      "state" : {
+        "revision" : "faf1703e6fc71c699e911ff0e306c58ad7c756c0",
+        "version" : "5.0.11"
+      }
+    },
     {
       "identity" : "swift-asn1",
       "kind" : "remoteSourceControl",

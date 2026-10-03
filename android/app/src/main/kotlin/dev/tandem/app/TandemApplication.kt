@@ -4,9 +4,11 @@ import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
 import dev.tandem.app.activity.ActivityStore
+import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.service.ServiceStarter
+import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
 import dev.tandem.core.storage.settings.createSettingsDataStore
@@ -37,6 +39,8 @@ import kotlin.time.Duration.Companion.days
 @HiltAndroidApp
 class TandemApplication : Application() {
     val trustStore: TrustStore by lazy { TrustStore.open(this, File(filesDir, TRUST_STORE_FILE_NAME)) }
+    val sessionRegistry = SessionRegistry()
+    val knownPeerStore: KnownPeerStore by lazy { KnownPeerStore(File(filesDir, KNOWN_PEERS_FILE_NAME)) }
 
     val activityStore: ActivityStore by lazy {
         ActivityStore(
@@ -65,6 +69,7 @@ class TandemApplication : Application() {
 
     companion object {
         const val TRUST_STORE_FILE_NAME = "trust.db"
+        const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"
     }
 }

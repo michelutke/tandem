@@ -66,6 +66,24 @@ class TestTlsServer(
         return future
     }
 
+    /** Accepts exactly one connection on a background thread and hands back its live, handshaken socket. */
+    fun acceptSocket(): CompletableFuture<SSLSocket> {
+        val future = CompletableFuture<SSLSocket>()
+        executor.submit {
+            try {
+                val socket = serverSocket.accept() as SSLSocket
+                val parameters = socket.sslParameters
+                parameters.applicationProtocols = config.alpnProtocols
+                socket.sslParameters = parameters
+                socket.startHandshake()
+                future.complete(socket)
+            } catch (t: Throwable) {
+                future.completeExceptionally(t)
+            }
+        }
+        return future
+    }
+
     private fun handleOneConnection(): TestTlsConnectionResult {
         val socket = serverSocket.accept() as SSLSocket
         val parameters = socket.sslParameters

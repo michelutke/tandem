@@ -10,4 +10,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ruby "$SCRIPT_DIR/check-macos-info-plist.rb" \
   --info-plist "$REPO_ROOT/macos/TandemApp/Info.plist"
 
+# Verify TandemShare Info.plist activation rule (E40-22)
+ruby "$SCRIPT_DIR/check-macos-info-plist.rb" --share \
+  --info-plist "$REPO_ROOT/macos/TandemShare/Info.plist"
+
 echo "✓ macOS Info.plist Local Network privacy check passed"
