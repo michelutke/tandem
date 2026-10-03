@@ -56,6 +56,10 @@ enum UITestScenario: String {
     /// access banner and its "Select more on phone" button render without a phone.
     case photoGridPartialAccess
 
+    /// Photo grid (E41-09) over a seeded 10 000-item ``PhotoService`` (pages of 100, synthetic
+    /// 256 px thumbnails) for the memory-bound scroll test.
+    case photoGrid10k
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

@@ -28,6 +28,7 @@ public final class PhotoGridViewModel {
     @ObservationIgnored private var pageInFlight = false
     @ObservationIgnored private var requestedThumbIDs: Set<String> = []
     @ObservationIgnored private var desiredThumbRange: ClosedRange<Int>?
+    @ObservationIgnored private var desiredThumbIDs: Set<String> = []
     @ObservationIgnored private var thumbLoaderRunning = false
 
     public init(service: any PhotoService) {
@@ -51,6 +52,8 @@ public final class PhotoGridViewModel {
 
     public func loadThumbnails(visible: ClosedRange<Int>) async {
         desiredThumbRange = visible
+        desiredThumbIDs = Set(thumbnailWindowIDs())
+        evictThumbnailsOutsideWindow()
         guard !thumbLoaderRunning else { return }
         thumbLoaderRunning = true
         defer { thumbLoaderRunning = false }
@@ -66,27 +69,49 @@ public final class PhotoGridViewModel {
         try? await service.requestMorePhotos()
     }
 
-    private func unrequestedThumbIDs() -> [String] {
+    private func thumbnailWindowIDs() -> [String] {
         guard let visible = desiredThumbRange, !items.isEmpty else { return [] }
         let viewport = visible.count
         let lower = max(0, visible.lowerBound - viewport)
         let upper = min(items.count - 1, visible.upperBound + viewport)
         guard lower <= upper else { return [] }
-        return items[lower...upper].map(\.id).filter { !requestedThumbIDs.contains($0) }
+        return items[lower...upper].map(\.id)
+    }
+
+    private func unrequestedThumbIDs() -> [String] {
+        thumbnailWindowIDs().filter { !requestedThumbIDs.contains($0) }
+    }
+
+    private func evictThumbnailsOutsideWindow() {
+        let evicted = thumbnails.keys.filter { !desiredThumbIDs.contains($0) }
+        for id in evicted {
+            thumbnails[id] = nil
+            requestedThumbIDs.remove(id)
+        }
     }
 
     private func fetchThumbnails(_ ids: [String]) async {
         await withTaskGroup(of: (String, Data?).self) { group in
             var remaining = ids[...]
-            func addNext() {
-                guard let id = remaining.popFirst() else { return }
-                group.addTask { [service] in
-                    (id, try? await service.fetchThumbnail(id: id, maxPx: Self.thumbMaxPx))
+            @MainActor func addNext() {
+                while let id = remaining.popFirst() {
+                    guard desiredThumbIDs.contains(id) else {
+                        requestedThumbIDs.remove(id)
+                        continue
+                    }
+                    group.addTask { [service] in
+                        (id, try? await service.fetchThumbnail(id: id, maxPx: Self.thumbMaxPx))
+                    }
+                    return
                 }
             }
             for _ in 0..<Self.maxOutstandingThumbs { addNext() }
             for await (id, data) in group {
-                if let data { thumbnails[id] = data }
+                if !desiredThumbIDs.contains(id) {
+                    requestedThumbIDs.remove(id)
+                } else if let data {
+                    thumbnails[id] = data
+                }
                 addNext()
             }
         }
