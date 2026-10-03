@@ -16,6 +16,7 @@ import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
 import "tandem/v1/focus.proto";
 import "tandem/v1/media.proto";
+import "tandem/v1/media_control.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
 import "tandem/v1/photos.proto";
@@ -75,6 +76,9 @@ message Envelope {
   // 120-129: focus.proto (E72-04). 120-121 are FocusState/FocusSyncCapability; 122-129 held for
   // future focus-sync extensions.
   reserved 122 to 129; // focus.proto (E72-04): future CONTROL focus-sync extensions
+  // 130-139: media_control.proto (E72-02). 130-135 are NowPlaying/PlayPause/Next/Previous/Stop/
+  // CapabilityUnavailable; 136-139 held for future media-control extensions.
+  reserved 136 to 139; // media_control.proto (E72-02): future STATUS channel media-control extensions
   // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
   // the separate media connection, which has no channel and therefore no Envelope payload slot
   // (E01-14).
@@ -151,5 +155,13 @@ message Envelope {
     // focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
     FocusState focus_state = 120;
     FocusSyncCapability focus_sync_capability = 121;
+
+    // media_control.proto (E72-02) — STATUS channel.
+    NowPlaying now_playing = 130;
+    PlayPause play_pause = 131;
+    Next next = 132;
+    Previous previous = 133;
+    Stop stop = 134;
+    CapabilityUnavailable capability_unavailable = 135;
   }
 }

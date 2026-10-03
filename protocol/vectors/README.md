@@ -286,6 +286,16 @@ Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/pro
 `expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
 both codecs also re-encode to the same bytes.
 
+### `media-control-encoding.json` (E72-02)
+
+Vectors for `docs/protocol/SPEC.md` `#media-control`'s message types
+(`protocol/proto/tandem/v1/media_control.proto`): `NowPlaying`, `PlayPause`, `Next`, `Previous`,
+`Stop`, `CapabilityUnavailable`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`nowPlaying`/`playPause`/`next`/`previous`/`stop`/`capabilityUnavailable`).
+Every entry carries `expected.summary` (the canonical decoded view: `title=..|artist=..|state=<n>|album=..|durationMs=..`
+with `<absent>` for unset optionals, `empty` for commands, `feature=<n>`) and a `messageSha256`; both
+codecs also re-encode to the same bytes.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

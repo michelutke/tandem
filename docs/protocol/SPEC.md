@@ -56,6 +56,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
 | 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
 | 22 | Focus sync | [`#focus-sync`](#focus-sync) | Written (E72-04) |
+| 23 | Media control | [`#media-control`](#media-control) | Written (E72-02) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -658,7 +659,7 @@ reserved across every enum in this protocol (`Channel`, `PairRejected.reason`, c
 | 6 | `CONTACTS` | Contacts sync (F-8.3). |
 | 7 | `CALLS` | Call control (F-8.4). |
 | 8 | `INPUT` | Remote input events (F-9.3). |
-| 9 | `STATUS` | Device status, `Ring`/`RingStop` (F-4.3, F-4.4). |
+| 9 | `STATUS` | Device status, `Ring`/`RingStop`, media control (F-4.3, F-4.4, F-10.1). |
 
 This channel set is closed and exhaustive: the nine values above, plus the reserved
 `CHANNEL_UNSPECIFIED = 0`, are the only channel values this version of the protocol ever defines.
@@ -2216,3 +2217,44 @@ the phone cannot apply Focus. The Mac stops sending `FocusState` until it sees `
 
 `protocol/vectors/focus-encoding.json` (E72-04; E15-01, E15-02) includes `FocusState` (on and off) and
 `FocusSyncCapability` (unavailable and available) round-tripping to golden bytes on both codecs.
+
+## Media control
+
+F-10.1 (design note `docs/design/design-note-media-control-f-10-1.md`, E72-01). The paired Mac shows
+the phone's now-playing metadata and sends transport commands to the phone's active media session.
+The channel set of §4 is closed for this protocol version, so media control rides the existing
+`STATUS` channel (device-state domain, like `Ring`/`RingStop`) and uses `STATUS`'s credit ledger.
+Six `Envelope` payloads (`media_control.proto`, E72-02) occupy the reserved range 130-139:
+`NowPlaying` (130), `PlayPause` (131), `Next` (132), `Previous` (133), `Stop` (134) and
+`CapabilityUnavailable` (135); 136-139 are held. All payloads are legal only on an authenticated
+session that has reached Ready.
+
+### NowPlaying
+
+- Phone to Mac only. `NowPlaying { title, artist, state, album?, duration_ms? }` is sent when the
+  active media session, its metadata or its playback state changes, and once after Ready when a
+  session is active. `state` is `PLAYBACK_STATE_PLAYING`, `_PAUSED` or `_STOPPED`.
+- `title`, `artist` and `album` are untrusted peer strings: the Mac sanitizes them for display per §11
+  (`#untrusted-peer-strings-display-sanitization`). A sender MUST truncate `title` to 256, `artist` to
+  128 and `album` to 128 characters; a receiver MUST reject a longer value as a protocol violation.
+- Track metadata is never logged in release builds (invariant 7).
+
+### Transport commands
+
+- `PlayPause`, `Next`, `Previous` and `Stop` are Mac to phone only and carry no fields. The phone
+  dispatches each to the active media session's transport controls: `PlayPause` pauses a playing
+  session and plays a paused or stopped one.
+- A command with no active session, or one the session does not support, is silently dropped.
+
+### CapabilityUnavailable
+
+`CapabilityUnavailable { feature = FEATURE_MEDIA_CONTROL }` is sent by the phone only, once after
+Ready, when it lacks notification-listener access (the grant that lets it read active media
+sessions). The phone then never sends `NowPlaying` and ignores transport commands until the grant is
+present at the next session.
+
+### Conformance
+
+`protocol/vectors/media-control-encoding.json` (E72-02; E15-01, E15-02) includes `NowPlaying` (with and
+without optional fields, non-ASCII text, explicit-empty album, cap-length strings), the four commands
+and `CapabilityUnavailable` round-tripping to golden bytes on both codecs.

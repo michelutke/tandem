@@ -12,27 +12,29 @@ wire-protocol channel and message shape.
 
 ## Design decisions
 
-### 1. New MEDIA_CONTROL channel (ID 10)
+### 1. Media control rides the STATUS channel
 
-Media control gets its own channel rather than reusing NOTIFY, CONTROL, or STATUS because:
+SPEC.md §4 ("Channel enumeration") declares the channel set closed and exhaustive for this protocol
+version: a peer rejects any channel value outside the nine defined ones (`UNKNOWN_CHANNEL`), so a new
+channel value would break v1 peers and need a protocol version bump. Media control therefore reuses
+an existing channel. It goes on `STATUS`, the device-state domain that already carries `DeviceStatus`
+and `Ring`/`RingStop`, rather than NOTIFY, CONTROL or CLIPBOARD:
 
-- **Feature scope and traffic patterns:** F-10.1 is a distinct capability (media session information and control) with bidirectional flow (metadata push from phone, commands from Mac). Previous feature-specific channels (NOTIFY, CLIPBOARD, FILES, SMS, CONTACTS, CALLS, STATUS) each establish this pattern: one feature → one channel.
-- **Flow-control isolation:** Per SPEC.md §4 (D-01), separate channels prevent one feature's traffic from starving others. Media metadata updates and control commands should not contend with clipboard, notifications, or status messages.
-- **Extensibility:** F-10.4 (multi-Mac) and future media enhancements (e.g., queue management, playback history) are easier to accommodate with a dedicated channel.
+- **Domain fit:** now-playing metadata is device state pushed phone to Mac, and transport commands are
+  small Mac-to-phone device actions, the same shape as `Ring`/`RingStop`.
+- **Flow control:** `STATUS` has its own credit ledger (SPEC.md §4, D-01), so media traffic cannot
+  starve notifications, clipboard or files.
+- **Payload range:** Envelope field numbers 130-139 are reserved for `media_control.proto`; the field
+  number, not the channel, identifies the message type.
 
-The channel is added to `Channel` enum in `protocol/proto/tandem/v1/channel.proto`:
-```proto
-CHANNEL_MEDIA_CONTROL = 10;
-```
-
-This extends the closed channel set documented in SPEC.md §4 from nine to ten values.
+No `Channel` enum change is made.
 
 ### 2. Message shape and flow
 
 **Phone → Mac (metadata push, on active session change):**
 - `NowPlaying` message: title, artist, playback state (PLAYING, PAUSED, STOPPED), and optional album and duration.
   - Sent when MediaSessionManager detects an active session or a metadata change in the current session.
-  - Sent unsolicited after a MEDIA_CONTROL session enters Ready state (matching RotationChallenge pattern, D-74; see E72-01 scope note below).
+  - Sent unsolicited after a session enters Ready state (matching RotationChallenge pattern, D-74; see E72-01 scope note below).
   - Title and artist are untrusted peer input: SPEC.md §11 sanitization applies before rendering (E01-23).
   - Capped at 256 characters (title) and 128 characters (artist) per E01-22 resource caps.
 
@@ -42,15 +44,13 @@ This extends the closed channel set documented in SPEC.md §4 from nine to ten v
   - If no active session or the session lacks support for the command, the message is silently dropped.
 
 **Capability signaling:**
-- If the phone lacks `READ_MEDIA_SESSION_STATE` or `BIND_NOTIFICATION_LISTENER_SERVICE` permissions, it sends `CapabilityUnavailable{MEDIA_CONTROL}` unsolicited after Ready state and never sends NowPlaying.
+- If the phone lacks `READ_MEDIA_SESSION_STATE` or `BIND_NOTIFICATION_LISTENER_SERVICE` permissions, it sends `CapabilityUnavailable{FEATURE_MEDIA_CONTROL}` unsolicited after Ready state and never sends NowPlaying.
 - This matches the pattern from E30-02 notification-listener and E72-04 focus-sync (seam pattern from E00-21).
 
-### 3. Carrier layer: MEDIA_CONTROL channel within existing control/data connections
+### 3. Carrier layer: STATUS channel on the existing connection
 
-Media control messages ride on the same two mTLS connections established in SPEC.md §3:
-
-- **CONTROL connection:** carries transport commands (PlayPause, Next, Previous, Stop) using the existing credit-grant flow from §4 (E01-04). Command latency is critical for user experience; interleaving with heartbeat and other control traffic is acceptable.
-- **NOTIFY connection (or new DATA connection):** carries metadata pushes (NowPlaying) using the credit-grant flow. Metadata updates are lower-latency-sensitive than command acknowledgment.
+Media control messages ride the `STATUS` channel of the mTLS connection established in SPEC.md §3, using
+the existing credit-grant flow from §4 (E01-04). Commands and metadata share that one channel and ledger.
 
 **Alternative considered and rejected:** A dedicated media connection. This adds listener port and connection-setup complexity for a low-bandwidth feature that already has two multiplexed connections available (SPEC.md §3, ADR-002). Reusing the existing control/data pair matches SPEC.md D-03 (one listener port, one audited codepath).
 
@@ -88,20 +88,19 @@ E72-02 will add to `protocol/proto/tandem/v1/`:
   }
   ```
 
-- Update `protocol/proto/tandem/v1/envelope.proto` to add MEDIA_CONTROL payloads to the `payload` oneof (field numbers TBD, following the reserved-range pattern in §20, E01-14).
-- Update `protocol/proto/tandem/v1/channel.proto` to add `CHANNEL_MEDIA_CONTROL = 10` and update the comment to reflect ten channels.
+- Update `protocol/proto/tandem/v1/envelope.proto` to add MEDIA_CONTROL payloads to the `payload` oneof (fields 130-135, reserved range 130-139).
 - Conformance vectors in `protocol/vectors/media_control/` for round-trip tests (E72-02 acceptance: "Media-control vectors round-trip on both codecs").
 
 ## Permissions and seams
 
 - **Android:** `READ_MEDIA_SESSION_STATE` (new, added to the shared Android manifest via E00-28).
-  Fallback: if unavailable, send `CapabilityUnavailable{MEDIA_CONTROL}` and do not attempt to read MediaSessionManager.
+  Fallback: if unavailable, send `CapabilityUnavailable{FEATURE_MEDIA_CONTROL}` and do not attempt to read MediaSessionManager.
 - **Seam:** `MediaSessionGateway` in feature-local implementation, backed by `MediaSessionManager` and `MediaController` in production, with a recording fake in `TandemTestSupport` for unit tests (E00-21 pattern).
 
 ## macOS half (F-10.1 display side)
 
 E72-02 covers Android media-session capture and forwarding. The macOS receiver (E72-08, split in review cycle 3) will:
-- Listen on MEDIA_CONTROL channel and update UI with NowPlaying metadata.
+- Listen on the STATUS channel for the media-control payloads and update UI with NowPlaying metadata.
 - Offer Now Playing widget and media-playback controls (play/pause, next, previous) in the app or menu bar.
 - Send PlayPause, Next, Previous, Stop commands on Mac user interaction.
 - Display CapabilityUnavailable as "Feature not available on this phone" if the phone signals it.

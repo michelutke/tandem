@@ -74,6 +74,12 @@ public  final class Envelope extends
     ROTATION_REJECT(113),
     FOCUS_STATE(120),
     FOCUS_SYNC_CAPABILITY(121),
+    NOW_PLAYING(130),
+    PLAY_PAUSE(131),
+    NEXT(132),
+    PREVIOUS(133),
+    STOP(134),
+    CAPABILITY_UNAVAILABLE(135),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -138,6 +144,12 @@ public  final class Envelope extends
         case 113: return ROTATION_REJECT;
         case 120: return FOCUS_STATE;
         case 121: return FOCUS_SYNC_CAPABILITY;
+        case 130: return NOW_PLAYING;
+        case 131: return PLAY_PAUSE;
+        case 132: return NEXT;
+        case 133: return PREVIOUS;
+        case 134: return STOP;
+        case 135: return CAPABILITY_UNAVAILABLE;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -3075,6 +3087,338 @@ public  final class Envelope extends
     }
   }
 
+  public static final int NOW_PLAYING_FIELD_NUMBER = 130;
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — STATUS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNowPlaying() {
+    return payloadCase_ == 130;
+  }
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — STATUS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.NowPlaying getNowPlaying() {
+    if (payloadCase_ == 130) {
+       return (dev.tandem.protocol.v1.NowPlaying) payload_;
+    }
+    return dev.tandem.protocol.v1.NowPlaying.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — STATUS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNowPlaying(dev.tandem.protocol.v1.NowPlaying value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 130;
+  }
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — STATUS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNowPlaying(dev.tandem.protocol.v1.NowPlaying value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 130 &&
+        payload_ != dev.tandem.protocol.v1.NowPlaying.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.NowPlaying.newBuilder((dev.tandem.protocol.v1.NowPlaying) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 130;
+  }
+  /**
+   * <pre>
+   * media_control.proto (E72-02) — STATUS channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+   */
+  private void clearNowPlaying() {
+    if (payloadCase_ == 130) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PLAY_PAUSE_FIELD_NUMBER = 131;
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPlayPause() {
+    return payloadCase_ == 131;
+  }
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.PlayPause getPlayPause() {
+    if (payloadCase_ == 131) {
+       return (dev.tandem.protocol.v1.PlayPause) payload_;
+    }
+    return dev.tandem.protocol.v1.PlayPause.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPlayPause(dev.tandem.protocol.v1.PlayPause value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 131;
+  }
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePlayPause(dev.tandem.protocol.v1.PlayPause value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 131 &&
+        payload_ != dev.tandem.protocol.v1.PlayPause.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.PlayPause.newBuilder((dev.tandem.protocol.v1.PlayPause) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 131;
+  }
+  /**
+   * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+   */
+  private void clearPlayPause() {
+    if (payloadCase_ == 131) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int NEXT_FIELD_NUMBER = 132;
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   */
+  @java.lang.Override
+  public boolean hasNext() {
+    return payloadCase_ == 132;
+  }
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Next getNext() {
+    if (payloadCase_ == 132) {
+       return (dev.tandem.protocol.v1.Next) payload_;
+    }
+    return dev.tandem.protocol.v1.Next.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setNext(dev.tandem.protocol.v1.Next value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 132;
+  }
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeNext(dev.tandem.protocol.v1.Next value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 132 &&
+        payload_ != dev.tandem.protocol.v1.Next.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Next.newBuilder((dev.tandem.protocol.v1.Next) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 132;
+  }
+  /**
+   * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+   */
+  private void clearNext() {
+    if (payloadCase_ == 132) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int PREVIOUS_FIELD_NUMBER = 133;
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   */
+  @java.lang.Override
+  public boolean hasPrevious() {
+    return payloadCase_ == 133;
+  }
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Previous getPrevious() {
+    if (payloadCase_ == 133) {
+       return (dev.tandem.protocol.v1.Previous) payload_;
+    }
+    return dev.tandem.protocol.v1.Previous.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setPrevious(dev.tandem.protocol.v1.Previous value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 133;
+  }
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergePrevious(dev.tandem.protocol.v1.Previous value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 133 &&
+        payload_ != dev.tandem.protocol.v1.Previous.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Previous.newBuilder((dev.tandem.protocol.v1.Previous) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 133;
+  }
+  /**
+   * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+   */
+  private void clearPrevious() {
+    if (payloadCase_ == 133) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int STOP_FIELD_NUMBER = 134;
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   */
+  @java.lang.Override
+  public boolean hasStop() {
+    return payloadCase_ == 134;
+  }
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Stop getStop() {
+    if (payloadCase_ == 134) {
+       return (dev.tandem.protocol.v1.Stop) payload_;
+    }
+    return dev.tandem.protocol.v1.Stop.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setStop(dev.tandem.protocol.v1.Stop value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 134;
+  }
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeStop(dev.tandem.protocol.v1.Stop value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 134 &&
+        payload_ != dev.tandem.protocol.v1.Stop.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Stop.newBuilder((dev.tandem.protocol.v1.Stop) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 134;
+  }
+  /**
+   * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+   */
+  private void clearStop() {
+    if (payloadCase_ == 134) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int CAPABILITY_UNAVAILABLE_FIELD_NUMBER = 135;
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   */
+  @java.lang.Override
+  public boolean hasCapabilityUnavailable() {
+    return payloadCase_ == 135;
+  }
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.CapabilityUnavailable getCapabilityUnavailable() {
+    if (payloadCase_ == 135) {
+       return (dev.tandem.protocol.v1.CapabilityUnavailable) payload_;
+    }
+    return dev.tandem.protocol.v1.CapabilityUnavailable.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setCapabilityUnavailable(dev.tandem.protocol.v1.CapabilityUnavailable value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 135;
+  }
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeCapabilityUnavailable(dev.tandem.protocol.v1.CapabilityUnavailable value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 135 &&
+        payload_ != dev.tandem.protocol.v1.CapabilityUnavailable.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.CapabilityUnavailable.newBuilder((dev.tandem.protocol.v1.CapabilityUnavailable) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 135;
+  }
+  /**
+   * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+   */
+  private void clearCapabilityUnavailable() {
+    if (payloadCase_ == 135) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
   public static dev.tandem.protocol.v1.Envelope parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -5965,6 +6309,318 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNowPlaying() {
+      return instance.hasNowPlaying();
+    }
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.NowPlaying getNowPlaying() {
+      return instance.getNowPlaying();
+    }
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    public Builder setNowPlaying(dev.tandem.protocol.v1.NowPlaying value) {
+      copyOnWrite();
+      instance.setNowPlaying(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    public Builder setNowPlaying(
+        dev.tandem.protocol.v1.NowPlaying.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNowPlaying(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    public Builder mergeNowPlaying(dev.tandem.protocol.v1.NowPlaying value) {
+      copyOnWrite();
+      instance.mergeNowPlaying(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media_control.proto (E72-02) — STATUS channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];</code>
+     */
+    public Builder clearNowPlaying() {
+      copyOnWrite();
+      instance.clearNowPlaying();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPlayPause() {
+      return instance.hasPlayPause();
+    }
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.PlayPause getPlayPause() {
+      return instance.getPlayPause();
+    }
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    public Builder setPlayPause(dev.tandem.protocol.v1.PlayPause value) {
+      copyOnWrite();
+      instance.setPlayPause(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    public Builder setPlayPause(
+        dev.tandem.protocol.v1.PlayPause.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPlayPause(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    public Builder mergePlayPause(dev.tandem.protocol.v1.PlayPause value) {
+      copyOnWrite();
+      instance.mergePlayPause(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];</code>
+     */
+    public Builder clearPlayPause() {
+      copyOnWrite();
+      instance.clearPlayPause();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    @java.lang.Override
+    public boolean hasNext() {
+      return instance.hasNext();
+    }
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Next getNext() {
+      return instance.getNext();
+    }
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    public Builder setNext(dev.tandem.protocol.v1.Next value) {
+      copyOnWrite();
+      instance.setNext(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    public Builder setNext(
+        dev.tandem.protocol.v1.Next.Builder builderForValue) {
+      copyOnWrite();
+      instance.setNext(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    public Builder mergeNext(dev.tandem.protocol.v1.Next value) {
+      copyOnWrite();
+      instance.mergeNext(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Next next = 132 [json_name = "next"];</code>
+     */
+    public Builder clearNext() {
+      copyOnWrite();
+      instance.clearNext();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    @java.lang.Override
+    public boolean hasPrevious() {
+      return instance.hasPrevious();
+    }
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Previous getPrevious() {
+      return instance.getPrevious();
+    }
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    public Builder setPrevious(dev.tandem.protocol.v1.Previous value) {
+      copyOnWrite();
+      instance.setPrevious(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    public Builder setPrevious(
+        dev.tandem.protocol.v1.Previous.Builder builderForValue) {
+      copyOnWrite();
+      instance.setPrevious(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    public Builder mergePrevious(dev.tandem.protocol.v1.Previous value) {
+      copyOnWrite();
+      instance.mergePrevious(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Previous previous = 133 [json_name = "previous"];</code>
+     */
+    public Builder clearPrevious() {
+      copyOnWrite();
+      instance.clearPrevious();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    @java.lang.Override
+    public boolean hasStop() {
+      return instance.hasStop();
+    }
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Stop getStop() {
+      return instance.getStop();
+    }
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    public Builder setStop(dev.tandem.protocol.v1.Stop value) {
+      copyOnWrite();
+      instance.setStop(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    public Builder setStop(
+        dev.tandem.protocol.v1.Stop.Builder builderForValue) {
+      copyOnWrite();
+      instance.setStop(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    public Builder mergeStop(dev.tandem.protocol.v1.Stop value) {
+      copyOnWrite();
+      instance.mergeStop(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Stop stop = 134 [json_name = "stop"];</code>
+     */
+    public Builder clearStop() {
+      copyOnWrite();
+      instance.clearStop();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    @java.lang.Override
+    public boolean hasCapabilityUnavailable() {
+      return instance.hasCapabilityUnavailable();
+    }
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.CapabilityUnavailable getCapabilityUnavailable() {
+      return instance.getCapabilityUnavailable();
+    }
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    public Builder setCapabilityUnavailable(dev.tandem.protocol.v1.CapabilityUnavailable value) {
+      copyOnWrite();
+      instance.setCapabilityUnavailable(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    public Builder setCapabilityUnavailable(
+        dev.tandem.protocol.v1.CapabilityUnavailable.Builder builderForValue) {
+      copyOnWrite();
+      instance.setCapabilityUnavailable(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    public Builder mergeCapabilityUnavailable(dev.tandem.protocol.v1.CapabilityUnavailable value) {
+      copyOnWrite();
+      instance.mergeCapabilityUnavailable(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];</code>
+     */
+    public Builder clearCapabilityUnavailable() {
+      copyOnWrite();
+      instance.clearCapabilityUnavailable();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -6035,15 +6691,22 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.RotationReject.class,
             dev.tandem.protocol.v1.FocusState.class,
             dev.tandem.protocol.v1.FocusSyncCapability.class,
+            dev.tandem.protocol.v1.NowPlaying.class,
+            dev.tandem.protocol.v1.PlayPause.class,
+            dev.tandem.protocol.v1.Next.class,
+            dev.tandem.protocol.v1.Previous.class,
+            dev.tandem.protocol.v1.Stop.class,
+            dev.tandem.protocol.v1.CapabilityUnavailable.class,
           };
           java.lang.String info =
-              "\u00004\u0001\u0000\u0001y4\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
-              "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000\f<" +
-              "\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
+              "\u0000:\u0001\u0000\u0001\u0087:\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
+              "\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000" +
+              "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
               "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
               "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
               "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000n" +
-              "<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000";
+              "<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000\u0082<\u0000\u0083<\u0000\u0084<" +
+              "\u0000\u0085<\u0000\u0086<\u0000\u0087<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

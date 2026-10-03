@@ -89,6 +89,7 @@ object ConformanceRunner {
             "media-encoding",
             "rotation-encoding",
             "focus-encoding",
+            "media-control-encoding",
             "filenames",
         )
 
@@ -206,6 +207,7 @@ object ConformanceRunner {
             "media-encoding" -> mediaEncodingOutcome(vector)
             "rotation-encoding" -> rotationEncodingOutcome(vector)
             "focus-encoding" -> focusEncodingOutcome(vector)
+            "media-control-encoding" -> mediaControlEncodingOutcome(vector)
             "filenames" -> filenamesOutcome(vector)
             else -> throw UnknownVectorCategoryException(category)
         }

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+// E72-02: media_control.proto — now-playing metadata and transport commands for F-10.1, defined by
+// docs/protocol/SPEC.md #media-control (design note docs/design/design-note-media-control-f-10-1.md).
+// All messages ride CHANNEL_STATUS and are embedded directly in envelope.proto's
+// Envelope.payload oneof, which reserves field numbers 130-139 for this file. They are legal only
+// on an authenticated session that has reached Ready.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+enum PlaybackState {
+  PLAYBACK_STATE_UNSPECIFIED = 0;
+  PLAYBACK_STATE_PLAYING = 1;
+  PLAYBACK_STATE_PAUSED = 2;
+  PLAYBACK_STATE_STOPPED = 3;
+}
+
+// NowPlaying: phone -> Mac. Sent when the active media session or its metadata changes. title,
+// artist and album are untrusted peer input (SPEC.md #untrusted-strings sanitization applies before
+// rendering); the sender truncates them to the caps below, the receiver rejects longer values.
+message NowPlaying {
+  string title = 1;           // <= 256 chars
+  string artist = 2;          // <= 128 chars
+  PlaybackState state = 3;
+  optional string album = 4;  // <= 128 chars
+  optional int64 duration_ms = 5;
+}
+
+// Transport commands: Mac -> phone, dispatched to the active media session's transport controls.
+message PlayPause {}
+message Next {}
+message Previous {}
+message Stop {}
+
+// CapabilityUnavailable: phone -> Mac, sent unsolicited once the session is Ready when the phone
+// lacks notification-listener access; the phone then never sends NowPlaying.
+message CapabilityUnavailable {
+  enum Feature {
+    FEATURE_UNSPECIFIED = 0;
+    FEATURE_MEDIA_CONTROL = 1;
+  }
+  Feature feature = 1;
+}
