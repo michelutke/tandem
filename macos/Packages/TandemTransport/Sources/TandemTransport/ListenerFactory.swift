@@ -13,7 +13,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// Where a connection that reaches `.ready` as a `.trusted` peer is registered under its SPKI
     /// fingerprint (E12-19). `any ControlSessionRegistering` rather than the concrete actor so a
     /// test can inject a spy. Shared across every connection this listener ever accepts.
-    private let sessionRegistry: any ControlSessionRegistering
+    let sessionRegistry: any ControlSessionRegistering
     /// Recovers the decision and fingerprint `PeerVerifier`'s `onDecision` hook already computed
     /// for a connection's own verify callback (E12-02), keyed by that connection's TLS metadata
     /// object.
@@ -36,8 +36,9 @@ public struct NWListenerFactory: ListenerFactory {
     /// seam. `TandemTransport` already depends on `TandemStore` (see ``TandemTrustStoreReader``'s
     /// own kdoc on the PRD module-layering direction), so this calls `TandemStore`'s own
     /// `RevokeHandler.handle` directly rather than a facade reimplementing its effect.
-    private let trustStore: TrustStore?
+    let trustStore: TrustStore?
     let onSessionRegistered: SessionRegisteredHandler?
+    let rotation: RotationReceiverConfiguration?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -47,7 +48,8 @@ public struct NWListenerFactory: ListenerFactory {
         clock: any Clock<Duration> = ContinuousClock(),
         pairingCandidateDriver: (any PairingCandidateDriver)? = nil,
         trustStore: TrustStore? = nil,
-        onSessionRegistered: SessionRegisteredHandler? = nil
+        onSessionRegistered: SessionRegisteredHandler? = nil,
+        rotation: RotationReceiverConfiguration? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
@@ -55,6 +57,7 @@ public struct NWListenerFactory: ListenerFactory {
         self.pairingCandidateDriver = pairingCandidateDriver
         self.trustStore = trustStore
         self.onSessionRegistered = onSessionRegistered
+        self.rotation = rotation
     }
 
     public func makeListener(
@@ -277,12 +280,8 @@ public struct NWListenerFactory: ListenerFactory {
             return // `run()` always resolves `session` before returning; unreachable.
         }
 
-        let registeredFingerprint = await handleReadyDecision(metadataIdentifier: metadataIdentifier, session: session)
-        let revokeReaderTask = registeredFingerprint.flatMap { fingerprint in
-            startControlRevokeReader(
-                fingerprint: fingerprint, session: session, sessionRegistry: sessionRegistry, trustStore: trustStore
-            )
-        }
+        let trustedPeer = await handleReadyDecision(metadataIdentifier: metadataIdentifier, session: session)
+        let revokeReaderTask = startControlReader(for: trustedPeer, session: session)
 
         // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
         // framing/credit violation, the peer's own orderly close, or a transport-level read
@@ -303,9 +302,10 @@ public struct NWListenerFactory: ListenerFactory {
         // the ordering true rather than merely likely).
         await revokeReaderTask?.value
         await heartbeatController?.stop()
+        sessionClosed(trustedPeer)
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()
-        if let registeredFingerprint {
+        if let registeredFingerprint = trustedPeer?.fingerprint {
             await sessionRegistry.removeIfCurrent(registeredFingerprint, session: session)
         }
     }
@@ -320,7 +320,7 @@ public struct NWListenerFactory: ListenerFactory {
     private func handleReadyDecision(
         metadataIdentifier: ObjectIdentifier,
         session: ByteStreamSession
-    ) async -> SpkiFingerprint? {
+    ) async -> TrustedPeer? {
         guard let recorded = decisionCorrelator.take(metadataIdentifier: metadataIdentifier) else {
             Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
             return nil
@@ -331,7 +331,7 @@ public struct NWListenerFactory: ListenerFactory {
             guard let fingerprint = recorded.fingerprint else { return nil }
             await sessionRegistry.register(fingerprint, session: session)
             onSessionRegistered?(fingerprint, session)
-            return fingerprint
+            return TrustedPeer(fingerprint: fingerprint, spkiDer: recorded.spkiDer)
         case .pairingCandidate:
             guard let driver = pairingCandidateDriver, let token = recorded.candidateToken else { return nil }
             guard let spkiDer = recorded.spkiDer else {

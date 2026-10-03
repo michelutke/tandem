@@ -1,7 +1,9 @@
+import Foundation
 import Network
 import Security
 import TandemCrypto
 import TandemProtocol
+import TandemStore
 
 /// The single ALPN identifier this protocol negotiates (`docs/protocol/SPEC.md`
 /// `#handshake-and-tls-profile`). No other value is ever offered or accepted.
@@ -79,5 +81,52 @@ extension NWListenerFactory {
             onSessionRegistered?(fingerprint, session)
         }
         return dropped
+    }
+}
+
+/// A `.trusted` connection's handshake identity as ``PeerVerifier`` recorded it: its SPKI
+/// fingerprint and the leaf's actual SPKI DER (the rotation transcript's `oldSpkiDer`, E70-05).
+struct TrustedPeer: Sendable {
+    let fingerprint: SpkiFingerprint
+    let spkiDer: Data?
+}
+
+extension NWListenerFactory {
+    /// Spawns a Ready `.trusted` session's `CONTROL` reader (`Revoke`, and `KeyRotation` when rotation
+    /// is configured) after purging grace pins the new Ready session makes obsolete (E70-05).
+    func startControlReader(for peer: TrustedPeer?, session: ByteStreamSession) -> Task<Void, Never>? {
+        guard let peer else { return nil }
+        graceMaintenance?.sessionReady(authenticatedBy: peer.fingerprint)
+        return startControlRevokeReader(
+            fingerprint: peer.fingerprint,
+            session: session,
+            sessionRegistry: sessionRegistry,
+            trustStore: trustStore,
+            rotation: makeRotationReceiver(for: peer, session: session)
+        )
+    }
+
+    /// A grace session closing purges its grace pin (E70-05).
+    func sessionClosed(_ peer: TrustedPeer?) {
+        guard let peer else { return }
+        graceMaintenance?.sessionClosed(authenticatedBy: peer.fingerprint)
+    }
+
+    private var graceMaintenance: GracePinMaintenance? {
+        guard let trustStore, let rotation else { return nil }
+        return GracePinMaintenance(trustStore: trustStore, dateProvider: rotation.dateProvider)
+    }
+
+    /// The Mac's rotation receiver for a Ready `.trusted` session; `nil` when rotation, the trust
+    /// store or the handshake SPKI DER is unavailable.
+    func makeRotationReceiver(for peer: TrustedPeer?, session: any TandemSession) -> RotationReceiver? {
+        guard let peer, let spkiDer = peer.spkiDer, let trustStore, let rotation else { return nil }
+        return RotationReceiver(
+            session: session,
+            handshakeFingerprint: peer.fingerprint,
+            handshakeSpkiDer: spkiDer,
+            trustStore: trustStore,
+            configuration: rotation
+        )
     }
 }

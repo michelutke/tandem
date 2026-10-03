@@ -86,7 +86,8 @@ enum AppComposition {
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
                 trustStore: trustStore,
-                onSessionRegistered: menuBarWiring.onSessionRegistered
+                onSessionRegistered: menuBarWiring.onSessionRegistered,
+                rotation: RotationReceiverConfiguration(window: NoPairingWindow(), dateProvider: { Date() })
             ),
             port: .any,
             verify: verify
@@ -197,7 +198,7 @@ enum AppComposition {
         pinMismatchBannerGate: PinMismatchBannerGate
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: trustStore),
+            trustStore: TandemTrustStoreReader(trustStore: trustStore, dateProvider: { Date() }),
             window: NoPairingWindow(),
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 decisionCorrelator.record(

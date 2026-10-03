@@ -22,7 +22,7 @@ public struct TrustStore: Sendable {
     /// Current schema version.
     private static let currentSchemaVersion: Int = 1
 
-    private let keychainStore: any KeychainStore
+    let keychainStore: any KeychainStore
 
     public init(keychainStore: any KeychainStore) {
         self.keychainStore = keychainStore
@@ -31,7 +31,7 @@ public struct TrustStore: Sendable {
     /// Adds the record for `record.fingerprint`, or replaces it if one already exists.
     public func put(_ record: PeerRecord) throws {
         let data = try Self.encoder.encode(record)
-        let account = record.fingerprint.hexString
+        let account = record.recordId.hexString
         do {
             try keychainStore.addGenericPassword(
                 service: Self.peerRecordService,
@@ -44,19 +44,21 @@ public struct TrustStore: Sendable {
         }
     }
 
-    /// The record for `fingerprint`, or `nil` if none exists. A locked Keychain throws
-    /// `KeychainError.locked` rather than returning `nil`, so a caller can't mistake "locked" for
-    /// "unknown peer".
+    /// The record whose current primary pin is `fingerprint`, or `nil` if none exists (a grace pin
+    /// never matches here). A locked Keychain throws `KeychainError.locked` rather than returning
+    /// `nil`, so a caller can't mistake "locked" for "unknown peer".
     public func get(_ fingerprint: SpkiFingerprint) throws -> PeerRecord? {
         do {
             let data = try keychainStore.copyGenericPassword(
                 service: Self.peerRecordService,
                 account: fingerprint.hexString
             )
-            return try Self.decoder.decode(PeerRecord.self, from: data)
+            let record = try Self.decoder.decode(PeerRecord.self, from: data)
+            if record.fingerprint.matches(fingerprint) { return record }
         } catch KeychainError.itemNotFound {
-            return nil
+            // Not a record id; a rotated peer's record lives under its first fingerprint.
         }
+        return try list().first { $0.fingerprint.matches(fingerprint) }
     }
 
     /// Every paired peer, for the paired-devices UI (E14-14).
@@ -65,9 +67,11 @@ public struct TrustStore: Sendable {
             .map { try Self.decoder.decode(PeerRecord.self, from: $0.data) }
     }
 
-    /// Removes the record for `fingerprint`. Throws `KeychainError.itemNotFound` if none exists.
+    /// Removes the record whose current primary pin is `fingerprint`. Throws
+    /// `KeychainError.itemNotFound` if none exists.
     public func delete(_ fingerprint: SpkiFingerprint) throws {
-        try keychainStore.deleteGenericPassword(service: Self.peerRecordService, account: fingerprint.hexString)
+        guard let record = try get(fingerprint) else { throw KeychainError.itemNotFound }
+        try keychainStore.deleteGenericPassword(service: Self.peerRecordService, account: record.recordId.hexString)
     }
 
     /// Returns the current schema version. Defaults to 1 if no version is set.
@@ -85,9 +89,8 @@ public struct TrustStore: Sendable {
         }
     }
 
-    /// Runs the v1-to-v2 migration: reads all v1 records, updates schema version to 2.
-    /// In this initial scaffold, all records are preserved as-is; future migrations can
-    /// transform record fields as needed.
+    /// Runs the v1-to-v2 migration: reads all v1 records and re-writes them in the v2 shape
+    /// (`recordId` = first fingerprint, no grace pin; E70-05), then updates schema version to 2.
     public static func runMigrationV1ToV2(keychainStore: any KeychainStore) throws {
         // Read all current records (which are v1 format)
         let items = try keychainStore.listGenericPasswords(service: Self.peerRecordService)
@@ -96,7 +99,7 @@ public struct TrustStore: Sendable {
         // Re-write records as-is (in this scaffold, no transformation needed)
         for record in records {
             let data = try Self.encoder.encode(record)
-            let account = record.fingerprint.hexString
+            let account = record.recordId.hexString
             try keychainStore.updateGenericPassword(
                 service: Self.peerRecordService,
                 account: account,
@@ -128,6 +131,6 @@ public struct TrustStore: Sendable {
         try delete(fingerprint)
     }
 
-    private static let encoder = JSONEncoder()
-    private static let decoder = JSONDecoder()
+    static let encoder = JSONEncoder()
+    static let decoder = JSONDecoder()
 }

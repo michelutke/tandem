@@ -6,9 +6,10 @@ import TandemStore
 /// `wireSession(adapter:metadataIdentifier:)`): reads `session`'s own `CONTROL` channel
 /// (``HeartbeatController``'s own kdoc already reserves this exact stream for "a future `CONTROL`
 /// reader" -- this is it) until either a `Revoke` frame arrives, dispatched to
-/// ``TandemStore/RevokeHandler``, or the stream finishes on its own once `session` closes for any
-/// other reason (``TandemSession/receive(_:)``'s own contract). A no-op task if `trustStore` is
-/// `nil`. Every other `CONTROL` payload (`Heartbeat` included, already handled by
+/// ``TandemStore/RevokeHandler`` (a `KeyRotation` frame goes to `rotation`, E70-05, which also
+/// sends this session's `RotationChallenge` before the first read), or the stream finishes on its
+/// own once `session` closes for any other reason (``TandemSession/receive(_:)``'s own contract). A
+/// no-op task if `trustStore` is `nil`. Every other `CONTROL` payload (`Heartbeat` included, already handled by
 /// ``HeartbeatController`` off the non-consuming `received` broadcast) is ignored here and the
 /// loop keeps reading.
 ///
@@ -31,20 +32,28 @@ func startControlRevokeReader(
     fingerprint: SpkiFingerprint,
     session: ByteStreamSession,
     sessionRegistry: any ControlSessionRegistering,
-    trustStore: TrustStore?
+    trustStore: TrustStore?,
+    rotation: RotationReceiver? = nil
 ) -> Task<Void, Never>? {
     guard let trustStore else { return nil }
     let worker = Task {
         let frames = await session.receive(.control)
+        await rotation?.sendChallenge()
         for await frame in frames {
-            guard case .revoke = frame.payload else { continue }
-            await RevokeHandler.handle(
-                peerSpkiFingerprint: fingerprint,
-                session: ControlRevokeHandlerSession(session: session),
-                trustStore: trustStore,
-                registry: ControlRevokeHandlerRegistry(registry: sessionRegistry, session: session)
-            )
-            return
+            switch frame.payload {
+            case .revoke?:
+                await RevokeHandler.handle(
+                    peerSpkiFingerprint: fingerprint,
+                    session: ControlRevokeHandlerSession(session: session),
+                    trustStore: trustStore,
+                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry, session: session)
+                )
+                return
+            case .keyRotation(let message)?:
+                await rotation?.handle(message)
+            default:
+                continue
+            }
         }
     }
     return Task {

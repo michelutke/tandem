@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import TandemCrypto
 import TandemTestSupport
 @testable import TandemProtocol
 
@@ -10,14 +11,7 @@ import TandemTestSupport
 /// #key-rotation transcript.
 extension ConformanceRunner {
     private static let rotationCategory = "rotation-encoding"
-    private static let rotationChallengeLength = 32
-    private static let p256SpkiLength = 91
-    private static let uncompressedPointTag: UInt8 = 0x04
-    private static let p256SpkiHeader = Data([
-        0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01,
-        0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00
-    ])
-    private static let rotateLabel = Data("tandem-rotate-v1".utf8)
+    private static let rotationChallengeLength = RotationVerifier.challengeByteCount
 
     static func runRotationEncoding(data: Data) throws -> [VectorOutcome] {
         let manifest = try JSONDecoder().decode(RotationEncodingManifest.self, from: data)
@@ -112,10 +106,13 @@ extension ConformanceRunner {
         let decoded = try Tandem_V1_KeyRotation(serializedBytes: bytes)
         let oldSpkiDer = try conformanceRunnerHexDecode(vector.input.oldSpkiDerHex ?? "")
         let channelBinding = try conformanceRunnerHexDecode(vector.input.cbHex ?? "")
-        let transcript = rotationTranscript(old: oldSpkiDer, new: decoded.newSpkiDer, channelBinding: channelBinding)
-        let verified = isStrictP256Spki(decoded.newSpkiDer)
-            && verifyEcdsa(spkiDer: oldSpkiDer, message: transcript, signatureDer: decoded.sigOldKey)
-            && verifyEcdsa(spkiDer: decoded.newSpkiDer, message: transcript, signatureDer: decoded.sigNewKey)
+        let verified = RotationVerifier.verify(
+            oldSpkiDer: oldSpkiDer,
+            newSpkiDer: decoded.newSpkiDer,
+            challenge: channelBinding,
+            sigOldKey: decoded.sigOldKey,
+            sigNewKey: decoded.sigNewKey
+        )
         if vector.expected != nil {
             let roundTrip = try rotationRoundTripOutcome(vector, bytes: bytes, reencoded: reencoded)
             return VectorOutcome(
@@ -132,30 +129,6 @@ extension ConformanceRunner {
             id: vector.id, category: rotationCategory, outcome: actual == expectedError ? "pass" : "fail",
             expected: expectedError, actual: actual
         )
-    }
-
-    private static func isStrictP256Spki(_ spkiDer: Data) -> Bool {
-        spkiDer.count == p256SpkiLength
-            && spkiDer.prefix(p256SpkiHeader.count) == p256SpkiHeader
-            && spkiDer[spkiDer.startIndex + p256SpkiHeader.count] == uncompressedPointTag
-    }
-
-    private static func rotationTranscript(old: Data, new: Data, channelBinding: Data) -> Data {
-        var transcript = rotateLabel
-        for part in [old, new, channelBinding] {
-            transcript.append(UInt8(part.count >> 8))
-            transcript.append(UInt8(part.count & 0xFF))
-            transcript.append(part)
-        }
-        return transcript
-    }
-
-    private static func verifyEcdsa(spkiDer: Data, message: Data, signatureDer: Data) -> Bool {
-        guard let publicKey = try? P256.Signing.PublicKey(derRepresentation: spkiDer),
-              let signature = try? P256.Signing.ECDSASignature(derRepresentation: signatureDer) else {
-            return false
-        }
-        return publicKey.isValidSignature(signature, for: message)
     }
 }
 
