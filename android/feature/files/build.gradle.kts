@@ -2,6 +2,7 @@ plugins {
     id("tandem.android.feature")
     id("tandem.android.instrumented")
     id("tandem.android.robolectric")
+    id("tandem.android.compose-ui-test")
 }
 
 android {
@@ -26,6 +27,10 @@ dependencies {
     implementation(project(":core:crypto"))
     // NotificationCompat for NotificationTransferPrompter.
     implementation(libs.androidx.core.ktx)
+    // TransferProgressRow (E40-12).
+    implementation(project(":core:designsystem"))
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
 
     // AcceptFlowTest scripts TandemSession via FakeTandemSession (E12-11); test-only.
     testImplementation(testFixtures(project(":core:transport")))

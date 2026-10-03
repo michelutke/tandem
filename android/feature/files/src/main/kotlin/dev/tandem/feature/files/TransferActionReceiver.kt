@@ -8,6 +8,10 @@ import android.content.Intent
 object TransferActionDispatcher {
     @Volatile
     var acceptFlow: AcceptFlow? = null
+
+    /** Cancels the in-flight transfer with the given id (E40-12). */
+    @Volatile
+    var cancelTransfer: ((String) -> Unit)? = null
 }
 
 /** Routes the prompt notification's Accept/Decline taps to [TransferActionDispatcher]'s [AcceptFlow]. */
@@ -17,10 +21,10 @@ class TransferActionReceiver : BroadcastReceiver() {
         intent: Intent,
     ) {
         val offerId = intent.getStringExtra(NotificationTransferPrompter.EXTRA_OFFER_ID) ?: return
-        val flow = TransferActionDispatcher.acceptFlow ?: return
         when (intent.action) {
-            NotificationTransferPrompter.ACTION_ACCEPT -> flow.accept(offerId)
-            NotificationTransferPrompter.ACTION_DECLINE -> flow.decline(offerId)
+            TransferProgressNotifier.ACTION_CANCEL -> TransferActionDispatcher.cancelTransfer?.invoke(offerId)
+            NotificationTransferPrompter.ACTION_ACCEPT -> TransferActionDispatcher.acceptFlow?.accept(offerId)
+            NotificationTransferPrompter.ACTION_DECLINE -> TransferActionDispatcher.acceptFlow?.decline(offerId)
         }
     }
 }

@@ -18,8 +18,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -60,6 +64,10 @@ class FileReceiver(
 ) : PeerDataPurging {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val transfers = ConcurrentHashMap<String, Transfer>()
+    private val bytes = MutableStateFlow<Map<String, TransferBytes>>(emptyMap())
+
+    /** Bytes received so far per accepted transfer id (E40-12). */
+    val progress: StateFlow<Map<String, TransferBytes>> = bytes.asStateFlow()
 
     /** Number of accepted transfers still receiving; feeds AcceptFlow's `activeTransfers`. */
     val activeCount: Int get() = transfers.size
@@ -220,6 +228,7 @@ class FileReceiver(
         if (failure != null) return fail(chunk.id, failure)
         transfer.digest.update(bytes)
         transfer.received += bytes.size
+        this.bytes.update { it + (chunk.id to TransferBytes(transfer.received, transfer.offer.size)) }
     }
 
     private suspend fun onComplete(id: String) {
@@ -283,6 +292,7 @@ class FileReceiver(
 
     private suspend fun discard(id: String) {
         transfers.remove(id)
+        bytes.update { it - id }
         withContext(ioDispatcher) { store.delete(id) }
     }
 
