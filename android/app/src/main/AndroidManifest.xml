@@ -122,6 +122,29 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- E31-12: transparent capture activity started by the Quick Settings tile; reads the
+             clipboard on window focus (background reads are blocked on Android 10+), sends it and
+             finishes. Not exported: reached only via the tile's explicit-component intent. -->
+        <activity
+            android:name="dev.tandem.feature.clipboard.ClipboardCaptureActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tandem.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
+
+        <!-- E31-12: "Send clip" Quick Settings tile. Exported and permission-guarded so only the
+             system can bind it (E00-28 allowlist entry). -->
+        <service
+            android:name="dev.tandem.feature.clipboard.ClipboardTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_send_clip"
+            android:label="@string/clipboard_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

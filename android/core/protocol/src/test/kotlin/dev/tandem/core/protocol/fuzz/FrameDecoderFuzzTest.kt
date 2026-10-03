@@ -59,7 +59,7 @@ class FrameDecoderFuzzTest {
         // (bad length prefixes, undecodable envelope bytes) to exercise FrameDecoder's rejection
         // paths, and parsing them as a well-formed Envelope would throw before the seed ever
         // reaches the fuzz target. So every vector's raw wire bytes are used verbatim instead.
-        private fun seedFrameBytes(input: JsonObject): ByteArray {
+        internal fun seedFrameBytes(input: JsonObject): ByteArray {
             if ("frameHex" in input) return hexToBytes(input.getValue("frameHex").jsonPrimitive.content)
 
             val envelopeBytes = buildEnvelopeFromRecipe(input.getValue("envelopeRecipe").jsonObject)
@@ -67,7 +67,7 @@ class FrameDecoderFuzzTest {
             return beLengthPrefix(lengthPrefix) + envelopeBytes
         }
 
-        private fun beLengthPrefix(length: Long): ByteArray =
+        internal fun beLengthPrefix(length: Long): ByteArray =
             byteArrayOf(
                 (length ushr 24).toByte(),
                 (length ushr 16).toByte(),
@@ -78,7 +78,7 @@ class FrameDecoderFuzzTest {
 }
 
 /** Adapts a fixed [bytes] array to [FrameSource]: delivers them once, then reports EOF (-1). */
-private class OneShotFrameSource(
+internal class OneShotFrameSource(
     private val bytes: ByteArray,
 ) : FrameSource {
     private var position = 0

@@ -118,6 +118,10 @@ targets:
       # from their canonical TandemTestSupport source file rather than via the package dependency.
       - path: Packages/TandemTestSupport/Sources/TandemTestSupport/SystemPowerEventsAndNetworkPathFakes.swift
         group: TandemAppTests
+      # E15-16: same `package: TandemTestSupport` linking-bug workaround -- the in-memory byte-stream
+      # pair (E00-25) the real-session version-mismatch test drives, compiled from its canonical file.
+      - path: Packages/TandemTestSupport/Sources/TandemTestSupport/InMemoryConnectionPair.swift
+        group: TandemAppTests
     settings:
       base:
         SWIFT_VERSION: "6.0"

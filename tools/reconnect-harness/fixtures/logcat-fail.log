@@ -1,0 +1,4 @@
+10-02 09:00:00.000  1234  1250 I TandemReconnect: event=disconnected
+10-02 09:00:01.000  1234  1250 I TandemReconnect: event=ready
+10-02 09:00:10.000  1234  1250 I TandemReconnect: event=disconnected
+10-02 09:00:17.500  1234  1250 I TandemReconnect: event=ready

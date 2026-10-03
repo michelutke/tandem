@@ -43,6 +43,19 @@ actor RecordingNotificationPresenter: @preconcurrency NotificationPresenter {
         addedRequests.map(\.identifier)
     }
 
+    /// Title, subtitle and body of every ``add(_:)``-ed request, in call order (E30-15).
+    var addedContents: [AddedContent] {
+        addedRequests.map {
+            AddedContent(title: $0.content.title, subtitle: $0.content.subtitle, body: $0.content.body)
+        }
+    }
+
+    struct AddedContent: Sendable, Equatable {
+        let title: String
+        let subtitle: String
+        let body: String
+    }
+
     /// Bodies of every ``add(_:)``-ed request, in call order (E30-08).
     var addedBodies: [String] {
         addedRequests.map(\.content.body)

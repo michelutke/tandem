@@ -1,4 +1,4 @@
-protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files, photos).
+protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files, photos, contacts, sms, calls, media).
 
 ## Future proto files (E01-14)
 
@@ -11,10 +11,8 @@ reserved for it.
 
 | Future `.proto` file | Owning epic/issue | Channel | Reserved `Envelope.payload` field numbers |
 |---|---|---|---|
-| `sms.proto` | E50-01 | `CHANNEL_SMS` | 70–79 |
 | `contacts.proto` | E51-01 | `CHANNEL_CONTACTS` | 80–89 |
-| `calls.proto` | E52-01 | `CHANNEL_CALLS` | 90–99 |
-| `media.proto` | E60-01 / E61-01 | `CHANNEL_CONTROL` (ticket request only; grant is `MediaTicketGrant` in `control.proto`, E01-12, already in the 4–9 range) | none — media frames ride the separate media connection, which carries no `Envelope` and has no channel |
+| `media.proto` | E60-01 / E61-01 | `CHANNEL_CONTROL` (`RequestMediaTicket` = 8, written by E60-01; grant is `MediaTicketGrant` in `control.proto`, E01-12) | 8 (`RequestMediaTicket`) — `MediaHello` and E61-01 media frames ride the separate media connection, which carries no `Envelope` and has no channel |
 | `input.proto` | E62-01 | `CHANNEL_INPUT` | 100–109 |
 | `rotation.proto` | E70-01 | `CHANNEL_CONTROL` | 110–119 |
 | `status.proto` extension | E23-01 | `CHANNEL_STATUS` (already `status.proto`'s channel, E01-13) | 22–29 (within status.proto's existing 20–29 range; do not assign before E23-01) |

@@ -137,14 +137,23 @@ Run the suite:
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-11-version-scenarios/scenarios --timeout 300
 ```
 
-Every scenario completed in well under a minute in practice. `mitmLab_helloUnsupportedMajorVersion_
-menuShowsVersionError` (the UI half of the version-mismatch scenario, reading the real Mac menu-bar
-status item's text via the accessibility tree after the same attack) is not included here: the
-Mac app's `MenuContentView` does not yet wire any real per-connection state into
-`MenuBarViewModel`/`ErrorBannerViewModel` at all (both are constructed with `stateStream: nil`,
-`macos/TandemApp/TandemApp.swift`) — a real attack against the harness-launched app today has
-nothing to surface in that UI regardless of what closed it. See this issue's PR description for
-that gap; it blocks only this one UI-observability check, not the six scenarios above.
+Every scenario completed in well under a minute in practice.
+
+## E15-16: menu-bar version-mismatch check
+
+`mitmLab_helloUnsupportedMajorVersion_menuShowsVersionError` (the UI half of E15-11's version-mismatch
+scenario) is deliberately not a mitm-lab script: reading the status item through the accessibility tree
+needs OS Accessibility permission, which CI and dev machines don't grant to scripts. It is covered by
+CI-runnable tests instead:
+
+- `macos/Packages/TandemTransport/Tests/TandemTransportTests/VersionMismatchHookLoopbackTests.swift` --
+  real mTLS listener, trusted peer sends `VersionHello` major 99: not registered, but
+  `onSessionRegistered` sees the session ending in `.failed(.versionMismatch)`.
+- `macos/TandemAppTests/VersionMismatchMenuTests.swift` -- real `ByteStreamSession`/`VersionHandshake`
+  over an in-memory stream, through `ConnectionStateRelay`: `MenuBarViewModel` and
+  `ErrorBannerViewModel` both show the version-mismatch error.
+- `macos/TandemUITests/ScenarioVersionMismatchMenuUITests.swift` -- XCUITest of the seeded
+  `versionMismatchMenu` scenario window (menu label and banner text).
 
 ## E15-10: certificate-abuse scenarios
 
@@ -194,6 +203,18 @@ All six scenarios pass in well under a minute each (no pairing-window expiry wai
 — an impostor at a discovery-resolved candidate address with a different key fails the real JVM
 client's pin check and receives zero application bytes. Reuses the E15-10 library; run with
 `ruby tools/mitm-lab/runner.rb tools/mitm-lab/e21-06-discovery-hint/scenarios --timeout 120`.
+
+## E20-20: authenticated CONTROL-flood scenarios
+
+`tools/mitm-lab/e20-20-auth-flood/` — an already-paired, authenticated phone (JVM harness client,
+identity seeded via `-HarnessSeedTrust`, reusing `e15-10-common.sh`) floods the real Mac's CONTROL
+channel with the harness `FLOOD HEARTBEAT|CONTROL <perSecond> <seconds>` command. Both scenarios
+expect the Mac to close the session with `LIMIT_EXCEEDED` and leave its trust store unchanged:
+non-Heartbeat CONTROL past 60/s (D-61), and 1000 Heartbeats/s (D-66 counts Heartbeats the Mac
+receives toward the same cap). Needs the real Mac app, so they run only on macOS and are not part
+of `audit-step.sh`; `test/e20_20_scenarios_test.rb` checks their structure. The phone-side D-60
+reply cap (at most one reply/s) is covered by `HeartbeatResponderTest`; a Mac test double that
+floods a phone does not exist yet.
 
 ## E15-20: pre-auth DoS and timeout scenarios
 
