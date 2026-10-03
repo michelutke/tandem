@@ -86,3 +86,87 @@ struct PhotoGridViewModelTests {
         #expect(!viewModel.showsLimitedAccessBanner)
     }
 }
+
+private actor RecordingOfferExpecting: OriginalOfferExpecting {
+    private(set) var expected: [String] = []
+    private(set) var forgotten: [String] = []
+    func expectOriginal(transferId: String) { expected.append(transferId) }
+    func forgetOriginal(transferId: String) { forgotten.append(transferId) }
+}
+
+private struct DownloadError: Error {}
+
+@MainActor
+struct PhotoGridViewModelDownloadTests {
+    private func makeViewModel(
+        service: FakePhotoService,
+        expecting: RecordingOfferExpecting
+    ) -> PhotoGridViewModel {
+        PhotoGridViewModel(service: service, offerExpecting: expecting, makeTransferID: { "xfer-1" })
+    }
+
+    @Test func originalDownload_download_sendsRequestWithFreshTransferIdAndRecordsPending() async {
+        let service = FakePhotoService()
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+
+        await viewModel.download(id: "photo-3")
+
+        let requests = await service.originalRequests
+        #expect(requests.map(\.id) == ["photo-3"])
+        #expect(requests.map(\.transferId) == ["xfer-1"])
+        #expect(await expecting.expected == ["xfer-1"])
+        #expect(viewModel.downloadStates["photo-3"] == .downloading)
+    }
+
+    @Test func originalDownload_photoErrorForTransferId_itemStateFailed() async {
+        let service = FakePhotoService()
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+        await viewModel.download(id: "photo-3")
+
+        var error = Tandem_V1_PhotoError()
+        error.kind = .original
+        error.ref = "photo-3"
+        await viewModel.photoErrorReceived(error)
+
+        #expect(viewModel.downloadStates["photo-3"] == .failed)
+        #expect(await expecting.forgotten == ["xfer-1"])
+    }
+
+    @Test func originalDownload_thumbErrorForSamePhoto_ignored() async {
+        let service = FakePhotoService()
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+        await viewModel.download(id: "photo-3")
+
+        var error = Tandem_V1_PhotoError()
+        error.kind = .thumb
+        error.ref = "photo-3"
+        await viewModel.photoErrorReceived(error)
+
+        #expect(viewModel.downloadStates["photo-3"] == .downloading)
+    }
+
+    @Test func originalDownload_requestSendThrows_itemStateFailed() async {
+        let service = FakePhotoService()
+        await service.setOriginalRequestError(DownloadError())
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+
+        await viewModel.download(id: "photo-3")
+
+        #expect(viewModel.downloadStates["photo-3"] == .failed)
+        #expect(await expecting.forgotten == ["xfer-1"])
+    }
+
+    @Test func originalDownload_transferFinished_itemStateDownloaded() async {
+        let service = FakePhotoService()
+        let viewModel = makeViewModel(service: service, expecting: RecordingOfferExpecting())
+        await viewModel.download(id: "photo-3")
+
+        viewModel.originalTransferFinished(transferId: "xfer-1")
+
+        #expect(viewModel.downloadStates["photo-3"] == .downloaded)
+    }
+}

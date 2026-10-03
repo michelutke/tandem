@@ -1,5 +1,6 @@
 package dev.tandem.feature.files
 
+import com.google.protobuf.InvalidProtocolBufferException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.protocol.FilenameSanitizer
@@ -12,6 +13,7 @@ import dev.tandem.protocol.v1.FileOffer
 import dev.tandem.protocol.v1.TransferReason
 import dev.tandem.protocol.v1.fileCancel
 import dev.tandem.protocol.v1.fileReject
+import dev.tandem.protocol.v1.fileResumeRequest
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -21,8 +23,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.io.InputStream
 import java.security.MessageDigest
+import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.hours
 
 /**
  * Receiver half of a FILES transfer after `FileAccept` (E40-05; SPEC.md #files-channel "Chunking").
@@ -32,11 +37,23 @@ import java.util.concurrent.ConcurrentHashMap
  * checked before [publisher] sees the file: a digest mismatch sends `FileCancel HASH_MISMATCH`.
  * The `.part` file is deleted on every failure and cancel. Disk I/O runs on [ioDispatcher]; state
  * is confined to [dispatcher], which MUST be single-threaded. Invariant 7: never logs names or content.
+ *
+ * Resume (E40-08; SPEC.md "Resume semantics"): each `.part` file keeps its offer and the [peer]
+ * fingerprint as metadata. [resumeRetained] first deletes files whose last write (from [clock]) is
+ * over 24 h old, then for every file retained for this [peer]: truncates it to a 256 KiB
+ * boundary, re-hashes the retained prefix and sends `FileResumeRequest{id, fromOffset}`. Chunks
+ * are still validated against the on-disk length, never against sender-claimed offsets.
+ *
+ * Cancel (E40-09): [cancelTransfer] and a peer `FileCancel` both delete the `.part` file and
+ * publish nothing; a chunk for a cancelled id is answered `FileReject UNKNOWN_TRANSFER`.
  */
+@Suppress("TooManyFunctions", "LongParameterList") // receiver steps share state; seams are injected
 class FileReceiver(
     private val session: TandemSession,
     private val store: TransferStore,
     private val publisher: DownloadsPublisher,
+    private val peer: SpkiFingerprint,
+    private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val dispatcher: CoroutineDispatcher,
 ) : PeerDataPurging {
@@ -54,6 +71,7 @@ class FileReceiver(
                     envelope.hasFileChunk() -> onChunk(envelope.fileChunk)
                     envelope.hasFileComplete() -> onComplete(envelope.fileComplete.id)
                     envelope.hasFileCancel() -> discard(envelope.fileCancel.id)
+                    envelope.hasFileReject() -> discard(envelope.fileReject.id)
                 }
             }.launchIn(scope)
     }
@@ -63,10 +81,28 @@ class FileReceiver(
             val name = FilenameSanitizer.sanitize(offer.name, offer.id) ?: return@launch
             transfers[offer.id] = Transfer(offer, name, MessageDigest.getInstance(SHA_256))
             try {
-                withContext(ioDispatcher) { store.create(offer.id) }
+                withContext(ioDispatcher) {
+                    store.create(offer.id)
+                    store.writeMeta(offer.id, peer.bytes + offer.toByteArray())
+                }
             } catch (_: IOException) {
                 fail(offer.id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
+        }
+    }
+
+    /** User-initiated cancel: deletes the `.part` file, publishes nothing, sends `FileCancel USER_CANCELLED`. */
+    fun cancelTransfer(id: String) {
+        scope.launch {
+            if (transfers.containsKey(id)) fail(id, TransferReason.TRANSFER_REASON_USER_CANCELLED)
+        }
+    }
+
+    /** Call after (re)connecting: sweeps expired `.part` files and requests resumption of the rest. */
+    fun resumeRetained() {
+        scope.launch {
+            val retained = withContext(ioDispatcher) { sweepExpired().mapNotNull(::loadRetained) }
+            retained.filter { !transfers.containsKey(it.offer.id) }.forEach { resume(it) }
         }
     }
 
@@ -77,6 +113,87 @@ class FileReceiver(
 
     fun close() {
         scope.cancel()
+    }
+
+    private fun sweepExpired(): List<String> {
+        val now = clock.millis()
+        return store.ids().filter { storeId ->
+            val expired = now - store.lastWriteMillis(storeId) > RETENTION.inWholeMilliseconds
+            if (expired) store.delete(storeId)
+            !expired
+        }
+    }
+
+    private fun loadRetained(storeId: String): Transfer? {
+        val meta = store.readMeta(storeId)
+        val offer = meta?.let(::parseMeta)
+        val name = offer?.let { FilenameSanitizer.sanitize(it.name, it.id) }
+        val resumable = offer != null && name != null && store.length(storeId) <= offer.size
+        return when {
+            meta == null || !resumable -> deleteCorrupt(storeId)
+            !metaPeerMatches(meta) -> null
+            else -> prepareResume(storeId, checkNotNull(offer), checkNotNull(name))
+        }
+    }
+
+    private fun deleteCorrupt(storeId: String): Transfer? {
+        store.delete(storeId)
+        return null
+    }
+
+    private fun metaPeerMatches(meta: ByteArray): Boolean =
+        MessageDigest.isEqual(meta.copyOfRange(0, peer.bytes.size), peer.bytes)
+
+    private fun parseMeta(meta: ByteArray): FileOffer? =
+        if (meta.size <= peer.bytes.size) {
+            null
+        } else {
+            try {
+                FileOffer.parseFrom(meta.copyOfRange(peer.bytes.size, meta.size))
+            } catch (_: InvalidProtocolBufferException) {
+                null
+            }
+        }
+
+    private fun prepareResume(
+        storeId: String,
+        offer: FileOffer,
+        name: String,
+    ): Transfer? =
+        try {
+            val boundary = store.length(storeId) / MAX_CHUNK_BYTES * MAX_CHUNK_BYTES
+            store.truncate(storeId, boundary)
+            val digest = MessageDigest.getInstance(SHA_256)
+            store.open(storeId).use { input -> digestPrefix(input, digest, boundary) }
+            Transfer(offer, name, digest, boundary)
+        } catch (_: IOException) {
+            deleteCorrupt(storeId)
+        }
+
+    private fun digestPrefix(
+        input: InputStream,
+        digest: MessageDigest,
+        length: Long,
+    ) {
+        val buffer = ByteArray(MAX_CHUNK_BYTES)
+        var remaining = length
+        while (remaining > 0) {
+            val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+            if (read < 0) throw IOException("retained file shorter than its length")
+            digest.update(buffer, 0, read)
+            remaining -= read
+        }
+    }
+
+    private suspend fun resume(transfer: Transfer) {
+        transfers[transfer.offer.id] = transfer
+        send {
+            fileResumeRequest =
+                fileResumeRequest {
+                    id = transfer.offer.id
+                    fromOffset = transfer.received
+                }
+        }
     }
 
     private suspend fun onChunk(chunk: FileChunk) {
@@ -184,5 +301,6 @@ class FileReceiver(
     private companion object {
         const val SHA_256 = "SHA-256"
         const val MAX_CHUNK_BYTES = 262_144
+        val RETENTION = 24.hours
     }
 }

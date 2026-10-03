@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+// E72-04: focus.proto — FocusState and FocusSyncCapability, the Mac Focus to phone Do Not Disturb
+// sync messages defined by docs/protocol/SPEC.md #focus-sync (design note docs/spikes/focus-dnd-sync.md,
+// F-10.2). Both ride the CONTROL channel and are embedded directly in envelope.proto's
+// Envelope.payload oneof, which reserves field numbers 120-129 for this file. They are legal only on
+// an authenticated control session that has reached Ready.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// FocusState: Mac -> phone. Sent on every Mac Focus change. The phone applies it as a Do Not Disturb
+// interruption filter only when it holds notification-policy access; otherwise it leaves the
+// filter untouched and answers FocusSyncCapability { available: false }.
+message FocusState {
+  // true: a Focus is active (phone filter -> priority only); false: Focus ended (phone restores
+  // the filter that was active before sync applied it).
+  bool on = 1;
+}
+
+// FocusSyncCapability: phone -> Mac, in answer to a FocusState the phone could not apply because it
+// lacks notification-policy access. The Mac stops sending FocusState until the capability reports
+// available again.
+message FocusSyncCapability {
+  bool available = 1;
+}

@@ -62,6 +62,9 @@ public actor InMemorySmsStore: SmsStore {
         record.state = state
         record.providerMessageId = providerMessageId
         peers[peer]?.outbound[clientMessageId] = record
+        if peers[peer]?.messages[providerMessageId] != nil {
+            peers[peer]?.outbound[clientMessageId] = nil
+        }
     }
 
     public func diagnostics(peer: SpkiFingerprint) -> SmsStoreDiagnostics {
