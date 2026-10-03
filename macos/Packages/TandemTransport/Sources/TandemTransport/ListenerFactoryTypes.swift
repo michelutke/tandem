@@ -66,6 +66,9 @@ extension NWListenerFactory {
     /// composition-root seam, `nil` by default for every existing caller, so ``AppComposition`` can
     /// forward a real, currently-paired peer's ``TandemSession/state`` into its own long-lived relay
     /// without this package knowing anything about the menu bar.
+    ///
+    /// Also the shape of `onSessionEnded` (E22-12): called once a registered session's connection has
+    /// closed for any reason, just before it is removed from the registry.
     public typealias SessionRegisteredHandler = @Sendable (SpkiFingerprint, any TandemSession) -> Void
 
     /// Drops `metadataIdentifier`'s recorded decision and, for a `.trusted` peer whose handshake
