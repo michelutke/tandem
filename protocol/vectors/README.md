@@ -278,6 +278,14 @@ Negative entries carry `expectedError: "invalidSignature"` (tampered `newSpkiDer
 new key instead of the old, wrong old key, truncated DER, other session's challenge, invalid
 new-key proof of possession). Signatures are RFC 6979 deterministic.
 
+### `focus-encoding.json` (E72-04)
+
+Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/proto/tandem/v1/focus.proto`):
+`FocusState`, `FocusSyncCapability`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`focusState`/`focusSyncCapability`). Every entry carries
+`expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
+both codecs also re-encode to the same bytes.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
