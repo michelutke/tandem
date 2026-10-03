@@ -701,11 +701,11 @@ epics:
             the receiver's `.part` file is gone
           - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
             (at most the credit window) and the transfer state is cancelled
-          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+          - A resume request for a cancelled id is answered with FileReject UNKNOWN_TRANSFER
         tdd:
           - "unit: macosCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
           - "unit: macosCancel_receiverInitiated_senderStopsWithinCreditWindow"
-          - "unit: macosCancel_resumeForCancelledId_unknownTransferCancel"
+          - "unit: macosCancel_resumeForCancelledId_fileRejectUnknownTransfer"
         notes: "Split from E40-09 in review cycle 3."
 
       - id: E40-21

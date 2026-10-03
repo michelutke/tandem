@@ -20,6 +20,10 @@ public actor FileSender: FilesFrameStream {
 
     public private(set) var state: State = .idle
 
+    public var isCancelled: Bool {
+        if case .cancelled = state { true } else { false }
+    }
+
     private let id: String
     private let name: String
     private let mime: String
@@ -106,6 +110,12 @@ public actor FileSender: FilesFrameStream {
         guard cancel.id == id, state == .offered || state == .sending else { return }
         state = .cancelled(cancel.reason)
         reader = nil
+    }
+
+    /// User-initiated cancel: stops reading and queues `FileCancel{USER_CANCELLED}` behind any frame already in flight.
+    public func cancel() async {
+        guard state == .offered || state == .sending else { return }
+        await scheduler.enqueue(response: cancelFrame(.userCancelled))
     }
 
     public func nextFrame() async -> Tandem_V1_Envelope.OneOf_Payload? {
