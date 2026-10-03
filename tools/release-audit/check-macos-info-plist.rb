@@ -29,6 +29,24 @@ module MacOSInfoPlistCheck
     NSExceptionDomains
   ].freeze
 
+  SHARE_MAX_FILE_COUNT_KEY = 'NSExtensionActivationSupportsFileWithMaxCount'
+  SHARE_MAX_FILE_COUNT = 20
+
+  def self.check_share(info_plist_path)
+    doc = REXML::Document.new(File.read(info_plist_path))
+    extension = dict_entries(doc.root.elements['dict'])['NSExtension']
+    attributes = extension && dict_entries(extension)['NSExtensionAttributes']
+    rule = attributes && dict_entries(attributes)['NSExtensionActivationRule']
+    count = rule&.name == 'dict' ? dict_entries(rule)[SHARE_MAX_FILE_COUNT_KEY] : nil
+
+    unless count&.name == 'integer' && count.text.to_i == SHARE_MAX_FILE_COUNT && rule.elements.to_a('key').size == 1
+      warn "Error: NSExtensionActivationRule must be exactly #{SHARE_MAX_FILE_COUNT_KEY} = #{SHARE_MAX_FILE_COUNT}"
+      exit 1
+    end
+
+    puts "✓ Share extension Info.plist check passed: activation rule accepts 1..#{SHARE_MAX_FILE_COUNT} files"
+  end
+
   def self.check(info_plist_path)
     doc = REXML::Document.new(File.read(info_plist_path))
     dict = doc.root.elements['dict']
@@ -122,6 +140,10 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = 'Usage: check-macos-info-plist.rb --info-plist PATH'
 
+  opts.on('--share', 'Check a Share extension Info.plist activation rule instead of the app plist') do
+    options[:share] = true
+  end
+
   opts.on('--info-plist PATH', 'Path to TandemApp Info.plist file') do |path|
     options[:info_plist] = path
   end
@@ -132,4 +154,4 @@ unless options[:info_plist]
   exit 1
 end
 
-MacOSInfoPlistCheck.check(options[:info_plist])
+options[:share] ? MacOSInfoPlistCheck.check_share(options[:info_plist]) : MacOSInfoPlistCheck.check(options[:info_plist])

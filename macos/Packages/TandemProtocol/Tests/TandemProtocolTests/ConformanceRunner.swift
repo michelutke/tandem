@@ -40,7 +40,7 @@ enum ConformanceRunner {
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
         "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding",
         "photos-encoding", "contacts-encoding", "sms-encoding", "calls-encoding", "media-encoding",
-        "rotation-encoding", "filenames"
+        "rotation-encoding", "focus-encoding", "filenames"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -141,6 +141,7 @@ enum ConformanceRunner {
         case "calls-encoding": return try runCallsEncoding(data: data)
         case "media-encoding": return try runMediaEncoding(data: data)
         case "rotation-encoding": return try runRotationEncoding(data: data)
+        case "focus-encoding": return try runFocusEncoding(data: data)
         default: return try runSynchronousCategory(category, data: data)
         }
     }
