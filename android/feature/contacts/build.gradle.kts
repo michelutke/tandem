@@ -28,4 +28,10 @@ dependencies {
     testImplementation(testFixtures(project(":core:transport")))
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    // PhoneNormalizationVectorsTest parses the committed protocol/vectors/phone-normalization.json (E51-06).
+    testImplementation(libs.kotlinx.serialization.json)
+}
+
+tasks.withType<Test>().configureEach {
+    systemProperty("tandem.vectorsDir", rootProject.projectDir.resolve("../protocol/vectors").absolutePath)
 }

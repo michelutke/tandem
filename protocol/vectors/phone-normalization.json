@@ -1,0 +1,271 @@
+{
+  "$schema": "./schema.json",
+  "category": "phone-normalization",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "phone-ch-national-spaced",
+      "description": "Swiss mobile in national format with spaces.",
+      "input": {
+        "raw": "079 123 45 67",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-ch-national-compact",
+      "description": "Swiss mobile in national format without separators.",
+      "input": {
+        "raw": "0791234567",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-ch-international-plus",
+      "description": "Swiss mobile with '+' country prefix and spaces.",
+      "input": {
+        "raw": "+41 79 123 45 67",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-ch-international-double-zero",
+      "description": "Swiss mobile with the '00' international call prefix.",
+      "input": {
+        "raw": "0041791234567",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-ch-international-dashes",
+      "description": "Swiss mobile with '+' prefix and dash separators.",
+      "input": {
+        "raw": "+41-79-123-45-67",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-ch-international-dots",
+      "description": "Swiss mobile with '+' prefix and dot separators.",
+      "input": {
+        "raw": "+41.79.123.45.67",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41791234567"
+      }
+    },
+    {
+      "id": "phone-de-national-landline",
+      "description": "German landline in national format.",
+      "input": {
+        "raw": "030 1234567",
+        "region": "DE"
+      },
+      "expected": {
+        "e164": "+49301234567"
+      }
+    },
+    {
+      "id": "phone-us-national-parenthesized",
+      "description": "US number in national format with parentheses and a dash.",
+      "input": {
+        "raw": "(650) 253-0000",
+        "region": "US"
+      },
+      "expected": {
+        "e164": "+16502530000"
+      }
+    },
+    {
+      "id": "phone-us-international-plus",
+      "description": "US number with '+1' and dashes.",
+      "input": {
+        "raw": "+1 650-253-0000",
+        "region": "US"
+      },
+      "expected": {
+        "e164": "+16502530000"
+      }
+    },
+    {
+      "id": "phone-gb-national-landline",
+      "description": "UK landline in national format.",
+      "input": {
+        "raw": "020 7946 0958",
+        "region": "GB"
+      },
+      "expected": {
+        "e164": "+442079460958"
+      }
+    },
+    {
+      "id": "phone-fr-national-mobile",
+      "description": "French mobile in national format.",
+      "input": {
+        "raw": "06 12 34 56 78",
+        "region": "FR"
+      },
+      "expected": {
+        "e164": "+33612345678"
+      }
+    },
+    {
+      "id": "phone-international-ignores-default-region",
+      "description": "A '+' number keeps its own country code regardless of the default region.",
+      "input": {
+        "raw": "+1 650 253 0000",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+16502530000"
+      }
+    },
+    {
+      "id": "phone-ch-with-extension",
+      "description": "A '#' extension is dropped from the E.164 form.",
+      "input": {
+        "raw": "+41 44 668 18 00 #123",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": "+41446681800"
+      }
+    },
+    {
+      "id": "phone-empty-null",
+      "description": "The empty string is not a number.",
+      "input": {
+        "raw": "",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-whitespace-only-null",
+      "description": "Whitespace alone is not a number.",
+      "input": {
+        "raw": "   ",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-too-short-invalid-null",
+      "description": "Four digits is not a valid number in any region.",
+      "input": {
+        "raw": "1234",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-unassigned-country-code-null",
+      "description": "'+' followed by an unassigned country code is invalid.",
+      "input": {
+        "raw": "+999 123456",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-invalid-national-number-null",
+      "description": "A well-formed but unassigned Swiss national number is invalid.",
+      "input": {
+        "raw": "079 000",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-short-code-emergency-null",
+      "description": "A US emergency short code is not a dialable subscriber number.",
+      "input": {
+        "raw": "911",
+        "region": "US"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-short-code-sms-null",
+      "description": "A five-digit SMS short code is not a valid number.",
+      "input": {
+        "raw": "12345",
+        "region": "US"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-short-code-swiss-null",
+      "description": "A Swiss three-digit service short code is not a valid number.",
+      "input": {
+        "raw": "144",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-alphanumeric-sender-null",
+      "description": "An alphanumeric sender id has no E.164 form.",
+      "input": {
+        "raw": "Swisscom",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-alphanumeric-sender-with-dash-null",
+      "description": "An alphanumeric sender id containing a dash has no E.164 form.",
+      "input": {
+        "raw": "UBS-Alert",
+        "region": "CH"
+      },
+      "expected": {
+        "e164": null
+      }
+    },
+    {
+      "id": "phone-vanity-letters-null",
+      "description": "Vanity letters are not translated to digits; the string has no E.164 form.",
+      "input": {
+        "raw": "1-800-FLOWERS",
+        "region": "US"
+      },
+      "expected": {
+        "e164": null
+      }
+    }
+  ]
+}
