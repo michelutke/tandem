@@ -48,6 +48,8 @@ class RotationRollbackTest {
             keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
         }
 
+        fun handshake() = PendingRotationHandshake(keyStore, activeAlias)
+
         fun initiator(session: FakeTandemSession) =
             RotationInitiator(
                 session = session,
@@ -200,9 +202,9 @@ class RotationRollbackTest {
             val aliasesTried = mutableListOf<String>()
 
             val connected =
-                PendingRotationHandshake(env.keyStore, env.activeAlias).connect {
-                    aliasesTried += env.activeAlias.current
-                    env.activeAlias.current == NEW_ALIAS
+                env.handshake().connect { alias ->
+                    aliasesTried += alias
+                    if (alias == NEW_ALIAS) HandshakeResult.Accepted(true) else HandshakeResult.Rejected
                 }
 
             assertTrue(connected)
@@ -218,7 +220,7 @@ class RotationRollbackTest {
             env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
             var attempts = 0
 
-            val connected = PendingRotationHandshake(env.keyStore, env.activeAlias).connect { attempts++ < 0 }
+            val connected = env.handshake().connect { attempts++.let { HandshakeResult.Rejected } }
 
             assertFalse(connected)
             assertEquals(2, attempts)
@@ -232,10 +234,63 @@ class RotationRollbackTest {
             val env = Env(this)
             var attempts = 0
 
-            val connected = PendingRotationHandshake(env.keyStore, env.activeAlias).connect { attempts++ < 0 }
+            val connected = env.handshake().connect { attempts++.let { HandshakeResult.Rejected } }
 
             assertFalse(connected)
             assertEquals(1, attempts)
             assertNull(env.keyStore.get(NEW_ALIAS))
         }
+
+    @Test
+    fun androidRotationRollback_networkErrorWhilePending_noRetryOldKeyKept() =
+        runTest {
+            val env = Env(this)
+            env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
+            var attempts = 0
+
+            val connected = env.handshake().connect { attempts++.let { HandshakeResult.NetworkError } }
+            val accepted = env.handshake().connect { HandshakeResult.Accepted(true) }
+
+            assertFalse(connected)
+            assertEquals(1, attempts)
+            assertTrue(accepted)
+            assertEquals(IDENTITY_KEY_ALIAS, env.activeAlias.current)
+            assertNotNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
+        }
+
+    @Test
+    fun androidRotationRollback_pendingKeyAcceptedUnauthenticated_noCommit() =
+        runTest {
+            val env = Env(this)
+            env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
+
+            val connected =
+                env.handshake().connect { alias ->
+                    if (alias == NEW_ALIAS) HandshakeResult.Accepted(false) else HandshakeResult.Rejected
+                }
+
+            assertFalse(connected)
+            assertEquals(IDENTITY_KEY_ALIAS, env.activeAlias.current)
+            assertNotNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
+            assertNotNull(env.keyStore.get(NEW_ALIAS))
+        }
+
+    @Test
+    fun androidRotationRollback_crashDuringPendingRetry_restartUsesOldKey(
+        @TempDir dir: File,
+    ) = runTest {
+        val aliasFile = File(dir, "alias")
+        val env = Env(this, aliasFile)
+        env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
+
+        env.handshake().connect { alias ->
+            if (alias == NEW_ALIAS) {
+                assertEquals(IDENTITY_KEY_ALIAS, ActiveIdentityAlias(aliasFile).current)
+            }
+            HandshakeResult.Rejected
+        }
+
+        assertEquals(IDENTITY_KEY_ALIAS, ActiveIdentityAlias(aliasFile).current)
+        assertNotNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
+    }
 }
