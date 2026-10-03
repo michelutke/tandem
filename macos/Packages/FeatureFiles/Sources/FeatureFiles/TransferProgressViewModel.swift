@@ -42,7 +42,7 @@ public final class TransferProgressViewModel {
         self.totalBytes = totalBytes
         self.elapsed = Self.makeElapsed(clock)
         self.cancelFlow = cancel
-        self.progress = TransferProgress(percent: 0, bytesPerSecond: 0, at: .zero)
+        self.progress = TransferProgress(percent: 0, bytesPerSecond: 0, timestamp: .zero)
         self.samples = [(.zero, 0)]
     }
 
