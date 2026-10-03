@@ -141,7 +141,7 @@ issues (gates the phase checklist); **all** includes P1/P2.
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
 | 5 | 30 | 12.0 d | 12.0 d | 42.0 d |
 | 6 | 33 | 12.0 d | 16.0 d | 44.0 d |
-| 7 | 28 | 6.0 d | 8.5 d | 36.0 d |
+| 7 | 27 | 6.0 d | 8.5 d | 35.5 d |
 
 Phase-gated total (sum of exit paths): **82.5 d**. Ungated longest P0 chain across all
 phases: 27.5 d (E00-01 → … → E40-14).
@@ -303,7 +303,7 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 | 4 | 19.5 d | 19.0 d | 8.0 d |
 | 5 | 19.0 d | 12.0 d | 11.0 d |
 | 6 | 16.5 d | 11.0 d | 16.5 d |
-| 7 | 7.0 d | 6.5 d | 22.5 d |
+| 7 | 6.5 d | 6.5 d | 22.5 d |
 <!-- END GENERATED: tracks -->
 
 ## Phase checklists

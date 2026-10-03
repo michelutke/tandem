@@ -602,7 +602,7 @@ epics:
         title: "[android] Expose grace/pending pins to TLS pin check; schedule expired-pin purge"
         type: task
         platforms: [android]
-        priority: P0
+        priority: P1
         size: S
         prd: [F-1.3]
         use_cases: [UC-24]
