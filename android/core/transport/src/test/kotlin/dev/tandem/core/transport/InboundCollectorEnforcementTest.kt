@@ -15,7 +15,7 @@ class InboundCollectorEnforcementTest {
     private val androidRoot = File("..").canonicalFile.parentFile
 
     @Test
-    fun productionSources_multiplexerInbound_onlyCalledByDispatcherWiringAndHandshake() {
+    fun productionSources_multiplexerInbound_onlyCalledAtDispatcherWiringAndHandshakeCallSites() {
         val mainSources =
             androidRoot
                 .walkTopDown()
@@ -26,8 +26,7 @@ class InboundCollectorEnforcementTest {
 
         val callers =
             mainSources
-                .filter { Regex("""\.inbound\(""").containsMatchIn(it.readText()) }
-                .map { it.name }
+                .flatMap { file -> List(Regex("""\.inbound\(""").findAll(file.readText()).count()) { file.name } }
                 .sorted()
 
         assertEquals(listOf("ByteStreamSession.kt", "VersionHandshake.kt"), callers)

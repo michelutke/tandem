@@ -9,6 +9,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -193,8 +195,13 @@ class ByteStreamSessionTest {
                 while (pipe.capturedAToB().isEmpty()) delay(10)
             }
 
+            val subscriber =
+                launch(start = CoroutineStart.UNDISPATCHED) { a.receive(Channel.CHANNEL_CONTROL).collect { } }
+            delay(50)
+
             a.close()
 
+            withTimeout(5.seconds) { subscriber.join() }
             val sessionJob = a.scope.coroutineContext.job
             withTimeout(5.seconds) {
                 while (sessionJob.children.any { it.isActive }) delay(10)

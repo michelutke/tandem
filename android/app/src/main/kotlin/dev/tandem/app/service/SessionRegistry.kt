@@ -25,7 +25,10 @@ class SessionRegistry {
 
     /**
      * Only for a [session] that is already Ready; CONTROL is fanned out per subscriber (E20-22),
-     * so other CONTROL collectors on it do not compete with the Revoke consumer.
+     * so other CONTROL collectors on it do not compete with the Revoke consumer. That consumer
+     * subscribes asynchronously after [current] changes, so a CONTROL frame delivered in the window
+     * between this call and its subscription is not replayed to it (a late subscriber sees only
+     * frames delivered after it registers).
      */
     fun register(
         session: TandemSession,

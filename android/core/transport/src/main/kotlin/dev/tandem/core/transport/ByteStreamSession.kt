@@ -23,6 +23,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.selects.select
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -92,9 +96,26 @@ class ByteStreamSession(
     private val inboundDispatcher =
         ChannelDispatcher(scope) { channel ->
             flow {
-                handshake.awaitReady()
-                emitAll(multiplexer.inbound(channel).map { it.payload })
+                if (awaitReadyOrClosed()) emitAll(multiplexer.inbound(channel).map { it.payload })
             }
+        }
+
+    /**
+     * `true` once the handshake is Ready; `false` if [multiplexer] closes first, e.g. the peer hangs
+     * up before its hello so [VersionHandshake.perform] throws and Ready never arrives.
+     */
+    private suspend fun awaitReadyOrClosed(): Boolean =
+        coroutineScope {
+            val ready = async { handshake.awaitReady() }
+            val closedFirst = async { multiplexer.closeReason.await() }
+            val isReady =
+                select {
+                    ready.onAwait { true }
+                    closedFirst.onAwait { false }
+                }
+            ready.cancel()
+            closedFirst.cancel()
+            isReady
         }
 
     private var heartbeatResponder: HeartbeatResponder? = null
@@ -265,5 +286,6 @@ class ByteStreamSession(
         if (state.value is ConnectionState.Ready) markers.disconnected()
         connection.handle(ConnectionEvent.SocketClosed(reason))
         connection.close()
+        scope.cancel()
     }
 }
