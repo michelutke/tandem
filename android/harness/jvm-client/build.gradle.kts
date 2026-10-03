@@ -73,6 +73,9 @@ dependencies {
     // FileSender/FilesScheduler (E40-03), for E40-15's no-starvation scenarios: the real FILES
     // sender against a real TLS mux, not a reimplementation of its chunk loop.
     implementation(project(":feature:files"))
+    // SendSmsHandler (E50-04), for E50-11's send-limit scenarios: the real phone-side validation and
+    // rate limiting against a real TLS session, not a reimplementation of them.
+    implementation(project(":feature:messaging"))
     // RingController/RingHandler live in `:app` (a `com.android.application` module whose runtime
     // graph pulls in the full androidx.compose BOM -- AAR-only, no plain-jar variant, confirmed by
     // actually attempting `implementation(project(":app"))` here: resolution fails on
