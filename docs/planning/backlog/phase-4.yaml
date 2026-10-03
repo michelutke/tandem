@@ -211,7 +211,7 @@ epics:
           feature-local `DownloadsPublisher` seam whose MediaStore implementation inserts into
           `Download/Tandem/` with `IS_PENDING=1`, copies, then clears `IS_PENDING`, so no partial
           entry is ever visible; MediaStore resolves name collisions (never overwrites). On
-          mismatch, delete the temp file and send FileReject HASH_MISMATCH. Unit tests use
+          mismatch, delete the temp file and send FileCancel HASH_MISMATCH. Unit tests use
           `FakeTandemSession` (E12-11), a recording `DownloadsPublisher` fake and a
           `TransferStore` fake that can throw ENOSPC at a given offset; the MediaStore publisher is
           `instrumented:` (E00-21).
@@ -219,7 +219,7 @@ epics:
           - A matching-hash transfer is published exactly once to Download/Tandem/ under the
             E40-16 sanitized name and the `.part` file is deleted
           - A mismatched-hash transfer is never published, the `.part` file is deleted, and
-            FileReject HASH_MISMATCH is sent
+            FileCancel HASH_MISMATCH is sent
           - ENOSPC while writing deletes the `.part` file, publishes nothing, and sends FileCancel
             INSUFFICIENT_SPACE
           - A chunk whose offset differs from the current length, or whose end exceeds the offered
@@ -231,7 +231,7 @@ epics:
           - "The receiver registers with the Android PeerDataPurging registry (E14-12): unpairing the Mac deletes its retained `.part` files."
         tdd:
           - "unit: androidReceiver_matchingHash_publishedOnceAndPartFileDeleted"
-          - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndRejectSent"
+          - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndCancelSent"
           - "unit: androidReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
           - "unit: androidReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
           - "unit: androidReceiver_chunkOffsetGap_protocolViolationCancelAndPartDeleted"
@@ -265,7 +265,7 @@ epics:
           - While a transfer is in progress the destination directory contains no entry for it
             (UC-15 partial files never visible)
           - A mismatched-hash transfer leaves nothing in the destination, deletes the `.part`
-            file, and sends FileReject HASH_MISMATCH
+            file, and sends FileCancel HASH_MISMATCH
           - ENOSPC while writing deletes the `.part` file, leaves nothing in the destination, and
             sends FileCancel INSUFFICIENT_SPACE
           - An existing `report.pdf` is left byte-identical and the new file is saved as
@@ -275,7 +275,7 @@ epics:
         tdd:
           - "unit: macosReceiver_matchingHash_fileInDestinationAndPartDeleted"
           - "unit: macosReceiver_midTransfer_destinationHasNoEntry"
-          - "unit: macosReceiver_hashMismatch_destinationEmptyPartDeletedAndRejectSent"
+          - "unit: macosReceiver_hashMismatch_destinationEmptyPartDeletedAndCancelSent"
           - "unit: macosReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
           - "unit: macosReceiver_existingSameName_savedWithOneSuffixOriginalUntouched"
           - "unit: macosReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
