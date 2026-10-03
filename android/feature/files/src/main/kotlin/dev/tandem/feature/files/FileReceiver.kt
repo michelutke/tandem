@@ -43,6 +43,9 @@ import kotlin.time.Duration.Companion.hours
  * over 24 h old, then for every file retained for this [peer]: truncates it to a 256 KiB
  * boundary, re-hashes the retained prefix and sends `FileResumeRequest{id, fromOffset}`. Chunks
  * are still validated against the on-disk length, never against sender-claimed offsets.
+ *
+ * Cancel (E40-09): [cancelTransfer] and a peer `FileCancel` both delete the `.part` file and
+ * publish nothing; a chunk for a cancelled id is answered `FileReject UNKNOWN_TRANSFER`.
  */
 @Suppress("TooManyFunctions", "LongParameterList") // receiver steps share state; seams are injected
 class FileReceiver(
@@ -85,6 +88,13 @@ class FileReceiver(
             } catch (_: IOException) {
                 fail(offer.id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
+        }
+    }
+
+    /** User-initiated cancel: deletes the `.part` file, publishes nothing, sends `FileCancel USER_CANCELLED`. */
+    fun cancelTransfer(id: String) {
+        scope.launch {
+            if (transfers.containsKey(id)) fail(id, TransferReason.TRANSFER_REASON_USER_CANCELLED)
         }
     }
 

@@ -104,6 +104,10 @@ sealed interface SenderState {
  * chunk-aligned `fromOffset <= size` and streams from `seq = fromOffset / 262144`; an unknown id
  * answers `FileReject UNKNOWN_TRANSFER`, an unreadable source `SOURCE_UNAVAILABLE`, a misaligned
  * or oversized offset `PROTOCOL_VIOLATION`.
+ *
+ * Cancel (E40-09): [cancelTransfer] sends `FileCancel USER_CANCELLED`, stops reading and sending
+ * (no chunk follows the cancel) and forgets the id in [retained], so a later resume for it
+ * answers `FileReject UNKNOWN_TRANSFER`. A peer `FileCancel` while streaming does the same.
  */
 @Suppress("TooManyFunctions") // sender protocol steps, kept together to share state
 class FileSender(
@@ -117,6 +121,7 @@ class FileSender(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val replies = ConcurrentHashMap<String, CompletableDeferred<Reply>>()
     private val peerCancels = ConcurrentHashMap<String, TransferReason>()
+    private val states = ConcurrentHashMap<String, MutableStateFlow<SenderState>>()
 
     init {
         session
@@ -134,7 +139,7 @@ class FileSender(
 
                     envelope.hasFileCancel() -> {
                         val cancel = envelope.fileCancel
-                        if (replies.containsKey(cancel.id)) peerCancels[cancel.id] = cancel.reason
+                        if (states.containsKey(cancel.id)) peerCancels[cancel.id] = cancel.reason
                         replies[cancel.id]?.complete(Reply.Cancelled(cancel.reason))
                     }
 
@@ -148,6 +153,7 @@ class FileSender(
 
     fun send(request: SendRequest): StateFlow<SenderState> {
         val state = MutableStateFlow<SenderState>(SenderState.Hashing)
+        states[request.id] = state
         scope.launch {
             try {
                 run(request, state)
@@ -156,9 +162,22 @@ class FileSender(
             } finally {
                 replies.remove(request.id)
                 peerCancels.remove(request.id)
+                states.remove(request.id)
             }
         }
         return state.asStateFlow()
+    }
+
+    /** User-initiated cancel of the send [id]; no-op for an id that is not in flight. */
+    fun cancelTransfer(id: String) {
+        scope.launch {
+            val state = states[id]?.takeUnless { it.value is SenderState.Completed } ?: return@launch
+            peerCancels[id] = TransferReason.TRANSFER_REASON_USER_CANCELLED
+            retained.remove(id)
+            if (state.value == SenderState.Hashing) return@launch
+            refuse(id, TransferReason.TRANSFER_REASON_USER_CANCELLED)
+            replies[id]?.complete(Reply.Cancelled(TransferReason.TRANSFER_REASON_USER_CANCELLED))
+        }
     }
 
     fun close() {
@@ -176,6 +195,11 @@ class FileSender(
                 state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_SOURCE_UNAVAILABLE)
                 return
             }
+        val userCancel = peerCancels[request.id]
+        if (userCancel != null) {
+            state.value = SenderState.Cancelled(userCancel)
+            return
+        }
         retained.put(request, source.size)
         val reply = CompletableDeferred<Reply>().also { replies[request.id] = it }
         scheduler.sendPriority {
@@ -255,6 +279,7 @@ class FileSender(
             }
         replies[id] = CompletableDeferred()
         val state = MutableStateFlow<SenderState>(SenderState.Sending)
+        states[id] = state
         try {
             input.use { scheduler.run(ChunkStream(id, it, state, startSeq = fromOffset / CHUNK_BYTES)) }
         } catch (_: MultiplexerClosedException) {
@@ -262,6 +287,7 @@ class FileSender(
         } finally {
             replies.remove(id)
             peerCancels.remove(id)
+            states.remove(id)
         }
     }
 
@@ -346,30 +372,33 @@ class FileSender(
         private var seq = startSeq
 
         override suspend fun sendNext(): Boolean {
-            val peerCancel = peerCancels[id]
-            if (peerCancel != null) {
-                state.value = SenderState.Cancelled(peerCancel)
-                return false
-            }
+            if (stoppedByCancel()) return false
             val read = readChunk()
-            return when (read) {
-                null -> {
+            return when {
+                read == null -> {
                     session.send(Channel.CHANNEL_FILES) { fileCancel = ioErrorCancel(id) }
                     state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_IO_ERROR)
                     false
                 }
 
-                0 -> {
+                read == 0 -> {
                     session.send(Channel.CHANNEL_FILES) { fileComplete = fileComplete { id = this@ChunkStream.id } }
                     state.value = SenderState.Completed
                     false
                 }
 
                 else -> {
-                    sendChunk(read)
+                    sendChunk(checkNotNull(read))
                     true
                 }
             }
+        }
+
+        private fun stoppedByCancel(): Boolean {
+            val cancel = peerCancels[id] ?: return false
+            retained.remove(id)
+            state.value = SenderState.Cancelled(cancel)
+            return true
         }
 
         private suspend fun readChunk(): Int? =

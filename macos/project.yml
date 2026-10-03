@@ -33,6 +33,9 @@ packages:
   # E41-05: PhotoGridView, composed here under the DEBUG-only photo grid scenario.
   FeatureFiles:
     path: Packages/FeatureFiles
+  # E50-07: ThreadListView, composed here under the DEBUG-only thread list scenario.
+  FeatureMessaging:
+    path: Packages/FeatureMessaging
   # E52-06: CallAlertViewModel and the incoming-call alert.
   FeatureCalls:
     path: Packages/FeatureCalls
@@ -63,6 +66,7 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.network.server: true
         com.apple.security.network.client: true
+        com.apple.security.application-groups: [group.dev.tandem]
     dependencies:
       - target: TandemShare
         embed: true
@@ -75,6 +79,7 @@ targets:
       - package: TandemDevices
       - package: FeatureNotifications
       - package: FeatureFiles
+      - package: FeatureMessaging
       - package: FeatureCalls
 
   TandemShare:
@@ -93,11 +98,15 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
-            NSExtensionActivationRule: TRUEPREDICATE
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 20
     entitlements:
       path: TandemShare/TandemShare.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        com.apple.security.application-groups: [group.dev.tandem]
+    dependencies:
+      - package: FeatureFiles
 
   # Hosted unit-test bundle for TandemApp's own types (ErrorPresenter, MenuBarViewModel): Swift
   # Testing (`import Testing`) cannot be imported from a `bundle.ui-testing` target at all

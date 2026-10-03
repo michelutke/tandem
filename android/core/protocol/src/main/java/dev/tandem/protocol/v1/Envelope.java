@@ -72,6 +72,8 @@ public  final class Envelope extends
     KEY_ROTATION(111),
     ROTATION_ACK(112),
     ROTATION_REJECT(113),
+    FOCUS_STATE(120),
+    FOCUS_SYNC_CAPABILITY(121),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -134,6 +136,8 @@ public  final class Envelope extends
         case 111: return KEY_ROTATION;
         case 112: return ROTATION_ACK;
         case 113: return ROTATION_REJECT;
+        case 120: return FOCUS_STATE;
+        case 121: return FOCUS_SYNC_CAPABILITY;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -2947,6 +2951,130 @@ public  final class Envelope extends
     }
   }
 
+  public static final int FOCUS_STATE_FIELD_NUMBER = 120;
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFocusState() {
+    return payloadCase_ == 120;
+  }
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FocusState getFocusState() {
+    if (payloadCase_ == 120) {
+       return (dev.tandem.protocol.v1.FocusState) payload_;
+    }
+    return dev.tandem.protocol.v1.FocusState.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFocusState(dev.tandem.protocol.v1.FocusState value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 120;
+  }
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFocusState(dev.tandem.protocol.v1.FocusState value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 120 &&
+        payload_ != dev.tandem.protocol.v1.FocusState.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FocusState.newBuilder((dev.tandem.protocol.v1.FocusState) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 120;
+  }
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   */
+  private void clearFocusState() {
+    if (payloadCase_ == 120) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int FOCUS_SYNC_CAPABILITY_FIELD_NUMBER = 121;
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   */
+  @java.lang.Override
+  public boolean hasFocusSyncCapability() {
+    return payloadCase_ == 121;
+  }
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.FocusSyncCapability getFocusSyncCapability() {
+    if (payloadCase_ == 121) {
+       return (dev.tandem.protocol.v1.FocusSyncCapability) payload_;
+    }
+    return dev.tandem.protocol.v1.FocusSyncCapability.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setFocusSyncCapability(dev.tandem.protocol.v1.FocusSyncCapability value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 121;
+  }
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeFocusSyncCapability(dev.tandem.protocol.v1.FocusSyncCapability value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 121 &&
+        payload_ != dev.tandem.protocol.v1.FocusSyncCapability.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.FocusSyncCapability.newBuilder((dev.tandem.protocol.v1.FocusSyncCapability) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 121;
+  }
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   */
+  private void clearFocusSyncCapability() {
+    if (payloadCase_ == 121) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
   public static dev.tandem.protocol.v1.Envelope parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -5717,6 +5845,126 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFocusState() {
+      return instance.hasFocusState();
+    }
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FocusState getFocusState() {
+      return instance.getFocusState();
+    }
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    public Builder setFocusState(dev.tandem.protocol.v1.FocusState value) {
+      copyOnWrite();
+      instance.setFocusState(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    public Builder setFocusState(
+        dev.tandem.protocol.v1.FocusState.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFocusState(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    public Builder mergeFocusState(dev.tandem.protocol.v1.FocusState value) {
+      copyOnWrite();
+      instance.mergeFocusState(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+     */
+    public Builder clearFocusState() {
+      copyOnWrite();
+      instance.clearFocusState();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    @java.lang.Override
+    public boolean hasFocusSyncCapability() {
+      return instance.hasFocusSyncCapability();
+    }
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.FocusSyncCapability getFocusSyncCapability() {
+      return instance.getFocusSyncCapability();
+    }
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    public Builder setFocusSyncCapability(dev.tandem.protocol.v1.FocusSyncCapability value) {
+      copyOnWrite();
+      instance.setFocusSyncCapability(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    public Builder setFocusSyncCapability(
+        dev.tandem.protocol.v1.FocusSyncCapability.Builder builderForValue) {
+      copyOnWrite();
+      instance.setFocusSyncCapability(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    public Builder mergeFocusSyncCapability(dev.tandem.protocol.v1.FocusSyncCapability value) {
+      copyOnWrite();
+      instance.mergeFocusSyncCapability(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+     */
+    public Builder clearFocusSyncCapability() {
+      copyOnWrite();
+      instance.clearFocusSyncCapability();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -5785,15 +6033,17 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.KeyRotation.class,
             dev.tandem.protocol.v1.RotationAck.class,
             dev.tandem.protocol.v1.RotationReject.class,
+            dev.tandem.protocol.v1.FocusState.class,
+            dev.tandem.protocol.v1.FocusSyncCapability.class,
           };
           java.lang.String info =
-              "\u00002\u0001\u0000\u0001q2\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
+              "\u00004\u0001\u0000\u0001y4\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003\u0004" +
               "<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000\f<" +
               "\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
               "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
               "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
               "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000n" +
-              "<\u0000o<\u0000p<\u0000q<\u0000";
+              "<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

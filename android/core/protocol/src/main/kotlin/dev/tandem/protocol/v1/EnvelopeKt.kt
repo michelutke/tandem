@@ -1373,6 +1373,66 @@ public object EnvelopeKt {
     public fun hasRotationReject(): kotlin.Boolean {
       return _builder.hasRotationReject()
     }
+
+    /**
+     * ```
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];`
+     */
+    public var focusState: dev.tandem.protocol.v1.FocusState
+      @kotlin.jvm.JvmName("getFocusState")
+        get() = _builder.focusState
+      @kotlin.jvm.JvmName("setFocusState")
+        set(value) {
+        _builder.focusState = value
+      }
+    /**
+     * ```
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];`
+     */
+    public fun clearFocusState() {
+      _builder.clearFocusState()
+    }
+    /**
+     * ```
+     * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];`
+     * @return Whether the focusState field is set.
+     */
+    public fun hasFocusState(): kotlin.Boolean {
+      return _builder.hasFocusState()
+    }
+
+    /**
+     * `.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];`
+     */
+    public var focusSyncCapability: dev.tandem.protocol.v1.FocusSyncCapability
+      @kotlin.jvm.JvmName("getFocusSyncCapability")
+        get() = _builder.focusSyncCapability
+      @kotlin.jvm.JvmName("setFocusSyncCapability")
+        set(value) {
+        _builder.focusSyncCapability = value
+      }
+    /**
+     * `.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];`
+     */
+    public fun clearFocusSyncCapability() {
+      _builder.clearFocusSyncCapability()
+    }
+    /**
+     * `.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];`
+     * @return Whether the focusSyncCapability field is set.
+     */
+    public fun hasFocusSyncCapability(): kotlin.Boolean {
+      return _builder.hasFocusSyncCapability()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1526,4 +1586,10 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationAckOrNull: dev.tande
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationRejectOrNull: dev.tandem.protocol.v1.RotationReject?
   get() = if (hasRotationReject()) getRotationReject() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.focusStateOrNull: dev.tandem.protocol.v1.FocusState?
+  get() = if (hasFocusState()) getFocusState() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.focusSyncCapabilityOrNull: dev.tandem.protocol.v1.FocusSyncCapability?
+  get() = if (hasFocusSyncCapability()) getFocusSyncCapability() else null
 

@@ -16,7 +16,7 @@ public actor FileResumeResponder {
     }
 
     public func handle(resume: Tandem_V1_FileResumeRequest) async {
-        guard let sender = senders[resume.id] else {
+        guard let sender = senders[resume.id], await !sender.isCancelled else {
             var reject = Tandem_V1_FileReject()
             reject.id = resume.id
             reject.reason = .unknownTransfer

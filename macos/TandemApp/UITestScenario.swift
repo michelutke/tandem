@@ -59,6 +59,9 @@ enum UITestScenario: String {
     /// Photo grid (E41-09) over a seeded 10 000-item ``PhotoService`` (pages of 100, synthetic
     /// 256 px thumbnails) for the memory-bound scroll test.
     case photoGrid10k
+    /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
+    /// render newest first, with one resolved contact name, one international number and a badge.
+    case threadListSeeded
     /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
     case incomingCallActive
 

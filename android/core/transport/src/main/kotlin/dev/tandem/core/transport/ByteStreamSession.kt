@@ -21,14 +21,23 @@ import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -82,6 +91,35 @@ class ByteStreamSession(
     private val connection = ConnectionStateMachine(clock, dispatcher)
     private val multiplexer = ChannelMultiplexer(frameSource, frameSink)
     private val handshake = VersionHandshake(multiplexer, clock, dispatcher)
+
+    /**
+     * Sole collector of [multiplexer]'s inbound flows; each channel's source waits for
+     * [VersionHandshake.awaitReady] first so the handshake's own CONTROL read is never raced.
+     */
+    private val inboundDispatcher =
+        ChannelDispatcher(scope) { channel ->
+            flow {
+                if (awaitReadyOrClosed()) emitAll(multiplexer.inbound(channel).map { it.payload })
+            }
+        }
+
+    /**
+     * `true` once the handshake is Ready; `false` if [multiplexer] closes first, e.g. the peer hangs
+     * up before its hello so [VersionHandshake.perform] throws and Ready never arrives.
+     */
+    private suspend fun awaitReadyOrClosed(): Boolean =
+        coroutineScope {
+            val ready = async { handshake.awaitReady() }
+            val closedFirst = async { multiplexer.closeReason.await() }
+            val isReady =
+                select {
+                    ready.onAwait { true }
+                    closedFirst.onAwait { false }
+                }
+            ready.cancel()
+            closedFirst.cancel()
+            isReady
+        }
 
     private var heartbeatResponder: HeartbeatResponder? = null
     private var unsolicitedHeartbeatTimer: UnsolicitedHeartbeatTimer? = null
@@ -229,7 +267,7 @@ class ByteStreamSession(
         multiplexer.send(channel, payload)
     }
 
-    override fun receive(channel: Channel): Flow<Envelope> = multiplexer.inbound(channel).map { it.payload }
+    override fun receive(channel: Channel): Flow<Envelope> = inboundDispatcher.subscribe(channel)
 
     override fun close() = performClose("closed locally")
 
@@ -251,5 +289,7 @@ class ByteStreamSession(
         if (state.value is ConnectionState.Ready) markers.disconnected()
         connection.handle(ConnectionEvent.SocketClosed(reason))
         connection.close()
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
+        scope.cancel()
     }
 }
