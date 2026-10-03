@@ -87,6 +87,7 @@ object ConformanceRunner {
             "sms-encoding",
             "calls-encoding",
             "media-encoding",
+            "rotation-encoding",
             "filenames",
         )
 
@@ -202,6 +203,7 @@ object ConformanceRunner {
             "sms-encoding" -> smsEncodingOutcome(vector)
             "calls-encoding" -> callsEncodingOutcome(vector)
             "media-encoding" -> mediaEncodingOutcome(vector)
+            "rotation-encoding" -> rotationEncodingOutcome(vector)
             "filenames" -> filenamesOutcome(vector)
             else -> throw UnknownVectorCategoryException(category)
         }

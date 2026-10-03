@@ -45,7 +45,7 @@
 		81161460331011F52C3D9494 /* TandemCrypto in Frameworks */ = {isa = PBXBuildFile; productRef = 12FE37962CD7F002672F2964 /* TandemCrypto */; };
 		82ED20E7EEEBA196577DC038 /* LaunchAtLoginPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE4C364B9B8A30C20F7C8B6 /* LaunchAtLoginPreferenceStore.swift */; };
 		8323362E16C87F0E1570D3A7 /* FeatureClipboard in Frameworks */ = {isa = PBXBuildFile; productRef = EECB08419E116CE4C7224F72 /* FeatureClipboard */; };
-		E41050000000000000000000 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = E41050100000000000000000 /* FeatureFiles */; };
+		A40100000000000000E40A02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40A01 /* FeatureFiles */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
 		85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */; };
@@ -167,7 +167,7 @@
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6ED2665CA312B3675E91769A /* FeatureClipboard */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureClipboard; path = Packages/FeatureClipboard; sourceTree = SOURCE_ROOT; };
-		E41050200000000000000000 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
+		A40100000000000000E40A03 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
@@ -231,7 +231,7 @@
 				9F6E0E166FCAA1BDD2EC41C7 /* TandemDevices in Frameworks */,
 				3220619F8129C9BE3A774DD9 /* TandemDesign in Frameworks */,
 				8323362E16C87F0E1570D3A7 /* FeatureClipboard in Frameworks */,
-				E41050000000000000000000 /* FeatureFiles in Frameworks */,
+				A40100000000000000E40A02 /* FeatureFiles in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -334,7 +334,7 @@
 				39581A17C108C4B4F78C2DD1 /* TandemTransport */,
 				7CFD7E342E310F4350077F8D /* TandemDesign */,
 				6ED2665CA312B3675E91769A /* FeatureClipboard */,
-				E41050200000000000000000 /* FeatureFiles */,
+				A40100000000000000E40A03 /* FeatureFiles */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -448,7 +448,7 @@
 				357221C8D301D0173582718D /* TandemDevices */,
 				3DC26889FCB92D7B4111DCDC /* TandemDesign */,
 				EECB08419E116CE4C7224F72 /* FeatureClipboard */,
-				E41050100000000000000000 /* FeatureFiles */,
+				A40100000000000000E40A01 /* FeatureFiles */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -508,7 +508,7 @@
 				FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */,
 				73EE49CC2108D74C59165AC9 /* XCLocalSwiftPackageReference "TandemDesign" */,
 				F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */,
-				E41050300000000000000000 /* XCLocalSwiftPackageReference "FeatureFiles" */,
+				A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1016,7 +1016,7 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureClipboard;
 		};
-		E41050300000000000000000 /* XCLocalSwiftPackageReference "FeatureFiles" */ = {
+		A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureFiles;
 		};
@@ -1070,9 +1070,9 @@
 			package = F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */;
 			productName = FeatureClipboard;
 		};
-		E41050100000000000000000 /* FeatureFiles */ = {
+		A40100000000000000E40A01 /* FeatureFiles */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E41050300000000000000000 /* XCLocalSwiftPackageReference "FeatureFiles" */;
+			package = A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */;
 			productName = FeatureFiles;
 		};
 /* End XCSwiftPackageProductDependency section */

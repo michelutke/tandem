@@ -11684,6 +11684,20 @@
           }
         }
       ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:swift/github.com/groue/GRDB.swift@7.11.1",
+      "name": "github.com/groue/GRDB.swift",
+      "version": "7.11.1",
+      "purl": "pkg:swift/github.com/groue/GRDB.swift@7.11.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
     }
   ]
 }
