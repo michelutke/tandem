@@ -67,10 +67,11 @@ public struct TrustStore: Sendable {
             .map { try Self.decoder.decode(PeerRecord.self, from: $0.data) }
     }
 
-    /// Removes the record whose current primary pin is `fingerprint`. Throws
+    /// Removes the record whose current primary pin or grace pin is `fingerprint`. Throws
     /// `KeychainError.itemNotFound` if none exists.
     public func delete(_ fingerprint: SpkiFingerprint) throws {
-        guard let record = try get(fingerprint) else { throw KeychainError.itemNotFound }
+        let record = try get(fingerprint) ?? list().first { $0.gracePin?.fingerprint.matches(fingerprint) == true }
+        guard let record else { throw KeychainError.itemNotFound }
         try keychainStore.deleteGenericPassword(service: Self.peerRecordService, account: record.recordId.hexString)
     }
 

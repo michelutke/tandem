@@ -89,6 +89,8 @@ extension NWListenerFactory {
 struct TrustedPeer: Sendable {
     let fingerprint: SpkiFingerprint
     let spkiDer: Data?
+    /// Whether this session's handshake pin was an unexpired grace pin when it reached Ready.
+    var authenticatedByGrace = false
 }
 
 extension NWListenerFactory {
@@ -106,9 +108,27 @@ extension NWListenerFactory {
         )
     }
 
-    /// A grace session closing purges its grace pin (E70-05).
+    /// Whether a handshake-verified `fingerprint` may become a Ready session: `false` for a
+    /// primary pin, `true` once it claimed its single-use grace pin, `nil` when refused (E70-05).
+    func registerTrusted(
+        _ recorded: PeerDecisionCorrelator.Decision,
+        session: ByteStreamSession,
+        adapter: NWConnectionByteStreamConnection
+    ) async -> TrustedPeer? {
+        guard let fingerprint = recorded.fingerprint else { return nil }
+        let admitted = graceMaintenance.map { $0.admit(fingerprint) } ?? .some(false)
+        guard let byGrace = admitted else {
+            adapter.cancel()
+            return nil
+        }
+        await sessionRegistry.register(fingerprint, session: session)
+        onSessionRegistered?(fingerprint, session)
+        return TrustedPeer(fingerprint: fingerprint, spkiDer: recorded.spkiDer, authenticatedByGrace: byGrace)
+    }
+
+    /// A grace-authenticated session closing purges its grace pin (E70-05).
     func sessionClosed(_ peer: TrustedPeer?) {
-        guard let peer else { return }
+        guard let peer, peer.authenticatedByGrace else { return }
         graceMaintenance?.sessionClosed(authenticatedBy: peer.fingerprint)
     }
 

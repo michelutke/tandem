@@ -6,10 +6,22 @@ import TandemCrypto
 public struct GracePin: Equatable, Sendable, Codable {
     public let fingerprint: SpkiFingerprint
     public let expiresAt: Date
+    /// Set once a session authenticated by this pin reached Ready; no further session may use it.
+    public var used: Bool
 
-    public init(fingerprint: SpkiFingerprint, expiresAt: Date) {
+    public init(fingerprint: SpkiFingerprint, expiresAt: Date, used: Bool = false) {
         self.fingerprint = fingerprint
         self.expiresAt = expiresAt
+        self.used = used
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            fingerprint: try container.decode(SpkiFingerprint.self, forKey: .fingerprint),
+            expiresAt: try container.decode(Date.self, forKey: .expiresAt),
+            used: try container.decodeIfPresent(Bool.self, forKey: .used) ?? false
+        )
     }
 }
 

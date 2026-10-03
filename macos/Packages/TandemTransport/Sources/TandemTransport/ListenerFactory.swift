@@ -280,7 +280,7 @@ public struct NWListenerFactory: ListenerFactory {
             return // `run()` always resolves `session` before returning; unreachable.
         }
 
-        let trustedPeer = await handleReadyDecision(metadataIdentifier: metadataIdentifier, session: session)
+        let trustedPeer = await handleReadyDecision(metadataIdentifier, session: session, adapter: adapter)
         let revokeReaderTask = startControlReader(for: trustedPeer, session: session)
 
         // Every path here already funnels through `ChannelMultiplexer.finish(_:)` -- a peer/
@@ -318,8 +318,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// (`PeerDecisionCorrelator`'s own kdoc) failed -- logged so that's visible rather than a
     /// session that's Ready but was never registered or handed off anywhere).
     private func handleReadyDecision(
-        metadataIdentifier: ObjectIdentifier,
-        session: ByteStreamSession
+        _ metadataIdentifier: ObjectIdentifier, session: ByteStreamSession, adapter: NWConnectionByteStreamConnection
     ) async -> TrustedPeer? {
         guard let recorded = decisionCorrelator.take(metadataIdentifier: metadataIdentifier) else {
             Self.logger.error("no PeerDecisionCorrelator entry for a connection that reached Ready")
@@ -328,10 +327,7 @@ public struct NWListenerFactory: ListenerFactory {
 
         switch recorded.decision {
         case .trusted:
-            guard let fingerprint = recorded.fingerprint else { return nil }
-            await sessionRegistry.register(fingerprint, session: session)
-            onSessionRegistered?(fingerprint, session)
-            return TrustedPeer(fingerprint: fingerprint, spkiDer: recorded.spkiDer)
+            return await registerTrusted(recorded, session: session, adapter: adapter)
         case .pairingCandidate:
             guard let driver = pairingCandidateDriver, let token = recorded.candidateToken else { return nil }
             guard let spkiDer = recorded.spkiDer else {

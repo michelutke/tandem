@@ -168,6 +168,19 @@ struct GracePinMaintenance: Sendable {
     let trustStore: TrustStore
     let dateProvider: DateProvider
 
+    func admit(_ fingerprint: SpkiFingerprint) -> Bool? {
+        do {
+            guard let peer = try trustStore.authenticatedPeer(fingerprint, now: dateProvider()) else { return nil }
+            switch peer.pin {
+            case .primary: return false
+            case .grace: return try trustStore.claimGracePin(fingerprint) ? true : nil
+            }
+        } catch {
+            Self.logger.error("grace pin admission failed")
+            return nil
+        }
+    }
+
     func sessionReady(authenticatedBy fingerprint: SpkiFingerprint) {
         do {
             try trustStore.purgeExpiredGracePins(now: dateProvider())

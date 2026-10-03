@@ -33,9 +33,8 @@ public struct TandemTrustStoreReader: TrustStoreReader {
         let now = dateProvider?()
         for record in try trustStore.list() {
             if record.fingerprint.matches(fingerprint) { matched = true }
-            if let now, let grace = record.gracePin, grace.expiresAt > now, grace.fingerprint.matches(fingerprint) {
-                matched = true
-            }
+            guard let now, let grace = record.gracePin, !grace.used, grace.expiresAt > now else { continue }
+            if grace.fingerprint.matches(fingerprint) { matched = true }
         }
         return matched
     }

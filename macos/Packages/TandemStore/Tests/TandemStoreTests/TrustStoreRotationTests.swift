@@ -196,4 +196,42 @@ struct TrustStoreRotationTests {
         #expect(migrated.recordId == record.fingerprint)
         #expect(try store.schemaVersion() == 2)
     }
+
+    @Test
+    func delete_rotatedPeerByGracePin_removesRecord() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let record = try Self.record(0x01)
+        try store.put(record)
+        try store.rotatePrimary(of: record, to: try Self.fingerprint(0x02), now: Self.now)
+
+        try store.unpair(record.fingerprint)
+
+        #expect(try store.list().isEmpty)
+    }
+
+    @Test
+    func claimGracePin_secondClaim_returnsFalse() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let record = try Self.record(0x01)
+        try store.put(record)
+        try store.rotatePrimary(of: record, to: try Self.fingerprint(0x02), now: Self.now)
+
+        #expect(try store.claimGracePin(record.fingerprint))
+        #expect(try !store.claimGracePin(record.fingerprint))
+        #expect(try store.authenticatedPeer(record.fingerprint, now: Self.now)?.pin == .grace)
+    }
+
+    @Test
+    func rotatePrimary_staleRecordAfterOtherRotation_throwsAndKeepsFirstRotation() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let record = try Self.record(0x01)
+        try store.put(record)
+        let first = try Self.fingerprint(0x02)
+        try store.rotatePrimary(of: record, to: first, now: Self.now)
+
+        #expect(throws: TrustStoreRotationError.recordChanged) {
+            try store.rotatePrimary(of: record, to: try Self.fingerprint(0x03), now: Self.now)
+        }
+        #expect(try store.get(first)?.gracePin?.fingerprint == record.fingerprint)
+    }
 }
