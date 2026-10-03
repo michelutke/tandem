@@ -6,14 +6,37 @@ import TandemDesign
 /// with the unread count, then hairline-separated rows (avatar, name, snippet, unread badge).
 public struct ThreadListView: View {
     private let viewModel: ThreadListViewModel
+    private let makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)?
+
+    @State private var openConversation: ConversationViewModel?
 
     @Environment(\.colorSchemeContrast) private var contrast
 
-    public init(viewModel: ThreadListViewModel) {
+    public init(
+        viewModel: ThreadListViewModel,
+        makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)? = nil
+    ) {
         self.viewModel = viewModel
+        self.makeConversation = makeConversation
     }
 
     public var body: some View {
+        if let conversation = openConversation {
+            VStack(alignment: .leading, spacing: 0) {
+                Button("Messages") { openConversation = nil }
+                    .buttonStyle(.plain)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(TandemColor.ink2)
+                    .padding([.top, .leading], TandemSpacing.windowPadding)
+                    .accessibilityIdentifier("conversationBack")
+                ConversationView(viewModel: conversation)
+            }
+        } else {
+            list
+        }
+    }
+
+    private var list: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
             TitleBlock(subject: "Messages.", state: stateText, size: 26)
             content
@@ -86,6 +109,8 @@ public struct ThreadListView: View {
                 .frame(height: 1)
         }
         .accessibilityElement(children: .combine)
+        .contentShape(Rectangle())
+        .onTapGesture { openConversation = makeConversation?(row) }
         .accessibilityIdentifier("threadRow-\(row.id)")
     }
 
