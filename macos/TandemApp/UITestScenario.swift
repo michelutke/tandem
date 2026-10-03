@@ -56,6 +56,10 @@ enum UITestScenario: String {
     /// access banner and its "Select more on phone" button render without a phone.
     case photoGridPartialAccess
 
+    /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
+    /// render newest first, with one resolved contact name, one international number and a badge.
+    case threadListSeeded
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

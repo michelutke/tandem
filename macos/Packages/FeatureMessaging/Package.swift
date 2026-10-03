@@ -11,12 +11,20 @@ let package = Package(
         .package(path: "../TandemCrypto"),
         .package(path: "../TandemTestSupport"),
         .package(path: "../TandemProtocol"),
-        .package(path: "../TandemStore")
+        .package(path: "../TandemStore"),
+        .package(path: "../TandemDesign"),
+        .package(url: "https://github.com/PhoneNumberKit/PhoneNumberKit.git", exact: "5.0.11")
     ],
     targets: [
         .target(
             name: "FeatureMessaging",
-            dependencies: ["TandemCrypto", "TandemProtocol", "TandemStore"],
+            dependencies: [
+                "TandemCrypto",
+                "TandemProtocol",
+                "TandemStore",
+                "TandemDesign",
+                .product(name: "PhoneNumberKit", package: "PhoneNumberKit")
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
