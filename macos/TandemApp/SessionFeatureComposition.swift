@@ -23,7 +23,9 @@ struct SessionFeatures: Sendable {
         let fileTransfer = ActiveFileTransferService()
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
-        services.append(NotificationsSessionService(iconCache: iconCache))
+        let notifications = NotificationsSessionService(iconCache: iconCache)
+        Task { await purgeRegistry.register(notifications.coordinator) }
+        services.append(notifications)
         services.append(contentsOf: makeMessagingService(purgeRegistry: purgeRegistry))
         let filesService = makeFilesService(fileTransfer: fileTransfer, purgeRegistry: purgeRegistry)
         services.append(contentsOf: filesService.map { [$0] } ?? [])
@@ -44,14 +46,14 @@ struct SessionFeatures: Sendable {
         let host = host
         return { peer, session in
             existing?(peer, session)
-            Task { await host.sessionRegistered(peer: peer, session: session) }
+            host.sessionRegistered(peer: peer, session: session)
         }
     }
 
     var onSessionEnded: NWListenerFactory.SessionRegisteredHandler {
         let host = host
         return { peer, session in
-            Task { await host.sessionEnded(peer: peer, session: session) }
+            host.sessionEnded(peer: peer, session: session)
         }
     }
 
@@ -79,7 +81,10 @@ struct SessionFeatures: Sendable {
         guard let directories = try? TransferDirectories.system(),
               let thumbnailDirectory = cachesDirectory(named: "Thumbnails"),
               let thumbnails = try? ThumbnailCache(directory: thumbnailDirectory, now: { Date() }) else { return nil }
-        Task { await purgeRegistry.register(thumbnails) }
+        Task {
+            await purgeRegistry.register(thumbnails)
+            await purgeRegistry.register(RetainedPartsPurger(staging: directories.staging))
+        }
         return FilesSessionService(directories: directories, thumbnails: thumbnails, activeTransfer: fileTransfer)
     }
 
@@ -109,7 +114,7 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
     }
 
     private let presenter: UNNotificationPresenter
-    private let coordinator: NotificationPresentationCoordinator
+    let coordinator: NotificationPresentationCoordinator
     private let iconCache: IconCache?
     private let active = ActiveHandlers()
     private let screenLock = DistributedScreenLockState(notificationCenter: DistributedNotificationCenter.default())
@@ -167,8 +172,10 @@ final class MessagingSessionService: SessionService, @unchecked Sendable {
         let contacts = ContactsSyncClient(peer: peer, session: session, store: contactsStore)
         _ = startSmsSyncReader(session: session, client: sms)
         _ = startContactsSyncReader(session: session, client: contacts)
-        await sms.requestSync()
-        try? await contacts.requestSync()
+        Task {
+            await sms.requestSync()
+            try? await contacts.requestSync()
+        }
     }
 
     func detach(peer: SpkiFingerprint) async {}
@@ -179,6 +186,8 @@ final class MessagingSessionService: SessionService, @unchecked Sendable {
 /// drain of the Share-extension queue once connected.
 final class FilesSessionService: SessionService, @unchecked Sendable {
     var agent: SendRequestAgent?
+    /// The attached session's photo service behind the thumbnail cache, for the photo grid.
+    private(set) var photos: (any PhotoService)?
 
     private let directories: TransferDirectories
     private let thumbnails: ThumbnailCache
@@ -207,15 +216,21 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
             now: { Date() }
         )
+        let photoService = SessionPhotoService(session: session)
+        photos = CachingPhotoService(base: photoService, cache: thumbnails, peer: peer)
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
             receiver: receiver,
             transfers: transfers,
-            photos: SessionPhotoService(session: session)
+            photos: photoService
         )
         _ = startFilesChannelReader(session: session, router: router)
         activeTransfer.attach(transfers)
-        await agent?.drain()
+        let agent = agent
+        Task {
+            await receiver.resumeRetained()
+            await agent?.drain()
+        }
     }
 
     func detach(peer: SpkiFingerprint) async {

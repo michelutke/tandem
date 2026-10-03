@@ -10,6 +10,7 @@ struct ChannelFanOutTests {
     private struct Wired {
         let sender: ByteStreamSession
         let receiver: ByteStreamSession
+        let receiverMultiplexer: ChannelMultiplexer
     }
 
     private static func wire() async -> Wired {
@@ -24,7 +25,8 @@ struct ChannelFanOutTests {
             ),
             receiver: ByteStreamSession(
                 multiplexer: multiplexerB, stateMachine: ConnectionStateMachine(clock: ManualTestClock())
-            )
+            ),
+            receiverMultiplexer: multiplexerB
         )
     }
 
@@ -96,5 +98,43 @@ struct ChannelFanOutTests {
         broadcast.finish()
         var iterator = broadcast.subscribe().makeAsyncIterator()
         #expect(await iterator.next() == nil)
+    }
+
+    @Test
+    func byteStreamSession_subscriberNotConsuming_readerStopsAfterWindowAndCreditStalls() async throws {
+        let wired = await Self.wire()
+        let stalled = await wired.receiver.receive(.notify)
+        let total = ByteStreamSession.fanOutWindow * 3
+        for index in 0..<total {
+            var dismiss = Tandem_V1_NotificationDismiss()
+            dismiss.key = "k\(index)"
+            try await wired.sender.send(.notify, payload: .notificationDismiss(dismiss))
+        }
+        let window = UInt32(ByteStreamSession.fanOutWindow)
+        var pulled: UInt32 = 0
+        for _ in 0..<10_000 where pulled < window {
+            await Task.yield()
+            pulled = await wired.receiverMultiplexer.consumedSinceLastGrant[.notify] ?? 0
+        }
+        for _ in 0..<2_000 { await Task.yield() }
+        pulled = await wired.receiverMultiplexer.consumedSinceLastGrant[.notify] ?? 0
+        #expect(pulled == window)
+
+        var iterator = stalled.makeAsyncIterator()
+        for _ in 0..<total { _ = await iterator.next() }
+        let drained = await wired.receiverMultiplexer.consumedSinceLastGrant[.notify] ?? 0
+        #expect(drained == UInt32(total))
+    }
+
+    @Test
+    func broadcast_subscribeAfterHeld_replaysInOrderBeforeLaterPublishes() async {
+        let broadcast = Broadcast<Int>()
+        for value in 0..<50 { broadcast.publish(value) }
+        let stream = broadcast.subscribe()
+        for value in 50..<100 { broadcast.publish(value) }
+        broadcast.finish()
+        var values: [Int] = []
+        for await value in stream { values.append(value) }
+        #expect(values == Array(0..<100))
     }
 }

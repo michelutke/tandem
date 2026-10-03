@@ -33,26 +33,41 @@ public actor ByteStreamSession: TandemSession {
     }
 
     /// The one dispatch point per channel (E22-12, mirroring the Android `ChannelDispatcher`): a
-    /// single reader pulls ``ChannelMultiplexer/inbound(_:)`` -- which is what counts as the
-    /// application-level consumption that replenishes peer credit -- and fans every frame out to
-    /// each caller's own stream, so any number of features may read the same channel without
-    /// splitting its frames. The reader starts at the first call for a channel and holds frames
-    /// for that first caller; a later caller sees only frames arriving after it subscribed.
+    /// single reader pulls the channel's frames and fans every frame out to each caller's own
+    /// stream, so any number of features may read the same channel without splitting its frames.
+    /// The slowest subscriber paces the channel: the reader pulls at most ``fanOutWindow`` frames
+    /// ahead of any subscriber, and a frame counts as consumed for peer credit replenishment
+    /// (``ChannelMultiplexer/frameConsumed(_:)``) only when pulled, so a subscriber that stops
+    /// consuming stops the peer's credit instead of growing memory. The reader starts at the first
+    /// call for a channel and holds frames for that first caller; a later caller sees only frames
+    /// arriving after it subscribed.
     public func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
         if let existing = fanOuts[channel] {
-            return InboundFrameStream(base: existing.subscribe(), onConsumed: {})
+            return Self.subscription(to: existing)
         }
         let fanOut = Broadcast<InboundFrame>()
         fanOuts[channel] = fanOut
-        let subscription = fanOut.subscribe()
-        let source = await multiplexer.inbound(channel)
+        let subscription = Self.subscription(to: fanOut)
+        let source = await multiplexer.rawInbound(channel)
+        let multiplexer = multiplexer
         Task {
-            for await frame in source {
+            var iterator = source.makeAsyncIterator()
+            while true {
+                await fanOut.awaitCapacity(limit: Self.fanOutWindow)
+                guard let frame = await iterator.next() else { break }
                 fanOut.publish(frame)
+                await multiplexer.frameConsumed(channel)
             }
             fanOut.finish()
         }
-        return InboundFrameStream(base: subscription, onConsumed: {})
+        return subscription
+    }
+
+    static let fanOutWindow = 8
+
+    private static func subscription(to fanOut: Broadcast<InboundFrame>) -> InboundFrameStream {
+        let (stream, consumed) = fanOut.subscribeReportingConsumption()
+        return InboundFrameStream(base: stream, onConsumed: consumed)
     }
 
     /// Moves ``ConnectionStateMachine/state`` to `disconnected` -- legal once the connection has

@@ -7,9 +7,24 @@ import Foundation
 /// consumers attach loses nothing; later subscribers see only elements published after they
 /// subscribed. ``finish()`` finishes every subscriber's stream, and a stream subscribed afterwards
 /// finishes immediately (after any held elements).
+///
+/// A publisher that must not outrun its slowest consumer calls ``awaitCapacity(limit:)`` before
+/// each ``publish(_:)``; each subscriber reports an element taken through the closure
+/// ``subscribe()`` returns beside its stream.
 public final class Broadcast<Element: Sendable>: @unchecked Sendable {
+    private struct Subscriber {
+        let continuation: AsyncStream<Element>.Continuation
+        var outstanding: Int
+    }
+
+    private struct Waiter {
+        let limit: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
+
     private let lock = NSLock()
-    private var subscribers: [UInt64: AsyncStream<Element>.Continuation] = [:]
+    private var subscribers: [UInt64: Subscriber] = [:]
+    private var waiters: [Waiter] = []
     private var nextSubscriberId: UInt64 = 0
     private var heldForFirstSubscriber: [Element] = []
     private var hasHadSubscriber = false
@@ -18,44 +33,88 @@ public final class Broadcast<Element: Sendable>: @unchecked Sendable {
     public init() {}
 
     public func subscribe() -> AsyncStream<Element> {
+        subscribeReportingConsumption().stream
+    }
+
+    public func subscribeReportingConsumption() -> (stream: AsyncStream<Element>, consumed: @Sendable () -> Void) {
         let (stream, continuation) = AsyncStream<Element>.makeStream(bufferingPolicy: .unbounded)
-        let (held, id) = lock.withLock { () -> ([Element], UInt64?) in
+        let id = lock.withLock { () -> UInt64? in
             let held = hasHadSubscriber ? [] : heldForFirstSubscriber
             heldForFirstSubscriber = []
             hasHadSubscriber = true
-            guard !isFinished else { return (held, nil) }
+            held.forEach { continuation.yield($0) }
+            guard !isFinished else { return nil }
             let id = nextSubscriberId
             nextSubscriberId += 1
-            subscribers[id] = continuation
-            return (held, id)
+            subscribers[id] = Subscriber(continuation: continuation, outstanding: held.count)
+            return id
         }
-        held.forEach { continuation.yield($0) }
-        if let id {
-            continuation.onTermination = { [weak self] _ in
-                self?.lock.withLock { _ = self?.subscribers.removeValue(forKey: id) }
-            }
-        } else {
+        guard let id else {
             continuation.finish()
+            return (stream, {})
         }
-        return stream
+        continuation.onTermination = { [weak self] _ in
+            guard let self else { return }
+            let ready = lock.withLock { () -> [Waiter] in
+                subscribers.removeValue(forKey: id)
+                return takeSatisfiedWaiters()
+            }
+            ready.forEach { $0.continuation.resume() }
+        }
+        return (stream, { [weak self] in self?.consumed(id) })
     }
 
     public func publish(_ element: Element) {
         let targets = lock.withLock { () -> [AsyncStream<Element>.Continuation] in
             guard !isFinished else { return [] }
             if !hasHadSubscriber { heldForFirstSubscriber.append(element) }
-            return Array(subscribers.values)
+            for id in subscribers.keys { subscribers[id]?.outstanding += 1 }
+            return subscribers.values.map(\.continuation)
         }
         targets.forEach { $0.yield(element) }
     }
 
+    /// Suspends until every current subscriber holds fewer than `limit` published-but-untaken
+    /// elements; returns at once with no subscribers or once finished.
+    public func awaitCapacity(limit: Int) async {
+        await withCheckedContinuation { continuation in
+            let canProceed = lock.withLock { () -> Bool in
+                if isFinished || hasCapacity(limit: limit) { return true }
+                waiters.append(Waiter(limit: limit, continuation: continuation))
+                return false
+            }
+            if canProceed { continuation.resume() }
+        }
+    }
+
     public func finish() {
-        let targets = lock.withLock { () -> [AsyncStream<Element>.Continuation] in
+        let (targets, ready) = lock.withLock { () -> ([AsyncStream<Element>.Continuation], [Waiter]) in
             isFinished = true
-            let targets = Array(subscribers.values)
+            let targets = subscribers.values.map(\.continuation)
             subscribers = [:]
-            return targets
+            let ready = waiters
+            waiters = []
+            return (targets, ready)
         }
         targets.forEach { $0.finish() }
+        ready.forEach { $0.continuation.resume() }
+    }
+
+    private func consumed(_ id: UInt64) {
+        let ready = lock.withLock { () -> [Waiter] in
+            subscribers[id]?.outstanding -= 1
+            return takeSatisfiedWaiters()
+        }
+        ready.forEach { $0.continuation.resume() }
+    }
+
+    private func hasCapacity(limit: Int) -> Bool {
+        subscribers.values.allSatisfy { $0.outstanding < limit }
+    }
+
+    private func takeSatisfiedWaiters() -> [Waiter] {
+        let ready = waiters.filter { hasCapacity(limit: $0.limit) }
+        waiters = waiters.filter { !hasCapacity(limit: $0.limit) }
+        return ready
     }
 }
