@@ -20,6 +20,15 @@ public final class PhoneNumberNormalizer: @unchecked Sendable {
         return digits.isEmpty ? number : digits
     }
 
+    /// `number` in international display format (e.g. "+41 79 123 45 67"), or nil when it does not
+    /// parse.
+    public func internationalFormat(of number: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let parsed = try? utility.parse(number, withRegion: defaultRegion) else { return nil }
+        return utility.format(parsed, toType: .international)
+    }
+
     private func e164(of number: String) -> String? {
         lock.lock()
         defer { lock.unlock() }

@@ -25,6 +25,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
+import java.time.Clock
 
 // E40-05 tdd (docs/planning/backlog/phase-4.yaml): FakeTandemSession, @TempDir-backed store, a
 // recording publisher and a store that throws ENOSPC at a given offset; dispatchers share runTest's scheduler.
@@ -40,7 +41,7 @@ class FileReceiverTest {
     fun androidReceiver_matchingHash_publishedOnceAndPartFileDeleted() =
         runTest {
             val content = ByteArray(300_000) { (it % 251).toByte() }
-            val store = FailingStore(FileTransferStore(dir))
+            val store = FailingStore(FileTransferStore(dir, Clock.systemUTC()))
             val receiver = newReceiver(store)
             receiver.expect(offer("a", "../report.pdf", content))
             runCurrent()
@@ -60,7 +61,7 @@ class FileReceiverTest {
     fun androidReceiver_hashMismatch_partDeletedNothingPublishedAndCancelSent() =
         runTest {
             val content = ByteArray(1000) { 7 }
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", content, sha = ByteArray(32)))
             runCurrent()
 
@@ -78,7 +79,7 @@ class FileReceiverTest {
     fun androidReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent() =
         runTest {
             val content = ByteArray(600_000)
-            val store = FailingStore(FileTransferStore(dir), failAtOffset = CHUNK.toLong())
+            val store = FailingStore(FileTransferStore(dir, Clock.systemUTC()), failAtOffset = CHUNK.toLong())
             val receiver = newReceiver(store)
             receiver.expect(offer("a", "x.bin", content))
             runCurrent()
@@ -93,7 +94,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(10)))
             runCurrent()
 
@@ -107,7 +108,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_chunkOffsetGap_protocolViolationCancelAndPartDeleted() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(100)))
             runCurrent()
 
@@ -121,7 +122,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_chunkOverlappingEarlierBytes_protocolViolationCancel() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(100)))
             runCurrent()
 
@@ -136,7 +137,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_chunkOverCap_protocolViolationCancel() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(CHUNK + 1)))
             runCurrent()
 
@@ -149,7 +150,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_completeBeforeAllBytes_protocolViolationNothingPublished() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(100)))
             runCurrent()
 
@@ -166,7 +167,7 @@ class FileReceiverTest {
         runTest {
             val content = ByteArray(10)
             publisher.failWith = IOException()
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", content))
             runCurrent()
 
@@ -180,7 +181,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_peerCancel_partDeletedNothingPublished() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(100)))
             runCurrent()
             emit(chunk("a", 0, ByteArray(10)))
@@ -204,7 +205,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_unknownTransferChunk_unknownTransferRejectSent() =
         runTest {
-            newReceiver(FileTransferStore(dir))
+            newReceiver(FileTransferStore(dir, Clock.systemUTC()))
 
             emit(chunk("zzz", 0, ByteArray(1)))
             runCurrent()
@@ -220,7 +221,7 @@ class FileReceiverTest {
     @Test
     fun androidReceiver_macUnpaired_retainedPartFilesDeleted() =
         runTest {
-            val receiver = newReceiver(FileTransferStore(dir))
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
             receiver.expect(offer("a", "x.bin", ByteArray(100)))
             runCurrent()
             emit(chunk("a", 0, ByteArray(10)))
@@ -235,7 +236,15 @@ class FileReceiverTest {
 
     private fun TestScope.newReceiver(store: TransferStore): FileReceiver {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        return FileReceiver(session, store, publisher, dispatcher, dispatcher)
+        return FileReceiver(
+            session,
+            store,
+            publisher,
+            SpkiFingerprint(ByteArray(32)),
+            Clock.systemUTC(),
+            dispatcher,
+            dispatcher,
+        )
     }
 
     private fun partFiles(): List<File> = dir.listFiles { f -> f.name.endsWith(".part") }.orEmpty().toList()

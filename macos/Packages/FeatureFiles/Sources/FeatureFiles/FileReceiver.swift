@@ -8,6 +8,7 @@ import TandemProtocol
 /// under its sanitized name, never overwriting an existing file. Failures delete the staging file.
 public actor FileReceiver {
     public static let chunkSize = 262_144
+    public static let partRetention: TimeInterval = 24 * 60 * 60
 
     private struct Transfer {
         let offer: Tandem_V1_FileOffer
@@ -22,18 +23,24 @@ public actor FileReceiver {
     private let directories: TransferDirectories
     private let sink: any FileSink
     private let fileManager: FileManager
+    private let peer: String
+    private let now: @Sendable () -> Date
     private var transfers: [String: Transfer] = [:]
 
     public init(
         session: any TandemSession,
         directories: TransferDirectories,
         sink: any FileSink,
+        peer: String,
+        now: @escaping @Sendable () -> Date,
         fileManager: FileManager = .default
     ) {
         self.session = session
         self.directories = directories
         self.sink = sink
         self.fileManager = fileManager
+        self.peer = peer
+        self.now = now
     }
 
     /// Opens the staging file for an accepted offer; rejects INVALID_NAME or cancels IO_ERROR on failure.
@@ -47,11 +54,78 @@ public actor FileReceiver {
         let partURL = directories.staging.appendingPathComponent("\(offer.id).part")
         do {
             let handle = try sink.create(at: partURL)
+            try PartAttributes.write(peer: peer, offer: offer, to: partURL)
             transfers[offer.id] = Transfer(offer: offer, filename: filename, partURL: partURL, handle: handle)
         } catch {
             try? fileManager.removeItem(at: partURL)
             await sendCancel(offer.id, .ioError)
         }
+    }
+
+    /// Sweeps staging after a reconnect: deletes `.part` files idle for over 24 h and, for each
+    /// retained one bound to this peer, truncates to a 256 KiB boundary, re-hashes the prefix and
+    /// sends `FileResumeRequest`. Returns the ids a resume was requested for.
+    @discardableResult
+    public func resumeRetained() async -> [String] {
+        let names = (try? fileManager.contentsOfDirectory(atPath: directories.staging.path)) ?? []
+        var resumed: [String] = []
+        for name in names.sorted() where name.hasSuffix(".part") {
+            let partURL = directories.staging.appendingPathComponent(name)
+            if isExpired(partURL) {
+                try? fileManager.removeItem(at: partURL)
+            } else if let id = await resume(partURL: partURL) {
+                resumed.append(id)
+            }
+        }
+        return resumed
+    }
+
+    private func isExpired(_ partURL: URL) -> Bool {
+        let attributes = try? fileManager.attributesOfItem(atPath: partURL.path)
+        guard let modified = attributes?[.modificationDate] as? Date else { return true }
+        return now().timeIntervalSince(modified) > Self.partRetention
+    }
+
+    private func resume(partURL: URL) async -> String? {
+        guard let stored = PartAttributes.read(from: partURL),
+              stored.peer == peer,
+              Self.isSafeId(stored.offer.id),
+              partURL.lastPathComponent == "\(stored.offer.id).part",
+              transfers[stored.offer.id] == nil else { return nil }
+        let offer = stored.offer
+        do {
+            let retained = try fileManager.attributesOfItem(atPath: partURL.path)[.size] as? UInt64 ?? 0
+            let boundary = min(retained, offer.size) / UInt64(Self.chunkSize) * UInt64(Self.chunkSize)
+            let hasher = try truncateAndHash(partURL, to: boundary)
+            let handle = try sink.reopen(at: partURL)
+            var transfer = Transfer(
+                offer: offer, filename: try FilenameSanitizer.sanitize(offer.name, transferId: offer.id),
+                partURL: partURL, handle: handle
+            )
+            transfer.hasher = hasher
+            transfer.written = boundary
+            transfers[offer.id] = transfer
+            var request = Tandem_V1_FileResumeRequest()
+            request.id = offer.id
+            request.fromOffset = boundary
+            try? await session.send(.files, payload: .fileResumeRequest(request))
+            return offer.id
+        } catch {
+            try? fileManager.removeItem(at: partURL)
+            return nil
+        }
+    }
+
+    private func truncateAndHash(_ partURL: URL, to length: UInt64) throws -> SHA256 {
+        let handle = try FileHandle(forUpdating: partURL)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: length)
+        try handle.seek(toOffset: 0)
+        var hasher = SHA256()
+        while let block = try handle.read(upToCount: Self.chunkSize), !block.isEmpty {
+            hasher.update(data: block)
+        }
+        return hasher
     }
 
     public func handle(chunk: Tandem_V1_FileChunk) async {

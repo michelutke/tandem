@@ -36,6 +36,9 @@ packages:
   # E50-07: ThreadListView, composed here under the DEBUG-only thread list scenario.
   FeatureMessaging:
     path: Packages/FeatureMessaging
+  # E52-06: CallAlertViewModel and the incoming-call alert.
+  FeatureCalls:
+    path: Packages/FeatureCalls
 
 targets:
   TandemApp:
@@ -76,6 +79,7 @@ targets:
       - package: FeatureNotifications
       - package: FeatureFiles
       - package: FeatureMessaging
+      - package: FeatureCalls
 
   TandemShare:
     type: app-extension
