@@ -52,6 +52,10 @@ enum UITestScenario: String {
     /// content area shows the shared "Turned off on the phone." empty state.
     case mainWindowFeatureDisabled
 
+    /// Photo grid (E41-05) over a seeded ``PhotoService`` reporting PARTIAL access: the limited-
+    /// access banner and its "Select more on phone" button render without a phone.
+    case photoGridPartialAccess
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

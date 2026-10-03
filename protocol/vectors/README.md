@@ -265,6 +265,19 @@ codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `tic
 carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
 both parsers reject any `ticket` that is not exactly 32 bytes.
 
+### `rotation-encoding.json` (E70-01)
+
+Vectors for `docs/protocol/SPEC.md` `#key-rotation` (`protocol/proto/tandem/v1/rotation.proto`).
+`input.kind` is `rotationChallenge`/`rotationAck`/`rotationReject`/`keyRotation`; all carry the raw
+serialized message in `input.messageHex`. Round-trip entries carry `expected.messageSha256`
+(`rotationReject` also `expected.reason`, `rotationChallenge` also `expected.challengeHex`).
+`keyRotation` entries model the verifier: `input.oldSpkiDerHex` is the key authenticated on the
+session and `input.cbHex` the verifier's `RotationChallenge`; both ECDSA P-256 / SHA-256 signatures
+must verify over `"tandem-rotate-v1" || LP(old) || LP(new) || LP(cb)` (positive: `expected.valid`).
+Negative entries carry `expectedError: "invalidSignature"` (tampered `newSpkiDer`, signature by the
+new key instead of the old, wrong old key, truncated DER, other session's challenge, invalid
+new-key proof of possession). Signatures are RFC 6979 deterministic.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

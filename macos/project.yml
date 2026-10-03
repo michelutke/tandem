@@ -30,6 +30,9 @@ packages:
   # DEBUG-only notification-latency loopback harness hooks.
   FeatureNotifications:
     path: Packages/FeatureNotifications
+  # E41-05: PhotoGridView, composed here under the DEBUG-only photo grid scenario.
+  FeatureFiles:
+    path: Packages/FeatureFiles
 
 targets:
   TandemApp:
@@ -69,6 +72,7 @@ targets:
       - package: TandemPairing
       - package: TandemDevices
       - package: FeatureNotifications
+      - package: FeatureFiles
 
   TandemShare:
     type: app-extension

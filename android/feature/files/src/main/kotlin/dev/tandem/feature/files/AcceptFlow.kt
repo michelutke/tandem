@@ -2,6 +2,7 @@ package dev.tandem.feature.files
 
 import dev.tandem.core.protocol.DisplayStringKind
 import dev.tandem.core.protocol.DisplayStringSanitizer
+import dev.tandem.core.protocol.FilenameSanitizer
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileOffer
@@ -92,6 +93,10 @@ class AcceptFlow(
     private fun rejectionFor(offer: FileOffer): TransferReason? {
         val busy = pending.size >= MAX_PENDING_OFFERS || activeTransfers() >= MAX_ACTIVE_TRANSFERS
         return when {
+            FilenameSanitizer.sanitize(offer.name, offer.id) == null -> {
+                TransferReason.TRANSFER_REASON_INVALID_NAME
+            }
+
             offer.size > MAX_OFFER_BYTES -> {
                 TransferReason.TRANSFER_REASON_TOO_LARGE
             }
@@ -116,7 +121,8 @@ class AcceptFlow(
     }
 
     private fun promptFor(offer: FileOffer) {
-        val name = DisplayStringSanitizer.sanitize(offer.name.toByteArray(Charsets.UTF_8), DisplayStringKind.NAME)
+        val filename = checkNotNull(FilenameSanitizer.sanitize(offer.name, offer.id))
+        val name = DisplayStringSanitizer.sanitize(filename.toByteArray(Charsets.UTF_8), DisplayStringKind.NAME)
         prompter.post(offer.id, name, offer.size)
         pending[offer.id] =
             scope.launch {

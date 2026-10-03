@@ -1,0 +1,192 @@
+{
+  "$schema": "./schema.json",
+  "category": "rotation-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "rotation-challenge-round-trip",
+      "description": "RotationChallenge with a 32-byte challenge round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationChallenge",
+        "messageHex": "0a2054e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb"
+      },
+      "expected": {
+        "challengeHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageSha256": "f253d568c31fe098f050c8c071ce7c59bf859a3d2f5b7e4898a7a664f35b1291"
+      }
+    },
+    {
+      "id": "rotation-ack-round-trip",
+      "description": "RotationAck, an empty message, round-tripping to golden zero-length bytes.",
+      "input": {
+        "kind": "rotationAck",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "rotation-reject-invalid-signature-round-trip",
+      "description": "RotationReject reason INVALID_SIGNATURE round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationReject",
+        "messageHex": "0801"
+      },
+      "expected": {
+        "reason": "INVALID_SIGNATURE",
+        "messageSha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19"
+      }
+    },
+    {
+      "id": "rotation-reject-unauthenticated-session-round-trip",
+      "description": "RotationReject reason UNAUTHENTICATED_SESSION round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationReject",
+        "messageHex": "0802"
+      },
+      "expected": {
+        "reason": "UNAUTHENTICATED_SESSION",
+        "messageSha256": "7a53cc5deb60512f3dacacc7695dd5072077c6f4984dbedbff76e27092393b1c"
+      }
+    },
+    {
+      "id": "rotation-reject-not-primary-pin-round-trip",
+      "description": "RotationReject reason NOT_PRIMARY_PIN round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationReject",
+        "messageHex": "0803"
+      },
+      "expected": {
+        "reason": "NOT_PRIMARY_PIN",
+        "messageSha256": "2d88972e9536ba54deed37db380728b3c58eab9bca1d173ae523098b0774cdf5"
+      }
+    },
+    {
+      "id": "rotation-reject-duplicate-key-round-trip",
+      "description": "RotationReject reason DUPLICATE_KEY round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationReject",
+        "messageHex": "0804"
+      },
+      "expected": {
+        "reason": "DUPLICATE_KEY",
+        "messageSha256": "0c5490ca2f6d61c2d410e7907be97b3bc36b3e4de614e1f5431278dbccad4c79"
+      }
+    },
+    {
+      "id": "rotation-reject-rotation-unavailable-round-trip",
+      "description": "RotationReject reason ROTATION_UNAVAILABLE round-tripping to golden bytes.",
+      "input": {
+        "kind": "rotationReject",
+        "messageHex": "0805"
+      },
+      "expected": {
+        "reason": "ROTATION_UNAVAILABLE",
+        "messageSha256": "9fb9d223021739797a567e44cd3d39edabcb391801c049e88f6eae6829ac67bc"
+      }
+    },
+    {
+      "id": "key-rotation-old-key-signature-over-new-spki",
+      "description": "KeyRotation signed by the old key and by the new key over the cycle-4 transcript verifies; re-encodes to the same golden bytes.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c1247304502210096c0d0e003b319f54a0da849209768379e56cd2b41b8c3753997ea0ab6d2e0dd02203b8d1486330d7a318e281b5414664699cdf2aeb226c807f4eedecd11d26ccdc31a48304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd3"
+      },
+      "expected": {
+        "valid": true,
+        "messageSha256": "0df8a1e054e3340477b3064332c5286475b37729f339cc2f3f1325da4c09ca77"
+      }
+    },
+    {
+      "id": "key-rotation-tampered-new-spki",
+      "description": "newSpkiDer replaced by another valid key after signing: both signatures fail.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004498483e5e4600ad9dee86f12b1023327d7e4a35e47acaab4be23160578cde436d4da9c0efb4611328b9e0f5d55c42a33fcd7e9b795b88fe332d1d374708aef761247304502210096c0d0e003b319f54a0da849209768379e56cd2b41b8c3753997ea0ab6d2e0dd02203b8d1486330d7a318e281b5414664699cdf2aeb226c807f4eedecd11d26ccdc31a48304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd3"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-signed-by-new-key-instead-of-old",
+      "description": "sigOldKey made by the new key instead of the old key: fails.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c1248304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd31a48304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd3"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-wrong-old-key",
+      "description": "sigOldKey made by an unrelated key, not the key authenticated on the session: fails.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c1246304402205c1df39cb92ae78fdd7577e81a2070af7078f8f05d2c86a24660cac8cf56355002206a5160f1dfaa8cba0fa5255d9e3d2ea77664859244427ef437dbd6a0247c00461a48304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd3"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-truncated-der-signature",
+      "description": "sigOldKey truncated by 8 bytes (invalid DER): verification fails.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c123f304502210096c0d0e003b319f54a0da849209768379e56cd2b41b8c3753997ea0ab6d2e0dd02203b8d1486330d7a318e281b5414664699cdf2aeb226c807f41a48304602210081b7c0b256eb3fad670f4663ca5ebcaffa69e1a8e61ff08146ed40c314a91a0a022100e187c3bce3b0912a6d32e84edacd91495ddadd94e76ea4103ad118f26b3e5bd3"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-other-rotation-challenge-value",
+      "description": "Signatures made over another session's RotationChallenge (replay onto this session): fails.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c1246304402203147f28b11c1024dad2a749bf13157664fedfa8d418e65bebd0207b2f44b80340220504a86bb7eb700a3431fab0988418ca71ec80f01d5b0e8b3ceb7186c03d177f21a4730450220479408433ed54624acfa83a14a16bcc5e8be414b51958ab499541b9157ea9064022100d3e546136b7d47eb30ba8529335e160bc6c16fa5ee3cbc47df6fb8afa2c55cbb"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-invalid-new-key-proof-of-possession",
+      "description": "sigNewKey made by a key other than newSpkiDer (claiming someone else's public key): fails.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a5b3059301306072a8648ce3d020106082a8648ce3d03010703420004f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e522de2ef701a83fac4ad21658fecb6db197aa22f8a9c36d3645f9da71efa19b8c1247304502210096c0d0e003b319f54a0da849209768379e56cd2b41b8c3753997ea0ab6d2e0dd02203b8d1486330d7a318e281b5414664699cdf2aeb226c807f4eedecd11d26ccdc31a46304402205c1df39cb92ae78fdd7577e81a2070af7078f8f05d2c86a24660cac8cf56355002206a5160f1dfaa8cba0fa5255d9e3d2ea77664859244427ef437dbd6a0247c0046"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-p384-new-spki",
+      "description": "newSpkiDer is a P-384 SPKI (120 bytes) instead of the required 91-byte P-256 SPKI: rejected before signature verification.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a783076301006072a8648ce3d020106052b81040022036200045bd99fc3322be9252e7473ee5f2021ccf0807910120839f2bb92fdb2d1808664c79bbb99e6b16d63c68df598f4ab20155c3efdf3e2322e75d9b77ee582623a8565dc0d5dceb6547459c171495e4881a0aa9fb46a6dd12ecad8e0995ee47fc13c1246304402206f83c8d0f11b8a89911a539416af3c6db9a55a2bd336c70e227bee62832a366b02207830e3fe7d31bd12052a15ed4ee196678e4a18a48d61db9ec5a57ab3d8df6e811a46304402201019aa08df597c22c5c123297223af79a4a7905115f527e414ac36801737f52c0220137a59c91166c161822f51d0e7450cb124f0605f13c7a73c43d86639e542a723"
+      },
+      "expectedError": "invalidSignature"
+    },
+    {
+      "id": "key-rotation-compressed-point-new-spki",
+      "description": "newSpkiDer is a P-256 SPKI with a compressed point (59 bytes) instead of the uncompressed 0x04 point: rejected before signature verification.",
+      "input": {
+        "kind": "keyRotation",
+        "oldSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000454f3367234e85c3c7885888f7b5e1ba385ed6dd7a181cd7573af2c2f7db27bd0878b3ca4f33da995c5f02ea1731262bcd3dd814bbced1c4ebfd0b015faae3344",
+        "cbHex": "54e1eb7b58a0aeca7e14dc346183dab29379f82b8bfb5a5ac1c459dad70b60eb",
+        "messageHex": "0a3b3039301306072a8648ce3d020106082a8648ce3d03010703220002f69a9b1813b68a0e205a40f34e44b49a65b71f7752151ca93e323a318e9b06e512473045022060ed672083824e55fd1cb12bcfe290014b603146f578019ae7fac3b680bb6551022100fd1609d7e977f850413b4e65a64add110b13791119077d87dc3b5a92016691401a46304402205dc04435c77d42341a3964614d8134462add7983c753c8b3e4a100b21ccd11cb02204f82d909921bd2b0bb6d079e884dd9d42c08e38f31fef3c94bb7f5c9179072a2"
+      },
+      "expectedError": "invalidSignature"
+    }
+  ]
+}

@@ -7,14 +7,19 @@ let package = Package(
     products: [
         .library(name: "FeatureMirror", targets: ["FeatureMirror"])
     ],
+    dependencies: [
+        .package(path: "../TandemCrypto"),
+        .package(path: "../TandemTestSupport")
+    ],
     targets: [
         .target(
             name: "FeatureMirror",
+            dependencies: ["TandemCrypto"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureMirrorTests",
-            dependencies: ["FeatureMirror"],
+            dependencies: ["FeatureMirror", "TandemCrypto", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
