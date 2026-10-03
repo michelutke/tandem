@@ -186,8 +186,6 @@ final class MessagingSessionService: SessionService, @unchecked Sendable {
 /// drain of the Share-extension queue once connected.
 final class FilesSessionService: SessionService, @unchecked Sendable {
     var agent: SendRequestAgent?
-    /// The attached session's photo service behind the thumbnail cache, for the photo grid.
-    private(set) var photos: (any PhotoService)?
 
     private let directories: TransferDirectories
     private let thumbnails: ThumbnailCache
@@ -217,7 +215,6 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             now: { Date() }
         )
         let photoService = SessionPhotoService(session: session)
-        photos = CachingPhotoService(base: photoService, cache: thumbnails, peer: peer)
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
             receiver: receiver,
