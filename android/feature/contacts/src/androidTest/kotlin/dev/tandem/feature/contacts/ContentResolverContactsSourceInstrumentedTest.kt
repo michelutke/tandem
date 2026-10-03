@@ -61,12 +61,11 @@ class ContentResolverContactsSourceInstrumentedTest {
         runBlocking {
             val changes = ContentResolverContactsSource(context).changes()
 
-            withTimeout(OBSERVER_TIMEOUT_MS) {
-                val firstChange = async { changes.first() }
-                delay(OBSERVER_SETTLE_MS)
-                insertContact("Tandem Test Observer", "+41790000099", "observer@example.com")
-                firstChange.await()
-            }
+            val firstChange = async { changes.first() }
+            delay(OBSERVER_SETTLE_MS)
+            insertContact("Tandem Test Observer", "+41790000099", "observer@example.com")
+            // The 2 s budget starts once the edit is committed; the insert itself is slow on CI emulators.
+            withTimeout(OBSERVER_TIMEOUT_MS) { firstChange.await() }
         }
 
     private fun readAll(): List<Contact> {
