@@ -43,6 +43,13 @@ sealed interface RotationOutcome {
     ) : RotationOutcome
 }
 
+/** The identity-key collaborators a rotation reads and mutates. */
+class RotationKeys(
+    val keyStore: IdentityKeyStore,
+    val keyProvider: IdentityKeyProvider,
+    val activeAlias: ActiveIdentityAlias,
+)
+
 /**
  * Phone-initiated key rotation on one control session (E70-02; SPEC.md #key-rotation, D-67, D-74).
  * [run] holds the Mac's unsolicited `RotationChallenge` as `cb` and routes `RotationAck` /
@@ -51,17 +58,19 @@ sealed interface RotationOutcome {
  *
  * A re-send after a lost Ack happens on a later session: [rotate] reuses the new key still sitting
  * under [ActiveIdentityAlias.nextAlias], so the Mac (which already holds it) acks idempotently.
+ * [rotationLock] is shared with [PendingRotationHandshake] so the two never mutate keys concurrently.
  * Never logs keys or signatures.
  */
 class RotationInitiator(
     private val session: TandemSession,
-    private val keyStore: IdentityKeyStore,
-    private val keyProvider: IdentityKeyProvider,
-    private val activeAlias: ActiveIdentityAlias,
+    private val keys: RotationKeys,
+    private val rotationLock: Mutex,
     private val peerPinned: Boolean,
     private val pairingInProgress: () -> Boolean,
 ) {
-    private val rotateLock = Mutex()
+    private val keyStore = keys.keyStore
+    private val keyProvider = keys.keyProvider
+    private val activeAlias = keys.activeAlias
 
     @Volatile
     private var challenge: ByteArray? = null
@@ -94,7 +103,7 @@ class RotationInitiator(
     }
 
     suspend fun rotate(): RotationOutcome =
-        rotateLock.withLock {
+        rotationLock.withLock {
             val cb = challenge
             when {
                 !isAuthenticated() -> RotationOutcome.NotAuthenticated

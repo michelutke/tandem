@@ -17,6 +17,7 @@ import dev.tandem.protocol.v1.rotationReject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -48,14 +49,15 @@ class RotationRollbackTest {
             keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
         }
 
-        fun handshake() = PendingRotationHandshake(keyStore, activeAlias)
+        val rotationLock = Mutex()
+
+        fun handshake() = PendingRotationHandshake(keyStore, activeAlias, rotationLock)
 
         fun initiator(session: FakeTandemSession) =
             RotationInitiator(
                 session = session,
-                keyStore = keyStore,
-                keyProvider = IdentityKeyProvider(keyStore, logSecurityLevel = {}),
-                activeAlias = activeAlias,
+                keys = RotationKeys(keyStore, IdentityKeyProvider(keyStore, logSecurityLevel = {}), activeAlias),
+                rotationLock = rotationLock,
                 peerPinned = true,
                 pairingInProgress = { false },
             )
@@ -210,6 +212,39 @@ class RotationRollbackTest {
             assertTrue(connected)
             assertEquals(listOf(IDENTITY_KEY_ALIAS, NEW_ALIAS), aliasesTried)
             assertEquals(NEW_ALIAS, env.activeAlias.current)
+            assertNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
+        }
+
+    @Test
+    fun androidRotationRollback_rotateRejectedDuringPendingHandshake_pendingKeyStaysActive() =
+        runTest {
+            val env = Env(this)
+            env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
+            val (session, rotation) = readySession(env::initiator)
+
+            val connected =
+                env.handshake().connect { alias ->
+                    if (alias == NEW_ALIAS) {
+                        backgroundScope.launch { rotation.rotate() }
+                        runCurrent()
+                        HandshakeResult.Accepted(true)
+                    } else {
+                        HandshakeResult.Rejected
+                    }
+                }
+            runCurrent()
+            session.emitIncoming(
+                envelope {
+                    channel = Channel.CHANNEL_CONTROL
+                    rotationReject =
+                        rotationReject { reason = RotationRejectReason.ROTATION_REJECT_REASON_DUPLICATE_KEY }
+                },
+            )
+            runCurrent()
+
+            assertTrue(connected)
+            assertEquals(NEW_ALIAS, env.activeAlias.current)
+            assertNotNull(env.keyStore.get(NEW_ALIAS))
             assertNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
         }
 
