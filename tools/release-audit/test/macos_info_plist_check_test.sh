@@ -1,5 +1,6 @@
 #!/bin/bash
 # E21-03 tdd: ci: infoPlist_localNetworkKeys_containUsageDescriptionAndTandemService
+# E40-21 tdd: ci: appInfoPlist_nsServices_declaresSendToPhoneForPublicItem
 
 set -e
 
@@ -47,6 +48,8 @@ run_test "missing NSBonjourServices fails" "$FIXTURES_DIR/info-plist-missing-bon
 run_test "wrong bonjour service fails" "$FIXTURES_DIR/info-plist-wrong-bonjour-service.plist" "fail"
 run_test "NSAllowsLocalNetworking fails" "$FIXTURES_DIR/info-plist-allows-local-networking.plist" "fail"
 run_test "NSAllowsArbitraryLoads fails" "$FIXTURES_DIR/info-plist-allows-arbitrary-loads.plist" "fail"
+run_test "missing NSServices fails" "$FIXTURES_DIR/info-plist-missing-services.plist" "fail"
+run_test "service without public.item fails" "$FIXTURES_DIR/info-plist-wrong-service-file-type.plist" "fail"
 run_test "checked-in TandemApp Info.plist passes" "$REPO_ROOT/macos/TandemApp/Info.plist" "pass"
 
 echo

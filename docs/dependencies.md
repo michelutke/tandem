@@ -94,6 +94,7 @@ entries were needed or added for Jazzer.
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
 | `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
 | `GRDB.swift` | MIT | SQLite persistence for the Mac SMS store and contacts cache (`TandemStore`; D-12) | E50-09 |
+| `PhoneNumberKit` | MIT | E.164 normalization for contacts-cache lookups (`TandemStore`); pinned to the maintained `PhoneNumberKit/PhoneNumberKit` repo (the `marmelroy` repo is deprecated) | E51-04 |
 
 ## Update bot
 

@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+// E70-01: rotation.proto — RotationChallenge, KeyRotation, RotationAck and RotationReject, the
+// in-band key-rotation messages defined by docs/protocol/SPEC.md #key-rotation. All four ride the
+// CONTROL channel and are embedded directly in envelope.proto's Envelope.payload oneof, which
+// reserves field numbers 110-119 for this file. They are legal only on an authenticated control
+// session that has reached Ready (never on a pairing-candidate connection before PairAccepted).
+//
+// SPKI DER values and signatures are public data; the challenge is a per-session value that must
+// not be logged or persisted (docs/protocol/SPEC.md #channel-binding-cb).
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// RotationChallenge: docs/protocol/SPEC.md #channel-binding-cb (docs/planning/decisions.md D-67,
+// D-74). Each side sends exactly one, unsolicited, immediately once its control session reaches
+// Ready; valid only on that session and for exactly one KeyRotation. Same shape as PairChallenge.
+message RotationChallenge {
+  // Exactly 32 bytes (256 bits) from a CSPRNG, generated fresh per session. This is `cb` in the
+  // KeyRotation transcript.
+  bytes challenge = 1;
+}
+
+// KeyRotation: docs/protocol/SPEC.md #key-rotation. Sent by the rotating peer after receiving the
+// other side's RotationChallenge on the same session. Both signatures are ECDSA P-256 / SHA-256
+// (ASN.1 DER) over
+//   ASCII("tandem-rotate-v1") || LP(oldSpkiDer) || LP(newSpkiDer) || LP(cb)
+// where oldSpkiDer is the sender's currently pinned key as authenticated by this session's TLS
+// handshake (never a message field) and cb is the receiver's RotationChallenge.
+message KeyRotation {
+  // The sender's new SubjectPublicKeyInfo, DER-encoded (91 bytes for P-256).
+  bytes new_spki_der = 1;
+  // Signature by the old key: authorizes the rotation.
+  bytes sig_old_key = 2;
+  // Signature by the new key: proof of possession.
+  bytes sig_new_key = 3;
+}
+
+// RotationAck: receiver -> initiator. The new key is pinned (or, for a Mac key, stored as pending).
+// Also the reply to an idempotent re-send for an already-pinned new key. No fields.
+message RotationAck {}
+
+// RotationRejectReason: RotationReject.reason.
+enum RotationRejectReason {
+  // Never legal on the wire.
+  ROTATION_REJECT_REASON_UNSPECIFIED = 0;
+  // Either signature fails to verify against the transcript.
+  ROTATION_REJECT_REASON_INVALID_SIGNATURE = 1;
+  // The session has not completed authentication with a pinned peer.
+  ROTATION_REJECT_REASON_UNAUTHENTICATED_SESSION = 2;
+  // The session was not authenticated with the peer's current primary pin (e.g. a grace pin).
+  ROTATION_REJECT_REASON_NOT_PRIMARY_PIN = 3;
+  // new_spki_der equals any existing primary or grace pin in the receiver's trust store.
+  ROTATION_REJECT_REASON_DUPLICATE_KEY = 4;
+  // The Mac has a pairing window open, or a rotation for this peer is already pending.
+  ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE = 5;
+}
+
+// RotationReject: receiver -> initiator. Does not close the connection by itself.
+message RotationReject {
+  RotationRejectReason reason = 1;
+}

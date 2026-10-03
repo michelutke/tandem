@@ -1,3 +1,4 @@
+import FeatureFiles
 import SwiftUI
 import TandemCrypto
 import TandemDevices
@@ -174,6 +175,10 @@ struct MenuContentView: View {
     /// above, so this is `isConnected: false` with no-op stub closures for those two.
     @State private var quickActionsViewModel: QuickActionsViewModel
 
+    /// No transfer service is composed yet (same gap as above), so drops and the Send File picker
+    /// yield `notConnected` until a later issue passes one in.
+    @State private var sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+
     /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
     /// D-59/D-76) never reach here.
     @State private var errorBannerViewModel: ErrorBannerViewModel
@@ -193,13 +198,24 @@ struct MenuContentView: View {
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
+        let sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+        _sendEntryHandler = State(initialValue: sendEntryHandler)
+        NSApplication.shared.servicesProvider = Self.finderServicesProvider(handler: sendEntryHandler)
         _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
             isConnected: false,
-            sendFile: {},
+            sendFile: { Task { _ = await sendEntryHandler.sendFileQuickAction() } },
             pushClipboard: { pushClipboardViewModel.select() },
             findPhone: { findPhoneViewModel.select() },
             mirror: {}
         ))
+    }
+
+    private static var retainedFinderServicesProvider: FinderServicesProvider?
+
+    private static func finderServicesProvider(handler: SendEntryHandler) -> FinderServicesProvider {
+        let provider = FinderServicesProvider(handler: handler)
+        retainedFinderServicesProvider = provider
+        return provider
     }
 
     var body: some View {
@@ -236,6 +252,7 @@ struct MenuContentView: View {
                 OpenTandemMenuButton()
                 SettingsMenuButton()
             }
+            .acceptsFileDrops(sendEntryHandler)
         }
     }
 }

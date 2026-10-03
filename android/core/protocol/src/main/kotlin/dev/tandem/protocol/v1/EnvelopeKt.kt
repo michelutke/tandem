@@ -1265,6 +1265,114 @@ public object EnvelopeKt {
     public fun hasCallActionResult(): kotlin.Boolean {
       return _builder.hasCallActionResult()
     }
+
+    /**
+     * ```
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];`
+     */
+    public var rotationChallenge: dev.tandem.protocol.v1.RotationChallenge
+      @kotlin.jvm.JvmName("getRotationChallenge")
+        get() = _builder.rotationChallenge
+      @kotlin.jvm.JvmName("setRotationChallenge")
+        set(value) {
+        _builder.rotationChallenge = value
+      }
+    /**
+     * ```
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];`
+     */
+    public fun clearRotationChallenge() {
+      _builder.clearRotationChallenge()
+    }
+    /**
+     * ```
+     * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.RotationChallenge rotation_challenge = 110 [json_name = "rotationChallenge"];`
+     * @return Whether the rotationChallenge field is set.
+     */
+    public fun hasRotationChallenge(): kotlin.Boolean {
+      return _builder.hasRotationChallenge()
+    }
+
+    /**
+     * `.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];`
+     */
+    public var keyRotation: dev.tandem.protocol.v1.KeyRotation
+      @kotlin.jvm.JvmName("getKeyRotation")
+        get() = _builder.keyRotation
+      @kotlin.jvm.JvmName("setKeyRotation")
+        set(value) {
+        _builder.keyRotation = value
+      }
+    /**
+     * `.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];`
+     */
+    public fun clearKeyRotation() {
+      _builder.clearKeyRotation()
+    }
+    /**
+     * `.tandem.v1.KeyRotation key_rotation = 111 [json_name = "keyRotation"];`
+     * @return Whether the keyRotation field is set.
+     */
+    public fun hasKeyRotation(): kotlin.Boolean {
+      return _builder.hasKeyRotation()
+    }
+
+    /**
+     * `.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];`
+     */
+    public var rotationAck: dev.tandem.protocol.v1.RotationAck
+      @kotlin.jvm.JvmName("getRotationAck")
+        get() = _builder.rotationAck
+      @kotlin.jvm.JvmName("setRotationAck")
+        set(value) {
+        _builder.rotationAck = value
+      }
+    /**
+     * `.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];`
+     */
+    public fun clearRotationAck() {
+      _builder.clearRotationAck()
+    }
+    /**
+     * `.tandem.v1.RotationAck rotation_ack = 112 [json_name = "rotationAck"];`
+     * @return Whether the rotationAck field is set.
+     */
+    public fun hasRotationAck(): kotlin.Boolean {
+      return _builder.hasRotationAck()
+    }
+
+    /**
+     * `.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];`
+     */
+    public var rotationReject: dev.tandem.protocol.v1.RotationReject
+      @kotlin.jvm.JvmName("getRotationReject")
+        get() = _builder.rotationReject
+      @kotlin.jvm.JvmName("setRotationReject")
+        set(value) {
+        _builder.rotationReject = value
+      }
+    /**
+     * `.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];`
+     */
+    public fun clearRotationReject() {
+      _builder.clearRotationReject()
+    }
+    /**
+     * `.tandem.v1.RotationReject rotation_reject = 113 [json_name = "rotationReject"];`
+     * @return Whether the rotationReject field is set.
+     */
+    public fun hasRotationReject(): kotlin.Boolean {
+      return _builder.hasRotationReject()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1406,4 +1514,16 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.placeCallRequestOrNull: dev.
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionResultOrNull: dev.tandem.protocol.v1.CallActionResult?
   get() = if (hasCallActionResult()) getCallActionResult() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationChallengeOrNull: dev.tandem.protocol.v1.RotationChallenge?
+  get() = if (hasRotationChallenge()) getRotationChallenge() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.keyRotationOrNull: dev.tandem.protocol.v1.KeyRotation?
+  get() = if (hasKeyRotation()) getKeyRotation() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationAckOrNull: dev.tandem.protocol.v1.RotationAck?
+  get() = if (hasRotationAck()) getRotationAck() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationRejectOrNull: dev.tandem.protocol.v1.RotationReject?
+  get() = if (hasRotationReject()) getRotationReject() else null
 
