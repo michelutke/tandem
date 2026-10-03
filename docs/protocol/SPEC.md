@@ -1942,6 +1942,9 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
   Mac echoes it as the next request's `backfill_before_id`. `backfill_complete = true` on the page
   that reaches the oldest row; later requests then use only `since_id`.
 - `page_size` bounds the number of `messages` in one `SmsSyncResponse` page.
+- During a live session the phone may also send unsolicited incremental `SmsSyncResponse` pushes: they
+  carry only new rows/threads and `high_watermark_id`; unset `backfill_cursor_id` and
+  `backfill_complete` mean "backfill state unchanged", and receivers MUST NOT treat them as a reset.
 - `status = PERMISSION_REQUIRED` is returned, with no `threads` or `messages`, when the phone has
   not granted READ_SMS; `status = OK` otherwise.
 
