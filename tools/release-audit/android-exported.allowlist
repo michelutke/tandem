@@ -26,6 +26,10 @@ dev.tandem.feature.notifications.TandemNotificationListenerService android.permi
 dev.tandem.feature.clipboard.ShareTargetActivity -
 dev.tandem.feature.clipboard.ProcessTextActivity -
 
+# Share-sheet target for files (E40-11, F-7.3); exported so the system can resolve it from another
+# app's share sheet, no permission guard needed.
+dev.tandem.feature.files.ShareFilesActivity -
+
 # Quick Settings "Send clip" tile (E31-12); only the system may bind it.
 dev.tandem.feature.clipboard.ClipboardTileService android.permission.BIND_QUICK_SETTINGS_TILE
 
