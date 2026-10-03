@@ -598,6 +598,33 @@ epics:
           Cycle 4 open item (Mac-initiated rotation with several paired phones) resolved in cycle 5 as decision
           D-34 (E70-01 notes): two-phase switch after every paired phone acked; rollback here also covers the
           7-day Finish/Cancel path (E70-03).
+      - id: E70-14
+        title: "[android] Expose grace/pending pins to TLS pin check; schedule expired-pin purge"
+        type: task
+        platforms: [android]
+        priority: P1
+        size: S
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [3, 5]
+        depends_on: [E70-04, E20-22]
+        description: |
+          Found by E70-04's verifier pass (2026-10-02): the trust store now holds grace and pending
+          pins and `resolve()` classifies them, but no `PinSource` composition exposes them to
+          `PinningTrustManager` (`TrustStore.get` is primary-only), so pending-pin promotion can never
+          fire in production and a grace-key reconnect fails closed. Compose a PinSource that accepts
+          primary, unexpired grace (≤1 session) and pending pins, feeding the TLS-authenticated SPKI to
+          `RotationReceiver.applyHandshakePinRules`; schedule `TrustStore.purgeExpiredPins` (e.g. on
+          service start + daily); log storePending/promote/clear failures redacted and keep the
+          receiver alive on DB errors. RotationReceiver must subscribe via the E20-22 CONTROL dispatcher.
+        acceptance:
+          - A handshake presenting a pending pin authenticates and promotes it; an expired grace pin fails closed
+          - Expired grace/pending pins are physically purged by a scheduled job on the injected clock
+          - A trust-store write failure during rotation is logged (no key bytes) and does not stop the receiver
+        tdd:
+          - "unit: rotationPinSource_pendingPinPresented_authenticatesAndPromotes"
+          - "unit: rotationPinSource_expiredGracePin_failsClosed"
+        notes: "Follow-up to E70-04 verifier findings 2-4."
 
   - id: E71
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
