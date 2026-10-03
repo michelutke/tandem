@@ -255,6 +255,7 @@ class FileResumeTest {
                 receiverSession,
                 store,
                 publisher,
+                ReceivedFileNotifier { _, _, _ -> },
                 receiverPeer,
                 TestClock(testScheduler, START),
                 StandardTestDispatcher(testScheduler),
@@ -343,8 +344,9 @@ class FileResumeTest {
             name: String,
             mime: String,
             content: InputStream,
-        ) {
+        ): String {
             published += content.readBytes()
+            return "content://downloads/${published.size}"
         }
     }
 
