@@ -12,7 +12,9 @@ import dev.tandem.core.transport.reconnect.NetworkReconnectTrigger
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
 import dev.tandem.core.transport.reconnect.PairingAddressSource
 import dev.tandem.core.transport.reconnect.ReconnectStrategy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -47,7 +49,13 @@ class ConnectionOrchestrator(
     clock: Clock,
     dispatcher: CoroutineDispatcher,
 ) : ConnectionLoop {
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val scope =
+        CoroutineScope(
+            SupervisorJob() + dispatcher +
+                CoroutineExceptionHandler { _, _ -> mutableFailure.value = HANDSHAKE_FAILURE },
+        )
+    private val lock = Any()
+    private var runJob: Job? = null
     private var sessionJob: Job? = null
 
     private val strategy =
@@ -64,16 +72,20 @@ class ConnectionOrchestrator(
     val failedCycles: StateFlow<Int> = strategy.failedCycles
 
     override fun start() {
+        synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }
         bonjourSource.start()
         networkTrigger.start()
         strategy.start()
     }
 
     override fun stop() {
+        synchronized(lock) {
+            runJob?.cancel()
+            runJob = null
+            sessionJob = null
+        }
         networkTrigger.stop()
         strategy.stop()
-        sessionJob?.cancel()
-        sessionJob = null
         registry.current.value?.let { current ->
             registry.clear(current.session)
             current.session.close()
@@ -89,6 +101,18 @@ class ConnectionOrchestrator(
     }
 
     private suspend fun connect(candidate: CandidateAddress): ConnectResult =
+        try {
+            dialAndAdopt(candidate)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception,
+        ) {
+            mutableFailure.value = HANDSHAKE_FAILURE
+            ConnectResult.Unreachable
+        }
+
+    private suspend fun dialAndAdopt(candidate: CandidateAddress): ConnectResult =
         when (val result = dialer.dial(candidate)) {
             is DialResult.Connected -> {
                 adopt(result)
@@ -107,6 +131,22 @@ class ConnectionOrchestrator(
 
     private suspend fun adopt(dialed: DialResult.Connected): ConnectResult {
         val session = dialed.session
+        return try {
+            settleAndRegister(dialed)
+        } catch (e: CancellationException) {
+            session.close()
+            throw e
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            registry.clear(session)
+            session.close()
+            throw e
+        }
+    }
+
+    private suspend fun settleAndRegister(dialed: DialResult.Connected): ConnectResult {
+        val session = dialed.session
         val settled =
             session.state.first {
                 it is ConnectionState.Ready || it is ConnectionState.Disconnected || it is ConnectionState.Failed
@@ -117,15 +157,33 @@ class ConnectionOrchestrator(
             return ConnectResult.Unreachable
         }
         knownPeerStore.recordPinned(dialed.peer)
-        registry.register(session, dialed.peer)
+        val registered = synchronized(lock) { registerIfRunning(dialed) }
+        if (!registered) session.close()
+        return if (registered) ConnectResult.Connected else ConnectResult.Unreachable
+    }
+
+    private fun registerIfRunning(dialed: DialResult.Connected): Boolean {
+        val run = runJob?.takeIf { it.isActive } ?: return false
+        registry.register(dialed.session, dialed.peer)
         mutableFailure.value = null
-        val registered = RegisteredSession(session, dialed.peer)
-        sessionJob =
-            scope.launch {
-                featureAttacher.attach(registered)
-                registry.clear(session)
-                strategy.start()
-            }
-        return ConnectResult.Connected
+        val registered = RegisteredSession(dialed.session, dialed.peer)
+        sessionJob = scope.launch(run) { runSession(registered, run) }
+        return true
+    }
+
+    private suspend fun runSession(
+        registered: RegisteredSession,
+        run: Job,
+    ) {
+        try {
+            featureAttacher.attach(registered)
+        } finally {
+            registry.clear(registered.session)
+        }
+        synchronized(lock) { if (run.isActive) strategy.start() }
+    }
+
+    private companion object {
+        val HANDSHAKE_FAILURE = ConnectionFailure.HandshakeError("HANDSHAKE_FAILED")
     }
 }

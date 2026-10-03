@@ -69,7 +69,7 @@ class ConnectionOrchestratorTest {
 
     private class Harness(
         scope: TestScope,
-        val dialer: ScriptedDialer,
+        val dialer: SessionDialer,
         val features: List<CountingFeature>,
         directory: File,
     ) {
@@ -206,6 +206,89 @@ class ConnectionOrchestratorTest {
         assertNull(harness.registry.current.value)
         assertEquals(0, features[0].attached)
         assertEquals(ConnectionFailure.Timeout, harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_sessionClosedRightAfterReady_noCrashNothingRegistered(
+        @TempDir directory: File,
+    ) = runTest {
+        val closing = readySession()
+        val features = listOf(CountingFeature())
+        val dialer =
+            object : SessionDialer {
+                override suspend fun dial(candidate: CandidateAddress): DialResult {
+                    closing.close()
+                    return DialResult.Connected(closing, peer)
+                }
+            }
+        val harness = Harness(this, dialer, features, directory)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertNull(harness.registry.current.value)
+        assertEquals(0, features[0].attached)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_dialerThrowsNonIoException_failureVisibleLoopSurvives(
+        @TempDir directory: File,
+    ) = runTest {
+        val features = listOf(CountingFeature())
+        val dialer =
+            object : SessionDialer {
+                override suspend fun dial(candidate: CandidateAddress): DialResult = error("identity lost")
+            }
+        val harness = Harness(this, dialer, features, directory)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertNull(harness.registry.current.value)
+        assertEquals(ConnectionFailure.HandshakeError("HANDSHAKE_FAILED"), harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_stoppedWhileSettling_sessionClosedNotAttached(
+        @TempDir directory: File,
+    ) = runTest {
+        val settling = FakeTandemSession().apply { emitState(ConnectionState.Connecting) }
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(settling, peer)))
+        val harness = Harness(this, dialer, features, directory)
+        harness.orchestrator.start()
+        runCurrent()
+
+        harness.orchestrator.stop()
+        runCurrent()
+
+        assertTrue(settling.state.value is ConnectionState.Disconnected)
+        assertNull(harness.registry.current.value)
+        assertEquals(0, features[0].attached)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_stopRacingSessionClose_noRestart(
+        @TempDir directory: File,
+    ) = runTest {
+        val first = readySession()
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(first, peer)))
+        val harness = Harness(this, dialer, features, directory)
+        harness.orchestrator.start()
+        runCurrent()
+        val dialsBefore = dialer.dials
+
+        first.close()
+        harness.orchestrator.stop()
+        runCurrent()
+
+        assertEquals(dialsBefore, dialer.dials)
+        assertNull(harness.registry.current.value)
         harness.orchestrator.close()
     }
 }

@@ -10,6 +10,8 @@ import dev.tandem.core.transport.HeartbeatDependencies
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.tls.SslClientFactory
+import dev.tandem.core.transport.tls.SslSocketByteStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -58,11 +60,13 @@ class TlsSessionDialer(
         val pins = pinnedFingerprints()
         if (pins.isEmpty()) return DialResult.Unreachable(null)
         val factory = SslClientFactory(keyManager, PinningTrustManager { pins })
+        var opened: SslSocketByteStream? = null
         return try {
             val (stream, peer) =
                 withContext(ioDispatcher) {
                     val socket = factory.createSocket()
                     val stream = factory.connect(socket, InetAddress.getByName(candidate.host), candidate.port)
+                    opened = stream
                     try {
                         stream to
                             spkiFingerprint(
@@ -76,6 +80,9 @@ class TlsSessionDialer(
                     }
                 }
             DialResult.Connected(ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies), peer)
+        } catch (e: CancellationException) {
+            opened?.close()
+            throw e
         } catch (e: IOException) {
             classifyDialFailure(e, pins.any(wasPreviouslyPinned))
         }

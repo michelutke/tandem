@@ -129,6 +129,7 @@ object ConnectionModule {
             )
         val filesFeature = filesFeature(context)
         purgeRegistry.register(filesFeature.purger)
+        purgeRegistry.register((context as TandemApplication).activityStore)
         val features =
             listOf(
                 NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default),
