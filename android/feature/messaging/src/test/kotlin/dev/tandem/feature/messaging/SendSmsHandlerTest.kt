@@ -202,6 +202,7 @@ class SendSmsHandlerTest {
                 source = source,
                 session = session,
                 permission = grant,
+                subscriptions = FakeSubscriptionSource(),
                 results = results,
                 elapsed = FakeElapsedRealtime(scheduler),
                 ioDispatcher = StandardTestDispatcher(scheduler),

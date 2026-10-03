@@ -1959,6 +1959,10 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
    Mac reconcile the sent row with the next sync.
 4. A `body` over 1600 characters fails with `TOO_LONG`, and more than 10 sends in a rolling 60 s
    fail with `RATE_LIMITED`; both are rejected before `SmsManager` is called (§10).
+5. A `subscription_id` of 0 means the phone's default SMS subscription. If it is not valid, or
+   the phone has two or more active SIMs and no valid default, the send fails with
+   `SUBSCRIPTION_REQUIRED`; a nonzero `subscription_id` absent from the active subscriptions
+   fails with `INVALID_SUBSCRIPTION`. Neither reaches `SmsManager`; the phone never guesses a SIM.
 
 ### SIM list
 
