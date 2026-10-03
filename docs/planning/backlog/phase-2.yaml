@@ -777,6 +777,7 @@ epics:
           (+ E70-14 PinSource with grace/pending pins and ActiveIdentityAlias for the dialer identity), and
           ConnectionStatusViewModel fed from orchestrator failure/failedCycles; persist pairing addresses
           as candidate source.
+          UnpairAction must be constructed with the Hilt PeerDataPurgeRegistry; :app currently has no unpair path wired (SettingsScreen onUnpair is a callback).
         acceptance:
           - Every listed consumer attaches exactly once per Ready session and detaches on close
           - The dialer presents the ActiveIdentityAlias identity and accepts grace/pending pins per E70-14

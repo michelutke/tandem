@@ -72,9 +72,10 @@ class ConnectionOrchestratorTest {
         val dialer: SessionDialer,
         val features: List<CountingFeature>,
         directory: File,
+        knownPeersFile: File = File(directory, "known-peers"),
     ) {
         val registry = SessionRegistry()
-        val knownPeers = KnownPeerStore(File(directory, "known-peers"))
+        val knownPeers = KnownPeerStore(knownPeersFile)
         val orchestrator =
             ConnectionOrchestrator(
                 dialer = dialer,
@@ -122,6 +123,28 @@ class ConnectionOrchestratorTest {
         assertEquals(listOf(1, 1), features.map { it.attached })
         assertTrue(harness.knownPeers.hasEverPinned(peer))
         assertNull(harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun tandemServiceComposition_knownPeerPersistenceFails_sessionStillAttached(
+        @TempDir directory: File,
+    ) = runTest {
+        val session = readySession()
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(session, peer)))
+        val blocker = File(directory, "blocker").apply { writeText("") }
+        val harness = Harness(this, dialer, features, directory, File(blocker, "known-peers"))
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertSame(
+            session,
+            harness.registry.current.value
+                ?.session,
+        )
+        assertEquals(listOf(1), features.map { it.attached })
         harness.orchestrator.close()
     }
 

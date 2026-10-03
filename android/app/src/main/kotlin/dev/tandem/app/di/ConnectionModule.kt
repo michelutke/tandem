@@ -147,6 +147,7 @@ object ConnectionModule {
                 ConnectivityManagerNetworkMonitor(context.getSystemService(ConnectivityManager::class.java)),
             clock = clock,
             dispatcher = AppDispatchers.default,
+            warn = { Log.w(TAG, it) },
         )
     }
 

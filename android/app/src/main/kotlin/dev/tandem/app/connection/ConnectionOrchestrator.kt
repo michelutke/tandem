@@ -14,7 +14,6 @@ import dev.tandem.core.transport.reconnect.PairingAddressSource
 import dev.tandem.core.transport.reconnect.ReconnectStrategy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.time.Clock
 
 /**
@@ -48,12 +48,10 @@ class ConnectionOrchestrator(
     networkMonitor: NetworkMonitor,
     clock: Clock,
     dispatcher: CoroutineDispatcher,
+    private val warn: (String) -> Unit = {},
 ) : ConnectionLoop {
     private val scope =
-        CoroutineScope(
-            SupervisorJob() + dispatcher +
-                CoroutineExceptionHandler { _, _ -> mutableFailure.value = HANDSHAKE_FAILURE },
-        )
+        CoroutineScope(SupervisorJob() + dispatcher)
     private val lock = Any()
     private var runJob: Job? = null
     private var sessionJob: Job? = null
@@ -75,7 +73,7 @@ class ConnectionOrchestrator(
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }
         bonjourSource.start()
         networkTrigger.start()
-        strategy.start()
+        synchronized(lock) { strategy.start() }
     }
 
     override fun stop() {
@@ -156,10 +154,20 @@ class ConnectionOrchestrator(
             (settled as? ConnectionState.Failed)?.let { mutableFailure.value = it.reason }
             return ConnectResult.Unreachable
         }
-        knownPeerStore.recordPinned(dialed.peer)
+        recordKnownPeer(dialed)
         val registered = synchronized(lock) { registerIfRunning(dialed) }
         if (!registered) session.close()
         return if (registered) ConnectResult.Connected else ConnectResult.Unreachable
+    }
+
+    private fun recordKnownPeer(dialed: DialResult.Connected) {
+        try {
+            knownPeerStore.recordPinned(dialed.peer)
+        } catch (
+            @Suppress("SwallowedException") e: IOException,
+        ) {
+            warn("known-peer persistence failed: ${e.javaClass.simpleName}")
+        }
     }
 
     private fun registerIfRunning(dialed: DialResult.Connected): Boolean {
