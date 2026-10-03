@@ -90,6 +90,8 @@ dependencies {
     implementation(project(":feature:notifications"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
+    // E40-11: ShareFilesActivity, declared below in this module's manifest.
+    implementation(project(":feature:files"))
     // E61-02: MirrorCaptureService (mediaProjection foreground service), merged from this module's manifest.
     implementation(project(":feature:mirror"))
 
