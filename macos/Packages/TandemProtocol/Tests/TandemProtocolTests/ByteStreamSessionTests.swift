@@ -79,7 +79,7 @@ struct ByteStreamSessionTests {
         for _ in 0..<(ByteStreamSession.fanOutWindow + 2) {
             try await sender.send(.notify, payload: .heartbeat(Tandem_V1_Heartbeat()))
         }
-        try await Task.sleep(for: .milliseconds(200))
+        for _ in 0..<500 { await Task.yield() }
 
         await session.close()
 

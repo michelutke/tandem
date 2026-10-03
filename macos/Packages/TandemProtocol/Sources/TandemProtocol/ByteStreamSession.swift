@@ -73,8 +73,8 @@ public actor ByteStreamSession: TandemSession {
     /// Moves ``ConnectionStateMachine/state`` to `disconnected` -- legal once the connection has
     /// reached `Ready` (an earlier state leaves ``ConnectionStateMachine/handle(_:)`` a no-op,
     /// matching that machine's own illegal-event contract) -- and stops the multiplexer
-    /// (``ChannelMultiplexer/stop()``), finishing every channel's ``receive(_:)`` stream, including a stalled subscriber's. Safe to
-    /// call more than once: both `stateMachine.handle(_:)` and `multiplexer.stop()` are no-ops
+    /// (``ChannelMultiplexer/stop()``), finishing every channel's ``receive(_:)`` stream
+    /// even if a subscriber stalled. Safe to call more than once: both `stateMachine.handle(_:)` and `multiplexer.stop()` are no-ops
     /// once already stopped.
     public func close() async {
         await stateMachine.handle(.socketClosed(reason: "closed locally"))
