@@ -101,4 +101,54 @@ struct ClipboardLoopbackTests {
         await sender.stop()
         await writer.stop()
     }
+
+    @Test
+    func concealedPasteboardItemLoopback_peerConnected_zeroClipboardFramesIn5s() async throws {
+        let clock = ManualTestClock()
+        let pair = InMemoryConnectionPair()
+
+        let macMultiplexer = ChannelMultiplexer(source: LoopbackFrameSource(pair.endA), sink: pair.endA.send)
+        let macSession = ByteStreamSession(
+            multiplexer: macMultiplexer,
+            stateMachine: ConnectionStateMachine(clock: clock)
+        )
+        await macMultiplexer.start()
+
+        let peerMultiplexer = ChannelMultiplexer(source: LoopbackFrameSource(pair.endB), sink: pair.endB.send)
+        await peerMultiplexer.start()
+
+        let source = FakePasteboardSource(changeCount: 0, types: [.string])
+        let sender = ClipboardSender(source: source, clock: clock, session: macSession)
+        await sender.start()
+        #expect(await waitForParkedSleepers(clock, count: 1))
+
+        let collector = FrameCollector()
+        let collectTask = Task {
+            for await frame in await peerMultiplexer.inbound(.clipboard) {
+                await collector.record(frame)
+            }
+        }
+
+        source.typesToReturn = [.string, ConcealedTypeFilter.concealedType]
+        source.setString("concealed canary", forType: .string)
+
+        // 20 poll ticks at the 250ms poll interval == 5s of virtual time.
+        for _ in 0..<20 {
+            #expect(await waitForParkedSleepers(clock, count: 1))
+            clock.advance(by: PasteboardPoller.pollInterval)
+        }
+        await realDelay(milliseconds: 20)
+
+        #expect(await collector.frames.isEmpty, "a concealed item must never produce a CLIPBOARD frame")
+
+        source.typesToReturn = [.string]
+        source.setString("control canary", forType: .string)
+        #expect(await waitForParkedSleepers(clock, count: 1))
+        clock.advance(by: PasteboardPoller.pollInterval)
+        let controlDelivered = await waitUntilTrue { await collector.frames.count == 1 }
+        #expect(controlDelivered, "a plain item after the concealed one is sent, proving the peer observes frames")
+
+        collectTask.cancel()
+        await sender.stop()
+    }
 }

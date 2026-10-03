@@ -31,6 +31,12 @@ interface SmsSource {
     /** Highest SMS id in the provider, or 0 when empty. */
     fun maxId(): Long
 
+    /** Id of the newest SENT/OUTBOX row for [address] with an id greater than [afterId], or 0 when none. */
+    fun newestOutgoingId(
+        address: String,
+        afterId: Long,
+    ): Long
+
     /** Emits once per provider change notification on the SMS store. */
     fun changes(): Flow<Unit>
 
