@@ -39,6 +39,7 @@ macos/Packages
 macos/Packages/FeatureCalls
 macos/Packages/FeatureClipboard
 macos/Packages/FeatureFiles
+macos/Packages/FeatureFocus
 macos/Packages/FeatureMessaging
 macos/Packages/FeatureMirror
 macos/Packages/FeatureNotifications
