@@ -73,7 +73,10 @@ class SecretVisibilityInstrumentedTest {
         val apk = File(context.externalCacheDir, COMPANION_APK_ASSET)
         context.assets.open(COMPANION_APK_ASSET).use { input -> apk.outputStream().use(input::copyTo) }
         apk.setReadable(true, false)
-        val output = shellOutput("pm install -r -g ${apk.absolutePath}")
+        // API 29's installer can't read app-scoped external storage; stage the APK where it can.
+        val staged = "/data/local/tmp/$COMPANION_APK_ASSET"
+        shellOutput("cp ${apk.absolutePath} $staged")
+        val output = shellOutput("pm install -r -g $staged")
         assertTrue("companion install failed: $output", output.contains("Success"))
     }
 
