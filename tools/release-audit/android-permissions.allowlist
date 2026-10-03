@@ -15,4 +15,8 @@ android.permission.ACCESS_NETWORK_STATE E20-07
 android.permission.CAMERA E14-10
 dev.tandem.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION E00-28
 android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION E61-02
+android.permission.READ_MEDIA_IMAGES E41-02
+android.permission.READ_MEDIA_VIDEO E41-02
+android.permission.READ_MEDIA_VISUAL_USER_SELECTED E41-02
+android.permission.READ_EXTERNAL_STORAGE E41-02
 android.permission.INTERNET E12-04

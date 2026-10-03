@@ -368,14 +368,14 @@ epics:
         description: |
           A user-initiated cancel sends FileCancel USER_CANCELLED; as sender, stop reading and
           sending; as receiver, delete the `.part` file and publish nothing. A later
-          FileResumeRequest for a cancelled id gets UNKNOWN_TRANSFER. Tests run sender and
-          receiver over an `InMemoryDuplexPipe` (E00-19) with per-direction capture.
+          FileResumeRequest for a cancelled id gets FileReject UNKNOWN_TRANSFER. Tests run sender
+          and receiver over in-memory fake sessions with per-direction capture.
         acceptance:
           - After a sender-side cancel, the pipe capture shows no FileChunk after the FileCancel
             and the receiver's `.part` file is gone
           - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
             (at most the credit window) and the transfer state is Cancelled
-          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+          - A resume request for a cancelled id is answered with FileReject UNKNOWN_TRANSFER
         tdd:
           - "unit: androidCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
           - "unit: androidCancel_receiverInitiated_senderStopsWithinCreditWindow"
@@ -701,11 +701,11 @@ epics:
             the receiver's `.part` file is gone
           - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
             (at most the credit window) and the transfer state is cancelled
-          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+          - A resume request for a cancelled id is answered with FileReject UNKNOWN_TRANSFER
         tdd:
           - "unit: macosCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
           - "unit: macosCancel_receiverInitiated_senderStopsWithinCreditWindow"
-          - "unit: macosCancel_resumeForCancelledId_unknownTransferCancel"
+          - "unit: macosCancel_resumeForCancelledId_fileRejectUnknownTransfer"
         notes: "Split from E40-09 in review cycle 3."
 
       - id: E40-21

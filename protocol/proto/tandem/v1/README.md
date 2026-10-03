@@ -1,4 +1,4 @@
-protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files, photos, contacts, sms, calls, media, rotation).
+protocol/proto/tandem/v1 — E01-01: single source of truth .proto messages (envelope, pairing, control, status, notify, clipboard, files, photos, contacts, sms, calls, media, rotation, focus).
 
 ## Future proto files (E01-14)
 
@@ -15,6 +15,7 @@ reserved for it.
 | `media.proto` | E60-01 / E61-01 | `CHANNEL_CONTROL` (`RequestMediaTicket` = 8, written by E60-01; grant is `MediaTicketGrant` in `control.proto`, E01-12) | 8 (`RequestMediaTicket`) — `MediaHello` and E61-01 media frames ride the separate media connection, which carries no `Envelope` and has no channel |
 | `input.proto` | E62-01 | `CHANNEL_INPUT` | 100–109 |
 | `rotation.proto` | E70-01 | `CHANNEL_CONTROL` | 110–113 (`RotationChallenge`, `KeyRotation`, `RotationAck`, `RotationReject`, written by E70-01); 114–119 held |
+| `focus.proto` | E72-04 | `CHANNEL_CONTROL` | 120–121 (`FocusState`, `FocusSyncCapability`, written by E72-04); 122–129 held |
 | `status.proto` extension | E23-01 | `CHANNEL_STATUS` (already `status.proto`'s channel, E01-13) | 22–29 (within status.proto's existing 20–29 range; do not assign before E23-01) |
 
 Rule: adding a domain never adds or renumbers a `Channel` value. The nine channels are frozen; a
