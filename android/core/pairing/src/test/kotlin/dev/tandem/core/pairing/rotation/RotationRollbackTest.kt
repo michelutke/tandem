@@ -14,6 +14,7 @@ import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.rotationAck
 import dev.tandem.protocol.v1.rotationChallenge
 import dev.tandem.protocol.v1.rotationReject
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -222,10 +223,11 @@ class RotationRollbackTest {
             env.keyStore.getOrCreate(NEW_ALIAS, preferStrongBox = true)
             val (session, rotation) = readySession(env::initiator)
 
+            var rotated: Deferred<RotationOutcome>? = null
             val connected =
                 env.handshake().connect { alias ->
                     if (alias == NEW_ALIAS) {
-                        backgroundScope.launch { rotation.rotate() }
+                        rotated = backgroundScope.async { rotation.rotate() }
                         runCurrent()
                         HandshakeResult.Accepted(true)
                     } else {
@@ -246,6 +248,9 @@ class RotationRollbackTest {
             assertEquals(NEW_ALIAS, env.activeAlias.current)
             assertNotNull(env.keyStore.get(NEW_ALIAS))
             assertNull(env.keyStore.get(IDENTITY_KEY_ALIAS))
+            assertTrue(rotated?.isCompleted == true)
+            assertTrue(rotated?.getCompleted() is RotationOutcome.Rejected)
+            assertNull(env.keyStore.get("tandem.identity.v3"))
         }
 
     @Test

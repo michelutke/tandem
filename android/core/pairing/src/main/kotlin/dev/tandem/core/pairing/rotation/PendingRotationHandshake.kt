@@ -29,9 +29,12 @@ sealed interface HandshakeResult {
 class PendingRotationHandshake(
     private val keyStore: IdentityKeyStore,
     private val activeAlias: ActiveIdentityAlias,
-    private val rotationLock: Mutex = Mutex(),
+    private val rotationLock: Mutex,
 ) {
-    /** [handshake] connects with the key stored under the alias it is given. True when authenticated. */
+    /**
+     * [handshake] connects with the key stored under the alias it is given. True when authenticated.
+     * Holds the shared rotation lock throughout, so [handshake] must never await a rotation.
+     */
     suspend fun connect(handshake: suspend (alias: String) -> HandshakeResult): Boolean =
         rotationLock.withLock {
             val oldAlias = activeAlias.current
