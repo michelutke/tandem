@@ -17,6 +17,7 @@ import Foundation
 public actor ByteStreamSession: TandemSession {
     private let multiplexer: ChannelMultiplexer
     private let stateMachine: ConnectionStateMachine
+    private var fanOuts: [Tandem_V1_Channel: Broadcast<InboundFrame>] = [:]
 
     public nonisolated var state: AsyncStream<ConnectionStateMachine.ConnectionState> {
         stateMachine.states
@@ -31,8 +32,27 @@ public actor ByteStreamSession: TandemSession {
         try await multiplexer.send(channel, payload: payload)
     }
 
+    /// The one dispatch point per channel (E22-12, mirroring the Android `ChannelDispatcher`): a
+    /// single reader pulls ``ChannelMultiplexer/inbound(_:)`` -- which is what counts as the
+    /// application-level consumption that replenishes peer credit -- and fans every frame out to
+    /// each caller's own stream, so any number of features may read the same channel without
+    /// splitting its frames. The reader starts at the first call for a channel and holds frames
+    /// for that first caller; a later caller sees only frames arriving after it subscribed.
     public func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
-        await multiplexer.inbound(channel)
+        if let existing = fanOuts[channel] {
+            return InboundFrameStream(base: existing.subscribe(), onConsumed: {})
+        }
+        let fanOut = Broadcast<InboundFrame>()
+        fanOuts[channel] = fanOut
+        let subscription = fanOut.subscribe()
+        let source = await multiplexer.inbound(channel)
+        Task {
+            for await frame in source {
+                fanOut.publish(frame)
+            }
+            fanOut.finish()
+        }
+        return InboundFrameStream(base: subscription, onConsumed: {})
     }
 
     /// Moves ``ConnectionStateMachine/state`` to `disconnected` -- legal once the connection has

@@ -97,6 +97,7 @@
 		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
 		F9688097D3E090DD745B8855 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B585178A98786DB4AB6D5375 /* LoginItemService.swift */; };
 		F9E0416499FC95D142722EF3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5E9400B6C02CECEDC03084 /* SettingsView.swift */; };
+		E22120000000000000000002 /* SessionFeatureComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22120000000000000000006 /* SessionFeatureComposition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -233,6 +234,7 @@
 		F21DA8871FF4E3B7134F74B2 /* MainWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 		FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HarnessLatencyNotificationPresenter.swift; sourceTree = "<group>"; };
+		E22120000000000000000006 /* SessionFeatureComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionFeatureComposition.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -403,6 +405,7 @@
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
 				A5E30F71572BF267AF52CCFE /* UITestScenario.swift */,
 				7CF66E68281898309742F036 /* UnpairComposition.swift */,
+				E22120000000000000000006 /* SessionFeatureComposition.swift */,
 				86769ADA9F9034205A270081 /* URLOpener.swift */,
 				07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */,
 				F21DA8871FF4E3B7134F74B2 /* MainWindowView.swift */,
@@ -675,6 +678,7 @@
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 				A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */,
 				E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */,
+				E22120000000000000000002 /* SessionFeatureComposition.swift in Sources */,
 				F28D5C6ECE889FE54A43092F /* MainWindowViewModel.swift in Sources */,
 				6C59B7EAEB5B9F6642D7445F /* MainWindowView.swift in Sources */,
 				539567A339C850584891C604 /* MainWindowComposition.swift in Sources */,
