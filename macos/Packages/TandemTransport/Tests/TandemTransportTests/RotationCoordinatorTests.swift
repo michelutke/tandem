@@ -211,4 +211,32 @@ extension RotationInitiatorTests {
 
         #expect((try? harness.keychain.copyKey(tag: identityKeyApplicationTag)) == nil)
     }
+
+    @Test
+    func macRotationInitiator_pointerAndPrimaryLostMidAttempt_bootstrapRequiresRePairAndClearsAttempt() throws {
+        let harness = try Harness()
+        try harness.pair(try Phone())
+        try harness.coordinator.begin()
+        try harness.keychain.deleteKey(tag: identityKeyApplicationTag)
+        try? harness.keychain.deleteGenericPassword(service: "com.tandem.identity.slot.v1", account: "active")
+        let bootstrapper = IdentityBootstrapper(keychainStore: harness.keychain)
+
+        bootstrapper.bootstrapIdentity()
+
+        #expect(bootstrapper.requiresRePair)
+        #expect(try harness.coordinator.attempt() == nil)
+        #expect((try? harness.keychain.copyKey(tag: IdentityKeySlots.secondaryTag)) == nil)
+    }
+
+    @Test
+    func macRotationInitiator_resumeWithPendingKeyMissing_cancelsAttempt() throws {
+        let harness = try Harness()
+        try harness.pair(try Phone())
+        try harness.coordinator.begin()
+        try harness.keychain.deleteKey(tag: IdentityKeySlots.secondaryTag)
+
+        #expect(try !harness.coordinator.resume())
+
+        #expect(try harness.coordinator.attempt() == nil)
+    }
 }

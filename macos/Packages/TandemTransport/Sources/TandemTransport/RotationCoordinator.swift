@@ -35,8 +35,8 @@ public enum RotationCoordinatorError: Error, Equatable {
 /// has acked; `finish()` after 7 days unpairs the stragglers first, `cancel()` drops the pending key.
 /// A valid old identity is never replaced by a freshly generated one.
 public final class RotationCoordinator: Sendable {
-    private static let attemptService = "com.tandem.rotation.attempt.v1"
-    private static let attemptAccount = "attempt"
+    static let attemptService = "com.tandem.rotation.attempt.v1"
+    static let attemptAccount = "attempt"
 
     private let keychainStore: any KeychainStore
     private let trustStore: TrustStore
@@ -130,10 +130,33 @@ public final class RotationCoordinator: Sendable {
     public func resume() throws -> Bool {
         let switched = try lock.withLock { _ -> Bool in
             guard let attempt = try loadAttempt() else { return false }
+            guard try pendingKeyExists(attempt) else {
+                try keychainStore.deleteGenericPassword(service: Self.attemptService, account: Self.attemptAccount)
+                return false
+            }
             return try switchIfComplete(attempt)
         }
         if switched { onSwitched() }
         return switched
+    }
+
+    /// True when the active identity slot holds the key of an attempt that no phone has acked yet,
+    /// i.e. the old key and its pointer were lost and the slot scan would silently adopt the
+    /// pending key.
+    static func isAdoptingUnackedPendingKey(keychainStore: any KeychainStore) -> Bool {
+        guard let data = try? keychainStore.copyGenericPassword(service: attemptService, account: attemptAccount),
+              let attempt = try? JSONDecoder().decode(RotationAttempt.self, from: data),
+              !attempt.committed else { return false }
+        return (try? IdentityKeySlots(keychainStore: keychainStore).activeTag()) == attempt.newKeyTag
+    }
+
+    private func pendingKeyExists(_ attempt: RotationAttempt) throws -> Bool {
+        do {
+            _ = try keychainStore.copyKey(tag: attempt.newKeyTag)
+            return true
+        } catch KeychainError.itemNotFound {
+            return false
+        }
     }
 
     /// Offered after 7 days with phones still pending: unpairs the pending phones, then switches.
