@@ -174,6 +174,12 @@ public actor FileReceiver {
         discard(transfer)
     }
 
+    /// User-initiated cancel: deletes the `.part` file, publishes nothing and sends `FileCancel{USER_CANCELLED}`.
+    public func cancel(id: String) async {
+        guard transfers[id] != nil else { return }
+        await abort(id, .userCancelled)
+    }
+
     private func abort(_ id: String, _ reason: Tandem_V1_TransferReason) async {
         if let transfer = transfers.removeValue(forKey: id) {
             discard(transfer)
