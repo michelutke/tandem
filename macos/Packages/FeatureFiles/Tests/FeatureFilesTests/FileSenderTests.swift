@@ -31,6 +31,8 @@ private struct FixedReader: FileChunkReader {
     func read(upTo count: Int) throws -> Data {
         try remaining.take(upTo: count)
     }
+
+    func seek(to offset: UInt64) throws {}
 }
 
 private final class ReadBudget: @unchecked Sendable {

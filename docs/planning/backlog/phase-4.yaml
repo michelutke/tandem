@@ -671,14 +671,14 @@ epics:
           - A 64 MiB transfer severed after 40 MiB resumes with fromOffset = 40 MiB (rounded down
             to 256 KiB) and the first resumed chunk has seq fromOffset / 262144
           - After resume the destination file's SHA-256 equals the source digest
-          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - FileResumeRequest for an unknown id is answered with FileReject UNKNOWN_TRANSFER
           - A source deleted before resume is answered with FileCancel SOURCE_UNAVAILABLE and the
             receiver deletes its `.part` file
           - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
         tdd:
           - "unit: macosResume_severedAt40MiB_resumeRequestFromOffset40MiB"
           - "unit: macosResume_resumedTransfer_destinationSha256MatchesSource"
-          - "unit: macosResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: macosResume_unknownTransferId_fileRejectUnknownTransfer"
           - "unit: macosResume_sourceDeletedBeforeResume_sourceUnavailableAndPartDeleted"
           - "unit: macosResume_partOlderThan24h_deletedAndNoResumeRequest"
         notes: "Split from E40-08 in review cycle 3."

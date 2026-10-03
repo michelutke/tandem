@@ -33,6 +33,8 @@ public protocol FileSinkHandle {
 /// Seam over staging-file creation so tests can inject write failures such as ENOSPC.
 public protocol FileSink: Sendable {
     func create(at url: URL) throws -> any FileSinkHandle
+    /// Opens an existing staging file for appending after its retained prefix.
+    func reopen(at url: URL) throws -> any FileSinkHandle
 }
 
 public struct FileHandleSink: FileSink {
@@ -44,6 +46,12 @@ public struct FileHandleSink: FileSink {
             throw CocoaError(.fileWriteUnknown)
         }
         return FileHandleSinkHandle(handle: try FileHandle(forWritingTo: url))
+    }
+
+    public func reopen(at url: URL) throws -> any FileSinkHandle {
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.seekToEnd()
+        return FileHandleSinkHandle(handle: handle)
     }
 }
 
