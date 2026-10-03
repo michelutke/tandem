@@ -12,6 +12,10 @@ private struct FailingSink: FileSink {
     func create(at url: URL) throws -> any FileSinkHandle {
         FailingHandle(inner: try FileHandleSink().create(at: url), remaining: failAfterBytes, error: error)
     }
+
+    func reopen(at url: URL) throws -> any FileSinkHandle {
+        FailingHandle(inner: try FileHandleSink().reopen(at: url), remaining: failAfterBytes, error: error)
+    }
 }
 
 private final class FailingHandle: FileSinkHandle {
@@ -47,7 +51,10 @@ private struct Harness {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         directories = TransferDirectories(destination: destination, staging: staging)
-        receiver = FileReceiver(session: session, directories: directories, sink: sink)
+        receiver = FileReceiver(
+            session: session, directories: directories, sink: sink, peer: "peer-a",
+            now: { Date(timeIntervalSince1970: 0) }
+        )
     }
 
     func listing(_ url: URL) -> [String] {
