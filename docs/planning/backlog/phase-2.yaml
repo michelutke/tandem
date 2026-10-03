@@ -759,6 +759,30 @@ epics:
           - "unit: tandemServiceComposition_sessionClosed_consumersDetached"
           - "integration: tandemServiceComposition_jvmLoopbackMac_readyAndNotificationFlows"
         notes: "Gap found while reviewing E20-21/E40-xx/E50-xx follow-ups (2026-10-03)."
+      - id: E20-24
+        title: "[android] Attach remaining features in FeatureAttacher (contacts, SMS, status/Ring, focus/media, rotation, notification actions/icons)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-8.1, F-8.3, F-4.3]
+        use_cases: [UC-19, UC-24]
+        invariants: [3, 5, 7]
+        depends_on: [E20-23]
+        description: |
+          E20-23 composed the connect loop plus notifications, clipboard and files. Attach the rest per
+          Ready session through the dispatcher: contacts sync session + observer, SMS sync session +
+          incremental sync + send handler + SimList publisher, status publisher + Ring handler, focus and
+          media bridges, NotificationActionExecutor + icon sender, clipboard loop guard, RotationReceiver
+          (+ E70-14 PinSource with grace/pending pins and ActiveIdentityAlias for the dialer identity), and
+          ConnectionStatusViewModel fed from orchestrator failure/failedCycles; persist pairing addresses
+          as candidate source.
+        acceptance:
+          - Every listed consumer attaches exactly once per Ready session and detaches on close
+          - The dialer presents the ActiveIdentityAlias identity and accepts grace/pending pins per E70-14
+        tdd:
+          - "unit: featureAttacher_sessionReady_allRemainingConsumersAttachedOnce"
+        notes: "Remainder of E20-23 (2026-10-03)."
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
