@@ -4,7 +4,7 @@ import TandemProtocol
 /// Receiver-side decision for an incoming `FileOffer` (docs/protocol/SPEC.md #files-channel
 /// "Cycle 4 caps"): rejects over-cap, busy and low-space offers without prompting, auto-accepts
 /// small offers when enabled, otherwise prompts and rejects TIMEOUT after 300 s unanswered.
-public actor AcceptFlow {
+public actor AcceptFlow: OriginalOfferExpecting {
     private static let maxNameBytes = 1024
     private static let maxMimeBytes = 255
     private static let maxSize: UInt64 = 1 << 36
@@ -22,6 +22,7 @@ public actor AcceptFlow {
 
     private var pending: [String: Task<Void, Never>] = [:]
     private var active: Set<String> = []
+    private var expectedOriginals: Set<String> = []
 
     public init(
         session: any TandemSession,
@@ -51,6 +52,10 @@ public actor AcceptFlow {
             await sendReject(offer.id, reason)
             return
         }
+        if expectedOriginals.remove(offer.id) != nil {
+            await sendAccept(offer.id)
+            return
+        }
         if settings.autoAcceptEnabled && offer.size <= settings.autoAcceptMaxSize {
             await sendAccept(offer.id)
             return
@@ -68,6 +73,14 @@ public actor AcceptFlow {
         case .decline:
             await sendReject(response.offerId, .declined)
         }
+    }
+
+    public func expectOriginal(transferId: String) {
+        expectedOriginals.insert(transferId)
+    }
+
+    public func forgetOriginal(transferId: String) {
+        expectedOriginals.remove(transferId)
     }
 
     /// Frees the active-transfer slot taken by an accepted offer once its transfer finishes.

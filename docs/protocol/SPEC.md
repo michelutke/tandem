@@ -55,6 +55,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
 | 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
+| 22 | Focus sync | [`#focus-sync`](#focus-sync) | Written (E72-04) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -1942,6 +1943,9 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
   Mac echoes it as the next request's `backfill_before_id`. `backfill_complete = true` on the page
   that reaches the oldest row; later requests then use only `since_id`.
 - `page_size` bounds the number of `messages` in one `SmsSyncResponse` page.
+- During a live session the phone may also send unsolicited incremental `SmsSyncResponse` pushes: they
+  carry only new rows/threads and `high_watermark_id`; unset `backfill_cursor_id` and
+  `backfill_complete` mean "backfill state unchanged", and receivers MUST NOT treat them as a reset.
 - `status = PERMISSION_REQUIRED` is returned, with no `threads` or `messages`, when the phone has
   not granted READ_SMS; `status = OK` otherwise.
 
@@ -1956,11 +1960,38 @@ At most one `SmsSyncRequest` is in flight per connection; a new one supersedes t
    Mac reconcile the sent row with the next sync.
 4. A `body` over 1600 characters fails with `TOO_LONG`, and more than 10 sends in a rolling 60 s
    fail with `RATE_LIMITED`; both are rejected before `SmsManager` is called (§10).
+5. A `subscription_id` of 0 means the phone's default SMS subscription. If it is not valid, or
+   the phone has two or more active SIMs and no valid default, the send fails with
+   `SUBSCRIPTION_REQUIRED`; a nonzero `subscription_id` absent from the active subscriptions
+   fails with `INVALID_SUBSCRIPTION`. Neither reaches `SmsManager`; the phone never guesses a SIM.
 
 ### SIM list
 
 The phone sends `SimList` on connect and again whenever the set of active subscriptions changes
 (publish-on-change); the Mac never requests it. The newest `SimList` replaces the previous one.
+
+### Non-default-SMS-app behavior
+
+*(E50-06 · PRD F-8.2 · UC-19)*
+
+Since Android 4.4 only the holder of the default-SMS-app role may insert, update or delete rows in
+the SMS provider. Tandem does not request that role in v1 (revisit in v2; mark-as-read and
+delete-on-phone stay out of scope until then). Consequences:
+
+- **The system writes Sent rows.** For an app that is not the default, the platform itself records
+  messages sent through `SmsManager.sendTextMessage`/`sendMultipartTextMessage` in the provider, so
+  Tandem-originated sends appear as Sent rows and flow back through incremental sync (§ Cursors,
+  E50-03) like any other message.
+- **Tandem cannot change provider rows.** It reads via `query()` only (`READ_SMS`); it cannot mark
+  messages read, delete them, or repair a missing row.
+- **Reconciliation.** The Mac tracks each send by `client_message_id` and, when a `SendSmsStatus`
+  reports `provider_message_id` (the `_id` of the system-written row), merges that row with its
+  optimistic outbound message instead of storing a duplicate (E50-04, E50-14).
+- **Local-only fallback.** If no provider row is reported (an OEM deviation from the documented
+  behavior), the Mac keeps its own row as local-only send history.
+
+Evidence: the E50-04 manual gate `smsSender_nonDefaultAppSend_systemWritesOneSentProviderRow` in `docs/testing/manual-gates.md` records the device model and
+Android version on which a non-default send produced exactly one Sent provider row.
 
 ### Conformance
 
@@ -2156,3 +2187,32 @@ carries no receiver trust-store state, so the ordered receiver algorithm is test
 replay of a consumed challenge, the idempotent re-send on a grace-pin session (phone-initiated) and on
 a pending-pin session (Mac-initiated) acking before `NOT_PRIMARY_PIN`/`ROTATION_UNAVAILABLE`/
 `DUPLICATE_KEY`, and each reject reason.
+
+## Focus sync
+
+F-10.2 (design note `docs/spikes/focus-dnd-sync.md`, E72-03). The Mac's Focus state drives the phone's
+Do Not Disturb interruption filter. Direction is Mac to phone only: the phone never reports its own
+filter. Both messages (`focus.proto`, E72-04) ride the `CONTROL` channel as `Envelope` payloads 120
+(`FocusState`) and 121 (`FocusSyncCapability`), on an authenticated control session that has reached
+Ready.
+
+### FocusState
+
+- `FocusState { on }` is sent by the Mac on every Focus change.
+- `on = true`: a receiver holding notification-policy access records the interruption filter
+  currently active (only if sync has not already recorded one) and sets the priority-only filter.
+- `on = false`: a receiver that previously applied a filter restores the recorded filter and forgets
+  it; a receiver that never applied one changes nothing.
+- A receiver without notification-policy access MUST NOT change the interruption filter and MUST
+  answer `FocusSyncCapability { available: false }`. A receiver that applies the state sends nothing.
+- `FocusState` carries no secret material; invariants 1 and 8 are inherited from the control session.
+
+### FocusSyncCapability
+
+`FocusSyncCapability { available }` is sent by the phone only; `available = false` tells the Mac that
+the phone cannot apply Focus. The Mac stops sending `FocusState` until it sees `available = true`.
+
+### Conformance
+
+`protocol/vectors/focus-encoding.json` (E72-04; E15-01, E15-02) includes `FocusState` (on and off) and
+`FocusSyncCapability` (unavailable and available) round-tripping to golden bytes on both codecs.

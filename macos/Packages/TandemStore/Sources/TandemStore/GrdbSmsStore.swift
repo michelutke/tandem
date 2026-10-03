@@ -223,6 +223,13 @@ public final class GrdbSmsStore: SmsStore {
                     """,
                 arguments: [state.rawValue, providerMessageId, peer.hexString, clientMessageId]
             )
+            try database.execute(
+                sql: """
+                    DELETE FROM sms_outbound WHERE peer = ? AND client_message_id = ? AND EXISTS (
+                        SELECT 1 FROM sms_message WHERE peer = ? AND id = ?)
+                    """,
+                arguments: [peer.hexString, clientMessageId, peer.hexString, providerMessageId]
+            )
         }
     }
 

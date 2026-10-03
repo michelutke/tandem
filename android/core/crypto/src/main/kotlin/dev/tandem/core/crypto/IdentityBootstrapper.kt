@@ -28,6 +28,7 @@ private const val SMOKE_TEST_SIGNATURE_ALGORITHM = "SHA256withECDSA"
  */
 class IdentityBootstrapper(
     private val keyStore: IdentityKeyStore,
+    private val activeAlias: ActiveIdentityAlias = ActiveIdentityAlias(),
     private val onIdentityReset: () -> Unit = {},
 ) {
     private val provider = IdentityKeyProvider(keyStore)
@@ -42,7 +43,7 @@ class IdentityBootstrapper(
      * on every launch.
      */
     fun bootstrapIdentity(): KeyHandle {
-        val existing = keyStore.get(IDENTITY_KEY_ALIAS) ?: return resetIdentity()
+        val existing = existingIdentity() ?: return resetIdentity()
 
         return try {
             verifyUsable(existing)
@@ -57,9 +58,20 @@ class IdentityBootstrapper(
         requiresRePair = false
     }
 
+    /**
+     * The key under the active alias; if that key is gone but the original identity still exists,
+     * falls back to it rather than ever replacing a valid identity.
+     */
+    private fun existingIdentity(): KeyHandle? =
+        keyStore.get(activeAlias.current) ?: keyStore.get(IDENTITY_KEY_ALIAS)?.also {
+            activeAlias.activate(IDENTITY_KEY_ALIAS)
+        }
+
     private fun resetIdentity(): KeyHandle {
+        keyStore.delete(activeAlias.current)
         keyStore.delete(IDENTITY_KEY_ALIAS)
-        val handle = provider.getOrCreateIdentityKey()
+        val handle = provider.getOrCreateIdentityKey(IDENTITY_KEY_ALIAS)
+        activeAlias.activate(IDENTITY_KEY_ALIAS)
         requiresRePair = true
         onIdentityReset()
         return handle
