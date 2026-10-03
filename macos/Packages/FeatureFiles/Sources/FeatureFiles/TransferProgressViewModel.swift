@@ -6,7 +6,7 @@ import Observation
 public struct TransferProgress: Equatable, Sendable {
     public let percent: Int
     public let bytesPerSecond: Double
-    public let at: Duration
+    public let timestamp: Duration
 }
 
 /// Drives one in-flight transfer row in the menu bar window (backlog E40-23, PRD F-7.1): percent,
@@ -58,8 +58,8 @@ public final class TransferProgressViewModel {
         deliveredBytes = bytes
         samples.append((now, bytes))
         samples.removeAll { now - $0.at > Self.speedWindow }
-        guard progress.at == .zero || now - progress.at >= Self.minEmissionInterval else { return }
-        progress = TransferProgress(percent: percent(of: bytes), bytesPerSecond: speed(now: now), at: now)
+        guard progress.timestamp == .zero || now - progress.timestamp >= Self.minEmissionInterval else { return }
+        progress = TransferProgress(percent: percent(of: bytes), bytesPerSecond: speed(now: now), timestamp: now)
     }
 
     public func cancel() async {

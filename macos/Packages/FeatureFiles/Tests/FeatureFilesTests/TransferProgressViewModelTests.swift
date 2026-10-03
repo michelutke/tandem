@@ -31,7 +31,7 @@ struct TransferProgressViewModelTests {
         for _ in 0..<30 {
             clock.advance(by: .milliseconds(100))
             viewModel.record(deliveredBytes: viewModel.deliveredBytes + mebibyte / 10)
-            if emissionTimes.last != viewModel.progress.at { emissionTimes.append(viewModel.progress.at) }
+            if emissionTimes.last != viewModel.progress.timestamp { emissionTimes.append(viewModel.progress.timestamp) }
         }
 
         #expect(emissionTimes.count > 2)
