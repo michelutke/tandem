@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A40100000000000000E40B02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40B01 /* FeatureFiles */; };
 		068B5A08BDA957503ED99CFA /* MainWindowViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B271E84F6097E2F3274655CB /* MainWindowViewModelTests.swift */; };
 		0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */; };
 		1319A4BA69B9DFF7EBD7928A /* SettingsComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122B73053B0DCA6693D01A4B /* SettingsComposition.swift */; };
@@ -229,6 +230,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A40100000000000000E40B03 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A40100000000000000E40B02 /* FeatureFiles in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4218F3F64192388F1889EF41 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -413,12 +422,16 @@
 			buildPhases = (
 				E6C0D035596B8AB2F87A804F /* Sources */,
 				49B17D310B02CAFE6AEB90BF /* Resources */,
+				A40100000000000000E40B03 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = TandemShare;
+			packageProductDependencies = (
+				A40100000000000000E40B01 /* FeatureFiles */,
+			);
 			productName = TandemShare;
 			productReference = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -1095,6 +1108,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */;
 			productName = FeatureClipboard;
+		};
+		A40100000000000000E40B01 /* FeatureFiles */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */;
+			productName = FeatureFiles;
 		};
 		A40100000000000000E40A01 /* FeatureFiles */ = {
 			isa = XCSwiftPackageProductDependency;
