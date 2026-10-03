@@ -149,6 +149,8 @@ struct ScenarioView: View {
             ScenarioView.makePhotoGridPartialAccessView()
         case .threadListSeeded:
             ScenarioView.makeThreadListSeededView()
+        case .conversationSeeded:
+            ScenarioView.makeConversationSeededView()
         case .incomingCallActive:
             ScenarioView.makeIncomingCallActiveView()
         }
