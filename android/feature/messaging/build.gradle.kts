@@ -15,8 +15,13 @@ android {
 dependencies {
     // SmsMessage/SmsThread protocol types (E50-01).
     implementation(project(":core:protocol"))
+    // SmsSyncSession sends over the real TandemSession seam.
+    implementation(project(":core:transport"))
     implementation(libs.kotlinx.coroutines.core)
 
+    // SmsSyncSessionTest scripts TandemSession via FakeTandemSession (E12-11); test-only.
+    testImplementation(testFixtures(project(":core:transport")))
+    testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
 }

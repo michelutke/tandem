@@ -18,6 +18,7 @@ import "tandem/v1/media.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
 import "tandem/v1/photos.proto";
+import "tandem/v1/rotation.proto";
 import "tandem/v1/sms.proto";
 import "tandem/v1/status.proto";
 
@@ -69,7 +70,7 @@ message Envelope {
   // CallActionResult; 94-99 held for future CALLS extensions.
   reserved 94 to 99;   // calls.proto (E52-01): future CALLS channel extensions
   reserved 100 to 109; // input.proto (E62-01) — INPUT channel
-  reserved 110 to 119; // rotation.proto (E70-01) — CONTROL channel
+  reserved 114 to 119; // rotation.proto (E70-01): remaining CONTROL payload slots
   // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
   // the separate media connection, which has no channel and therefore no Envelope payload slot
   // (E01-14).
@@ -136,5 +137,11 @@ message Envelope {
     CallAction call_action = 91;
     PlaceCallRequest place_call_request = 92;
     CallActionResult call_action_result = 93;
+
+    // rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
+    RotationChallenge rotation_challenge = 110;
+    KeyRotation key_rotation = 111;
+    RotationAck rotation_ack = 112;
+    RotationReject rotation_reject = 113;
   }
 }

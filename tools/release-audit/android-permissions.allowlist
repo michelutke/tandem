@@ -19,3 +19,4 @@ android.permission.READ_MEDIA_IMAGES E41-02
 android.permission.READ_MEDIA_VIDEO E41-02
 android.permission.READ_MEDIA_VISUAL_USER_SELECTED E41-02
 android.permission.READ_EXTERNAL_STORAGE E41-02
+android.permission.INTERNET E12-04

@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- NsdManager (E21-04 browse/resolve) refuses callers without INTERNET. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+</manifest>
