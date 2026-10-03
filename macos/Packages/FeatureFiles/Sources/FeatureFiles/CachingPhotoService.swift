@@ -29,4 +29,8 @@ public struct CachingPhotoService: PhotoService {
     public func requestMorePhotos() async throws {
         try await base.requestMorePhotos()
     }
+
+    public func requestOriginal(id: String, transferId: String) async throws {
+        try await base.requestOriginal(id: id, transferId: transferId)
+    }
 }

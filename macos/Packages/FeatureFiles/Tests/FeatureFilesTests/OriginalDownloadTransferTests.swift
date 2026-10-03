@@ -39,7 +39,7 @@ private actor SilentPresenter: AcceptPromptPresenter {
         let receiver = FileReceiver(
             session: session,
             directories: TransferDirectories(destination: destination, staging: staging),
-            sink: FileHandleSink()
+            sink: FileHandleSink(), peer: "peer-a", now: { Date(timeIntervalSince1970: 0) }
         )
         let photos = FakePhotoService()
         let viewModel = PhotoGridViewModel(service: photos, offerExpecting: flow, makeTransferID: { "orig1" })
