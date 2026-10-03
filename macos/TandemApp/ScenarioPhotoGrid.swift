@@ -1,5 +1,6 @@
 #if DEBUG
 import FeatureFiles
+import AppKit
 import Foundation
 import SwiftUI
 import TandemProtocol
@@ -11,6 +12,47 @@ extension ScenarioView {
     static func makePhotoGridPartialAccessView() -> some View {
         PhotoGridView(viewModel: PhotoGridViewModel(service: SeededPartialAccessPhotoService()))
     }
+}
+
+extension ScenarioView {
+    /// A 10 000-photo library with synthetic 256 px thumbnails (E41-09).
+    @MainActor
+    static func makePhotoGrid10kView() -> some View {
+        PhotoGridView(viewModel: PhotoGridViewModel(service: Seeded10kPhotoService()))
+    }
+}
+
+private struct Seeded10kPhotoService: PhotoService {
+    private static let total = 10_000
+    private static let side = 256
+    private static let thumbnail: Data = {
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side, bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0
+        )
+        return bitmap?.representation(using: .png, properties: [:]) ?? Data()
+    }()
+
+    func fetchPage(cursor: String, limit: UInt32) async throws -> Tandem_V1_PhotoPageResult {
+        let start = Int(cursor) ?? 0
+        let end = min(start + Int(limit), Self.total)
+        var result = Tandem_V1_PhotoPageResult()
+        result.items = (start..<end).map { index in
+            var meta = Tandem_V1_PhotoMeta()
+            meta.id = "seeded-\(index)"
+            return meta
+        }
+        result.nextCursor = end < Self.total ? String(end) : ""
+        result.access = .full
+        return result
+    }
+
+    func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Self.thumbnail }
+
+    func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
 }
 
 private struct SeededPartialAccessPhotoService: PhotoService {
