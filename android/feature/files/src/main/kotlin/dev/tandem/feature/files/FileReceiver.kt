@@ -52,6 +52,7 @@ class FileReceiver(
     private val session: TandemSession,
     private val store: TransferStore,
     private val publisher: DownloadsPublisher,
+    private val notifier: ReceivedFileNotifier,
     private val peer: SpkiFingerprint,
     private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
@@ -241,14 +242,16 @@ class FileReceiver(
 
     private suspend fun publish(transfer: Transfer) {
         val id = transfer.offer.id
-        try {
-            withContext(ioDispatcher) {
-                store.open(id).use { publisher.publish(transfer.name, transfer.offer.mime, it) }
+        val contentUri =
+            try {
+                withContext(ioDispatcher) {
+                    store.open(id).use { publisher.publish(transfer.name, transfer.offer.mime, it) }
+                }
+            } catch (_: IOException) {
+                return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
-        } catch (_: IOException) {
-            return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
-        }
         discard(id)
+        notifier.notifyReceived(transfer.name, transfer.offer.mime, contentUri)
     }
 
     private suspend fun fail(
