@@ -51,6 +51,8 @@ private struct Seeded10kPhotoService: PhotoService {
     func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Self.thumbnail }
 
     func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
 }
 
 private struct SeededPartialAccessPhotoService: PhotoService {
