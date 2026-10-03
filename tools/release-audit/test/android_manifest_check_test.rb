@@ -13,6 +13,7 @@
 #   ci: deniedPermissionCheck_usesPermissionSdk23QueryAllPackagesFixture_checkFails
 #   ci: allowlist_malformedLine_loadRaises
 #   ci: mergedManifest_missingNetworkSecurityConfigOrCleartextFixture_checkFails
+#   ci: releaseManifest_declaredPermissions_matchAllowlist (E71-09)
 #   ci: mergedManifest_notificationListener_requiresBindNotificationListenerPermission (E30-02)
 
 require 'minitest/autorun'
@@ -169,6 +170,55 @@ class AndroidManifestCheckTest < Minitest::Test
   end
 
   # --- allowlist / denylist loading ---
+
+  # --- E71-09 declared permissions == allowlist ---
+
+  PERMISSIONS_ALLOWLIST = Set['android.permission.POST_NOTIFICATIONS'].freeze
+
+  def test_releaseManifest_declaredPermissions_matchAllowlist
+    violations = AndroidManifestCheck.check_manifest(
+      fixture('manifest-permissions-valid.xml'),
+      allowlist: { 'dev.tandem.app.MainActivity' => nil },
+      permissions_allowlist: PERMISSIONS_ALLOWLIST,
+    )
+
+    assert_empty violations
+  end
+
+  def test_releaseManifest_unlistedPermissionFixture_checkFailsNamingPermission
+    violations = AndroidManifestCheck.check_manifest(
+      fixture('manifest-permission-unlisted.xml'),
+      allowlist: { 'dev.tandem.app.MainActivity' => nil },
+      permissions_allowlist: PERMISSIONS_ALLOWLIST,
+    )
+
+    assert(violations.any? { |v| v.include?('android.permission.CAMERA') && v.include?('android-permissions.allowlist') })
+  end
+
+  def test_releaseManifest_allowlistedPermissionNotDeclared_checkFailsNamingPermission
+    violations = AndroidManifestCheck.check_manifest(
+      fixture('manifest-valid.xml'),
+      allowlist: { 'dev.tandem.app.MainActivity' => nil },
+      permissions_allowlist: PERMISSIONS_ALLOWLIST,
+    )
+
+    assert(violations.any? { |v| v.include?('android.permission.POST_NOTIFICATIONS') && v.include?('not declared') })
+  end
+
+  def test_loadPermissionsAllowlist_lineWithoutIssueId_raisesMalformed
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'permissions.allowlist')
+      File.write(path, "android.permission.POST_NOTIFICATIONS\n")
+
+      assert_raises(AndroidManifestCheck::MalformedAllowlistError) { AndroidManifestCheck.load_permissions_allowlist(path) }
+    end
+  end
+
+  def test_loadPermissionsAllowlist_checkedInFile_everyLineHasIssueId
+    permissions = AndroidManifestCheck.load_permissions_allowlist(AndroidManifestCheck::DEFAULT_PERMISSIONS_ALLOWLIST)
+
+    refute_empty permissions
+  end
 
   def test_loadAllowlist_dashPermission_mapsToNil
     Dir.mktmpdir do |dir|

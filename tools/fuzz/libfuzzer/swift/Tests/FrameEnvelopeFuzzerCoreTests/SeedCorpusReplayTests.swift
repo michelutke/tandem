@@ -19,6 +19,18 @@ struct SeedCorpusReplayTests {
             fuzzOne(frame)
         }
     }
+
+    /// E71-02: the Envelope target's seeds are each vector's frame minus its 4-byte length prefix.
+    @Test
+    func fuzzOneEnvelope_everySeedCorpusVector_doesNotCrash() throws {
+        let manifest = try SeedCorpusVectors.load()
+        #expect(!manifest.vectors.isEmpty)
+
+        for vector in manifest.vectors {
+            let frame = try SeedCorpusVectors.frameBytes(for: vector)
+            fuzzOneEnvelope(frame.dropFirst(4))
+        }
+    }
 }
 
 /// Minimal reader for `protocol/vectors/frame-encoding.json`, independent of

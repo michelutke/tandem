@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# E71-03 tdd:
+#   unit: fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
+# E71-02 tdd:
+#   unit: fuzzCampaignRunner_envelopeTarget_logsTarget
+#   unit: fuzzCampaignRunner_unknownTarget_exitsTwo
 # E71-01 tdd:
 #   unit: fuzzCampaignRunner_plantedCrashingTarget_exitsNonZeroWithReproducerAndCrashCount
 #   unit: fuzzCampaignRunner_cleanTarget_exitsZeroAndLogsDurationExecsCorpusCrashes
@@ -50,4 +55,25 @@ name=fuzzCampaignRunner_secondSegment_resumesElapsedAndCorpus
 "$RUNNER" libfuzzer 2 2 "$clean_state" > /dev/null 2>&1 || fail "$name: resumed run exited non-zero"
 grep -q '^ELAPSED=[2-9]' "$clean_state/state.env" || fail "$name: elapsed not retained"
 grep -q '"final_corpus_size":1' "$clean_state/campaign-log.json" || fail "$name: corpus lost"
+echo "OK $name"
+
+# --- envelopeTarget -------------------------------------------------------------------------
+env_state="$work/envelope"
+mkdir -p "$env_state/corpus"
+printf 'harmless' > "$env_state/corpus/a.bin"
+name=fuzzCampaignRunner_envelopeTarget_logsTarget
+"$RUNNER" libfuzzer 2 2 "$env_state" envelope > /dev/null 2>&1 || fail "$name: exited non-zero"
+grep -q '"target":"envelope"' "$env_state/campaign-log.json" || fail "$name: target not logged"
+echo "OK $name"
+
+# --- unknownTarget --------------------------------------------------------------------------
+name=fuzzCampaignRunner_unknownTarget_exitsTwo
+"$RUNNER" libfuzzer 2 2 "$work/unknown" bogus > /dev/null 2>&1
+[ "$?" -eq 2 ] || fail "$name: did not exit 2"
+echo "OK $name"
+
+# --- qrTargetWithLibfuzzer ------------------------------------------------------------------
+name=fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
+"$RUNNER" libfuzzer 2 2 "$work/qr" qr > /dev/null 2>&1
+[ "$?" -eq 2 ] || fail "$name: did not exit 2"
 echo "OK $name"

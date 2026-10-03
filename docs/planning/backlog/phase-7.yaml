@@ -58,7 +58,7 @@ epics:
           re-sent KeyRotation for an already-pinned newSpki is acknowledged idempotently; only
           the peer's current primary pin may authorize a rotation. SPEC also fixes the
           initiator's ack timeout (30 s) and the scheduled-rotation interval setting.
-          Rotation vectors under protocol/vectors/rotation/ (run by the E15-01/E15-02 conformance
+          Rotation vectors under protocol/vectors/rotation-encoding.json (run by the E15-01/E15-02 conformance
           runners): an ECDSA P-256 signature by the old key over the cycle-4 rotation transcript that verifies, a
           tampered newSpki that fails, a signature by the new key instead of the old one that
           fails, and a truncated DER signature that fails. Replay/idempotency is receiver state,
@@ -80,7 +80,7 @@ epics:
           - buf lint exits 0 on rotation.proto.
           - RotationReject.reason enumerates at least INVALID_SIGNATURE, UNAUTHENTICATED_SESSION
             and NOT_PRIMARY_PIN.
-          - protocol/vectors/rotation/*.json contains the four signature vectors above (old-key
+          - protocol/vectors/rotation-encoding.json contains the four signature vectors above (old-key
             signature over new SPKI, tampered newSpki, new-key signature, truncated signature)
             and all pass conformance on both codecs.
           - SPEC.md rotation section states the grace-session purge triggers, idempotent re-send

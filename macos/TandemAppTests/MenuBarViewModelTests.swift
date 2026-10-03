@@ -155,7 +155,7 @@ struct MenuBarViewModelTests {
     @Test
     func menuBarViewModel_realConnectionStateStream_reflectsReadyAndOfflineTransitions() async throws {
         let relay = ConnectionStateRelay()
-        let viewModel = await MenuBarViewModel(stateStream: relay.stream, peerName: "Pixel 8")
+        let viewModel = await MenuBarViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
 
         let firstSession = FakeTandemSession()
         await relay.attach(firstSession)
