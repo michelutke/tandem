@@ -46,6 +46,7 @@ import dev.tandem.feature.files.MediaStoreDownloadsPublisher
 import dev.tandem.feature.files.NotificationTransferPrompter
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
 import java.io.File
+import java.time.Clock
 import javax.inject.Singleton
 
 /** Entry point [dev.tandem.app.service.TandemService] (framework-constructed) resolves its loop through. */
@@ -127,7 +128,7 @@ object ConnectionModule {
                 pairedFingerprints = pairedFingerprints::snapshot,
                 dispatcher = AppDispatchers.default,
             )
-        val filesFeature = filesFeature(context)
+        val filesFeature = filesFeature(context, clock)
         purgeRegistry.register(filesFeature.purger)
         purgeRegistry.register((context as TandemApplication).activityStore)
         val features =
@@ -151,9 +152,12 @@ object ConnectionModule {
         )
     }
 
-    private fun filesFeature(context: Context): FilesFeature =
+    private fun filesFeature(
+        context: Context,
+        clock: Clock,
+    ): FilesFeature =
         FilesFeature(
-            store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY)),
+            store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
             prompter = NotificationTransferPrompter(context),
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
@@ -162,6 +166,7 @@ object ConnectionModule {
             thumbnailLoader = ContentResolverThumbnailLoader(context.contentResolver),
             permissionChecker = MediaPermissionChecker(context),
             acceptSettings = { AcceptSettings() },
+            clock = clock,
             ioDispatcher = AppDispatchers.io,
             serialDispatcher = AppDispatchers::serial,
         )

@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Clock
 
 /**
  * Attaches the FILES channel consumers to a session (F-7.x): receiver, accept flow, sender, and the
@@ -48,6 +49,7 @@ class FilesFeature(
     private val thumbnailLoader: ThumbnailLoader,
     private val permissionChecker: MediaPermissionChecker,
     private val acceptSettings: () -> AcceptSettings,
+    private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val serialDispatcher: () -> CoroutineDispatcher,
 ) : SessionFeature {
@@ -63,7 +65,7 @@ class FilesFeature(
         session: TandemSession,
         peer: SpkiFingerprint,
     ) {
-        val fileReceiver = FileReceiver(session, store, publisher, ioDispatcher, serialDispatcher())
+        val fileReceiver = FileReceiver(session, store, publisher, peer, clock, ioDispatcher, serialDispatcher())
         val acceptFlow =
             AcceptFlow(session, freeSpace, prompter, acceptSettings, { fileReceiver.activeCount }, serialDispatcher())
         acceptFlow.onAccepted = fileReceiver::expect
