@@ -50,7 +50,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
 | 16 | Calls channel | [`#calls-channel`](#calls-channel) | Written (E52-01) |
-| 17 | Key rotation | `#key-rotation` | TBD (Phase 7, epic E70) |
+| 17 | Key rotation | [`#key-rotation`](#key-rotation) | Written (E70-01) |
 | 18 | STATUS channel | [`#status-channel`](#status-channel) | Written (E23-01) |
 | 19 | NOTIFY channel | [`#notify-channel`](#notify-channel) | Written (E30-01) |
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
@@ -2042,3 +2042,117 @@ of one call decoding identically on both codecs; and failed `CallActionResult`s 
 `UNKNOWN_CALL`, `INVALID_NUMBER` and `RATE_LIMITED`.
 
 ---
+
+## Key rotation
+
+Normative definition of `rotation.proto` (E70-01; `docs/planning/decisions.md` D-24, D-34, D-67,
+D-74). Rotation replaces one side's pinned identity key (SPKI, §1) with a new one over an already
+authenticated control session. It is key hygiene, **not compromise recovery**: a holder of a stolen
+old key can itself rotate, so a suspected compromise is handled by unpair and re-pair (AC-15, E02-01).
+
+### Messages
+
+All four ride `CONTROL` as `Envelope` payloads 110–113 and are legal only on a control session that
+has reached Ready (§ Channel binding). On a pairing-candidate connection before `PairAccepted` any of
+them is a wrong payload: the receiver closes with `PAIRING_FAILED` (§2) and sends no `RotationReject`.
+
+- `RotationChallenge { challenge }` — exactly 32 CSPRNG bytes, sent once per session by each side
+  as defined in § Channel binding (`cb`) (D-74).
+- `KeyRotation { newSpkiDer, sigOldKey, sigNewKey }` — sent by the rotating peer (the initiator)
+  after it received the other side's `RotationChallenge` on this session. `newSpkiDer` is a DER
+  SubjectPublicKeyInfo (§1).
+- `RotationAck {}` — the receiver accepted and pinned (or stored pending, below) the new key.
+- `RotationReject { reason }` — `INVALID_SIGNATURE`, `UNAUTHENTICATED_SESSION` (only on a connection
+  that completed mTLS but whose peer is not pinned; pre-`PairAccepted` is the wrong-payload close above), `NOT_PRIMARY_PIN`,
+  `DUPLICATE_KEY`, `ROTATION_UNAVAILABLE`. `UNSPECIFIED` is never legal on the wire. A reject does
+  not close the connection and leaves the trust store unchanged.
+
+### Transcript and signatures
+
+```
+transcript = ASCII("tandem-rotate-v1") || LP(oldSpkiDer) || LP(newSpkiDer) || LP(cb)
+```
+
+`LP(x) = u16be(len(x)) || x`, as in §2. `oldSpkiDer` is the SPKI of the certificate that
+authenticated this session's TLS handshake (never a message field); `cb` is the **receiver's**
+`RotationChallenge` for this session. `sigOldKey` and `sigNewKey` are ECDSA P-256 / SHA-256 over the
+transcript, ASN.1 DER encoded, made by the old and the new private key. The old-key signature
+authorizes the rotation; the new-key signature proves possession so a device cannot claim someone
+else's public key. Because `cb` is fresh per session, a `KeyRotation` captured on one session fails
+on any other.
+
+The receiver MUST, in this order:
+
+1. reject `UNAUTHENTICATED_SESSION` if the session has not completed mTLS with a pinned peer;
+2. idempotent re-send (below): if `newSpkiDer` is already that peer's primary or pending pin and the
+   session was authenticated by that peer's primary or grace pin, send `RotationAck` and stop;
+3. reject `NOT_PRIMARY_PIN` unless that peer's **current primary** pin authenticated the session (a
+   grace pin never authorizes a new rotation);
+4. reject `ROTATION_UNAVAILABLE` if a Mac has a pairing window open or a rotation for this peer is
+   already pending;
+5. reject `INVALID_SIGNATURE` unless `newSpkiDer` is exactly the 91-byte DER SubjectPublicKeyInfo of an
+   uncompressed ECDSA P-256 key (§1: `id-ecPublicKey`, `prime256v1`, `0x04` point); other curves,
+   compressed points and any other length or encoding fail here, before any signature work;
+6. verify both signatures (any malformed, truncated or non-verifying signature is
+   `INVALID_SIGNATURE`);
+7. reject `DUPLICATE_KEY` if `newSpkiDer` equals any existing primary or grace pin in its trust store;
+8. pin (or store pending) and send `RotationAck`.
+
+The challenge is consumed by the first `KeyRotation` that reaches signature verification (step 6)
+and is never reused.
+
+### Idempotent re-send
+
+A re-sent `KeyRotation` whose `newSpkiDer` the receiver already holds as that peer's primary pin or
+pending pin, on a session authenticated by that peer's primary or grace pin, is acknowledged with
+`RotationAck` without re-verifying against the consumed challenge and without any state change. It is
+checked first (step 2) so the `NOT_PRIMARY_PIN`, `ROTATION_UNAVAILABLE` and `DUPLICATE_KEY` rejects
+never fire on a retry. It applies to:
+
+- a phone-initiated rotation whose `RotationAck` was lost: the Mac now holds the new key as primary and
+  the phone reconnects on the old key, which is a grace pin on the Mac;
+- a Mac-initiated rotation whose `RotationAck` was lost: the phone holds the new Mac key as pending and
+  the Mac reconnects on its old key, still the phone's primary.
+
+### Grace pin
+
+After the swap the old SPKI is kept as a grace pin. It stays accepted for at most one subsequent
+session, and is purged as soon as either that session closes or a session authenticated with the new
+SPKI completes `VersionHello`. It also expires 7 days after the swap, so a lost `RotationAck` or a
+peer that never reconnects cannot keep the old key alive.
+
+### Mac-initiated rotation (two-phase)
+
+A Mac key rotation (D-34) must not lock out any paired phone: the Mac listener presents one identity.
+
+1. The Mac sends `KeyRotation` to each paired phone as it connects. The phone verifies as above,
+   stores the new Mac key as a **pending** pin (not yet trusted for connections) and replies
+   `RotationAck`.
+2. The Mac switches its listener identity only after every paired phone has acked.
+3. A phone promotes the pending pin to primary when a handshake presents it; the grace rule above
+   starts at that moment for the old Mac pin.
+4. A pending pin never presented is purged after 30 days.
+5. After 7 days without every phone acking, the Mac offers **Finish** (unpair the phones that have
+   not confirmed) or **Cancel**; the Mac never switches keys silently.
+
+### Timeouts and scheduling
+
+- The initiator MUST treat a missing `RotationAck`/`RotationReject` within **30 s** of sending
+  `KeyRotation` as a failed attempt and keep using the old key.
+- Scheduled rotation: a setting with values Off, 90, 180 or 365 days, default 365 days since the
+  last rotation (or pairing). A scheduled rotation fires only over an authenticated Ready session and
+  otherwise defers until the next one.
+
+### Conformance
+
+`protocol/vectors/rotation-encoding.json` (E70-01; E15-01, E15-02) includes: `RotationChallenge`,
+`RotationAck` and each `RotationReject` reason round-tripping to golden bytes; a `KeyRotation` whose
+old-key and new-key signatures verify over the transcript; and `KeyRotation`s that fail verification
+(`INVALID_SIGNATURE`) for a tampered `newSpkiDer`, a `sigOldKey` made by the new key, a `sigOldKey`
+made by an unrelated key, a truncated DER signature, signatures made over another session's
+`RotationChallenge`, a `sigNewKey` made by a key other than `newSpkiDer`, and a `newSpkiDer` that is
+not a 91-byte uncompressed P-256 SPKI (a P-384 key, a compressed-point P-256 key). The vector format
+carries no receiver trust-store state, so the ordered receiver algorithm is tested in E70-04/E70-05:
+replay of a consumed challenge, the idempotent re-send on a grace-pin session (phone-initiated) and on
+a pending-pin session (Mac-initiated) acking before `NOT_PRIMARY_PIN`/`ROTATION_UNAVAILABLE`/
+`DUPLICATE_KEY`, and each reject reason.

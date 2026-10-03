@@ -5,4 +5,9 @@
          rather than only in :app's manifest. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- The Conscrypt TLS client (E12-04) opens outbound TCP sockets to the paired Mac; without
+         INTERNET every connect fails with EACCES. Outbound only: the app opens no listener
+         (invariant 4). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
 </manifest>
