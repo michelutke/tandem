@@ -30,6 +30,7 @@ class SendSmsHandler(
     private val source: SmsSource,
     private val session: TandemSession,
     private val permission: SendSmsPermission,
+    private val subscriptions: SubscriptionSource,
     private val results: SharedFlow<PartResult>,
     elapsed: ElapsedRealtimeSource,
     private val ioDispatcher: CoroutineDispatcher,
@@ -49,12 +50,21 @@ class SendSmsHandler(
 
     suspend fun handle(request: SendSmsRequest) {
         val destination = request.address.filterNot { it == ' ' || it == '-' }
-        val rejection = rejection(request, destination)
+        val choice =
+            withContext(ioDispatcher) {
+                SimChooser.choose(
+                    request.subscriptionId,
+                    subscriptions.activeSubscriptions(),
+                    subscriptions.defaultSmsSubscriptionId(),
+                )
+            }
+        val rejection = rejection(request, destination, choice)
         if (rejection != null) {
             log("sms send rejected: id=${request.clientMessageId} error=${rejection.name}")
             report(request.clientMessageId, SendSmsState.SEND_SMS_STATE_FAILED, rejection)
             return
         }
+        val subscriptionId = (choice as SimChoice.Use).subscriptionId
         val parts = sender.divide(request.body)
         val baselineId = baselineId()
         val aggregator = SendStatusAggregator(parts.size)
@@ -62,7 +72,7 @@ class SendSmsHandler(
         results
             .onSubscription {
                 withContext(ioDispatcher) {
-                    sender.send(OutgoingSms(request.clientMessageId, destination, request.subscriptionId, parts))
+                    sender.send(OutgoingSms(request.clientMessageId, destination, subscriptionId, parts))
                 }
             }.filter { it.clientMessageId == request.clientMessageId }
             .transformWhile { part ->
@@ -74,6 +84,7 @@ class SendSmsHandler(
     private fun rejection(
         request: SendSmsRequest,
         destination: String,
+        choice: SimChoice,
     ): SendSmsErrorCode? =
         when {
             !permission.isGranted() -> {
@@ -86,6 +97,10 @@ class SendSmsHandler(
 
             request.body.codePointCount(0, request.body.length) > MAX_BODY_CHARS -> {
                 SendSmsErrorCode.SEND_SMS_ERROR_CODE_TOO_LONG
+            }
+
+            choice is SimChoice.Reject -> {
+                choice.errorCode
             }
 
             !rateLimiter.tryAcquire() -> {
