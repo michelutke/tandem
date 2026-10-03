@@ -21,7 +21,9 @@ import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -286,6 +289,7 @@ class ByteStreamSession(
         if (state.value is ConnectionState.Ready) markers.disconnected()
         connection.handle(ConnectionEvent.SocketClosed(reason))
         connection.close()
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
         scope.cancel()
     }
 }
