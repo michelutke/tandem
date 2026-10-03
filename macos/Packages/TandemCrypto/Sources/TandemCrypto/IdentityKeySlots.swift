@@ -17,16 +17,20 @@ public struct IdentityKeySlots: Sendable {
         self.keychainStore = keychainStore
     }
 
+    /// The tag the pointer names, or -- with the pointer missing or unreadable -- whichever slot
+    /// holds a key (primary first), so a lost pointer never orphans a rotated identity.
     public func activeTag() throws -> String {
         do {
             let data = try keychainStore.copyGenericPassword(
                 service: Self.pointerService, account: Self.pointerAccount
             )
-            let tag = String(bytes: data, encoding: .utf8)
-            return tag == Self.secondaryTag ? Self.secondaryTag : identityKeyApplicationTag
+            if let tag = String(bytes: data, encoding: .utf8),
+               tag == identityKeyApplicationTag || tag == Self.secondaryTag {
+                return tag
+            }
         } catch KeychainError.itemNotFound {
-            return identityKeyApplicationTag
         }
+        return try tagHoldingKey()
     }
 
     public func inactiveTag() throws -> String {
@@ -48,5 +52,17 @@ public struct IdentityKeySlots: Sendable {
                 service: Self.pointerService, account: Self.pointerAccount, data: data
             )
         }
+    }
+
+    private func tagHoldingKey() throws -> String {
+        for tag in [identityKeyApplicationTag, Self.secondaryTag] {
+            do {
+                _ = try keychainStore.copyKey(tag: tag)
+                return tag
+            } catch KeychainError.itemNotFound {
+                continue
+            }
+        }
+        return identityKeyApplicationTag
     }
 }

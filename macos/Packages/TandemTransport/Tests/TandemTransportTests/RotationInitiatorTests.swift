@@ -48,6 +48,7 @@ struct RotationInitiatorTests {
         let window = StubWindow()
         let coordinator: RotationCoordinator
         let switchCount = Counter()
+        let ackClock = ManualTestClock()
 
         init() throws {
             trustStore = TrustStore(keychainStore: keychain)
@@ -80,7 +81,8 @@ struct RotationInitiatorTests {
                 coordinator: coordinator,
                 trustStore: trustStore,
                 window: window,
-                dateProvider: { clock.now }
+                dateProvider: { clock.now },
+                clock: ackClock
             )
         }
 

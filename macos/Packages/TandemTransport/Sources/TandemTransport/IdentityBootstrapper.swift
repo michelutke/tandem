@@ -87,7 +87,7 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
     /// regeneration itself succeeds.
     private func resetIdentity() -> IdentityState {
         try? keychainStore.deleteCertificate(label: identityCertLabel)
-        if let tag = try? IdentityKeySlots(keychainStore: keychainStore).activeTag() {
+        for tag in [identityKeyApplicationTag, IdentityKeySlots.secondaryTag] {
             try? keychainStore.deleteKey(tag: tag)
         }
         state.withLock { $0.requiresRePair = true }

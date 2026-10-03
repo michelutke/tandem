@@ -9,8 +9,11 @@ import TandemStore
 /// `cb`, and writes the signed `KeyRotation` only when the session's peer is authenticated by its
 /// primary pin and no pairing window is open. The caller feeds it the session's `CONTROL`
 /// `RotationChallenge`, `RotationAck` and `RotationReject` frames and only creates it once the
-/// session's `VersionHello` exchange is complete. At most one `KeyRotation` is sent per session.
+/// session's `VersionHello` exchange is complete. At most one `KeyRotation` is sent per session; an
+/// ack later than ``ackDeadline`` after it is a failed attempt for that session (the old key stays
+/// active and the rotation is offered again on the next session).
 actor RotationInitiator {
+    static let ackDeadline = Duration.seconds(30)
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "RotationInitiator")
 
     private let session: any TandemSession
@@ -19,8 +22,11 @@ actor RotationInitiator {
     private let trustStore: TrustStore
     private let window: any PairingWindowState
     private let dateProvider: DateProvider
+    private let clock: any Clock<Duration>
     private var challenge: Data?
     private var sent = false
+    private var ackExpired = false
+    private var deadlineTask: Task<Void, Never>?
 
     init(
         session: any TandemSession,
@@ -28,7 +34,8 @@ actor RotationInitiator {
         coordinator: RotationCoordinator,
         trustStore: TrustStore,
         window: any PairingWindowState,
-        dateProvider: @escaping DateProvider
+        dateProvider: @escaping DateProvider,
+        clock: any Clock<Duration>
     ) {
         self.session = session
         self.handshakeFingerprint = handshakeFingerprint
@@ -36,6 +43,7 @@ actor RotationInitiator {
         self.trustStore = trustStore
         self.window = window
         self.dateProvider = dateProvider
+        self.clock = clock
     }
 
     func receivedChallenge(_ value: Data) async {
@@ -53,6 +61,7 @@ actor RotationInitiator {
                 return
             }
             sent = true
+            startAckDeadline()
             try await session.send(.control, payload: .keyRotation(rotation))
         } catch {
             Self.logger.error("rotation initiate failed")
@@ -60,7 +69,8 @@ actor RotationInitiator {
     }
 
     func receivedAck() {
-        guard sent, let peer = primaryPeer() else { return }
+        guard sent, !ackExpired, let peer = primaryPeer() else { return }
+        deadlineTask?.cancel()
         do {
             try coordinator.recordAck(forRecordId: peer.recordId)
         } catch {
@@ -70,6 +80,20 @@ actor RotationInitiator {
 
     func receivedReject(_ reason: Tandem_V1_RotationRejectReason) {
         Self.logger.error("rotation_initiate_rejected reason=\(reason.rawValue)")
+    }
+
+    private func startAckDeadline() {
+        let clock = clock
+        deadlineTask = Task { [weak self] in
+            try? await clock.sleep(for: Self.ackDeadline)
+            guard !Task.isCancelled else { return }
+            await self?.expireAck()
+        }
+    }
+
+    private func expireAck() {
+        ackExpired = true
+        Self.logger.error("rotation ack timed out")
     }
 
     private func primaryPeer() -> PeerRecord? {

@@ -11,7 +11,7 @@ public struct RotationAttempt: Equatable, Sendable, Codable {
     /// Keychain tag of the pending key; it becomes the active identity tag on commit.
     public let newKeyTag: String
     public var committed: Bool
-    /// Record id (hex) of every phone paired when the rotation began, mapped to "has acked".
+    /// Record id (hex) of every phone paired since the rotation began, mapped to "has acked".
     public var acknowledged: [String: Bool]
 
     public var pendingRecordIds: [String] {
@@ -31,8 +31,8 @@ public enum RotationCoordinatorError: Error, Equatable {
 /// Initiator side of key rotation for the Mac's own identity (E70-03, SPEC.md #key-rotation, D-34).
 /// The new key is generated beside the active identity and the attempt (pending key plus per-phone
 /// ack state) is one Keychain item, so a restart resumes exactly where it stopped. The active
-/// identity switches only after every phone that was paired at the start has acked (or been
-/// unpaired); `finish()` after 7 days unpairs the stragglers first, `cancel()` drops the pending key.
+/// identity switches only after every currently paired phone, including any paired mid-rotation,
+/// has acked; `finish()` after 7 days unpairs the stragglers first, `cancel()` drops the pending key.
 /// A valid old identity is never replaced by a freshly generated one.
 public final class RotationCoordinator: Sendable {
     private static let attemptService = "com.tandem.rotation.attempt.v1"
@@ -166,8 +166,8 @@ public final class RotationCoordinator: Sendable {
     private func switchIfComplete(_ attempt: RotationAttempt) throws -> Bool {
         var attempt = attempt
         if !attempt.committed {
-            let paired = Set(try trustStore.list().map(\.recordId.hexString))
-            guard attempt.acknowledged.allSatisfy({ $0.value || !paired.contains($0.key) }) else { return false }
+            let paired = try trustStore.list().map(\.recordId.hexString)
+            guard paired.allSatisfy({ attempt.acknowledged[$0] == true }) else { return false }
             attempt.committed = true
             try saveAttempt(attempt)
         }
@@ -185,7 +185,13 @@ public final class RotationCoordinator: Sendable {
     private func loadAttempt() throws -> RotationAttempt? {
         do {
             let data = try keychainStore.copyGenericPassword(service: Self.attemptService, account: Self.attemptAccount)
-            return try JSONDecoder().decode(RotationAttempt.self, from: data)
+            var attempt = try JSONDecoder().decode(RotationAttempt.self, from: data)
+            if !attempt.committed {
+                for phone in try trustStore.list() where attempt.acknowledged[phone.recordId.hexString] == nil {
+                    attempt.acknowledged[phone.recordId.hexString] = false
+                }
+            }
+            return attempt
         } catch KeychainError.itemNotFound {
             return nil
         }

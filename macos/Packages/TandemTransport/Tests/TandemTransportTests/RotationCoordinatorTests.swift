@@ -99,4 +99,116 @@ extension RotationInitiatorTests {
             _ = try keychain.store.copyKey(tag: identityKeyApplicationTag)
         }
     }
+
+    @Test
+    func macRotationInitiator_phonePairedAfterBegin_switchWaitsForItsAck() async throws {
+        let harness = try Harness()
+        let first = try Phone(), second = try Phone()
+        try harness.pair(first)
+        let oldSpki = try harness.activeSpki
+        try harness.coordinator.begin()
+        try harness.pair(second)
+
+        await Self.rotate(harness, first).receivedAck()
+
+        #expect(try harness.activeSpki == oldSpki)
+        #expect(harness.hasPendingKey)
+        let secondInitiator = await Self.rotate(harness, second)
+        #expect(await Self.keyRotation(second) != nil)
+        await secondInitiator.receivedAck()
+        #expect(try harness.activeSpki != oldSpki)
+        #expect(!harness.hasPendingKey)
+    }
+
+    @Test
+    func macRotationInitiator_ackLaterThan30s_ignoredAndOldKeyStaysActive() async throws {
+        let harness = try Harness()
+        let phone = try Phone()
+        try harness.pair(phone)
+        let oldSpki = try harness.activeSpki
+        try harness.coordinator.begin()
+        let initiator = await Self.rotate(harness, phone)
+        for _ in 0..<10 { await Task.yield() }
+
+        harness.ackClock.advance(by: RotationInitiator.ackDeadline)
+        for _ in 0..<10 { await Task.yield() }
+        await initiator.receivedAck()
+
+        #expect(try harness.activeSpki == oldSpki)
+        #expect(harness.hasPendingKey)
+        #expect(try #require(try harness.coordinator.attempt()).pendingRecordIds.count == 1)
+        await Self.rotate(harness, phone).receivedAck()
+        #expect(try harness.activeSpki != oldSpki)
+    }
+
+    @Test
+    func macRotationInitiator_ackWithin30s_switches() async throws {
+        let harness = try Harness()
+        let phone = try Phone()
+        try harness.pair(phone)
+        let oldSpki = try harness.activeSpki
+        try harness.coordinator.begin()
+        let initiator = await Self.rotate(harness, phone)
+        for _ in 0..<10 { await Task.yield() }
+
+        harness.ackClock.advance(by: RotationInitiator.ackDeadline - .seconds(1))
+        for _ in 0..<10 { await Task.yield() }
+        await initiator.receivedAck()
+
+        #expect(try harness.activeSpki != oldSpki)
+    }
+
+    @Test
+    func macRotationInitiator_pointerLostAfterSwitch_keepsRotatedIdentity() async throws {
+        let harness = try Harness()
+        let phone = try Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+        await Self.rotate(harness, phone).receivedAck()
+        let rotatedSpki = try harness.activeSpki
+        try harness.keychain.deleteGenericPassword(service: "com.tandem.identity.slot.v1", account: "active")
+
+        _ = try IdentityKeyProvider(keychainStore: harness.keychain).getOrCreateIdentityKey()
+
+        #expect(try harness.activeSpki == rotatedSpki)
+    }
+
+    @Test
+    func macRotationInitiator_pointerCorrupt_fallsBackToSlotHoldingKey() async throws {
+        let harness = try Harness()
+        let phone = try Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+        await Self.rotate(harness, phone).receivedAck()
+        let rotatedSpki = try harness.activeSpki
+        try harness.keychain.updateGenericPassword(
+            service: "com.tandem.identity.slot.v1", account: "active", data: Data("garbage".utf8)
+        )
+
+        #expect(try harness.activeSpki == rotatedSpki)
+    }
+
+    @Test
+    func macRotationInitiator_bothSlotsEmpty_generatesUnderPrimary() throws {
+        let keychain = InMemoryKeychainStore()
+
+        _ = try IdentityKeyProvider(keychainStore: keychain).getOrCreateIdentityKey()
+
+        #expect(try IdentityKeySlots(keychainStore: keychain).activeTag() == identityKeyApplicationTag)
+    }
+
+    @Test
+    func macRotationInitiator_identityResetAfterRotation_clearsBothSlots() async throws {
+        let harness = try Harness()
+        let phone = try Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+        await Self.rotate(harness, phone).receivedAck()
+        try harness.keychain.deleteKey(tag: IdentityKeySlots.secondaryTag)
+        _ = try harness.keychain.addKey(tag: identityKeyApplicationTag, accessibility: .afterFirstUnlockThisDeviceOnly)
+
+        IdentityBootstrapper(keychainStore: harness.keychain).bootstrapIdentity()
+
+        #expect((try? harness.keychain.copyKey(tag: identityKeyApplicationTag)) == nil)
+    }
 }
