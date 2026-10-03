@@ -1,0 +1,55 @@
+{
+  "$schema": "./schema.json",
+  "category": "focus-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "focus-state-on-round-trip",
+      "description": "FocusState { on: true } decoding to on = true on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #focus-sync).",
+      "input": {
+        "kind": "focusState",
+        "messageHex": "0801"
+      },
+      "expected": {
+        "flag": true,
+        "messageSha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19"
+      }
+    },
+    {
+      "id": "focus-state-off-round-trip",
+      "description": "FocusState { on: false }, an empty message under proto3 default elision, decoding to on = false on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #focus-sync).",
+      "input": {
+        "kind": "focusState",
+        "messageHex": ""
+      },
+      "expected": {
+        "flag": false,
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "focus-sync-capability-unavailable-round-trip",
+      "description": "FocusSyncCapability { available: false } decoding to available = false on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #focus-sync).",
+      "input": {
+        "kind": "focusSyncCapability",
+        "messageHex": ""
+      },
+      "expected": {
+        "flag": false,
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "focus-sync-capability-available-round-trip",
+      "description": "FocusSyncCapability { available: true } decoding to available = true on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #focus-sync).",
+      "input": {
+        "kind": "focusSyncCapability",
+        "messageHex": "0801"
+      },
+      "expected": {
+        "flag": true,
+        "messageSha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19"
+      }
+    }
+  ]
+}

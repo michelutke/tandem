@@ -8,7 +8,7 @@ import javax.net.ssl.X509ExtendedKeyManager
 
 /**
  * TLS client-certificate selector (E12-06) for the phone's single identity key (E10-01/E10-02).
- * Always presents [alias] regardless of the requested key types or issuers: Tandem's TLS 1.3
+ * Always presents the [activeAlias] key regardless of the requested key types or issuers: Tandem's TLS 1.3
  * handshake pins SPKI fingerprints (invariant 3), not CA-issued chains, so there is nothing else
  * to choose between. `getServerAliases`/`chooseServerAlias` always return null: the Android app
  * never accepts inbound connections (invariant 4), so it is never asked to present a server
@@ -26,24 +26,29 @@ import javax.net.ssl.X509ExtendedKeyManager
  */
 class IdentityKeyManager(
     private val keyStore: IdentityKeyStore,
-    private val alias: String = IDENTITY_KEY_ALIAS,
+    private val activeAlias: ActiveIdentityAlias,
 ) : X509ExtendedKeyManager() {
+    constructor(
+        keyStore: IdentityKeyStore,
+        alias: String = IDENTITY_KEY_ALIAS,
+    ) : this(keyStore, ActiveIdentityAlias().also { it.activate(alias) })
+
     override fun getClientAliases(
         keyType: String?,
         issuers: Array<Principal>?,
-    ): Array<String> = arrayOf(alias)
+    ): Array<String> = arrayOf(activeAlias.current)
 
     override fun chooseClientAlias(
         keyType: Array<out String>?,
         issuers: Array<out Principal>?,
         socket: java.net.Socket?,
-    ): String = alias
+    ): String = activeAlias.current
 
     override fun chooseEngineClientAlias(
         keyType: Array<out String>?,
         issuers: Array<out Principal>?,
         engine: SSLEngine?,
-    ): String = alias
+    ): String = activeAlias.current
 
     override fun getCertificateChain(alias: String?): Array<X509Certificate> = arrayOf(handle().certificate)
 
@@ -60,5 +65,8 @@ class IdentityKeyManager(
         socket: java.net.Socket?,
     ): String? = null
 
-    private fun handle(): KeyHandle = keyStore.get(alias) ?: error("Identity key \"$alias\" has not been generated yet")
+    private fun handle(): KeyHandle {
+        val alias = activeAlias.current
+        return keyStore.get(alias) ?: error("Identity key \"$alias\" has not been generated yet")
+    }
 }

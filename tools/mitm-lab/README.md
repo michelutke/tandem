@@ -197,6 +197,13 @@ ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-10-cert-abuse/scenarios --timeo
 
 All six scenarios pass in well under a minute each (no pairing-window expiry wait, unlike E15-09).
 
+## E21-06: discovery-hint scenario
+
+`tools/mitm-lab/e21-06-discovery-hint/scenarios/spoofedAdvertisement_validIdWrongKey_pinCheckFailsNoAppData`
+— an impostor at a discovery-resolved candidate address with a different key fails the real JVM
+client's pin check and receives zero application bytes. Reuses the E15-10 library; run with
+`ruby tools/mitm-lab/runner.rb tools/mitm-lab/e21-06-discovery-hint/scenarios --timeout 120`.
+
 ## E20-20: authenticated CONTROL-flood scenarios
 
 `tools/mitm-lab/e20-20-auth-flood/` — an already-paired, authenticated phone (JVM harness client,

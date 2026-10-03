@@ -14,6 +14,7 @@ import "tandem/v1/clipboard.proto";
 import "tandem/v1/contacts.proto";
 import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
+import "tandem/v1/focus.proto";
 import "tandem/v1/media.proto";
 import "tandem/v1/notify.proto";
 import "tandem/v1/pairing.proto";
@@ -71,6 +72,9 @@ message Envelope {
   reserved 94 to 99;   // calls.proto (E52-01): future CALLS channel extensions
   reserved 100 to 109; // input.proto (E62-01) — INPUT channel
   reserved 114 to 119; // rotation.proto (E70-01): remaining CONTROL payload slots
+  // 120-129: focus.proto (E72-04). 120-121 are FocusState/FocusSyncCapability; 122-129 held for
+  // future focus-sync extensions.
+  reserved 122 to 129; // focus.proto (E72-04): future CONTROL focus-sync extensions
   // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
   // the separate media connection, which has no channel and therefore no Envelope payload slot
   // (E01-14).
@@ -143,5 +147,9 @@ message Envelope {
     KeyRotation key_rotation = 111;
     RotationAck rotation_ack = 112;
     RotationReject rotation_reject = 113;
+
+    // focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+    FocusState focus_state = 120;
+    FocusSyncCapability focus_sync_capability = 121;
   }
 }

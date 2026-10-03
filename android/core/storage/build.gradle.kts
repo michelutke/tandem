@@ -18,6 +18,9 @@ dependencies {
     // SpkiFingerprint (E10-03) is the trust store's only key type (invariant 3, CLAUDE.md).
     implementation(project(":core:crypto"))
 
+    // RotationReceiver (E70-04) drives a TandemSession and its generated rotation messages.
+    implementation(project(":core:transport"))
+
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
 
@@ -34,6 +37,9 @@ dependencies {
 
     // TestClock (E00-18) for PeerRecordUpdater tests (E12-17).
     testImplementation(project(":core:testing"))
+
+    // FakeTandemSession (E12-11) for RotationReceiverTest (E70-04); test-only.
+    testImplementation(testFixtures(project(":core:transport")))
 }
 
 // E13-01/E13-02: Room schema export feeds the migration fixture E13-03 commits under test

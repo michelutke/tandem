@@ -21,6 +21,9 @@ dependencies {
     // AcceptFlow (E40-07) reads and replies over the real TandemSession seam.
     implementation(project(":core:transport"))
     implementation(libs.kotlinx.coroutines.core)
+    // FileReceiver implements PeerDataPurging so unpair deletes retained .part files (E14-12).
+    implementation(project(":core:pairing"))
+    implementation(project(":core:crypto"))
     // NotificationCompat for NotificationTransferPrompter.
     implementation(libs.androidx.core.ktx)
 

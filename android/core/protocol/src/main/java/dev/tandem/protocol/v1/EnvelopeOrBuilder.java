@@ -649,5 +649,35 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.RotationReject getRotationReject();
 
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   * @return Whether the focusState field is set.
+   */
+  boolean hasFocusState();
+  /**
+   * <pre>
+   * focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.FocusState focus_state = 120 [json_name = "focusState"];</code>
+   * @return The focusState.
+   */
+  dev.tandem.protocol.v1.FocusState getFocusState();
+
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   * @return Whether the focusSyncCapability field is set.
+   */
+  boolean hasFocusSyncCapability();
+  /**
+   * <code>.tandem.v1.FocusSyncCapability focus_sync_capability = 121 [json_name = "focusSyncCapability"];</code>
+   * @return The focusSyncCapability.
+   */
+  dev.tandem.protocol.v1.FocusSyncCapability getFocusSyncCapability();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }

@@ -28,6 +28,9 @@ public struct PhotoGridView: View {
                 ) {
                     ForEach(Array(viewModel.items.enumerated()), id: \.element.id) { index, item in
                         cell(for: item.id)
+                            .contextMenu {
+                                Button("Download") { Task { await viewModel.download(id: item.id) } }
+                            }
                             .onAppear { cellAppeared(index) }
                             .onDisappear { visibleIndices.remove(index) }
                     }

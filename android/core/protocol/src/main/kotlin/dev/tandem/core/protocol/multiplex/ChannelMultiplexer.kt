@@ -73,6 +73,7 @@ import kotlinx.coroutines.channels.Channel as KtChannel
  * `CreditGrant` restoring the peer's granted balance to the channel's cap, and re-arms the trigger.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("TooManyFunctions") // one reader/writer/flow-control state machine, see above
 class ChannelMultiplexer(
     private val source: FrameSource,
     private val sink: FrameSink,
@@ -182,6 +183,9 @@ class ChannelMultiplexer(
             readLoop()
             writerJob.cancel()
         }
+
+    /** Completes [closeReason] with [MultiplexerClose.PeerClosed] if nothing else already has; idempotent. */
+    suspend fun close() = finish(MultiplexerClose.PeerClosed)
 
     private suspend fun readLoop() {
         var close: MultiplexerClose? = null

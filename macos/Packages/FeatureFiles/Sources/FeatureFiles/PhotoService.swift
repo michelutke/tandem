@@ -8,4 +8,12 @@ public protocol PhotoService: Sendable {
     func fetchPage(cursor: String, limit: UInt32) async throws -> Tandem_V1_PhotoPageResult
     func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data
     func requestMorePhotos() async throws
+    func requestOriginal(id: String, transferId: String) async throws
+}
+
+/// Receiver-side seam for E41-10: tells the accept flow which `FileOffer` ids answer one of our
+/// `OriginalRequest`s so they are accepted without a prompt.
+public protocol OriginalOfferExpecting: Sendable {
+    func expectOriginal(transferId: String) async
+    func forgetOriginal(transferId: String) async
 }
