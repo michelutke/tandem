@@ -46,7 +46,7 @@ module ReleaseLogCheck
     return [target] if File.file?(target)
     return [] unless File.directory?(target)
 
-    Dir.glob(File.join(target, '**', '*.swift'))
+    Dir.glob(File.join(target, '**', '*.swift')).select { |path| File.file?(path) }
   end
 
   def read_list(path)
