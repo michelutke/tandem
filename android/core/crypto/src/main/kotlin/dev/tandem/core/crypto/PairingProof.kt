@@ -118,7 +118,7 @@ private fun validateSpki(spkiDer: ByteArray) {
 }
 
 /** `LP(x) = u16be(len(x)) || x` (SPEC.md #2, Proof computation). */
-private fun lengthPrefixed(x: ByteArray): ByteArray {
+internal fun lengthPrefixed(x: ByteArray): ByteArray {
     require(x.size <= MAX_LENGTH_PREFIXED_SIZE) { "length-prefixed value exceeds u16be range" }
     return byteArrayOf((x.size ushr BITS_PER_BYTE).toByte(), x.size.toByte()) + x
 }

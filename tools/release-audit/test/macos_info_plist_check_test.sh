@@ -1,5 +1,7 @@
 #!/bin/bash
 # E21-03 tdd: ci: infoPlist_localNetworkKeys_containUsageDescriptionAndTandemService
+# E40-22 tdd: ci: shareExtensionPlist_activationRule_acceptsOneToTwentyFiles
+# E40-21 tdd: ci: appInfoPlist_nsServices_declaresSendToPhoneForPublicItem
 
 set -e
 
@@ -38,6 +40,26 @@ run_test() {
   fi
 }
 
+run_share_test() {
+  local test_name="$1"
+  local fixture="$2"
+  local should_pass="$3"
+
+  test_count=$((test_count + 1))
+  if ruby "$CHECKER" --share --info-plist "$fixture" > /dev/null 2>&1; then
+    result=pass
+  else
+    result=fail
+  fi
+  if [ "$result" = "$should_pass" ]; then
+    echo "✓ $test_name"
+    pass_count=$((pass_count + 1))
+  else
+    echo "✗ $test_name (expected $should_pass)"
+    fail_count=$((fail_count + 1))
+  fi
+}
+
 echo "Running macOS Info.plist Local Network privacy check tests..."
 echo
 
@@ -47,7 +69,13 @@ run_test "missing NSBonjourServices fails" "$FIXTURES_DIR/info-plist-missing-bon
 run_test "wrong bonjour service fails" "$FIXTURES_DIR/info-plist-wrong-bonjour-service.plist" "fail"
 run_test "NSAllowsLocalNetworking fails" "$FIXTURES_DIR/info-plist-allows-local-networking.plist" "fail"
 run_test "NSAllowsArbitraryLoads fails" "$FIXTURES_DIR/info-plist-allows-arbitrary-loads.plist" "fail"
+run_test "missing NSServices fails" "$FIXTURES_DIR/info-plist-missing-services.plist" "fail"
+run_test "service without public.item fails" "$FIXTURES_DIR/info-plist-wrong-service-file-type.plist" "fail"
 run_test "checked-in TandemApp Info.plist passes" "$REPO_ROOT/macos/TandemApp/Info.plist" "pass"
+run_share_test "share: max file count 20 passes" "$FIXTURES_DIR/share-info-plist-max-20.plist" "pass"
+run_share_test "share: TRUEPREDICATE fails" "$FIXTURES_DIR/share-info-plist-truepredicate.plist" "fail"
+run_share_test "share: max file count 21 fails" "$FIXTURES_DIR/share-info-plist-max-21.plist" "fail"
+run_share_test "checked-in TandemShare Info.plist passes" "$REPO_ROOT/macos/TandemShare/Info.plist" "pass"
 
 echo
 echo "Results: $pass_count passed, $fail_count failed out of $test_count tests"

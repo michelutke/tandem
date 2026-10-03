@@ -728,6 +728,37 @@ epics:
           stop the Revoke consumer; and E20-05's dialer must pass the SSLHandshakeException cause
           chain to ConnectionFailureClassifier (it matches the certificate_unknown/bad_certificate
           alert text, which Conscrypt's top-level "Handshake failed" message lacks).
+      - id: E20-23
+        title: "[android] Production connection orchestrator and feature composition in TandemService"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: L
+        prd: [F-3.4, F-2.3]
+        use_cases: [UC-04, UC-07]
+        invariants: [1, 3, 5, 7]
+        depends_on: [E20-02, E20-06, E20-07, E21-04]
+        description: |
+          Found 2026-10-03: no production code dials the paired Mac. SslClientFactory, ByteStreamSession,
+          the reconnect strategy (E20-06/E20-07), discovery (E21-04) and every feature (notifications
+          listener sender, clipboard, files sender/receiver/AcceptFlow, photos responders, contacts and SMS
+          sync sessions, status/Ring, focus/media bridges, Revoke/rotation receivers) exist only as
+          tested libraries. Compose them: TandemService runs the connect loop (discovery hint → candidate
+          addresses → mTLS with the pinned SPKI via the E70-14 PinSource → ByteStreamSession →
+          SessionRegistry with KnownPeerStore/ConnectionFailureClassifier), routes each channel through
+          the E20-22 per-channel dispatcher (land E20-22 first or in this issue), and starts each feature
+          consumer for the registered session, stopping them on close. Hilt provides the singletons
+          (ActiveIdentityAlias, stores, purge registry registrations). No consumer may read a channel
+          directly.
+        acceptance:
+          - With a paired Mac reachable, the service reaches Ready and every feature consumer is attached to that session
+          - Session close detaches every consumer; reconnect re-attaches exactly once
+          - No production code path calls receive() on a channel outside the dispatcher
+        tdd:
+          - "unit: tandemServiceComposition_sessionReady_allFeatureConsumersAttachedOnce"
+          - "unit: tandemServiceComposition_sessionClosed_consumersDetached"
+          - "integration: tandemServiceComposition_jvmLoopbackMac_readyAndNotificationFlows"
+        notes: "Gap found while reviewing E20-21/E40-xx/E50-xx follow-ups (2026-10-03)."
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
@@ -1256,6 +1287,34 @@ epics:
         tdd:
           - "unit: menuBarViewModel_realConnectionStateStream_reflectsReadyAndOfflineTransitions"
           - "unit: errorBannerViewModel_realConnectionFailure_showsMappedErrorMessage"
+      - id: E22-12
+        title: "[macos] Compose feature services onto registered sessions in AppComposition"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: L
+        prd: [F-4.1]
+        use_cases: [UC-04]
+        invariants: [1, 3, 5, 7]
+        depends_on: [E22-11]
+        description: |
+          Found 2026-10-03: AppComposition registers sessions and wires connection state, but the
+          feature services are only tested libraries: notification presentation/action/dismiss readers
+          and the single presenter-responses reader, lock-hiding, file transfer (AcceptFlow, FileReceiver,
+          FileSender/FilesScheduler, SendEntryHandler, share-extension SendRequestAgent + wake observer,
+          received-file notifier with delegate forwarding), photo service adapter + ThumbnailCache, SMS
+          and contacts sync clients with GRDB stores registered in PeerDataPurgeRegistry, call alert
+          presenter, media acceptor + MediaTicketValidator adapter, RotationCoordinator resume at launch
+          and RotationInitiator routing. Compose them per registered session through one CONTROL/channel
+          dispatch point (mirror Android E20-22), start/stop with session lifetime.
+        acceptance:
+          - A registered session attaches every feature service exactly once; session end detaches them
+          - Unpair purges every registered store (SMS, contacts, thumbnails, icons, retained parts)
+          - No feature reads a channel outside the shared dispatch point
+        tdd:
+          - "unit: appComposition_sessionRegistered_allFeatureServicesAttachedOnce"
+          - "unit: appComposition_unpair_everyStorePurged"
+        notes: "Gap found while reviewing feature follow-ups (2026-10-03)."
   - id: E23
     title: Device status and find my phone
     labels: [area:status]
