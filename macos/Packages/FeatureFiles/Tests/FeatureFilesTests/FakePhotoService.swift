@@ -7,6 +7,8 @@ actor FakePhotoService: PhotoService {
     private(set) var pageRequests: [(cursor: String, limit: UInt32)] = []
     private(set) var thumbRequests: [(id: String, maxPx: UInt32)] = []
     private(set) var moreRequests = 0
+    private(set) var originalRequests: [(id: String, transferId: String)] = []
+    var originalRequestError: (any Error)?
     private var pageResults: [Tandem_V1_PhotoPageResult]
     private var pageGate: CheckedContinuation<Void, Never>?
     private var gatePageRequests = false
@@ -40,6 +42,15 @@ actor FakePhotoService: PhotoService {
 
     func requestMorePhotos() async throws {
         moreRequests += 1
+    }
+
+    func requestOriginal(id: String, transferId: String) async throws {
+        originalRequests.append((id, transferId))
+        if let originalRequestError { throw originalRequestError }
+    }
+
+    func setOriginalRequestError(_ error: (any Error)?) {
+        originalRequestError = error
     }
 
     static func page(
