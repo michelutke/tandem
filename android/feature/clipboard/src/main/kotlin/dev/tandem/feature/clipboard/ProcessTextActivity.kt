@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * See [ShareTargetActivity]'s kdoc for the no-UI / seam conventions this class shares with it.
  */
 class ProcessTextActivity : TandemActivity() {
-    var sessionProvider: (Context) -> TandemSession? = { null }
+    var sessionProvider: (Context) -> TandemSession? = { LiveClipboardSession.current }
     internal var dispatcher: CoroutineDispatcher = ClipboardDispatchers.default
     internal var toast: (Context, String) -> Unit = { context, message ->
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()

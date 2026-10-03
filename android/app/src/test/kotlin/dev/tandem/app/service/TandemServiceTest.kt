@@ -3,6 +3,8 @@ package dev.tandem.app.service
 import android.app.Service
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.TandemApplication
+import dev.tandem.app.connection.ConnectionLoop
+import dev.tandem.app.connection.NoOpConnectionLoop
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
@@ -87,6 +89,7 @@ class TandemServiceTest {
 
         val controller = Robolectric.buildService(TandemService::class.java)
         val service = controller.get()
+        service.connectionLoopFactory = { NoOpConnectionLoop }
         service.dispatcher = UnconfinedTestDispatcher()
         controller.create()
         val shadowService = shadowOf(service)
@@ -116,6 +119,7 @@ class TandemServiceTest {
             pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
             sessionRegistryFactory = { registry }
             trustRemoverFactory = { TrustRemover { removed += it } }
+            connectionLoopFactory = { NoOpConnectionLoop }
             dispatcher = UnconfinedTestDispatcher()
         }
         controller.create()
@@ -153,6 +157,7 @@ class TandemServiceTest {
                         removed += it
                     }
                 }
+            connectionLoopFactory = { NoOpConnectionLoop }
             dispatcher = UnconfinedTestDispatcher()
         }
         controller.create()
@@ -171,6 +176,34 @@ class TandemServiceTest {
         assertTrue(healthy.state.value is ConnectionState.Disconnected)
     }
 
+    @Test
+    fun tandemService_createdThenDestroyed_connectionLoopStartedThenStopped() {
+        val events = mutableListOf<String>()
+        val controller = Robolectric.buildService(TandemService::class.java)
+        controller.get().apply {
+            pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
+            connectionLoopFactory =
+                {
+                    object : ConnectionLoop {
+                        override fun start() {
+                            events += "start"
+                        }
+
+                        override fun stop() {
+                            events += "stop"
+                        }
+                    }
+                }
+            dispatcher = UnconfinedTestDispatcher()
+        }
+
+        controller.create()
+        assertEquals(listOf("start"), events)
+        controller.destroy()
+
+        assertEquals(listOf("start", "stop"), events)
+    }
+
     private fun awaitTrue(
         timeoutMs: Long,
         condition: () -> Boolean,
@@ -187,6 +220,7 @@ class TandemServiceTest {
         val controller = Robolectric.buildService(TandemService::class.java)
         val service = controller.get()
         service.pairedPeerRepositoryFactory = { FakePairedPeerRepository(hasPairedPeer) }
+        service.connectionLoopFactory = { NoOpConnectionLoop }
         service.dispatcher = UnconfinedTestDispatcher()
         controller.create()
         return service

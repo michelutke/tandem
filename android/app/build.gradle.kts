@@ -76,6 +76,8 @@ dependencies {
     // E00-03 Hilt DI wiring skeleton: app assembles the SingletonComponent from every core
     // module's empty @Module @InstallIn shell.
     implementation(project(":core:crypto"))
+    // E20-23: ConnectionOrchestrator composes NSD discovery (PairedMacBonjourSource's ServiceDiscovery).
+    implementation(project(":core:discovery"))
     // E20-17: Home screen composables (TitleBlock, DotRing, FloatingToolbar, CookieFab, etc.).
     implementation(project(":core:designsystem"))
     implementation(project(":core:pairing"))
@@ -88,6 +90,8 @@ dependencies {
     implementation(project(":feature:pairing"))
     // E30-02: TandemNotificationListenerService, declared below in this module's manifest.
     implementation(project(":feature:notifications"))
+    // E20-23: FilesFeature attaches FileReceiver/AcceptFlow/FileSender and the photo responders.
+    implementation(project(":feature:files"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
     // E61-02: MirrorCaptureService (mediaProjection foreground service), merged from this module's manifest.

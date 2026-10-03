@@ -16,6 +16,7 @@ import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
+import dev.tandem.feature.clipboard.LiveClipboardSession
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -41,7 +42,7 @@ import kotlinx.coroutines.launch
 // yet wires a live [TandemSession] into a feature entry point.
 @AndroidEntryPoint
 class MainActivity : TandemActivity() {
-    internal var sessionProvider: (Context) -> TandemSession? = { null }
+    internal var sessionProvider: (Context) -> TandemSession? = { LiveClipboardSession.current }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
     internal var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
 
