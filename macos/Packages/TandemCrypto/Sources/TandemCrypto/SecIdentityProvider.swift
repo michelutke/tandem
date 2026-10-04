@@ -37,6 +37,6 @@ public struct SecIdentityProvider: Sendable {
             dateProvider: dateProvider
         ).getOrCreateIdentityCertificate()
 
-        return try keychainStore.copyIdentity(keyTag: identityKeyApplicationTag)
+        return try keychainStore.copyIdentity(keyTag: IdentityKeySlots(keychainStore: keychainStore).activeTag())
     }
 }

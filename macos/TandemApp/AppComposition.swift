@@ -151,7 +151,8 @@ enum AppComposition {
                 trustStore: trustStore,
                 onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
                 onSessionEnded: chaining.features.onSessionEnded,
-                mediaConnectionHandler: chaining.mediaConnectionHandler
+                mediaConnectionHandler: chaining.mediaConnectionHandler,
+                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() })
             ),
             port: .any,
             verify: verify
@@ -249,7 +250,7 @@ enum AppComposition {
         pinMismatchBannerGate: PinMismatchBannerGate
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
-            trustStore: TandemTrustStoreReader(trustStore: trustStore),
+            trustStore: TandemTrustStoreReader(trustStore: trustStore, dateProvider: { Date() }),
             window: window,
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 decisionCorrelator.record(

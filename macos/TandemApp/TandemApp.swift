@@ -112,7 +112,10 @@ struct TandemMenuBarApp: App {
         }
 
         Settings {
-            SettingsView(pairedDevicesViewModel: Self.settingsPairedDevicesViewModel)
+            SettingsView(
+                pairedDevicesViewModel: Self.settingsPairedDevicesViewModel,
+                rotationViewModel: Self.settingsRotationViewModel
+            )
         }
     }
 }

@@ -32,6 +32,23 @@ final class InMemoryLaunchAtLoginPreferenceStore: LaunchAtLoginPreferenceStore {
     var hasUserSetToggle = false
 }
 
+/// DEBUG-only `MacKeyRotator` for the Settings window's `-UITestScenario` window (E70-11): always
+/// succeeds with a fixed new fingerprint, never touches a real key.
+struct ScenarioMacKeyRotator: MacKeyRotator {
+    static let oldFingerprint = "AA:BB:CC:01"
+    static let newFingerprint = "DD:EE:FF:02"
+
+    func rotate() async -> MacKeyRotationResult {
+        .success(newFingerprint: Self.newFingerprint)
+    }
+
+    func pendingRotation() -> PendingRotation? { nil }
+
+    func finishRotation() async throws {}
+
+    func cancelRotation() async throws {}
+}
+
 /// Builds a `TandemDevices.PairedDevicesViewModel` (E14-14) seeded with one paired phone, for the
 /// Settings window's `-UITestScenario` window (E22-05) -- over a throwaway on-disk
 /// `TandemCrypto.SecItemKeychainStore` (E10-07b), the same `TemporaryFileKeychain` approach
@@ -60,6 +77,16 @@ enum SettingsScenarioSupport {
             )
         }
         return PairedDevicesViewModel(trustStore: trustStore, dateProvider: { Date() }, unpair: { _ in })
+    }
+
+    @MainActor
+    static func makeRotationViewModel() -> MacRotationSettingsViewModel {
+        MacRotationSettingsViewModel(
+            rotator: ScenarioMacKeyRotator(),
+            currentFingerprint: ScenarioMacKeyRotator.oldFingerprint,
+            hasAuthenticatedSession: true,
+            dateProvider: { Date() }
+        )
     }
 
     private static func makeTemporaryKeychainStore() -> SecItemKeychainStore {

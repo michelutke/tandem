@@ -19,15 +19,22 @@ import TandemStore
 /// early exit.
 public struct TandemTrustStoreReader: TrustStoreReader {
     private let trustStore: TrustStore
+    private let dateProvider: DateProvider?
 
-    public init(trustStore: TrustStore) {
+    /// - Parameter dateProvider: When set, an unexpired grace pin left by a key rotation (E70-05)
+    ///   also verifies; `nil` (the default) accepts primary pins only.
+    public init(trustStore: TrustStore, dateProvider: DateProvider? = nil) {
         self.trustStore = trustStore
+        self.dateProvider = dateProvider
     }
 
     public func contains(_ fingerprint: SpkiFingerprint) throws -> Bool {
         var matched = false
-        for record in try trustStore.list() where record.fingerprint.matches(fingerprint) {
-            matched = true
+        let now = dateProvider?()
+        for record in try trustStore.list() {
+            if record.fingerprint.matches(fingerprint) { matched = true }
+            guard let now, let grace = record.gracePin, !grace.used, grace.expiresAt > now else { continue }
+            if grace.fingerprint.matches(fingerprint) { matched = true }
         }
         return matched
     }

@@ -73,4 +73,28 @@ struct TandemTrustStoreReaderTests {
             _ = try reader.contains(try Self.fingerprint(0x08))
         }
     }
+
+    @Test
+    func tandemTrustStoreReader_gracePinBeforeExpiry_containsTrueOnlyWithDateProvider() throws {
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let old = try Self.fingerprint(0x01)
+        let now = Date(timeIntervalSince1970: 1000)
+        try trustStore.put(Self.makeRecord(fingerprint: old))
+        try trustStore.rotatePrimary(of: Self.makeRecord(fingerprint: old), to: try Self.fingerprint(0x02), now: now)
+
+        #expect(try TandemTrustStoreReader(trustStore: trustStore, dateProvider: { now }).contains(old))
+        #expect(try !TandemTrustStoreReader(trustStore: trustStore).contains(old))
+    }
+
+    @Test
+    func tandemTrustStoreReader_gracePinAfterExpiry_containsFalse() throws {
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let old = try Self.fingerprint(0x01)
+        let now = Date(timeIntervalSince1970: 1000)
+        try trustStore.put(Self.makeRecord(fingerprint: old))
+        try trustStore.rotatePrimary(of: Self.makeRecord(fingerprint: old), to: try Self.fingerprint(0x02), now: now)
+        let expired = now.addingTimeInterval(TrustStore.gracePinLifetime)
+
+        #expect(try !TandemTrustStoreReader(trustStore: trustStore, dateProvider: { expired }).contains(old))
+    }
 }

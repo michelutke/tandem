@@ -19,7 +19,29 @@ extension TandemMenuBarApp {
         return AppComposition.makePairedDevicesViewModel(lifecycle: lifecycle)
     }
 
+    /// `nil` until the E70-03 coordinator is composed into the app lifecycle; under a DEBUG
+    /// `-UITestScenario` launch, a seeded fake rotator (``SettingsScenarioSupport``).
+    @MainActor
+    static var settingsRotationViewModel: MacRotationSettingsViewModel? {
+        #if DEBUG
+        if UITestScenario.fromLaunchArguments() != nil {
+            return scenarioRotationViewModel
+        }
+        #endif
+        return nil
+    }
+
     #if DEBUG
+    @MainActor
+    private static var scenarioRotationViewModel: MacRotationSettingsViewModel {
+        if let existing = _scenarioRotationViewModel { return existing }
+        let created = SettingsScenarioSupport.makeRotationViewModel()
+        _scenarioRotationViewModel = created
+        return created
+    }
+
+    nonisolated(unsafe) private static var _scenarioRotationViewModel: MacRotationSettingsViewModel?
+
     /// Built once per process on first Settings-window open under `-UITestScenario` -- a fresh
     /// `PairedDevicesViewModel` per open would still show the same seeded row (its own
     /// `TrustStore` is a real on-disk file), but caching here matches how
