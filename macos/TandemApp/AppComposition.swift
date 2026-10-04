@@ -48,6 +48,8 @@ enum AppComposition {
         /// The same peer's display name (``TandemStore/PeerRecord/displayName``), or `nil` alongside
         /// ``makeMenuBarStateStream`` when none is paired.
         let pairedPeerName: String?
+        /// Feature services attached to every registered session (E22-12).
+        let sessionFeatures: SessionFeatures
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -79,6 +81,7 @@ enum AppComposition {
             decisionCorrelator: decisionCorrelator,
             pinMismatchBannerGate: pinMismatchBannerGate
         )
+        let sessionFeatures = SessionFeatures.make(purgeRegistry: purgeRegistry)
         let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
         let controller = ListenerController(
             identityStateProvider: identityBootstrapper,
@@ -86,7 +89,8 @@ enum AppComposition {
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
                 trustStore: trustStore,
-                onSessionRegistered: menuBarWiring.onSessionRegistered
+                onSessionRegistered: sessionFeatures.onSessionRegistered(chaining: menuBarWiring.onSessionRegistered),
+                onSessionEnded: sessionFeatures.onSessionEnded
             ),
             port: .any,
             verify: verify
@@ -108,7 +112,8 @@ enum AppComposition {
                 trustStore: trustStore,
                 purgeRegistry: purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
-                pairedPeerName: menuBarWiring.peerName
+                pairedPeerName: menuBarWiring.peerName,
+                sessionFeatures: sessionFeatures
             )
         )
     }

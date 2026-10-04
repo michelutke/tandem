@@ -102,9 +102,9 @@ flowchart LR
   E13 --> E12 & E14 & E15 & E20 & E21 & E30 & E70 & E73
   E14 --> E15 & E20 & E22 & E30 & E40 & E41 & E50 & E51 & E52 & E70 & E71 & E73
   E15 --> E12 & E14 & E20 & E21 & E23 & E30 & E31 & E40 & E41 & E50 & E51 & E52 & E60 & E61 & E62 & E70 & E71 & E73
-  E20 --> E21 & E22 & E23 & E30 & E31 & E41 & E50 & E51 & E52 & E61 & E70
+  E20 --> E21 & E22 & E23 & E30 & E31 & E41 & E50 & E51 & E52 & E61 & E62 & E70
   E21 --> E20
-  E22 --> E23 & E30 & E31 & E40 & E41 & E50 & E52 & E61 & E71
+  E22 --> E23 & E30 & E31 & E40 & E41 & E50 & E52 & E61 & E62 & E70 & E71
   E23 --> E71
   E30 --> E40 & E52 & E71 & E72
   E31 --> E71
@@ -115,7 +115,7 @@ flowchart LR
   E52 --> E71
   E60 --> E61 & E62 & E71
   E61 --> E62 & E71
-  E62 --> E71
+  E62 --> E60 & E61 & E71
   E70 --> E71
 ```
 <!-- END GENERATED: epic-graph -->
@@ -136,15 +136,15 @@ issues (gates the phase checklist); **all** includes P1/P2.
 |---|---|---|---|---|
 | 0 | 60 | 7.0 d | 7.0 d | 60.5 d |
 | 1 | 108 | 15.5 d | 16.5 d | 118.5 d |
-| 2 | 38 | 10.5 d | 10.5 d | 48.5 d |
+| 2 | 40 | 12.0 d | 12.0 d | 51.5 d |
 | 3 | 28 | 8.0 d | 8.0 d | 26.0 d |
 | 4 | 24 | 14.5 d | 14.5 d | 46.5 d |
 | 5 | 30 | 12.0 d | 12.0 d | 42.0 d |
-| 6 | 33 | 12.0 d | 16.0 d | 44.0 d |
-| 7 | 27 | 6.0 d | 8.5 d | 35.5 d |
+| 6 | 35 | 15.0 d | 19.0 d | 47.0 d |
+| 7 | 29 | 7.5 d | 8.5 d | 36.5 d |
 
-Phase-gated total (sum of exit paths): **85.5 d**. Ungated longest P0 chain across all
-phases: 27.5 d (E00-01 → … → E40-14).
+Phase-gated total (sum of exit paths): **91.5 d**. Ungated longest P0 chain across all
+phases: 32.0 d (E00-01 → … → E71-12).
 
 #### Phase 0 exit path — 7.0 d
 
@@ -172,7 +172,7 @@ phases: 27.5 d (E00-01 → … → E40-14).
 | E14-08 | M | [macos] Pairing confirmation dialog and PairAccepted/reject |
 | E14-16 | L | [cross] End-to-end: QR pair then reconnect after restarting both apps |
 
-#### Phase 2 exit path — 10.5 d
+#### Phase 2 exit path — 12.0 d
 
 | ID | Size | Title |
 |---|---|---|
@@ -182,6 +182,7 @@ phases: 27.5 d (E00-01 → … → E40-14).
 | E20-07 | S | [android] Reconnect on ConnectivityManager network callback |
 | E20-23 | L | [android] Production connection orchestrator and feature composition in TandemService |
 | E20-24 | M | [android] Attach remaining features in FeatureAttacher (contacts, SMS, status/Ring, focus/media, rotation, notification actions/icons) |
+| E20-25 | M | [android] Host the app shell in MainActivity (onboarding, pairing, Home, Settings) |
 
 #### Phase 3 exit path — 8.0 d
 
@@ -217,7 +218,7 @@ phases: 27.5 d (E00-01 → … → E40-14).
 | E52-07 | S | [macos] Place call UI |
 | E52-08 | M | [cross] Device-level test: call control latency and correctness |
 
-#### Phase 6 exit path — 12.0 d
+#### Phase 6 exit path — 15.0 d
 
 | ID | Size | Title |
 |---|---|---|
@@ -226,17 +227,22 @@ phases: 27.5 d (E00-01 → … → E40-14).
 | E60-03 | M | [macos] Media connection acceptor on the single listener |
 | E60-02 | M | [android] Media ticket request + second mTLS connection dial |
 | E61-03 | M | [android] VirtualDisplay + MediaCodec encode pipeline to MediaFrame |
+| E61-05 | M | [android] Rotation and resolution change handling |
+| E62-11 | M | [android] Compose mirror, media and remote input into the app |
 | E61-08 | L | [cross] Mirroring performance harness: fps + end-to-end latency |
 | E61-09 | S | [tools] pcap-audit with on-screen canary during mirroring |
 
-#### Phase 7 exit path — 6.0 d
+#### Phase 7 exit path — 7.5 d
 
 | ID | Size | Title |
 |---|---|---|
 | E70-01 | M | [protocol] rotation.proto: RotationChallenge, KeyRotation, RotationAck, RotationReject |
-| E70-02 | M | [android] Initiate rotation: generate new key + sign with old key |
-| E70-08 | M | [android] Rotation failure and rollback handling |
-| E70-10 | M | [cross] End-to-end rotation: JVM client and real Mac server (E15-15) |
+| E70-03 | M | [macos] Initiate rotation: generate new key + sign with old key |
+| E70-12 | M | [macos] Scheduled rotation |
+| E70-16 | S | [macos] Compose rotation initiator, scheduler and Key settings tab |
+| E70-09 | S | [tools] mitm-lab: rotation over unauthenticated channel rejected |
+| E71-08 | M | [tools] Release security audit: nmap + full mitm-lab suite |
+| E71-12 | S | [docs] Release security audit checklist and sign-off |
 <!-- END GENERATED: critical-path -->
 
 Cycle 5 changes (days; "P0" = exit path over P0 issues, "all" includes P1/P2):
@@ -280,8 +286,8 @@ How:
 | E00-24 [macos] TandemTestSupport package: injectable Clock and ManualTestClock | 34 | E30-13 [cross] Phase 3 notification exit test | 9 |
 | E00-08 [macos] Swift Testing baseline + SwiftLint configuration | 31 | E31-10 [cross] Clipboard exit test: no echo loop, concealed never leaves Mac | 9 |
 | E00-18 [android] core/testing fixtures: injectable Clock, TestClock, dispatcher rules | 30 | E41-01 [protocol] photos.proto: PhotoPage and Thumb messages | 9 |
-| E15-15 [cross] JVM integration-test harness: JVM client against the real Mac server on macOS CI | 29 | E15-09 [tools] mitm-lab: pairing-abuse scenarios (replay, expiry, 4th attempt, wrong key) | 8 |
-| E00-04 [android] JUnit5 + Turbine test infrastructure baseline | 21 | E20-12 [tools] Reconnect latency measurement harness and overnight Doze gate | 8 |
+| E15-15 [cross] JVM integration-test harness: JVM client against the real Mac server on macOS CI | 29 | E70-10 [cross] End-to-end rotation: JVM client and real Mac server (E15-15) | 9 |
+| E00-04 [android] JUnit5 + Turbine test infrastructure baseline | 21 | E15-09 [tools] mitm-lab: pairing-abuse scenarios (replay, expiry, 4th attempt, wrong key) | 8 |
 <!-- END GENERATED: hotspots -->
 
 Fan-out hotspots are test seams and session abstractions; they are all Phase 0 / early Phase 1
@@ -297,12 +303,12 @@ Sum of P0 effort per phase; A and M can proceed in parallel, shared work is spre
 |---|---|---|---|
 | 0 | 11.0 d | 8.0 d | 41.5 d |
 | 1 | 43.0 d | 49.5 d | 26.0 d |
-| 2 | 28.5 d | 16.5 d | 3.5 d |
+| 2 | 30.0 d | 18.0 d | 3.5 d |
 | 3 | 11.0 d | 6.5 d | 8.5 d |
 | 4 | 19.5 d | 19.0 d | 8.0 d |
 | 5 | 19.0 d | 12.0 d | 11.0 d |
-| 6 | 16.5 d | 11.0 d | 16.5 d |
-| 7 | 6.5 d | 6.5 d | 22.5 d |
+| 6 | 18.0 d | 12.5 d | 16.5 d |
+| 7 | 7.0 d | 7.0 d | 22.5 d |
 <!-- END GENERATED: tracks -->
 
 ## Phase checklists

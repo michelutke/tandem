@@ -38,6 +38,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// `RevokeHandler.handle` directly rather than a facade reimplementing its effect.
     private let trustStore: TrustStore?
     let onSessionRegistered: SessionRegisteredHandler?
+    private let onSessionEnded: SessionRegisteredHandler?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -47,7 +48,8 @@ public struct NWListenerFactory: ListenerFactory {
         clock: any Clock<Duration> = ContinuousClock(),
         pairingCandidateDriver: (any PairingCandidateDriver)? = nil,
         trustStore: TrustStore? = nil,
-        onSessionRegistered: SessionRegisteredHandler? = nil
+        onSessionRegistered: SessionRegisteredHandler? = nil,
+        onSessionEnded: SessionRegisteredHandler? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
@@ -55,6 +57,7 @@ public struct NWListenerFactory: ListenerFactory {
         self.pairingCandidateDriver = pairingCandidateDriver
         self.trustStore = trustStore
         self.onSessionRegistered = onSessionRegistered
+        self.onSessionEnded = onSessionEnded
     }
 
     public func makeListener(
@@ -292,20 +295,17 @@ public struct NWListenerFactory: ListenerFactory {
         // invariant 5).
         let closeReason = await multiplexer.awaitClose()
         // `revokeReaderTask` is a self-terminating proxy (``startControlRevokeReader``'s own
-        // kdoc, E14-27 HIGH fix): its `CONTROL` reader finishes on its own once `session` closes
-        // (this `awaitClose()` having returned means it already has). Awaiting it here (never
-        // cancelling) guarantees a `Revoke` frame that arrived in the same tick as the close is
-        // always fully handled -- `RevokeHandler.handle`/`trustStore.unpair()` complete -- before
-        // this function proceeds to cancel the socket and remove the session below, so the trust
-        // record is provably gone before either of those observable side effects (a stale
-        // `AsyncStream` consumer cancelled mid-flight used to be able to drop an already-buffered
-        // `Revoke`; not cancelling removes that race, and awaiting rather than discarding makes
-        // the ordering true rather than merely likely).
+        // kdoc, E14-27 HIGH fix): its `CONTROL` reader finishes on its own once `session` closes.
+        // Awaiting it here (never cancelling) guarantees a `Revoke` frame that arrived in the same
+        // tick as the close is fully handled -- `RevokeHandler.handle`/`trustStore.unpair()`
+        // complete -- before the socket is cancelled and the session removed below, so the trust
+        // record is provably gone before either observable side effect.
         await revokeReaderTask?.value
         await heartbeatController?.stop()
         await stateMachine.handle(.socketClosed(reason: "\(closeReason)"))
         adapter.cancel()
         if let registeredFingerprint {
+            onSessionEnded?(registeredFingerprint, session)
             await sessionRegistry.removeIfCurrent(registeredFingerprint, session: session)
         }
     }

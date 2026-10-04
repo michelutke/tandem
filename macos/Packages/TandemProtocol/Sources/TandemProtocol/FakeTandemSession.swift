@@ -24,8 +24,8 @@ public actor FakeTandemSession: TandemSession {
 
     public private(set) var sent: [SentFrame] = []
 
-    private var streams: [Tandem_V1_Channel: AsyncStream<InboundFrame>] = [:]
-    private var continuations: [Tandem_V1_Channel: AsyncStream<InboundFrame>.Continuation] = [:]
+    private var fanOuts: [Tandem_V1_Channel: Broadcast<InboundFrame>] = [:]
+    private var isClosed = false
 
     public nonisolated let state: AsyncStream<ConnectionStateMachine.ConnectionState>
     private let stateContinuation: AsyncStream<ConnectionStateMachine.ConnectionState>.Continuation
@@ -42,18 +42,17 @@ public actor FakeTandemSession: TandemSession {
         sent.append(SentFrame(channel: channel, payload: payload))
     }
 
-    /// Returns an equivalent stream on every call for a given `channel`, matching
-    /// ``ChannelMultiplexer/inbound(_:)``, so a frame ``inject(_:)``ed before this is ever called
-    /// for that channel is not dropped.
+    /// Returns a new subscription on every call for a given `channel`, matching
+    /// ``ByteStreamSession/receive(_:)``: the first caller also gets every frame
+    /// ``inject(_:)``ed before it subscribed; later callers see only frames injected afterwards.
     public func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
-        InboundFrameStream(base: streamFor(channel), onConsumed: {})
+        InboundFrameStream(base: fanOut(for: channel).subscribe(), onConsumed: {})
     }
 
     /// Injects `frame` as if it had arrived on its own `channel`, observed by any caller holding
     /// (or later requesting) ``receive(_:)`` for that channel.
     func inject(_ frame: InboundFrame) {
-        _ = streamFor(frame.channel)
-        continuations[frame.channel]?.yield(frame)
+        fanOut(for: frame.channel).publish(frame)
     }
 
     /// Publishes `newState` on ``state``.
@@ -62,21 +61,20 @@ public actor FakeTandemSession: TandemSession {
     }
 
     public func close() async {
-        for continuation in continuations.values {
-            continuation.finish()
-        }
+        isClosed = true
+        fanOuts.values.forEach { $0.finish() }
         stateContinuation.yield(.disconnected(reason: "closed locally"))
         stateContinuation.finish()
     }
 
-    private func streamFor(_ channel: Tandem_V1_Channel) -> AsyncStream<InboundFrame> {
-        if let stream = streams[channel] {
-            return stream
+    private func fanOut(for channel: Tandem_V1_Channel) -> Broadcast<InboundFrame> {
+        if let fanOut = fanOuts[channel] {
+            return fanOut
         }
-        let (stream, continuation) = AsyncStream<InboundFrame>.makeStream(bufferingPolicy: .unbounded)
-        streams[channel] = stream
-        continuations[channel] = continuation
-        return stream
+        let fanOut = Broadcast<InboundFrame>()
+        if isClosed { fanOut.finish() }
+        fanOuts[channel] = fanOut
+        return fanOut
     }
 }
 #endif

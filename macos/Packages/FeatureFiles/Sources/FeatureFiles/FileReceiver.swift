@@ -43,6 +43,11 @@ public actor FileReceiver {
         self.now = now
     }
 
+    /// Whether a transfer with `id` is staged and not yet completed, cancelled or aborted.
+    public func hasTransfer(id: String) -> Bool {
+        transfers[id] != nil
+    }
+
     /// Opens the staging file for an accepted offer; rejects INVALID_NAME or cancels IO_ERROR on failure.
     public func begin(offer: Tandem_V1_FileOffer) async {
         guard transfers[offer.id] == nil else { return }
