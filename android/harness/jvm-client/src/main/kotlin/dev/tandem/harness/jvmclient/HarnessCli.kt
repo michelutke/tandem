@@ -18,6 +18,7 @@ import dev.tandem.core.pairing.qr.ParseInviteResult
 import dev.tandem.core.pairing.qr.QrPayloadParser
 import dev.tandem.core.pairing.revoke.RevokeHandler
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.transport.ByteStream
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
@@ -33,6 +34,7 @@ import dev.tandem.protocol.v1.deviceStatus
 import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.notificationPosted
 import dev.tandem.protocol.v1.pairRequest
+import dev.tandem.protocol.v1.requestMediaTicket
 import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +52,9 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.io.IOException
 import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.security.KeyPairGenerator
 import java.security.spec.ECGenParameterSpec
 import java.time.Clock
@@ -61,6 +65,8 @@ private const val RAW_CHALLENGE_TIMEOUT_MS = 10_000L
 private const val FLOOD_TICKS_PER_SECOND = 10
 private const val MILLIS_PER_SECOND = 1_000L
 private const val RAW_OUTCOME_TIMEOUT_MS = 15_000L
+private const val MEDIA_CLOSE_TIMEOUT_MS = 15_000
+private const val NANOS_PER_MILLI = 1_000_000L
 
 private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
 
@@ -190,6 +196,8 @@ private class HarnessCli(
 
     private val heartbeatsReceived = AtomicInteger()
 
+    private val heldMediaStreams = mutableListOf<ByteStream>()
+
     /** Handles one command line; returns `false` if the CLI should stop reading further commands. */
     fun handle(line: String): Boolean {
         val parts = line.split(" ", limit = 2)
@@ -214,6 +222,8 @@ private class HarnessCli(
             "RAWKEYGEN" -> println("OK KEYGEN ${rawRotation.generateHeldKey()}")
             "RAWCHALLENGE" -> rawRotationChallengeCommand()
             "RAWROTATE" -> rawRotate(rest)
+            "RAWTICKET" -> rawTicket()
+            "MEDIAOPEN" -> mediaOpen(rest)
             "EXIT" -> {
                 exit()
                 return false
@@ -224,6 +234,7 @@ private class HarnessCli(
     }
 
     fun shutdown() {
+        heldMediaStreams.forEach { it.closeAbruptly() }
         session?.close()
         pairing?.close()
         stopStatusAndRingWiring()
@@ -845,6 +856,91 @@ private class HarnessCli(
         printRawRotationOutcome(activeSession)
     }
 
+    /**
+     * `RAWTICKET` (E60-05): sends `RequestMediaTicket` on the raw control session and prints the
+     * Mac's `MediaTicketGrant` ticket as `OK TICKET <hex>` (`ERROR NO_GRANT` if none arrives), so a
+     * scenario can present it on a media connection with `MEDIAOPEN`.
+     */
+    private fun rawTicket() {
+        val activeSession = rawSession
+        if (activeSession == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        val outcome =
+            runBlocking(dispatcher) {
+                activeSession.send(Channel.CHANNEL_CONTROL) { requestMediaTicket = requestMediaTicket { } }
+                withTimeoutOrNull(RAW_CHALLENGE_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasMediaTicketGrant() }
+                }
+            }
+        val ticket = (outcome as? RawWaitOutcome.Success)?.envelope?.mediaTicketGrant?.ticket?.toByteArray()
+        println(if (ticket == null) "ERROR NO_GRANT" else "OK TICKET ${ticket.toLowerHex()}")
+    }
+
+    /**
+     * `MEDIAOPEN <host> <port> <macFpSpkiFingerprintBase64Url> <ticketHex|NONE|SILENT> [HOLD]`
+     * (E60-05): dials a second, fully pinned mTLS connection with this process's identity and
+     * presents `MediaHello` carrying the given ticket (`NONE`: no ticket; `SILENT`: nothing at all).
+     * Prints `OK MEDIA_CONNECTED` once the handshake completed, then `EVENT MEDIA_CLOSED <ms>` when
+     * the Mac closed the connection (ms since the handshake) or `EVENT MEDIA_OPEN` if it stayed open
+     * for [MEDIA_CLOSE_TIMEOUT_MS]. With `HOLD` the connection is kept open without waiting and
+     * `OK MEDIA_HELD` is printed instead. `ERROR HANDSHAKE_REJECTED <reason>` when mTLS failed.
+     */
+    private fun mediaOpen(argsLine: String) {
+        val args = argsLine.split(" ").filter { it.isNotEmpty() }
+        val port = args.getOrNull(1)?.toIntOrNull()
+        val fingerprintBytes = args.getOrNull(2)?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() }
+        val presentation = args.getOrNull(3)?.let(RawMedia::parsePresentation)
+        if (args.size < MEDIAOPEN_MIN_ARGS || port == null || fingerprintBytes == null || presentation == null) {
+            println("ERROR usage: MEDIAOPEN <host> <port> <spkiFingerprintBase64Url> <ticketHex|NONE|SILENT> [HOLD]")
+            return
+        }
+        val factory =
+            SslClientFactory(
+                keyManager,
+                PinningTrustManager(PinSource { listOf(SpkiFingerprint(fingerprintBytes)) }),
+                JvmConscryptSessionTicketDisabler(),
+            )
+        val socket = factory.createSocket().apply { soTimeout = MEDIA_CLOSE_TIMEOUT_MS }
+        val stream =
+            runCatching { factory.connect(socket, InetAddress.getByName(args[0]), port) }
+                .getOrElse {
+                    println("ERROR HANDSHAKE_REJECTED ${it.message}")
+                    return
+                }
+        println("OK MEDIA_CONNECTED")
+        val startNanos = System.nanoTime()
+        val hello =
+            when (presentation) {
+                MediaPresentation.NoTicket -> RawMedia.helloFrame(null)
+                MediaPresentation.Silent -> null
+                is MediaPresentation.Ticket -> RawMedia.helloFrame(presentation.bytes)
+            }
+        runCatching {
+            if (hello != null) {
+                stream.output.write(hello)
+                stream.output.flush()
+            }
+        }
+        if (args.drop(MEDIAOPEN_MIN_ARGS).any { it.equals("HOLD", ignoreCase = true) }) {
+            heldMediaStreams += stream
+            println("OK MEDIA_HELD")
+            return
+        }
+        val closed =
+            try {
+                stream.input.read()
+                true
+            } catch (_: SocketTimeoutException) {
+                false
+            } catch (_: IOException) {
+                true
+            }
+        stream.closeAbruptly()
+        println(if (closed) "EVENT MEDIA_CLOSED ${(System.nanoTime() - startNanos) / NANOS_PER_MILLI}" else "EVENT MEDIA_OPEN")
+    }
+
     private fun awaitRawRotationChallenge(): ByteArray? {
         rawRotationChallenge?.let { return it }
         val activeSession = rawSession ?: return null
@@ -974,6 +1070,7 @@ private class HarnessCli(
 
     private companion object {
         const val CONNECT_ARG_COUNT = 3
+        const val MEDIAOPEN_MIN_ARGS = 4
         const val STATUS_ARG_COUNT = 4
         const val STATUS_FLOW_BUFFER = 64
     }

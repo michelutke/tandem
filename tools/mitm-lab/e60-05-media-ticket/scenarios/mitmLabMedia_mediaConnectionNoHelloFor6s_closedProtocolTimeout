@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabMedia_mediaConnectionNoHelloFor6s_closedProtocolTimeout
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(PROTOCOL_TIMEOUT)
+# mitm-scenario-timeout: 240
+#
+# E60-05 (6/6): a paired peer completes mTLS on a media connection and sends nothing. The Mac's
+# first-frame deadline (5 s, SPEC.md #errors-and-close-codes `PROTOCOL_TIMEOUT`) closes it: the client
+# observes the close between 4 s and 6.5 s after the handshake. No ticket check ever ran, so the Mac
+# logs neither a `ticketRejected` nor a `bound` event.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e60-05-common.sh
+source "$here/../lib/e60-05-common.sh"
+trap e60_05_teardown EXIT
+
+e60_05_setup
+FAILED=0
+
+e60_05_media_open A SILENT || FAILED=1
+case "$E60_05_MEDIA_EVENT" in
+  "EVENT MEDIA_CLOSED "*)
+    elapsed_ms="${E60_05_MEDIA_EVENT#EVENT MEDIA_CLOSED }"
+    if [ "$elapsed_ms" -lt 4000 ] || [ "$elapsed_ms" -gt 6500 ]; then
+      e60_05_log "FAIL: closed after ${elapsed_ms}ms, expected the 5 s first-frame deadline"
+      FAILED=1
+    else
+      e60_05_log "OK: closed after ${elapsed_ms}ms"
+    fi
+    ;;
+  *) e60_05_log "FAIL: Mac did not close the silent media connection: $E60_05_MEDIA_EVENT"; FAILED=1 ;;
+esac
+if grep -q 'harness-media-event: ticketRejected' "$HARNESS_LOG_PATH"; then
+  e60_05_log "FAIL: a ticket check ran for a connection that sent no MediaHello"
+  FAILED=1
+fi
+e60_05_assert_bound_count 0 || FAILED=1
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e60_05_finish PROTOCOL_TIMEOUT

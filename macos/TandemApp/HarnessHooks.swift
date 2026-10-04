@@ -143,7 +143,7 @@ enum HarnessHooks {
         )
         return ListenerController(
             identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(
+            listenerFactory: makeListenerFactory(
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
                 pairingCandidateDriver: pairingCandidateDriver,

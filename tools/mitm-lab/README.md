@@ -89,6 +89,29 @@ across scenario processes, matching the existing per-script convention in
 minutes) — this is deliberately not yet wired into CI as a required check, matching E15-08's own
 `tools/conformance/run.sh` precedent above.
 
+## E60-05: media ticket binding scenarios
+
+`tools/mitm-lab/e60-05-media-ticket/` -- six scenarios against the real Mac app launched with the
+DEBUG-only `-HarnessMediaTickets YES` hook (the real ticket table, issuer, registry and media
+acceptor, no mirror window), driven through the JVM harness client's `RAWOPEN`, `RAWTICKET`
+(real `RequestMediaTicket`/`MediaTicketGrant`) and `MEDIAOPEN` (a second pinned mTLS connection
+carrying a chosen `MediaHello`) commands; scenario 5 uses a second paired JVM client for peer B's
+certificate. Every scenario completes mTLS first (`OK MEDIA_CONNECTED`), so a rejection is the ticket
+layer, not the handshake. The Mac prints `harness-media-event: ticketRejected(<reason>)` (reason only,
+never ticket bytes) and `harness-media-event: bound`; a pass needs the Mac to close the connection,
+the expected reason, and no `bound` for the rejected connection. The acceptor's local reasons collapse
+the SPEC ones: consumed -> `reused`, revoked and peerMismatch -> `otherSession`.
+
+- `..._mediaHelloWithoutTicket_...` -> `missing`; `..._mediaReusedTicket_...` -> `reused` (first use is bound);
+  `..._mediaTicketAfter31s_...` -> `expired`; `..._mediaTicketFromEndedSession_...` and
+  `..._mediaTicketOnOtherPeersClientCert_...` -> `otherSession`.
+- `..._mediaConnectionNoHelloFor6s_closedProtocolTimeout` -- the silent connection is closed by the
+  Mac's 5 s first-frame deadline (observed 4-6.5 s after the handshake); that path emits no acceptor event.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e60-05-media-ticket/scenarios --timeout 300
+```
+
 ## E15-11: downgrade / resumption / 0-RTT / protocol-version scenarios
 
 `tools/mitm-lab/e15-11-version-scenarios/` — seven scenarios (four base scenarios, one of which

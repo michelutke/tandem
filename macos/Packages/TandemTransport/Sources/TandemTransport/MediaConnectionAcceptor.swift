@@ -42,6 +42,17 @@ public enum MediaAcceptorEvent: Sendable, Equatable {
     case closed(CloseCode)
 }
 
+extension MediaAcceptorEvent {
+    /// A log-safe rendering: the case and its reason or close code, never any ticket bytes (invariant 7).
+    public var logDescription: String {
+        switch self {
+        case .bound: "bound"
+        case .ticketRejected(let reason): "ticketRejected(\(reason))"
+        case .closed(let code): "closed(\(code))"
+        }
+    }
+}
+
 /// Receives a pinned peer's connection whose first frame is not a control `Envelope`.
 public protocol MediaConnectionHandling: Sendable {
     func handle(connection: any ByteStreamConnection, peer: MediaConnectionPeer) async
