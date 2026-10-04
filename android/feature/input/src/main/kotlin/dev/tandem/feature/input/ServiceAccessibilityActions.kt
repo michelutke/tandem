@@ -1,6 +1,7 @@
 package dev.tandem.feature.input
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -39,10 +40,7 @@ private class NodeFocusedInput(
         return node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
     }
 
-    override fun imeEnter(): Boolean = node.performAction(IME_ENTER_ACTION_ID)
-
-    private companion object {
-        /** AccessibilityAction.ACTION_IME_ENTER.id, API 30+. */
-        const val IME_ENTER_ACTION_ID = 0x01020054
-    }
+    override fun imeEnter(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
 }
