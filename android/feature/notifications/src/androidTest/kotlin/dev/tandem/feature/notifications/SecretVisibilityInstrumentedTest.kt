@@ -1,7 +1,6 @@
 package dev.tandem.feature.notifications
 
 import android.content.Context
-import android.content.Intent
 import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -26,24 +25,27 @@ import java.util.concurrent.TimeUnit
 class SecretVisibilityInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context: Context = instrumentation.context
+    private val listenerComponent = "${context.packageName}/${CapturingListenerService::class.java.name}"
 
     @Before
     fun grantAccess() {
         installCompanion()
-        shell("pm grant $COMPANION_PACKAGE android.permission.POST_NOTIFICATIONS")
-        shell("cmd notification allow_listener ${context.packageName}/${CapturingListenerService::class.java.name}")
+        val grant = shellOutput("pm grant $COMPANION_PACKAGE android.permission.POST_NOTIFICATIONS")
+        assertTrue("POST_NOTIFICATIONS grant failed: $grant", grant.isBlank())
+        shellOutput("cmd notification allow_listener $listenerComponent $USER_ID")
+        awaitListenerConnected()
         CapturingListenerService.captured.clear()
     }
 
     @After
     fun cancelPost() {
-        context.sendBroadcast(companionCommand(KIND_CANCEL))
-        shell("cmd notification disallow_listener ${context.packageName}/${CapturingListenerService::class.java.name}")
+        shellOutput(companionCommand(KIND_CANCEL))
+        shellOutput("cmd notification disallow_listener $listenerComponent $USER_ID")
     }
 
     @Test
     fun secretVisibility_companionSecretKind_capturedPayloadHasEmptyText() {
-        context.sendBroadcast(companionCommand(KIND_SECRET).putExtra("text", SECRET_TEXT))
+        shellOutput(companionCommand(KIND_SECRET, "--es text $SECRET_TEXT"))
 
         val posted = awaitCaptured()
 
@@ -53,12 +55,20 @@ class SecretVisibilityInstrumentedTest {
         assertEquals(Visibility.VISIBILITY_SECRET, posted.visibility)
     }
 
-    private fun companionCommand(kind: String): Intent =
-        Intent("dev.tandem.companion.POST")
-            .setPackage(COMPANION_PACKAGE)
-            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND or Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-            .putExtra("kind", kind)
-            .putExtra("key", POST_KEY)
+    private fun companionCommand(
+        kind: String,
+        extras: String = "",
+    ): String =
+        "am broadcast --user $USER_ID --receiver-foreground -n $COMPANION_RECEIVER " +
+            "-a dev.tandem.companion.POST --es kind $kind --es key $POST_KEY $extras"
+
+    private fun awaitListenerConnected() {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)
+        while (!CapturingListenerService.connected) {
+            check(System.nanoTime() < deadline) { "notification listener not connected within ${TIMEOUT_SECONDS}s" }
+            Thread.sleep(POLL_INTERVAL_MS)
+        }
+    }
 
     private fun awaitCaptured(): NotificationPosted {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)
@@ -85,17 +95,15 @@ class SecretVisibilityInstrumentedTest {
             .AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
             .use { it.readBytes().decodeToString() }
 
-    private fun shell(command: String) {
-        instrumentation.uiAutomation.executeShellCommand(command).close()
-    }
-
     private companion object {
         const val COMPANION_PACKAGE = CapturingListenerService.COMPANION_PACKAGE
+        const val COMPANION_RECEIVER = "$COMPANION_PACKAGE/.CompanionReceiver"
+        const val USER_ID = 0
         const val COMPANION_APK_ASSET = "companion.apk"
         const val KIND_SECRET = "secret"
         const val KIND_CANCEL = "cancel"
         const val POST_KEY = "secret-visibility-test"
-        const val SECRET_TEXT = "secret body"
+        const val SECRET_TEXT = "secretbody"
         const val POLL_INTERVAL_MS = 50L
         const val TIMEOUT_SECONDS = 60L
     }
