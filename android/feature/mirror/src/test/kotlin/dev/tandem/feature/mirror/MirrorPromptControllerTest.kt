@@ -1,5 +1,6 @@
 package dev.tandem.feature.mirror
 
+import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
@@ -14,6 +15,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.time.Instant
 
 /** E61-16 `unit:` tests (`docs/planning/backlog/phase-6.yaml`). Plain JUnit5. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -43,7 +46,7 @@ class MirrorPromptControllerTest {
     private class Fixture(
         scope: TestScope,
     ) {
-        val session = FakeTandemSession()
+        val session = FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
         val presenter = RecordingPresenter()
         val launcher = RecordingLauncher()
         var userStarts = 0
@@ -212,5 +215,97 @@ class MirrorPromptControllerTest {
 
             assertEquals(1, f.presenter.shown)
             assertEquals(Envelope.PayloadCase.MIRROR_DECLINED, f.session.sentFrames[sentBefore].payloadCase)
+        }
+
+    @Test
+    fun mirrorPrompt_sessionClosesWhilePromptUp_removesPromptAndSendsNothing() =
+        runTest(StandardTestDispatcher()) {
+            val f = Fixture(this)
+            f.controller.start()
+            runCurrent()
+            f.request()
+            runCurrent()
+
+            f.session.emitState(ConnectionState.Disconnected())
+            runCurrent()
+            f.controller.onStartTapped()
+            f.controller.onDeclineOrDismiss()
+            advanceTimeBy(60_000)
+            runCurrent()
+
+            assertTrue(!f.presenter.visible)
+            assertTrue(f.session.sentFrames.isEmpty())
+            assertEquals(0, f.launcher.launches)
+            assertEquals(0, f.userStarts)
+        }
+
+    @Test
+    fun mirrorPrompt_timeoutThenTap_onlyDeclined() =
+        runTest(StandardTestDispatcher()) {
+            val f = Fixture(this)
+            f.controller.start()
+            runCurrent()
+            f.request()
+            runCurrent()
+
+            advanceTimeBy(30_001)
+            runCurrent()
+            f.controller.onStartTapped()
+            runCurrent()
+
+            assertEquals(listOf(Envelope.PayloadCase.MIRROR_DECLINED), f.sentKinds())
+            assertEquals(0, f.launcher.launches)
+            assertEquals(0, f.userStarts)
+        }
+
+    @Test
+    fun mirrorPrompt_tapAtDeadline_exactlyOneOutcome() =
+        runTest(StandardTestDispatcher()) {
+            val f = Fixture(this)
+            f.controller.start()
+            runCurrent()
+            f.request()
+            runCurrent()
+
+            advanceTimeBy(30_000)
+            f.controller.onStartTapped()
+            runCurrent()
+
+            assertEquals(f.sentKinds().size + f.launcher.launches, 1)
+            assertEquals(f.launcher.launches, f.userStarts)
+        }
+
+    @Test
+    fun mirrorPrompt_tapThenTimeout_onlyConsentLaunched() =
+        runTest(StandardTestDispatcher()) {
+            val f = Fixture(this)
+            f.controller.start()
+            runCurrent()
+            f.request()
+            runCurrent()
+
+            f.controller.onStartTapped()
+            advanceTimeBy(30_000)
+            runCurrent()
+
+            assertTrue(f.session.sentFrames.isEmpty())
+            assertEquals(1, f.launcher.launches)
+        }
+
+    @Test
+    fun mirrorPrompt_sendFails_doesNotThrow() =
+        runTest(StandardTestDispatcher()) {
+            val f = Fixture(this)
+            f.controller.start()
+            runCurrent()
+            f.request()
+            runCurrent()
+
+            f.session.failNextSend(IOException("closed"))
+            f.controller.onDeclineOrDismiss()
+            runCurrent()
+
+            assertTrue(f.session.sentFrames.isEmpty())
+            assertTrue(!f.presenter.visible)
         }
 }
