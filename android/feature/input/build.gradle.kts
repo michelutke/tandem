@@ -15,4 +15,6 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)
+    // GlobalAction/SetText/TextEdit DSL types (E62-01).
+    implementation(project(":core:protocol"))
 }
