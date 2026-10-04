@@ -246,6 +246,9 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
                 guard let fingerprint = try? SpkiFingerprint.of(spkiDer: context.handshakeSpkiDer) else { return }
                 context.registeredFingerprint.set(fingerprint)
                 await sessionRegistry.register(fingerprint, session: context.session)
+                // No SessionServiceHost attaches to a pairing-registered session, so end the
+                // control-channel replay window here or held frames would accumulate for its lifetime.
+                await context.session.sealSetup()
             }
         )
         onConfirmationPending?(code, confirmationViewModel)
