@@ -1,16 +1,29 @@
 package dev.tandem.app
 
+import android.Manifest
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.home.StubHomeRingStateSource
+import dev.tandem.app.onboarding.BatteryOnboardingViewModel
+import dev.tandem.app.onboarding.OnboardingViewModel
+import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
+import dev.tandem.app.onboarding.SystemDeviceManufacturerSource
+import dev.tandem.app.onboarding.SystemPermissionRequester
+import dev.tandem.app.onboarding.SystemSdkVersionProvider
+import dev.tandem.app.shell.AppShell
+import dev.tandem.app.shell.AppShellDependencies
+import dev.tandem.app.shell.AppShellNavigator
+import dev.tandem.app.shell.NoOpPairingStarter
+import dev.tandem.app.shell.ShellEntryPoint
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
@@ -23,11 +36,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
-// Launcher activity (E00-03): a blank screen proving the real `TandemApplication` Hilt component
-// initializes on-device. Superseded by onboarding (F-4.1) once core/designsystem lands (E00-31).
+// Launcher activity (E00-03). E20-25: hosts the app shell (onboarding until paired, then Home and
+// Settings); see [AppShell].
 //
-// E31-07: also this app's foreground-capture and in-app "Send clipboard to Mac" button entry
-// points (PRD F-6.2, UC-13), since it is currently the app's only screen.
+// E31-07: also this app's foreground-capture and in-app "Send clipboard to Mac" entry points
+// (PRD F-6.2, UC-13); the button lives in Home's send sheet.
 //   - Foreground capture: whenever this Activity gains window focus, [onWindowFocusChanged] reads
 //     the clipboard via [clipboardReaderProvider] and, if it holds text and is not sensitive,
 //     sends it via [ClipboardSender]. The clipboard is read from no other place or callback, so a
@@ -47,13 +60,53 @@ class MainActivity : TandemActivity() {
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
     internal var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
 
+    internal var shellDependenciesProvider: (MainActivity) -> AppShellDependencies = ::liveShellDependencies
+
+    private val requestPostNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val dependencies = shellDependenciesProvider(this)
         setContent {
+            val navigator = remember { AppShellNavigator(dependencies.peers) }
             Surface(modifier = Modifier.fillMaxSize()) {
-                SendClipboardButton(onClick = ::onSendClipboardButtonTapped)
+                AppShell(navigator = navigator, dependencies = dependencies)
             }
         }
+    }
+
+    private fun liveShellDependencies(activity: MainActivity): AppShellDependencies {
+        val graph = EntryPointAccessors.fromApplication(applicationContext, ShellEntryPoint::class.java)
+        return AppShellDependencies(
+            peers = graph.trustStore().observeList(),
+            statusLine = graph.connectionStatusViewModel().statusText,
+            ringState = StubHomeRingStateSource().state,
+            onboarding =
+                OnboardingViewModel(
+                    BatteryOnboardingViewModel(
+                        SystemBatteryOptimizationSource(activity),
+                        SystemDeviceManufacturerSource,
+                    ),
+                    SystemPermissionRequester(activity) {
+                        requestPostNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    },
+                    SystemSdkVersionProvider,
+                ),
+            isBatteryRestricted = { !SystemBatteryOptimizationSource(activity).isIgnoringBatteryOptimizations() },
+            addressStore = graph.pairingAddressStore(),
+            pairingStarter = NoOpPairingStarter,
+            unpair = { fingerprint ->
+                graph.unpairAction().unpair(
+                    fingerprint,
+                    graph
+                        .sessionRegistry()
+                        .current.value
+                        ?.session,
+                )
+            },
+            onSendClipboard = ::onSendClipboardButtonTapped,
+        )
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -84,12 +137,5 @@ class MainActivity : TandemActivity() {
         CoroutineScope(SupervisorJob() + dispatcher).launch {
             ClipboardSender.send(text, session, sensitive = sensitive)
         }
-    }
-}
-
-@Composable
-private fun SendClipboardButton(onClick: () -> Unit) {
-    Button(onClick = onClick) {
-        Text("Send clipboard to Mac")
     }
 }

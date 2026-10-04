@@ -1,16 +1,29 @@
 package dev.tandem.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.connection.PairingAddressStore
+import dev.tandem.app.home.HomeRingState
+import dev.tandem.app.onboarding.BatteryOnboardingViewModel
+import dev.tandem.app.onboarding.FakeBatteryOptimizationSource
+import dev.tandem.app.onboarding.FakeDeviceManufacturerSource
+import dev.tandem.app.onboarding.FakeSdkVersionProvider
+import dev.tandem.app.onboarding.OnboardingViewModel
+import dev.tandem.app.onboarding.RecordingPermissionRequester
+import dev.tandem.app.shell.AppShellDependencies
+import dev.tandem.app.shell.NoOpPairingStarter
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.feature.clipboard.ClipboardClip
 import dev.tandem.feature.clipboard.ClipboardReader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import java.io.File
 
 // E31-07 tdd:
 //   unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText
@@ -100,9 +113,31 @@ class MainActivityTest {
         activity.sessionProvider = { session }
         activity.dispatcher = UnconfinedTestDispatcher()
         activity.clipboardReaderProvider = { reader }
+        activity.shellDependenciesProvider = { shellDependencies() }
         controller.create()
         return activity
     }
+
+    private fun shellDependencies() =
+        AppShellDependencies(
+            peers = flowOf(emptyList()),
+            statusLine = flowOf(""),
+            ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
+            onboarding =
+                OnboardingViewModel(
+                    BatteryOnboardingViewModel(
+                        FakeBatteryOptimizationSource(ignoringBatteryOptimizations = true),
+                        FakeDeviceManufacturerSource(manufacturer = "Google"),
+                    ),
+                    RecordingPermissionRequester(),
+                    FakeSdkVersionProvider(sdkInt = 33),
+                ),
+            isBatteryRestricted = { false },
+            addressStore = PairingAddressStore(File.createTempFile("addr", null)),
+            pairingStarter = NoOpPairingStarter,
+            unpair = {},
+            onSendClipboard = {},
+        )
 
     private class RecordingClipboardReader(
         private val clip: ClipboardClip?,
