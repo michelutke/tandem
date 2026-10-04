@@ -20,6 +20,7 @@ let package = Package(
         .testTarget(
             name: "FeatureMirrorTests",
             dependencies: ["FeatureMirror", "TandemCrypto", "TandemTestSupport"],
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
