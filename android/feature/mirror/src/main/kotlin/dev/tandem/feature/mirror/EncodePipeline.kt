@@ -5,8 +5,10 @@ import dev.tandem.protocol.v1.MediaCodec
 import dev.tandem.protocol.v1.MediaMessage
 import dev.tandem.protocol.v1.mediaFormat
 import dev.tandem.protocol.v1.mediaMessage
+import dev.tandem.protocol.v1.rotationChanged
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -20,10 +22,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 class EncodePipeline(
     private val encoderFactory: EncoderFactory,
     private val capture: CaptureSource,
-    private val config: EncoderConfig,
+    config: EncoderConfig,
     private val stream: ByteStream,
     private val ioDispatcher: CoroutineDispatcher,
+    private val displayChanges: DisplayChangeSource = NoDisplayChanges,
 ) {
+    private var config = config
+
+    private val lock = Any()
+
     @Volatile
     private var encoder: VideoEncoder? = null
 
@@ -44,8 +51,9 @@ class EncodePipeline(
                 return@withContext
             }
             try {
-                writeMessage(mediaMessage { mediaFormat = config.toMediaFormat() })
-                pump(created)
+                synchronized(lock) { writeMessage(mediaMessage { mediaFormat = config.toMediaFormat() }) }
+                displayChanges.start(::onDisplayChanged)
+                pump()
             } finally {
                 release()
             }
@@ -59,8 +67,36 @@ class EncodePipeline(
         encoder?.requestSyncFrame()
     }
 
+    /**
+     * Recreates the encoder and VirtualDisplay at the planned size, then sends `RotationChanged` and the new
+     * `MediaFormat` before any frame of the new geometry; the new encoder is asked for a keyframe.
+     */
+    private fun onDisplayChanged(geometry: DisplayGeometry) {
+        synchronized(lock) {
+            if (released.get()) return
+            val size = RotationPlanner.plan(geometry.widthPx, geometry.heightPx)
+            if (size.width == config.width && size.height == config.height) return
+            try {
+                config = config.copy(width = size.width, height = size.height)
+                capture.resize(size.width, size.height)
+                encoder?.close()
+                val recreated = encoderFactory.create(config, capture)
+                encoder = recreated
+                val rotation = rotationChanged { orientation = geometry.orientation }
+                writeMessage(mediaMessage { rotationChanged = rotation })
+                writeMessage(mediaMessage { mediaFormat = config.toMediaFormat() })
+                recreated.requestSyncFrame()
+            } catch (_: IOException) {
+                release()
+            } catch (_: IllegalStateException) {
+                release()
+            }
+        }
+    }
+
     private fun release() {
         if (!released.compareAndSet(false, true)) return
+        displayChanges.stop()
         val closing = encoder
         encoder = null
         try {
@@ -74,10 +110,15 @@ class EncodePipeline(
         }
     }
 
-    private fun pump(encoder: VideoEncoder) {
+    private fun pump() {
         while (true) {
-            val buffer = encoder.nextOutput() ?: return
-            send(encoder, buffer)
+            val current = encoder ?: return
+            val buffer = current.nextOutput()
+            if (buffer == null) {
+                if (encoder === current) return
+                continue
+            }
+            synchronized(lock) { if (encoder === current) send(current, buffer) }
         }
     }
 

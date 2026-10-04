@@ -8,11 +8,12 @@ import android.view.Surface
 /** Real [CaptureSource]: mirrors the display of an already-consented [projection] into the encoder surface. */
 class MediaProjectionCaptureSource(
     private val projection: MediaProjection,
-    private val width: Int,
-    private val height: Int,
+    private var width: Int,
+    private var height: Int,
     private val densityDpi: Int,
 ) : CaptureSource {
     private var virtualDisplay: VirtualDisplay? = null
+    private var callbackRegistered = false
     private var stopListener: () -> Unit = {}
 
     private val callback =
@@ -28,8 +29,18 @@ class MediaProjectionCaptureSource(
         stopListener = listener
     }
 
+    override fun resize(
+        width: Int,
+        height: Int,
+    ) {
+        this.width = width
+        this.height = height
+    }
+
     override fun start(surface: Surface) {
-        projection.registerCallback(callback, null)
+        virtualDisplay?.release()
+        if (!callbackRegistered) projection.registerCallback(callback, null)
+        callbackRegistered = true
         virtualDisplay =
             projection.createVirtualDisplay(
                 DISPLAY_NAME,

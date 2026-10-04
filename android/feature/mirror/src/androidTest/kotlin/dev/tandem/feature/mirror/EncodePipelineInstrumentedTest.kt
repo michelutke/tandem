@@ -3,10 +3,19 @@ package dev.tandem.feature.mirror
 import android.graphics.Color
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.core.transport.ByteStream
+import dev.tandem.protocol.v1.MediaMessage
+import dev.tandem.protocol.v1.Orientation
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -116,7 +125,73 @@ class EncodePipelineInstrumentedTest {
         assertEquals(target.toDouble(), measured, target * 0.2)
     }
 
+    private class TimedStream : ByteStream {
+        val messages = CopyOnWriteArrayList<Pair<Long, MediaMessage>>()
+        override val input: InputStream = ByteArrayInputStream(ByteArray(0))
+        override val output: OutputStream =
+            object : OutputStream() {
+                override fun write(b: Int) = Unit
+
+                override fun write(
+                    b: ByteArray,
+                    off: Int,
+                    len: Int,
+                ) {
+                    messages +=
+                        System.nanoTime() to MediaMessage.parseFrom(b.copyOfRange(off + LENGTH_PREFIX_BYTES, off + len))
+                }
+            }
+
+        override fun closeGracefully() = Unit
+
+        override fun closeAbruptly() = Unit
+    }
+
+    private class ManualDisplayChanges : DisplayChangeSource {
+        lateinit var listener: (DisplayGeometry) -> Unit
+
+        override fun start(listener: (DisplayGeometry) -> Unit) {
+            this.listener = listener
+        }
+
+        override fun stop() = Unit
+    }
+
+    /** E61-05 `encodePipeline_emulatorRotation_newDimensionsWithin500ms`; the display event stands in for `adb emu rotate`. */
+    @Test
+    fun encodePipeline_emulatorRotation_newDimensionsWithin500ms() {
+        val stream = TimedStream()
+        val displayChanges = ManualDisplayChanges()
+        val pipeline =
+            EncodePipeline(MediaCodecEncoderFactory(), CanvasCapture(), config, stream, Dispatchers.IO, displayChanges)
+        val runner = thread { runBlocking { pipeline.run() } }
+        Thread.sleep(SETTLE_MILLIS)
+        val lastBefore = stream.messages.last { it.second.hasMediaFrame() }.first
+
+        displayChanges.listener(DisplayGeometry(config.height, config.width, Orientation.ORIENTATION_PORTRAIT))
+        Thread.sleep(SETTLE_MILLIS)
+        pipeline.stop()
+        runner.join()
+
+        val rotation = stream.messages.indexOfFirst { it.second.hasRotationChanged() }
+        assertTrue(rotation >= 0)
+        assertEquals(
+            config.height,
+            stream.messages[rotation + 1]
+                .second.mediaFormat.width,
+        )
+        val firstAfter =
+            stream.messages
+                .drop(rotation + 2)
+                .first { it.second.hasMediaFrame() }
+                .first
+        assertTrue(firstAfter - lastBefore <= TimeUnit.MILLISECONDS.toNanos(ROTATION_BUDGET_MILLIS))
+    }
+
     private companion object {
+        const val SETTLE_MILLIS = 2_000L
+        const val ROTATION_BUDGET_MILLIS = 500L
+        const val LENGTH_PREFIX_BYTES = 4
         const val COLOR_MAX = 256
         const val FRAME_INTERVAL_MILLIS = 33L
         const val NANOS_PER_SECOND = 1_000_000_000.0

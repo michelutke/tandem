@@ -4,6 +4,7 @@ import android.view.Surface
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.protocol.v1.MediaFrame
 import dev.tandem.protocol.v1.MediaMessage
+import dev.tandem.protocol.v1.Orientation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -43,7 +44,20 @@ class EncodePipelineTest {
     }
 
     private class FakeCapture : CaptureSource {
-        override fun start(surface: Surface) = Unit
+        val events = mutableListOf<String>()
+
+        override fun resize(
+            width: Int,
+            height: Int,
+        ) {
+            events += "resize ${width}x$height"
+        }
+
+        override fun start(surface: Surface) = recordStart()
+
+        fun recordStart() {
+            events += "start"
+        }
 
         override fun stop() = Unit
     }
@@ -148,5 +162,85 @@ class EncodePipelineTest {
         assertTrue(messages.frames().isEmpty())
         assertEquals(listOf(EncoderConfigBuilder.build(30).bitrateBitsPerSecond / 2), encoder.bitrates)
         assertEquals(1, encoder.syncRequests)
+    }
+
+    private class FakeDisplayChanges : DisplayChangeSource {
+        var listener: (DisplayGeometry) -> Unit = {}
+
+        override fun start(listener: (DisplayGeometry) -> Unit) {
+            this.listener = listener
+        }
+
+        override fun stop() = Unit
+    }
+
+    private class RotationRun(
+        val created: MutableList<EncoderConfig>,
+        val capture: FakeCapture,
+        val messages: List<MediaMessage>,
+    )
+
+    private fun runWithRotation(geometry: DisplayGeometry): RotationRun {
+        val stream = CapturingStream()
+        val capture = FakeCapture()
+        val created = mutableListOf<EncoderConfig>()
+        val displayChanges = FakeDisplayChanges()
+        val oldEncoder = FakeEncoder(ArrayDeque(listOf(buffer(10, pts = 1, key = true))))
+        val newEncoder = FakeEncoder(ArrayDeque(listOf(buffer(10, pts = 2, key = true))))
+        oldEncoder.onFirstOutput = { displayChanges.listener(geometry) }
+        val encoders = ArrayDeque(listOf(oldEncoder, newEncoder))
+        val pipeline =
+            EncodePipeline(
+                encoderFactory = { config, _ ->
+                    created += config
+                    capture.recordStart()
+                    encoders.removeFirst()
+                },
+                capture = capture,
+                config = EncoderConfigBuilder.build(sdkInt = 30),
+                stream = stream,
+                ioDispatcher = Dispatchers.Unconfined,
+                displayChanges = displayChanges,
+            )
+        runBlocking { pipeline.run() }
+        return RotationRun(created, capture, parse(stream.bytes.toByteArray()))
+    }
+
+    private val landscape = DisplayGeometry(2208, 1840, Orientation.ORIENTATION_LANDSCAPE)
+
+    @Test
+    fun rotationPlanner_portraitToLandscape_swapsWidthAndHeight() {
+        assertEquals(EncoderSize(1920, 1080), RotationPlanner.rotate(1080, 1920))
+    }
+
+    @Test
+    fun rotationPlanner_foldable2208x1840_scaledTo1920x1600() {
+        assertEquals(EncoderSize(1920, 1600), RotationPlanner.plan(2208, 1840))
+    }
+
+    @Test
+    fun encodePipeline_rotationEvent_emitsRotationChangedBeforeNextFrame() {
+        val messages = runWithRotation(landscape).messages
+
+        val rotationIndex = messages.indexOfFirst { it.hasRotationChanged() }
+        assertEquals(Orientation.ORIENTATION_LANDSCAPE, messages[rotationIndex].rotationChanged.orientation)
+        assertTrue(messages[rotationIndex + 1].hasMediaFormat())
+        assertEquals(1600, messages[rotationIndex + 1].mediaFormat.height)
+        assertEquals(0, messages.take(rotationIndex).count { it.hasMediaFrame() })
+        assertEquals(
+            2L,
+            messages
+                .drop(rotationIndex + 2)
+                .first { it.hasMediaFrame() }
+                .mediaFrame.pts,
+        )
+    }
+
+    @Test
+    fun encodePipeline_rotationEvent_recreatesEncoderAndDisplayAtPlannedSize() {
+        val run = runWithRotation(landscape)
+
+        assertEquals(listOf(1920 to 1080, 1920 to 1600), run.created.map { it.width to it.height })
+        assertEquals(listOf("start", "resize 1920x1600", "start"), run.capture.events)
     }
 }

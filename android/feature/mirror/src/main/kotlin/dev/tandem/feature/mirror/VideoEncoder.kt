@@ -33,6 +33,12 @@ fun interface EncoderFactory {
 interface CaptureSource {
     fun start(surface: Surface)
 
+    /** Sets the size of the VirtualDisplay created by the next [start], which replaces any running one. */
+    fun resize(
+        width: Int,
+        height: Int,
+    ) = Unit
+
     fun stop()
 
     /** Registers [listener] for a system-initiated end of capture (e.g. `MediaProjection.Callback.onStop`). */
