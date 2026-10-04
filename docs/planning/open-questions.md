@@ -5,10 +5,9 @@ assumes; work proceeds on the default unless the owner overrides it. Answered qu
 [`decisions.md`](decisions.md).
 
 Q1–Q16 were answered on 2026-09-24 (owner accepted every recommended default) and are logged as
-D-41 … D-56 in [`decisions.md`](decisions.md).
+D-41 … D-56 in [`decisions.md`](decisions.md). Q19 was answered on 2026-10-04 and is logged as D-77.
 
 | # | Question | Recommended default | Affects |
 |---|---|---|---|
 | Q17 | E22-07's pin-mismatch banner text ("`<peer>` presented an unexpected key") presupposes the Mac can name a peer whose current SPKI is *not* in the trust store. With trust bound to SPKI only (invariant 3) and the Mac never dialing (invariant 4), it cannot attribute an unrecognized key to a name without an IP/device-ID heuristic — which invites misattribution by an attacker. Should the named-peer branch be removed (always show the generic "An unpaired device..." text), or is a specific, invariant-3-safe attribution mechanism intended? | Remove the named-peer branch; always show the generic text for `pinMismatch` regardless of any locally-cached name, since the Mac has no invariant-3-safe way to attribute an unrecognized key to a specific paired device. | E22-07, E22-10 |
 | Q18 | Scheduled key-rotation interval setting (E70-01, SPEC #key-rotation) offers Off / 90 / 180 / 365 days. Is that set and the default right? | Applied default: 365 days since the last rotation (or pairing); options Off, 90, 180, 365. | E70-01, E70-07 |
-| Q19 | SPEC defines no source for the 16-byte mirror session id that input messages carry (noted by E62-07); `MirrorRequest`, `MirrorDeclined` and `MediaHello` carry none, and no decision settles it. Who mints it and how does it reach both sides (e.g. phone generates it and sends it in a new field on the media connection, or Mac assigns it in `MirrorRequest`)? | Phone mints a random 16-byte id when the user starts the session and sends it as the first field of the media connection, bound to the ticket-authenticated control session; the Mac echoes it in input messages. Not implemented until answered. | E62-07, E61-15 |
