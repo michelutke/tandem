@@ -178,7 +178,7 @@ epics:
         prd: [F-3.3]
         use_cases: [AC-08]
         invariants: [1, 5, 6]
-        depends_on: [E60-03, E60-04, E15-08]
+        depends_on: [E60-03, E60-04, E15-08, E62-12]
         description: |
           Extend tools/mitm-lab with media-connection scenarios per the test-strategy "session
           binding" row. Every scenario completes a valid mTLS handshake first, so a rejection
@@ -211,7 +211,7 @@ epics:
         prd: [F-3.3]
         use_cases: [AC-02]
         invariants: [1, 2]
-        depends_on: [E60-04, E60-09, E15-04, E15-05]
+        depends_on: [E60-04, E60-09, E15-04, E15-05, E62-11, E62-12]
         description: |
           Confirm the media connection independently satisfies the "no plaintext on the wire"
           requirement (test-strategy), noting the media connection terminates on the same single Tandem port (no second listener, PRD goals), so the E15-04/E15-05 capture must classify both connections on that port.
@@ -237,7 +237,7 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E60-04, E60-09, E11-07, E11-08, E15-15, E00-23]
+        depends_on: [E60-04, E60-09, E11-07, E11-08, E15-15, E00-23, E62-11, E62-12]
         description: |
           Verify the entire reason for ADR-005's two-connection design: with the control
           connection saturated by a large file transfer on the FILES channel (E11-07/E11-08's flow
@@ -589,7 +589,7 @@ epics:
         prd: [F-9.1, F-9.2]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-03, E61-06, E61-07, E00-23]
+        depends_on: [E61-03, E61-06, E61-07, E00-23, E62-11, E62-12]
         description: |
           Measurement harness for the PRD success metric: 1080p ≥30 fps, end-to-end latency
           under 120 ms. Method: a timestamp overlay burned into each captured frame (frame index
@@ -1129,7 +1129,7 @@ epics:
         prd: [F-9.3]
         use_cases: [AC-06, AC-19]
         invariants: [8]
-        depends_on: [E62-06, E15-08, E15-15, E15-17]
+        depends_on: [E62-06, E15-08, E15-15, E15-17, E62-11]
         description: |
           mitm-lab / integration scenarios sending INPUT frames with no active mirror session,
           and from a connection lacking a valid session binding, per the test-strategy "input

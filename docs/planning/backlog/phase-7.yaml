@@ -461,7 +461,7 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24, AC-15]
         invariants: [1, 3]
-        depends_on: [E70-04, E70-05, E15-08]
+        depends_on: [E70-04, E70-05, E15-08, E70-16]
         description: |
           Per PRD F-1.3 ("no rotation over unauthenticated channels"), mitm-lab scenarios (E15-08
           runner) against both the real Mac listener and the phone client send KeyRotation before
@@ -489,7 +489,7 @@ epics:
         prd: [F-1.3]
         use_cases: [UC-24]
         invariants: [1, 3]
-        depends_on: [E15-15, E70-02, E70-03, E70-04, E70-05, E70-08, E70-13]
+        depends_on: [E15-15, E70-02, E70-03, E70-04, E70-05, E70-08, E70-13, E70-15, E70-16]
         description: |
           Scenarios on the E15-15 harness (real Android core/* modules with
           `SoftwareIdentityKeyStore` against the real Mac server app): phone-initiated rotation,
