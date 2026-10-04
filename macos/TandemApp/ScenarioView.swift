@@ -151,6 +151,8 @@ struct ScenarioView: View {
             ScenarioView.makeThreadListSeededView()
         case .incomingCallActive:
             ScenarioView.makeIncomingCallActiveView()
+        case .mirrorDeclined:
+            ScenarioView.makeMirrorDeclinedView()
         }
     }
 

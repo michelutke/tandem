@@ -1,4 +1,5 @@
 import FeatureFiles
+import FeatureMirror
 import SwiftUI
 import TandemCrypto
 import TandemDevices
@@ -170,6 +171,7 @@ struct MenuContentView: View {
     /// ``AppComposition``, ``select()`` on either instance is a no-op.
     @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
     @State private var pushClipboardViewModel = PushClipboardViewModel(sender: nil)
+    @State private var mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
 
     /// The remaining two quick actions (E22-02) share `menuBarViewModel`'s own sessionless gap
     /// above, so this is `isConnected: false` with no-op stub closures for those two.
@@ -196,6 +198,8 @@ struct MenuContentView: View {
         ))
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
+        _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
@@ -206,7 +210,7 @@ struct MenuContentView: View {
             sendFile: { Task { _ = await sendEntryHandler.sendFileQuickAction() } },
             pushClipboard: { pushClipboardViewModel.select() },
             findPhone: { findPhoneViewModel.select() },
-            mirror: {}
+            mirror: { mirrorRequestViewModel.request() }
         ))
     }
 
@@ -247,7 +251,8 @@ struct MenuContentView: View {
                 QuickActionsView(
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,
-                    pushClipboardViewModel: pushClipboardViewModel
+                    pushClipboardViewModel: pushClipboardViewModel,
+                    mirrorRequestViewModel: mirrorRequestViewModel
                 )
                 OpenTandemMenuButton()
                 SettingsMenuButton()

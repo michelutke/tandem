@@ -62,6 +62,10 @@ enum UITestScenario: String {
     /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
     case incomingCallActive
 
+    /// A paired, connected peer that declined a Mirror request (E61-12): the status line under
+    /// "Mirror Phone" reads "Mirroring declined on phone".
+    case mirrorDeclined
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

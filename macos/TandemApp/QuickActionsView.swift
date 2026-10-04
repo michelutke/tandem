@@ -1,3 +1,4 @@
+import FeatureMirror
 import SwiftUI
 
 /// Renders ``QuickActionsViewModel``'s four actions (E22-02): plain `Text`/`Button` rather than
@@ -17,6 +18,10 @@ struct QuickActionsView: View {
     /// when a push doesn't send.
     let pushClipboardViewModel: PushClipboardViewModel
 
+    /// Drives the waiting/"Mirroring declined on phone" status shown under "Mirror Phone"
+    /// (E61-12).
+    var mirrorRequestViewModel: MirrorRequestViewModel?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             actionButton(.sendFile, identifier: "sendFileMenuItem")
@@ -24,6 +29,15 @@ struct QuickActionsView: View {
             pushClipboardStatusLabel
             findPhoneButton
             actionButton(.mirror, identifier: "mirrorPhoneMenuItem")
+            mirrorStatusLabel
+        }
+    }
+
+    @ViewBuilder
+    private var mirrorStatusLabel: some View {
+        if let statusText = mirrorRequestViewModel?.statusText {
+            Text(statusText)
+                .accessibilityIdentifier("mirrorStatusLabel")
         }
     }
 

@@ -50,10 +50,13 @@
 		A40100000000000000E40A02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40A01 /* FeatureFiles */; };
 		E50070000000000000000A02 /* FeatureMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = E50070000000000000000A01 /* FeatureMessaging */; };
 		E52060000000000000000001 /* FeatureCalls in Frameworks */ = {isa = PBXBuildFile; productRef = E52060000000000000000012 /* FeatureCalls */; };
+		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
 		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
+		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
 		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
+		E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000003 /* MirrorQuickActionUITests.swift */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
 		85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */; };
@@ -179,10 +182,13 @@
 		A40100000000000000E40A03 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
 		E50070000000000000000A03 /* FeatureMessaging */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMessaging; path = Packages/FeatureMessaging; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000010 /* FeatureCalls */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureCalls; path = Packages/FeatureCalls; sourceTree = SOURCE_ROOT; };
+		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
+		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
 		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
+		E61120000000000000000003 /* MirrorQuickActionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorQuickActionUITests.swift; sourceTree = "<group>"; };
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
@@ -259,6 +265,7 @@
 				A40100000000000000E40A02 /* FeatureFiles in Frameworks */,
 				E50070000000000000000A02 /* FeatureMessaging in Frameworks */,
 				E52060000000000000000001 /* FeatureCalls in Frameworks */,
+				E61120000000000000000001 /* FeatureMirror in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -300,6 +307,7 @@
 				E41050700000000000000000 /* PhotoGridUITests.swift */,
 				E50070400000000000000000 /* ThreadListUITests.swift */,
 				E52060000000000000000009 /* CallAlertUITests.swift */,
+				E61120000000000000000003 /* MirrorQuickActionUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
 			);
 			path = TandemUITests;
@@ -366,6 +374,7 @@
 				A40100000000000000E40A03 /* FeatureFiles */,
 				E50070000000000000000A03 /* FeatureMessaging */,
 				E52060000000000000000010 /* FeatureCalls */,
+				E61120000000000000000010 /* FeatureMirror */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -414,6 +423,7 @@
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
 				E52060000000000000000007 /* CallHangUpView.swift */,
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
+				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
 				9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */,
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
@@ -490,6 +500,7 @@
 				A40100000000000000E40A01 /* FeatureFiles */,
 				E50070000000000000000A01 /* FeatureMessaging */,
 				E52060000000000000000012 /* FeatureCalls */,
+				E61120000000000000000012 /* FeatureMirror */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -551,6 +562,7 @@
 				F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 				A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */,
 				E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */,
+				E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -617,6 +629,7 @@
 				E41050600000000000000000 /* PhotoGridUITests.swift in Sources */,
 				E50070300000000000000000 /* ThreadListUITests.swift in Sources */,
 				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
+				E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -685,6 +698,7 @@
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
 				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
+				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
 				C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */,
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
@@ -1076,6 +1090,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureCalls;
 		};
+		E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureMirror;
+		};
 		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemTransport;
@@ -1145,6 +1163,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */;
 			productName = FeatureCalls;
+		};
+		E61120000000000000000012 /* FeatureMirror */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */;
+			productName = FeatureMirror;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
