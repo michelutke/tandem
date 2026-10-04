@@ -30,6 +30,7 @@ public actor FileSender: FilesFrameStream {
     private let source: any FileChunkSource
     private let session: any TandemSession
     private let scheduler: FilesScheduler
+    private let progress: (any TransferProgressReporting)?
 
     private var size: UInt64 = 0
     private var reader: (any FileChunkReader)?
@@ -41,7 +42,8 @@ public actor FileSender: FilesFrameStream {
         mime: String,
         source: any FileChunkSource,
         session: any TandemSession,
-        scheduler: FilesScheduler
+        scheduler: FilesScheduler,
+        progress: (any TransferProgressReporting)? = nil
     ) {
         self.id = id
         self.name = name
@@ -49,6 +51,7 @@ public actor FileSender: FilesFrameStream {
         self.source = source
         self.session = session
         self.scheduler = scheduler
+        self.progress = progress
     }
 
     /// Hashes the whole source in one streaming pass, then sends the `FileOffer`.
@@ -66,6 +69,7 @@ public actor FileSender: FilesFrameStream {
         offer.sha256 = digest
         state = .offered
         try? await session.send(.files, payload: .fileOffer(offer))
+        await progress?.began(id: id, name: name, totalBytes: Int64(size)) { [weak self] in await self?.cancel() }
     }
 
     public func handle(accept: Tandem_V1_FileAccept) async {
@@ -101,21 +105,24 @@ public actor FileSender: FilesFrameStream {
         await scheduler.enqueue(stream: self)
     }
 
-    public func handle(reject: Tandem_V1_FileReject) {
+    public func handle(reject: Tandem_V1_FileReject) async {
         guard reject.id == id, state == .offered else { return }
         state = .rejected(reject.reason)
+        await progress?.ended(id: id)
     }
 
-    public func handle(cancel: Tandem_V1_FileCancel) {
+    public func handle(cancel: Tandem_V1_FileCancel) async {
         guard cancel.id == id, state == .offered || state == .sending else { return }
         state = .cancelled(cancel.reason)
         reader = nil
+        await progress?.ended(id: id)
     }
 
     /// User-initiated cancel: stops reading and queues `FileCancel{USER_CANCELLED}` behind any frame already in flight.
     public func cancel() async {
         guard state == .offered || state == .sending else { return }
         await scheduler.enqueue(response: cancelFrame(.userCancelled))
+        await progress?.ended(id: id)
     }
 
     public func nextFrame() async -> Tandem_V1_Envelope.OneOf_Payload? {
@@ -125,21 +132,28 @@ public actor FileSender: FilesFrameStream {
             state = .completed
             var complete = Tandem_V1_FileComplete()
             complete.id = id
+            await progress?.ended(id: id)
             return .fileComplete(complete)
         }
-        guard let data = readChunk(at: offset) else { return cancelFrame(.ioError) }
+        guard let data = readChunk(at: offset) else {
+            let frame = cancelFrame(.ioError)
+            await progress?.ended(id: id)
+            return frame
+        }
         var chunk = Tandem_V1_FileChunk()
         chunk.id = id
         chunk.seq = nextSeq
         chunk.offset = offset
         chunk.data = data
         nextSeq += 1
+        await progress?.delivered(id: id, bytes: Int64(offset) + Int64(data.count))
         return .fileChunk(chunk)
     }
 
     private func cancelResume(_ reason: Tandem_V1_TransferReason) async {
         let frame = cancelFrame(reason)
         try? await session.send(.files, payload: frame)
+        await progress?.ended(id: id)
     }
 
     private func hashSource() throws -> Data {

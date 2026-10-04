@@ -183,6 +183,7 @@ struct MenuContentView: View {
     /// No transfer service is composed yet (same gap as above), so drops and the Send File picker
     /// yield `notConnected` until a later issue passes one in.
     @State private var sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+    private let transferProgress: TransferProgressCenter?
 
     /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
     /// D-59/D-76) never reach here.
@@ -202,6 +203,7 @@ struct MenuContentView: View {
     init() {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
         pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
+        transferProgress = lifecycle?.sessionFeatures.transferProgress
         let peerName = lifecycle?.pairedPeerName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
@@ -273,6 +275,9 @@ struct MenuContentView: View {
                     deviceStatusViewModel: nil,
                     onPairPhone: { pairingPresenter?.openPairingWindow() }
                 )
+                if let transferProgress {
+                    TransferProgressListView(center: transferProgress)
+                }
                 QuickActionsView(
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,

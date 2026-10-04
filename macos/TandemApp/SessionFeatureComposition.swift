@@ -17,6 +17,8 @@ struct SessionFeatures: Sendable {
     /// Routes ``SendEntryHandler`` and ``SendRequestAgent`` to whichever session is attached;
     /// not connected between sessions.
     let fileTransfer: ActiveFileTransferService
+    /// In-flight transfer rows fed by every session's ``FileSender`` and ``FileReceiver``.
+    let transferProgress: TransferProgressCenter
     private let sendRequestWake: SendRequestWakeObserver?
 
     static func make(
@@ -25,6 +27,7 @@ struct SessionFeatures: Sendable {
         rotationService: any SessionService
     ) -> SessionFeatures {
         let fileTransfer = ActiveFileTransferService()
+        let transferProgress = TransferProgressCenter(clock: ContinuousClock())
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
         let notifications = NotificationsSessionService(iconCache: iconCache)
@@ -36,6 +39,7 @@ struct SessionFeatures: Sendable {
         ))
         let filesService = makeFilesService(
             fileTransfer: fileTransfer,
+            transferProgress: transferProgress,
             purgeRegistry: purgeRegistry,
             routing: notifications.routing
         )
@@ -48,6 +52,7 @@ struct SessionFeatures: Sendable {
         return SessionFeatures(
             host: SessionServiceHost(services: services),
             fileTransfer: fileTransfer,
+            transferProgress: transferProgress,
             sendRequestWake: wake
         )
     }
@@ -95,6 +100,7 @@ struct SessionFeatures: Sendable {
 
     private static func makeFilesService(
         fileTransfer: ActiveFileTransferService,
+        transferProgress: TransferProgressCenter,
         purgeRegistry: PeerDataPurgeRegistry,
         routing: NotificationRouting
     ) -> FilesSessionService? {
@@ -109,6 +115,7 @@ struct SessionFeatures: Sendable {
             directories: directories,
             thumbnails: thumbnails,
             activeTransfer: fileTransfer,
+            transferProgress: transferProgress,
             routing: routing
         )
     }
@@ -231,6 +238,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
     private let directories: TransferDirectories
     private let thumbnails: ThumbnailCache
     private let activeTransfer: ActiveFileTransferService
+    private let transferProgress: TransferProgressCenter
     private let routing: NotificationRouting
     private var acceptPrompts: NotificationAcceptPromptPresenter?
     private var acceptReader: Task<Void, Never>?
@@ -239,11 +247,13 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         directories: TransferDirectories,
         thumbnails: ThumbnailCache,
         activeTransfer: ActiveFileTransferService,
+        transferProgress: TransferProgressCenter,
         routing: NotificationRouting
     ) {
         self.directories = directories
         self.thumbnails = thumbnails
         self.activeTransfer = activeTransfer
+        self.transferProgress = transferProgress
         self.routing = routing
     }
 
@@ -251,7 +261,11 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         let prompts = NotificationAcceptPromptPresenter(presenter: routing.presenter, categories: routing.categories)
         await routing.router.setSink({ prompts.handle($0) }, for: Self.routerKey)
         acceptPrompts = prompts
-        let transfers = SessionFileTransferService(session: session, scheduler: FilesScheduler(session: session))
+        let transfers = SessionFileTransferService(
+            session: session,
+            scheduler: FilesScheduler(session: session),
+            progress: transferProgress
+        )
         let acceptFlow = AcceptFlow(
             session: session,
             freeSpace: VolumeFreeSpaceProvider(),
@@ -265,7 +279,8 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             directories: directories,
             sink: FileHandleSink(),
             peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
-            now: { Date() }
+            now: { Date() },
+            progress: transferProgress
         )
         let photoService = SessionPhotoService(session: session)
         let router = FilesChannelRouter(

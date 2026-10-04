@@ -26,6 +26,7 @@ public actor FileReceiver {
     private let peer: String
     private let now: @Sendable () -> Date
     private let notifier: ReceivedFileNotifier?
+    private let progress: (any TransferProgressReporting)?
     private var transfers: [String: Transfer] = [:]
 
     public init(
@@ -35,6 +36,7 @@ public actor FileReceiver {
         peer: String,
         now: @escaping @Sendable () -> Date,
         notifier: ReceivedFileNotifier? = nil,
+        progress: (any TransferProgressReporting)? = nil,
         fileManager: FileManager = .default
     ) {
         self.session = session
@@ -44,6 +46,7 @@ public actor FileReceiver {
         self.peer = peer
         self.now = now
         self.notifier = notifier
+        self.progress = progress
     }
 
     /// Whether a transfer with `id` is staged and not yet completed, cancelled or aborted.
@@ -64,6 +67,10 @@ public actor FileReceiver {
             let handle = try sink.create(at: partURL)
             try PartAttributes.write(peer: peer, offer: offer, to: partURL)
             transfers[offer.id] = Transfer(offer: offer, filename: filename, partURL: partURL, handle: handle)
+            let id = offer.id
+            await progress?.began(id: id, name: filename, totalBytes: Int64(offer.size)) { [weak self] in
+                await self?.cancel(id: id)
+            }
         } catch {
             try? fileManager.removeItem(at: partURL)
             await sendCancel(offer.id, .ioError)
@@ -155,6 +162,7 @@ public actor FileReceiver {
         transfer.hasher.update(data: chunk.data)
         transfer.written += length
         transfers[chunk.id] = transfer
+        await progress?.delivered(id: chunk.id, bytes: Int64(transfer.written))
     }
 
     public func handle(complete: Tandem_V1_FileComplete) async {
@@ -172,15 +180,17 @@ public actor FileReceiver {
             try transfer.handle.close()
             let saved = try moveIntoDestination(transfer)
             transfers[complete.id] = nil
+            await progress?.ended(id: complete.id)
             await notifier?.notifyReceived(destination: saved)
         } catch {
             await abort(complete.id, .ioError)
         }
     }
 
-    public func handle(cancel: Tandem_V1_FileCancel) {
+    public func handle(cancel: Tandem_V1_FileCancel) async {
         guard let transfer = transfers.removeValue(forKey: cancel.id) else { return }
         discard(transfer)
+        await progress?.ended(id: cancel.id)
     }
 
     /// User-initiated cancel: deletes the `.part` file, publishes nothing and sends `FileCancel{USER_CANCELLED}`.
@@ -193,6 +203,7 @@ public actor FileReceiver {
         if let transfer = transfers.removeValue(forKey: id) {
             discard(transfer)
         }
+        await progress?.ended(id: id)
         await sendCancel(id, reason)
     }
 

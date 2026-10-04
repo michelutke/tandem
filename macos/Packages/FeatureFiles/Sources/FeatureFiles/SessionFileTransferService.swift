@@ -13,16 +13,19 @@ public final class SessionFileTransferService: FileTransferService {
     private let scheduler: FilesScheduler
     private let resumeResponder: FileResumeResponder
     private let senders = SenderRegistry()
+    private let progress: (any TransferProgressReporting)?
     private let makeTransferId: @Sendable () -> String
 
     public init(
         session: any TandemSession,
         scheduler: FilesScheduler,
+        progress: (any TransferProgressReporting)? = nil,
         makeTransferId: @escaping @Sendable () -> String = { UUID().uuidString }
     ) {
         self.session = session
         self.scheduler = scheduler
         resumeResponder = FileResumeResponder(session: session)
+        self.progress = progress
         self.makeTransferId = makeTransferId
     }
 
@@ -34,7 +37,8 @@ public final class SessionFileTransferService: FileTransferService {
             mime: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream",
             source: LocalFileChunkSource(url: url),
             session: session,
-            scheduler: scheduler
+            scheduler: scheduler,
+            progress: progress
         )
         await senders.register(id: id, sender: sender)
         await resumeResponder.register(id: id, sender: sender)
