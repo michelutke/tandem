@@ -63,3 +63,19 @@ or Linux `swift` toolchain (see `.github/workflows/fuzz-libfuzzer.yml`).
 ```sh
 tools/fuzz/libfuzzer/test/run_fuzz_target_test.sh
 ```
+
+## Per-domain decoders (E71-13)
+
+`build_fuzz_target.sh <output> domain` builds one generic libFuzzer binary
+(`fuzzer-entry/LLVMFuzzerDomainEntry.swift`) for every Swift domain decoder; the proto file is picked
+at run time with `TANDEM_FUZZ_MESSAGE=<stem>` (e.g. `media_control`). The registry is
+`swift/Sources/FrameEnvelopeFuzzerCore/DomainFuzzRegistry.swift`: one entry per
+`protocol/proto/tandem/v1/*.proto`, decoding the fuzz bytes as every top-level message of that file.
+`media.proto` additionally drives `FragmentReassembler` (E61-14) with fragment sequences
+(`pts, fragmentIndex, fragmentCount, length` headers followed by payload). The reassembler source is
+symlinked into the package as `MirrorFragmentReassembler`, because `FeatureMirror` as a whole does not
+build on Linux.
+
+`check_registry.sh` exits non-zero naming any proto file without an entry; self-test
+`test/check_registry_test.sh`. The 24 h campaigns run through `fuzz-campaign.yml` with `target=domain`
+and `message=<stem>`, one dispatch per proto file.

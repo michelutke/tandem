@@ -391,6 +391,90 @@ public object EnvelopeKt {
     }
 
     /**
+     * ```
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];`
+     */
+    public var commitment: dev.tandem.protocol.v1.Commitment
+      @kotlin.jvm.JvmName("getCommitment")
+        get() = _builder.commitment
+      @kotlin.jvm.JvmName("setCommitment")
+        set(value) {
+        _builder.commitment = value
+      }
+    /**
+     * ```
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];`
+     */
+    public fun clearCommitment() {
+      _builder.clearCommitment()
+    }
+    /**
+     * ```
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * ```
+     *
+     * `.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];`
+     * @return Whether the commitment field is set.
+     */
+    public fun hasCommitment(): kotlin.Boolean {
+      return _builder.hasCommitment()
+    }
+
+    /**
+     * `.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];`
+     */
+    public var reveal: dev.tandem.protocol.v1.Reveal
+      @kotlin.jvm.JvmName("getReveal")
+        get() = _builder.reveal
+      @kotlin.jvm.JvmName("setReveal")
+        set(value) {
+        _builder.reveal = value
+      }
+    /**
+     * `.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];`
+     */
+    public fun clearReveal() {
+      _builder.clearReveal()
+    }
+    /**
+     * `.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];`
+     * @return Whether the reveal field is set.
+     */
+    public fun hasReveal(): kotlin.Boolean {
+      return _builder.hasReveal()
+    }
+
+    /**
+     * `.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];`
+     */
+    public var manualPairResult: dev.tandem.protocol.v1.ManualPairResult
+      @kotlin.jvm.JvmName("getManualPairResult")
+        get() = _builder.manualPairResult
+      @kotlin.jvm.JvmName("setManualPairResult")
+        set(value) {
+        _builder.manualPairResult = value
+      }
+    /**
+     * `.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];`
+     */
+    public fun clearManualPairResult() {
+      _builder.clearManualPairResult()
+    }
+    /**
+     * `.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];`
+     * @return Whether the manualPairResult field is set.
+     */
+    public fun hasManualPairResult(): kotlin.Boolean {
+      return _builder.hasManualPairResult()
+    }
+
+    /**
      * `.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];`
      */
     public var deviceStatus: dev.tandem.protocol.v1.DeviceStatus
@@ -1727,6 +1811,15 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.pairRejectedOrNull: dev.tand
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.revokeOrNull: dev.tandem.protocol.v1.Revoke?
   get() = if (hasRevoke()) getRevoke() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.commitmentOrNull: dev.tandem.protocol.v1.Commitment?
+  get() = if (hasCommitment()) getCommitment() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.revealOrNull: dev.tandem.protocol.v1.Reveal?
+  get() = if (hasReveal()) getReveal() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.manualPairResultOrNull: dev.tandem.protocol.v1.ManualPairResult?
+  get() = if (hasManualPairResult()) getManualPairResult() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.deviceStatusOrNull: dev.tandem.protocol.v1.DeviceStatus?
   get() = if (hasDeviceStatus()) getDeviceStatus() else null

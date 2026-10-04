@@ -12,6 +12,8 @@ on:
       - "macos/Packages/TandemProtocol/**"
       - "tools/fuzz/libfuzzer/**"
       - "protocol/vectors/frame-encoding.json"
+      - "protocol/proto/tandem/v1/**"
+      - "macos/Packages/FeatureMirror/Sources/FeatureMirror/FragmentReassembler.swift"
       - ".github/workflows/fuzz-libfuzzer.yml"
   pull_request:
     paths: *paths
@@ -37,6 +39,10 @@ jobs:
       - name: Install python3 (seed corpus generation)
         run: |
           command -v python3 >/dev/null || (apt-get update && apt-get install -y python3)
+      - name: Registry check (E71-13, one libFuzzer entry per proto file)
+        run: |
+          tools/fuzz/libfuzzer/test/check_registry_test.sh
+          tools/fuzz/libfuzzer/check_registry.sh
       - name: Fuzz smoke (seed corpus replay + 300s budgeted run, -max_total_time=300)
         run: tools/fuzz/libfuzzer/smoke.sh
       - name: Upload crash reproducer

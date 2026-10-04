@@ -40,8 +40,8 @@ enum ConformanceRunner {
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
         "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding",
         "photos-encoding", "contacts-encoding", "sms-encoding", "calls-encoding", "media-encoding",
-        "media-frame-encoding", "input-encoding", "rotation-encoding", "focus-encoding", "media-control-encoding",
-        "filenames"
+        "media-frame-encoding", "input-encoding", "manual-pairing", "rotation-encoding", "focus-encoding",
+        "media-control-encoding", "filenames"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -165,6 +165,7 @@ enum ConformanceRunner {
     private static func runFeatureMessageCategory(_ category: String, data: Data) throws -> [VectorOutcome] {
         switch category {
         case "input-encoding": return try runInputEncoding(data: data)
+        case "manual-pairing": return try runManualPairing(data: data)
         case "focus-encoding": return try runFocusEncoding(data: data)
         case "media-control-encoding": return try runMediaControlEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)

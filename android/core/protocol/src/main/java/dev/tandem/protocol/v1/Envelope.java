@@ -35,6 +35,9 @@ public  final class Envelope extends
     PAIR_ACCEPTED(12),
     PAIR_REJECTED(13),
     REVOKE(14),
+    COMMITMENT(15),
+    REVEAL(16),
+    MANUAL_PAIR_RESULT(17),
     DEVICE_STATUS(20),
     RING(21),
     RING_STOP(22),
@@ -108,6 +111,9 @@ public  final class Envelope extends
         case 12: return PAIR_ACCEPTED;
         case 13: return PAIR_REJECTED;
         case 14: return REVOKE;
+        case 15: return COMMITMENT;
+        case 16: return REVEAL;
+        case 17: return MANUAL_PAIR_RESULT;
         case 20: return DEVICE_STATUS;
         case 21: return RING;
         case 22: return RING_STOP;
@@ -880,6 +886,182 @@ public  final class Envelope extends
    */
   private void clearRevoke() {
     if (payloadCase_ == 14) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int COMMITMENT_FIELD_NUMBER = 15;
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   */
+  @java.lang.Override
+  public boolean hasCommitment() {
+    return payloadCase_ == 15;
+  }
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Commitment getCommitment() {
+    if (payloadCase_ == 15) {
+       return (dev.tandem.protocol.v1.Commitment) payload_;
+    }
+    return dev.tandem.protocol.v1.Commitment.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setCommitment(dev.tandem.protocol.v1.Commitment value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 15;
+  }
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeCommitment(dev.tandem.protocol.v1.Commitment value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 15 &&
+        payload_ != dev.tandem.protocol.v1.Commitment.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Commitment.newBuilder((dev.tandem.protocol.v1.Commitment) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 15;
+  }
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   */
+  private void clearCommitment() {
+    if (payloadCase_ == 15) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int REVEAL_FIELD_NUMBER = 16;
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   */
+  @java.lang.Override
+  public boolean hasReveal() {
+    return payloadCase_ == 16;
+  }
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.Reveal getReveal() {
+    if (payloadCase_ == 16) {
+       return (dev.tandem.protocol.v1.Reveal) payload_;
+    }
+    return dev.tandem.protocol.v1.Reveal.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setReveal(dev.tandem.protocol.v1.Reveal value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 16;
+  }
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeReveal(dev.tandem.protocol.v1.Reveal value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 16 &&
+        payload_ != dev.tandem.protocol.v1.Reveal.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.Reveal.newBuilder((dev.tandem.protocol.v1.Reveal) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 16;
+  }
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   */
+  private void clearReveal() {
+    if (payloadCase_ == 16) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int MANUAL_PAIR_RESULT_FIELD_NUMBER = 17;
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   */
+  @java.lang.Override
+  public boolean hasManualPairResult() {
+    return payloadCase_ == 17;
+  }
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.ManualPairResult getManualPairResult() {
+    if (payloadCase_ == 17) {
+       return (dev.tandem.protocol.v1.ManualPairResult) payload_;
+    }
+    return dev.tandem.protocol.v1.ManualPairResult.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setManualPairResult(dev.tandem.protocol.v1.ManualPairResult value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 17;
+  }
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeManualPairResult(dev.tandem.protocol.v1.ManualPairResult value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 17 &&
+        payload_ != dev.tandem.protocol.v1.ManualPairResult.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.ManualPairResult.newBuilder((dev.tandem.protocol.v1.ManualPairResult) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 17;
+  }
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   */
+  private void clearManualPairResult() {
+    if (payloadCase_ == 17) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -4424,6 +4606,174 @@ public  final class Envelope extends
     }
 
     /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    @java.lang.Override
+    public boolean hasCommitment() {
+      return instance.hasCommitment();
+    }
+    /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Commitment getCommitment() {
+      return instance.getCommitment();
+    }
+    /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    public Builder setCommitment(dev.tandem.protocol.v1.Commitment value) {
+      copyOnWrite();
+      instance.setCommitment(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    public Builder setCommitment(
+        dev.tandem.protocol.v1.Commitment.Builder builderForValue) {
+      copyOnWrite();
+      instance.setCommitment(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    public Builder mergeCommitment(dev.tandem.protocol.v1.Commitment value) {
+      copyOnWrite();
+      instance.mergeCommitment(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+     * </pre>
+     *
+     * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+     */
+    public Builder clearCommitment() {
+      copyOnWrite();
+      instance.clearCommitment();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    @java.lang.Override
+    public boolean hasReveal() {
+      return instance.hasReveal();
+    }
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.Reveal getReveal() {
+      return instance.getReveal();
+    }
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    public Builder setReveal(dev.tandem.protocol.v1.Reveal value) {
+      copyOnWrite();
+      instance.setReveal(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    public Builder setReveal(
+        dev.tandem.protocol.v1.Reveal.Builder builderForValue) {
+      copyOnWrite();
+      instance.setReveal(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    public Builder mergeReveal(dev.tandem.protocol.v1.Reveal value) {
+      copyOnWrite();
+      instance.mergeReveal(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+     */
+    public Builder clearReveal() {
+      copyOnWrite();
+      instance.clearReveal();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    @java.lang.Override
+    public boolean hasManualPairResult() {
+      return instance.hasManualPairResult();
+    }
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.ManualPairResult getManualPairResult() {
+      return instance.getManualPairResult();
+    }
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    public Builder setManualPairResult(dev.tandem.protocol.v1.ManualPairResult value) {
+      copyOnWrite();
+      instance.setManualPairResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    public Builder setManualPairResult(
+        dev.tandem.protocol.v1.ManualPairResult.Builder builderForValue) {
+      copyOnWrite();
+      instance.setManualPairResult(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    public Builder mergeManualPairResult(dev.tandem.protocol.v1.ManualPairResult value) {
+      copyOnWrite();
+      instance.mergeManualPairResult(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+     */
+    public Builder clearManualPairResult() {
+      copyOnWrite();
+      instance.clearManualPairResult();
+      return this;
+    }
+
+    /**
      * <code>.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];</code>
      */
     @java.lang.Override
@@ -7046,6 +7396,9 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.PairAccepted.class,
             dev.tandem.protocol.v1.PairRejected.class,
             dev.tandem.protocol.v1.Revoke.class,
+            dev.tandem.protocol.v1.Commitment.class,
+            dev.tandem.protocol.v1.Reveal.class,
+            dev.tandem.protocol.v1.ManualPairResult.class,
             dev.tandem.protocol.v1.DeviceStatus.class,
             dev.tandem.protocol.v1.Ring.class,
             dev.tandem.protocol.v1.RingStop.class,
@@ -7096,14 +7449,15 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.MirrorDeclined.class,
           };
           java.lang.String info =
-              "\u0000=\u0001\u0000\u0001\u008d=\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
+              "\u0000@\u0001\u0000\u0001\u008d@\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
               "\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000" +
-              "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
-              "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
-              "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
-              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000d" +
-              "<\u0000n<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000\u0082<\u0000\u0083<\u0000" +
-              "\u0084<\u0000\u0085<\u0000\u0086<\u0000\u0087<\u0000\u008c<\u0000\u008d<\u0000";
+              "\f<\u0000\r<\u0000\u000e<\u0000\u000f<\u0000\u0010<\u0000\u0011<\u0000\u0014<\u0000" +
+              "\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u0000" +
+              "2<\u00003<\u00004<\u00005<\u00006<\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000" +
+              "?<\u0000@<\u0000A<\u0000F<\u0000G<\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000" +
+              "Z<\u0000[<\u0000\\<\u0000]<\u0000d<\u0000n<\u0000o<\u0000p<\u0000q<\u0000x<\u0000" +
+              "y<\u0000\u0082<\u0000\u0083<\u0000\u0084<\u0000\u0085<\u0000\u0086<\u0000\u0087<" +
+              "\u0000\u008c<\u0000\u008d<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

@@ -179,6 +179,47 @@ public interface EnvelopeOrBuilder extends
   dev.tandem.protocol.v1.Revoke getRevoke();
 
   /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   * @return Whether the commitment field is set.
+   */
+  boolean hasCommitment();
+  /**
+   * <pre>
+   * manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+   * </pre>
+   *
+   * <code>.tandem.v1.Commitment commitment = 15 [json_name = "commitment"];</code>
+   * @return The commitment.
+   */
+  dev.tandem.protocol.v1.Commitment getCommitment();
+
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   * @return Whether the reveal field is set.
+   */
+  boolean hasReveal();
+  /**
+   * <code>.tandem.v1.Reveal reveal = 16 [json_name = "reveal"];</code>
+   * @return The reveal.
+   */
+  dev.tandem.protocol.v1.Reveal getReveal();
+
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   * @return Whether the manualPairResult field is set.
+   */
+  boolean hasManualPairResult();
+  /**
+   * <code>.tandem.v1.ManualPairResult manual_pair_result = 17 [json_name = "manualPairResult"];</code>
+   * @return The manualPairResult.
+   */
+  dev.tandem.protocol.v1.ManualPairResult getManualPairResult();
+
+  /**
    * <code>.tandem.v1.DeviceStatus device_status = 20 [json_name = "deviceStatus"];</code>
    * @return Whether the deviceStatus field is set.
    */

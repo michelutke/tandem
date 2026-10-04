@@ -13,6 +13,7 @@ reserved for it.
 |---|---|---|---|
 | `contacts.proto` | E51-01 | `CHANNEL_CONTACTS` | 80–89 |
 | `media.proto` | E60-01 / E61-01 | `CHANNEL_CONTROL` (`RequestMediaTicket` = 8, written by E60-01; grant is `MediaTicketGrant` in `control.proto`, E01-12) | 8 (`RequestMediaTicket`), 140–141 (`MirrorRequest`, `MirrorDeclined`, written by E61-15; 142–149 held) — `MediaHello` and E61-01 `MediaMessage` (`MediaFormat`, `MediaFrame`, `KeyframeRequest`, `RotationChanged`) ride the separate media connection, which carries no `Envelope` and has no channel |
+| `manual_pairing.proto` | E73-02 | `CHANNEL_CONTROL` (manual-mode pairing-candidate connections only) | 15–17 (`Commitment`, `Reveal`, `ManualPairResult`, written by E73-02); 18–19 held |
 | `input.proto` | E62-01 | `CHANNEL_INPUT` | 100 (`InputEvent`, written by E62-01); 101–109 held |
 | `rotation.proto` | E70-01 | `CHANNEL_CONTROL` | 110–113 (`RotationChallenge`, `KeyRotation`, `RotationAck`, `RotationReject`, written by E70-01); 114–119 held |
 | `focus.proto` | E72-04 | `CHANNEL_CONTROL` | 120–121 (`FocusState`, `FocusSyncCapability`, written by E72-04); 122–129 held |

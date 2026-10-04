@@ -19,12 +19,23 @@ let package = Package(
         .library(name: "FrameEnvelopeFuzzerCore", type: .static, targets: ["FrameEnvelopeFuzzerCore"])
     ],
     dependencies: [
-        .package(path: "../../../../macos/Packages/TandemProtocol")
+        .package(path: "../../../../macos/Packages/TandemProtocol"),
+        .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.38.1")
     ],
     targets: [
         .target(
             name: "FrameEnvelopeFuzzerCore",
-            dependencies: [.product(name: "TandemProtocol", package: "TandemProtocol")],
+            dependencies: [
+                "MirrorFragmentReassembler",
+                .product(name: "TandemProtocol", package: "TandemProtocol"),
+                .product(name: "SwiftProtobuf", package: "swift-protobuf")
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        // E71-13: FragmentReassembler.swift of FeatureMirror (symlinked), alone, because FeatureMirror
+        // as a whole imports Apple-only frameworks and cannot build in the Linux fuzz container.
+        .target(
+            name: "MirrorFragmentReassembler",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

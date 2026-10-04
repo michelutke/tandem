@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # E15-14: builds the real libFuzzer binary for TandemProtocol's FrameDecoder.
 #
-#   tools/fuzz/libfuzzer/build_fuzz_target.sh <output-path> [frame|envelope]
+#   tools/fuzz/libfuzzer/build_fuzz_target.sh <output-path> [frame|envelope|domain]
 #
 # The optional target (default frame) picks the libFuzzer entry point: frame fuzzes whole frames
 # (LLVMFuzzerEntry.swift), envelope fuzzes serialized Envelope bytes (E71-02,
-# LLVMFuzzerEnvelopeEntry.swift).
+# LLVMFuzzerEnvelopeEntry.swift), domain fuzzes the per-proto-file message decoders (E71-13,
+# LLVMFuzzerDomainEntry.swift; pick the file at run time with TANDEM_FUZZ_MESSAGE=<proto stem>).
 #
 # `FrameEnvelopeFuzzerCore` (swift/) is a plain SwiftPM library: `swift build`/`swift test` never
 # need `-sanitize=fuzzer`, so they work on any Swift 6.1+ toolchain. This script does the one part
@@ -21,15 +22,16 @@
 set -uo pipefail
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-  echo "usage: build_fuzz_target.sh <output-path> [frame|envelope]" >&2
+  echo "usage: build_fuzz_target.sh <output-path> [frame|envelope|domain]" >&2
   exit 2
 fi
 output="$1"
 case "${2:-frame}" in
   frame) entry_file="LLVMFuzzerEntry.swift" ;;
   envelope) entry_file="LLVMFuzzerEnvelopeEntry.swift" ;;
+  domain) entry_file="LLVMFuzzerDomainEntry.swift" ;;
   *)
-    echo "build_fuzz_target.sh: target must be frame or envelope, got '$2'" >&2
+    echo "build_fuzz_target.sh: target must be frame, envelope or domain, got '$2'" >&2
     exit 2
     ;;
 esac

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# E71-13 tdd:
+#   unit: fuzzCampaignRunner_domainTarget_logsMessage
+#   unit: fuzzCampaignRunner_domainTargetWithoutMessage_exitsTwo
+#   unit: fuzzCampaignRunner_domainTargetWithJazzerWithoutMessage_exitsTwo
 # E71-03 tdd:
 #   unit: fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
 # E71-02 tdd:
@@ -75,5 +79,24 @@ echo "OK $name"
 # --- qrTargetWithLibfuzzer ------------------------------------------------------------------
 name=fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
 "$RUNNER" libfuzzer 2 2 "$work/qr" qr > /dev/null 2>&1
+[ "$?" -eq 2 ] || fail "$name: did not exit 2"
+echo "OK $name"
+
+# --- domainTarget ---------------------------------------------------------------------------
+domain_state="$work/domain"
+mkdir -p "$domain_state/corpus"
+printf 'harmless' > "$domain_state/corpus/a.bin"
+name=fuzzCampaignRunner_domainTarget_logsMessage
+MESSAGE=media_control "$RUNNER" libfuzzer 2 2 "$domain_state" domain > /dev/null 2>&1 || fail "$name: exited non-zero"
+grep -q '"target":"domain","message":"media_control"' "$domain_state/campaign-log.json" || fail "$name: message not logged"
+echo "OK $name"
+
+name=fuzzCampaignRunner_domainTargetWithoutMessage_exitsTwo
+"$RUNNER" libfuzzer 2 2 "$work/domain-nomsg" domain > /dev/null 2>&1
+[ "$?" -eq 2 ] || fail "$name: did not exit 2"
+echo "OK $name"
+
+name=fuzzCampaignRunner_domainTargetWithJazzerWithoutMessage_exitsTwo
+"$RUNNER" jazzer 2 2 "$work/domain-jazzer" domain > /dev/null 2>&1
 [ "$?" -eq 2 ] || fail "$name: did not exit 2"
 echo "OK $name"

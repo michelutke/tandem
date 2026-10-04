@@ -7,3 +7,5 @@ on a crash or hang. Driven by `.github/workflows/fuzz-campaign.yml`; contract an
 `tools/fuzz/README.md` (E71-01 section). Self-test: `test/run_campaign_test.sh`.
 
 E71-03 adds `qr`: the Android QR pairing payload parser (`QrPayloadFuzzTest` in `:core:pairing`, run via `JAZZER_MODULE=core:pairing`). Jazzer only; macOS never parses QR, so `libfuzzer qr` exits 2.
+
+E71-04 / E71-13 add `domain`: the per-proto-file message decoders (Jazzer `DomainDecoderFuzzTest` in `:core:protocol`, libFuzzer on Swift). `MESSAGE=<proto file stem>` picks the decoder (`MESSAGE=media_control run_campaign.sh libfuzzer ... domain`); `campaign-log.json` records it as `message`.

@@ -328,6 +328,21 @@ reported window size. Positive entries give `expected.summary` (`variant=tap|x=.
 the first violated rule: `missingSessionReference`, `sessionMismatch`, `coordinatesOutOfRange`,
 `durationOutOfRange`, `unknownGlobalAction`, `textTooLong` or `deleteCountOutOfRange`.
 
+### `manual-pairing.json` (E73-02)
+
+Vectors for `docs/protocol/SPEC.md` `#manual-pairing` (`protocol/proto/tandem/v1/manual_pairing.proto`).
+`input.kind` selects the shape: `message` (`messageType` `commitment|reveal|manualPairResult`,
+`messageHex`; positives give `expected.summary` `type=commitment|hash=..` / `type=reveal|nonce=..` /
+`type=manualPairResult|accepted=true` and `messageSha256`, both codecs re-encode to the same bytes;
+negatives `malformedCommitment`, `malformedReveal`, `resultNotAccepted`); `sas` (`noncePhoneHex`,
+`nonceMacHex`, `macSpkiDerHex`, `phoneSpkiDerHex`, `cbHex`; `expected` gives `commitPhoneHex`,
+`commitMacHex`, `hmacHex`, `sas`); `commitment` (verifier side: `committerRole`, `commitmentHex`,
+`revealNonceHex` plus the verifier's own SPKIs and `cbHex`; negatives `commitmentMismatch`,
+`closeCode` `PAIRING_FAILED`); `sasCompare` (`phoneView` and `macView` each shaped like `sas`; expects
+`{match, sas}` or `sasMismatch`); `sequence` (`messages` list of `{from, type}`; the valid order is
+phone commitment, Mac commitment, phone reveal, Mac reveal, Mac manualPairResult, expecting
+`{complete: true}`, any deviation `outOfOrder` with `closeCode` `PAIRING_FAILED`).
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both

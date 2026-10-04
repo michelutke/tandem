@@ -16,6 +16,7 @@ import "tandem/v1/control.proto";
 import "tandem/v1/files.proto";
 import "tandem/v1/focus.proto";
 import "tandem/v1/input.proto";
+import "tandem/v1/manual_pairing.proto";
 import "tandem/v1/media.proto";
 import "tandem/v1/media_control.proto";
 import "tandem/v1/notify.proto";
@@ -48,7 +49,9 @@ message Envelope {
   // protocol version does not define, is rejected UNKNOWN_PAYLOAD_TYPE (#errors-and-close-codes,
   // MALFORMED_FRAME).
   reserved 9;          // control.proto (E01-12): remaining CONTROL payload slot
-  reserved 15 to 19;   // pairing.proto (E01-11): remaining CONTROL payload slots
+  // 15-19: manual_pairing.proto (E73-02). 15-17 are Commitment/Reveal/ManualPairResult (manual
+  // pairing window only); 18-19 held for future pairing extensions.
+  reserved 18 to 19;   // manual_pairing.proto (E73-02): future pairing-window CONTROL extensions
   // 20-29: status.proto (E01-13). 22 is RingStop (E23-01); 23-29 held for future extensions.
   reserved 23 to 29;   // status.proto (E01-13): future STATUS channel extensions
   // 30-39: notify.proto (E30-01). 30-34 are NotificationPosted/IconData/NotificationAction/
@@ -103,6 +106,11 @@ message Envelope {
     PairAccepted pair_accepted = 12;
     PairRejected pair_rejected = 13;
     Revoke revoke = 14;
+
+    // manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+    Commitment commitment = 15;
+    Reveal reveal = 16;
+    ManualPairResult manual_pair_result = 17;
 
     DeviceStatus device_status = 20;
     Ring ring = 21;
