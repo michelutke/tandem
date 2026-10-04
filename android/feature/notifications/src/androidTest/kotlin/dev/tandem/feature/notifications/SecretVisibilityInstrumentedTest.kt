@@ -56,7 +56,7 @@ class SecretVisibilityInstrumentedTest {
     private fun companionCommand(kind: String): Intent =
         Intent("dev.tandem.companion.POST")
             .setPackage(COMPANION_PACKAGE)
-            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND or Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             .putExtra("kind", kind)
             .putExtra("key", POST_KEY)
 
