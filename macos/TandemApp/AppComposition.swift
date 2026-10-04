@@ -95,7 +95,7 @@ enum AppComposition {
         }
 
         pairing.listenerStarted(started.listener)
-        let controllers = makeLifecycleControllers(controller: controller, started: started)
+        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: pairing)
         return .success(
             RetainedLifecycle(
                 listener: started.listener,
@@ -192,9 +192,14 @@ enum AppComposition {
 
     private static func makeLifecycleControllers(
         controller: ListenerController,
-        started: ListenerController.StartedListener
+        started: ListenerController.StartedListener,
+        pairing: MacPairingComposition
     ) -> LifecycleControllers {
-        let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
+        let listenerControl = ProductionListenerControl(
+            listenerController: controller,
+            initiallyStarted: started,
+            onStarted: { pairing.listenerStarted($0.listener) }
+        )
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
         let pathSource = NWPathMonitorSource()

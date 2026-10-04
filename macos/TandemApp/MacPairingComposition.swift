@@ -33,8 +33,9 @@ final class MacPairingComposition: @unchecked Sendable {
             guard let currentSpkiDer = Self.macSpkiDer(identityBootstrapper) else {
                 throw OpenFailure.identityUnavailable
             }
-            guard let port = state.port else { throw OpenFailure.listenerNotReady }
+            guard let port = state.portSource.port else { throw OpenFailure.listenerNotReady }
             let fingerprint = try SpkiFingerprint.of(spkiDer: currentSpkiDer)
+            let generation = state.generation.next()
             let macSpkiDer = { Self.macSpkiDer(identityBootstrapper) ?? currentSpkiDer }
             return PairingCoordinator(
                 fingerprint: fingerprint,
@@ -45,16 +46,19 @@ final class MacPairingComposition: @unchecked Sendable {
                 dateProvider: { Date() },
                 sessionRegistry: sessionRegistry,
                 regeneratesOnExpiry: false,
-                onConfirmationPending: { _, viewModel in state.deliverConfirmation(viewModel) }
+                onConfirmationPending: { _, viewModel in state.deliverConfirmation(viewModel, generation: generation) }
             )
         }
     }
 
+    var generation: PairingWindowGeneration { state.generation }
+
+    /// Called for the first listener and again for every restart, so the QR always carries the current port.
     func listenerStarted(_ listener: NWListener) {
-        state.listener = listener
+        state.portSource.listenerReplaced { listener.port.map { Int($0.rawValue) } }
     }
 
-    func onConfirmation(_ handler: @escaping @Sendable (PairConfirmationViewModel) -> Void) {
+    func onConfirmation(_ handler: @escaping @Sendable (PairConfirmationViewModel, Int) -> Void) {
         state.confirmationHandler = handler
     }
 
@@ -70,46 +74,38 @@ final class MacPairingComposition: @unchecked Sendable {
 }
 
 private final class PairingCompositionState: @unchecked Sendable {
+    let portSource = ListenerPortSource()
+    let generation = PairingWindowGeneration()
     private let lock = NSLock()
-    private var storedListener: NWListener?
-    private var storedHandler: (@Sendable (PairConfirmationViewModel) -> Void)?
+    private var storedHandler: (@Sendable (PairConfirmationViewModel, Int) -> Void)?
 
-    var listener: NWListener? {
-        get { lock.withLock { storedListener } }
-        set { lock.withLock { storedListener = newValue } }
-    }
-
-    /// `nil` until the listener has bound -- `NWListener.port` is unset before `.ready`.
-    var port: Int? {
-        listener?.port.map { Int($0.rawValue) }
-    }
-
-    var confirmationHandler: (@Sendable (PairConfirmationViewModel) -> Void)? {
+    var confirmationHandler: (@Sendable (PairConfirmationViewModel, Int) -> Void)? {
         get { lock.withLock { storedHandler } }
         set { lock.withLock { storedHandler = newValue } }
     }
 
-    func deliverConfirmation(_ viewModel: PairConfirmationViewModel) {
-        confirmationHandler?(viewModel)
+    func deliverConfirmation(_ viewModel: PairConfirmationViewModel, generation: Int) {
+        confirmationHandler?(viewModel, generation)
     }
 }
 
 /// Opens the pairing window on "Pair phone…", swaps its QR for the confirmation dialog once a
-/// candidate's proof verifies, and closes it as soon as the host's window is no longer open
-/// (success, timeout or cancel) or the owner closes it themselves (cancel).
+/// candidate's proof verifies, and closes it once the host's window is paired, cancelled, expired
+/// or declined. The owner closing it declines a pending confirmation, else cancels.
 @MainActor
 final class MacPairingPresenter: NSObject, NSWindowDelegate {
     private let composition: MacPairingComposition
     private let clock: any Clock<Duration>
     private var windowController: PairingWindowController?
     private var watchTask: Task<Void, Never>?
+    private var pendingConfirmation: PairConfirmationViewModel?
 
     init(composition: MacPairingComposition, clock: any Clock<Duration> = ContinuousClock()) {
         self.composition = composition
         self.clock = clock
         super.init()
-        composition.onConfirmation { [weak self] viewModel in
-            Task { @MainActor in self?.showConfirmation(viewModel) }
+        composition.onConfirmation { [weak self] viewModel, generation in
+            Task { @MainActor in self?.showConfirmation(viewModel, generation: generation) }
         }
     }
 
@@ -125,18 +121,24 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
         windowController?.window?.delegate = nil
         windowController?.close()
         windowController = controller
+        pendingConfirmation = nil
         NSApp.activate()
         controller.showWindow(nil)
         watchWindow()
     }
 
     func windowWillClose(_ notification: Notification) {
-        composition.host.cancel()
+        let host = composition.host
+        let pending = pendingConfirmation
         watchTask?.cancel()
         windowController = nil
+        pendingConfirmation = nil
+        Task { await PairingOwnerClose.handle(pending: pending, host: host) }
     }
 
-    private func showConfirmation(_ viewModel: PairConfirmationViewModel) {
+    private func showConfirmation(_ viewModel: PairConfirmationViewModel, generation: Int) {
+        guard composition.generation.isCurrent(generation) else { return }
+        pendingConfirmation = viewModel
         windowController?.window?.contentViewController = NSHostingController(
             rootView: PairConfirmationView(viewModel: viewModel)
         )
@@ -148,7 +150,8 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
             while !Task.isCancelled {
                 try? await clock.sleep(for: .seconds(1))
                 guard let self, !Task.isCancelled else { return }
-                if !self.composition.host.isOpen {
+                let closedReason = self.composition.host.coordinator?.window.closedReason
+                if PairingWindowAutoClose.shouldClose(closedReason: closedReason) {
                     self.windowController?.close()
                     return
                 }
