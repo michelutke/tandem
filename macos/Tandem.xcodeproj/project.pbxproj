@@ -90,6 +90,7 @@
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928A0A048645C8946F50E0EF /* MainWindowUITests.swift */; };
 		E41050600000000000000000 /* PhotoGridUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050700000000000000000 /* PhotoGridUITests.swift */; };
+		E40230300000000000000000 /* TransferProgressUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E40230400000000000000000 /* TransferProgressUITests.swift */; };
 		E50070300000000000000000 /* ThreadListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50070400000000000000000 /* ThreadListUITests.swift */; };
 		E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */; };
 		F28D5C6ECE889FE54A43092F /* MainWindowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */; };
@@ -204,6 +205,7 @@
 		914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenterTests.swift; sourceTree = "<group>"; };
 		928A0A048645C8946F50E0EF /* MainWindowUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowUITests.swift; sourceTree = "<group>"; };
 		E41050700000000000000000 /* PhotoGridUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhotoGridUITests.swift; sourceTree = "<group>"; };
+		E40230400000000000000000 /* TransferProgressUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TransferProgressUITests.swift; sourceTree = "<group>"; };
 		E50070400000000000000000 /* ThreadListUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThreadListUITests.swift; sourceTree = "<group>"; };
 		AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioVersionMismatchMenuUITests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
@@ -301,6 +303,7 @@
 				928A0A048645C8946F50E0EF /* MainWindowUITests.swift */,
 				E41050700000000000000000 /* PhotoGridUITests.swift */,
 				E50070400000000000000000 /* ThreadListUITests.swift */,
+				E40230400000000000000000 /* TransferProgressUITests.swift */,
 				E52060000000000000000009 /* CallAlertUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
 			);
@@ -619,6 +622,7 @@
 				ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */,
 				E41050600000000000000000 /* PhotoGridUITests.swift in Sources */,
 				E50070300000000000000000 /* ThreadListUITests.swift in Sources */,
+				E40230300000000000000000 /* TransferProgressUITests.swift in Sources */,
 				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
 			);
