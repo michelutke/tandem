@@ -121,7 +121,10 @@ private func makeMapper(isWindowKey: Bool = true) -> MirrorInputMapper {
     var count = 0
     var totalDy: Int32 = 0
     for index in 0..<1000 {
-        let events = mapper.map(.scrolled(point: CGPoint(x: 500, y: 500), deltaX: 0, deltaY: 1, time: Double(index) / 1000))
+        let scroll = MirrorInputEvent.scrolled(
+            point: CGPoint(x: 500, y: 500), deltaX: 0, deltaY: 1, time: Double(index) / 1000
+        )
+        let events = mapper.map(scroll)
         count += events.count
         totalDy += events.reduce(0) { $0 + $1.scroll.dy }
     }
