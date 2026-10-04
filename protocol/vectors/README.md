@@ -258,9 +258,10 @@ bodies for one call (`input.messageHexes`). The manifest includes an incoming `R
 ### `media-encoding.json` (E60-01)
 
 Vectors for `docs/protocol/SPEC.md` `#media-ticket`'s message types (`protocol/proto/tandem/v1/media.proto`,
-`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`. Entries are the raw serialized
+`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`, and (E61-15, `#mirror-request`) the empty
+`MirrorRequest`/`MirrorDeclined`. Entries are the raw serialized
 message bytes (`input.messageHex`); `input.kind` selects the type
-(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`). Positive entries carry a `messageSha256` (both
+(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`). Positive entries carry a `messageSha256` (both
 codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
 carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
 both parsers reject any `ticket` that is not exactly 32 bytes.

@@ -27,6 +27,17 @@ message MediaHello {
   bytes ticket = 1;
 }
 
+// E61-15: MirrorRequest and MirrorDeclined, the Mac's request to start a mirror session and the
+// phone's refusal (docs/protocol/SPEC.md #mirror-request). Both ride CONTROL as Envelope payloads
+// (fields 140-141). Neither carries fields: a MirrorRequest never starts capture, never requests a
+// media ticket and never enables remote input (invariant 8).
+
+// MirrorRequest: Mac -> phone over CONTROL. Asks the phone to show its on-phone start prompt.
+message MirrorRequest {}
+
+// MirrorDeclined: phone -> Mac over CONTROL. The phone declined or could not honour a MirrorRequest.
+message MirrorDeclined {}
+
 // E61-01: media-connection messages (docs/protocol/SPEC.md #media-frame-semantics). After the
 // MediaHello first frame (above), every length-prefixed frame body on the media connection is one
 // serialized MediaMessage: the connection carries no Envelope and has no channel, so the oneof is

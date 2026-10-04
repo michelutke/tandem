@@ -1589,6 +1589,66 @@ public object EnvelopeKt {
     public fun hasCapabilityUnavailable(): kotlin.Boolean {
       return _builder.hasCapabilityUnavailable()
     }
+
+    /**
+     * ```
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];`
+     */
+    public var mirrorRequest: dev.tandem.protocol.v1.MirrorRequest
+      @kotlin.jvm.JvmName("getMirrorRequest")
+        get() = _builder.mirrorRequest
+      @kotlin.jvm.JvmName("setMirrorRequest")
+        set(value) {
+        _builder.mirrorRequest = value
+      }
+    /**
+     * ```
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];`
+     */
+    public fun clearMirrorRequest() {
+      _builder.clearMirrorRequest()
+    }
+    /**
+     * ```
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * ```
+     *
+     * `.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];`
+     * @return Whether the mirrorRequest field is set.
+     */
+    public fun hasMirrorRequest(): kotlin.Boolean {
+      return _builder.hasMirrorRequest()
+    }
+
+    /**
+     * `.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];`
+     */
+    public var mirrorDeclined: dev.tandem.protocol.v1.MirrorDeclined
+      @kotlin.jvm.JvmName("getMirrorDeclined")
+        get() = _builder.mirrorDeclined
+      @kotlin.jvm.JvmName("setMirrorDeclined")
+        set(value) {
+        _builder.mirrorDeclined = value
+      }
+    /**
+     * `.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];`
+     */
+    public fun clearMirrorDeclined() {
+      _builder.clearMirrorDeclined()
+    }
+    /**
+     * `.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];`
+     * @return Whether the mirrorDeclined field is set.
+     */
+    public fun hasMirrorDeclined(): kotlin.Boolean {
+      return _builder.hasMirrorDeclined()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1766,4 +1826,10 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.stopOrNull: dev.tandem.proto
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.capabilityUnavailableOrNull: dev.tandem.protocol.v1.CapabilityUnavailable?
   get() = if (hasCapabilityUnavailable()) getCapabilityUnavailable() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mirrorRequestOrNull: dev.tandem.protocol.v1.MirrorRequest?
+  get() = if (hasMirrorRequest()) getMirrorRequest() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.mirrorDeclinedOrNull: dev.tandem.protocol.v1.MirrorDeclined?
+  get() = if (hasMirrorDeclined()) getMirrorDeclined() else null
 
