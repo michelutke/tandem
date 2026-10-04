@@ -23,6 +23,7 @@ permissions:
 jobs:
   instrumented:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: android
@@ -95,8 +96,10 @@ jobs:
       # `--no-parallel` (gradle.properties enables parallel) so only one module's two devices boot
       # at a time. `:feature:notifications` bundles and installs the companion APK itself.
       - name: Run feature and discovery instrumented tests on managed devices
+        # A hung emulator test otherwise blocks the runner for the 6 h default.
+        timeout-minutes: 45
         run: >-
-          ./gradlew --no-parallel
+          ./gradlew --no-parallel --continue
           :core:discovery:ciGroupDebugAndroidTest
           :feature:pairing:ciGroupDebugAndroidTest
           :feature:contacts:ciGroupDebugAndroidTest
