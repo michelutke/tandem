@@ -108,7 +108,10 @@ struct TandemMenuBarApp: App {
         .menuBarExtraStyle(.window)
 
         Window("Tandem", id: "main") {
-            MainWindowView(viewModel: Self.mainWindowViewModel)
+            MainWindowView(
+                viewModel: Self.mainWindowViewModel,
+                photoService: Self.retainedProductionLifecycle?.sessionFeatures.photos
+            )
         }
 
         Settings {
@@ -184,6 +187,7 @@ struct MenuContentView: View {
     /// yield `notConnected` until a later issue passes one in.
     @State private var sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
     private let transferProgress: TransferProgressCenter?
+    private let activeCall: ActiveCallAlert?
 
     /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
     /// D-59/D-76) never reach here.
@@ -204,6 +208,7 @@ struct MenuContentView: View {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
         pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
         transferProgress = lifecycle?.sessionFeatures.transferProgress
+        activeCall = lifecycle?.sessionFeatures.activeCall
         let peerName = lifecycle?.pairedPeerName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
@@ -284,6 +289,9 @@ struct MenuContentView: View {
                     pushClipboardViewModel: pushClipboardViewModel,
                     mirrorRequestViewModel: mirrorRequestViewModel
                 )
+                if let activeCall {
+                    ActiveCallHangUpView(activeCall: activeCall)
+                }
                 OpenTandemMenuButton()
                 SettingsMenuButton()
             }

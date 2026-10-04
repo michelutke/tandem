@@ -52,6 +52,7 @@
 		E50070000000000000000A02 /* FeatureMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = E50070000000000000000A01 /* FeatureMessaging */; };
 		E52060000000000000000001 /* FeatureCalls in Frameworks */ = {isa = PBXBuildFile; productRef = E52060000000000000000012 /* FeatureCalls */; };
 		E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */; };
+		E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */; };
 		E22130000000000000000003 /* CallsSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000004 /* CallsSessionService.swift */; };
 		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
@@ -195,6 +196,7 @@
 		E50070000000000000000A03 /* FeatureMessaging */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMessaging; path = Packages/FeatureMessaging; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000010 /* FeatureCalls */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureCalls; path = Packages/FeatureCalls; sourceTree = SOURCE_ROOT; };
 		E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAcceptPromptPresenter.swift; sourceTree = "<group>"; };
+		E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationReceivedFilePresenter.swift; sourceTree = "<group>"; };
 		E22130000000000000000004 /* CallsSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallsSessionService.swift; sourceTree = "<group>"; };
 		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
@@ -447,6 +449,7 @@
 				E41050500000000000000000 /* ScenarioPhotoGrid.swift */,
 				E50070200000000000000000 /* ScenarioThreadList.swift */,
 				E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */,
+				E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */,
 				E22130000000000000000004 /* CallsSessionService.swift */,
 				E50080200000000000000000 /* ScenarioConversation.swift */,
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
@@ -733,6 +736,7 @@
 				E41050400000000000000000 /* ScenarioPhotoGrid.swift in Sources */,
 				E50070100000000000000000 /* ScenarioThreadList.swift in Sources */,
 				E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */,
+				E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */,
 				E22130000000000000000003 /* CallsSessionService.swift in Sources */,
 				E50080100000000000000000 /* ScenarioConversation.swift in Sources */,
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,

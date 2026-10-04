@@ -1,3 +1,4 @@
+import FeatureFiles
 import SwiftUI
 import TandemDesign
 
@@ -7,6 +8,9 @@ import TandemDesign
 /// offline/turned-off-on-phone empty states every one of them reuses (``SectionEmptyState``).
 struct MainWindowView: View {
     let viewModel: MainWindowViewModel
+
+    /// The attached session's photo service (E22-13); `nil` in scenario hosts, which keep the placeholder.
+    var photoService: (any PhotoService)?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -40,6 +44,8 @@ struct MainWindowView: View {
                 kind: .offline(lastSeenText: MainWindowViewModel.formattedTime(lastSeen)),
                 identifier: "offlineEmptyState"
             )
+        } else if let section = selectedSection, section.title == "Photos", let photoService {
+            PhotoGridHost(service: photoService)
         } else if let section = selectedSection {
             Text("\(section.title).")
                 .accessibilityIdentifier("sectionPlaceholder")
@@ -50,5 +56,17 @@ struct MainWindowView: View {
 
     private var selectedSection: MainWindowViewModel.Section? {
         MainWindowViewModel.sections.first(where: { $0.id == viewModel.selectedSectionID })
+    }
+}
+
+private struct PhotoGridHost: View {
+    @State private var viewModel: PhotoGridViewModel
+
+    init(service: any PhotoService) {
+        _viewModel = State(initialValue: PhotoGridViewModel(service: service))
+    }
+
+    var body: some View {
+        PhotoGridView(viewModel: viewModel)
     }
 }

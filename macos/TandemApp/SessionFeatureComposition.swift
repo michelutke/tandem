@@ -19,6 +19,10 @@ struct SessionFeatures: Sendable {
     let fileTransfer: ActiveFileTransferService
     /// In-flight transfer rows fed by every session's ``FileSender`` and ``FileReceiver``.
     let transferProgress: TransferProgressCenter
+    /// Photo browsing over whichever session is attached, thumbnails cached on disk per peer.
+    let photos: ActivePhotoService
+    /// Drives the menu bar's Hang Up item.
+    let activeCall: ActiveCallAlert
     private let sendRequestWake: SendRequestWakeObserver?
 
     static func make(
@@ -28,6 +32,8 @@ struct SessionFeatures: Sendable {
     ) -> SessionFeatures {
         let fileTransfer = ActiveFileTransferService()
         let transferProgress = TransferProgressCenter(clock: ContinuousClock())
+        let photos = ActivePhotoService()
+        let activeCall = ActiveCallAlert()
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
         let notifications = NotificationsSessionService(iconCache: iconCache)
@@ -35,11 +41,13 @@ struct SessionFeatures: Sendable {
         services.append(notifications)
         services.append(contentsOf: makeMessagingServices(
             purgeRegistry: purgeRegistry,
-            routing: notifications.routing
+            routing: notifications.routing,
+            activeCall: activeCall
         ))
         let filesService = makeFilesService(
             fileTransfer: fileTransfer,
             transferProgress: transferProgress,
+            photos: photos,
             purgeRegistry: purgeRegistry,
             routing: notifications.routing
         )
@@ -53,6 +61,8 @@ struct SessionFeatures: Sendable {
             host: SessionServiceHost(services: services),
             fileTransfer: fileTransfer,
             transferProgress: transferProgress,
+            photos: photos,
+            activeCall: activeCall,
             sendRequestWake: wake
         )
     }
@@ -84,7 +94,8 @@ struct SessionFeatures: Sendable {
 
     private static func makeMessagingServices(
         purgeRegistry: PeerDataPurgeRegistry,
-        routing: NotificationRouting
+        routing: NotificationRouting,
+        activeCall: ActiveCallAlert
     ) -> [any SessionService] {
         guard let smsStore = try? GrdbSmsStore.openDefault(),
               let contactsStore = try? GrdbContactsStore.openDefault() else { return [] }
@@ -94,13 +105,14 @@ struct SessionFeatures: Sendable {
         }
         return [
             MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore),
-            CallsSessionService(contacts: contactsStore, routing: routing)
+            CallsSessionService(contacts: contactsStore, routing: routing, activeCall: activeCall)
         ]
     }
 
     private static func makeFilesService(
         fileTransfer: ActiveFileTransferService,
         transferProgress: TransferProgressCenter,
+        photos: ActivePhotoService,
         purgeRegistry: PeerDataPurgeRegistry,
         routing: NotificationRouting
     ) -> FilesSessionService? {
@@ -116,6 +128,7 @@ struct SessionFeatures: Sendable {
             thumbnails: thumbnails,
             activeTransfer: fileTransfer,
             transferProgress: transferProgress,
+            photos: photos,
             routing: routing
         )
     }
@@ -234,26 +247,32 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
     var agent: SendRequestAgent?
 
     private static let routerKey = "accept-prompts"
+    private static let receivedRouterKey = "received-file"
 
     private let directories: TransferDirectories
     private let thumbnails: ThumbnailCache
     private let activeTransfer: ActiveFileTransferService
     private let transferProgress: TransferProgressCenter
+    private let photos: ActivePhotoService
     private let routing: NotificationRouting
     private var acceptPrompts: NotificationAcceptPromptPresenter?
     private var acceptReader: Task<Void, Never>?
+    private var receivedFiles: NotificationReceivedFilePresenter?
+    private var receivedActivations: Task<Void, Never>?
 
     init(
         directories: TransferDirectories,
         thumbnails: ThumbnailCache,
         activeTransfer: ActiveFileTransferService,
         transferProgress: TransferProgressCenter,
+        photos: ActivePhotoService,
         routing: NotificationRouting
     ) {
         self.directories = directories
         self.thumbnails = thumbnails
         self.activeTransfer = activeTransfer
         self.transferProgress = transferProgress
+        self.photos = photos
         self.routing = routing
     }
 
@@ -261,6 +280,11 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         let prompts = NotificationAcceptPromptPresenter(presenter: routing.presenter, categories: routing.categories)
         await routing.router.setSink({ prompts.handle($0) }, for: Self.routerKey)
         acceptPrompts = prompts
+        let received = NotificationReceivedFilePresenter(presenter: routing.presenter)
+        await routing.router.setSink({ received.handle($0) }, for: Self.receivedRouterKey)
+        receivedFiles = received
+        let notifier = ReceivedFileNotifier(presenter: received, revealer: WorkspaceFileRevealer())
+        receivedActivations = Task { await notifier.runActivations() }
         let transfers = SessionFileTransferService(
             session: session,
             scheduler: FilesScheduler(session: session),
@@ -280,9 +304,11 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             sink: FileHandleSink(),
             peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
             now: { Date() },
+            notifier: notifier,
             progress: transferProgress
         )
         let photoService = SessionPhotoService(session: session)
+        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer))
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
             receiver: receiver,
@@ -305,6 +331,12 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         acceptReader = nil
         acceptPrompts?.finish()
         acceptPrompts = nil
+        await routing.router.setSink(nil, for: Self.receivedRouterKey)
+        receivedFiles?.finish()
+        receivedFiles = nil
+        receivedActivations?.cancel()
+        receivedActivations = nil
         activeTransfer.detach()
+        photos.detach()
     }
 }
