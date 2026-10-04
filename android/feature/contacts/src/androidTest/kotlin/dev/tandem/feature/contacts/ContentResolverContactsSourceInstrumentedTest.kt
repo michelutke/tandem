@@ -10,12 +10,18 @@ import android.provider.ContactsContract.RawContacts
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.Contact
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
 // E51-02 tdd: instrumented: contactsSource_emulatorInsertedContacts_readBackWithPhonesAndEmails
+// E51-05 tdd: instrumented: contactsObserver_emulatorContactEdited_pushesUpdateWithin2s
 @RunWith(AndroidJUnit4::class)
 class ContentResolverContactsSourceInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -49,6 +55,19 @@ class ContentResolverContactsSourceInstrumentedTest {
             assertEquals(listOf("test$index@example.com"), contact.emailsList.map { it.address })
         }
     }
+
+    @Test
+    fun contactsObserver_emulatorContactEdited_pushesUpdateWithin2s() =
+        runBlocking {
+            val changes = ContentResolverContactsSource(context).changes()
+
+            withTimeout(OBSERVER_TIMEOUT_MS) {
+                val firstChange = async { changes.first() }
+                delay(OBSERVER_SETTLE_MS)
+                insertContact("Tandem Test Observer", "+41790000099", "observer@example.com")
+                firstChange.await()
+            }
+        }
 
     private fun readAll(): List<Contact> {
         val source = ContentResolverContactsSource(context)
@@ -94,4 +113,9 @@ class ContentResolverContactsSourceInstrumentedTest {
             .newInsert(ContactsContract.Data.CONTENT_URI)
             .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
             .withValue(ContactsContract.Data.MIMETYPE, mimeType)
+
+    private companion object {
+        const val OBSERVER_TIMEOUT_MS = 2_000L
+        const val OBSERVER_SETTLE_MS = 100L
+    }
 }

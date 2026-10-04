@@ -175,4 +175,27 @@ private func accept(_ id: String) -> Tandem_V1_Envelope.OneOf_Payload {
         await harness.flow.handle(offer: offer(name: "re\u{202E}port\u{0007}.txt"))
         #expect(await harness.presenter.prompts.first?.displayName == "report.txt")
     }
+
+    @Test func originalDownload_offerMatchesPendingTransferId_acceptedWithoutPrompt() async {
+        let harness = Harness()
+        await harness.flow.expectOriginal(transferId: "t1")
+        await harness.flow.handle(offer: offer(id: "t1"))
+        #expect(await harness.sentPayloads() == [accept("t1")])
+        #expect(await harness.presenter.prompts.isEmpty)
+    }
+
+    @Test func originalDownload_unsolicitedOffer_stillPrompts() async {
+        let harness = Harness()
+        await harness.flow.expectOriginal(transferId: "other")
+        await harness.flow.handle(offer: offer(id: "t1"))
+        #expect(await harness.sentPayloads().isEmpty)
+        #expect(await harness.presenter.prompts.count == 1)
+    }
+
+    @Test func originalDownload_matchingOfferLowSpace_stillRejectedInsufficientSpace() async {
+        let harness = Harness(available: 0)
+        await harness.flow.expectOriginal(transferId: "t1")
+        await harness.flow.handle(offer: offer(id: "t1"))
+        #expect(await harness.sentPayloads() == [reject("t1", .insufficientSpace)])
+    }
 }

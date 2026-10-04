@@ -11,14 +11,19 @@ import dev.tandem.harness.jvmclient.testserver.TestServerKeyManager
 import dev.tandem.harness.jvmclient.testserver.TestTlsServer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
+import java.io.IOException
 import java.nio.file.Files
+import java.security.cert.CertificateException
 import java.time.Clock
 import java.util.concurrent.TimeUnit
 
 /**
  * E15-21 tdd: integration: jvmHarnessClient_opensslServerPeer_completesMutualTls13Handshake
+ * E21-06 tdd: integration: discoveryCandidate_serverWithUnknownCert_handshakeFailsPinMismatch
  *
  * Runs against [TestTlsServer], a real Conscrypt `SSLServerSocket` on `127.0.0.1` — an in-process
  * JVM TLS peer standing in for the backlog's original `openssl s_server` acceptance target,
@@ -53,6 +58,36 @@ class HarnessClientTlsIntegrationTest {
             val result = resultFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             assertNull(result.handshakeError, "expected a completed mTLS handshake, got: ${result.handshakeError}")
             assertEquals(clientKeyManager.getCertificateChain(alias = null).single(), result.clientCertificate)
+        }
+    }
+
+    @Test
+    fun discoveryCandidate_serverWithUnknownCert_handshakeFailsPinMismatch() {
+        val identityFile = Files.createTempFile("harness-client-tls-test", ".bin").toFile().apply { delete() }
+        val identityKeyStore = PersistentIdentityKeyStore(Clock.systemUTC(), identityFile)
+        identityKeyStore.getOrCreate(PersistentIdentityKeyStore.IDENTITY_ALIAS, preferStrongBox = false)
+        val clientKeyManager = IdentityKeyManager(identityKeyStore, PersistentIdentityKeyStore.IDENTITY_ALIAS)
+
+        val pairedFingerprint = spkiFingerprint(TestIdentity("paired").certificate.publicKey.encoded)
+        val impostorIdentity = TestIdentity("impostor")
+        val server = TestTlsServer(TestServerKeyManager(impostorIdentity), AcceptAnyTrustManager())
+
+        server.use {
+            val resultFuture = server.acceptOnce()
+            val pinSource = PinSource { listOf(pairedFingerprint) }
+            val factory =
+                SslClientFactory(clientKeyManager, PinningTrustManager(pinSource), JvmConscryptSessionTicketDisabler())
+            val socket = factory.createSocket()
+
+            val failure =
+                assertThrows(IOException::class.java) {
+                    factory.connect(socket, InetAddress.getByName("127.0.0.1"), server.port)
+                }
+
+            val causes = generateSequence<Throwable>(failure) { it.cause }
+            assertTrue(causes.any { it is CertificateException }, "expected a pin mismatch, got: $failure")
+            val result = resultFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            assertTrue(result.handshakeError != null, "server must not complete a handshake with a mismatched pin")
         }
     }
 

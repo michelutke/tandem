@@ -51,6 +51,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `io.gitlab.arturbosch.detekt:detekt-api` | Apache-2.0 | Custom detekt rules (`:lint:detekt-rules`) | E00-14 |
 | `io.gitlab.arturbosch.detekt:detekt-test` | Apache-2.0 | Detekt rule unit-test fixtures (`:lint:detekt-rules`) | E00-17 |
 | `androidx.test:runner` | Apache-2.0 | Instrumented test runner (Gradle Managed Devices) | E00-21 |
+| `androidx.test.uiautomator:uiautomator` | Apache-2.0 | Test-only: drives the system MediaProjection consent dialog in instrumented tests | E61-02 |
 | `androidx.test.espresso:espresso-core` | Apache-2.0 | Instrumented UI test actions/assertions | E00-21 |
 | `androidx.test.ext:junit` | Apache-2.0 | JUnit4 rules/runners for instrumented tests | E00-21 |
 | `junit:junit` | EPL-1.0 | JUnit 4 runner required by Robolectric/`androidx.test` | E00-20 |
@@ -92,6 +93,8 @@ entries were needed or added for Jazzer.
 |---|---|---|---|
 | `swift-protobuf` | Apache-2.0 | Protobuf runtime for `TandemProtocol` | E00-09 |
 | `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
+| `GRDB.swift` | MIT | SQLite persistence for the Mac SMS store and contacts cache (`TandemStore`; D-12) | E50-09 |
+| `PhoneNumberKit` | MIT | E.164 normalization for contacts-cache lookups (`TandemStore`); pinned to the maintained `PhoneNumberKit/PhoneNumberKit` repo (the `marmelroy` repo is deprecated) | E51-04 |
 
 ## Update bot
 

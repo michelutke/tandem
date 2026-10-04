@@ -211,7 +211,7 @@ epics:
           feature-local `DownloadsPublisher` seam whose MediaStore implementation inserts into
           `Download/Tandem/` with `IS_PENDING=1`, copies, then clears `IS_PENDING`, so no partial
           entry is ever visible; MediaStore resolves name collisions (never overwrites). On
-          mismatch, delete the temp file and send FileReject HASH_MISMATCH. Unit tests use
+          mismatch, delete the temp file and send FileCancel HASH_MISMATCH. Unit tests use
           `FakeTandemSession` (E12-11), a recording `DownloadsPublisher` fake and a
           `TransferStore` fake that can throw ENOSPC at a given offset; the MediaStore publisher is
           `instrumented:` (E00-21).
@@ -219,7 +219,7 @@ epics:
           - A matching-hash transfer is published exactly once to Download/Tandem/ under the
             E40-16 sanitized name and the `.part` file is deleted
           - A mismatched-hash transfer is never published, the `.part` file is deleted, and
-            FileReject HASH_MISMATCH is sent
+            FileCancel HASH_MISMATCH is sent
           - ENOSPC while writing deletes the `.part` file, publishes nothing, and sends FileCancel
             INSUFFICIENT_SPACE
           - A chunk whose offset differs from the current length, or whose end exceeds the offered
@@ -231,7 +231,7 @@ epics:
           - "The receiver registers with the Android PeerDataPurging registry (E14-12): unpairing the Mac deletes its retained `.part` files."
         tdd:
           - "unit: androidReceiver_matchingHash_publishedOnceAndPartFileDeleted"
-          - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndRejectSent"
+          - "unit: androidReceiver_hashMismatch_partDeletedNothingPublishedAndCancelSent"
           - "unit: androidReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
           - "unit: androidReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
           - "unit: androidReceiver_chunkOffsetGap_protocolViolationCancelAndPartDeleted"
@@ -265,7 +265,7 @@ epics:
           - While a transfer is in progress the destination directory contains no entry for it
             (UC-15 partial files never visible)
           - A mismatched-hash transfer leaves nothing in the destination, deletes the `.part`
-            file, and sends FileReject HASH_MISMATCH
+            file, and sends FileCancel HASH_MISMATCH
           - ENOSPC while writing deletes the `.part` file, leaves nothing in the destination, and
             sends FileCancel INSUFFICIENT_SPACE
           - An existing `report.pdf` is left byte-identical and the new file is saved as
@@ -275,7 +275,7 @@ epics:
         tdd:
           - "unit: macosReceiver_matchingHash_fileInDestinationAndPartDeleted"
           - "unit: macosReceiver_midTransfer_destinationHasNoEntry"
-          - "unit: macosReceiver_hashMismatch_destinationEmptyPartDeletedAndRejectSent"
+          - "unit: macosReceiver_hashMismatch_destinationEmptyPartDeletedAndCancelSent"
           - "unit: macosReceiver_enospcDuringWrite_partDeletedAndInsufficientSpaceCancelSent"
           - "unit: macosReceiver_existingSameName_savedWithOneSuffixOriginalUntouched"
           - "unit: macosReceiver_chunkBeyondOfferedSize_protocolViolationCancelAndPartDeleted"
@@ -334,7 +334,8 @@ epics:
           truncate to a 256 KiB boundary, re-hash the retained prefix, and send
           FileResumeRequest{id, fromOffset}. Sender role: on FileResumeRequest for a known id,
           seek the source to fromOffset and continue with `seq = fromOffset / 262144`; unknown id
-          or an unreadable source replies FileCancel UNKNOWN_TRANSFER / SOURCE_UNAVAILABLE.
+          replies FileReject UNKNOWN_TRANSFER; an unreadable source replies FileCancel
+          SOURCE_UNAVAILABLE.
           Retained `.part` files older than 24 h are deleted on the next sweep. Tests wire a real
           Android sender and receiver over an `InMemoryDuplexPipe` (E00-19), sever it with
           `closeAbruptly()` mid-transfer, reconnect a new pipe, and use `TestClock` (E00-18) for
@@ -344,13 +345,13 @@ epics:
             to 256 KiB) and the sender's first resumed chunk has seq fromOffset / 262144
           - After resume the published file's SHA-256 equals the source digest
           - Bytes re-sent after resume are at most the credit window plus 256 KiB
-          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - FileResumeRequest for an unknown id is answered with FileReject UNKNOWN_TRANSFER
           - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
         tdd:
           - "unit: androidResume_severedAt40MiB_resumeRequestFromOffset40MiB"
           - "unit: androidResume_resumedTransfer_publishedSha256MatchesSource"
           - "unit: androidResume_afterResume_resentBytesAtMostCreditWindowPlusOneChunk"
-          - "unit: androidResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: androidResume_unknownTransferId_fileRejectUnknownTransfer"
           - "unit: androidResume_partOlderThan24h_deletedAndNoResumeRequest"
         notes: "Split from E40-08 in review cycle 3: macOS half is E40-19."
 
@@ -367,14 +368,14 @@ epics:
         description: |
           A user-initiated cancel sends FileCancel USER_CANCELLED; as sender, stop reading and
           sending; as receiver, delete the `.part` file and publish nothing. A later
-          FileResumeRequest for a cancelled id gets UNKNOWN_TRANSFER. Tests run sender and
-          receiver over an `InMemoryDuplexPipe` (E00-19) with per-direction capture.
+          FileResumeRequest for a cancelled id gets FileReject UNKNOWN_TRANSFER. Tests run sender
+          and receiver over in-memory fake sessions with per-direction capture.
         acceptance:
           - After a sender-side cancel, the pipe capture shows no FileChunk after the FileCancel
             and the receiver's `.part` file is gone
           - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
             (at most the credit window) and the transfer state is Cancelled
-          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+          - A resume request for a cancelled id is answered with FileReject UNKNOWN_TRANSFER
         tdd:
           - "unit: androidCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
           - "unit: androidCancel_receiverInitiated_senderStopsWithinCreditWindow"
@@ -670,14 +671,14 @@ epics:
           - A 64 MiB transfer severed after 40 MiB resumes with fromOffset = 40 MiB (rounded down
             to 256 KiB) and the first resumed chunk has seq fromOffset / 262144
           - After resume the destination file's SHA-256 equals the source digest
-          - FileResumeRequest for an unknown id is answered with FileCancel UNKNOWN_TRANSFER
+          - FileResumeRequest for an unknown id is answered with FileReject UNKNOWN_TRANSFER
           - A source deleted before resume is answered with FileCancel SOURCE_UNAVAILABLE and the
             receiver deletes its `.part` file
           - A `.part` file whose last write is 24 h + 1 s old is deleted and no resume is requested
         tdd:
           - "unit: macosResume_severedAt40MiB_resumeRequestFromOffset40MiB"
           - "unit: macosResume_resumedTransfer_destinationSha256MatchesSource"
-          - "unit: macosResume_unknownTransferId_fileCancelUnknownTransfer"
+          - "unit: macosResume_unknownTransferId_fileRejectUnknownTransfer"
           - "unit: macosResume_sourceDeletedBeforeResume_sourceUnavailableAndPartDeleted"
           - "unit: macosResume_partOlderThan24h_deletedAndNoResumeRequest"
         notes: "Split from E40-08 in review cycle 3."
@@ -700,11 +701,11 @@ epics:
             the receiver's `.part` file is gone
           - After a receiver-side cancel, the sender emits no chunk beyond those already in flight
             (at most the credit window) and the transfer state is cancelled
-          - A resume request for a cancelled id is answered with FileCancel UNKNOWN_TRANSFER
+          - A resume request for a cancelled id is answered with FileReject UNKNOWN_TRANSFER
         tdd:
           - "unit: macosCancel_senderInitiated_noChunkAfterCancelAndReceiverPartDeleted"
           - "unit: macosCancel_receiverInitiated_senderStopsWithinCreditWindow"
-          - "unit: macosCancel_resumeForCancelledId_unknownTransferCancel"
+          - "unit: macosCancel_resumeForCancelledId_fileRejectUnknownTransfer"
         notes: "Split from E40-09 in review cycle 3."
 
       - id: E40-21
@@ -941,7 +942,7 @@ epics:
           - 250 items with limit 100 yield pages of 100, 100, 50; the last page has no nextCursor
           - Items sharing one dateTaken are split across pages without duplicates or gaps (id tie-break)
           - A photo inserted newer than the first page does not shift or duplicate later pages
-          - limit 0 is served as 1 and limit 500 as 200
+          - limit 0 (unset) is served as 100 and limit 500 as 200
           - A cursor containing `') OR 1=1 --` returns PhotoError INVALID_CURSOR and no items
           - On the emulator with 250 seeded images, paging returns exactly 250 unique ids
         tdd:

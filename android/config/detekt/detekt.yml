@@ -50,6 +50,15 @@ tandem:
       - "**/src/test/**"
       - "**/src/androidTest/**"
       - "**/src/testFixtures/**"
+  DiscoveryTrustBoundary:
+    active: true
+    # Discovery is a hint only: core/discovery must not touch the trust store or pin verifier (E21-06).
+    includes:
+      - "**/core/discovery/**"
+    excludes:
+      - "**/src/test/**"
+      - "**/src/androidTest/**"
+      - "**/src/testFixtures/**"
   KeyMaterialOnlyInCrypto:
     active: true
     # Only core/crypto may reference AndroidKeyStore or compute HMAC-SHA256 directly (E10-14).

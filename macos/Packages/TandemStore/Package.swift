@@ -10,12 +10,18 @@ let package = Package(
     dependencies: [
         .package(path: "../TandemCrypto"),
         .package(path: "../TandemTestSupport"),
-        .package(path: "../TandemProtocol")
+        .package(path: "../TandemProtocol"),
+        .package(url: "https://github.com/groue/GRDB.swift.git", exact: "7.11.1"),
+        .package(url: "https://github.com/PhoneNumberKit/PhoneNumberKit.git", exact: "5.0.11")
     ],
     targets: [
         .target(
             name: "TandemStore",
-            dependencies: ["TandemCrypto"],
+            dependencies: [
+                "TandemCrypto",
+                .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "PhoneNumberKit", package: "PhoneNumberKit")
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
