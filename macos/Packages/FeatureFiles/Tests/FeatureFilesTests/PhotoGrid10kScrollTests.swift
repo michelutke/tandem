@@ -44,6 +44,8 @@ private actor TenKPhotoService: PhotoService {
     }
 
     func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
 }
 
 @MainActor
