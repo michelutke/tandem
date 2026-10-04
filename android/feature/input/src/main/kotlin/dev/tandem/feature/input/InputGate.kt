@@ -2,6 +2,7 @@ package dev.tandem.feature.input
 
 import com.google.protobuf.ByteString
 import dev.tandem.protocol.v1.InputEvent
+import dev.tandem.protocol.v1.TextEdit
 import java.time.Clock
 
 enum class GateDropReason {
@@ -64,7 +65,9 @@ class MirrorConsent {
  * Invariant 8 gate in front of [InputActionHandler] and [GestureTranslator]. Input executes only
  * while the user-started consent, the media connection, the same peer and the on-phone indicator
  * all hold; the first failed check revokes consent so the gate never reopens on its own, and
- * nothing is queued or replayed. Unknown state fails closed. Never logs event content.
+ * nothing is queued or replayed. A session mismatch, and an indicator that has not yet been seen
+ * showing for the current grant, are dropped without revoking. Calls are serialized. Unknown state
+ * fails closed. Never logs event content.
  */
 class InputGate(
     private val consent: MirrorConsent,
@@ -79,6 +82,9 @@ class InputGate(
     private var lastRateLogMillis = clock.millis()
     private val clock = clock
 
+    private var indicatorShownFor: MirrorConsent.Grant? = null
+
+    @Synchronized
     fun handle(
         event: InputEvent,
         window: Size,
@@ -89,16 +95,15 @@ class InputGate(
         val reason = denial(event)
         return when {
             reason != null -> {
-                if (reason != GateDropReason.NoConsent) consent.revoke()
                 drop(reason, event)
-            }
-
-            isOutOfRange(event) -> {
-                drop(GateDropReason.OutOfRange, event)
             }
 
             !bucket.tryAcquire() -> {
                 rateLimitedDrop()
+            }
+
+            isOutOfRange(event) -> {
+                drop(GateDropReason.OutOfRange, event)
             }
 
             else -> {
@@ -147,30 +152,60 @@ class InputGate(
 
     private fun isOutOfRange(event: InputEvent): Boolean =
         when (event.eventCase) {
-            InputEvent.EventCase.SET_TEXT -> event.setText.text.length > MAX_SET_TEXT_CHARS
+            InputEvent.EventCase.SET_TEXT -> exceedsTextLimit(event.setText.text)
             InputEvent.EventCase.SWIPE -> event.swipe.durationMs !in SWIPE_DURATION_RANGE_MS
+            InputEvent.EventCase.TEXT_EDIT -> isTextEditOutOfRange(event.textEdit)
             else -> false
         }
 
+    /** Stale or foreign sessions are only dropped; every other failed check revokes consent. */
     private fun denial(event: InputEvent): GateDropReason? {
         val grant = consent.grant ?: return GateDropReason.NoConsent
-        return when {
-            event.sessionId != grant.sessionId -> GateDropReason.SessionMismatch
-            live.currentPeer() != grant.peerFingerprint -> GateDropReason.PeerChanged
-            !live.mediaActive() -> GateDropReason.MediaInactive
-            !live.indicatorShowing() -> GateDropReason.IndicatorHidden
-            else -> null
-        }
+        val reason =
+            if (event.sessionId != grant.sessionId) GateDropReason.SessionMismatch else liveDenial(grant)
+        if (reason != null && !isDropOnly(reason, grant)) consent.revoke()
+        return reason
     }
+
+    private fun liveDenial(grant: MirrorConsent.Grant): GateDropReason? {
+        val reason =
+            when {
+                live.currentPeer() != grant.peerFingerprint -> GateDropReason.PeerChanged
+                !live.mediaActive() -> GateDropReason.MediaInactive
+                !live.indicatorShowing() -> GateDropReason.IndicatorHidden
+                else -> null
+            }
+        if (reason == null) indicatorShownFor = grant
+        return reason
+    }
+
+    private fun isDropOnly(
+        reason: GateDropReason,
+        grant: MirrorConsent.Grant,
+    ): Boolean =
+        reason == GateDropReason.SessionMismatch ||
+            (reason == GateDropReason.IndicatorHidden && indicatorShownFor !== grant)
 
     private companion object {
         const val RATE_PER_SECOND = 120
         const val BURST = 240
         const val RATE_LOG_INTERVAL_MS = 1000L
-        const val MAX_SET_TEXT_CHARS = 4096
         val SWIPE_DURATION_RANGE_MS = 1..5000
     }
 }
+
+private const val MAX_TEXT_CODE_POINTS = 4096
+private const val MAX_DELETE_BACKWARD = 64
+private val DELETE_BACKWARD_RANGE = 1..MAX_DELETE_BACKWARD
+
+private fun exceedsTextLimit(text: String): Boolean = text.codePointCount(0, text.length) > MAX_TEXT_CODE_POINTS
+
+private fun isTextEditOutOfRange(edit: TextEdit): Boolean =
+    when (edit.editCase) {
+        TextEdit.EditCase.INSERT -> exceedsTextLimit(edit.insert)
+        TextEdit.EditCase.DELETE_BACKWARD -> edit.deleteBackward !in DELETE_BACKWARD_RANGE
+        else -> false
+    }
 
 /** Refills [ratePerSecond] tokens per second up to [burst]; each acquired token admits one event. */
 class TokenBucket(

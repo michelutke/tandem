@@ -20,7 +20,7 @@ class AndroidNotificationPresenter(
             ),
         )
         manager.notify(NOTIFICATION_ID, buildNotification())
-        return isPosted()
+        return true
     }
 
     override fun remove() = manager.cancel(NOTIFICATION_ID)

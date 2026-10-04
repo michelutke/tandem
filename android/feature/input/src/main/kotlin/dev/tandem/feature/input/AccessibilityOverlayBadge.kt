@@ -17,6 +17,20 @@ class AccessibilityOverlayBadge(
     private val windowManager = service.getSystemService(WindowManager::class.java)
     private var view: View? = null
 
+    @Volatile
+    private var attachedToWindow = false
+
+    private val attachListener =
+        object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                attachedToWindow = true
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                attachedToWindow = false
+            }
+        }
+
     override fun attach(): Boolean {
         if (isAttached()) return true
         val badge =
@@ -25,20 +39,22 @@ class AccessibilityOverlayBadge(
                 setBackgroundColor(BADGE_BACKGROUND)
                 setTextColor(BADGE_TEXT)
             }
+        badge.addOnAttachStateChangeListener(attachListener)
         val added =
             runCatching { windowManager.addView(badge, layoutParams()) }
                 .isSuccess
-        if (added) view = badge
+        if (added) view = badge else badge.removeOnAttachStateChangeListener(attachListener)
         return added
     }
 
     override fun detach() {
         val current = view ?: return
         view = null
+        attachedToWindow = false
         runCatching { windowManager.removeView(current) }
     }
 
-    override fun isAttached(): Boolean = view?.isAttachedToWindow == true
+    override fun isAttached(): Boolean = attachedToWindow
 
     private fun layoutParams() =
         WindowManager

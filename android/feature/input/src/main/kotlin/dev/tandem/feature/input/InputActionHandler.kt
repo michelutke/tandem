@@ -36,11 +36,16 @@ class InputActionHandler(
         val input = actions.findFocusedInput() ?: return InputResult.NoOp
         return when (textEdit.editCase) {
             TextEdit.EditCase.INSERT -> replaceSelection(input, textEdit.insert, deleteCount = 0)
-            TextEdit.EditCase.DELETE_BACKWARD -> replaceSelection(input, "", textEdit.deleteBackward)
+            TextEdit.EditCase.DELETE_BACKWARD -> deleteBackward(input, textEdit.deleteBackward)
             TextEdit.EditCase.IME_ENTER -> imeEnter(input)
             else -> InputResult.NoOp
         }
     }
+
+    private fun deleteBackward(
+        input: FocusedInput,
+        count: Int,
+    ): InputResult = if (count in DELETE_BACKWARD_RANGE) replaceSelection(input, "", count) else InputResult.NoOp
 
     private fun imeEnter(input: FocusedInput): InputResult =
         if (sdkInt >= IME_ENTER_MIN_SDK) result(input.imeEnter()) else InputResult.NoOp
@@ -65,5 +70,6 @@ class InputActionHandler(
 
     private companion object {
         const val IME_ENTER_MIN_SDK = 30
+        val DELETE_BACKWARD_RANGE = 1..64
     }
 }

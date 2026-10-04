@@ -83,6 +83,16 @@ class InputActionHandlerTest {
     }
 
     @Test
+    fun textEditHandler_deleteBackwardOutsideRange_returnsNoOpAndKeepsText() {
+        val input = FakeFocusedInput("hello")
+        actions.focusedInput = input
+        listOf(0, 65, Int.MAX_VALUE).forEach { count ->
+            assertEquals(InputResult.NoOp, handler().handle(textEdit { deleteBackward = count }))
+        }
+        assertEquals("hello", input.text.toString())
+    }
+
+    @Test
     fun textEditHandler_imeEnterOnApi29_returnsNoOp() {
         val node = FakeFocusedInput("abc")
         actions.focusedInput = node

@@ -2,11 +2,13 @@ package dev.tandem.feature.input
 
 import com.google.protobuf.ByteString
 import dev.tandem.protocol.v1.GlobalActionKind
+import dev.tandem.protocol.v1.TextEdit
 import dev.tandem.protocol.v1.globalAction
 import dev.tandem.protocol.v1.inputEvent
 import dev.tandem.protocol.v1.setText
 import dev.tandem.protocol.v1.swipe
 import dev.tandem.protocol.v1.tap
+import dev.tandem.protocol.v1.textEdit
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -185,13 +187,81 @@ class InputGateTest {
     }
 
     @Test
-    fun inputGate_indicatorDismissed_closesGateAndStaysClosed() {
+    fun inputGate_indicatorDismissedAfterShown_closesGateAndStaysClosed() {
         userStartsMirror()
+        gate.handle(back(), window, display)
         indicatorShowing = false
         gate.handle(back(), window, display)
         indicatorShowing = true
         gate.handle(back(), window, display)
-        assertTrue(actions.globalActions.isEmpty())
+        assertEquals(1, actions.globalActions.size)
+    }
+
+    @Test
+    fun inputGate_indicatorNotYetShown_droppedWithoutRevokingThenOpens() {
+        userStartsMirror()
+        indicatorShowing = false
+        gate.handle(back(), window, display)
+        assertTrue(consent.grant != null)
+        indicatorShowing = true
+        assertEquals(InputResult.Performed, gate.handle(back(), window, display))
+        assertEquals(listOf(GateDropReason.IndicatorHidden), drops.map { it.first })
+    }
+
+    @Test
+    fun inputGate_staleSession_droppedWithoutRevokingConsent() {
+        userStartsMirror()
+        gate.handle(back(ByteString.copyFromUtf8("stale")), window, display)
+        assertEquals(InputResult.Performed, gate.handle(back(), window, display))
+        assertEquals(listOf(GateDropReason.SessionMismatch), drops.map { it.first })
+    }
+
+    private fun textEditEvent(edit: TextEdit) =
+        inputEvent {
+            this.sessionId = boundSessionId
+            textEdit = edit
+        }
+
+    @Test
+    fun inputGate_deleteBackwardOutsideRange_dropped() {
+        userStartsMirror()
+        val input = FakeFocusedInput("hello")
+        actions.focusedInput = input
+        listOf(0, 65, Int.MAX_VALUE, -1).forEach { count ->
+            gate.handle(textEditEvent(textEdit { deleteBackward = count }), window, display)
+        }
+        assertEquals(4, drops.count { it.first == GateDropReason.OutOfRange })
+        assertEquals("hello", input.text)
+    }
+
+    @Test
+    fun inputGate_insertOver4096CodePoints_dropped() {
+        userStartsMirror()
+        val tooLong = "\uD83D\uDE00".repeat(4097)
+        val atLimit = "\uD83D\uDE00".repeat(4096)
+        gate.handle(textEditEvent(textEdit { insert = tooLong }), window, display)
+        assertEquals(listOf(GateDropReason.OutOfRange to "TEXT_EDIT"), drops)
+        gate.handle(textEditEvent(textEdit { insert = atLimit }), window, display)
+        assertEquals(1, drops.size)
+    }
+
+    @Test
+    fun inputGate_setTextAtLimitInEmoji_notDropped() {
+        userStartsMirror()
+        val event =
+            inputEvent {
+                this.sessionId = boundSessionId
+                setText = setText { text = "\uD83D\uDE00".repeat(4096) }
+            }
+        gate.handle(event, window, display)
+        assertTrue(drops.isEmpty())
+    }
+
+    @Test
+    fun inputGate_floodOfOutOfRangeEvents_logLinesBoundedByBucket() {
+        userStartsMirror()
+        repeat(1000) { gate.handle(textEditEvent(textEdit { deleteBackward = 0 }), window, display) }
+        assertEquals(240, drops.size)
     }
 
     @Test
