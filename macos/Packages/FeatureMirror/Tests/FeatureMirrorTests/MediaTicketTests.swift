@@ -110,12 +110,30 @@ private struct Harness {
     #expect(harness.validationError(issued.ticket, peer: peerA) == .expired)
 }
 
-@Test func mediaTicketValidator_clockAdvancedPast30s_returnsUnknownOncePurged() {
+@Test func mediaTicketValidator_presentedAt31s_returnsExpired() {
     let harness = Harness()
     let issued = harness.issuer.issue(session: sessionA, peer: peerA)
     harness.clock.advance(by: .seconds(31))
 
+    #expect(harness.validationError(issued.ticket, peer: peerA) == .expired)
+}
+
+@Test func mediaTicketValidator_presentedAt61s_returnsUnknownOncePurged() {
+    let harness = Harness()
+    let issued = harness.issuer.issue(session: sessionA, peer: peerA)
+    harness.clock.advance(by: .seconds(61))
+
     #expect(harness.validationError(issued.ticket, peer: peerA) == .unknown)
+}
+
+@Test func mediaTicketTable_overCap_dropsOldestRecords() {
+    let harness = Harness()
+    let first = harness.issuer.issue(session: sessionA, peer: peerA)
+    for _ in 0..<MediaTicketTable<ManualTestClock>.maxRecords {
+        _ = harness.issuer.issue(session: sessionB, peer: peerA)
+    }
+
+    #expect(harness.validationError(first.ticket, peer: peerA) == .unknown)
 }
 
 @Test func mediaTicketValidator_secondPresentation_returnsConsumed() throws {
