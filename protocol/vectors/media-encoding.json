@@ -40,6 +40,28 @@
       }
     },
     {
+      "id": "mirror-request-round-trip",
+      "description": "MirrorRequest, an empty message, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mirrorRequest",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mirror-declined-round-trip",
+      "description": "MirrorDeclined, an empty message, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mirrorDeclined",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
       "id": "media-hello-missing-ticket-field",
       "description": "A MediaHello with no ticket field (empty message) MUST be rejected TICKET_REJECTED/MISSING by both parsers before any further frame is read (docs/protocol/SPEC.md #media-ticket, case 0).",
       "input": {

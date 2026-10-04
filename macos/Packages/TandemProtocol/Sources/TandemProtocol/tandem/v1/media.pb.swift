@@ -25,6 +25,90 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
+public nonisolated enum Tandem_V1_MediaCodec: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case h264 // = 1
+  case hevc // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .h264
+    case 2: self = .hevc
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .h264: return 1
+    case .hevc: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Tandem_V1_MediaCodec] = [
+    .unspecified,
+    .h264,
+    .hevc,
+  ]
+
+}
+
+public nonisolated enum Tandem_V1_Orientation: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case portrait // = 1
+  case landscape // = 2
+  case reversePortrait // = 3
+  case reverseLandscape // = 4
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .portrait
+    case 2: self = .landscape
+    case 3: self = .reversePortrait
+    case 4: self = .reverseLandscape
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .portrait: return 1
+    case .landscape: return 2
+    case .reversePortrait: return 3
+    case .reverseLandscape: return 4
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Tandem_V1_Orientation] = [
+    .unspecified,
+    .portrait,
+    .landscape,
+    .reversePortrait,
+    .reverseLandscape,
+  ]
+
+}
+
 /// RequestMediaTicket: phone -> Mac over CONTROL. Asks the Mac to issue a media ticket for the
 /// requesting control session; answered with MediaTicketGrant (control.proto). Carries no fields:
 /// the Mac derives the session and peer identity from the authenticated control connection.
@@ -54,9 +138,168 @@ public nonisolated struct Tandem_V1_MediaHello: Sendable {
   public init() {}
 }
 
+/// MirrorRequest: Mac -> phone over CONTROL. Asks the phone to show its on-phone start prompt.
+public nonisolated struct Tandem_V1_MirrorRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// MirrorDeclined: phone -> Mac over CONTROL. The phone declined or could not honour a MirrorRequest.
+public nonisolated struct Tandem_V1_MirrorDeclined: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// E61-01: media-connection messages (docs/protocol/SPEC.md #media-frame-semantics). After the
+/// MediaHello first frame (above), every length-prefixed frame body on the media connection is one
+/// serialized MediaMessage: the connection carries no Envelope and has no channel, so the oneof is
+/// the only discriminator. A MediaMessage with no payload set is rejected UNKNOWN_PAYLOAD_TYPE
+/// (closing with MALFORMED_FRAME). MediaFormat, MediaFrame and RotationChanged flow phone -> Mac;
+/// KeyframeRequest flows Mac -> phone.
+public nonisolated struct Tandem_V1_MediaMessage: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var payload: Tandem_V1_MediaMessage.OneOf_Payload? = nil
+
+  public var mediaFormat: Tandem_V1_MediaFormat {
+    get {
+      if case .mediaFormat(let v)? = payload {return v}
+      return Tandem_V1_MediaFormat()
+    }
+    set {payload = .mediaFormat(newValue)}
+  }
+
+  public var mediaFrame: Tandem_V1_MediaFrame {
+    get {
+      if case .mediaFrame(let v)? = payload {return v}
+      return Tandem_V1_MediaFrame()
+    }
+    set {payload = .mediaFrame(newValue)}
+  }
+
+  public var keyframeRequest: Tandem_V1_KeyframeRequest {
+    get {
+      if case .keyframeRequest(let v)? = payload {return v}
+      return Tandem_V1_KeyframeRequest()
+    }
+    set {payload = .keyframeRequest(newValue)}
+  }
+
+  public var rotationChanged: Tandem_V1_RotationChanged {
+    get {
+      if case .rotationChanged(let v)? = payload {return v}
+      return Tandem_V1_RotationChanged()
+    }
+    set {payload = .rotationChanged(newValue)}
+  }
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public nonisolated enum OneOf_Payload: Equatable, Sendable {
+    case mediaFormat(Tandem_V1_MediaFormat)
+    case mediaFrame(Tandem_V1_MediaFrame)
+    case keyframeRequest(Tandem_V1_KeyframeRequest)
+    case rotationChanged(Tandem_V1_RotationChanged)
+
+  }
+
+  public init() {}
+}
+
+/// MediaFormat: phone -> Mac, sent before the first MediaFrame and again whenever codec, size or
+/// frame rate changes. `width` and `height` are encoded-frame pixels; `fps` is the target frame rate.
+public nonisolated struct Tandem_V1_MediaFormat: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var codec: Tandem_V1_MediaCodec = .unspecified
+
+  public var width: UInt32 = 0
+
+  public var height: UInt32 = 0
+
+  public var fps: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// MediaFrame: phone -> Mac, one fragment of one encoded access unit. `pts` is the presentation time
+/// in microseconds on the phone's monotonic clock. `flags` is a bit set of MediaFrameFlags values,
+/// identical on every fragment of an access unit. An access unit larger than 960 KiB is split into
+/// `fragment_count` (1..8) fragments of at most 960 KiB sharing one `pts`; `fragment_index` is
+/// 0-based. Fragments of one access unit are contiguous and in index order. Any violation closes the
+/// media connection MALFORMED_FRAME (local reason FRAGMENT_VIOLATION).
+public nonisolated struct Tandem_V1_MediaFrame: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var pts: UInt64 = 0
+
+  public var flags: UInt32 = 0
+
+  public var data: Data = Data()
+
+  public var fragmentIndex: UInt32 = 0
+
+  public var fragmentCount: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// KeyframeRequest: Mac -> phone, asks the encoder for a keyframe (decoder error, new viewer).
+public nonisolated struct Tandem_V1_KeyframeRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// RotationChanged: phone -> Mac, the device display rotated; a MediaFormat with the new size
+/// follows before the next MediaFrame.
+public nonisolated struct Tandem_V1_RotationChanged: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var orientation: Tandem_V1_Orientation = .unspecified
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "tandem.v1"
+
+nonisolated extension Tandem_V1_MediaCodec: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0MEDIA_CODEC_UNSPECIFIED\0\u{1}MEDIA_CODEC_H264\0\u{1}MEDIA_CODEC_HEVC\0")
+}
+
+nonisolated extension Tandem_V1_Orientation: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ORIENTATION_UNSPECIFIED\0\u{1}ORIENTATION_PORTRAIT\0\u{1}ORIENTATION_LANDSCAPE\0\u{1}ORIENTATION_REVERSE_PORTRAIT\0\u{1}ORIENTATION_REVERSE_LANDSCAPE\0")
+}
 
 nonisolated extension Tandem_V1_RequestMediaTicket: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".RequestMediaTicket"
@@ -102,6 +345,289 @@ nonisolated extension Tandem_V1_MediaHello: SwiftProtobuf.Message, SwiftProtobuf
 
   public static func ==(lhs: Tandem_V1_MediaHello, rhs: Tandem_V1_MediaHello) -> Bool {
     if lhs.ticket != rhs.ticket {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MirrorRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MirrorRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MirrorRequest, rhs: Tandem_V1_MirrorRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MirrorDeclined: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MirrorDeclined"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MirrorDeclined, rhs: Tandem_V1_MirrorDeclined) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MediaMessage: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MediaMessage"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}media_format\0\u{3}media_frame\0\u{3}keyframe_request\0\u{3}rotation_changed\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try {
+        var v: Tandem_V1_MediaFormat?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .mediaFormat(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .mediaFormat(v)
+        }
+      }()
+      case 2: try {
+        var v: Tandem_V1_MediaFrame?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .mediaFrame(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .mediaFrame(v)
+        }
+      }()
+      case 3: try {
+        var v: Tandem_V1_KeyframeRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .keyframeRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .keyframeRequest(v)
+        }
+      }()
+      case 4: try {
+        var v: Tandem_V1_RotationChanged?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .rotationChanged(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .rotationChanged(v)
+        }
+      }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    switch self.payload {
+    case .mediaFormat?: try {
+      guard case .mediaFormat(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    }()
+    case .mediaFrame?: try {
+      guard case .mediaFrame(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    }()
+    case .keyframeRequest?: try {
+      guard case .keyframeRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    }()
+    case .rotationChanged?: try {
+      guard case .rotationChanged(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }()
+    case nil: break
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MediaMessage, rhs: Tandem_V1_MediaMessage) -> Bool {
+    if lhs.payload != rhs.payload {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MediaFormat: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MediaFormat"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}codec\0\u{1}width\0\u{1}height\0\u{1}fps\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.codec) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.width) }()
+      case 3: try { try decoder.decodeSingularUInt32Field(value: &self.height) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.fps) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.codec != .unspecified {
+      try visitor.visitSingularEnumField(value: self.codec, fieldNumber: 1)
+    }
+    if self.width != 0 {
+      try visitor.visitSingularUInt32Field(value: self.width, fieldNumber: 2)
+    }
+    if self.height != 0 {
+      try visitor.visitSingularUInt32Field(value: self.height, fieldNumber: 3)
+    }
+    if self.fps != 0 {
+      try visitor.visitSingularUInt32Field(value: self.fps, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MediaFormat, rhs: Tandem_V1_MediaFormat) -> Bool {
+    if lhs.codec != rhs.codec {return false}
+    if lhs.width != rhs.width {return false}
+    if lhs.height != rhs.height {return false}
+    if lhs.fps != rhs.fps {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MediaFrame: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MediaFrame"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}pts\0\u{1}flags\0\u{1}data\0\u{3}fragment_index\0\u{3}fragment_count\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt64Field(value: &self.pts) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.flags) }()
+      case 3: try { try decoder.decodeSingularBytesField(value: &self.data) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.fragmentIndex) }()
+      case 5: try { try decoder.decodeSingularUInt32Field(value: &self.fragmentCount) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.pts != 0 {
+      try visitor.visitSingularUInt64Field(value: self.pts, fieldNumber: 1)
+    }
+    if self.flags != 0 {
+      try visitor.visitSingularUInt32Field(value: self.flags, fieldNumber: 2)
+    }
+    if !self.data.isEmpty {
+      try visitor.visitSingularBytesField(value: self.data, fieldNumber: 3)
+    }
+    if self.fragmentIndex != 0 {
+      try visitor.visitSingularUInt32Field(value: self.fragmentIndex, fieldNumber: 4)
+    }
+    if self.fragmentCount != 0 {
+      try visitor.visitSingularUInt32Field(value: self.fragmentCount, fieldNumber: 5)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MediaFrame, rhs: Tandem_V1_MediaFrame) -> Bool {
+    if lhs.pts != rhs.pts {return false}
+    if lhs.flags != rhs.flags {return false}
+    if lhs.data != rhs.data {return false}
+    if lhs.fragmentIndex != rhs.fragmentIndex {return false}
+    if lhs.fragmentCount != rhs.fragmentCount {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_KeyframeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".KeyframeRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_KeyframeRequest, rhs: Tandem_V1_KeyframeRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_RotationChanged: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".RotationChanged"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}orientation\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.orientation) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.orientation != .unspecified {
+      try visitor.visitSingularEnumField(value: self.orientation, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_RotationChanged, rhs: Tandem_V1_RotationChanged) -> Bool {
+    if lhs.orientation != rhs.orientation {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

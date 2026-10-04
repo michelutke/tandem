@@ -258,9 +258,10 @@ bodies for one call (`input.messageHexes`). The manifest includes an incoming `R
 ### `media-encoding.json` (E60-01)
 
 Vectors for `docs/protocol/SPEC.md` `#media-ticket`'s message types (`protocol/proto/tandem/v1/media.proto`,
-`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`. Entries are the raw serialized
+`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`, and (E61-15, `#mirror-request`) the empty
+`MirrorRequest`/`MirrorDeclined`. Entries are the raw serialized
 message bytes (`input.messageHex`); `input.kind` selects the type
-(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`). Positive entries carry a `messageSha256` (both
+(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`). Positive entries carry a `messageSha256` (both
 codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
 carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
 both parsers reject any `ticket` that is not exactly 32 bytes.
@@ -285,6 +286,32 @@ Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/pro
 `input.kind` selects the type (`focusState`/`focusSyncCapability`). Every entry carries
 `expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
 both codecs also re-encode to the same bytes.
+
+### `media-control-encoding.json` (E72-02)
+
+Vectors for `docs/protocol/SPEC.md` `#media-control`'s message types
+(`protocol/proto/tandem/v1/media_control.proto`): `NowPlaying`, `PlayPause`, `Next`, `Previous`,
+`Stop`, `CapabilityUnavailable`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`nowPlaying`/`playPause`/`next`/`previous`/`stop`/`capabilityUnavailable`).
+Every entry carries `expected.summary` (the canonical decoded view: `title=..|artist=..|state=<n>|album=..|durationMs=..`
+with `<absent>` for unset optionals, `empty` for commands, `feature=<n>`) and a `messageSha256`; both
+codecs also re-encode to the same bytes.
+
+### `media-frame-encoding.json` (E61-01)
+
+Vectors for `docs/protocol/SPEC.md` `#media-frame-semantics` (`protocol/proto/tandem/v1/media.proto`).
+`input.kind` selects the shape:
+
+- `mediaFormat`/`mediaFrame`/`keyframeRequest`/`rotationChanged`: `input.messageHex` is a serialized
+  `MediaMessage`; `expected.summary` is the canonical decoded view (`codec=..|width=..|height=..|fps=..`,
+  `pts=..|flags=..|dataLength=..|index=..|count=..`, `empty`, `orientation=..`) and `messageSha256`
+  digests the bytes; both codecs also re-encode to the same bytes.
+- `mediaFrameSequence`: `input.messagesHex` is an ordered list of serialized `MediaMessage` fragments.
+  Valid entries give `expected.pts`, `reassembledLength` and `reassembledSha256`; invalid entries use
+  `expectedError: "malformedFrame"`, `localReason: "FRAGMENT_VIOLATION"` and `input.rejectedAtIndex`
+  (the first fragment that violates the rule).
+- `mediaFrameLengthPrefix`: `input.frameHex` is a bare 4-byte `length_prefix` (1 MiB + 1) that the
+  framing layer rejects `MALFORMED_FRAME`/`TOO_LARGE`.
 
 ## Authoritativeness
 

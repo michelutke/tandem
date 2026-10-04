@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mirror_prompt_channel_name">Mirror requests</string>
+    <string name="mirror_prompt_title">Mirror to %1$s?</string>
+    <string name="mirror_prompt_text">%1$s wants to see your screen.</string>
+    <string name="mirror_prompt_start">Start mirroring</string>
+    <string name="mirror_prompt_decline">Not now</string>
+</resources>
