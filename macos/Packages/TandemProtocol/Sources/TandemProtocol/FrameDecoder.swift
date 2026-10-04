@@ -56,6 +56,10 @@ public enum CloseCode: Sendable, Equatable {
     /// A peer or source exceeds a connection-level cap in SPEC.md §10 (E01-22), or an older
     /// control session is replaced by a newer Ready session for the same peer SPKI (E12-19).
     case limitExceeded
+    /// SPEC.md #errors-and-close-codes row 6, `TICKET_REJECTED`: the media connection's `MediaHello`
+    /// ticket was missing, reused, expired, or issued to a different peer (E60-03). Closes the media
+    /// connection only; never the control session that issued the ticket.
+    case ticketRejected
 }
 
 /// Local diagnostic reason grouped under `CloseCode.malformedFrame`. Never sent on the wire
