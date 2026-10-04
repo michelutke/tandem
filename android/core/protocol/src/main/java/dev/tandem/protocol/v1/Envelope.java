@@ -68,6 +68,7 @@ public  final class Envelope extends
     CALL_ACTION(91),
     PLACE_CALL_REQUEST(92),
     CALL_ACTION_RESULT(93),
+    INPUT_EVENT(100),
     ROTATION_CHALLENGE(110),
     KEY_ROTATION(111),
     ROTATION_ACK(112),
@@ -140,6 +141,7 @@ public  final class Envelope extends
         case 91: return CALL_ACTION;
         case 92: return PLACE_CALL_REQUEST;
         case 93: return CALL_ACTION_RESULT;
+        case 100: return INPUT_EVENT;
         case 110: return ROTATION_CHALLENGE;
         case 111: return KEY_ROTATION;
         case 112: return ROTATION_ACK;
@@ -2734,6 +2736,78 @@ public  final class Envelope extends
    */
   private void clearCallActionResult() {
     if (payloadCase_ == 93) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int INPUT_EVENT_FIELD_NUMBER = 100;
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   */
+  @java.lang.Override
+  public boolean hasInputEvent() {
+    return payloadCase_ == 100;
+  }
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.InputEvent getInputEvent() {
+    if (payloadCase_ == 100) {
+       return (dev.tandem.protocol.v1.InputEvent) payload_;
+    }
+    return dev.tandem.protocol.v1.InputEvent.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setInputEvent(dev.tandem.protocol.v1.InputEvent value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 100;
+  }
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeInputEvent(dev.tandem.protocol.v1.InputEvent value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 100 &&
+        payload_ != dev.tandem.protocol.v1.InputEvent.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.InputEvent.newBuilder((dev.tandem.protocol.v1.InputEvent) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 100;
+  }
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   */
+  private void clearInputEvent() {
+    if (payloadCase_ == 100) {
       payloadCase_ = 0;
       payload_ = null;
     }
@@ -6103,6 +6177,78 @@ public  final class Envelope extends
 
     /**
      * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    @java.lang.Override
+    public boolean hasInputEvent() {
+      return instance.hasInputEvent();
+    }
+    /**
+     * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.InputEvent getInputEvent() {
+      return instance.getInputEvent();
+    }
+    /**
+     * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    public Builder setInputEvent(dev.tandem.protocol.v1.InputEvent value) {
+      copyOnWrite();
+      instance.setInputEvent(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    public Builder setInputEvent(
+        dev.tandem.protocol.v1.InputEvent.Builder builderForValue) {
+      copyOnWrite();
+      instance.setInputEvent(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    public Builder mergeInputEvent(dev.tandem.protocol.v1.InputEvent value) {
+      copyOnWrite();
+      instance.mergeInputEvent(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * input.proto (E62-01) — INPUT channel.
+     * </pre>
+     *
+     * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+     */
+    public Builder clearInputEvent() {
+      copyOnWrite();
+      instance.clearInputEvent();
+      return this;
+    }
+
+    /**
+     * <pre>
      * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
      * </pre>
      *
@@ -6933,6 +7079,7 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.CallAction.class,
             dev.tandem.protocol.v1.PlaceCallRequest.class,
             dev.tandem.protocol.v1.CallActionResult.class,
+            dev.tandem.protocol.v1.InputEvent.class,
             dev.tandem.protocol.v1.RotationChallenge.class,
             dev.tandem.protocol.v1.KeyRotation.class,
             dev.tandem.protocol.v1.RotationAck.class,
@@ -6949,14 +7096,14 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.MirrorDeclined.class,
           };
           java.lang.String info =
-              "\u0000<\u0001\u0000\u0001\u008d<\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
+              "\u0000=\u0001\u0000\u0001\u008d=\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
               "\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000" +
               "\f<\u0000\r<\u0000\u000e<\u0000\u0014<\u0000\u0015<\u0000\u0016<\u0000\u001e<\u0000" +
               "\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u00002<\u00003<\u00004<\u00005<\u00006<" +
               "\u00007<\u00008<\u0000<<\u0000=<\u0000><\u0000?<\u0000@<\u0000A<\u0000F<\u0000G<" +
-              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000n" +
-              "<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000\u0082<\u0000\u0083<\u0000\u0084<" +
-              "\u0000\u0085<\u0000\u0086<\u0000\u0087<\u0000\u008c<\u0000\u008d<\u0000";
+              "\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000Z<\u0000[<\u0000\\<\u0000]<\u0000d" +
+              "<\u0000n<\u0000o<\u0000p<\u0000q<\u0000x<\u0000y<\u0000\u0082<\u0000\u0083<\u0000" +
+              "\u0084<\u0000\u0085<\u0000\u0086<\u0000\u0087<\u0000\u008c<\u0000\u008d<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

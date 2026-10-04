@@ -1,0 +1,130 @@
+package dev.tandem.feature.input
+
+import android.content.ComponentName
+import android.content.Intent
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import dev.tandem.protocol.v1.GlobalActionKind
+import dev.tandem.protocol.v1.globalAction
+import dev.tandem.protocol.v1.setText
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.FileInputStream
+
+// E62-05 tdd:
+//   instrumented: setText_focusedEditTextOnEmulator_contentReplaced
+//   instrumented: globalActionHome_onEmulator_launcherInForeground
+//
+// Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
+// drives the real ServiceAccessibilityActions through InputActionHandler.
+@RunWith(AndroidJUnit4::class)
+class AccessibilityInputInstrumentedTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val context = instrumentation.context
+    private val serviceComponent = "${context.packageName}/${CapturingAccessibilityService::class.java.name}"
+
+    @Before
+    fun enableService() {
+        shell("settings put secure enabled_accessibility_services $serviceComponent")
+        shell("settings put secure accessibility_enabled 1")
+        awaitNotNull { CapturingAccessibilityService.instance }
+    }
+
+    @After
+    fun disableService() {
+        shell("settings put secure enabled_accessibility_services \"\"")
+        shell("settings put secure accessibility_enabled 0")
+    }
+
+    @Test
+    fun setText_focusedEditTextOnEmulator_contentReplaced() {
+        val intent =
+            Intent()
+                .setComponent(ComponentName(context.packageName, EditTextTestActivity::class.java.name))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ActivityScenario.launch<EditTextTestActivity>(intent).use { scenario ->
+            val handler = handler()
+
+            val result =
+                awaitNotNull {
+                    handler.handle(setText { text = REPLACEMENT }).takeIf {
+                        it ==
+                            InputResult.Performed
+                    }
+                }
+
+            assertEquals(InputResult.Performed, result)
+            var content = ""
+            scenario.onActivity { content = it.editText.text.toString() }
+            assertEquals(REPLACEMENT, content)
+        }
+    }
+
+    @Test
+    fun globalActionHome_onEmulator_launcherInForeground() {
+        val result = handler().handle(globalAction { action = GlobalActionKind.GLOBAL_ACTION_KIND_HOME })
+
+        assertEquals(InputResult.Performed, result)
+        val launcher =
+            context.packageManager
+                .resolveActivity(homeIntent(), 0)
+                ?.activityInfo
+                ?.packageName
+        assertNotNull(launcher)
+        assertTrue(
+            awaitCondition {
+                shell("dumpsys activity activities").contains("topResumedActivity") &&
+                    foregroundPackage() == launcher
+            },
+        )
+    }
+
+    private fun handler() =
+        InputActionHandler(
+            ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)),
+            android.os.Build.VERSION.SDK_INT,
+        )
+
+    private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+
+    private fun foregroundPackage(): String? =
+        Regex("""topResumedActivity=ActivityRecord\{\S+ \S+ ([^/\s]+)/""")
+            .find(shell("dumpsys activity activities"))
+            ?.groupValues
+            ?.get(1)
+
+    private fun shell(command: String): String =
+        FileInputStream(instrumentation.uiAutomation.executeShellCommand(command).fileDescriptor).use {
+            it.readBytes().decodeToString()
+        }
+
+    private fun <T : Any> awaitNotNull(block: () -> T?): T {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            block()?.let { return it }
+            Thread.sleep(POLL_MS)
+        }
+        throw AssertionError("condition not met within ${TIMEOUT_MS}ms")
+    }
+
+    private fun awaitCondition(block: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (block()) return true
+            Thread.sleep(POLL_MS)
+        }
+        return false
+    }
+
+    private companion object {
+        const val REPLACEMENT = "after"
+        const val TIMEOUT_MS = 10_000L
+        const val POLL_MS = 200L
+    }
+}

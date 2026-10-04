@@ -46,7 +46,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 10 | Timeouts, connection limits and resource caps | [`#timeouts-connection-limits-and-resource-caps`](#timeouts-connection-limits-and-resource-caps) | Written (E01-22) |
 | 11 | Untrusted peer strings (display sanitization) | [`#untrusted-peer-strings-display-sanitization`](#untrusted-peer-strings-display-sanitization) | Written (E01-23) |
 | 12 | Media frame semantics | [`#media-frame-semantics`](#media-frame-semantics) | Written (E61-01) |
-| 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
+| 13 | Input events | [`#input-events`](#input-events) | Written (E62-01) |
 | 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
 | 16 | Calls channel | [`#calls-channel`](#calls-channel) | Written (E52-01) |
@@ -1327,6 +1327,50 @@ The 16-byte mirror session id used by input messages (E62-07) has no defined sou
 
 `protocol/vectors/media-encoding.json` (E61-15; E15-01, E15-02) includes `MirrorRequest` and
 `MirrorDeclined`, each round-tripping to golden (zero-length) bytes on both codecs.
+
+---
+
+## Input events
+
+*(E62-01 · PRD F-9.3 · UC-23, AC-06, AC-19 · invariant 8 · E01-22)*
+
+Remote input travels Mac → phone on the `INPUT` channel (§4) as `InputEvent` (`input.proto`,
+`Envelope.payload` field 100). An `Envelope` on `INPUT` with any other payload, or an unset
+`InputEvent.event`, is rejected `UNKNOWN_PAYLOAD_TYPE` (§5). There is deliberately no raw key-event
+message: an `AccessibilityService` cannot inject arbitrary `KeyEvent`s and raw key codes would widen
+the attack surface; keyboard input is `SetText` and `TextEdit`.
+
+### Session binding
+
+`InputEvent.session_id` is the 16-byte id of the active mirror session (invariant 8: remote input is
+accepted only during a user-started mirror session with the on-phone indicator showing). The phone
+MUST drop an `InputEvent` whose `session_id` is absent or not exactly 16 bytes (missing reference,
+rejected by the parser before any other field is looked at), and one that is not the active session's
+id (stale — a finished session — or foreign). With no active mirror session every `InputEvent` is
+dropped. A drop never closes the connection.
+
+### Variants and ranges
+
+| `event` field | Message | Rule |
+|---|---|---|
+| 2 | `Tap { x, y }` | `uint32` window-local pixels; both MUST be inside the reported window size (`x` < width, `y` < height). |
+| 3 | `Swipe { x1, y1, x2, y2, duration_ms }` | Both end points inside the window; `duration_ms` 1..5000. |
+| 4 | `Scroll { x, y, dx, dy }` | `x`, `y` inside the window; `dx`, `dy` are `sint32` pixel deltas. |
+| 5 | `GlobalAction { action }` | `BACK`, `HOME`, `RECENTS` or `NOTIFICATIONS`; `UNSPECIFIED` and unknown values are dropped. |
+| 6 | `SetText { text }` | At most 4096 Unicode characters (code points). |
+| 7 | `TextEdit { insert \| delete_backward \| ime_enter }` | `insert` at most 4096 characters; `delete_backward` 1..64; `ime_enter` carries no data. |
+
+Out-of-range values are dropped, never clamped. Checking coordinates against the live display is
+semantic and belongs to the coordinate mapper (E62-03), not the parser. The sender MUST NOT exceed
+120 `InputEvent`s per second (§10, Feature caps); the receiver drops and counts the excess.
+
+### Conformance
+
+`protocol/vectors/input-encoding.json` (E62-01; E15-01, E15-02) includes all six `InputEvent` variants
+(including each `TextEdit` form) round-tripping to golden bytes on both codecs, and as negatives: a
+missing and a short `session_id`, a stale and a foreign session id, out-of-window coordinates,
+`Swipe.duration_ms` 0 and 5001, an unknown and an unspecified `GlobalAction`, text of 4097
+characters, and `delete_backward` 0 and 65.
 
 ---
 
