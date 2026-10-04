@@ -59,6 +59,8 @@ enum UITestScenario: String {
     /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
     /// render newest first, with one resolved contact name, one international number and a badge.
     case threadListSeeded
+    /// Message view (E50-08) over a seeded in-memory store: inbound and outbound bubbles and the composer render.
+    case conversationSeeded
     /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
     case incomingCallActive
 

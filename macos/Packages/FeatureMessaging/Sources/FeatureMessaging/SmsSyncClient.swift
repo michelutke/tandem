@@ -1,3 +1,4 @@
+import Foundation
 import TandemCrypto
 import TandemProtocol
 import TandemStore
@@ -14,6 +15,8 @@ public actor SmsSyncClient {
 
     public private(set) var syncStatus: SyncStatus = .syncing
     public private(set) var simList: Tandem_V1_SimList?
+
+    private var sendErrorCodes: [String: Tandem_V1_SendSmsErrorCode] = [:]
 
     private let peer: SpkiFingerprint
     private let store: any SmsStore
@@ -48,6 +51,7 @@ public actor SmsSyncClient {
 
     public func handle(_ status: Tandem_V1_SendSmsStatus) async {
         guard let state = Self.outboundState(status.state) else { return }
+        if state == .failed { sendErrorCodes[status.clientMessageID] = status.errorCode }
         try? await store.updateOutbound(
             peer: peer,
             clientMessageId: status.clientMessageID,
@@ -123,5 +127,18 @@ public actor SmsSyncClient {
         case .failed: .failed
         case .unspecified, .UNRECOGNIZED: nil
         }
+    }
+}
+
+extension SmsSyncClient: ConversationSyncSource {
+    public func simOptions() -> [SimOption] {
+        (simList?.subscriptions ?? []).map { SimOption(
+                id: $0.subscriptionID,
+                name: DisplayStringSanitizer.sanitize(Data($0.displayName.utf8), kind: .name)
+            ) }
+    }
+
+    public func sendErrorCode(clientMessageId: String) -> Tandem_V1_SendSmsErrorCode? {
+        sendErrorCodes[clientMessageId]
     }
 }

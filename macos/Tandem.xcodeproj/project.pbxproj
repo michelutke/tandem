@@ -29,6 +29,7 @@
 		5298599E544DCDD0447D8A66 /* MainWindowScenarioSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */; };
 		E41050400000000000000000 /* ScenarioPhotoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050500000000000000000 /* ScenarioPhotoGrid.swift */; };
 		E50070100000000000000000 /* ScenarioThreadList.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50070200000000000000000 /* ScenarioThreadList.swift */; };
+		E50080100000000000000000 /* ScenarioConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50080200000000000000000 /* ScenarioConversation.swift */; };
 		539567A339C850584891C604 /* MainWindowComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C6E5F69C66780495EEA2D5 /* MainWindowComposition.swift */; };
 		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
 		5C59C085A4552AA68D1A7FA5 /* PushClipboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */; };
@@ -101,6 +102,7 @@
 		E41050600000000000000000 /* PhotoGridUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050700000000000000000 /* PhotoGridUITests.swift */; };
 		E40230300000000000000000 /* TransferProgressUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E40230400000000000000000 /* TransferProgressUITests.swift */; };
 		E50070300000000000000000 /* ThreadListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50070400000000000000000 /* ThreadListUITests.swift */; };
+		E50080300000000000000000 /* ConversationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50080400000000000000000 /* ConversationUITests.swift */; };
 		E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */; };
 		F28D5C6ECE889FE54A43092F /* MainWindowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
@@ -214,6 +216,7 @@
 		81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowScenarioSupport.swift; sourceTree = "<group>"; };
 		E41050500000000000000000 /* ScenarioPhotoGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioPhotoGrid.swift; sourceTree = "<group>"; };
 		E50070200000000000000000 /* ScenarioThreadList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioThreadList.swift; sourceTree = "<group>"; };
+		E50080200000000000000000 /* ScenarioConversation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioConversation.swift; sourceTree = "<group>"; };
 		86769ADA9F9034205A270081 /* URLOpener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLOpener.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
@@ -225,6 +228,7 @@
 		E41050700000000000000000 /* PhotoGridUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhotoGridUITests.swift; sourceTree = "<group>"; };
 		E40230400000000000000000 /* TransferProgressUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TransferProgressUITests.swift; sourceTree = "<group>"; };
 		E50070400000000000000000 /* ThreadListUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThreadListUITests.swift; sourceTree = "<group>"; };
+		E50080400000000000000000 /* ConversationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationUITests.swift; sourceTree = "<group>"; };
 		AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioVersionMismatchMenuUITests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -323,6 +327,7 @@
 				E41050700000000000000000 /* PhotoGridUITests.swift */,
 				E50070400000000000000000 /* ThreadListUITests.swift */,
 				E40230400000000000000000 /* TransferProgressUITests.swift */,
+				E50080400000000000000000 /* ConversationUITests.swift */,
 				E52060000000000000000009 /* CallAlertUITests.swift */,
 				E61120000000000000000003 /* MirrorQuickActionUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
@@ -441,6 +446,7 @@
 				E50070200000000000000000 /* ScenarioThreadList.swift */,
 				E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */,
 				E22130000000000000000004 /* CallsSessionService.swift */,
+				E50080200000000000000000 /* ScenarioConversation.swift */,
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
 				E52060000000000000000007 /* CallHangUpView.swift */,
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
@@ -653,6 +659,7 @@
 				E41050600000000000000000 /* PhotoGridUITests.swift in Sources */,
 				E50070300000000000000000 /* ThreadListUITests.swift in Sources */,
 				E40230300000000000000000 /* TransferProgressUITests.swift in Sources */,
+				E50080300000000000000000 /* ConversationUITests.swift in Sources */,
 				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
 				E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
@@ -724,6 +731,7 @@
 				E50070100000000000000000 /* ScenarioThreadList.swift in Sources */,
 				E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */,
 				E22130000000000000000003 /* CallsSessionService.swift in Sources */,
+				E50080100000000000000000 /* ScenarioConversation.swift in Sources */,
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
 				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
