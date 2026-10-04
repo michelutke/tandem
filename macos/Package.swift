@@ -55,8 +55,9 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureMirrorTests",
-            dependencies: ["FeatureMirror", "TandemCrypto", "TandemTestSupport"],
+            dependencies: ["FeatureMirror", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
             path: "Packages/FeatureMirror/Tests/FeatureMirrorTests",
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
