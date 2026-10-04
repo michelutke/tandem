@@ -137,4 +137,47 @@ struct RotationRollbackTests {
             #expect(try harness.coordinator.attempt() == nil)
         }
     }
+
+    @Test
+    func macRotationRollback_rejectWithoutSentFrame_ignored() async throws {
+        let harness = try RotationInitiatorTests.Harness()
+        let phone = try RotationInitiatorTests.Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+
+        await harness.initiator(for: phone).receivedReject(.invalidSignature)
+
+        #expect(harness.hasPendingKey)
+        #expect(try #require(try harness.coordinator.attempt()).pendingRecordIds.count == 1)
+    }
+
+    @Test
+    func macRotationRollback_rejectAfterPeerUnpaired_ignored() async throws {
+        let harness = try RotationInitiatorTests.Harness()
+        let phone = try RotationInitiatorTests.Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+        let initiator = await RotationInitiatorTests.rotate(harness, phone)
+        try harness.trustStore.unpair(phone.fingerprint)
+
+        await initiator.receivedReject(.invalidSignature)
+
+        #expect(harness.hasPendingKey)
+        #expect(try harness.coordinator.attempt() != nil)
+    }
+
+    @Test
+    func macRotationRollback_rejectAfterAckExpired_ignored() async throws {
+        let harness = try RotationInitiatorTests.Harness()
+        let phone = try RotationInitiatorTests.Phone()
+        try harness.pair(phone)
+        try harness.coordinator.begin()
+        let initiator = await RotationInitiatorTests.rotate(harness, phone)
+        await Self.advancePastAckDeadline(harness)
+
+        await initiator.receivedReject(.invalidSignature)
+
+        #expect(harness.hasPendingKey)
+        #expect(try #require(try harness.coordinator.attempt()).pendingRecordIds.count == 1)
+    }
 }

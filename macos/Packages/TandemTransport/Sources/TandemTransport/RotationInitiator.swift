@@ -80,7 +80,7 @@ actor RotationInitiator {
 
     func receivedReject(_ reason: Tandem_V1_RotationRejectReason) {
         Self.logger.error("rotation_initiate_rejected reason=\(reason.rawValue)")
-        guard sent, primaryPeer() != nil else { return }
+        guard sent, !ackExpired, primaryPeer() != nil else { return }
         deadlineTask?.cancel()
         do {
             try coordinator.cancel()
