@@ -39,6 +39,9 @@ packages:
   # E52-06: CallAlertViewModel and the incoming-call alert.
   FeatureCalls:
     path: Packages/FeatureCalls
+  # E61-12: MirrorRequestViewModel, the Mirror quick action's request/declined state.
+  FeatureMirror:
+    path: Packages/FeatureMirror
 
 targets:
   TandemApp:
@@ -81,6 +84,7 @@ targets:
       - package: FeatureFiles
       - package: FeatureMessaging
       - package: FeatureCalls
+      - package: FeatureMirror
 
   TandemShare:
     type: app-extension

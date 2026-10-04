@@ -5,9 +5,11 @@ Covers encode/decode vectors for the message types of docs/protocol/SPEC.md #med
     RequestMediaTicket {} (media.proto; empty message, Envelope.payload field 8)
     MediaTicketGrant { ticket (bytes, 1), expires_at (int64, 2) } (control.proto, E01-12)
     MediaHello { ticket (bytes, 1) } (media.proto; first frame on the media connection)
+    MirrorRequest {} and MirrorDeclined {} (media.proto, E61-15; empty messages, Envelope.payload
+    fields 140 and 141, docs/protocol/SPEC.md #mirror-request)
 
 Entries are the raw serialized message bytes for one message type at a time; `input.kind` selects
-the message type (`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`, all with `input.messageHex`).
+the message type (`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`, all with `input.messageHex`).
 A `mediaHello` entry with `expectedError` is a MediaHello whose `ticket` is absent or not exactly
 32 bytes: both parsers MUST reject it (TICKET_REJECTED, local reason MISSING) from the decoded
 message alone, before any further frame is read.
@@ -62,6 +64,16 @@ def encode_request_media_ticket() -> bytes:
     return b""
 
 
+def encode_mirror_request() -> bytes:
+    """Encodes a MirrorRequest message body (no fields)."""
+    return b""
+
+
+def encode_mirror_declined() -> bytes:
+    """Encodes a MirrorDeclined message body (no fields)."""
+    return b""
+
+
 def encode_media_ticket_grant(*, ticket: bytes, expires_at: int) -> bytes:
     """Encodes a MediaTicketGrant message body."""
     return _field_bytes(1, ticket) + _field_varint(2, expires_at)
@@ -86,6 +98,20 @@ def _hello_error_vector(slug: str, description: str, ticket: bytes) -> dict[str,
         "expectedError": "ticketRejected",
         "closeCode": "TICKET_REJECTED",
         "localReason": "MISSING",
+    }
+
+
+def _empty_message_vector(
+    slug: str, kind: str, name: str, message: bytes
+) -> dict[str, Any]:
+    return {
+        "id": slug,
+        "description": (
+            f"{name}, an empty message, decoding on both codecs and re-encoding to the same golden "
+            "(zero-length) bytes (docs/protocol/SPEC.md #mirror-request)."
+        ),
+        "input": {"kind": kind, "messageHex": message.hex()},
+        "expected": {"messageSha256": hashlib.sha256(message).hexdigest()},
     }
 
 
@@ -134,6 +160,12 @@ def generate_media_encoding_vectors() -> dict[str, Any]:
                 "messageSha256": hashlib.sha256(hello).hexdigest(),
             },
         },
+        _empty_message_vector(
+            "mirror-request-round-trip", "mirrorRequest", "MirrorRequest", encode_mirror_request()
+        ),
+        _empty_message_vector(
+            "mirror-declined-round-trip", "mirrorDeclined", "MirrorDeclined", encode_mirror_declined()
+        ),
         _hello_error_vector(
             "missing-ticket-field",
             (

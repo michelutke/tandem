@@ -82,6 +82,9 @@ message Envelope {
   // 130-139: media_control.proto (E72-02). 130-135 are NowPlaying/PlayPause/Next/Previous/Stop/
   // CapabilityUnavailable; 136-139 held for future media-control extensions.
   reserved 136 to 139; // media_control.proto (E72-02): future STATUS channel media-control extensions
+  // 140-149: media.proto (E61-15). 140-141 are MirrorRequest/MirrorDeclined; 142-149 held for
+  // future mirror-session CONTROL extensions.
+  reserved 142 to 149; // media.proto (E61-15): future CONTROL mirror-session extensions
   // media.proto (E60-01): RequestMediaTicket = 8 (CONTROL). MediaHello and E61-01 media frames ride
   // the separate media connection, which has no channel and therefore no Envelope payload slot
   // (E01-14).
@@ -169,5 +172,9 @@ message Envelope {
     Previous previous = 133;
     Stop stop = 134;
     CapabilityUnavailable capability_unavailable = 135;
+
+    // media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+    MirrorRequest mirror_request = 140;
+    MirrorDeclined mirror_declined = 141;
   }
 }

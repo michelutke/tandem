@@ -138,6 +138,28 @@ public nonisolated struct Tandem_V1_MediaHello: Sendable {
   public init() {}
 }
 
+/// MirrorRequest: Mac -> phone over CONTROL. Asks the phone to show its on-phone start prompt.
+public nonisolated struct Tandem_V1_MirrorRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// MirrorDeclined: phone -> Mac over CONTROL. The phone declined or could not honour a MirrorRequest.
+public nonisolated struct Tandem_V1_MirrorDeclined: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 /// E61-01: media-connection messages (docs/protocol/SPEC.md #media-frame-semantics). After the
 /// MediaHello first frame (above), every length-prefixed frame body on the media connection is one
 /// serialized MediaMessage: the connection carries no Envelope and has no channel, so the oneof is
@@ -323,6 +345,44 @@ nonisolated extension Tandem_V1_MediaHello: SwiftProtobuf.Message, SwiftProtobuf
 
   public static func ==(lhs: Tandem_V1_MediaHello, rhs: Tandem_V1_MediaHello) -> Bool {
     if lhs.ticket != rhs.ticket {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MirrorRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MirrorRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MirrorRequest, rhs: Tandem_V1_MirrorRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Tandem_V1_MirrorDeclined: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".MirrorDeclined"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Tandem_V1_MirrorDeclined, rhs: Tandem_V1_MirrorDeclined) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

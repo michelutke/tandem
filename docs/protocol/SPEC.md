@@ -1346,6 +1346,34 @@ characters, and `delete_backward` 0 and 65.
 
 ---
 
+## Mirror request
+
+*(E61-15 · PRD F-4.2, F-9.1 · UC-22 · invariant 8)*
+
+`MirrorRequest` and `MirrorDeclined` (`media.proto`, E61-15) are empty messages carried as `Envelope`
+payloads on `CHANNEL_CONTROL` of an authenticated control session (not on pairing-candidate
+connections).
+
+| `Envelope.payload` field | Message | Direction | Meaning |
+|---|---|---|---|
+| 140 | `MirrorRequest {}` | Mac → phone | Asks the phone to show its on-phone mirror start prompt. |
+| 141 | `MirrorDeclined {}` | phone → Mac | The phone declined, dismissed or could not honour the request. |
+
+A `MirrorRequest` is a request only. Receiving it MUST NOT start screen capture, MUST NOT cause the
+phone to request or the Mac to issue a media ticket (§9), and MUST NOT enable remote input
+(invariant 8): capture starts only after the user acts on the on-phone prompt, and the phone then
+requests a ticket with `RequestMediaTicket` as usual. A `MirrorRequest` received while a mirror
+session is already active, or one the phone cannot show a prompt for, is answered `MirrorDeclined`.
+`MirrorDeclined` carries no reason. A `MirrorDeclined` the Mac did not solicit is ignored.
+
+The 16-byte mirror session id used by input messages (E62-07) has no defined source yet; neither
+`MirrorRequest`, `MirrorDeclined` nor `MediaHello` carries it. See open question Q19.
+
+`protocol/vectors/media-encoding.json` (E61-15; E15-01, E15-02) includes `MirrorRequest` and
+`MirrorDeclined`, each round-tripping to golden (zero-length) bytes on both codecs.
+
+---
+
 ## Timeouts, connection limits and resource caps
 
 *(E01-22 · PRD F-3.1, F-3.2, F-3.3 · AC-04, AC-13, AC-19 · invariants 1, 3, 5)*
