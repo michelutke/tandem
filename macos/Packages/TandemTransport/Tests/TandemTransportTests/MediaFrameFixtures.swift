@@ -50,9 +50,9 @@ final class OneShotTicketValidator: MediaTicketValidating, Sendable {
         state.withLock { state in
             state.calls += 1
             guard let presented, presented.count == 32 else { return .failure(.missing) }
-            guard presented == ticket else { return .failure(.reused) }
-            if let peer, !peer.matches(presentingSpki) { return .failure(.otherSession) }
-            guard !state.consumed else { return .failure(.reused) }
+            guard presented == ticket else { return .failure(.consumed) }
+            if let peer, !peer.matches(presentingSpki) { return .failure(.peerMismatch) }
+            guard !state.consumed else { return .failure(.consumed) }
             state.consumed = true
             return .success(sessionID)
         }

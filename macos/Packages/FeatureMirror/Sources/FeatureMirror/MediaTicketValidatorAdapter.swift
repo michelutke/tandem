@@ -17,9 +17,10 @@ public struct MediaTicketValidatorAdapter<C: Clock<Duration> & Sendable>: MediaT
         } catch {
             switch error {
             case .missing: return .failure(.missing)
-            case .unknown, .consumed: return .failure(.reused)
-            case .peerMismatch, .revoked: return .failure(.otherSession)
+            case .unknown, .consumed: return .failure(.consumed)
             case .expired: return .failure(.expired)
+            case .revoked: return .failure(.revoked)
+            case .peerMismatch: return .failure(.peerMismatch)
             }
         }
     }

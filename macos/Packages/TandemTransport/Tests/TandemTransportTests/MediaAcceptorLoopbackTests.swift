@@ -34,7 +34,7 @@ struct MediaAcceptorLoopbackTests {
         try await second.send(Self.media + Data(repeating: 0xEE, count: 64))
 
         #expect(await harness.waitForServerClose(second))
-        #expect(await Self.firstEvents(harness, count: 1) == [.ticketRejected(.reused)])
+        #expect(await Self.firstEvents(harness, count: 1) == [.ticketRejected(.consumed)])
         #expect(bound.count == 1)
     }
 

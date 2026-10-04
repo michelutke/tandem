@@ -44,7 +44,7 @@ struct MediaConnectionAcceptorTests {
 
         #expect(binding == nil)
         #expect(rejected.cancelled)
-        #expect(await Self.firstEvents(acceptor, count: 2) == [.ticketRejected(.reused), .closed(.malformedFrame)])
+        #expect(await Self.firstEvents(acceptor, count: 2) == [.ticketRejected(.consumed), .closed(.malformedFrame)])
     }
 
     @Test
