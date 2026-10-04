@@ -784,6 +784,30 @@ epics:
         tdd:
           - "unit: featureAttacher_sessionReady_allRemainingConsumersAttachedOnce"
         notes: "Remainder of E20-23 (2026-10-03)."
+      - id: E20-25
+        title: "[android] Host the app shell in MainActivity (onboarding, pairing, Home, Settings)"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-4.1]
+        use_cases: [UC-01, UC-04]
+        invariants: [3, 5]
+        depends_on: [E20-17, E20-24]
+        description: |
+          MainActivity only renders SendClipboardButton; HomeScreen, SettingsScreen and the onboarding /
+          pairing-scan flow (E20-17, E10-xx) exist but no activity hosts them. Host the floating-toolbar
+          shell: first launch -> onboarding -> pairing scan (persist accepted addresses via
+          PairingAddressStore), then Home (status ring from ConnectionStatusViewModel) and Settings
+          (UnpairAction from Hilt, rotation entry point placeholder until E70-15). Keep the in-app
+          clipboard send button reachable per ui-spec.
+        acceptance:
+          - A fresh install opens onboarding; after pairing the app opens Home with the live status ring
+          - Settings Unpair purges via PeerDataPurgeRegistry and returns to onboarding
+        tdd:
+          - "ui: mainActivity_freshInstall_showsOnboarding"
+          - "ui: mainActivity_paired_showsHomeAndSettingsUnpairReturnsToOnboarding"
+        notes: "Added 2026-10-04: E20-24 found SettingsScreen/HomeScreen/onboarding unhosted."
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
