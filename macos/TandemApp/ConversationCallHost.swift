@@ -1,6 +1,7 @@
 import FeatureCalls
 import FeatureMessaging
 import SwiftUI
+import TandemProtocol
 import TandemTransport
 
 /// Hosts ``PlaceCallView`` in the conversation header (E52-10) so FeatureMessaging never depends on

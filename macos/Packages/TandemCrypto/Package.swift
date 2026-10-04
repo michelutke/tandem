@@ -14,6 +14,7 @@ let macOSOnlySecuritySources = [
     "IdentityCertProvider.swift",
     "IdentityKeyProvider.swift",
     "KeychainStore.swift",
+    "RotationKeyProvider.swift",
     "SecIdentityProvider.swift",
     "SecItemKeychainStore.swift"
 ]
