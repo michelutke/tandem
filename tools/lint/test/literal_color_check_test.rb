@@ -7,6 +7,8 @@
 #   ci: featureSources_literalColor_lintFails
 
 require 'minitest/autorun'
+require 'tmpdir'
+require 'fileutils'
 require_relative '../literal-color-check'
 
 class LiteralColorCheckTest < Minitest::Test
@@ -14,6 +16,17 @@ class LiteralColorCheckTest < Minitest::Test
   REPO_ROOT = File.expand_path('../../..', __dir__)
 
   def fixture(name) = File.join(FIXTURES, name)
+
+  def test_literalColorLint_directoryNamedDotSwiftAndBuildCheckouts_skipped
+    Dir.mktmpdir do |dir|
+      Dir.mkdir(File.join(dir, 'GRDB.swift'))
+      vendored = File.join(dir, 'build', 'release', 'SourcePackages', 'checkouts', 'Dep')
+      FileUtils.mkdir_p(vendored)
+      FileUtils.cp(fixture('LiteralColorConstructorFixture.swift'), vendored)
+
+      assert_empty LiteralColorCheck.check(dir)
+    end
+  end
 
   def test_featureSources_literalColor_lintFails
     errors = LiteralColorCheck.check(fixture('LiteralColorConstructorFixture.swift'))
