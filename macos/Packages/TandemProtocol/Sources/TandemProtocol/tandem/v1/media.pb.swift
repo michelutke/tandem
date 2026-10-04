@@ -124,7 +124,8 @@ public nonisolated struct Tandem_V1_RequestMediaTicket: Sendable {
 
 /// MediaHello: phone -> Mac, the first frame on the media connection. A receiver MUST reject a
 /// MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
-/// MISSING) before comparing it against anything and before reading any further frame.
+/// MISSING) before comparing it against anything and before reading any further frame. A
+/// MediaHello whose `mirror_session_id` is not exactly 16 bytes is malformed (MALFORMED_FRAME).
 public nonisolated struct Tandem_V1_MediaHello: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -132,6 +133,10 @@ public nonisolated struct Tandem_V1_MediaHello: Sendable {
 
   /// Exactly 32 bytes (256 bits) as issued in MediaTicketGrant.ticket.
   public var ticket: Data = Data()
+
+  /// Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+  /// (Q19, D-77). The Mac echoes it in every input message of the session.
+  public var mirrorSessionID: Data = Data()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -322,7 +327,7 @@ nonisolated extension Tandem_V1_RequestMediaTicket: SwiftProtobuf.Message, Swift
 
 nonisolated extension Tandem_V1_MediaHello: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".MediaHello"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}ticket\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}ticket\0\u{3}mirror_session_id\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -331,6 +336,7 @@ nonisolated extension Tandem_V1_MediaHello: SwiftProtobuf.Message, SwiftProtobuf
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBytesField(value: &self.ticket) }()
+      case 2: try { try decoder.decodeSingularBytesField(value: &self.mirrorSessionID) }()
       default: break
       }
     }
@@ -340,11 +346,15 @@ nonisolated extension Tandem_V1_MediaHello: SwiftProtobuf.Message, SwiftProtobuf
     if !self.ticket.isEmpty {
       try visitor.visitSingularBytesField(value: self.ticket, fieldNumber: 1)
     }
+    if !self.mirrorSessionID.isEmpty {
+      try visitor.visitSingularBytesField(value: self.mirrorSessionID, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Tandem_V1_MediaHello, rhs: Tandem_V1_MediaHello) -> Bool {
     if lhs.ticket != rhs.ticket {return false}
+    if lhs.mirrorSessionID != rhs.mirrorSessionID {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

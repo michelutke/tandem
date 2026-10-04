@@ -9,7 +9,8 @@ package dev.tandem.protocol.v1;
  * <pre>
  * MediaHello: phone -&gt; Mac, the first frame on the media connection. A receiver MUST reject a
  * MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
- * MISSING) before comparing it against anything and before reading any further frame.
+ * MISSING) before comparing it against anything and before reading any further frame. A
+ * MediaHello whose `mirror_session_id` is not exactly 16 bytes is malformed (MALFORMED_FRAME).
  * </pre>
  *
  * Protobuf type {@code tandem.v1.MediaHello}
@@ -22,6 +23,7 @@ public  final class MediaHello extends
     MediaHelloOrBuilder {
   private MediaHello() {
     ticket_ = com.google.protobuf.ByteString.EMPTY;
+    mirrorSessionId_ = com.google.protobuf.ByteString.EMPTY;
   }
   public static final int TICKET_FIELD_NUMBER = 1;
   private com.google.protobuf.ByteString ticket_;
@@ -60,6 +62,48 @@ public  final class MediaHello extends
   private void clearTicket() {
 
     ticket_ = getDefaultInstance().getTicket();
+  }
+
+  public static final int MIRROR_SESSION_ID_FIELD_NUMBER = 2;
+  private com.google.protobuf.ByteString mirrorSessionId_;
+  /**
+   * <pre>
+   * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+   * (Q19, D-77). The Mac echoes it in every input message of the session.
+   * </pre>
+   *
+   * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+   * @return The mirrorSessionId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString getMirrorSessionId() {
+    return mirrorSessionId_;
+  }
+  /**
+   * <pre>
+   * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+   * (Q19, D-77). The Mac echoes it in every input message of the session.
+   * </pre>
+   *
+   * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+   * @param value The mirrorSessionId to set.
+   */
+  private void setMirrorSessionId(com.google.protobuf.ByteString value) {
+    java.lang.Class<?> valueClass = value.getClass();
+  
+    mirrorSessionId_ = value;
+  }
+  /**
+   * <pre>
+   * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+   * (Q19, D-77). The Mac echoes it in every input message of the session.
+   * </pre>
+   *
+   * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+   */
+  private void clearMirrorSessionId() {
+
+    mirrorSessionId_ = getDefaultInstance().getMirrorSessionId();
   }
 
   public static dev.tandem.protocol.v1.MediaHello parseFrom(
@@ -149,7 +193,8 @@ public  final class MediaHello extends
    * <pre>
    * MediaHello: phone -&gt; Mac, the first frame on the media connection. A receiver MUST reject a
    * MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
-   * MISSING) before comparing it against anything and before reading any further frame.
+   * MISSING) before comparing it against anything and before reading any further frame. A
+   * MediaHello whose `mirror_session_id` is not exactly 16 bytes is malformed (MALFORMED_FRAME).
    * </pre>
    *
    * Protobuf type {@code tandem.v1.MediaHello}
@@ -205,6 +250,49 @@ public  final class MediaHello extends
       return this;
     }
 
+    /**
+     * <pre>
+     * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+     * (Q19, D-77). The Mac echoes it in every input message of the session.
+     * </pre>
+     *
+     * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+     * @return The mirrorSessionId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString getMirrorSessionId() {
+      return instance.getMirrorSessionId();
+    }
+    /**
+     * <pre>
+     * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+     * (Q19, D-77). The Mac echoes it in every input message of the session.
+     * </pre>
+     *
+     * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+     * @param value The mirrorSessionId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMirrorSessionId(com.google.protobuf.ByteString value) {
+      copyOnWrite();
+      instance.setMirrorSessionId(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+     * (Q19, D-77). The Mac echoes it in every input message of the session.
+     * </pre>
+     *
+     * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMirrorSessionId() {
+      copyOnWrite();
+      instance.clearMirrorSessionId();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.MediaHello)
   }
   @java.lang.Override
@@ -222,9 +310,10 @@ public  final class MediaHello extends
       case BUILD_MESSAGE_INFO: {
           java.lang.Object[] objects = new java.lang.Object[] {
             "ticket_",
+            "mirrorSessionId_",
           };
           java.lang.String info =
-              "\u0000\u0001\u0000\u0000\u0001\u0001\u0001\u0000\u0000\u0000\u0001\n";
+              "\u0000\u0002\u0000\u0000\u0001\u0002\u0002\u0000\u0000\u0000\u0001\n\u0002\n";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

@@ -10,6 +10,7 @@ import TandemTestSupport
 /// `control.proto`), selected by `input.kind`.
 extension ConformanceRunner {
     private static let mediaTicketLength = 32
+    private static let mirrorSessionIdLength = 16
 
     static func runMediaEncoding(data: Data) throws -> [VectorOutcome] {
         let manifest = try JSONDecoder().decode(MediaEncodingManifest.self, from: data)
@@ -95,13 +96,17 @@ extension ConformanceRunner {
         guard let decoded = try? Tandem_V1_MediaHello(serializedBytes: bytes) else {
             return mediaUndecodable(vector)
         }
-        let actual = decoded.ticket.count == mediaTicketLength ? "accepted" : "ticketRejected"
+        let actual = decoded.ticket.count != mediaTicketLength ? "ticketRejected"
+            : decoded.mirrorSessionID.count != mirrorSessionIdLength ? "malformedFrame" : "accepted"
         if let expected = vector.expected {
-            guard let expectedTicketHex = expected.ticketHex, let expectedSha = expected.messageSha256 else {
+            guard let expectedTicketHex = expected.ticketHex, let expectedSha = expected.messageSha256,
+                  let expectedMirrorIdHex = expected.mirrorSessionIdHex else {
                 throw ConformanceFailure(description: "media-encoding vector \(vector.id) missing expected fields")
             }
             let expectedTicket = try conformanceRunnerHexDecode(expectedTicketHex)
+            let expectedMirrorId = try conformanceRunnerHexDecode(expectedMirrorIdHex)
             let passed = actual == "accepted" && decoded.ticket == expectedTicket
+                && decoded.mirrorSessionID == expectedMirrorId
                 && (try? decoded.serializedData()) == bytes && sha256Hex(bytes) == expectedSha
             return VectorOutcome(
                 id: vector.id, category: "media-encoding", outcome: passed ? "pass" : "fail",
@@ -125,6 +130,7 @@ struct MediaEncodingManifest: Decodable {
     }
     struct Expected: Decodable {
         let ticketHex: String?
+        let mirrorSessionIdHex: String?
         let expiresAt: Int64?
         let messageSha256: String?
     }

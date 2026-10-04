@@ -21,10 +21,14 @@ message RequestMediaTicket {}
 
 // MediaHello: phone -> Mac, the first frame on the media connection. A receiver MUST reject a
 // MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
-// MISSING) before comparing it against anything and before reading any further frame.
+// MISSING) before comparing it against anything and before reading any further frame. A
+// MediaHello whose `mirror_session_id` is not exactly 16 bytes is malformed (MALFORMED_FRAME).
 message MediaHello {
   // Exactly 32 bytes (256 bits) as issued in MediaTicketGrant.ticket.
   bytes ticket = 1;
+  // Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+  // (Q19, D-77). The Mac echoes it in every input message of the session.
+  bytes mirror_session_id = 2;
 }
 
 // E61-15: MirrorRequest and MirrorDeclined, the Mac's request to start a mirror session and the

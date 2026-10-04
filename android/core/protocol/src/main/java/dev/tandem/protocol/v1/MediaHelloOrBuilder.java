@@ -19,4 +19,15 @@ public interface MediaHelloOrBuilder extends
    * @return The ticket.
    */
   com.google.protobuf.ByteString getTicket();
+
+  /**
+   * <pre>
+   * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+   * (Q19, D-77). The Mac echoes it in every input message of the session.
+   * </pre>
+   *
+   * <code>bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];</code>
+   * @return The mirrorSessionId.
+   */
+  com.google.protobuf.ByteString getMirrorSessionId();
 }

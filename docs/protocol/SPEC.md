@@ -1154,13 +1154,17 @@ different peer, cannot hijack it (AC-08).
 
 ### Consumption and single use
 
-- `MediaHello { ticket }` (`media.proto`, E60-01) MUST be the first frame on the media connection (§3
+- `MediaHello { ticket, mirror_session_id }` (`media.proto`, E60-01, Q19/D-77) MUST be the first frame on the media connection (§3
   already states this). The media connection carries no `Envelope` and has no channel: the body of
   its first length-prefixed frame (§3) is the serialized `MediaHello` message itself.
   Because a pinned peer's role on a newly accepted connection is otherwise ambiguous, the first frame
   itself is what distinguishes the two: a pinned-peer connection whose first frame is `MediaHello` is
   a media connection; one whose first frame is `VersionHello` (§6) is a control connection — both are
   accepted on the same single listener (`docs/planning/decisions.md` D-03).
+- `MediaHello.mirror_session_id` MUST be exactly 16 bytes from a CSPRNG, minted by the phone when the
+  user starts the mirror session (D-77, `#mirror-request`). A receiver MUST reject a `MediaHello`
+  whose `mirror_session_id` is absent or any other length as a malformed `MediaHello`, closing with
+  `MALFORMED_FRAME` (§3), after the ticket checks below pass.
 - A `MediaHello` arriving on a **pairing-candidate** connection (§2 — a connection still inside the
   pairing window, not yet an ordinary authenticated peer) MUST be rejected as `UNKNOWN_PAYLOAD_TYPE`,
   closing with `MALFORMED_FRAME` (§3) — the same treatment as any other payload illegal for a
@@ -1209,7 +1213,9 @@ different peer, cannot hijack it (AC-08).
 `MediaTicketGrant` (32-byte ticket, `expiresAt` 30 s after issuance) and `MediaHello` each
 round-tripping to their golden bytes on both codecs; and a `MediaHello` with no `ticket` field, with
 a 31-byte `ticket` and with a 33-byte `ticket`, each rejected by both parsers as `TICKET_REJECTED`
-(local reason `MISSING`, case 0) from the decoded message alone, before any further frame is read.
+(local reason `MISSING`, case 0) from the decoded message alone, before any further frame is read;
+and a `MediaHello` with a valid `ticket` and a `mirror_session_id` that is absent, 15 bytes or 17
+bytes, each rejected as `MALFORMED_FRAME`.
 
 ### Rejection
 
@@ -1322,8 +1328,13 @@ requests a ticket with `RequestMediaTicket` as usual. A `MirrorRequest` received
 session is already active, or one the phone cannot show a prompt for, is answered `MirrorDeclined`.
 `MirrorDeclined` carries no reason. A `MirrorDeclined` the Mac did not solicit is ignored.
 
-The 16-byte mirror session id used by input messages (E62-07) has no defined source yet; neither
-`MirrorRequest`, `MirrorDeclined` nor `MediaHello` carries it. See open question Q19.
+The 16-byte mirror session id used by input messages (E62-07) is minted by the phone
+(`docs/planning/decisions.md` D-77): a random value from a CSPRNG, generated when the user starts the
+mirror session and sent as `MediaHello.mirror_session_id` (§9), bound to the ticket-authenticated
+media connection. The Mac rejects a `MediaHello` whose `mirror_session_id` is not exactly 16 bytes
+as malformed, closing the connection with `MALFORMED_FRAME` (§3). The Mac echoes the id in every
+input message; an input message whose id does not match the active mirror session is dropped, not
+closed (E62-06). `MirrorRequest` and `MirrorDeclined` carry no id.
 
 `protocol/vectors/media-encoding.json` (E61-15; E15-01, E15-02) includes `MirrorRequest` and
 `MirrorDeclined`, each round-tripping to golden (zero-length) bytes on both codecs.
