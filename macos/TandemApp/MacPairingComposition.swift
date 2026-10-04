@@ -5,6 +5,7 @@ import Security
 import SwiftUI
 import TandemCrypto
 import TandemPairing
+import TandemProtocol
 import TandemStore
 import TandemTransport
 
@@ -36,7 +37,7 @@ final class MacPairingComposition: @unchecked Sendable {
             guard let port = state.portSource.port else { throw OpenFailure.listenerNotReady }
             let fingerprint = try SpkiFingerprint.of(spkiDer: currentSpkiDer)
             let generation = state.generation.next()
-            let macSpkiDer = { Self.macSpkiDer(identityBootstrapper) ?? currentSpkiDer }
+            let macSpkiDer: @Sendable () -> Data = { Self.macSpkiDer(identityBootstrapper) ?? currentSpkiDer }
             return PairingCoordinator(
                 fingerprint: fingerprint,
                 macSpkiDerProvider: macSpkiDer,
