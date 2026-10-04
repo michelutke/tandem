@@ -1180,3 +1180,22 @@ epics:
           - "security: mitmLab_placeCallMmiCodeAddress_invalidNumberNoCallPlaced"
           - "security: mitmLab_placeCallBurst5In5s_oneCallPlacedRestRateLimited"
         notes: ""
+      - id: E52-10
+        title: "[macos] Host PlaceCallView in contacts/thread UI"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-6.2]
+        use_cases: [UC-20]
+        invariants: [7]
+        depends_on: [E52-07, E22-13]
+        description: |
+          PlaceCallView (E52-07) has no host: add it to the conversation header (FeatureMessaging ->
+          FeatureCalls dependency or a shared host in the app target) and wire it to the session.
+          Add call copy to ui-spec.md.
+        acceptance:
+          - The conversation header shows Call and dialing state
+        tdd:
+          - "unit: conversationHeader_callTapped_placeCallRequested"
+        notes: "Added 2026-10-04: wiring gap from E52-07."

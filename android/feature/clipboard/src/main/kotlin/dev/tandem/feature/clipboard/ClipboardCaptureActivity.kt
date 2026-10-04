@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
  * Not exported: reached only via the explicit-component intent [ClipboardTileService] builds.
  */
 class ClipboardCaptureActivity : TandemActivity() {
-    var sessionProvider: (Context) -> TandemSession? = { null }
+    var sessionProvider: (Context) -> TandemSession? = { LiveClipboardSession.current }
     internal var dispatcher: CoroutineDispatcher = ClipboardDispatchers.default
     var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
 

@@ -57,7 +57,7 @@ import java.util.concurrent.ConcurrentHashMap
  * wires it to [SecretNotificationPolicy.showContent] so a toggle applies to the next notification.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
-    internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
+    internal var eventSink: NotificationEventSink = LiveNotificationEventSink
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
     internal var notificationFilter: (StatusBarNotification, String) -> Boolean = NotificationFilter::shouldForward
     internal var iconSender: IconSender? = null
