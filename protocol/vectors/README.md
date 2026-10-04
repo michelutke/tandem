@@ -264,7 +264,10 @@ message bytes (`input.messageHex`); `input.kind` selects the type
 (`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`). Positive entries carry a `messageSha256` (both
 codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
 carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
-both parsers reject any `ticket` that is not exactly 32 bytes.
+both parsers reject any `ticket` that is not exactly 32 bytes. Positive `mediaHello` entries also carry a
+16-byte `mirrorSessionId` (`expected.mirrorSessionIdHex`, Q19/D-77); negative entries with a valid ticket and a
+`mirrorSessionId` that is absent, 15 or 17 bytes carry `expectedError: "malformedFrame"` (`closeCode`
+`MALFORMED_FRAME`).
 
 ### `rotation-encoding.json` (E70-01)
 
