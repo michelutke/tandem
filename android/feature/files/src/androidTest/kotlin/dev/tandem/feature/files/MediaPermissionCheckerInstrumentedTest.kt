@@ -1,10 +1,13 @@
 package dev.tandem.feature.files
 
 import android.Manifest
+import android.os.Build
+import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.PhotoAccess
 import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -17,6 +20,8 @@ class MediaPermissionCheckerInstrumentedTest {
 
     @Test
     fun mediaPermission_pmGrantUserSelectedOnlyApi35_reportsPartial() {
+        // READ_MEDIA_VISUAL_USER_SELECTED and partial photo access exist only on API 34+.
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
         listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO).forEach { pm("revoke", it) }
         pm("grant", Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
@@ -27,8 +32,8 @@ class MediaPermissionCheckerInstrumentedTest {
         action: String,
         permission: String,
     ) {
-        instrumentation.uiAutomation
-            .executeShellCommand("pm $action ${context.packageName} $permission")
-            .close()
+        // Drain the output so the command has finished before the checker reads the grants.
+        val output = instrumentation.uiAutomation.executeShellCommand("pm $action ${context.packageName} $permission")
+        ParcelFileDescriptor.AutoCloseInputStream(output).use { it.readBytes() }
     }
 }
