@@ -15,6 +15,7 @@
 
 module LiteralColorCheck
   EXCLUDED_PATH = %r{/Packages/TandemDesign/}
+  BUILD_OUTPUT_DIRS = %w[build .build].freeze
   COLOR_CONSTRUCTOR = /\b(?:Color|NSColor)\s*\(\s*(?:red|hue|white|calibratedRed|colorLiteralRed|\.sRGB)\b/
   PALETTE_MEMBER = /\b(?:Color|NSColor)\.(red|blue|green|yellow|orange|purple|pink|gray|grey|black|white|cyan|mint|indigo|teal|brown)\b/
 
@@ -29,7 +30,10 @@ module LiteralColorCheck
     return [target] if File.file?(target)
     return [] unless File.directory?(target)
 
-    Dir.glob(File.join(target, '**', '*.swift')).reject { |file| file.match?(EXCLUDED_PATH) }
+    # Build outputs (xcodebuild -derivedDataPath build/, SwiftPM .build/) hold third-party checkouts, not our sources.
+    Dir.glob(File.join(target, '**', '*.swift')).select do |file|
+      File.file?(file) && !file.match?(EXCLUDED_PATH) && (file.delete_prefix(target).split('/') & BUILD_OUTPUT_DIRS).empty?
+    end
   end
 
   def check_file(file)
