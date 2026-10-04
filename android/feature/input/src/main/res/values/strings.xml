@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Lets your Mac tap and type on this phone during a mirror session you start.</string>
+</resources>
