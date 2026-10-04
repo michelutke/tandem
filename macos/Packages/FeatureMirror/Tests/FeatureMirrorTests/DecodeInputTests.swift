@@ -131,3 +131,13 @@ private func fragment(
         try oversize.accept(pts: 1, fragmentIndex: 1, fragmentCount: 2, data: Data(count: 5))
     }
 }
+
+@Test func fragmentReassembler_fragmentOver960KiB_rejected() throws {
+    var atLimit = FragmentReassembler()
+    #expect(try atLimit.accept(pts: 1, fragmentIndex: 0, fragmentCount: 1, data: Data(count: 983_040)) != nil)
+
+    var over = FragmentReassembler()
+    #expect(throws: MediaFrameError.malformedFrame) {
+        try over.accept(pts: 1, fragmentIndex: 0, fragmentCount: 1, data: Data(count: 983_041))
+    }
+}

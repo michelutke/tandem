@@ -8,6 +8,7 @@ public enum MediaFrameError: Error, Equatable, Sendable {
 /// fragment, never from a declared total; any violation maps to MALFORMED_FRAME / FRAGMENT_VIOLATION.
 public struct FragmentReassembler: Sendable {
     public static let maxFragmentCount: UInt32 = 8
+    public static let maxFragmentBytes = 960 * 1024
     public static let maxAccessUnitBytes = 8 * 1024 * 1024
 
     private let maxBytes: Int
@@ -27,6 +28,7 @@ public struct FragmentReassembler: Sendable {
         fragmentCount: UInt32,
         data: Data
     ) throws(MediaFrameError) -> Data? {
+        guard data.count <= Self.maxFragmentBytes else { throw .malformedFrame }
         guard fragmentCount >= 1, fragmentCount <= Self.maxFragmentCount else { throw .malformedFrame }
         if let current = self.pts {
             guard current == pts, fragmentCount == count else { throw .malformedFrame }
