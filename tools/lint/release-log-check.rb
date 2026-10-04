@@ -33,6 +33,8 @@ module ReleaseLogCheck
   SAFE_PREFIX = /(?:redacted|lengthOnly)\($/.freeze
   LITERAL_VALUE = /\A(?:"[^"]*"|-?\d+(?:\.\d+)?|true|false)\z/.freeze
 
+  BUILD_OUTPUT_DIRS = %w[build .build].freeze
+
   module_function
 
   # Returns an array of "file:line: message" strings; empty means the check passes.
@@ -46,7 +48,10 @@ module ReleaseLogCheck
     return [target] if File.file?(target)
     return [] unless File.directory?(target)
 
-    Dir.glob(File.join(target, '**', '*.swift'))
+    # Build outputs (xcodebuild -derivedDataPath build/, SwiftPM .build/) hold third-party checkouts, not our sources.
+    Dir.glob(File.join(target, '**', '*.swift')).select do |path|
+      File.file?(path) && (path.delete_prefix(target).split('/') & BUILD_OUTPUT_DIRS).empty?
+    end
   end
 
   def read_list(path)

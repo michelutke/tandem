@@ -85,7 +85,7 @@ public struct ThreadListView: View {
                 .fill(TandemColor.line(increasedContrast: contrast == .increased))
                 .frame(height: 1)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("threadRow-\(row.id)")
     }
 
