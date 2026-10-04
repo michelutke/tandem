@@ -25,6 +25,7 @@ public actor FakeTandemSession: TandemSession {
     public private(set) var sent: [SentFrame] = []
 
     private var fanOuts: [Tandem_V1_Channel: Broadcast<InboundFrame>] = [:]
+    private var isSetupSealed = false
     private var isClosed = false
 
     public nonisolated let state: AsyncStream<ConnectionStateMachine.ConnectionState>
@@ -60,6 +61,11 @@ public actor FakeTandemSession: TandemSession {
         stateContinuation.yield(newState)
     }
 
+    public func sealSetup() {
+        isSetupSealed = true
+        fanOuts[.control]?.seal()
+    }
+
     public func close() async {
         isClosed = true
         fanOuts.values.forEach { $0.finish() }
@@ -71,7 +77,7 @@ public actor FakeTandemSession: TandemSession {
         if let fanOut = fanOuts[channel] {
             return fanOut
         }
-        let fanOut = Broadcast<InboundFrame>()
+        let fanOut = Broadcast<InboundFrame>(replayUntilSealed: channel == .control && !isSetupSealed)
         if isClosed { fanOut.finish() }
         fanOuts[channel] = fanOut
         return fanOut

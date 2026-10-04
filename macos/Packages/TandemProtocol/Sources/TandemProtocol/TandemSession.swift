@@ -31,4 +31,13 @@ public protocol TandemSession: Sendable {
     /// Tears this session down: moves ``state`` to `disconnected`, finishing it, and finishes
     /// every ``receive(_:)`` stream. Safe to call more than once.
     func close() async
+
+    /// Ends the setup window in which every ``receive(_:)`` caller on the control channel is
+    /// replayed the frames that arrived before it subscribed.
+    func sealSetup() async
+}
+
+extension TandemSession {
+    /// Default: nothing to seal.
+    public func sealSetup() async {}
 }
