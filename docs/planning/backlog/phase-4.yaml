@@ -824,6 +824,25 @@ epics:
           - "unit: macosReceivedNotification_hashMismatch_nothingPresented"
         notes: "Split from E40-13 in review cycle 3."
 
+      - id: E40-25
+        title: "[macos] Feed transfer progress from FileSender/FileReceiver and wire Cancel"
+        type: task
+        platforms: [macos]
+        priority: P1
+        size: S
+        prd: [F-7.1]
+        use_cases: [UC-14]
+        invariants: []
+        depends_on: [E40-23, E22-13]
+        description: |
+          FileSender/FileReceiver report delivered bytes to TransferProgressViewModel.record and the
+          row's Cancel calls FileSender.cancel()/FileReceiver.cancel(id:) (E40-20); show rows in the
+          menu bar window.
+        acceptance:
+          - A real transfer shows advancing percent and Cancel aborts it
+        tdd:
+          - "unit: macTransferProgress_senderReportsBytes_rowAdvances"
+        notes: "Added 2026-10-04: wiring gap from E40-23."
   - id: E41
     title: Photo browser
     labels: [area:photos]

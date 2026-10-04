@@ -626,6 +626,44 @@ epics:
           - "unit: rotationPinSource_expiredGracePin_failsClosed"
         notes: "Follow-up to E70-04 verifier findings 2-4."
 
+      - id: E70-15
+        title: "[android] Compose rotation initiator, scheduler and settings screen"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: S
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E20-24, E70-06, E70-07, E70-08]
+        description: |
+          Construct RotationInitiator and PendingRotationHandshake with one shared rotation Mutex per
+          identity, RotationScheduler with the Q18 interval setting, and host RotationSettingsScreen in
+          SettingsScreen fed by the authenticated-session state and the active fingerprint.
+        acceptance:
+          - The settings Rotate action and the scheduler use the same initiator and lock
+        tdd:
+          - "unit: appRotationComposition_settingsAndScheduler_shareOneInitiatorAndLock"
+        notes: "Added 2026-10-04: wiring gap from E70-06/07/08."
+      - id: E70-16
+        title: "[macos] Compose rotation initiator, scheduler and Key settings tab"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: S
+        prd: [F-1.3]
+        use_cases: [UC-24]
+        invariants: [1, 3]
+        depends_on: [E22-13, E70-11, E70-12, E70-13]
+        description: |
+          Provide a production MacKeyRotator over RotationInitiator/RotationCoordinator (currently
+          internal to TandemTransport) so the Key tab works outside DEBUG, start RotationScheduler with
+          the authenticated-session stream, and resume a pending rotation at launch.
+        acceptance:
+          - The Key tab rotates the key in a release build; scheduled rotation runs while connected
+        tdd:
+          - "unit: macRotationComposition_keyTabAndScheduler_shareOneInitiator"
+        notes: "Added 2026-10-04: wiring gap from E70-11/12/13."
   - id: E71
     title: "Hardening: fuzz campaigns, external SPEC review, release audit"
     labels: [area:security]
