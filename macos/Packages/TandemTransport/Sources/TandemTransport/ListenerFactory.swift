@@ -20,7 +20,7 @@ public struct NWListenerFactory: ListenerFactory {
     let decisionCorrelator: PeerDecisionCorrelator
     /// Drives `ConnectionStateMachine`'s handshake deadline and `VersionHandshake`'s hello
     /// deadline for every session this listener wires up (E00-24 seam rule).
-    private let clock: any Clock<Duration>
+    let clock: any Clock<Duration>
     /// Where a `.pairingCandidate` connection's pairing dance (E14-09) is handed off once its
     /// `VersionHello` exchange completes; `nil` means this listener never admits pairing
     /// candidates in the first place (e.g. the E15-22 CI harness's plain `-HarnessListenerPort`,
@@ -39,6 +39,8 @@ public struct NWListenerFactory: ListenerFactory {
     private let trustStore: TrustStore?
     let onSessionRegistered: SessionRegisteredHandler?
     private let onSessionEnded: SessionRegisteredHandler?
+    /// Where a pinned peer's connection whose first frame is not a control `Envelope` is handed (E60-03).
+    let mediaConnectionHandler: (any MediaConnectionHandling)?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -49,7 +51,8 @@ public struct NWListenerFactory: ListenerFactory {
         pairingCandidateDriver: (any PairingCandidateDriver)? = nil,
         trustStore: TrustStore? = nil,
         onSessionRegistered: SessionRegisteredHandler? = nil,
-        onSessionEnded: SessionRegisteredHandler? = nil
+        onSessionEnded: SessionRegisteredHandler? = nil,
+        mediaConnectionHandler: (any MediaConnectionHandling)? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
@@ -58,6 +61,7 @@ public struct NWListenerFactory: ListenerFactory {
         self.trustStore = trustStore
         self.onSessionRegistered = onSessionRegistered
         self.onSessionEnded = onSessionEnded
+        self.mediaConnectionHandler = mediaConnectionHandler
     }
 
     public func makeListener(
@@ -226,7 +230,7 @@ public struct NWListenerFactory: ListenerFactory {
     /// is a no-op, since neither of those ever claims the slot in the first place. Fire-and-forget
     /// (`Task`), matching every other post-hoc admission report already made from this same
     /// synchronous `stateUpdateHandler` closure.
-    private func abandonIfPairingCandidate(_ dropped: PeerDecisionCorrelator.Decision?) {
+    func abandonIfPairingCandidate(_ dropped: PeerDecisionCorrelator.Decision?) {
         guard let dropped, dropped.decision == .pairingCandidate, let token = dropped.candidateToken else { return }
         guard let driver = pairingCandidateDriver else { return }
         Task { await driver.candidateAbandoned(token: token) }
@@ -244,6 +248,8 @@ public struct NWListenerFactory: ListenerFactory {
     /// dead session is never left registered.
     private func wireSession(adapter: NWConnectionByteStreamConnection, metadataIdentifier: ObjectIdentifier) async {
         let source = ByteStreamConnectionFrameSource(adapter)
+        let isControl = await routeFirstFrame(adapter: adapter, source: source, metadataIdentifier: metadataIdentifier)
+        guard isControl else { return }
         let multiplexer = ChannelMultiplexer(source: source, sink: { data in try await adapter.send(data) })
         let stateMachine = ConnectionStateMachine(clock: clock, markers: OSLogReconnectMarkers())
         let handshake = VersionHandshake(multiplexer: multiplexer, clock: clock)
@@ -377,24 +383,5 @@ public struct NWListenerFactory: ListenerFactory {
     private static func remoteHost(of connection: NWConnection) -> String? {
         guard case .hostPort(let host, _) = connection.endpoint else { return nil }
         return "\(host)"
-    }
-}
-
-extension NWListenerFactory {
-    /// A connection that never reaches `.ready` (verify rejected it, or it reset/timed out first)
-    /// may still have a decision recorded for it (E12-02's `onDecision` fires before `complete(_:)`
-    /// regardless of outcome) -- drop it so a *later* connection can never inherit a stale
-    /// `.trusted` decision through a reused `sec_protocol_metadata_t` `ObjectIdentifier` (finding
-    /// #3: the address-reuse race this guards against). Returns the dropped entry, if any, so the
-    /// caller can still release a `.pairingCandidate` connection's window slot (E14-16 finding #1).
-    @discardableResult
-    fileprivate static func dropStaleDecision(
-        connection: NWConnection,
-        decisionCorrelator: PeerDecisionCorrelator
-    ) -> PeerDecisionCorrelator.Decision? {
-        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
-            return nil
-        }
-        return decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
     }
 }

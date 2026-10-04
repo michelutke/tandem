@@ -9,17 +9,20 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../TandemCrypto"),
+        .package(path: "../TandemProtocol"),
+        .package(path: "../TandemTransport"),
         .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "FeatureMirror",
-            dependencies: ["TandemCrypto"],
+            dependencies: ["TandemCrypto", "TandemProtocol", "TandemTransport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureMirrorTests",
-            dependencies: ["FeatureMirror", "TandemCrypto", "TandemTestSupport"],
+            dependencies: ["FeatureMirror", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

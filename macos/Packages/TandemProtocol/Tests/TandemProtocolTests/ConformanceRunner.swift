@@ -40,7 +40,8 @@ enum ConformanceRunner {
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",
         "discovery-id", "status-encoding", "notify-encoding", "clipboard-encoding", "files-encoding",
         "photos-encoding", "contacts-encoding", "sms-encoding", "calls-encoding", "media-encoding",
-        "rotation-encoding", "focus-encoding", "filenames"
+        "media-frame-encoding", "input-encoding", "rotation-encoding", "focus-encoding", "media-control-encoding",
+        "filenames"
     ]
 
     static func run(directory: URL) async throws -> [VectorOutcome] {
@@ -140,8 +141,8 @@ enum ConformanceRunner {
         case "sms-encoding": return try await runSmsEncoding(data: data)
         case "calls-encoding": return try runCallsEncoding(data: data)
         case "media-encoding": return try runMediaEncoding(data: data)
+        case "media-frame-encoding": return try await runMediaFrameEncoding(data: data)
         case "rotation-encoding": return try runRotationEncoding(data: data)
-        case "focus-encoding": return try runFocusEncoding(data: data)
         default: return try runSynchronousCategory(category, data: data)
         }
     }
@@ -157,6 +158,15 @@ enum ConformanceRunner {
         case "photos-encoding": return try runPhotosEncoding(data: data)
         case "contacts-encoding": return try runContactsEncoding(data: data)
         case "filenames": return try runFilenames(data: data)
+        default: return try runFeatureMessageCategory(category, data: data)
+        }
+    }
+
+    private static func runFeatureMessageCategory(_ category: String, data: Data) throws -> [VectorOutcome] {
+        switch category {
+        case "input-encoding": return try runInputEncoding(data: data)
+        case "focus-encoding": return try runFocusEncoding(data: data)
+        case "media-control-encoding": return try runMediaControlEncoding(data: data)
         default: throw UnknownVectorCategoryError(category: category)
         }
     }

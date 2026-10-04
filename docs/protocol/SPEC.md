@@ -45,8 +45,8 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 9 | Media ticket | [`#media-ticket`](#media-ticket) | Written (E01-09, E60-01) |
 | 10 | Timeouts, connection limits and resource caps | [`#timeouts-connection-limits-and-resource-caps`](#timeouts-connection-limits-and-resource-caps) | Written (E01-22) |
 | 11 | Untrusted peer strings (display sanitization) | [`#untrusted-peer-strings-display-sanitization`](#untrusted-peer-strings-display-sanitization) | Written (E01-23) |
-| 12 | Media frame semantics | `#media-frame-semantics` | TBD in E61-01 (extends §9, Phase 6) |
-| 13 | Input events | `#input-events` | TBD (Phase 6, epic E62) |
+| 12 | Media frame semantics | [`#media-frame-semantics`](#media-frame-semantics) | Written (E61-01) |
+| 13 | Input events | [`#input-events`](#input-events) | Written (E62-01) |
 | 14 | SMS channel | [`#sms-channel`](#sms-channel) | Written (E50-01) |
 | 15 | Contacts channel | [`#contacts-channel`](#contacts-channel) | Written (E51-01) |
 | 16 | Calls channel | [`#calls-channel`](#calls-channel) | Written (E52-01) |
@@ -56,6 +56,7 @@ that `.proto` files and other SPEC sections can cite them ahead of time.
 | 20 | CLIPBOARD channel | [`#clipboard-channel`](#clipboard-channel) | Written (E31-01) |
 | 21 | FILES channel | [`#files-channel`](#files-channel) | Written (E40-01) |
 | 22 | Focus sync | [`#focus-sync`](#focus-sync) | Written (E72-04) |
+| 23 | Media control | [`#media-control`](#media-control) | Written (E72-02) |
 
 Sections 1–11 are the Phase 0 `SPEC.md` v1 set (`docs/planning/traceability.md`, "`SPEC.md` v1"
 row). Sections 12–17 are reserved slots for later phases so that earlier sections' numbering and
@@ -658,7 +659,7 @@ reserved across every enum in this protocol (`Channel`, `PairRejected.reason`, c
 | 6 | `CONTACTS` | Contacts sync (F-8.3). |
 | 7 | `CALLS` | Call control (F-8.4). |
 | 8 | `INPUT` | Remote input events (F-9.3). |
-| 9 | `STATUS` | Device status, `Ring`/`RingStop` (F-4.3, F-4.4). |
+| 9 | `STATUS` | Device status, `Ring`/`RingStop`, media control (F-4.3, F-4.4, F-10.1). |
 
 This channel set is closed and exhaustive: the nine values above, plus the reserved
 `CHANNEL_UNSPECIFIED = 0`, are the only channel values this version of the protocol ever defines.
@@ -1252,6 +1253,99 @@ therefore no ticket — was ever presented to reject.
 
 ---
 
+## Media frame semantics
+
+*(E61-01 · PRD F-9.1, F-9.2 · UC-22, AC-07, AC-19 · invariant 1 · `docs/planning/decisions.md` D-26)*
+
+After the `MediaHello` first frame (§9), every length-prefixed frame (§3) on the media connection
+carries exactly one serialized `MediaMessage` (`media.proto`, E61-01) as its body. The media
+connection carries no `Envelope` and has no channel, no `seq` and no `ack`; the `MediaMessage`
+`oneof payload` is the only discriminator. A `MediaMessage` with no payload set, or a `MediaHello`
+after the first frame, is rejected `UNKNOWN_PAYLOAD_TYPE`, closing with `MALFORMED_FRAME` (§5). The
+1 MiB frame maximum of §3 applies to every media frame: an oversize `length_prefix` is rejected from
+the 4 prefix bytes alone.
+
+| `MediaMessage` field | Message | Direction | Meaning |
+|---|---|---|---|
+| 1 | `MediaFormat { codec, width, height, fps }` | phone → Mac | Encoded stream format. Sent before the first `MediaFrame` and again whenever codec, size or frame rate changes. `codec` is `H264` or `HEVC` (PRD F-9.1: HEVC only if both sides support it). |
+| 2 | `MediaFrame { pts, flags, data, fragment_index, fragment_count }` | phone → Mac | One fragment of one encoded access unit. |
+| 3 | `KeyframeRequest {}` | Mac → phone | Asks the encoder for a keyframe (decoder error, new viewer). |
+| 4 | `RotationChanged { orientation }` | phone → Mac | The device display rotated (`PORTRAIT`, `LANDSCAPE`, `REVERSE_PORTRAIT`, `REVERSE_LANDSCAPE`). A `MediaFormat` with the new size follows before the next `MediaFrame`. |
+
+`MediaFrame.pts` is the presentation time in microseconds on the phone's monotonic clock.
+`MediaFrame.flags` is a bit set: `0x1` keyframe (a sync access unit the decoder can start from),
+`0x2` codec-config (codec-specific data such as SPS/PPS, not a displayable picture). The flags are
+identical on every fragment of an access unit.
+
+### Fragmentation
+
+This is the only fragmentation mechanism in the protocol (§3, E01-03). An encoded access unit larger
+than 960 KiB is split into fragments of at most 960 KiB, all sharing one `pts`. `fragment_count` is
+1..8 on every `MediaFrame` (an unfragmented access unit is `fragment_index` 0 of `fragment_count`
+1), so a reassembled access unit is at most 7.5 MiB, under the 8 MiB cap of §10. The fragments of one
+access unit are contiguous and in index order. The receiver MUST close the media connection with
+`MALFORMED_FRAME` (local reason `FRAGMENT_VIOLATION`) on:
+
+- a first fragment whose `fragment_index` is not 0, or an index gap or reorder within an access unit;
+- a `fragment_count` of 0, or over 8, or different from the access unit's first fragment;
+- a fragment of another `pts` arriving before the current access unit is complete (interleaving);
+- a reassembled size over 8 MiB.
+
+### Conformance
+
+`protocol/vectors/media-frame-encoding.json` (E61-01; E15-01, E15-02) includes: `MediaFrame` (keyframe
+and codec-config), `MediaFormat`, `KeyframeRequest` and `RotationChanged`, each as a `MediaMessage`
+round-tripping to golden bytes on both codecs; a frame with `length_prefix` 1 MiB + 1 rejected by the
+framing layer; a 3-fragment access unit reassembled identically on both codecs; and an index gap, a
+count change, a count of 9 and an interleaved `pts`, each rejected `MALFORMED_FRAME`/`FRAGMENT_VIOLATION`
+at the fragment that violates the rule.
+
+---
+
+## Input events
+
+*(E62-01 · PRD F-9.3 · UC-23, AC-06, AC-19 · invariant 8 · E01-22)*
+
+Remote input travels Mac → phone on the `INPUT` channel (§4) as `InputEvent` (`input.proto`,
+`Envelope.payload` field 100). An `Envelope` on `INPUT` with any other payload, or an unset
+`InputEvent.event`, is rejected `UNKNOWN_PAYLOAD_TYPE` (§5). There is deliberately no raw key-event
+message: an `AccessibilityService` cannot inject arbitrary `KeyEvent`s and raw key codes would widen
+the attack surface; keyboard input is `SetText` and `TextEdit`.
+
+### Session binding
+
+`InputEvent.session_id` is the 16-byte id of the active mirror session (invariant 8: remote input is
+accepted only during a user-started mirror session with the on-phone indicator showing). The phone
+MUST drop an `InputEvent` whose `session_id` is absent or not exactly 16 bytes (missing reference,
+rejected by the parser before any other field is looked at), and one that is not the active session's
+id (stale — a finished session — or foreign). With no active mirror session every `InputEvent` is
+dropped. A drop never closes the connection.
+
+### Variants and ranges
+
+| `event` field | Message | Rule |
+|---|---|---|
+| 2 | `Tap { x, y }` | `uint32` window-local pixels; both MUST be inside the reported window size (`x` < width, `y` < height). |
+| 3 | `Swipe { x1, y1, x2, y2, duration_ms }` | Both end points inside the window; `duration_ms` 1..5000. |
+| 4 | `Scroll { x, y, dx, dy }` | `x`, `y` inside the window; `dx`, `dy` are `sint32` pixel deltas. |
+| 5 | `GlobalAction { action }` | `BACK`, `HOME`, `RECENTS` or `NOTIFICATIONS`; `UNSPECIFIED` and unknown values are dropped. |
+| 6 | `SetText { text }` | At most 4096 Unicode characters (code points). |
+| 7 | `TextEdit { insert \| delete_backward \| ime_enter }` | `insert` at most 4096 characters; `delete_backward` 1..64; `ime_enter` carries no data. |
+
+Out-of-range values are dropped, never clamped. Checking coordinates against the live display is
+semantic and belongs to the coordinate mapper (E62-03), not the parser. The sender MUST NOT exceed
+120 `InputEvent`s per second (§10, Feature caps); the receiver drops and counts the excess.
+
+### Conformance
+
+`protocol/vectors/input-encoding.json` (E62-01; E15-01, E15-02) includes all six `InputEvent` variants
+(including each `TextEdit` form) round-tripping to golden bytes on both codecs, and as negatives: a
+missing and a short `session_id`, a stale and a foreign session id, out-of-window coordinates,
+`Swipe.duration_ms` 0 and 5001, an unknown and an unspecified `GlobalAction`, text of 4097
+characters, and `delete_backward` 0 and 65.
+
+---
+
 ## Timeouts, connection limits and resource caps
 
 *(E01-22 · PRD F-3.1, F-3.2, F-3.3 · AC-04, AC-13, AC-19 · invariants 1, 3, 5)*
@@ -1312,7 +1406,7 @@ an accepted residual noted alongside the related pre-auth-budget residual in `do
 | Media connections per control session | ≤ 1 | second media connection for a session that already has one closes `LIMIT_EXCEEDED` (§5 row 9) | E60-04 |
 | Frame size | ≤ 1 MiB (§3) | `MALFORMED_FRAME` | E11-02, E11-04 |
 | Per-channel credit cap | ≤ 64 credits, receiver's own choice per channel (§4) | `CREDIT_VIOLATION` | E11-07, E11-08, E11-13, E11-14 |
-| Media access unit | ≤ 8 fragments, ≤ 8 MiB reassembled (§12, TBD in E61-01) | `MALFORMED_FRAME`, local reason `FRAGMENT_VIOLATION` | E61-01 |
+| Media access unit | ≤ 8 fragments, ≤ 8 MiB reassembled (§12) | `MALFORMED_FRAME`, local reason `FRAGMENT_VIOLATION` | E61-01 |
 | Media ticket validity | 30 s from issuance (§9, Issuance) | `TICKET_REJECTED`, local reason `EXPIRED` | E01-09, E60-08 |
 
 ### `CONTROL` channel caps
@@ -2216,3 +2310,44 @@ the phone cannot apply Focus. The Mac stops sending `FocusState` until it sees `
 
 `protocol/vectors/focus-encoding.json` (E72-04; E15-01, E15-02) includes `FocusState` (on and off) and
 `FocusSyncCapability` (unavailable and available) round-tripping to golden bytes on both codecs.
+
+## Media control
+
+F-10.1 (design note `docs/design/design-note-media-control-f-10-1.md`, E72-01). The paired Mac shows
+the phone's now-playing metadata and sends transport commands to the phone's active media session.
+The channel set of §4 is closed for this protocol version, so media control rides the existing
+`STATUS` channel (device-state domain, like `Ring`/`RingStop`) and uses `STATUS`'s credit ledger.
+Six `Envelope` payloads (`media_control.proto`, E72-02) occupy the reserved range 130-139:
+`NowPlaying` (130), `PlayPause` (131), `Next` (132), `Previous` (133), `Stop` (134) and
+`CapabilityUnavailable` (135); 136-139 are held. All payloads are legal only on an authenticated
+session that has reached Ready.
+
+### NowPlaying
+
+- Phone to Mac only. `NowPlaying { title, artist, state, album?, duration_ms? }` is sent when the
+  active media session, its metadata or its playback state changes, and once after Ready when a
+  session is active. `state` is `PLAYBACK_STATE_PLAYING`, `_PAUSED` or `_STOPPED`.
+- `title`, `artist` and `album` are untrusted peer strings: the Mac sanitizes them for display per §11
+  (`#untrusted-peer-strings-display-sanitization`). A sender MUST truncate `title` to 256, `artist` to
+  128 and `album` to 128 characters; a receiver MUST reject a longer value as a protocol violation.
+- Track metadata is never logged in release builds (invariant 7).
+
+### Transport commands
+
+- `PlayPause`, `Next`, `Previous` and `Stop` are Mac to phone only and carry no fields. The phone
+  dispatches each to the active media session's transport controls: `PlayPause` pauses a playing
+  session and plays a paused or stopped one.
+- A command with no active session, or one the session does not support, is silently dropped.
+
+### CapabilityUnavailable
+
+`CapabilityUnavailable { feature = FEATURE_MEDIA_CONTROL }` is sent by the phone only, once after
+Ready, when it lacks notification-listener access (the grant that lets it read active media
+sessions). The phone then never sends `NowPlaying` and ignores transport commands until the grant is
+present at the next session.
+
+### Conformance
+
+`protocol/vectors/media-control-encoding.json` (E72-02; E15-01, E15-02) includes `NowPlaying` (with and
+without optional fields, non-ASCII text, explicit-empty album, cap-length strings), the four commands
+and `CapabilityUnavailable` round-tripping to golden bytes on both codecs.

@@ -87,8 +87,11 @@ object ConformanceRunner {
             "sms-encoding",
             "calls-encoding",
             "media-encoding",
+            "media-frame-encoding",
+            "input-encoding",
             "rotation-encoding",
             "focus-encoding",
+            "media-control-encoding",
             "filenames",
         )
 
@@ -204,8 +207,11 @@ object ConformanceRunner {
             "sms-encoding" -> smsEncodingOutcome(vector)
             "calls-encoding" -> callsEncodingOutcome(vector)
             "media-encoding" -> mediaEncodingOutcome(vector)
+            "media-frame-encoding" -> mediaFrameEncodingOutcome(vector)
+            "input-encoding" -> inputEncodingOutcome(vector)
             "rotation-encoding" -> rotationEncodingOutcome(vector)
             "focus-encoding" -> focusEncodingOutcome(vector)
+            "media-control-encoding" -> mediaControlEncodingOutcome(vector)
             "filenames" -> filenamesOutcome(vector)
             else -> throw UnknownVectorCategoryException(category)
         }

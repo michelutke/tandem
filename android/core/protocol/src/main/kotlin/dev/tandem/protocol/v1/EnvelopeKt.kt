@@ -1268,6 +1268,42 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     */
+    public var inputEvent: dev.tandem.protocol.v1.InputEvent
+      @kotlin.jvm.JvmName("getInputEvent")
+        get() = _builder.inputEvent
+      @kotlin.jvm.JvmName("setInputEvent")
+        set(value) {
+        _builder.inputEvent = value
+      }
+    /**
+     * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     */
+    public fun clearInputEvent() {
+      _builder.clearInputEvent()
+    }
+    /**
+     * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     * @return Whether the inputEvent field is set.
+     */
+    public fun hasInputEvent(): kotlin.Boolean {
+      return _builder.hasInputEvent()
+    }
+
+    /**
+     * ```
      * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
      * ```
      *
@@ -1433,6 +1469,162 @@ public object EnvelopeKt {
     public fun hasFocusSyncCapability(): kotlin.Boolean {
       return _builder.hasFocusSyncCapability()
     }
+
+    /**
+     * ```
+     * media_control.proto (E72-02) — STATUS channel.
+     * ```
+     *
+     * `.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];`
+     */
+    public var nowPlaying: dev.tandem.protocol.v1.NowPlaying
+      @kotlin.jvm.JvmName("getNowPlaying")
+        get() = _builder.nowPlaying
+      @kotlin.jvm.JvmName("setNowPlaying")
+        set(value) {
+        _builder.nowPlaying = value
+      }
+    /**
+     * ```
+     * media_control.proto (E72-02) — STATUS channel.
+     * ```
+     *
+     * `.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];`
+     */
+    public fun clearNowPlaying() {
+      _builder.clearNowPlaying()
+    }
+    /**
+     * ```
+     * media_control.proto (E72-02) — STATUS channel.
+     * ```
+     *
+     * `.tandem.v1.NowPlaying now_playing = 130 [json_name = "nowPlaying"];`
+     * @return Whether the nowPlaying field is set.
+     */
+    public fun hasNowPlaying(): kotlin.Boolean {
+      return _builder.hasNowPlaying()
+    }
+
+    /**
+     * `.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];`
+     */
+    public var playPause: dev.tandem.protocol.v1.PlayPause
+      @kotlin.jvm.JvmName("getPlayPause")
+        get() = _builder.playPause
+      @kotlin.jvm.JvmName("setPlayPause")
+        set(value) {
+        _builder.playPause = value
+      }
+    /**
+     * `.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];`
+     */
+    public fun clearPlayPause() {
+      _builder.clearPlayPause()
+    }
+    /**
+     * `.tandem.v1.PlayPause play_pause = 131 [json_name = "playPause"];`
+     * @return Whether the playPause field is set.
+     */
+    public fun hasPlayPause(): kotlin.Boolean {
+      return _builder.hasPlayPause()
+    }
+
+    /**
+     * `.tandem.v1.Next next = 132 [json_name = "next"];`
+     */
+    public var next: dev.tandem.protocol.v1.Next
+      @kotlin.jvm.JvmName("getNext")
+        get() = _builder.next
+      @kotlin.jvm.JvmName("setNext")
+        set(value) {
+        _builder.next = value
+      }
+    /**
+     * `.tandem.v1.Next next = 132 [json_name = "next"];`
+     */
+    public fun clearNext() {
+      _builder.clearNext()
+    }
+    /**
+     * `.tandem.v1.Next next = 132 [json_name = "next"];`
+     * @return Whether the next field is set.
+     */
+    public fun hasNext(): kotlin.Boolean {
+      return _builder.hasNext()
+    }
+
+    /**
+     * `.tandem.v1.Previous previous = 133 [json_name = "previous"];`
+     */
+    public var previous: dev.tandem.protocol.v1.Previous
+      @kotlin.jvm.JvmName("getPrevious")
+        get() = _builder.previous
+      @kotlin.jvm.JvmName("setPrevious")
+        set(value) {
+        _builder.previous = value
+      }
+    /**
+     * `.tandem.v1.Previous previous = 133 [json_name = "previous"];`
+     */
+    public fun clearPrevious() {
+      _builder.clearPrevious()
+    }
+    /**
+     * `.tandem.v1.Previous previous = 133 [json_name = "previous"];`
+     * @return Whether the previous field is set.
+     */
+    public fun hasPrevious(): kotlin.Boolean {
+      return _builder.hasPrevious()
+    }
+
+    /**
+     * `.tandem.v1.Stop stop = 134 [json_name = "stop"];`
+     */
+    public var stop: dev.tandem.protocol.v1.Stop
+      @kotlin.jvm.JvmName("getStop")
+        get() = _builder.stop
+      @kotlin.jvm.JvmName("setStop")
+        set(value) {
+        _builder.stop = value
+      }
+    /**
+     * `.tandem.v1.Stop stop = 134 [json_name = "stop"];`
+     */
+    public fun clearStop() {
+      _builder.clearStop()
+    }
+    /**
+     * `.tandem.v1.Stop stop = 134 [json_name = "stop"];`
+     * @return Whether the stop field is set.
+     */
+    public fun hasStop(): kotlin.Boolean {
+      return _builder.hasStop()
+    }
+
+    /**
+     * `.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];`
+     */
+    public var capabilityUnavailable: dev.tandem.protocol.v1.CapabilityUnavailable
+      @kotlin.jvm.JvmName("getCapabilityUnavailable")
+        get() = _builder.capabilityUnavailable
+      @kotlin.jvm.JvmName("setCapabilityUnavailable")
+        set(value) {
+        _builder.capabilityUnavailable = value
+      }
+    /**
+     * `.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];`
+     */
+    public fun clearCapabilityUnavailable() {
+      _builder.clearCapabilityUnavailable()
+    }
+    /**
+     * `.tandem.v1.CapabilityUnavailable capability_unavailable = 135 [json_name = "capabilityUnavailable"];`
+     * @return Whether the capabilityUnavailable field is set.
+     */
+    public fun hasCapabilityUnavailable(): kotlin.Boolean {
+      return _builder.hasCapabilityUnavailable()
+    }
     public val payloadCase: dev.tandem.protocol.v1.Envelope.PayloadCase
     @kotlin.jvm.JvmName("getPayloadCase")
       get() = _builder.getPayloadCase()
@@ -1575,6 +1767,9 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.placeCallRequestOrNull: dev.
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionResultOrNull: dev.tandem.protocol.v1.CallActionResult?
   get() = if (hasCallActionResult()) getCallActionResult() else null
 
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.inputEventOrNull: dev.tandem.protocol.v1.InputEvent?
+  get() = if (hasInputEvent()) getInputEvent() else null
+
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationChallengeOrNull: dev.tandem.protocol.v1.RotationChallenge?
   get() = if (hasRotationChallenge()) getRotationChallenge() else null
 
@@ -1592,4 +1787,22 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.focusStateOrNull: dev.tandem
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.focusSyncCapabilityOrNull: dev.tandem.protocol.v1.FocusSyncCapability?
   get() = if (hasFocusSyncCapability()) getFocusSyncCapability() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.nowPlayingOrNull: dev.tandem.protocol.v1.NowPlaying?
+  get() = if (hasNowPlaying()) getNowPlaying() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.playPauseOrNull: dev.tandem.protocol.v1.PlayPause?
+  get() = if (hasPlayPause()) getPlayPause() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.nextOrNull: dev.tandem.protocol.v1.Next?
+  get() = if (hasNext()) getNext() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.previousOrNull: dev.tandem.protocol.v1.Previous?
+  get() = if (hasPrevious()) getPrevious() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.stopOrNull: dev.tandem.protocol.v1.Stop?
+  get() = if (hasStop()) getStop() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.capabilityUnavailableOrNull: dev.tandem.protocol.v1.CapabilityUnavailable?
+  get() = if (hasCapabilityUnavailable()) getCapabilityUnavailable() else null
 

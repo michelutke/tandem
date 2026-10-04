@@ -286,6 +286,44 @@ Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/pro
 `expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
 both codecs also re-encode to the same bytes.
 
+### `media-control-encoding.json` (E72-02)
+
+Vectors for `docs/protocol/SPEC.md` `#media-control`'s message types
+(`protocol/proto/tandem/v1/media_control.proto`): `NowPlaying`, `PlayPause`, `Next`, `Previous`,
+`Stop`, `CapabilityUnavailable`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`nowPlaying`/`playPause`/`next`/`previous`/`stop`/`capabilityUnavailable`).
+Every entry carries `expected.summary` (the canonical decoded view: `title=..|artist=..|state=<n>|album=..|durationMs=..`
+with `<absent>` for unset optionals, `empty` for commands, `feature=<n>`) and a `messageSha256`; both
+codecs also re-encode to the same bytes.
+
+### `media-frame-encoding.json` (E61-01)
+
+Vectors for `docs/protocol/SPEC.md` `#media-frame-semantics` (`protocol/proto/tandem/v1/media.proto`).
+`input.kind` selects the shape:
+
+- `mediaFormat`/`mediaFrame`/`keyframeRequest`/`rotationChanged`: `input.messageHex` is a serialized
+  `MediaMessage`; `expected.summary` is the canonical decoded view (`codec=..|width=..|height=..|fps=..`,
+  `pts=..|flags=..|dataLength=..|index=..|count=..`, `empty`, `orientation=..`) and `messageSha256`
+  digests the bytes; both codecs also re-encode to the same bytes.
+- `mediaFrameSequence`: `input.messagesHex` is an ordered list of serialized `MediaMessage` fragments.
+  Valid entries give `expected.pts`, `reassembledLength` and `reassembledSha256`; invalid entries use
+  `expectedError: "malformedFrame"`, `localReason: "FRAGMENT_VIOLATION"` and `input.rejectedAtIndex`
+  (the first fragment that violates the rule).
+- `mediaFrameLengthPrefix`: `input.frameHex` is a bare 4-byte `length_prefix` (1 MiB + 1) that the
+  framing layer rejects `MALFORMED_FRAME`/`TOO_LARGE`.
+
+### `input-encoding.json` (E62-01)
+
+Vectors for `docs/protocol/SPEC.md` `#input-events` (`protocol/proto/tandem/v1/input.proto`).
+`input.kind` is always `inputEvent`: `input.messageHex` is a serialized `InputEvent`,
+`input.activeSessionIdHex` the active mirror session's id and `input.windowWidth`/`windowHeight` the
+reported window size. Positive entries give `expected.summary` (`variant=tap|x=..|y=..`,
+`variant=swipe|..|durationMs=..`, `variant=scroll|..`, `variant=globalAction|action=..`,
+`variant=setText|text=..`, `variant=textEdit|insert=..`/`deleteBackward=..`/`imeEnter`) and
+`messageSha256`; both codecs also re-encode to the same bytes. Negative entries give `expectedError`,
+the first violated rule: `missingSessionReference`, `sessionMismatch`, `coordinatesOutOfRange`,
+`durationOutOfRange`, `unknownGlobalAction`, `textTooLong` or `deleteCountOutOfRange`.
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
