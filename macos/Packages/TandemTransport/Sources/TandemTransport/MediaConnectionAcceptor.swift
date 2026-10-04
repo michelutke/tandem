@@ -28,6 +28,8 @@ public protocol MediaTicketValidating: Sendable {
 /// peer sent after `MediaHello`; no media frame has been read from it.
 public struct MediaBinding: Sendable {
     public let sessionID: UUID
+    /// The SPKI the media connection authenticated as, equal to the ticket's control peer.
+    public let peer: SpkiFingerprint
     public let connection: any ByteStreamConnection
 }
 
@@ -103,6 +105,7 @@ public final class MediaConnectionAcceptor: MediaConnectionHandling, Sendable {
             eventContinuation.yield(.bound(sessionID))
             return MediaBinding(
                 sessionID: sessionID,
+                peer: peer,
                 connection: PrefixedByteStreamConnection(connection, prefix: leftover)
             )
         case .failure(let reason):

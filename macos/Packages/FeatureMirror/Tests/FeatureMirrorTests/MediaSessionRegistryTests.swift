@@ -50,7 +50,7 @@ private struct Harness {
         let issuer = MediaTicketIssuer(table: table, source: SequentialSource(), dateProvider: dates.provider)
         validator = MediaTicketValidator(table: table)
         registry = MediaSessionRegistry(issuer: issuer)
-        await registry.register(session: session, id: id, peer: peer)
+        await registry.register(states: session.state, id: id, peer: peer)
     }
 
     func bindMedia(presentedBy presenter: SpkiFingerprint? = nil) async -> SpyConnection {

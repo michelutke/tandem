@@ -25,7 +25,7 @@ public final class MirrorRequestViewModel {
         }
     }
 
-    private let session: (any TandemSession)?
+    private var session: (any TandemSession)?
 
     @ObservationIgnored
     private nonisolated(unsafe) var observationTask: Task<Void, Never>?
@@ -38,6 +38,16 @@ public final class MirrorRequestViewModel {
 
     deinit {
         observationTask?.cancel()
+    }
+
+    /// Switches to `session` (the paired peer's next control session, or `nil` once it ends) and
+    /// resumes observing it; a pending request is dropped.
+    public func sessionChanged(_ session: (any TandemSession)?) async {
+        observationTask?.cancel()
+        observationTask = nil
+        self.session = session
+        state = .idle
+        await start()
     }
 
     /// Begins observing the CONTROL channel for `MirrorDeclined`; returns once subscribed.

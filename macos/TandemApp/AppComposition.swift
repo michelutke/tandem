@@ -52,6 +52,8 @@ enum AppComposition {
         let sessionFeatures: SessionFeatures
         /// The user-opened pairing window the listener is wired against (E22-14).
         let pairing: MacPairingComposition
+        /// Mirror media acceptor, ticket service, window and request model wiring (E62-12).
+        let mirror: MirrorComposition
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -81,20 +83,24 @@ enum AppComposition {
             trustStore: trustStore,
             sessionRegistry: sessionRegistry
         )
-        let sessionFeatures = SessionFeatures.make(purgeRegistry: purgeRegistry)
+        let mirror = MirrorComposition()
+        let sessionFeatures = SessionFeatures.make(purgeRegistry: purgeRegistry, mirrorService: mirror.service)
         let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
             sessionRegistry: sessionRegistry,
             trustStore: trustStore,
             pairing: pairing,
-            chaining: (sessionFeatures, menuBarWiring.onSessionRegistered)
+            chaining: ListenerChaining(
+                features: sessionFeatures,
+                onSessionRegistered: menuBarWiring.onSessionRegistered,
+                mediaConnectionHandler: mirror.acceptor
+            )
         )
         guard let started = try? controller.start() else {
             return .failure(.listenerBindFailed)
         }
 
-        pairing.listenerStarted(started.listener)
         let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: pairing)
         return .success(
             RetainedLifecycle(
@@ -110,9 +116,16 @@ enum AppComposition {
                 makeMenuBarStateStream: menuBarWiring.makeStream,
                 pairedPeerName: menuBarWiring.peerName,
                 sessionFeatures: sessionFeatures,
-                pairing: pairing
+                pairing: pairing,
+                mirror: mirror
             )
         )
+    }
+
+    private struct ListenerChaining {
+        let features: SessionFeatures
+        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?
+        let mediaConnectionHandler: any MediaConnectionHandling
     }
 
     private static func makeController(
@@ -120,7 +133,7 @@ enum AppComposition {
         sessionRegistry: ControlSessionRegistry,
         trustStore: TrustStore,
         pairing: MacPairingComposition,
-        chaining: (features: SessionFeatures, onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?)
+        chaining: ListenerChaining
     ) -> ListenerController {
         let decisionCorrelator = PeerDecisionCorrelator()
         let verify = verifyBlock(
@@ -137,7 +150,8 @@ enum AppComposition {
                 pairingCandidateDriver: pairing.host,
                 trustStore: trustStore,
                 onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
-                onSessionEnded: chaining.features.onSessionEnded
+                onSessionEnded: chaining.features.onSessionEnded,
+                mediaConnectionHandler: chaining.mediaConnectionHandler
             ),
             port: .any,
             verify: verify
@@ -195,6 +209,7 @@ enum AppComposition {
         started: ListenerController.StartedListener,
         pairing: MacPairingComposition
     ) -> LifecycleControllers {
+        pairing.listenerStarted(started.listener)
         let listenerControl = ProductionListenerControl(
             listenerController: controller,
             initiallyStarted: started,

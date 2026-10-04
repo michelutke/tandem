@@ -212,6 +212,7 @@ struct MenuContentView: View {
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
+        lifecycle?.mirror.bind(mirrorRequestViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(

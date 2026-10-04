@@ -19,7 +19,10 @@ struct SessionFeatures: Sendable {
     let fileTransfer: ActiveFileTransferService
     private let sendRequestWake: SendRequestWakeObserver?
 
-    static func make(purgeRegistry: PeerDataPurgeRegistry) -> SessionFeatures {
+    static func make(
+        purgeRegistry: PeerDataPurgeRegistry,
+        mirrorService: any SessionService
+    ) -> SessionFeatures {
         let fileTransfer = ActiveFileTransferService()
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
@@ -36,6 +39,7 @@ struct SessionFeatures: Sendable {
             routing: notifications.routing
         )
         services.append(contentsOf: filesService.map { [$0] } ?? [])
+        services.append(mirrorService)
         let agent = (try? SendRequestQueue()).map { SendRequestAgent(queue: $0, transfer: fileTransfer) }
         filesService?.agent = agent
         let wake = agent.map { agent in SendRequestWakeObserver { Task { await agent.drain() } } }

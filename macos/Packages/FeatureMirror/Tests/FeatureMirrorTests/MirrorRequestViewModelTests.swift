@@ -110,4 +110,18 @@ struct MirrorRequestViewModelTests {
         }
         return false
     }
+
+    @Test
+    func mirrorRequestViewModel_sessionChanged_sendsOnNewSessionOnly() async {
+        let first = FakeTandemSession()
+        let second = FakeTandemSession()
+        let model = MirrorRequestViewModel(session: first)
+
+        await model.sessionChanged(second)
+        model.request()
+
+        let sent = await waitUntilTrue { await second.sent.count == 1 }
+        #expect(sent)
+        #expect(await first.sent.isEmpty)
+    }
 }
