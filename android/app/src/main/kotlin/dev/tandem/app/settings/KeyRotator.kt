@@ -34,6 +34,10 @@ fun RotationInitiator.asKeyRotator(activeFingerprint: () -> String): KeyRotator 
                 KeyRotationResult.Failure("The Mac did not answer in time.")
             }
 
+            RotationOutcome.SessionDropped -> {
+                KeyRotationResult.Failure("The connection dropped before the Mac answered.")
+            }
+
             is RotationOutcome.Rejected -> {
                 KeyRotationResult.Failure("The Mac rejected the new key.")
             }

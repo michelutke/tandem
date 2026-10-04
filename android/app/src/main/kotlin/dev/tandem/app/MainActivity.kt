@@ -20,6 +20,7 @@ import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemDeviceManufacturerSource
 import dev.tandem.app.onboarding.SystemPermissionRequester
 import dev.tandem.app.onboarding.SystemSdkVersionProvider
+import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
@@ -79,6 +80,7 @@ class MainActivity : TandemActivity() {
     private fun liveShellDependencies(activity: MainActivity): AppShellDependencies {
         val graph = EntryPointAccessors.fromApplication(applicationContext, ShellEntryPoint::class.java)
         val pairingFlow = graph.pairingFlow()
+        val rotationComposition = graph.rotationComposition()
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
             statusLine = graph.connectionStatusViewModel().statusText,
@@ -108,6 +110,13 @@ class MainActivity : TandemActivity() {
                 )
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
+            rotation =
+                RotationSettingsViewModel(
+                    rotator = rotationComposition.keyRotator,
+                    hasAuthenticatedSession = rotationComposition.authenticated,
+                    currentFingerprint = rotationComposition.activeFingerprint,
+                    scope = CoroutineScope(SupervisorJob() + dispatcher),
+                ),
         )
     }
 

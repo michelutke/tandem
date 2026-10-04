@@ -21,6 +21,7 @@ import dev.tandem.app.connection.FeatureAttacher
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
+import dev.tandem.app.connection.PendingRotationSessionDialer
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.TlsPairingConnector
 import dev.tandem.app.connection.TlsSessionDialer
@@ -39,18 +40,24 @@ import dev.tandem.app.connection.orchestratorConnectionState
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.SessionRegistry
+import dev.tandem.app.settings.ROTATION_INTERVAL_DAYS_KEY
+import dev.tandem.app.settings.rotationInterval
 import dev.tandem.app.shell.PairingFlow
 import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.crypto.AndroidKeyStoreIdentityKeyStore
 import dev.tandem.core.crypto.IdentityKeyManager
+import dev.tandem.core.crypto.IdentityKeyProvider
 import dev.tandem.core.discovery.NsdManagerSource
 import dev.tandem.core.discovery.NsdServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
+import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.pairing.SystemDeviceInfoProvider
 import dev.tandem.core.pairing.UnpairAction
 import dev.tandem.core.pairing.revoke.TrustRemover
+import dev.tandem.core.pairing.rotation.FileNextRotationDueStore
+import dev.tandem.core.pairing.rotation.RotationKeys
 import dev.tandem.core.storage.rotation.RotationEventLog
 import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
@@ -85,6 +92,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import java.io.File
 import java.security.SecureRandom
 import java.time.Clock
@@ -203,6 +212,7 @@ object ConnectionModule {
         pairingAddressStore: PairingAddressStore,
         activeIdentityAlias: ActiveIdentityAlias,
         trustStore: TrustStore,
+        rotation: RotationComposition,
     ): ConnectionOrchestrator {
         val clock = AppClock.system
         val idleSource =
@@ -211,16 +221,25 @@ object ConnectionModule {
                 context.getSystemService(PowerManager::class.java),
             ).also { it.start() }
         val keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias)
+        val keyStore = AndroidKeyStoreIdentityKeyStore(clock)
+        val heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, idleSource)
         val dialer =
-            TlsSessionDialer(
-                keyManager = keyManager,
-                pinnedFingerprints = pairedFingerprints::load,
-                wasPreviouslyPinned = knownPeerStore::hasEverPinned,
-                clock = clock,
-                ioDispatcher = AppDispatchers.io,
-                sessionDispatcher = AppDispatchers.io,
-                heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, idleSource),
+            PendingRotationSessionDialer(
+                handshake = rotation.pendingHandshake,
+                dialerFor = { alias ->
+                    TlsSessionDialer(
+                        keyManager = IdentityKeyManager(keyStore, alias),
+                        pinnedFingerprints = pairedFingerprints::load,
+                        wasPreviouslyPinned = knownPeerStore::hasEverPinned,
+                        clock = clock,
+                        ioDispatcher = AppDispatchers.io,
+                        sessionDispatcher = AppDispatchers.io,
+                        heartbeatDependencies = heartbeatDependencies,
+                    )
+                },
+                onAuthenticated = { rotation.refreshFingerprint() },
             )
+        startRotationScheduler(context, clock, rotation)
         val bonjourSource =
             PairedMacBonjourSource(
                 discovery =
@@ -232,7 +251,7 @@ object ConnectionModule {
                 pairedFingerprints = pairedFingerprints::snapshot,
                 dispatcher = AppDispatchers.default,
             )
-        val features = SessionFeatureFactory.create(context, clock, trustStore, purgeRegistry, keyManager)
+        val features = SessionFeatureFactory.create(context, clock, trustStore, purgeRegistry, keyManager, rotation)
         return ConnectionOrchestrator(
             dialer = dialer,
             registry = sessionRegistry,
@@ -250,4 +269,19 @@ object ConnectionModule {
 
     private const val TAG = "ConnectionModule"
     private const val PAIRING_ADDRESSES_FILE_NAME = "pairing-addresses"
+}
+
+private fun startRotationScheduler(
+    context: Context,
+    clock: Clock,
+    rotation: RotationComposition,
+) {
+    val settings =
+        SettingsStore(
+            createSettingsDataStore(File(context.filesDir, "rotation-settings.preferences_pb"), AppDispatchers.default),
+        )
+    val dueStore = FileNextRotationDueStore(File(context.filesDir, "next-rotation-due"))
+    CoroutineScope(SupervisorJob() + AppDispatchers.default).launch {
+        rotation.runScheduler(clock, dueStore, settings.get(ROTATION_INTERVAL_DAYS_KEY).map(::rotationInterval))
+    }
 }
