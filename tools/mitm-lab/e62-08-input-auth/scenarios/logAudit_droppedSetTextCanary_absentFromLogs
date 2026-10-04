@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: logAudit_droppedSetTextCanary_absentFromLogs
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(INPUT_DROPPED)
+# mitm-scenario-timeout: 600
+#
+# E62-08 (6/6): a SetText carrying a canary is sent with no mirror session. It is dropped and
+# log-audit (E15-17) over the whole phone logcat and the Mac log finds zero occurrences.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e62-08-device.sh
+source "$here/../lib/e62-08-device.sh"
+trap e15_10_teardown EXIT
+
+FAILED=0
+e15_10_setup_mac
+e62_08_setup_device
+PORT="$(e15_10_free_port)"
+e62_08_pair_phone "$PORT" || FAILED=1
+CANARY="$(e62_08_new_canary)"
+if [ "$FAILED" -eq 0 ]; then
+  e62_08_begin_measure
+  e62_08_send_input "$E62_08_PHONE_FP_HEX" SETTEXT 1 1 RANDOM "$CANARY" || FAILED=1
+  sleep "$E62_08_SETTLE_SECONDS"
+  e62_08_assert_one_drop NoConsent SET_TEXT || FAILED=1
+  LOGCAT_FILE="$E15_10_TMP_DIR/phone-logcat.txt"
+  e62_08_adb logcat -d -v threadtime > "$LOGCAT_FILE"
+  if e62_08_log_audit "$CANARY" "$LOGCAT_FILE" "$HARNESS_LOG_PATH"; then
+    e62_08_log "OK: log-audit found zero canary occurrences"
+  else
+    e62_08_log "FAIL: canary found in captured logs"
+    FAILED=1
+  fi
+fi
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e62_08_finish INPUT_DROPPED

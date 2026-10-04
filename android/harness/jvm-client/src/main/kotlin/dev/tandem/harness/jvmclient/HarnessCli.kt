@@ -198,6 +198,9 @@ private class HarnessCli(
 
     private val heldMediaStreams = mutableListOf<ByteStream>()
 
+    private var remoteInput: RemoteInputHarness? = null
+    private var inputWatchJob: Job? = null
+
     /** Handles one command line; returns `false` if the CLI should stop reading further commands. */
     fun handle(line: String): Boolean {
         val parts = line.split(" ", limit = 2)
@@ -211,6 +214,8 @@ private class HarnessCli(
             "TRUSTED" -> trusted(rest)
             "STATUS" -> status(rest)
             "RINGSTATE" -> ringState()
+            "INPUTWATCH" -> inputWatch()
+            "INPUTSTATS" -> println(remoteInput?.statsLine() ?: "ERROR no INPUTWATCH running")
             "DISCONNECT" -> disconnect()
             "SENDNOTIFICATIONS" -> sendNotifications(rest)
             "FLOOD" -> flood(rest)
@@ -234,6 +239,7 @@ private class HarnessCli(
     }
 
     fun shutdown() {
+        inputWatchJob?.cancel()
         heldMediaStreams.forEach { it.closeAbruptly() }
         session?.close()
         pairing?.close()
@@ -328,6 +334,29 @@ private class HarnessCli(
         } else {
             println("ERROR STATUS_QUEUE_FULL")
         }
+    }
+
+    /**
+     * `INPUTWATCH` (E62-08): routes every `InputEvent` the connected [session] receives on the INPUT
+     * channel through a [RemoteInputHarness] (the real `InputGate`, no mirror consent, recording
+     * dispatcher); `INPUTSTATS` prints its counts.
+     */
+    private fun inputWatch() {
+        val activeSession = session
+        if (activeSession == null) {
+            println("ERROR no session open (CONNECT first)")
+            return
+        }
+        val input = RemoteInputHarness()
+        remoteInput = input
+        inputWatchJob?.cancel()
+        inputWatchJob =
+            scope.launch {
+                activeSession.receive(Channel.CHANNEL_INPUT).collect { envelope ->
+                    if (envelope.hasInputEvent()) input.handle(envelope.inputEvent)
+                }
+            }
+        println("OK INPUT_WATCHING")
     }
 
     /** `RINGSTATE` (E23-08): the harness's current [HarnessRingReactor] counters, for scenario assertions. */

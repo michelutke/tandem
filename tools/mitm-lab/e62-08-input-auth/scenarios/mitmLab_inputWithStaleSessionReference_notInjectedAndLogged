@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_inputWithStaleSessionReference_notInjectedAndLogged
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(INPUT_DROPPED)
+# mitm-scenario-timeout: 600
+#
+# E62-08 (2/6): during a real, user-started mirror session the Mac sends a Tap whose session
+# reference is not the active one (16 random bytes). Dropped as SessionMismatch, nothing injected,
+# one drop log entry.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e62-08-device.sh
+source "$here/../lib/e62-08-device.sh"
+trap e15_10_teardown EXIT
+
+FAILED=0
+e15_10_setup_mac
+e62_08_setup_device
+PORT="$(e15_10_free_port)"
+e62_08_pair_phone "$PORT" || FAILED=1
+if [ "$FAILED" -eq 0 ]; then
+  e62_08_user_starts_mirror || FAILED=1
+fi
+if [ "$FAILED" -eq 0 ]; then
+  e62_08_begin_measure
+  e62_08_send_input "$E62_08_PHONE_FP_HEX" TAP 1 1 RANDOM || FAILED=1
+  sleep "$E62_08_SETTLE_SECONDS"
+  e62_08_assert_nothing_injected || FAILED=1
+  e62_08_assert_one_drop SessionMismatch TAP || FAILED=1
+fi
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e62_08_finish INPUT_DROPPED

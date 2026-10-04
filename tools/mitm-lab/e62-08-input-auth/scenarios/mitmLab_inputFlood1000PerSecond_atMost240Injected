@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_inputFlood1000PerSecond_atMost240Injected
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(INPUT_RATE_LIMITED)
+# mitm-scenario-timeout: 600
+#
+# E62-08 (4/6): during a real mirror session the Mac floods correctly bound Taps at 1000/s for 3 s.
+# The phone must inject at most 240 gestures in any wall-clock second (counted at the foreground
+# activity from logcat timestamps) and report the excess as rate-limited drops.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e62-08-device.sh
+source "$here/../lib/e62-08-device.sh"
+trap e15_10_teardown EXIT
+
+FAILED=0
+e15_10_setup_mac
+e62_08_setup_device
+PORT="$(e15_10_free_port)"
+e62_08_pair_phone "$PORT" || FAILED=1
+if [ "$FAILED" -eq 0 ]; then
+  e62_08_user_starts_mirror || FAILED=1
+fi
+if [ "$FAILED" -eq 0 ]; then
+  e62_08_begin_measure
+  e62_08_send_input "$E62_08_PHONE_FP_HEX" TAP 3000 1000 "$E62_08_MIRROR_SESSION_HEX" || FAILED=1
+  sleep "$E62_08_SETTLE_SECONDS"
+  peak="$(e62_08_max_per_second)"
+  e62_08_log "peak injected touches in one second: $peak"
+  if [ "$peak" -gt 240 ]; then
+    e62_08_log "FAIL: $peak injected in one second, at most 240 allowed"
+    FAILED=1
+  fi
+  if ! e62_08_adb logcat -d -v brief -s InputGate:W | grep -q 'input_rate_limited count='; then
+    e62_08_log "FAIL: the flood was not reported as rate limited"
+    FAILED=1
+  fi
+fi
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e62_08_finish INPUT_RATE_LIMITED

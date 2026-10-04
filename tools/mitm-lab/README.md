@@ -282,3 +282,32 @@ listener (no harness hook starts a Mac-initiated rotation), so no real Mac offer
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e70-09-rotation/scenarios --timeout 300
 ruby tools/mitm-lab/test/e70_09_scenarios_test.rb   # structure checks only
 ```
+
+## E62-08: input-authorization scenarios
+
+Invariant 8 (remote input only during a user-started mirror session), proven against input the real
+Mac app sends but its mirror window never would. The DEBUG-only Mac stdin command (`-HarnessInteractiveCommands YES`)
+`SENDINPUT <phoneFpHex> <TAP|TAPOUT|SETTEXT> <count> <perSecond> <NONE|RANDOM|sessionIdHex> [text]` sends the
+crafted `InputEvent`s; `MIRRORREQUEST <fpHex>` and `MIRRORSTOP` start and end a real mirror session (with
+`-HarnessMediaTickets YES`, which also prints `harness-mirror-session: <hex>`, the phone-minted reference).
+
+- Integration variant: `tools/harness/integration/e62-08.sh` (macOS, no phone). The JVM harness client's
+  `INPUTWATCH`/`INPUTSTATS` run the real `InputGate` with a recording dispatcher (`RemoteInputHarness.kt`) and
+  no mirror consent; the real Mac sends a Tap, then a `SetText` carrying a canary. Expects zero dispatcher
+  calls and one drop record per event, and `tools/log-audit/log-audit.sh` over the client capture and the Mac
+  log finds zero canary occurrences (`inputGate_realMacSendsInputWithoutSession_zeroDispatchOneDropRecord`,
+  `logAudit_droppedSetTextCanary_absentFromLogs`).
+- Device scenarios: `tools/mitm-lab/e62-08-input-auth/scenarios/` (six, `lib/e62-08-device.sh`) target the real
+  phone app over adb with `tools/companion-app`'s `InputCounterActivity` in the foreground (one logcat line per
+  touch that reaches it). No session, a stale session reference, input after the session stopped, a 1000/s flood
+  (at most 240 touches in any wall-clock second) and out-of-range coordinates (dropped, not clamped) each assert
+  zero or bounded touches at the counter and the phone's `InputGate` drop log. Needs a debug build with the
+  remote-input accessibility service enabled; the operator scans the pairing QR the script prints, and the
+  script presses the on-phone prompt through uiautomator (`E62_08_MIRROR_TAPS` overrides the button labels).
+  Not run in CI or by `audit-step.sh`.
+
+```sh
+tools/harness/integration/e62-08.sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e62-08-input-auth/scenarios --timeout 600   # phone on adb
+ruby tools/mitm-lab/test/e62_08_scenarios_test.rb   # structure checks only
+```
