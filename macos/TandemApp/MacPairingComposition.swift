@@ -110,6 +110,9 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
     }
 
     func openPairingWindow() {
+        if let pending = pendingConfirmation, !pending.isResolved {
+            Task { await pending.ownerDidDismiss() }
+        }
         guard let coordinator = try? composition.host.open() else {
             let alert = NSAlert()
             alert.messageText = "Pairing unavailable."
