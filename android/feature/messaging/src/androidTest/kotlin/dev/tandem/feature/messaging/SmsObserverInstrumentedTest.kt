@@ -8,6 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
@@ -34,6 +35,7 @@ class SmsObserverInstrumentedTest {
         runBlocking {
             val source = ContentResolverSmsSource(context)
             val change = async(start = CoroutineStart.UNDISPATCHED) { source.changes().first() }
+            yield()
 
             instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
             val observed = withTimeoutOrNull(OBSERVE_TIMEOUT_MS) { change.await() }

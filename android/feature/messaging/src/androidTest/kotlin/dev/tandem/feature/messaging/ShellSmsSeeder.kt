@@ -4,6 +4,7 @@ import android.app.Instrumentation
 import android.content.ContentValues
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.Telephony
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.rules.ExternalResource
 
@@ -17,7 +18,7 @@ class DefaultSmsRoleRule : ExternalResource() {
     private var originalHolder = ""
 
     override fun before() {
-        originalHolder = instrumentation.roleHolder()
+        originalHolder = Telephony.Sms.getDefaultSmsPackage(instrumentation.targetContext).orEmpty()
         instrumentation.shell("cmd role add-role-holder --user 0 $SMS_ROLE $packageName")
         if (!instrumentation.awaitHolder(packageName)) {
             instrumentation.shell("settings put secure $LEGACY_SMS_SETTING $packageName")
@@ -36,18 +37,11 @@ class DefaultSmsRoleRule : ExternalResource() {
 
     private fun Instrumentation.awaitHolder(expected: String): Boolean {
         repeat(HOLDER_POLL_COUNT) {
-            if (roleHolder() == expected) return true
+            if (Telephony.Sms.getDefaultSmsPackage(targetContext) == expected) return true
             Thread.sleep(HOLDER_POLL_INTERVAL_MS)
         }
         return false
     }
-
-    private fun Instrumentation.roleHolder(): String =
-        shell("cmd role get-role-holders --user 0 $SMS_ROLE")
-            .trim()
-            .lineSequence()
-            .firstOrNull()
-            .orEmpty()
 
     private companion object {
         const val SMS_ROLE = "android.app.role.SMS"
