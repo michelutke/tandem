@@ -13,7 +13,7 @@ reserved for it.
 |---|---|---|---|
 | `contacts.proto` | E51-01 | `CHANNEL_CONTACTS` | 80–89 |
 | `media.proto` | E60-01 / E61-01 | `CHANNEL_CONTROL` (`RequestMediaTicket` = 8, written by E60-01; grant is `MediaTicketGrant` in `control.proto`, E01-12) | 8 (`RequestMediaTicket`) — `MediaHello` and E61-01 `MediaMessage` (`MediaFormat`, `MediaFrame`, `KeyframeRequest`, `RotationChanged`) ride the separate media connection, which carries no `Envelope` and has no channel |
-| `input.proto` | E62-01 | `CHANNEL_INPUT` | 100–109 |
+| `input.proto` | E62-01 | `CHANNEL_INPUT` | 100 (`InputEvent`, written by E62-01); 101–109 held |
 | `rotation.proto` | E70-01 | `CHANNEL_CONTROL` | 110–113 (`RotationChallenge`, `KeyRotation`, `RotationAck`, `RotationReject`, written by E70-01); 114–119 held |
 | `focus.proto` | E72-04 | `CHANNEL_CONTROL` | 120–121 (`FocusState`, `FocusSyncCapability`, written by E72-04); 122–129 held |
 | `media_control.proto` | E72-02 | `CHANNEL_STATUS` (device-state domain, like `Ring`/`RingStop`; SPEC.md §4 closed channel set) | 130–135 (`NowPlaying`, `PlayPause`, `Next`, `Previous`, `Stop`, `CapabilityUnavailable`, written by E72-02); 136–139 held |

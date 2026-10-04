@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// E62-01: input.proto — remote input events, INPUT channel (docs/protocol/SPEC.md #input-events).
+// InputEvent is the Envelope payload (field 100) on CHANNEL_INPUT, Mac -> phone. Invariant 8: remote
+// input is accepted only during a user-started mirror session, so every InputEvent carries the
+// mirror-session reference it is bound to. There is deliberately no raw key-event message: an
+// AccessibilityService cannot inject arbitrary KeyEvents and raw key codes would widen the surface.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// InputEvent: one remote input action. `session_id` is the 16-byte id of the active mirror session
+// this event is bound to; the receiver MUST drop the event when it is absent, not exactly 16 bytes,
+// or not the active session's id (stale or foreign). Exactly one `event` variant is set; an unset
+// oneof is rejected UNKNOWN_PAYLOAD_TYPE.
+message InputEvent {
+  bytes session_id = 1;
+  oneof event {
+    Tap tap = 2;
+    Swipe swipe = 3;
+    Scroll scroll = 4;
+    GlobalAction global_action = 5;
+    SetText set_text = 6;
+    TextEdit text_edit = 7;
+  }
+}
+
+// Tap: coordinates are window-local pixels and MUST lie inside the reported window size.
+message Tap {
+  uint32 x = 1;
+  uint32 y = 2;
+}
+
+// Swipe: from (x1, y1) to (x2, y2) over `duration_ms` (1..5000).
+message Swipe {
+  uint32 x1 = 1;
+  uint32 y1 = 2;
+  uint32 x2 = 3;
+  uint32 y2 = 4;
+  uint32 duration_ms = 5;
+}
+
+// Scroll: at (x, y), scrolling by the signed deltas (dx, dy) in window pixels.
+message Scroll {
+  uint32 x = 1;
+  uint32 y = 2;
+  sint32 dx = 3;
+  sint32 dy = 4;
+}
+
+enum GlobalActionKind {
+  GLOBAL_ACTION_KIND_UNSPECIFIED = 0;
+  GLOBAL_ACTION_KIND_BACK = 1;
+  GLOBAL_ACTION_KIND_HOME = 2;
+  GLOBAL_ACTION_KIND_RECENTS = 3;
+  GLOBAL_ACTION_KIND_NOTIFICATIONS = 4;
+}
+
+// GlobalAction: a system navigation action. UNSPECIFIED and values this version does not define are
+// dropped.
+message GlobalAction {
+  GlobalActionKind action = 1;
+}
+
+// SetText: replaces the focused field's text; at most 4096 characters.
+message SetText {
+  string text = 1;
+}
+
+// ImeEnter: the IME enter/action key.
+message ImeEnter {}
+
+// TextEdit: incremental keyboard input. `insert` is at most 4096 characters; `delete_backward` is
+// 1..64 characters.
+message TextEdit {
+  oneof edit {
+    string insert = 1;
+    uint32 delete_backward = 2;
+    ImeEnter ime_enter = 3;
+  }
+}

@@ -599,6 +599,25 @@ public interface EnvelopeOrBuilder extends
 
   /**
    * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   * @return Whether the inputEvent field is set.
+   */
+  boolean hasInputEvent();
+  /**
+   * <pre>
+   * input.proto (E62-01) — INPUT channel.
+   * </pre>
+   *
+   * <code>.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];</code>
+   * @return The inputEvent.
+   */
+  dev.tandem.protocol.v1.InputEvent getInputEvent();
+
+  /**
+   * <pre>
    * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
    * </pre>
    *

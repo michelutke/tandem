@@ -394,6 +394,15 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .callActionResult(newValue)}
   }
 
+  /// input.proto (E62-01) — INPUT channel.
+  public var inputEvent: Tandem_V1_InputEvent {
+    get {
+      if case .inputEvent(let v)? = payload {return v}
+      return Tandem_V1_InputEvent()
+    }
+    set {payload = .inputEvent(newValue)}
+  }
+
   /// rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
   public var rotationChallenge: Tandem_V1_RotationChallenge {
     get {
@@ -549,6 +558,8 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case callAction(Tandem_V1_CallAction)
     case placeCallRequest(Tandem_V1_PlaceCallRequest)
     case callActionResult(Tandem_V1_CallActionResult)
+    /// input.proto (E62-01) — INPUT channel.
+    case inputEvent(Tandem_V1_InputEvent)
     /// rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
     case rotationChallenge(Tandem_V1_RotationChallenge)
     case keyRotation(Tandem_V1_KeyRotation)
@@ -576,7 +587,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{4}\u{11}rotation_challenge\0\u{3}key_rotation\0\u{3}rotation_ack\0\u{3}rotation_reject\0\u{4}\u{7}focus_state\0\u{3}focus_sync_capability\0\u{4}\u{9}now_playing\0\u{3}play_pause\0\u{1}next\0\u{1}previous\0\u{1}stop\0\u{3}capability_unavailable\0\u{c}\u{9}\u{1}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}d\u{1}\u{a}\u{c}r\u{1}\u{6}\u{c}z\u{1}\u{8}\u{c}H\u{2}\u{4}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{4}\u{7}input_event\0\u{4}\u{a}rotation_challenge\0\u{3}key_rotation\0\u{3}rotation_ack\0\u{3}rotation_reject\0\u{4}\u{7}focus_state\0\u{3}focus_sync_capability\0\u{4}\u{9}now_playing\0\u{3}play_pause\0\u{1}next\0\u{1}previous\0\u{1}stop\0\u{3}capability_unavailable\0\u{c}\u{9}\u{1}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}e\u{1}\u{9}\u{c}r\u{1}\u{6}\u{c}z\u{1}\u{8}\u{c}H\u{2}\u{4}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1146,6 +1157,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .callActionResult(v)
         }
       }()
+      case 100: try {
+        var v: Tandem_V1_InputEvent?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .inputEvent(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .inputEvent(v)
+        }
+      }()
       case 110: try {
         var v: Tandem_V1_RotationChallenge?
         var hadOneofValue = false
@@ -1493,6 +1517,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .callActionResult?: try {
       guard case .callActionResult(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 93)
+    }()
+    case .inputEvent?: try {
+      guard case .inputEvent(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 100)
     }()
     case .rotationChallenge?: try {
       guard case .rotationChallenge(let v)? = self.payload else { preconditionFailure() }

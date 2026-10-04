@@ -1268,6 +1268,42 @@ public object EnvelopeKt {
 
     /**
      * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     */
+    public var inputEvent: dev.tandem.protocol.v1.InputEvent
+      @kotlin.jvm.JvmName("getInputEvent")
+        get() = _builder.inputEvent
+      @kotlin.jvm.JvmName("setInputEvent")
+        set(value) {
+        _builder.inputEvent = value
+      }
+    /**
+     * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     */
+    public fun clearInputEvent() {
+      _builder.clearInputEvent()
+    }
+    /**
+     * ```
+     * input.proto (E62-01) — INPUT channel.
+     * ```
+     *
+     * `.tandem.v1.InputEvent input_event = 100 [json_name = "inputEvent"];`
+     * @return Whether the inputEvent field is set.
+     */
+    public fun hasInputEvent(): kotlin.Boolean {
+      return _builder.hasInputEvent()
+    }
+
+    /**
+     * ```
      * rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
      * ```
      *
@@ -1730,6 +1766,9 @@ public val dev.tandem.protocol.v1.EnvelopeOrBuilder.placeCallRequestOrNull: dev.
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.callActionResultOrNull: dev.tandem.protocol.v1.CallActionResult?
   get() = if (hasCallActionResult()) getCallActionResult() else null
+
+public val dev.tandem.protocol.v1.EnvelopeOrBuilder.inputEventOrNull: dev.tandem.protocol.v1.InputEvent?
+  get() = if (hasInputEvent()) getInputEvent() else null
 
 public val dev.tandem.protocol.v1.EnvelopeOrBuilder.rotationChallengeOrNull: dev.tandem.protocol.v1.RotationChallenge?
   get() = if (hasRotationChallenge()) getRotationChallenge() else null
