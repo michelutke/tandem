@@ -34,11 +34,21 @@ sealed interface RotationOutcome {
     /** No reply in time; the old key stays active and the new key is kept for a re-send on a later session. */
     data object TimedOut : RotationOutcome
 
+    /** The session ended before a reply; the old key stays active and the rotation stays pending. */
+    data object SessionDropped : RotationOutcome
+
     /** The Mac rejected; trust is unchanged, the old key stays active and the new key is deleted. */
     data class Rejected(
         val reason: RotationRejectReason,
     ) : RotationOutcome
 }
+
+/** The identity-key collaborators a rotation reads and mutates. */
+class RotationKeys(
+    val keyStore: IdentityKeyStore,
+    val keyProvider: IdentityKeyProvider,
+    val activeAlias: ActiveIdentityAlias,
+)
 
 /**
  * Phone-initiated key rotation on one control session (E70-02; SPEC.md #key-rotation, D-67, D-74).
@@ -48,17 +58,19 @@ sealed interface RotationOutcome {
  *
  * A re-send after a lost Ack happens on a later session: [rotate] reuses the new key still sitting
  * under [ActiveIdentityAlias.nextAlias], so the Mac (which already holds it) acks idempotently.
+ * [rotationLock] is shared with [PendingRotationHandshake] so the two never mutate keys concurrently.
  * Never logs keys or signatures.
  */
 class RotationInitiator(
     private val session: TandemSession,
-    private val keyStore: IdentityKeyStore,
-    private val keyProvider: IdentityKeyProvider,
-    private val activeAlias: ActiveIdentityAlias,
+    private val keys: RotationKeys,
+    private val rotationLock: Mutex,
     private val peerPinned: Boolean,
     private val pairingInProgress: () -> Boolean,
 ) {
-    private val rotateLock = Mutex()
+    private val keyStore = keys.keyStore
+    private val keyProvider = keys.keyProvider
+    private val activeAlias = keys.activeAlias
 
     @Volatile
     private var challenge: ByteArray? = null
@@ -68,26 +80,30 @@ class RotationInitiator(
 
     /** Suspends for the life of the session; returns when its CONTROL receive flow completes. */
     suspend fun run() {
-        session.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
-            when {
-                envelope.hasRotationChallenge() -> {
-                    val cb = envelope.rotationChallenge.challenge.toByteArray()
-                    if (cb.size == ROTATION_CHALLENGE_LENGTH) challenge = cb
-                }
+        try {
+            session.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
+                when {
+                    envelope.hasRotationChallenge() -> {
+                        val cb = envelope.rotationChallenge.challenge.toByteArray()
+                        if (cb.size == ROTATION_CHALLENGE_LENGTH) challenge = cb
+                    }
 
-                envelope.hasRotationAck() -> {
-                    pendingReply?.complete(RotationOutcome.Committed)
-                }
+                    envelope.hasRotationAck() -> {
+                        pendingReply?.complete(RotationOutcome.Committed)
+                    }
 
-                envelope.hasRotationReject() -> {
-                    pendingReply?.complete(RotationOutcome.Rejected(envelope.rotationReject.reason))
+                    envelope.hasRotationReject() -> {
+                        pendingReply?.complete(RotationOutcome.Rejected(envelope.rotationReject.reason))
+                    }
                 }
             }
+        } finally {
+            pendingReply?.complete(RotationOutcome.SessionDropped)
         }
     }
 
     suspend fun rotate(): RotationOutcome =
-        rotateLock.withLock {
+        rotationLock.withLock {
             val cb = challenge
             when {
                 !isAuthenticated() -> RotationOutcome.NotAuthenticated

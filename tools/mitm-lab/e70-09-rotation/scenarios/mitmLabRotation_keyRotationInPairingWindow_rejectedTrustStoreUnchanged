@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabRotation_keyRotationInPairingWindow_rejectedTrustStoreUnchanged
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(PAIRING_FAILED)
+# mitm-scenario-timeout: 240
+#
+# E70-09 (2/6): inside a pairing-window session (the Mac's pairing window is open, the client is an
+# admitted pairing candidate that has received `PairChallenge`), the client sends `KeyRotation`
+# instead of `PairRequest`. SPEC.md #key-rotation "Messages": on a pairing-candidate connection
+# before `PairAccepted` any rotation payload is a wrong payload -- the Mac closes with
+# `PAIRING_FAILED` and sends no `RotationReject`. Observed: connection closed, no ack/reject, trust
+# store unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e70-09-common.sh
+source "$here/../lib/e70-09-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_setup_mac
+TRUST_BEFORE="$(e70_09_trust_snapshot)"
+
+PORT="$(e15_10_free_port)"
+e15_10_launch_plain "$PORT" -HarnessOpenPairingWindow YES
+MAC_FP_B64="$(e15_10_hex_to_b64url "$(harness_identity_spki)")"
+
+FAILED=0
+e15_10_start_client
+
+open_response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+e70_09_log "RAWOPEN response: $open_response"
+case "$open_response" in
+  "OK OPENED "*) ;;
+  *)
+    e70_09_log "FAIL: not admitted as a pairing candidate: $open_response"
+    FAILED=1
+    ;;
+esac
+
+if [ "$FAILED" -eq 0 ]; then
+  # No RotationChallenge exists on a pairing-candidate connection; any 32-byte cb is as good.
+  e70_09_rawrotate "CB=0000000000000000000000000000000000000000000000000000000000000000"
+  case "$E70_09_ROTATE_EVENT" in
+    "EVENT ROTATION_CLOSED") e70_09_log "OK: Mac closed the pairing-candidate connection without a RotationReject" ;;
+    *)
+      e70_09_log "FAIL: expected the connection to be closed, got: $E70_09_ROTATE_EVENT"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_10_stop_client
+e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(PAIRING_FAILED)"
+else
+  echo "OUTCOME: FAILED"
+fi
