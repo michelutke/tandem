@@ -29,6 +29,7 @@ public actor ThumbnailCache: PeerDataPurging {
     private let capBytes: Int
     private let now: @Sendable () -> Date
     private let fileManager = FileManager.default
+    private var index: [String: CachedFile]?
 
     public init(
         directory: URL,
@@ -52,9 +53,13 @@ public actor ThumbnailCache: PeerDataPurging {
         guard let bytes = try? Data(contentsOf: url) else { return nil }
         guard Self.isCompletePNG(bytes) else {
             try? fileManager.removeItem(at: url)
+            index?[Self.indexKey(url)] = nil
             return nil
         }
-        try? fileManager.setAttributes([.modificationDate: now()], ofItemAtPath: url.path)
+        let modified = now()
+        try? fileManager.setAttributes([.modificationDate: modified], ofItemAtPath: url.path)
+        let key = Self.indexKey(url)
+        if index?[key] != nil { index?[key] = CachedFile(url: url, size: bytes.count, modified: modified) }
         return bytes
     }
 
@@ -72,11 +77,14 @@ public actor ThumbnailCache: PeerDataPurging {
             )
             let temporary = url.deletingLastPathComponent().appendingPathComponent(".tmp-\(UUID().uuidString)")
             var attributes = Self.ownerOnlyFile
-            attributes[.modificationDate] = now()
+            let modified = now()
+            attributes[.modificationDate] = modified
             guard fileManager.createFile(atPath: temporary.path, contents: bytes, attributes: attributes) else {
                 return
             }
             _ = try fileManager.replaceItemAt(url, withItemAt: temporary)
+            loadIndexIfNeeded()
+            index?[Self.indexKey(url)] = CachedFile(url: url, size: bytes.count, modified: modified)
         } catch {
             return
         }
@@ -87,7 +95,9 @@ public actor ThumbnailCache: PeerDataPurging {
     public func purgeAll(peer: SpkiFingerprint) async throws {
         let peerDirectory = directory.appendingPathComponent(peer.hexString, isDirectory: true)
         guard fileManager.fileExists(atPath: peerDirectory.path) else { return }
+        let purgedPrefix = Self.indexKey(peerDirectory) + "/"
         try fileManager.removeItem(at: peerDirectory)
+        index = index?.filter { !$0.key.hasPrefix(purgedPrefix) }
     }
 
     private func fileURL(peer: SpkiFingerprint, id: String, maxPx: UInt32) -> URL {
@@ -97,13 +107,27 @@ public actor ThumbnailCache: PeerDataPurging {
             .appendingPathComponent("\(digest)_\(maxPx).png")
     }
 
+    private func loadIndexIfNeeded() {
+        guard index == nil else { return }
+        index = Dictionary(cachedFiles().map { (Self.indexKey($0.url), $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     private func evictToCap(keeping keptURL: URL) {
-        var entries = cachedFiles()
-        var total = entries.reduce(0) { $0 + $1.size }
-        entries.sort { ($0.modified, $0.url.path) < ($1.modified, $1.url.path) }
-        for entry in entries where total > capBytes && entry.url != keptURL {
-            if (try? fileManager.removeItem(at: entry.url)) != nil { total -= entry.size }
+        loadIndexIfNeeded()
+        let keptKey = Self.indexKey(keptURL)
+        var total = index?.values.reduce(0) { $0 + $1.size } ?? 0
+        while total > capBytes {
+            guard let oldest = index?.lazy.filter({ $0.key != keptKey })
+                .min(by: { Self.isOlder($0.value, than: $1.value) }) else { return }
+            try? fileManager.removeItem(at: oldest.value.url)
+            guard !fileManager.fileExists(atPath: oldest.value.url.path) else { return }
+            index?[oldest.key] = nil
+            total -= oldest.value.size
         }
+    }
+
+    private static func isOlder(_ lhs: CachedFile, than rhs: CachedFile) -> Bool {
+        (lhs.modified, lhs.url.path) < (rhs.modified, rhs.url.path)
     }
 
     private func cachedFiles() -> [CachedFile] {
@@ -123,6 +147,10 @@ public actor ThumbnailCache: PeerDataPurging {
             ))
         }
         return files
+    }
+
+    private static func indexKey(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().path
     }
 
     private static func isCompletePNG(_ bytes: Data) -> Bool {
