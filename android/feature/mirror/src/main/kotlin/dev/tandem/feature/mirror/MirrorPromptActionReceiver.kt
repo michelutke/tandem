@@ -10,7 +10,7 @@ object MirrorPromptActionDispatcher {
     var controller: MirrorPromptController? = null
 }
 
-/** Routes the prompt notification's Start/Not now/dismiss to [MirrorPromptActionDispatcher]'s controller. */
+/** Routes the prompt notification's Not now/dismiss to [MirrorPromptActionDispatcher]'s controller. */
 class MirrorPromptActionReceiver : BroadcastReceiver() {
     override fun onReceive(
         context: Context,
@@ -18,7 +18,6 @@ class MirrorPromptActionReceiver : BroadcastReceiver() {
     ) {
         val controller = MirrorPromptActionDispatcher.controller ?: return
         when (intent.action) {
-            NotificationMirrorPromptPresenter.ACTION_START -> controller.onStartTapped()
             NotificationMirrorPromptPresenter.ACTION_DECLINE -> controller.onDeclineOrDismiss()
         }
     }

@@ -45,11 +45,7 @@ class AndroidMirrorPlatform(
 
     override val consentLauncher: ProjectionConsentLauncher =
         MediaProjectionConsentLauncher(projectionManager) { consentIntent ->
-            context.startActivity(
-                Intent(context, MirrorConsentActivity::class.java)
-                    .putExtra(MirrorConsentActivity.EXTRA_CONSENT_INTENT, consentIntent)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+            MirrorConsentResults.pendingConsentIntent = consentIntent
         }
 
     override fun setConsentListener(listener: ((granted: Boolean) -> Unit)?) {
@@ -81,6 +77,7 @@ class AndroidMirrorPlatform(
     }
 
     override fun stopCaptureService() {
+        grant = null
         context.stopService(Intent(context, MirrorCaptureService::class.java))
     }
 

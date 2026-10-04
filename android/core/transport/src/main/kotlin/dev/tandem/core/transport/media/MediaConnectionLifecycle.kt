@@ -1,5 +1,6 @@
 package dev.tandem.core.transport.media
 
+import com.google.protobuf.ByteString
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.core.transport.TandemSession
@@ -39,10 +40,13 @@ class MediaConnectionLifecycle(
     val mirrorActive: StateFlow<Boolean> = mutableMirrorActive.asStateFlow()
 
     /** Closes any active media connection, then dials; the new connection is tracked on success. */
-    suspend fun start(address: CandidateAddress): MediaDialResult =
+    suspend fun start(
+        address: CandidateAddress,
+        mirrorSessionId: ByteString,
+    ): MediaDialResult =
         startLock.withLock {
             closeActive()
-            val result = dialer.dial(address)
+            val result = dialer.dial(address, mirrorSessionId)
             if (result is MediaDialResult.Connected) adopt(result.stream)
             result
         }

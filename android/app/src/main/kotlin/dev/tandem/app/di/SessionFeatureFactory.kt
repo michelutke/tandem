@@ -22,6 +22,7 @@ import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
 import dev.tandem.app.mirror.AndroidMirrorPlatform
 import dev.tandem.app.mirror.LogInputDropLog
+import dev.tandem.app.mirror.MirrorConsentActivity
 import dev.tandem.app.mirror.MirrorFeature
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
@@ -129,7 +130,7 @@ object SessionFeatureFactory {
         val application = context as TandemApplication
         return MirrorFeature(
             platform = AndroidMirrorPlatform(context),
-            presenter = NotificationMirrorPromptPresenter(context),
+            presenter = NotificationMirrorPromptPresenter(context, MirrorConsentActivity::class.java),
             peerName = { peer ->
                 trustStore.list().firstOrNull { it.spkiSha256Base64Url == peer.base64Url }?.displayName
                     ?: context.getString(R.string.mirror_peer_fallback_name)

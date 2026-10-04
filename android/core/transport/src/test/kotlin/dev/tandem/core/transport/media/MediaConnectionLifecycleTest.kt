@@ -43,7 +43,7 @@ class MediaConnectionLifecycleTest {
         runTest {
             val session = readySession()
             val lifecycle = lifecycle(session)
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
 
             session.emitState(ConnectionState.Failed(ConnectionFailure.Timeout))
             advanceTimeBy(1_000)
@@ -57,7 +57,7 @@ class MediaConnectionLifecycleTest {
         runTest {
             val session = readySession()
             val lifecycle = lifecycle(session)
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
 
             session.emitState(ConnectionState.Disconnected())
             advanceTimeBy(1_000)
@@ -71,10 +71,10 @@ class MediaConnectionLifecycleTest {
         runTest {
             val session = readySession()
             val lifecycle = lifecycle(session)
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
             session.emitIncoming(grant(TICKET_B))
 
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
 
             assertEquals(listOf("dial", "close", "dial"), events)
             assertTrue(lifecycle.mirrorActive.value)
@@ -85,7 +85,7 @@ class MediaConnectionLifecycleTest {
         runTest {
             val session = readySession()
             val lifecycle = lifecycle(session)
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
 
             lifecycle.stop()
 
@@ -99,9 +99,9 @@ class MediaConnectionLifecycleTest {
         runTest {
             val session = readySession()
             val lifecycle = lifecycle(session)
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
             session.emitIncoming(grant(TICKET_B))
-            lifecycle.start(address)
+            lifecycle.start(address, SESSION_ID)
 
             session.emitState(ConnectionState.Disconnected())
             advanceTimeBy(1_000)
@@ -146,6 +146,7 @@ class MediaConnectionLifecycleTest {
 
     private companion object {
         val TICKET_A = ByteArray(32) { 1 }
+        val SESSION_ID: ByteString = ByteString.copyFrom(ByteArray(16) { 5 })
         val TICKET_B = ByteArray(32) { 2 }
     }
 }

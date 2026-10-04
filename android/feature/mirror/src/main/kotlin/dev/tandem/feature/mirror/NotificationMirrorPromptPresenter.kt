@@ -1,5 +1,6 @@
 package dev.tandem.feature.mirror
 
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,10 +10,12 @@ import androidx.core.app.NotificationCompat
 
 /**
  * [MirrorPromptPresenter] posting one heads-up notification "Mirror to <Mac>?" (E61-16) with Start
- * and Not now actions, routed through [MirrorPromptActionReceiver]. Swiping it away is a decline.
+ * and Not now actions. Start opens [startActivity] directly (a notification may not start an activity
+ * from a broadcast receiver on Android 12+); Not now and dismiss go through [MirrorPromptActionReceiver].
  */
 class NotificationMirrorPromptPresenter(
     private val context: Context,
+    private val startActivity: Class<out Activity>,
 ) : MirrorPromptPresenter {
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
 
@@ -24,7 +27,7 @@ class NotificationMirrorPromptPresenter(
                 NotificationManager.IMPORTANCE_HIGH,
             ),
         )
-        val start = actionIntent(ACTION_START)
+        val start = startIntent()
         val notification =
             NotificationCompat
                 .Builder(context, CHANNEL_ID)
@@ -45,6 +48,14 @@ class NotificationMirrorPromptPresenter(
     override fun remove() {
         notificationManager.cancel(NOTIFICATION_ID)
     }
+
+    private fun startIntent(): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            ACTION_START.hashCode(),
+            Intent().setClass(context, startActivity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     private fun actionIntent(action: String): PendingIntent =
         PendingIntent.getBroadcast(

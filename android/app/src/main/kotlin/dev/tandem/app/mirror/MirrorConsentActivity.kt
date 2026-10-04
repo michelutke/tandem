@@ -4,17 +4,32 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import dev.tandem.core.ui.TandemActivity
+import dev.tandem.feature.mirror.MirrorPromptActionDispatcher
 
-/** Process-wide sink for the system MediaProjection consent outcome; [AndroidMirrorPlatform] installs it. */
+/**
+ * Process-wide hand-off between [AndroidMirrorPlatform] and [MirrorConsentActivity]: the platform
+ * installs [sink] for the consent outcome and its launcher parks the `createScreenCaptureIntent`
+ * in [pendingConsentIntent] for the activity to launch.
+ */
 object MirrorConsentResults {
     @Volatile
     var sink: ((resultCode: Int, data: Intent?) -> Unit)? = null
+
+    @Volatile
+    var pendingConsentIntent: Intent? = null
+
+    fun takePendingConsentIntent(): Intent? {
+        val intent = pendingConsentIntent
+        pendingConsentIntent = null
+        return intent
+    }
 }
 
 /**
- * Transparent host for the system MediaProjection consent dialog (E62-11): launched with the
- * `createScreenCaptureIntent` the user's Start tap produced, forwards the result and finishes.
- * Not exported: reached only by [AndroidMirrorPlatform]'s explicit-component intent.
+ * Transparent host for the system MediaProjection consent dialog (E62-11), opened directly by the
+ * prompt notification's Start action (an activity trampoline, not a receiver). It reports the tap
+ * to the prompt controller, launches the consent intent that produced and forwards the result.
+ * Not exported: reached only by the explicit-component PendingIntent the prompt notification builds.
  */
 class MirrorConsentActivity : TandemActivity() {
     private val consent =
@@ -26,11 +41,9 @@ class MirrorConsentActivity : TandemActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) return
-        val intent = intent.getParcelableExtra(EXTRA_CONSENT_INTENT, Intent::class.java)
-        if (intent == null) finish() else consent.launch(intent)
-    }
-
-    companion object {
-        const val EXTRA_CONSENT_INTENT = "dev.tandem.app.mirror.CONSENT_INTENT"
+        MirrorConsentResults.pendingConsentIntent = null
+        MirrorPromptActionDispatcher.controller?.onStartTapped()
+        val consentIntent = MirrorConsentResults.takePendingConsentIntent()
+        if (consentIntent == null) finish() else consent.launch(consentIntent)
     }
 }

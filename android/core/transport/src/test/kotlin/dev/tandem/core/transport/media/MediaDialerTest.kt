@@ -52,7 +52,7 @@ class MediaDialerTest {
             val session = sessionIssuing(TICKET_A)
             val stream = RecordingByteStream()
 
-            val result = dialer(session, { _, _ -> stream }).dial(address)
+            val result = dialer(session, { _, _ -> stream }).dial(address, SESSION_ID)
 
             assertInstanceOf(MediaDialResult.Connected::class.java, result)
             assertEquals(1, session.sentFrames.size)
@@ -64,6 +64,7 @@ class MediaDialerTest {
                 ByteString.copyFrom(TICKET_A),
                 MediaHello.parseFrom(written.copyOfRange(4, written.size)).ticket,
             )
+            assertEquals(SESSION_ID, MediaHello.parseFrom(written.copyOfRange(4, written.size)).mirrorSessionId)
         }
 
     @Test
@@ -76,7 +77,7 @@ class MediaDialerTest {
                     RecordingByteStream()
                 }
 
-            dialer(sessionIssuing(TICKET_A), factory).dial(address)
+            dialer(sessionIssuing(TICKET_A), factory).dial(address, SESSION_ID)
 
             assertSame(pin, received)
         }
@@ -94,7 +95,7 @@ class MediaDialerTest {
                     dialer(
                         sessionIssuing(TICKET_A),
                         factory,
-                    ).dial(CandidateAddress("127.0.0.1", server.port))
+                    ).dial(CandidateAddress("127.0.0.1", server.port), SESSION_ID)
                 }
 
             assertEquals(MediaDialResult.PinMismatch, result)
@@ -123,12 +124,12 @@ class MediaDialerTest {
                         sessionIssuing(TICKET_A),
                         factory,
                         matchingPin,
-                    ).dial(CandidateAddress("127.0.0.1", server.port))
+                    ).dial(CandidateAddress("127.0.0.1", server.port), SESSION_ID)
                 }
 
             assertInstanceOf(MediaDialResult.Connected::class.java, result)
             assertEquals(
-                4 + 2 + TICKET_A.size,
+                4 + 2 + TICKET_A.size + 2 + SESSION_ID.size(),
                 serverResult.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).applicationBytesReceived,
             )
             (result as MediaDialResult.Connected).stream.close()
@@ -146,7 +147,7 @@ class MediaDialerTest {
                 dialer(sessionIssuing(TICKET_A), { _, _ ->
                     dialed = true
                     RecordingByteStream()
-                }, elapsedRealtime = clock).dial(address)
+                }, elapsedRealtime = clock).dial(address, SESSION_ID)
 
             assertEquals(MediaDialResult.TicketExpired, result)
             assertTrue(!dialed)
@@ -159,9 +160,9 @@ class MediaDialerTest {
             val streams = mutableListOf<RecordingByteStream>()
             val dialer = dialer(session, { _, _ -> RecordingByteStream().also { streams += it } })
 
-            dialer.dial(address)
+            dialer.dial(address, SESSION_ID)
             session.emitIncoming(grantEnvelope(TICKET_B))
-            dialer.dial(address)
+            dialer.dial(address, SESSION_ID)
 
             assertEquals(2, session.sentFrames.count { it.hasRequestMediaTicket() })
             val tickets =
@@ -188,7 +189,10 @@ class MediaDialerTest {
                     release.await()
                     stream
                 }
-            val job = launch(Dispatchers.Default) { dialer(sessionIssuing(TICKET_A), factory).dial(address) }
+            val job =
+                launch(Dispatchers.Default) {
+                    dialer(sessionIssuing(TICKET_A), factory).dial(address, SESSION_ID)
+                }
             assertTrue(entered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
 
             job.cancel()
@@ -204,7 +208,7 @@ class MediaDialerTest {
             val session = sessionIssuing(TICKET_A)
             session.failNextSend(IOException("broken pipe"))
 
-            val result = dialer(session, { _, _ -> RecordingByteStream() }).dial(address)
+            val result = dialer(session, { _, _ -> RecordingByteStream() }).dial(address, SESSION_ID)
 
             assertEquals(MediaDialResult.TicketUnavailable, result)
         }
@@ -217,10 +221,10 @@ class MediaDialerTest {
             val dialer =
                 dialer(session, { _, _ -> RecordingByteStream().also { streams += it } }, grantTimeoutMillis = 50L)
 
-            assertEquals(MediaDialResult.TicketUnavailable, dialer.dial(address))
+            assertEquals(MediaDialResult.TicketUnavailable, dialer.dial(address, SESSION_ID))
             session.emitIncoming(grantEnvelope(TICKET_A))
             session.emitIncoming(grantEnvelope(TICKET_B))
-            dialer.dial(address)
+            dialer.dial(address, SESSION_ID)
 
             val written = streams.single().written.toByteArray()
             assertArrayEquals(TICKET_B, MediaHello.parseFrom(written.copyOfRange(4, written.size)).ticket.toByteArray())
@@ -260,6 +264,7 @@ class MediaDialerTest {
     private companion object {
         const val TIMEOUT_SECONDS = 5L
         val TICKET_A = ByteArray(32) { 1 }
+        val SESSION_ID: ByteString = ByteString.copyFrom(ByteArray(16) { 5 })
         val TICKET_B = ByteArray(32) { 2 }
     }
 }

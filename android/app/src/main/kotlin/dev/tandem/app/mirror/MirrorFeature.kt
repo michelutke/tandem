@@ -29,6 +29,7 @@ import dev.tandem.feature.mirror.MirrorPromptController
 import dev.tandem.feature.mirror.MirrorPromptPresenter
 import dev.tandem.feature.mirror.MirrorSessionLifecycle
 import dev.tandem.feature.mirror.MirrorSessionStarter
+import dev.tandem.feature.mirror.MirrorSessionState
 import dev.tandem.feature.mirror.RotationPlanner
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.mirrorDeclined
@@ -107,7 +108,6 @@ class MirrorFeature(
         private val consent = MirrorConsent()
         private val ended = CompletableDeferred<Unit>()
         private val target = inputTarget()
-        private val sessionId = ByteString.copyFrom(ByteArray(SESSION_ID_BYTES).also(random::nextBytes))
         private val starter = MirrorSessionStarter(platform.consentLauncher)
 
         @Volatile
@@ -127,7 +127,10 @@ class MirrorFeature(
                 MirrorPromptActionDispatcher.controller = controller
                 platform.setConsentListener { granted ->
                     controller.onConsentResult(granted)
-                    if (granted) launch { startMirror(this, media) }
+                    if (!granted) consent.revoke()
+                    if (granted && starter.state == MirrorSessionState.ConsentGranted) {
+                        launch { startMirror(this, media) }
+                    }
                 }
                 controller.start()
                 launch { routeInput() }
@@ -146,8 +149,10 @@ class MirrorFeature(
                 starter = starter,
                 peerName = peerName(peer),
                 scope = scope,
-                onUserStart = { consent.grantFromUserAction(sessionId, peer.base64Url) },
+                onUserStart = { consent.grantFromUserAction(mintSessionId(), peer.base64Url) },
             )
+
+        private fun mintSessionId() = ByteString.copyFrom(ByteArray(SESSION_ID_BYTES).also(random::nextBytes))
 
         private suspend fun routeInput() {
             val router = RemoteInputRouter(::gate, ::streamSize, platform::displaySize)
@@ -164,6 +169,7 @@ class MirrorFeature(
             scope: CoroutineScope,
             media: MediaConnectionLifecycle,
         ) {
+            val sessionId = consent.grant?.sessionId ?: return
             val address = controlAddress(session)
             val size = streamSize()
             val opened =
@@ -176,7 +182,7 @@ class MirrorFeature(
                 }
             if (address == null || opened == null) return abort(MirrorFailure.Unreachable)
             capture = opened
-            when (val dialed = media.start(address)) {
+            when (val dialed = media.start(address, sessionId)) {
                 is MediaDialResult.Connected -> runMirror(scope, opened, dialed.stream, size)
                 MediaDialResult.PinMismatch -> abort(MirrorFailure.PinMismatch)
                 else -> abort(MirrorFailure.Unreachable)
@@ -221,7 +227,7 @@ class MirrorFeature(
             capture?.stop()
             consent.revoke()
             platform.stopCaptureService()
-            if (failure == MirrorFailure.PinMismatch) platform.showFailure(failure)
+            platform.showFailure(failure)
             declineQuietly()
             ended.complete(Unit)
         }
@@ -243,7 +249,10 @@ class MirrorFeature(
             platform.setConsentListener(null)
             if (MirrorPromptActionDispatcher.controller === controller) MirrorPromptActionDispatcher.controller = null
             controller.stop()
-            lifecycle?.stop() ?: capture?.stop()
+            lifecycle?.stop() ?: run {
+                capture?.stop()
+                platform.stopCaptureService()
+            }
             consent.revoke()
             gate = null
             target?.indicator?.hide()

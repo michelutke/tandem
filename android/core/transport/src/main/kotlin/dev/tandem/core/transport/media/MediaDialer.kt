@@ -51,7 +51,7 @@ sealed class MediaDialResult {
 
 /**
  * Requests a `MediaTicketGrant` over the control [session] and opens the second mTLS connection to
- * the same pinned peer, sending `MediaHello { ticket }` as its first frame (E60-02; SPEC.md
+ * the same pinned peer, sending `MediaHello { ticket, mirror_session_id }` as its first frame (E60-02; SPEC.md
  * #media-ticket). [pinSource] MUST be the pin source the control connection trusts: it is handed to
  * [streamFactory] unchanged, so the media dial is authenticated against the same pinned SPKI before
  * `MediaHello` is written (invariants 1, 3, 5). The ticket is never logged (invariant 7).
@@ -67,11 +67,14 @@ class MediaDialer(
     private val ticketLock = Mutex()
     private var unansweredRequests = 0
 
-    suspend fun dial(address: CandidateAddress): MediaDialResult {
+    suspend fun dial(
+        address: CandidateAddress,
+        mirrorSessionId: ByteString,
+    ): MediaDialResult {
         val issued = requestTicket() ?: return MediaDialResult.TicketUnavailable
         val caller = currentCoroutineContext().job
         return withContext(ioDispatcher) {
-            connectAndSendHello(address, issued).also {
+            connectAndSendHello(address, issued, mirrorSessionId).also {
                 if (it is MediaDialResult.Connected && !caller.isActive) it.stream.closeAbruptly()
             }
         }
@@ -117,12 +120,13 @@ class MediaDialer(
     private fun connectAndSendHello(
         address: CandidateAddress,
         issued: IssuedTicket,
+        mirrorSessionId: ByteString,
     ): MediaDialResult =
         if (elapsedRealtime.elapsedRealtimeMillis() >= issued.deadlineMillis) {
             MediaDialResult.TicketExpired
         } else {
             try {
-                sendHello(streamFactory.open(address, pinSource), issued)
+                sendHello(streamFactory.open(address, pinSource), issued, mirrorSessionId)
             } catch (e: SSLHandshakeException) {
                 if (e.hasCertificateCause()) MediaDialResult.PinMismatch else MediaDialResult.Unreachable
             } catch (_: IOException) {
@@ -133,9 +137,10 @@ class MediaDialer(
     private fun sendHello(
         stream: ByteStream,
         issued: IssuedTicket,
+        mirrorSessionId: ByteString,
     ): MediaDialResult =
         try {
-            stream.output.write(encodeMediaHelloFrame(issued.ticket))
+            stream.output.write(encodeMediaHelloFrame(issued.ticket, mirrorSessionId))
             stream.output.flush()
             MediaDialResult.Connected(stream)
         } catch (_: IOException) {
@@ -143,8 +148,15 @@ class MediaDialer(
             MediaDialResult.Unreachable
         }
 
-    private fun encodeMediaHelloFrame(ticket: ByteString): ByteArray {
-        val body = mediaHello { this.ticket = ticket }.toByteArray()
+    private fun encodeMediaHelloFrame(
+        ticket: ByteString,
+        mirrorSessionId: ByteString,
+    ): ByteArray {
+        val body =
+            mediaHello {
+                this.ticket = ticket
+                this.mirrorSessionId = mirrorSessionId
+            }.toByteArray()
         return ByteBuffer
             .allocate(LENGTH_PREFIX_BYTES + body.size)
             .putInt(body.size)
