@@ -14,6 +14,7 @@ import androidx.test.uiautomator.Until
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.regex.Pattern
@@ -53,10 +54,15 @@ class ProjectionConsentInstrumentedTest {
         val (starter, host) = startConsent()
 
         tap(By.res(NEGATIVE_BUTTON_ID), By.text(CANCEL_LABEL))
+        assertTrue(
+            "consent dialog still shown after cancel",
+            device.wait(Until.gone(By.res(NEGATIVE_BUTTON_ID)), DIALOG_TIMEOUT_MS),
+        )
         awaitResult(host)
-        starter.onConsentResult(granted = host.resultCode == Activity.RESULT_OK)
+        val resultCode = host.resultCode ?: Activity.RESULT_CANCELED
+        starter.onConsentResult(granted = resultCode == Activity.RESULT_OK)
 
-        assertEquals(Activity.RESULT_CANCELED, host.resultCode)
+        assertEquals(Activity.RESULT_CANCELED, resultCode)
         assertEquals(MirrorSessionState.NotStarted, starter.state)
     }
 
