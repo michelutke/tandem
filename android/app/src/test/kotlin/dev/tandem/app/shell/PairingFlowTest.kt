@@ -29,6 +29,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.security.cert.CertificateException
 import java.time.Instant
 
 // E20-26 tdd:
@@ -142,12 +143,24 @@ class PairingFlowTest {
     @Test
     fun productionPairingStarter_unreachableMac_failsClosedWithoutCommit() =
         runTest {
-            val rig = Rig(this, connector = { _, _, _ -> error("pin mismatch") })
+            val rig = Rig(this, connector = { _, _, _ -> error("refused") })
 
             rig.flow.start(invite)
             runCurrent()
 
             assertEquals(PairingState.Failed(PairingFailure.AllAddressesUnreachable), rig.flow.state.value)
+            assertTrue(rig.commits.isEmpty())
+        }
+
+    @Test
+    fun productionPairingStarter_pinMismatch_failsClosedWithPinMismatchWithoutCommit() =
+        runTest {
+            val rig = Rig(this, connector = { _, _, _ -> throw CertificateException("pin mismatch") })
+
+            rig.flow.start(invite)
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.PinMismatch), rig.flow.state.value)
             assertTrue(rig.commits.isEmpty())
         }
 

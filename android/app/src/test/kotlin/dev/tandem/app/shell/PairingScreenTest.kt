@@ -48,4 +48,12 @@ class PairingScreenTest {
         composeRule.onNodeWithText("Can't reach the Mac.").assertExists()
         composeRule.onNodeWithText("Codes match").assertDoesNotExist()
     }
+
+    @Test
+    fun pairingScreen_pinMismatch_showsTrustErrorNotNetworkError() {
+        show(PairingState.Failed(PairingFailure.PinMismatch))
+
+        composeRule.onNodeWithText("Not trusted.").assertExists()
+        composeRule.onNodeWithText("Can't reach the Mac.").assertDoesNotExist()
+    }
 }

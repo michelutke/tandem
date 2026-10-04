@@ -22,7 +22,9 @@ import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.connection.SessionFeature
+import dev.tandem.app.connection.TlsPairingConnector
 import dev.tandem.app.connection.TlsSessionDialer
+import dev.tandem.app.connection.TrustStoreCommitter
 import dev.tandem.app.connection.feature.ClipboardFeature
 import dev.tandem.app.connection.feature.ContactsFeature
 import dev.tandem.app.connection.feature.FilesFeature
@@ -37,6 +39,7 @@ import dev.tandem.app.connection.orchestratorConnectionState
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.SessionRegistry
+import dev.tandem.app.shell.PairingFlow
 import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.crypto.AndroidKeyStoreIdentityKeyStore
 import dev.tandem.core.crypto.IdentityKeyManager
@@ -45,6 +48,7 @@ import dev.tandem.core.discovery.NsdServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.PeerDataPurging
+import dev.tandem.core.pairing.SystemDeviceInfoProvider
 import dev.tandem.core.pairing.UnpairAction
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.storage.rotation.RotationEventLog
@@ -107,6 +111,28 @@ object ConnectionModule {
     fun trustStore(
         @ApplicationContext context: Context,
     ): TrustStore = (context as TandemApplication).trustStore
+
+    @Provides
+    @Singleton
+    fun pairingFlow(
+        trustStore: TrustStore,
+        activeIdentityAlias: ActiveIdentityAlias,
+    ): PairingFlow {
+        val clock = AppClock.system
+        return PairingFlow(
+            clock = clock,
+            dispatcher = AppDispatchers.default,
+            connector =
+                TlsPairingConnector(
+                    keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias),
+                    clock = clock,
+                    ioDispatcher = AppDispatchers.io,
+                    sessionDispatcher = AppDispatchers.io,
+                ),
+            trustCommitter = TrustStoreCommitter(trustStore::put),
+            deviceInfoProvider = SystemDeviceInfoProvider,
+        )
+    }
 
     @Provides
     @Singleton

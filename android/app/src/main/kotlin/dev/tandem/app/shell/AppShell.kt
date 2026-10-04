@@ -58,7 +58,7 @@ fun AppShell(
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
 
-    LaunchedEffect(route) {
+    LaunchedEffect(route, pairingState) {
         if (route == ShellRoute.Home && pairingState == PairingState.Paired) dependencies.pairing.reset()
     }
 

@@ -25,4 +25,6 @@ interface ShellEntryPoint {
     fun sessionRegistry(): SessionRegistry
 
     fun activeIdentityAlias(): ActiveIdentityAlias
+
+    fun pairingFlow(): PairingFlow
 }

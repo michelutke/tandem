@@ -11,8 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
-import dev.tandem.app.connection.TlsPairingConnector
-import dev.tandem.app.connection.TrustStoreCommitter
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.StubHomeRingStateSource
@@ -25,11 +23,7 @@ import dev.tandem.app.onboarding.SystemSdkVersionProvider
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
-import dev.tandem.app.shell.PairingFlow
 import dev.tandem.app.shell.ShellEntryPoint
-import dev.tandem.core.crypto.AndroidKeyStoreIdentityKeyStore
-import dev.tandem.core.crypto.IdentityKeyManager
-import dev.tandem.core.pairing.SystemDeviceInfoProvider
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
@@ -84,7 +78,7 @@ class MainActivity : TandemActivity() {
 
     private fun liveShellDependencies(activity: MainActivity): AppShellDependencies {
         val graph = EntryPointAccessors.fromApplication(applicationContext, ShellEntryPoint::class.java)
-        val pairingFlow = livePairingFlow(graph)
+        val pairingFlow = graph.pairingFlow()
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
             statusLine = graph.connectionStatusViewModel().statusText,
@@ -114,27 +108,6 @@ class MainActivity : TandemActivity() {
                 )
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
-        )
-    }
-
-    private fun livePairingFlow(graph: ShellEntryPoint): PairingFlow {
-        val clock = AppClock.system
-        return PairingFlow(
-            clock = clock,
-            dispatcher = AppDispatchers.default,
-            connector =
-                TlsPairingConnector(
-                    keyManager =
-                        IdentityKeyManager(
-                            AndroidKeyStoreIdentityKeyStore(clock),
-                            graph.activeIdentityAlias(),
-                        ),
-                    clock = clock,
-                    ioDispatcher = AppDispatchers.io,
-                    sessionDispatcher = AppDispatchers.io,
-                ),
-            trustCommitter = TrustStoreCommitter(graph.trustStore()::put),
-            deviceInfoProvider = SystemDeviceInfoProvider,
         )
     }
 
