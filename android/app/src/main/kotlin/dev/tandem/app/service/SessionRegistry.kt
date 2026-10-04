@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.update
 data class RegisteredSession(
     val session: TandemSession,
     val peer: SpkiFingerprint,
+    val peerSpkiDer: ByteArray? = null,
 )
 
 /**

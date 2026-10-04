@@ -17,14 +17,11 @@ import kotlinx.coroutines.launch
  * [ringControllerProvider] is an `internal var` (not a constructor parameter: `BroadcastReceiver`
  * is instantiated by the framework via a no-arg constructor), matching `BootReceiver`'s
  * `serviceStarterFactory` seam so tests can substitute a real [RingController] wired to a test
- * session before delivering [ACTION_STOP]. Nothing in production composes a live [RingController]
- * yet -- no composition root anywhere in `:app` owns a real, connected `TandemSession` (E12-11)
- * yet either; `TandemService`'s kdoc defers that to the E20-05+ reconnect issues -- so
- * [ringControllerProvider]'s production default resolves to nothing and [onReceive] no-ops; this
- * is the same known gap `RevokeHandler`/`UnpairAction` are in (flagged separately as E14-26/E20-21).
+ * session before delivering [ACTION_STOP]. Its production default is the attached session's
+ * [LiveRingController] (E20-24); with no live session [onReceive] no-ops.
  */
 class RingStopActionReceiver : BroadcastReceiver() {
-    internal var ringControllerProvider: (Context) -> RingController? = { null }
+    internal var ringControllerProvider: (Context) -> RingController? = { LiveRingController.current }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
 
     override fun onReceive(

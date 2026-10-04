@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.nsd.NsdManager
 import android.os.PowerManager
+import android.telephony.TelephonyManager
 import android.util.Log
 import dagger.Module
 import dagger.Provides
@@ -15,27 +16,48 @@ import dagger.hilt.components.SingletonComponent
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.clipboard.ClipboardWriter
 import dev.tandem.app.connection.ConnectionOrchestrator
+import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.connection.FeatureAttacher
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
+import dev.tandem.app.connection.PairingAddressStore
+import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.TlsSessionDialer
 import dev.tandem.app.connection.feature.ClipboardFeature
+import dev.tandem.app.connection.feature.ContactsFeature
 import dev.tandem.app.connection.feature.FilesFeature
+import dev.tandem.app.connection.feature.FocusFeature
+import dev.tandem.app.connection.feature.NotificationInteractionsFeature
 import dev.tandem.app.connection.feature.NotificationsFeature
+import dev.tandem.app.connection.feature.RingFeature
+import dev.tandem.app.connection.feature.RotationFeature
+import dev.tandem.app.connection.feature.SmsFeatures
+import dev.tandem.app.connection.feature.StatusFeature
+import dev.tandem.app.connection.orchestratorConnectionState
+import dev.tandem.app.ring.SystemAlarmPlayer
+import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.SessionRegistry
+import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.crypto.AndroidKeyStoreIdentityKeyStore
 import dev.tandem.core.crypto.IdentityKeyManager
 import dev.tandem.core.discovery.NsdManagerSource
 import dev.tandem.core.discovery.NsdServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
+import dev.tandem.core.pairing.PeerDataPurging
+import dev.tandem.core.pairing.UnpairAction
+import dev.tandem.core.pairing.revoke.TrustRemover
+import dev.tandem.core.storage.rotation.RotationEventLog
+import dev.tandem.core.storage.settings.SettingsStore
+import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.core.transport.HeartbeatDependencies
 import dev.tandem.core.transport.heartbeat.PowerManagerDeviceIdleSource
 import dev.tandem.core.transport.reconnect.ConnectivityManagerNetworkMonitor
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
-import dev.tandem.core.transport.reconnect.PairingAddressSource
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
+import dev.tandem.feature.clipboard.LiveClipboardSession
+import dev.tandem.feature.contacts.ContentResolverContactsSource
 import dev.tandem.feature.files.AcceptSettings
 import dev.tandem.feature.files.ContentResolverMediaStoreSource
 import dev.tandem.feature.files.ContentResolverSourceFileReader
@@ -45,7 +67,22 @@ import dev.tandem.feature.files.MediaPermissionChecker
 import dev.tandem.feature.files.MediaStoreDownloadsPublisher
 import dev.tandem.feature.files.NotificationTransferPrompter
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
+import dev.tandem.feature.messaging.ContentResolverSmsSource
+import dev.tandem.feature.messaging.ContextSendSmsPermission
+import dev.tandem.feature.messaging.SmsManagerSender
+import dev.tandem.feature.messaging.SubscriptionManagerSource
+import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
+import dev.tandem.feature.status.BatteryReceiverStatusSource
+import dev.tandem.feature.status.ConnectivityManagerNetworkTypeSource
+import dev.tandem.feature.status.StatusAggregator
+import dev.tandem.feature.status.TelephonyNetworkSignalStrengthSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import java.io.File
+import java.security.SecureRandom
 import java.time.Clock
 import javax.inject.Singleton
 
@@ -59,8 +96,8 @@ interface ConnectionEntryPoint {
 /**
  * Process singletons for the production connection (E20-23). The stores stay owned by
  * [TandemApplication] (one Room/file connection each); this module only exposes them to the graph.
- * Paired Macs are found by Bonjour only: there is no stored pairing-address source yet, so that
- * candidate source is empty.
+ * Candidates come from Bonjour plus the addresses stored at pairing ([PairingAddressStore]); the
+ * pinned handshake alone decides trust.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -89,9 +126,46 @@ object ConnectionModule {
 
     @Provides
     @Singleton
-    fun pairedFingerprints(trustStore: TrustStore): PairedFingerprints =
-        PairedFingerprints(trustStore, AppDispatchers.default)
+    fun pairingAddressStore(
+        @ApplicationContext context: Context,
+        purgeRegistry: PeerDataPurgeRegistry,
+    ): PairingAddressStore =
+        PairingAddressStore(File(context.filesDir, PAIRING_ADDRESSES_FILE_NAME)).also { store ->
+            purgeRegistry.register(PeerDataPurging { store.clear() })
+        }
 
+    @Provides
+    @Singleton
+    fun pairedFingerprints(trustStore: TrustStore): PairedFingerprints =
+        PairedFingerprints(trustStore, AppClock.system, AppDispatchers.default)
+
+    @Provides
+    @Singleton
+    fun unpairAction(
+        trustStore: TrustStore,
+        purgeRegistry: PeerDataPurgeRegistry,
+    ): UnpairAction = UnpairAction(TrustRemover { trustStore.unpair(it) }, purgeRegistry)
+
+    @Provides
+    @Singleton
+    fun connectionStatusViewModel(
+        orchestrator: ConnectionOrchestrator,
+        sessionRegistry: SessionRegistry,
+        trustStore: TrustStore,
+    ): ConnectionStatusViewModel {
+        val scope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+        return ConnectionStatusViewModel(
+            connectionState = orchestratorConnectionState(sessionRegistry, orchestrator.failure, scope),
+            failedCycles = orchestrator.failedCycles,
+            macName =
+                trustStore
+                    .observeList()
+                    .map { records -> records.firstOrNull()?.displayName }
+                    .stateIn(scope, SharingStarted.Eagerly, null),
+        )
+    }
+
+    @Suppress("LongParameterList") // Hilt-injected graph nodes the connect loop is composed from
     @Provides
     @Singleton
     fun connectionOrchestrator(
@@ -100,6 +174,9 @@ object ConnectionModule {
         knownPeerStore: KnownPeerStore,
         pairedFingerprints: PairedFingerprints,
         purgeRegistry: PeerDataPurgeRegistry,
+        pairingAddressStore: PairingAddressStore,
+        activeIdentityAlias: ActiveIdentityAlias,
+        trustStore: TrustStore,
     ): ConnectionOrchestrator {
         val clock = AppClock.system
         val idleSource =
@@ -109,7 +186,7 @@ object ConnectionModule {
             ).also { it.start() }
         val dialer =
             TlsSessionDialer(
-                keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock)),
+                keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias),
                 pinnedFingerprints = pairedFingerprints::load,
                 wasPreviouslyPinned = knownPeerStore::hasEverPinned,
                 clock = clock,
@@ -128,22 +205,14 @@ object ConnectionModule {
                 pairedFingerprints = pairedFingerprints::snapshot,
                 dispatcher = AppDispatchers.default,
             )
-        val filesFeature = filesFeature(context, clock)
-        purgeRegistry.register(filesFeature.purger)
-        purgeRegistry.register((context as TandemApplication).activityStore)
-        val features =
-            listOf(
-                NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default),
-                ClipboardFeature(ClipboardWriter(context.getSystemService(ClipboardManager::class.java))),
-                filesFeature,
-            )
+        val features = SessionFeatureFactory.create(context, clock, trustStore, purgeRegistry)
         return ConnectionOrchestrator(
             dialer = dialer,
             registry = sessionRegistry,
             featureAttacher = FeatureAttacher(features) { Log.e(TAG, "Session feature failed: ${it.javaClass.name}") },
             knownPeerStore = knownPeerStore,
             bonjourSource = bonjourSource,
-            pairingAddressSource = PairingAddressSource { emptyList() },
+            pairingAddressSource = pairingAddressStore,
             networkMonitor =
                 ConnectivityManagerNetworkMonitor(context.getSystemService(ConnectivityManager::class.java)),
             clock = clock,
@@ -152,25 +221,6 @@ object ConnectionModule {
         )
     }
 
-    private fun filesFeature(
-        context: Context,
-        clock: Clock,
-    ): FilesFeature =
-        FilesFeature(
-            store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
-            publisher = MediaStoreDownloadsPublisher(context.contentResolver),
-            prompter = NotificationTransferPrompter(context),
-            freeSpace = StatFsFreeSpaceProvider(context.filesDir),
-            reader = ContentResolverSourceFileReader(context.contentResolver),
-            mediaSource = ContentResolverMediaStoreSource(context.contentResolver),
-            thumbnailLoader = ContentResolverThumbnailLoader(context.contentResolver),
-            permissionChecker = MediaPermissionChecker(context),
-            acceptSettings = { AcceptSettings() },
-            clock = clock,
-            ioDispatcher = AppDispatchers.io,
-            serialDispatcher = AppDispatchers::serial,
-        )
-
     private const val TAG = "ConnectionModule"
-    private const val INCOMING_TRANSFERS_DIRECTORY = "incoming-transfers"
+    private const val PAIRING_ADDRESSES_FILE_NAME = "pairing-addresses"
 }

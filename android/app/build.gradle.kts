@@ -92,6 +92,10 @@ dependencies {
     implementation(project(":feature:notifications"))
     // E20-23: FilesFeature attaches FileReceiver/AcceptFlow/FileSender and the photo responders.
     implementation(project(":feature:files"))
+    // E20-24: ContactsFeature, SmsFeatures and StatusFeature attach these modules' consumers.
+    implementation(project(":feature:contacts"))
+    implementation(project(":feature:messaging"))
+    implementation(project(":feature:status"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
     // E40-11: ShareFilesActivity, declared below in this module's manifest.

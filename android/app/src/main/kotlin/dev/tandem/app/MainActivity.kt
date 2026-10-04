@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 
 // Launcher activity (E00-03): a blank screen proving the real `TandemApplication` Hilt component
 // initializes on-device. Superseded by onboarding (F-4.1) once core/designsystem lands (E00-31).
@@ -60,7 +61,14 @@ class MainActivity : TandemActivity() {
         if (!hasFocus) return
 
         val clip = clipboardReaderProvider(this).currentClip()
-        if (clip != null && !clip.sensitive) sendClip(clip.text, sensitive = false)
+        if (clip != null && !clip.sensitive && shouldSendCaptured(clip.text)) {
+            sendClip(clip.text, sensitive = false)
+        }
+    }
+
+    private fun shouldSendCaptured(text: String): Boolean {
+        val contentHash = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+        return LiveClipboardSession.loopGuard.shouldSend(contentHash)
     }
 
     internal fun onSendClipboardButtonTapped() {

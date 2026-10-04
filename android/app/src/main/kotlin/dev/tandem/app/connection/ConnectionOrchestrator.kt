@@ -174,7 +174,7 @@ class ConnectionOrchestrator(
         val run = runJob?.takeIf { it.isActive } ?: return false
         registry.register(dialed.session, dialed.peer)
         mutableFailure.value = null
-        val registered = RegisteredSession(dialed.session, dialed.peer)
+        val registered = RegisteredSession(dialed.session, dialed.peer, dialed.peerSpkiDer)
         sessionJob = scope.launch(run) { runSession(registered, run) }
         return true
     }

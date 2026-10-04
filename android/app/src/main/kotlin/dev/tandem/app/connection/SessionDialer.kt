@@ -25,6 +25,7 @@ sealed interface DialResult {
     data class Connected(
         val session: TandemSession,
         val peer: SpkiFingerprint,
+        val peerSpkiDer: ByteArray? = null,
     ) : DialResult
 
     data class PinMismatch(
@@ -42,9 +43,9 @@ fun interface SessionDialer {
 
 /**
  * Dials [candidate] over mTLS (E20-23, invariants 1, 3, 5): the trust manager accepts only the SPKI
- * fingerprints [pinnedFingerprints] returns at dial time (primary pins; no grace/pending source
- * exists yet), so no [ByteStreamSession] -- and therefore no application byte -- exists for a peer
- * that failed the pin check. Never listens (invariant 4).
+ * fingerprints [pinnedFingerprints] returns at dial time (primary, grace and pending pins), so no
+ * [ByteStreamSession] -- and therefore no application byte -- exists for a peer that failed the pin
+ * check. Never listens (invariant 4).
  */
 @Suppress("LongParameterList") // dial seams: keys, pins, clock, two dispatchers, heartbeat
 class TlsSessionDialer(
@@ -62,24 +63,28 @@ class TlsSessionDialer(
         val factory = SslClientFactory(keyManager, PinningTrustManager { pins })
         var opened: SslSocketByteStream? = null
         return try {
-            val (stream, peer) =
+            val (stream, peerSpkiDer) =
                 withContext(ioDispatcher) {
                     val socket = factory.createSocket()
                     val stream = factory.connect(socket, InetAddress.getByName(candidate.host), candidate.port)
                     opened = stream
                     try {
-                        stream to
-                            spkiFingerprint(
-                                socket.session.peerCertificates
-                                    .first()
-                                    .publicKey.encoded,
-                            )
+                        val der =
+                            socket.session.peerCertificates
+                                .first()
+                                .publicKey.encoded
+                        spkiFingerprint(der)
+                        stream to der
                     } catch (e: SpkiFingerprintException) {
                         stream.close()
                         throw IOException("peer key is not pinnable", e)
                     }
                 }
-            DialResult.Connected(ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies), peer)
+            DialResult.Connected(
+                ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies),
+                spkiFingerprint(peerSpkiDer),
+                peerSpkiDer,
+            )
         } catch (e: CancellationException) {
             opened?.close()
             throw e
