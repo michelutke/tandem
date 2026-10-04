@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Contacts
+import android.provider.ContactsContract.DeletedContacts
 
 data class FakeContactRow(
     val id: Long,
@@ -15,10 +16,12 @@ data class FakeContactRow(
     val updatedAtMs: Long,
     val phones: List<Pair<String, Int>> = emptyList(),
     val emails: List<Pair<String, Int>> = emptyList(),
+    val photoThumbnailUri: String? = null,
 )
 
 class FakeContactsProvider : ContentProvider() {
     var rows: List<FakeContactRow> = emptyList()
+    var deletedContacts: List<Pair<Long, Long>> = emptyList()
     val queriedUris = mutableListOf<Uri>()
     var cursorOpenedWhilePreviousOpen = false
         private set
@@ -39,7 +42,8 @@ class FakeContactsProvider : ContentProvider() {
         val args = selectionArgs.orEmpty().map { it.toLong() }
         val cursor =
             when (uri) {
-                Contacts.CONTENT_URI -> contactsCursor(afterId = args[0])
+                Contacts.CONTENT_URI -> contactsCursor(afterId = args[0], sinceMs = args.getOrElse(1) { 0 })
+                DeletedContacts.CONTENT_URI -> deletedCursor(sinceMs = args[0])
                 Phone.CONTENT_URI -> dataCursor(args[0], args[1]) { it.phones }
                 Email.CONTENT_URI -> dataCursor(args[0], args[1]) { it.emails }
                 else -> error("unexpected uri $uri")
@@ -48,13 +52,30 @@ class FakeContactsProvider : ContentProvider() {
         return cursor
     }
 
-    private fun contactsCursor(afterId: Long): Cursor {
+    private fun deletedCursor(sinceMs: Long): Cursor {
+        val cursor = MatrixCursor(arrayOf(DeletedContacts.CONTACT_ID, DeletedContacts.CONTACT_DELETED_TIMESTAMP))
+        deletedContacts
+            .filter { it.second > sinceMs }
+            .sortedBy { it.first }
+            .forEach { cursor.addRow(arrayOf<Any>(it.first, it.second)) }
+        return cursor
+    }
+
+    private fun contactsCursor(
+        afterId: Long,
+        sinceMs: Long,
+    ): Cursor {
         val cursor =
             MatrixCursor(
-                arrayOf(Contacts._ID, Contacts.DISPLAY_NAME_PRIMARY, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP),
+                arrayOf(
+                    Contacts._ID,
+                    Contacts.DISPLAY_NAME_PRIMARY,
+                    Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+                    Contacts.PHOTO_THUMBNAIL_URI,
+                ),
             )
-        val matching = rows.filter { it.id > afterId }.sortedBy { it.id }
-        matching.forEach { cursor.addRow(arrayOf<Any>(it.id, it.name, it.updatedAtMs)) }
+        val matching = rows.filter { it.id > afterId && it.updatedAtMs > sinceMs }.sortedBy { it.id }
+        matching.forEach { cursor.addRow(arrayOf<Any?>(it.id, it.name, it.updatedAtMs, it.photoThumbnailUri)) }
         return cursor
     }
 

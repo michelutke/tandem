@@ -1,6 +1,7 @@
 package dev.tandem.core.pairing.conformance
 
 import com.google.protobuf.ByteString
+import dev.tandem.core.crypto.RotationProof
 import dev.tandem.protocol.v1.KeyRotation
 import dev.tandem.protocol.v1.RotationAck
 import dev.tandem.protocol.v1.RotationChallenge
@@ -8,11 +9,6 @@ import dev.tandem.protocol.v1.RotationReject
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.io.ByteArrayOutputStream
-import java.security.GeneralSecurityException
-import java.security.KeyFactory
-import java.security.Signature
-import java.security.spec.X509EncodedKeySpec
 
 // E70-01: rotation-encoding conformance vector handlers, split out of ConformanceRunner.kt for the
 // same LargeClass detekt budget reason as ConformanceRunnerMedia.kt (mirrors the macOS codec's own
@@ -20,7 +16,6 @@ import java.security.spec.X509EncodedKeySpec
 
 private const val ROTATION_CATEGORY = "rotation-encoding"
 private const val ROTATION_CHALLENGE_LENGTH = 32
-private val ROTATE_LABEL = "tandem-rotate-v1".toByteArray(Charsets.US_ASCII)
 
 /** `rotation-encoding` category (E70-01): decodes the raw message bytes each vector describes
  * (`input.messageHex` -- see protocol/vectors/README.md) with the real generated rotation message
@@ -141,10 +136,14 @@ private fun keyRotationOutcome(
     val oldSpkiDer = hexToBytes(input.getValue("oldSpkiDerHex").jsonPrimitive.content)
     val cb = hexToBytes(input.getValue("cbHex").jsonPrimitive.content)
     val newSpkiDer = decoded.newSpkiDer.toByteArray()
-    val transcript = rotationTranscript(oldSpkiDer, newSpkiDer, cb)
     val verified =
-        verifyEcdsa(oldSpkiDer, transcript, decoded.sigOldKey.toByteArray()) &&
-            verifyEcdsa(newSpkiDer, transcript, decoded.sigNewKey.toByteArray())
+        RotationProof.verify(
+            oldSpkiDer,
+            newSpkiDer,
+            cb,
+            decoded.sigOldKey.toByteArray(),
+            decoded.sigNewKey.toByteArray(),
+        )
     if ("expected" in vector) {
         val roundTrip = rotationRoundTripOutcome(id, messageBytes, vector, decoded.toByteArray())
         val passed = verified && roundTrip.outcome == "pass"
@@ -154,35 +153,3 @@ private fun keyRotationOutcome(
     val actual = if (verified) "valid" else "invalidSignature"
     return VectorOutcome(id, ROTATION_CATEGORY, if (actual == expectedError) "pass" else "fail", expectedError, actual)
 }
-
-private fun rotationTranscript(
-    oldSpkiDer: ByteArray,
-    newSpkiDer: ByteArray,
-    cb: ByteArray,
-): ByteArray {
-    val out = ByteArrayOutputStream()
-    out.write(ROTATE_LABEL)
-    for (part in listOf(oldSpkiDer, newSpkiDer, cb)) {
-        out.write(part.size shr 8)
-        out.write(part.size and 0xFF)
-        out.write(part)
-    }
-    return out.toByteArray()
-}
-
-@Suppress("SwallowedException")
-private fun verifyEcdsa(
-    spkiDer: ByteArray,
-    message: ByteArray,
-    signatureDer: ByteArray,
-): Boolean =
-    try {
-        val publicKey = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(spkiDer))
-        Signature.getInstance("SHA256withECDSA").run {
-            initVerify(publicKey)
-            update(message)
-            verify(signatureDer)
-        }
-    } catch (e: GeneralSecurityException) {
-        false
-    }

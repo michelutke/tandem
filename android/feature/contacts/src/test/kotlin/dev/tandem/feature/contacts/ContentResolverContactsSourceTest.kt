@@ -1,6 +1,9 @@
 package dev.tandem.feature.contacts
 
 import android.Manifest
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -15,12 +18,16 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 /**
  * ContentResolverContactsSource tests (E51-02), on Robolectric (E00-20) against a fake
  * ContactsContract provider registered for the real `com.android.contacts` authority.
  */
 @RunWith(AndroidJUnit4::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ContentResolverContactsSourceTest {
     private val context = RuntimeEnvironment.getApplication()
     private val provider =
@@ -81,5 +88,61 @@ class ContentResolverContactsSourceTest {
         shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS)
 
         assertTrue(source.hasReadPermission())
+    }
+
+    @Test
+    fun contactsSource_sinceUpdatedAt_returnsOnlyNewerContacts() {
+        provider.rows = listOf(FakeContactRow(1, "Old", 10), FakeContactRow(2, "New", 99))
+
+        val page = source.readPage(afterContactId = 0, sinceUpdatedAtMs = 10)
+
+        assertEquals(listOf("2"), page.contacts.map { it.contactId })
+    }
+
+    @Test
+    fun contactsSource_deletedContacts_returnsIdsDeletedAfterSince() {
+        provider.deletedContacts = listOf(4L to 5L, 8L to 50L, 6L to 60L)
+
+        assertEquals(listOf("6", "8"), source.readDeletedContactIds(sinceDeletedAtMs = 10))
+    }
+
+    @Test
+    fun contactsSource_contactWithPhoto_setsScaledPhotoThumbnail() {
+        val photoUri = "content://com.android.contacts/contacts/1/photo_thumb"
+        val bitmap = Bitmap.createBitmap(512, 384, Bitmap.Config.ARGB_8888)
+        val jpeg = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
+        shadowOf(context.contentResolver).registerInputStream(Uri.parse(photoUri), ByteArrayInputStream(jpeg))
+        provider.rows = listOf(FakeContactRow(id = 1, name = "Ada", updatedAtMs = 1, photoThumbnailUri = photoUri))
+
+        val contact = source.readPage(afterContactId = 0).contacts.single()
+
+        val thumbnail = contact.photoThumbnail.toByteArray()
+        val decoded = requireNotNull(BitmapFactory.decodeByteArray(thumbnail, 0, thumbnail.size))
+        assertTrue(maxOf(decoded.width, decoded.height) <= ThumbnailScaler.MAX_EDGE_PX)
+    }
+
+    @Test
+    fun contactsSource_contactWithoutPhotoOrCorruptPhoto_hasNoPhotoThumbnail() {
+        val corruptUri = "content://com.android.contacts/contacts/2/photo_thumb"
+        shadowOf(
+            context.contentResolver,
+        ).registerInputStream(
+            Uri.parse(corruptUri),
+            ByteArrayInputStream(
+                ByteArray(64) {
+                    it.toByte()
+                },
+            ),
+        )
+        provider.rows =
+            listOf(
+                FakeContactRow(id = 1, name = "No photo", updatedAtMs = 1),
+                FakeContactRow(id = 2, name = "Corrupt", updatedAtMs = 2, photoThumbnailUri = corruptUri),
+            )
+
+        val contacts = source.readPage(afterContactId = 0).contacts
+
+        assertEquals(2, contacts.size)
+        assertTrue(contacts.all { it.photoThumbnail.isEmpty })
     }
 }

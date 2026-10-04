@@ -2,6 +2,7 @@ package dev.tandem.core.transport
 
 import app.cash.turbine.test
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.core.testing.ManualElapsedRealtime
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
@@ -9,6 +10,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.heartbeat
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -18,11 +20,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicReference
@@ -74,6 +78,23 @@ class ByteStreamSessionTest {
             }
 
             assertInstanceOf(ConnectionState.Disconnected::class.java, a.state.value)
+
+            b.close()
+        }
+
+    @Test
+    fun byteStreamSession_sendAfterLocalClose_throwsMultiplexerClosedException() =
+        sessionTest {
+            val pipe = InMemoryDuplexPipe()
+            val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+            val b = ByteStreamSession(pipe.endpointB, Clock.systemUTC(), Dispatchers.IO)
+
+            a.state.first { it is ConnectionState.Ready }
+            a.close()
+
+            assertThrows(MultiplexerClosedException::class.java) {
+                runBlocking { a.send(Channel.CHANNEL_CONTROL) { heartbeat = heartbeat {} } }
+            }
 
             b.close()
         }
@@ -193,8 +214,13 @@ class ByteStreamSessionTest {
                 while (pipe.capturedAToB().isEmpty()) delay(10)
             }
 
+            val subscriber =
+                launch(start = CoroutineStart.UNDISPATCHED) { a.receive(Channel.CHANNEL_CONTROL).collect { } }
+            delay(50)
+
             a.close()
 
+            withTimeout(5.seconds) { subscriber.join() }
             val sessionJob = a.scope.coroutineContext.job
             withTimeout(5.seconds) {
                 while (sessionJob.children.any { it.isActive }) delay(10)

@@ -18,7 +18,8 @@ with `LP(x) = u16be(len(x)) || x` and `cb` the verifier's own `RotationChallenge
 authenticated on the session) and `input.cbHex` (the verifier's challenge) are what the verifier
 itself holds, `input.messageHex` is the received serialized KeyRotation. Positive entries expect
 `{"valid": true}`; negative entries carry `expectedError: "invalidSignature"` (receiver replies
-RotationReject INVALID_SIGNATURE, no close).
+RotationReject INVALID_SIGNATURE, no close). Before verifying, `newSpkiDer` must be exactly the 91-byte
+uncompressed P-256 SPKI (SPEC #key-rotation step 5); anything else is `invalidSignature`.
 
 Signatures are made with RFC 6979 deterministic ECDSA (HMAC-SHA256) so regeneration is byte-stable.
 """
@@ -31,12 +32,15 @@ from typing import Any
 
 from spki_fingerprint import (
     OID_PRIME256V1,
+    OID_SECP384R1,
+    P384_COORD_BYTES,
     P256_COORD_BYTES,
     P256_GX,
     P256_GY,
     P256_N,
     _der_integer,
     _der_tlv,
+    _ec_point_compressed,
     _ec_point_uncompressed,
     _fixed_scalar,
     _inverse_mod,
@@ -150,6 +154,30 @@ def _rotation(old: str, new: str, cb: bytes, *, sign_old_with: str | None = None
     )
 
 
+def _p384_spki_der() -> bytes:
+    x = int.from_bytes(hashlib.shake_256(b"tandem-vectors:rotation-p384-x").digest(P384_COORD_BYTES), "big")
+    y = int.from_bytes(hashlib.shake_256(b"tandem-vectors:rotation-p384-y").digest(P384_COORD_BYTES), "big")
+    return build_ec_spki_der(
+        curve_oid=OID_SECP384R1, point_bytes=_ec_point_uncompressed(x, y, P384_COORD_BYTES)
+    )
+
+
+def _compressed_spki_der(label: str) -> bytes:
+    x, y = p256_public_point(_scalar(label))
+    return build_ec_spki_der(
+        curve_oid=OID_PRIME256V1, point_bytes=_ec_point_compressed(x, y, P256_COORD_BYTES)
+    )
+
+
+def _rotation_with_new_der(old: str, new_der: bytes, cb: bytes) -> bytes:
+    transcript = _transcript(_spki_der(old), new_der, cb)
+    return encode_key_rotation(
+        new_spki_der=new_der,
+        sig_old_key=_sign(_scalar(old), transcript),
+        sig_new_key=_sign(_scalar("new"), transcript),
+    )
+
+
 def _key_rotation_vector(
     slug: str, description: str, message: bytes, *, verifier_old: str, verifier_cb: bytes, valid: bool
 ) -> dict[str, Any]:
@@ -189,6 +217,9 @@ def generate_rotation_encoding_vectors() -> dict[str, Any]:
     challenge_msg = _field_bytes(1, cb)
     ack_msg = b""
     reject_msgs = {name: _field_varint(1, value) for name, value in REJECT_REASONS.items()}
+
+    p384_der = _p384_spki_der()
+    compressed_der = _compressed_spki_der("new")
 
     vectors: list[dict[str, Any]] = [
         {
@@ -252,6 +283,18 @@ def generate_rotation_encoding_vectors() -> dict[str, Any]:
             "invalid-new-key-proof-of-possession",
             "sigNewKey made by a key other than newSpkiDer (claiming someone else's public key): fails.",
             _rotation("old", "new", cb, sign_new_with="stranger"), verifier_old="old", verifier_cb=cb, valid=False,
+        ),
+        _key_rotation_vector(
+            "p384-new-spki",
+            "newSpkiDer is a P-384 SPKI (120 bytes) instead of the required 91-byte P-256 SPKI: rejected "
+            "before signature verification.",
+            _rotation_with_new_der("old", p384_der, cb), verifier_old="old", verifier_cb=cb, valid=False,
+        ),
+        _key_rotation_vector(
+            "compressed-point-new-spki",
+            "newSpkiDer is a P-256 SPKI with a compressed point (59 bytes) instead of the uncompressed "
+            "0x04 point: rejected before signature verification.",
+            _rotation_with_new_der("old", compressed_der, cb), verifier_old="old", verifier_cb=cb, valid=False,
         ),
     ]
 

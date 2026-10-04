@@ -16,12 +16,15 @@
 #   - every exported activity/activity-alias/service/receiver/provider is listed in
 #     tools/release-audit/android-exported.allowlist with its guarding permission (or is missing
 #     that permission despite being allowlisted for one).
+#   - the declared <uses-permission> / <uses-permission-sdk-23> set equals
+#     tools/release-audit/android-permissions.allowlist exactly (E71-09); each allowlist line
+#     carries the issue ID that justifies the permission.
 #   - no denied permission is declared via <uses-permission> or <uses-permission-sdk-23>, unless
 #     it is present in tools/release-audit/android-denied-permissions.allowlist.
 #
 #   ruby tools/release-audit/check-android-manifest.rb --manifest PATH \
 #     --data-extraction-rules PATH --nsc PATH \
-#     [--allowlist PATH] [--denied-permissions-allowlist PATH]
+#     [--allowlist PATH] [--denied-permissions-allowlist PATH] [--permissions-allowlist PATH]
 #
 # --manifest, --data-extraction-rules and --nsc are all mandatory: dataExtractionRules and NSC
 # content can only be judged from the actual resource file (the manifest just carries an
@@ -41,6 +44,7 @@ module AndroidManifestCheck
   class MalformedAllowlistError < StandardError; end
 
   DEFAULT_ALLOWLIST = File.expand_path('android-exported.allowlist', __dir__)
+  DEFAULT_PERMISSIONS_ALLOWLIST = File.expand_path('android-permissions.allowlist', __dir__)
   DEFAULT_DENIED_PERMISSIONS_ALLOWLIST = File.expand_path('android-denied-permissions.allowlist', __dir__)
 
   # Every documented dataExtractionRules domain token (developer.android.com/identity/data/autobackup
@@ -101,6 +105,25 @@ module AndroidManifestCheck
     allowlist
   end
 
+  # Each non-comment, non-blank line is exactly `<permission> <issue ID>`; a permission without
+  # the justifying issue ID is rejected.
+  def load_permissions_allowlist(path)
+    return Set.new unless File.exist?(path)
+
+    File.readlines(path).each_with_index.with_object(Set.new) do |(raw_line, index), set|
+      line = raw_line.strip
+      next if line.empty? || line.start_with?('#')
+
+      tokens = line.split(/\s+/)
+      unless tokens.size == 2 && tokens[1].match?(/\AE\d+-\d+\z/)
+        raise MalformedAllowlistError,
+              "#{path}:#{index + 1}: expected `<permission> <issue ID such as E20-02>`, got: #{line.inspect}"
+      end
+
+      set << tokens.first
+    end
+  end
+
   def load_denied_permissions_allowlist(path)
     return Set.new unless File.exist?(path)
 
@@ -116,7 +139,7 @@ module AndroidManifestCheck
 
   # --- <application> checks -------------------------------------------------------------------
 
-  def check_manifest(doc, allowlist: {}, denied_permissions_allowlist: Set.new)
+  def check_manifest(doc, allowlist: {}, denied_permissions_allowlist: Set.new, permissions_allowlist: nil)
     violations = []
     application = doc.root.elements['application']
     if application.nil?
@@ -126,6 +149,7 @@ module AndroidManifestCheck
 
     violations.concat(check_backup_attributes(application))
     violations.concat(check_denied_permissions(doc, denied_permissions_allowlist))
+    violations.concat(check_declared_permissions(doc, permissions_allowlist)) unless permissions_allowlist.nil?
     violations.concat(check_exported_components(doc, application, allowlist))
     violations
   end
@@ -169,6 +193,20 @@ module AndroidManifestCheck
       end
     end
     violations
+  end
+
+  def check_declared_permissions(doc, permissions_allowlist)
+    declared = %w[uses-permission uses-permission-sdk-23].flat_map do |tag|
+      doc.root.elements.to_a(tag).filter_map { |element| element.attributes['android:name'] }
+    end.to_set
+
+    unlisted = (declared - permissions_allowlist).sort.map do |name|
+      "permission #{name} is declared but not in tools/release-audit/android-permissions.allowlist"
+    end
+    unused = (permissions_allowlist - declared).sort.map do |name|
+      "permission #{name} is in tools/release-audit/android-permissions.allowlist but not declared"
+    end
+    unlisted + unused
   end
 
   def check_exported_components(doc, application, allowlist)
@@ -261,9 +299,10 @@ if $PROGRAM_NAME == __FILE__
   options = {
     allowlist: AndroidManifestCheck::DEFAULT_ALLOWLIST,
     denied_permissions_allowlist: AndroidManifestCheck::DEFAULT_DENIED_PERMISSIONS_ALLOWLIST,
+    permissions_allowlist: AndroidManifestCheck::DEFAULT_PERMISSIONS_ALLOWLIST,
   }
   USAGE = 'usage: check-android-manifest.rb --manifest PATH --data-extraction-rules PATH --nsc PATH ' \
-          '[--allowlist PATH] [--denied-permissions-allowlist PATH]'
+          '[--allowlist PATH] [--denied-permissions-allowlist PATH] [--permissions-allowlist PATH]'
 
   OptionParser.new do |opts|
     opts.banner = USAGE
@@ -272,6 +311,7 @@ if $PROGRAM_NAME == __FILE__
     opts.on('--nsc PATH') { |v| options[:nsc] = v }
     opts.on('--allowlist PATH') { |v| options[:allowlist] = v }
     opts.on('--denied-permissions-allowlist PATH') { |v| options[:denied_permissions_allowlist] = v }
+    opts.on('--permissions-allowlist PATH') { |v| options[:permissions_allowlist] = v }
   end.parse!(ARGV)
 
   if options[:manifest].nil? || options[:data_extraction_rules].nil? || options[:nsc].nil?
@@ -288,6 +328,7 @@ if $PROGRAM_NAME == __FILE__
         AndroidManifestCheck.read_xml(options[:manifest]),
         allowlist: allowlist,
         denied_permissions_allowlist: denied_permissions_allowlist,
+        permissions_allowlist: AndroidManifestCheck.load_permissions_allowlist(options[:permissions_allowlist]),
       ),
     )
     violations.concat(AndroidManifestCheck.check_data_extraction_rules(AndroidManifestCheck.read_xml(options[:data_extraction_rules])))

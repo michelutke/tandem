@@ -31,6 +31,11 @@ enum UITestScenario: String {
     /// Fail-closed error state: version mismatch (E12-10).
     case failClosedError
 
+    /// A paired peer whose real-shaped connection state (a ``ConnectionStateRelay`` fed by a
+    /// `FakeTandemSession`, the E22-11 production seam) failed with a version mismatch (E15-16):
+    /// both the menu bar's state label and the error banner show the version-mismatch error.
+    case versionMismatchMenu
+
     /// Local Network privacy permission denied (E21-03): the menu shows
     /// ``LocalNetworkPermissionViewModel``'s exact explanation text and an "Open System Settings"
     /// button, seeded by a `BonjourPublishError.policyDenied` error on a plain
@@ -46,6 +51,16 @@ enum UITestScenario: String {
     /// Main window (E22-09), the selected section's feature is turned off on the phone: the
     /// content area shows the shared "Turned off on the phone." empty state.
     case mainWindowFeatureDisabled
+
+    /// Photo grid (E41-05) over a seeded ``PhotoService`` reporting PARTIAL access: the limited-
+    /// access banner and its "Select more on phone" button render without a phone.
+    case photoGridPartialAccess
+
+    /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
+    /// render newest first, with one resolved contact name, one international number and a badge.
+    case threadListSeeded
+    /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
+    case incomingCallActive
 
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
