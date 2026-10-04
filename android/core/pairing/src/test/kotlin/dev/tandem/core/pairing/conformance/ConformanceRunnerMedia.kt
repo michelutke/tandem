@@ -1,8 +1,11 @@
 package dev.tandem.core.pairing.conformance
 
 import com.google.protobuf.ByteString
+import com.google.protobuf.MessageLite
 import dev.tandem.protocol.v1.MediaHello
 import dev.tandem.protocol.v1.MediaTicketGrant
+import dev.tandem.protocol.v1.MirrorDeclined
+import dev.tandem.protocol.v1.MirrorRequest
 import dev.tandem.protocol.v1.RequestMediaTicket
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -23,7 +26,9 @@ internal fun mediaEncodingOutcome(vector: JsonObject): VectorOutcome {
     val messageBytes = hexToBytes(input.getValue("messageHex").jsonPrimitive.content)
     return try {
         when (val kind = input.getValue("kind").jsonPrimitive.content) {
-            "requestMediaTicket" -> requestMediaTicketOutcome(id, messageBytes, vector)
+            "requestMediaTicket" -> emptyMessageOutcome(id, messageBytes, vector, RequestMediaTicket::parseFrom)
+            "mirrorRequest" -> emptyMessageOutcome(id, messageBytes, vector, MirrorRequest::parseFrom)
+            "mirrorDeclined" -> emptyMessageOutcome(id, messageBytes, vector, MirrorDeclined::parseFrom)
             "mediaTicketGrant" -> mediaTicketGrantOutcome(id, messageBytes, vector)
             "mediaHello" -> mediaHelloOutcome(id, messageBytes, vector)
             else -> error("unsupported media-encoding kind: $kind")
@@ -33,19 +38,20 @@ internal fun mediaEncodingOutcome(vector: JsonObject): VectorOutcome {
     }
 }
 
-private fun requestMediaTicketOutcome(
+private fun emptyMessageOutcome(
     id: String,
     messageBytes: ByteArray,
     vector: JsonObject,
+    parse: (ByteArray) -> MessageLite,
 ): VectorOutcome {
-    val decoded = RequestMediaTicket.parseFrom(messageBytes)
+    val reencoded = parse(messageBytes).toByteArray()
     val expectedSha =
         vector
             .getValue("expected")
             .jsonObject
             .getValue("messageSha256")
             .jsonPrimitive.content
-    val passed = decoded.toByteArray().contentEquals(messageBytes) && sha256Hex(messageBytes) == expectedSha
+    val passed = reencoded.contentEquals(messageBytes) && sha256Hex(messageBytes) == expectedSha
     return VectorOutcome(
         id,
         "media-encoding",

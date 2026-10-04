@@ -84,6 +84,8 @@ public  final class Envelope extends
     PREVIOUS(133),
     STOP(134),
     CAPABILITY_UNAVAILABLE(135),
+    MIRROR_REQUEST(140),
+    MIRROR_DECLINED(141),
     PAYLOAD_NOT_SET(0);
     private final int value;
     private PayloadCase(int value) {
@@ -158,6 +160,8 @@ public  final class Envelope extends
         case 133: return PREVIOUS;
         case 134: return STOP;
         case 135: return CAPABILITY_UNAVAILABLE;
+        case 140: return MIRROR_REQUEST;
+        case 141: return MIRROR_DECLINED;
         case 0: return PAYLOAD_NOT_SET;
         default: return null;
       }
@@ -3675,6 +3679,130 @@ public  final class Envelope extends
     }
   }
 
+  public static final int MIRROR_REQUEST_FIELD_NUMBER = 140;
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   */
+  @java.lang.Override
+  public boolean hasMirrorRequest() {
+    return payloadCase_ == 140;
+  }
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.MirrorRequest getMirrorRequest() {
+    if (payloadCase_ == 140) {
+       return (dev.tandem.protocol.v1.MirrorRequest) payload_;
+    }
+    return dev.tandem.protocol.v1.MirrorRequest.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setMirrorRequest(dev.tandem.protocol.v1.MirrorRequest value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 140;
+  }
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeMirrorRequest(dev.tandem.protocol.v1.MirrorRequest value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 140 &&
+        payload_ != dev.tandem.protocol.v1.MirrorRequest.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.MirrorRequest.newBuilder((dev.tandem.protocol.v1.MirrorRequest) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 140;
+  }
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   */
+  private void clearMirrorRequest() {
+    if (payloadCase_ == 140) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
+  public static final int MIRROR_DECLINED_FIELD_NUMBER = 141;
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   */
+  @java.lang.Override
+  public boolean hasMirrorDeclined() {
+    return payloadCase_ == 141;
+  }
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   */
+  @java.lang.Override
+  public dev.tandem.protocol.v1.MirrorDeclined getMirrorDeclined() {
+    if (payloadCase_ == 141) {
+       return (dev.tandem.protocol.v1.MirrorDeclined) payload_;
+    }
+    return dev.tandem.protocol.v1.MirrorDeclined.getDefaultInstance();
+  }
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void setMirrorDeclined(dev.tandem.protocol.v1.MirrorDeclined value) {
+    value.getClass();  // minimal bytecode null check
+    payload_ = value;
+    payloadCase_ = 141;
+  }
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   */
+  @java.lang.SuppressWarnings("ReturnValueIgnored")
+  private void mergeMirrorDeclined(dev.tandem.protocol.v1.MirrorDeclined value) {
+    value.getClass();  // minimal bytecode null check
+    if (payloadCase_ == 141 &&
+        payload_ != dev.tandem.protocol.v1.MirrorDeclined.getDefaultInstance()) {
+      payload_ = dev.tandem.protocol.v1.MirrorDeclined.newBuilder((dev.tandem.protocol.v1.MirrorDeclined) payload_)
+          .mergeFrom(value).buildPartial();
+    } else {
+      payload_ = value;
+    }
+    payloadCase_ = 141;
+  }
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   */
+  private void clearMirrorDeclined() {
+    if (payloadCase_ == 141) {
+      payloadCase_ = 0;
+      payload_ = null;
+    }
+  }
+
   public static dev.tandem.protocol.v1.Envelope parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
@@ -7117,6 +7245,126 @@ public  final class Envelope extends
       return this;
     }
 
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    @java.lang.Override
+    public boolean hasMirrorRequest() {
+      return instance.hasMirrorRequest();
+    }
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.MirrorRequest getMirrorRequest() {
+      return instance.getMirrorRequest();
+    }
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    public Builder setMirrorRequest(dev.tandem.protocol.v1.MirrorRequest value) {
+      copyOnWrite();
+      instance.setMirrorRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    public Builder setMirrorRequest(
+        dev.tandem.protocol.v1.MirrorRequest.Builder builderForValue) {
+      copyOnWrite();
+      instance.setMirrorRequest(builderForValue.build());
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    public Builder mergeMirrorRequest(dev.tandem.protocol.v1.MirrorRequest value) {
+      copyOnWrite();
+      instance.mergeMirrorRequest(value);
+      return this;
+    }
+    /**
+     * <pre>
+     * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+     * </pre>
+     *
+     * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+     */
+    public Builder clearMirrorRequest() {
+      copyOnWrite();
+      instance.clearMirrorRequest();
+      return this;
+    }
+
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    @java.lang.Override
+    public boolean hasMirrorDeclined() {
+      return instance.hasMirrorDeclined();
+    }
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    @java.lang.Override
+    public dev.tandem.protocol.v1.MirrorDeclined getMirrorDeclined() {
+      return instance.getMirrorDeclined();
+    }
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    public Builder setMirrorDeclined(dev.tandem.protocol.v1.MirrorDeclined value) {
+      copyOnWrite();
+      instance.setMirrorDeclined(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    public Builder setMirrorDeclined(
+        dev.tandem.protocol.v1.MirrorDeclined.Builder builderForValue) {
+      copyOnWrite();
+      instance.setMirrorDeclined(builderForValue.build());
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    public Builder mergeMirrorDeclined(dev.tandem.protocol.v1.MirrorDeclined value) {
+      copyOnWrite();
+      instance.mergeMirrorDeclined(value);
+      return this;
+    }
+    /**
+     * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+     */
+    public Builder clearMirrorDeclined() {
+      copyOnWrite();
+      instance.clearMirrorDeclined();
+      return this;
+    }
+
     // @@protoc_insertion_point(builder_scope:tandem.v1.Envelope)
   }
   @java.lang.Override
@@ -7197,9 +7445,11 @@ public  final class Envelope extends
             dev.tandem.protocol.v1.Previous.class,
             dev.tandem.protocol.v1.Stop.class,
             dev.tandem.protocol.v1.CapabilityUnavailable.class,
+            dev.tandem.protocol.v1.MirrorRequest.class,
+            dev.tandem.protocol.v1.MirrorDeclined.class,
           };
           java.lang.String info =
-              "\u0000>\u0001\u0000\u0001\u0087>\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
+              "\u0000@\u0001\u0000\u0001\u008d@\u0000\u0000\u0000\u0001\f\u0002\u0003\u0003\u0003" +
               "\u0004<\u0000\u0005<\u0000\u0006<\u0000\u0007<\u0000\b<\u0000\n<\u0000\u000b<\u0000" +
               "\f<\u0000\r<\u0000\u000e<\u0000\u000f<\u0000\u0010<\u0000\u0011<\u0000\u0014<\u0000" +
               "\u0015<\u0000\u0016<\u0000\u001e<\u0000\u001f<\u0000 <\u0000!<\u0000\"<\u0000(<\u0000" +
@@ -7207,7 +7457,7 @@ public  final class Envelope extends
               "?<\u0000@<\u0000A<\u0000F<\u0000G<\u0000H<\u0000I<\u0000J<\u0000P<\u0000Q<\u0000" +
               "Z<\u0000[<\u0000\\<\u0000]<\u0000d<\u0000n<\u0000o<\u0000p<\u0000q<\u0000x<\u0000" +
               "y<\u0000\u0082<\u0000\u0083<\u0000\u0084<\u0000\u0085<\u0000\u0086<\u0000\u0087<" +
-              "\u0000";
+              "\u0000\u008c<\u0000\u008d<\u0000";
           return newMessageInfo(DEFAULT_INSTANCE, info, objects);
       }
       case GET_DEFAULT_INSTANCE: {

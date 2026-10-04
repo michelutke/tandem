@@ -813,5 +813,35 @@ public interface EnvelopeOrBuilder extends
    */
   dev.tandem.protocol.v1.CapabilityUnavailable getCapabilityUnavailable();
 
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   * @return Whether the mirrorRequest field is set.
+   */
+  boolean hasMirrorRequest();
+  /**
+   * <pre>
+   * media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+   * </pre>
+   *
+   * <code>.tandem.v1.MirrorRequest mirror_request = 140 [json_name = "mirrorRequest"];</code>
+   * @return The mirrorRequest.
+   */
+  dev.tandem.protocol.v1.MirrorRequest getMirrorRequest();
+
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   * @return Whether the mirrorDeclined field is set.
+   */
+  boolean hasMirrorDeclined();
+  /**
+   * <code>.tandem.v1.MirrorDeclined mirror_declined = 141 [json_name = "mirrorDeclined"];</code>
+   * @return The mirrorDeclined.
+   */
+  dev.tandem.protocol.v1.MirrorDeclined getMirrorDeclined();
+
   public dev.tandem.protocol.v1.Envelope.PayloadCase getPayloadCase();
 }
