@@ -372,6 +372,10 @@ for an address it never reached.
 
 ### Frame order on a pairing-candidate connection
 
+The steps below are the QR window's order. On a manual-pairing window, steps 1–2 are identical and
+the `PairRequest`/`PairAccepted` steps are replaced by the Commitment/Reveal exchange in
+§ Manual pairing.
+
 1. Both sides exchange `VersionHello` (§6, `#versioning-and-capability-negotiation`) — exactly as on
    any other connection, this is the only legal payload before the exchange completes (§3, §6).
 2. Once both hellos are exchanged, the Mac MUST send `PairChallenge { challenge }` (§1,
@@ -492,6 +496,64 @@ already closes as soon as the 3rd failed attempt's own rejection (one of `EXPIRE
 `MALFORMED`, or `TIMEOUT`) is sent, and a subsequent 4th connection attempt is rejected in the verify
 callback (§1) — with no open pairing window, it never becomes a pairing candidate at all, so it is
 never a `PAIRING_FAILED` close and never carries a `PairRejected`.
+
+### Manual pairing
+
+*(E73-02 · PRD F-2.2 · ADR-008 · invariants 3, 6)*
+
+Manual pairing is an additional pairing method for camera-less setups; it never replaces or weakens
+QR pairing. `docs/adr/ADR-008-manual-pairing-commitment-sas.md` is the design record; this section is
+the wire contract. Messages are defined in `manual_pairing.proto` and ride the CONTROL channel
+(`Envelope.payload` fields 15-17) on a pairing-candidate connection, inside the unchanged pairing
+window (§ Pairing window: 120 s, 3 attempts, one candidate at a time). The phone's `Commitment` is
+subject to the same 10 s first-message deadline that bounds `PairRequest` on a QR window, measured
+from the Mac's `PairChallenge`.
+
+Notation: `LP(x) = u16be(len(x)) || x`; `macSpkiDer` and `phoneSpkiDer` are the 91-byte SPKI DER taken
+from the certificates presented on this TLS handshake, never from a message body; `cb` is this
+session's `PairChallenge.challenge` (§1).
+
+- `ctx = ASCII("tandem-manual-pair-v1") || LP(macSpkiDer) || LP(phoneSpkiDer) || LP(cb)`.
+- Each side draws a 16-byte CSPRNG nonce, `nonceP` (phone) and `nonceM` (Mac).
+- `commitX = SHA-256(ASCII("tandem-manual-commit-v1") || roleByte || nonceX || ctx)`, `roleByte` =
+  `0x01` (phone) or `0x02` (Mac). `Commitment.hash` is exactly 32 bytes, `Reveal.nonce` exactly 16.
+- `h = HMAC-SHA256(key = nonceP || nonceM, msg = ASCII("tandem-manual-pair-v1") || ctx)` and
+  `sas = u64be(h[0:8]) mod 1000000`, rendered zero-padded to exactly 6 digits.
+
+#### Message order
+
+The only valid order on a manual window is: phone `Commitment`; Mac `Commitment`; phone `Reveal`; Mac
+`Reveal`; Mac `ManualPairResult`. A side MUST NOT send its `Reveal` before it has received the peer's
+`Commitment`. The Mac MUST verify the phone's `Reveal` against the phone's `Commitment` (recomputing
+with its own observed SPKIs and `cb`, in constant time) before sending its own `Reveal`; the phone
+verifies the Mac's `Reveal` the same way. `ManualPairResult` is sent only after the owner clicked Pair
+and only after both `Reveal`s verified.
+
+A malformed message (wrong `hash`/`nonce` length), a `Reveal` that does not match its `Commitment`, and
+any missing, duplicate or out-of-order message, or a QR `PairRequest` on a manual window (and the
+reverse), is rejected with `PAIRING_FAILED` and burns one attempt (§ Pairing window; wire collapse as
+for QR). A receiver treats a `ManualPairResult` whose `accepted` is not true as such a failure; an
+owner decline is `PairRejected` (§ Mutual confirmation).
+
+#### SAS comparison
+
+The Mac shows the SAS, the sanitized phone name and Pair / Don't Pair; the phone shows the same SAS and
+pins the Mac SPKI only after receiving `ManualPairResult` and the owner tapping "Codes match". An owner
+reporting a mismatch on either screen is terminal for the window like an owner decline: abort without
+pinning (`PairRejected` `REJECTED_BY_OWNER` / `Revoke` as in § Mutual confirmation), destroy the
+nonces and close the window. Nonces, commitments and the SAS are never logged and are discarded when
+the attempt ends. A fingerprint or fingerprint prefix is never an input to, or a substitute for, the
+SAS.
+
+#### Conformance
+
+`protocol/vectors/manual-pairing.json` (E73-02; E15-01, E15-02) includes round trips for all three
+messages, known nonce pairs plus SPKIs plus `cb` deriving fixed SAS values (including a leading-zero
+one), and as negatives: wrong `hash`/`nonce` lengths, `ManualPairResult` with `accepted` false, a
+`Reveal` not matching its `Commitment` (wrong nonce, the peer's nonce, another session's `cb`, another
+Mac SPKI, a reflected role byte), SAS comparisons that differ when the SPKI pair, `cb` or a nonce
+differs, and message orders that violate the sequence above (reveal before the peer's `Commitment`,
+Mac first, duplicate `Commitment`, result before the `Reveal`s, QR `PairRequest` on a manual window).
 
 ---
 

@@ -89,6 +89,7 @@ object ConformanceRunner {
             "media-encoding",
             "media-frame-encoding",
             "input-encoding",
+            "manual-pairing",
             "rotation-encoding",
             "focus-encoding",
             "media-control-encoding",
@@ -209,6 +210,17 @@ object ConformanceRunner {
             "media-encoding" -> mediaEncodingOutcome(vector)
             "media-frame-encoding" -> mediaFrameEncodingOutcome(vector)
             "input-encoding" -> inputEncodingOutcome(vector)
+            "manual-pairing" -> manualPairingOutcome(vector)
+            else -> runControlPayloadCategory(category, vector)
+        }
+
+    /** CONTROL/STATUS-channel payload categories, split out of [runDomainPayloadCategory] for the same
+     * `CyclomaticComplexMethod` detekt budget reason. */
+    private fun runControlPayloadCategory(
+        category: String,
+        vector: JsonObject,
+    ): VectorOutcome =
+        when (category) {
             "rotation-encoding" -> rotationEncodingOutcome(vector)
             "focus-encoding" -> focusEncodingOutcome(vector)
             "media-control-encoding" -> mediaControlEncodingOutcome(vector)

@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+// E73-02: manual_pairing.proto — the commit-then-reveal SAS messages of manual pairing
+// (docs/protocol/SPEC.md #manual-pairing, docs/adr/ADR-008-manual-pairing-commitment-sas.md). All
+// three ride the CONTROL channel on a pairing-candidate connection whose window was opened in
+// manual mode and are embedded directly in envelope.proto's Envelope.payload oneof (fields 15-17).
+// A manual message on a QR window, or a QR PairRequest on a manual window, is a wrong payload:
+// PAIRING_FAILED, one attempt burned.
+package tandem.v1;
+
+option java_package = "dev.tandem.protocol.v1";
+option java_multiple_files = true;
+
+// Commitment: SPEC #manual-pairing step 3. `hash` is exactly 32 bytes:
+// SHA-256(ASCII("tandem-manual-commit-v1") || roleByte || nonceX || ctx). The phone sends first,
+// then the Mac; neither side sends its Reveal until it has received the peer's Commitment.
+message Commitment {
+  bytes hash = 1;
+}
+
+// Reveal: SPEC #manual-pairing step 4. `nonce` is exactly 16 bytes from a CSPRNG, fresh per
+// attempt. The phone reveals first; the Mac reveals only after verifying the phone's Reveal in
+// constant time against the phone's Commitment.
+message Reveal {
+  bytes nonce = 1;
+}
+
+// ManualPairResult: SPEC #manual-pairing step 6. Sent by the Mac only after the owner clicked Pair;
+// `accepted` is always true on the wire and any other value is rejected PAIRING_FAILED (a decline is
+// PairRejected, not this message).
+message ManualPairResult {
+  bool accepted = 1;
+}

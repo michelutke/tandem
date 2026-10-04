@@ -1,0 +1,494 @@
+{
+  "$schema": "./schema.json",
+  "category": "manual-pairing",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "manual-pairing-commitment-round-trip",
+      "description": "Commitment with a 32-byte hash round-tripping to golden bytes.",
+      "input": {
+        "kind": "message",
+        "messageType": "commitment",
+        "messageHex": "0a20bcfcf4c24c66255fa9df09e5e12d42a04336d7cf5ae886d2017099c43fbe291e"
+      },
+      "expected": {
+        "summary": "type=commitment|hash=bcfcf4c24c66255fa9df09e5e12d42a04336d7cf5ae886d2017099c43fbe291e",
+        "messageSha256": "8b3dcffa99801b7cf202087d7e7d28974f267c3af1f6913c559f86432b6273f9"
+      }
+    },
+    {
+      "id": "manual-pairing-reveal-round-trip",
+      "description": "Reveal with a 16-byte nonce round-tripping to golden bytes.",
+      "input": {
+        "kind": "message",
+        "messageType": "reveal",
+        "messageHex": "0a106a5288d6cbe714261441482ed8e59465"
+      },
+      "expected": {
+        "summary": "type=reveal|nonce=6a5288d6cbe714261441482ed8e59465",
+        "messageSha256": "0ed64f293bcfc54c6ed9bb528da844952cc0a60cc55231d2f9d653766abd0c16"
+      }
+    },
+    {
+      "id": "manual-pairing-result-accepted-round-trip",
+      "description": "ManualPairResult accepted=true round-tripping to golden bytes.",
+      "input": {
+        "kind": "message",
+        "messageType": "manualPairResult",
+        "messageHex": "0801"
+      },
+      "expected": {
+        "summary": "type=manualPairResult|accepted=true",
+        "messageSha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19"
+      }
+    },
+    {
+      "id": "manual-pairing-commitment-short-hash",
+      "description": "Commitment whose hash is 31 bytes is rejected PAIRING_FAILED.",
+      "input": {
+        "kind": "message",
+        "messageType": "commitment",
+        "messageHex": "0a1fbcfcf4c24c66255fa9df09e5e12d42a04336d7cf5ae886d2017099c43fbe29"
+      },
+      "expectedError": "malformedCommitment"
+    },
+    {
+      "id": "manual-pairing-commitment-empty",
+      "description": "Commitment without a hash is rejected.",
+      "input": {
+        "kind": "message",
+        "messageType": "commitment",
+        "messageHex": ""
+      },
+      "expectedError": "malformedCommitment"
+    },
+    {
+      "id": "manual-pairing-reveal-short-nonce",
+      "description": "Reveal whose nonce is 15 bytes is rejected.",
+      "input": {
+        "kind": "message",
+        "messageType": "reveal",
+        "messageHex": "0a0f6a5288d6cbe714261441482ed8e594"
+      },
+      "expectedError": "malformedReveal"
+    },
+    {
+      "id": "manual-pairing-reveal-long-nonce",
+      "description": "Reveal whose nonce is 17 bytes is rejected.",
+      "input": {
+        "kind": "message",
+        "messageType": "reveal",
+        "messageHex": "0a116a5288d6cbe714261441482ed8e5946500"
+      },
+      "expectedError": "malformedReveal"
+    },
+    {
+      "id": "manual-pairing-result-not-accepted",
+      "description": "ManualPairResult with accepted=false (an empty message) is rejected; a decline is PairRejected.",
+      "input": {
+        "kind": "message",
+        "messageType": "manualPairResult",
+        "messageHex": ""
+      },
+      "expectedError": "resultNotAccepted"
+    },
+    {
+      "id": "manual-pairing-sas-a",
+      "description": "Known nonce pair, SPKIs and cb derive a fixed 6-digit SAS (fixture a).",
+      "input": {
+        "kind": "sas",
+        "noncePhoneHex": "67eac2cfa3f49d746cda95f155257aa4",
+        "nonceMacHex": "515286e6581c14cba3418f446b327994",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040ba9c2ad74f2bdbe87e4d8ca32ba871a4ea74f80e4b9beeed6e811e84627b9b7694839eaaf91e816b66f4d8be626f536bc3cae83dccac975212f7309e739f2d8",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200040c4e466ac81eeb6c1f81b2876ffb2fb1f908d4ee3e0071438a1c3415aa348dbb663a81f523846bf1a23cb253e1d6e3aa2c1ccdc08b182292ab10ec9979f36ae1",
+        "cbHex": "ee8fb86f23f151b4fa4cdd885747105b7e6f25863d3b313311a85e36d03e9a1e"
+      },
+      "expected": {
+        "commitPhoneHex": "e114dc693a7b22dd6040e0ac4ba50bcb960c3c782df6227a0231db6bbb7cba97",
+        "commitMacHex": "cdcb7296aa86fc8ad5d383d2e874391d583ac9f6187c5fac22d3944e92c10dc3",
+        "hmacHex": "275ee7839590a2ba67c1c2b75a7e88a7479f03fe4edb3ea4cdccdc1f60a265a0",
+        "sas": "007226"
+      }
+    },
+    {
+      "id": "manual-pairing-sas-b",
+      "description": "Known nonce pair, SPKIs and cb derive a fixed 6-digit SAS (fixture b).",
+      "input": {
+        "kind": "sas",
+        "noncePhoneHex": "df95c6584d7b82236aa06142f6649c16",
+        "nonceMacHex": "49f8271dd802fb133158eef1cdd89422",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000438241ef8d308c72fbbc51764636660bdbbb8e92796d824167d34cda451cc0c416aea1be19e1dcec299c05faa39a65fc2c00135856ed089848372f41ff6b1e753",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004ce9d4300ad3a18c184b65e6f20498ab071068087e72488f2ef524dcb9dcfb7d8f8eb340efdbebd8d752c657b488dc28aab1b784d47ae3a6fff2aa4eaa1d65277",
+        "cbHex": "4d68739857e6fb723e909c74ca62135e53aa9bc63736119404196261e76495cf"
+      },
+      "expected": {
+        "commitPhoneHex": "9e2b652f0625eed3573cfd6a2f0ee1745d9e71dc013c8c90a093c71ded85caf0",
+        "commitMacHex": "2a28a6fde40c7e1c0119a5b483417b4f7a103940544aefba712ae9e3a8b825b0",
+        "hmacHex": "762c2731797045b8a25f9ed8af8236dc6577e27d812cd5e9ffc4646efe4e8085",
+        "sas": "047096"
+      }
+    },
+    {
+      "id": "manual-pairing-sas-leading-zero",
+      "description": "A SAS below 100000 is zero-padded to exactly 6 digits.",
+      "input": {
+        "kind": "sas",
+        "noncePhoneHex": "e0c5b153f32a17ee0b5e0dedcaeeaf98",
+        "nonceMacHex": "ddd74066761f89e50ea5c712470a9dd9",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004205b4d3f127c2344098938c04ee5bd717574aadf2f172f0afcd1eb66fbe3dd3ea2dbe8d863fe30f899f50b77ecaf7faa56ddbf99d9b84be42c5f78497c70e861",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200041e0c2d0c0ed1e4e6e5e865231cbc215b8d8cf782baa057cb3ea8e7c98aa7a91af379ff595d55ca3db6c9a6dfdfcbf4aa5f15531d0c993de4001c17349c419a41",
+        "cbHex": "aa3bb8438255c87f4e1a345ee9c0555c3f8678dfb195fc72beff99f0fc980f65"
+      },
+      "expected": {
+        "commitPhoneHex": "43fedb7605adf9c86e9bced5fee85a1fe83659ccbfbd377abcb40daa426350b4",
+        "commitMacHex": "66e0d4d014cc13a339ba04645c71b04064cf58c99a20f5f6d29bbadf270c45b4",
+        "hmacHex": "07c7600402dca4addb75d10cb2f545b1c5a79f8a693999de7c49586140d5dea3",
+        "sas": "066285"
+      }
+    },
+    {
+      "id": "manual-pairing-commitment-phone-valid",
+      "description": "The phone's Reveal matches its Commitment as the Mac recomputes it.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "phone",
+        "commitmentHex": "7d6353ab543c775aa24647aba36108753bca531ed33b900032577078ee9c5406",
+        "revealNonceHex": "dedf57951cb4d7d01656685cd3fc40b1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "manual-pairing-commitment-mac-valid",
+      "description": "The Mac's Reveal matches its Commitment as the phone recomputes it.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "mac",
+        "commitmentHex": "b5688306b9add2ca8b10606491ffadd9a26145498771831f5cab7ea0ecfd725e",
+        "revealNonceHex": "6d751f43be79a17a0ec72010756285e1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "manual-pairing-commitment-reveal-not-matching",
+      "description": "A Reveal whose nonce differs from the committed one fails verification.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "phone",
+        "commitmentHex": "7d6353ab543c775aa24647aba36108753bca531ed33b900032577078ee9c5406",
+        "revealNonceHex": "14a8797d485a143fd0d0c49ec2c4a3eb",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expectedError": "commitmentMismatch",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-commitment-peer-nonce-as-reveal",
+      "description": "The Mac's nonce presented as the phone's Reveal fails verification.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "phone",
+        "commitmentHex": "7d6353ab543c775aa24647aba36108753bca531ed33b900032577078ee9c5406",
+        "revealNonceHex": "6d751f43be79a17a0ec72010756285e1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expectedError": "commitmentMismatch",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-commitment-replay-other-cb",
+      "description": "A Commitment/Reveal pair recorded under another session's cb fails here.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "phone",
+        "commitmentHex": "2ba8bb61bfc19c4c2d67b0e8fdb857d084e7666a35ae63cf9a90a01beeeb4ffe",
+        "revealNonceHex": "dedf57951cb4d7d01656685cd3fc40b1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expectedError": "commitmentMismatch",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-commitment-replay-other-spki",
+      "description": "A Commitment made against a different Mac SPKI (a relay leg) fails here.",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "phone",
+        "commitmentHex": "3dea41d2144a9b06f7971b9a7433c3044546dbeeeea257055bae91d3d2d3010a",
+        "revealNonceHex": "dedf57951cb4d7d01656685cd3fc40b1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expectedError": "commitmentMismatch",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-commitment-reflected-role",
+      "description": "The phone's Commitment reflected back and attributed to the Mac fails (role byte).",
+      "input": {
+        "kind": "commitment",
+        "committerRole": "mac",
+        "commitmentHex": "7d6353ab543c775aa24647aba36108753bca531ed33b900032577078ee9c5406",
+        "revealNonceHex": "dedf57951cb4d7d01656685cd3fc40b1",
+        "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d030107034200042ce92abec4b21da3bd633d4a6b18158a186f2a9096bef127ca8586b51b7d1ee10857823a2bcaaab5b606556a77c23697a24e8891f6d5b303d50149955de852ec",
+        "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004b9fe71e4c0fefe89c32735e5832c4be958c1cb7acfa98d762d7a166229dc264afed61d848917d1f9dc77631f8ba070b93eef69913859e103fb83f3ba93860c01",
+        "cbHex": "c235732cb2ba2d09c58cff0eb038d0b5c306c0113fe2e49333a660200523e257"
+      },
+      "expectedError": "commitmentMismatch",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sas-compare-honest",
+      "description": "Both sides derive the same SAS.",
+      "input": {
+        "kind": "sasCompare",
+        "phoneView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        },
+        "macView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        }
+      },
+      "expected": {
+        "match": true,
+        "sas": "870652"
+      }
+    },
+    {
+      "id": "manual-pairing-sas-compare-relay-spki",
+      "description": "A relay's own Mac key on the phone leg changes ctx; the codes differ.",
+      "input": {
+        "kind": "sasCompare",
+        "phoneView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004d6a0397150e7eea4d02b139f82e9169a369d0d1eba2dd4ac235f820abffb38044a1208cfc0c77947c10c85549fa9f3c5a85f945c5c12f294bc57293f0fee8b1f",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        },
+        "macView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        }
+      },
+      "expectedError": "sasMismatch"
+    },
+    {
+      "id": "manual-pairing-sas-compare-other-cb",
+      "description": "A different channel binding on one leg changes ctx; the codes differ.",
+      "input": {
+        "kind": "sasCompare",
+        "phoneView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        },
+        "macView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "314e051ee9ec9dce415c2c8d89f95caa7d127ba6700125b06eddf9adaafb43da"
+        }
+      },
+      "expectedError": "sasMismatch"
+    },
+    {
+      "id": "manual-pairing-sas-compare-swapped-nonce",
+      "description": "Different real nonces on the two legs make the codes differ.",
+      "input": {
+        "kind": "sasCompare",
+        "phoneView": {
+          "noncePhoneHex": "a2d179b141eced14c211117410e29ad4",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        },
+        "macView": {
+          "noncePhoneHex": "2c38446331abc730872c396fe40ed83a",
+          "nonceMacHex": "e058f3966f7bebb1ce908cc4fb9dae3a",
+          "macSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d03010703420004a2457b2bdee2122be76295dbbfdecc2098677ed46dbddfddc013dd4ad89a582c47f1be876dba66900262d510f154e529bf9b70b818bdd4dcaa7325733d84b701",
+          "phoneSpkiDerHex": "3059301306072a8648ce3d020106082a8648ce3d0301070342000465eb35fa5a1df62be121bb90d4891bbfc1bd7c389410df9763af1c69eead3fc6b37d0932a232ca752ca228fe11618e9c0b8178e0b0f1d3a9cb0c4f5cd63a82a3",
+          "cbHex": "b9e4c797bc02a1ed4bf4e59b49b538a914dab18f62e613f271fb52b8f17ff343"
+        }
+      },
+      "expectedError": "sasMismatch"
+    },
+    {
+      "id": "manual-pairing-sequence-valid",
+      "description": "Phone commits, Mac commits, phone reveals, Mac reveals, Mac confirms.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "commitment"
+          },
+          {
+            "from": "mac",
+            "type": "commitment"
+          },
+          {
+            "from": "phone",
+            "type": "reveal"
+          },
+          {
+            "from": "mac",
+            "type": "reveal"
+          },
+          {
+            "from": "mac",
+            "type": "manualPairResult"
+          }
+        ]
+      },
+      "expected": {
+        "complete": true
+      }
+    },
+    {
+      "id": "manual-pairing-sequence-reveal-before-peer-commitment",
+      "description": "The phone reveals before the Mac's Commitment arrived.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "commitment"
+          },
+          {
+            "from": "phone",
+            "type": "reveal"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sequence-mac-first",
+      "description": "The Mac sends its Commitment before the phone's.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "mac",
+            "type": "commitment"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sequence-mac-reveals-first",
+      "description": "The Mac reveals before the phone's Reveal was verified.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "commitment"
+          },
+          {
+            "from": "mac",
+            "type": "commitment"
+          },
+          {
+            "from": "mac",
+            "type": "reveal"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sequence-duplicate-commitment",
+      "description": "The phone sends a second Commitment.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "commitment"
+          },
+          {
+            "from": "phone",
+            "type": "commitment"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sequence-result-before-reveals",
+      "description": "ManualPairResult arrives before both Reveals.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "commitment"
+          },
+          {
+            "from": "mac",
+            "type": "commitment"
+          },
+          {
+            "from": "mac",
+            "type": "manualPairResult"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    },
+    {
+      "id": "manual-pairing-sequence-qr-pair-request",
+      "description": "A QR PairRequest on a manual window is a wrong payload.",
+      "input": {
+        "kind": "sequence",
+        "messages": [
+          {
+            "from": "phone",
+            "type": "pairRequest"
+          }
+        ]
+      },
+      "expectedError": "outOfOrder",
+      "closeCode": "PAIRING_FAILED"
+    }
+  ]
+}
