@@ -6,24 +6,25 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.SmsMessageType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 // E50-02 tdd: instrumented: smsSource_adbEmuSmsSend_returnsInboxRowWithInjectedAddressAndBody
-// Seeds the inbox row itself via the shell user's `content insert` (CI has no host-side
-// `adb emu sms send` step); if the image refuses the insert the test is skipped, not failed.
+// Seeds the inbox row itself as the default SMS app (CI has no host-side `adb emu sms send` step).
 @RunWith(AndroidJUnit4::class)
 class ContentResolverSmsSourceInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
-    private var insertOutput = ""
+
+    @get:Rule
+    val defaultSmsRole = DefaultSmsRoleRule()
 
     @Before
     fun grantSmsPermission() {
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_SMS)
-        insertOutput = instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
+        instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
     }
 
     @Test
@@ -33,7 +34,6 @@ class ContentResolverSmsSourceInstrumentedTest {
                 .newerThan(0)
                 .filter { it.address == INJECTED_ADDRESS && it.body == INJECTED_BODY }
 
-        assumeTrue("emulator refused the seeded SMS insert: $insertOutput", injected.isNotEmpty())
         assertTrue(injected.isNotEmpty())
         assertEquals(SmsMessageType.SMS_MESSAGE_TYPE_INBOX, injected.first().type)
     }
