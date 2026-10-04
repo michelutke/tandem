@@ -260,7 +260,7 @@ ruby tools/mitm-lab/test/e15_20_scenarios_test.rb   # structure checks only
 
 ## E70-09: key-rotation abuse scenarios
 
-`tools/mitm-lab/e70-09-rotation/` -- five scenarios against the real Mac app (SPEC.md #key-rotation),
+`tools/mitm-lab/e70-09-rotation/` -- six scenarios against the real Mac app (SPEC.md #key-rotation),
 each asserting the connection was closed or answered with `RotationReject` for the expected reason and
 that the Mac's trust store (record count and fingerprints via `-HarnessListTrust`) is identical before
 and after: `KeyRotation` sent before `VersionHello` (Mac ignores it and closes at the 5 s hello
@@ -274,9 +274,15 @@ key) build the frames: `RAWKEYGEN` (hold a new key, print its fingerprint to see
 peer), `RAWCHALLENGE` (print the session's `RotationChallenge`), `RAWROTATE [CB=<hex>] [HELDKEY]`.
 `lib/rotation_before_hello_client.go` sends the pre-`VersionHello` frame, which no real client can.
 
-The sixth tdd entry, `mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly`,
-is not implemented: the Mac app does not yet wire `RotationCoordinator`/`RotationInitiator` into the
-listener (no harness hook starts a Mac-initiated rotation), so no real Mac offers a pending key.
+The sixth scenario, `mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly`, starts the
+Mac's own rotation: the DEBUG-only `-HarnessMacRotation YES` hook (`HarnessHooks+MediaTickets.swift`) composes the
+production `MacKeyRotation` (E70-16) over the harness keychain and trust store and begins a rotation at launch,
+printing `harness-mac-rotation: <outcome>` (and `harness-mac-rotation-switched` if every phone acked; never key
+material). The JVM client command `RAWMACROTATION [ACK|NOACK]` (`RawMacRotation.kt`) sends the phone's
+`RotationChallenge`, receives the Mac's `KeyRotation`, verifies both signatures with the real `RotationProof` and
+prints `EVENT MAC_ROTATION_OFFERED <newSpkiFingerprintHex> VERIFIED`; the scenario never acks. It then shows the
+unacked phone keeps the old pin only: a connection pinned to the old key still succeeds (the Mac's listener
+identity is unchanged), one pinned to the pending key alone is rejected, and the Mac logs no switch.
 
 ```sh
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e70-09-rotation/scenarios --timeout 300

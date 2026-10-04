@@ -2,6 +2,7 @@
 import FeatureMirror
 import Foundation
 import Synchronization
+import TandemCrypto
 import TandemPairing
 import TandemProtocol
 import TandemStore
@@ -30,7 +31,7 @@ enum HarnessMediaTickets {
 
     struct Wiring {
         let acceptor: MediaConnectionAcceptor
-        let host: SessionServiceHost
+        let service: any SessionService
     }
 
     static func makeIfRequested() -> Wiring? {
@@ -63,10 +64,44 @@ enum HarnessMediaTickets {
                 fflush(stdout)
             }
         }
-        return Wiring(
-            acceptor: acceptor,
-            host: SessionServiceHost(services: [MirrorSessionService(registry: registry)])
+        return Wiring(acceptor: acceptor, service: MirrorSessionService(registry: registry))
+    }
+}
+
+/// Debug-only E70-09 hook behind `-HarnessMacRotation YES`: the production ``MacKeyRotation`` (E70-16)
+/// over the harness keychain and trust store, with a Mac-initiated rotation begun at launch, so every
+/// seeded phone is offered the pending key as it connects (`KeyRotation` after its `RotationChallenge`).
+/// Prints `harness-mac-rotation: <outcome>` once begun and `harness-mac-rotation-switched` when every
+/// phone acked and the identity switched; never any key material (the pending key reaches a phone only
+/// inside that phone's own `KeyRotation`).
+enum HarnessMacRotation {
+    static func makeIfRequested(
+        keychainStore: any KeychainStore,
+        trustStore: TrustStore,
+        window: any PairingWindowState
+    ) -> MacKeyRotation? {
+        guard UserDefaults.standard.bool(forKey: "HarnessMacRotation") else { return nil }
+        let dueDateURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tandem-harness-next-rotation-due-\(UUID().uuidString)")
+        let rotation = MacKeyRotation(
+            keychainStore: keychainStore,
+            trustStore: trustStore,
+            window: window,
+            dateProvider: { Date() },
+            interval: .seconds(365 * 86_400),
+            dueDateURL: dueDateURL,
+            onSwitched: {
+                print("harness-mac-rotation-switched")
+                fflush(stdout)
+            }
         )
+        rotation.resume()
+        Task {
+            let outcome = await rotation.rotate()
+            print("harness-mac-rotation: \(outcome)")
+            fflush(stdout)
+        }
+        return rotation
     }
 }
 
@@ -77,12 +112,17 @@ extension HarnessHooks {
         sessionRegistry: any ControlSessionRegistering,
         decisionCorrelator: PeerDecisionCorrelator,
         pairingCandidateDriver: (any PairingCandidateDriver)?,
-        trustStore: TrustStore
+        trustStore: TrustStore,
+        rotation: MacKeyRotation?
     ) -> NWListenerFactory {
         let media = HarnessMediaTickets.makeIfRequested()
+        var services: [any SessionService] = []
+        if let service = media?.service { services.append(service) }
+        if let rotation { services.append(rotation) }
         var registered: NWListenerFactory.SessionRegisteredHandler?
         var ended: NWListenerFactory.SessionRegisteredHandler?
-        if let host = media?.host {
+        if !services.isEmpty {
+            let host = SessionServiceHost(services: services)
             registered = { peer, session in host.sessionRegistered(peer: peer, session: session) }
             ended = { peer, session in host.sessionEnded(peer: peer, session: session) }
         }

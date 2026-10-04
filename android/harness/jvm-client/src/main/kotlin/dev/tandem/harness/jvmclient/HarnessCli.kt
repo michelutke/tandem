@@ -35,6 +35,8 @@ import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.notificationPosted
 import dev.tandem.protocol.v1.pairRequest
 import dev.tandem.protocol.v1.requestMediaTicket
+import dev.tandem.protocol.v1.rotationAck
+import dev.tandem.protocol.v1.rotationChallenge
 import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -227,6 +229,7 @@ private class HarnessCli(
             "RAWKEYGEN" -> println("OK KEYGEN ${rawRotation.generateHeldKey()}")
             "RAWCHALLENGE" -> rawRotationChallengeCommand()
             "RAWROTATE" -> rawRotate(rest)
+            "RAWMACROTATION" -> rawMacRotation(rest)
             "RAWTICKET" -> rawTicket()
             "MEDIAOPEN" -> mediaOpen(rest)
             "EXIT" -> {
@@ -883,6 +886,46 @@ private class HarnessCli(
         }
         println("OK SENT_ROTATION")
         printRawRotationOutcome(activeSession)
+    }
+
+    /**
+     * `RAWMACROTATION [ACK|NOACK]` (E70-09): the phone side of a Mac-initiated rotation on the raw
+     * session. Sends the unsolicited `RotationChallenge` a phone sends on every control session, waits
+     * for the Mac's `KeyRotation` and checks both signatures against the Mac key that authenticated
+     * this session. Prints `EVENT MAC_ROTATION_OFFERED <newSpkiFingerprintHex> VERIFIED|INVALID`, or
+     * `EVENT MAC_ROTATION_NONE` if no offer arrived. With `ACK` (default `NOACK`) a verified offer is
+     * answered with `RotationAck` and `OK ACKED` is printed. Nothing is pinned: a scenario then shows
+     * which keys the Mac still presents to a phone that has, or has not, acked.
+     */
+    private fun rawMacRotation(argsLine: String) {
+        val ack = argsLine.trim().equals("ACK", ignoreCase = true)
+        val activeSession = rawSession
+        val macSpkiDer = rawMacSpkiDer
+        if (activeSession == null || macSpkiDer == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        val challenge = RawMacRotation.newChallenge()
+        val outcome =
+            runBlocking(dispatcher) {
+                activeSession.send(Channel.CHANNEL_CONTROL) {
+                    rotationChallenge = rotationChallenge { this.challenge = ByteString.copyFrom(challenge) }
+                }
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasKeyRotation() }
+                }
+            }
+        val offer = (outcome as? RawWaitOutcome.Success)?.envelope?.keyRotation
+        if (offer == null) {
+            println("EVENT MAC_ROTATION_NONE")
+            return
+        }
+        val valid = RawMacRotation.isValidOffer(macSpkiDer, challenge, offer)
+        println("EVENT MAC_ROTATION_OFFERED ${RawMacRotation.newKeyFingerprintHex(offer)} ${if (valid) "VERIFIED" else "INVALID"}")
+        if (ack && valid) {
+            runBlocking(dispatcher) { activeSession.send(Channel.CHANNEL_CONTROL) { rotationAck = rotationAck {} } }
+            println("OK ACKED")
+        }
     }
 
     /**

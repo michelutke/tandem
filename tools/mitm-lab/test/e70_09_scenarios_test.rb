@@ -16,7 +16,8 @@ class MitmLabE7009ScenariosTest < Minitest::Test
     'mitmLabRotation_keyRotationInPairingWindow_rejectedTrustStoreUnchanged' => 'closedWithCode(PAIRING_FAILED)',
     'mitmLabRotation_unpinnedPeerSendsKeyRotation_handshakeFailsNoPinAdded' => 'handshakeRejected',
     'mitmLabRotation_keyRotationReplayedOnNewSession_rejectedTrustStoreUnchanged' => 'closedWithCode(INVALID_SIGNATURE)',
-    'mitmLabRotation_newSpkiOfOtherPairedPeer_rejectedDuplicateKey' => 'closedWithCode(DUPLICATE_KEY)'
+    'mitmLabRotation_newSpkiOfOtherPairedPeer_rejectedDuplicateKey' => 'closedWithCode(DUPLICATE_KEY)',
+    'mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly' => 'handshakeRejected'
   }.freeze
 
   def scenario_paths
@@ -33,6 +34,13 @@ class MitmLabE7009ScenariosTest < Minitest::Test
       assert_equal File.basename(path), meta.name
       assert_equal EXPECTED.fetch(meta.name), meta.expect
     end
+  end
+
+  def test_mitmLabE7009_pendingMacKeyScenario_startsMacRotationAndNeverAcks
+    body = File.read(File.join(DIR, 'mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly'))
+    assert_includes body, '-HarnessMacRotation YES'
+    assert_includes body, 'RAWMACROTATION NOACK'
+    assert_includes body, 'harness-mac-rotation-switched'
   end
 
   def test_mitmLabE7009_scenarioFiles_sourceSharedLibAndCompareTrustSnapshots
