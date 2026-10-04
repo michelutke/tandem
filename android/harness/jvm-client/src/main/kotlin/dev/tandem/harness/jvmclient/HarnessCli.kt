@@ -2,6 +2,7 @@ package dev.tandem.harness.jvmclient
 
 import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.IdentityKeyManager
+import dev.tandem.core.crypto.IdentityKeyStore
 import dev.tandem.core.crypto.PairingProof
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
@@ -25,6 +26,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.NetworkType
+import dev.tandem.protocol.v1.RotationRejectReason
 import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.deviceInfo
 import dev.tandem.protocol.v1.deviceStatus
@@ -90,7 +92,8 @@ fun main(args: Array<String>) {
 
     val knownPeerStore = HarnessKnownPeerStore(identityFile)
     val deviceInfoProvider = HarnessDeviceInfoProvider(displayName)
-    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore, deviceInfoProvider)
+    val rawRotation = RawRotation(requireNotNull(identityKeyStore.get(PersistentIdentityKeyStore.IDENTITY_ALIAS)))
+    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore, deviceInfoProvider, rawRotation)
     try {
         while (true) {
             val line = readlnOrNull() ?: break
@@ -143,6 +146,7 @@ private class HarnessCli(
     private val scope: CoroutineScope,
     private val knownPeerStore: HarnessKnownPeerStore,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val rawRotation: RawRotation,
 ) {
     private var session: TandemSession? = null
     private var connectedPeerFingerprintHex: String? = null
@@ -172,6 +176,7 @@ private class HarnessCli(
     private var rawMacSpkiDer: ByteArray? = null
     private var rawPhoneSpkiDer: ByteArray? = null
     private var rawChallenge: ByteArray? = null
+    private var rawRotationChallenge: ByteArray? = null
 
     /**
      * Peers this process currently considers *not* paired any more (E14-20): either a live
@@ -206,6 +211,9 @@ private class HarnessCli(
             "RAWSENDPROOF" -> rawSendProof(rest)
             "RAWREVOKE" -> rawRevoke()
             "RAWCLOSE" -> rawClose()
+            "RAWKEYGEN" -> println("OK KEYGEN ${rawRotation.generateHeldKey()}")
+            "RAWCHALLENGE" -> rawRotationChallengeCommand()
+            "RAWROTATE" -> rawRotate(rest)
             "EXIT" -> {
                 exit()
                 return false
@@ -644,6 +652,7 @@ private class HarnessCli(
         rawMacSpkiDer = null
         rawPhoneSpkiDer = null
         rawChallenge = null
+        rawRotationChallenge = null
 
         val fingerprint = SpkiFingerprint(fingerprintBytes)
         runCatching {
@@ -674,6 +683,9 @@ private class HarnessCli(
                                     rawChallenge = challenge
                                     println("OK OPENED ${challenge.toLowerHex()}")
                                 } else {
+                                    if (envelope.hasRotationChallenge()) {
+                                        rawRotationChallenge = envelope.rotationChallenge.challenge.toByteArray()
+                                    }
                                     println("OK OPENED NOCHALLENGE")
                                 }
                             }
@@ -789,8 +801,84 @@ private class HarnessCli(
         rawMacSpkiDer = null
         rawPhoneSpkiDer = null
         rawChallenge = null
+        rawRotationChallenge = null
         println("OK RAWCLOSED")
     }
+
+    /**
+     * `RAWCHALLENGE` (E70-09): prints the Mac's `RotationChallenge` for the current raw session as
+     * `OK CHALLENGE <cbHex>` -- the one [rawOpen] already consumed, or the next one to arrive -- so
+     * a scenario can carry it to another session with `RAWROTATE CB=<cbHex>`.
+     */
+    private fun rawRotationChallengeCommand() {
+        val cb = awaitRawRotationChallenge()
+        println(if (cb == null) "ERROR NO_CHALLENGE" else "OK CHALLENGE ${cb.toLowerHex()}")
+    }
+
+    /**
+     * `RAWROTATE [CB=<cbHex>] [HELDKEY]` (E70-09): sends one real `KeyRotation` on the raw session,
+     * signed by this process's identity key and a new key over `cb` (the session's own
+     * `RotationChallenge` unless `CB=` overrides it -- a replayed `cb` from another session, or any
+     * 32 bytes where the Mac never sends one, e.g. a pairing-candidate connection). `HELDKEY` uses
+     * the key `RAWKEYGEN` generated as `newSpki` instead of a fresh one. Prints `EVENT
+     * ROTATION_ACK`, `EVENT ROTATION_REJECT <reason>`, `EVENT ROTATION_CLOSED` or `EVENT
+     * ROTATION_TIMEOUT`.
+     */
+    private fun rawRotate(argsLine: String) {
+        val flags = argsLine.split(" ").filter { it.isNotEmpty() }
+        val cbOverride = flags.firstOrNull { it.startsWith("CB=", ignoreCase = true) }?.substringAfter("=")?.decodeHex()
+        val useHeldKey = flags.any { it.equals("HELDKEY", ignoreCase = true) }
+        val activeSession = rawSession
+        val cb = cbOverride ?: awaitRawRotationChallenge()
+        if (activeSession == null || cb == null) {
+            println("ERROR no raw session open or no RotationChallenge (RAWOPEN first, or pass CB=<hex>)")
+            return
+        }
+        val rotation = runCatching { rawRotation.build(cb, useHeldKey) }.getOrElse {
+            println("ERROR ${it.message}")
+            return
+        }
+        runBlocking(dispatcher) {
+            activeSession.send(Channel.CHANNEL_CONTROL) { keyRotation = rotation }
+        }
+        println("OK SENT_ROTATION")
+        printRawRotationOutcome(activeSession)
+    }
+
+    private fun awaitRawRotationChallenge(): ByteArray? {
+        rawRotationChallenge?.let { return it }
+        val activeSession = rawSession ?: return null
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_CHALLENGE_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasRotationChallenge() }
+                }
+            }
+        val cb = (outcome as? RawWaitOutcome.Success)?.envelope?.rotationChallenge?.challenge?.toByteArray()
+        rawRotationChallenge = cb
+        return cb
+    }
+
+    private fun printRawRotationOutcome(activeSession: TandemSession) {
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasRotationAck() || it.hasRotationReject() }
+                }
+            }
+        when (outcome) {
+            null, RawWaitOutcome.TimedOut -> println("EVENT ROTATION_TIMEOUT")
+            RawWaitOutcome.ConnectionLost -> println("EVENT ROTATION_CLOSED")
+            is RawWaitOutcome.Success ->
+                if (outcome.envelope.hasRotationAck()) {
+                    println("EVENT ROTATION_ACK")
+                } else {
+                    println("EVENT ROTATION_REJECT ${outcome.envelope.rotationReject.reason.rejectName()}")
+                }
+        }
+    }
+
+    private fun RotationRejectReason.rejectName(): String = name.removePrefix("ROTATION_REJECT_REASON_")
 
     /**
      * Prints the terminal outcome of a raw pairing attempt/`Revoke`: `EVENT PAIR_ACCEPTED`,

@@ -234,3 +234,28 @@ build`) supplies source-bound sockets.
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-20-preauth-dos/scenarios --timeout 300
 ruby tools/mitm-lab/test/e15_20_scenarios_test.rb   # structure checks only
 ```
+
+## E70-09: key-rotation abuse scenarios
+
+`tools/mitm-lab/e70-09-rotation/` -- five scenarios against the real Mac app (SPEC.md #key-rotation),
+each asserting the connection was closed or answered with `RotationReject` for the expected reason and
+that the Mac's trust store (record count and fingerprints via `-HarnessListTrust`) is identical before
+and after: `KeyRotation` sent before `VersionHello` (Mac ignores it and closes at the 5 s hello
+deadline), in a pairing-window session (wrong payload, `PAIRING_FAILED` close, no reject), from an
+unpinned peer (handshake rejected, no session to send on), a `KeyRotation` built over session A's
+`RotationChallenge` and delivered on session B (`INVALID_SIGNATURE`), and one whose `newSpki` is
+another paired peer's key (`DUPLICATE_KEY`; the harness holds that key so both signatures verify).
+
+Three JVM harness client commands (`RawRotation.kt`, real `RotationProof` transcript, real identity
+key) build the frames: `RAWKEYGEN` (hold a new key, print its fingerprint to seed as a second paired
+peer), `RAWCHALLENGE` (print the session's `RotationChallenge`), `RAWROTATE [CB=<hex>] [HELDKEY]`.
+`lib/rotation_before_hello_client.go` sends the pre-`VersionHello` frame, which no real client can.
+
+The sixth tdd entry, `mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly`,
+is not implemented: the Mac app does not yet wire `RotationCoordinator`/`RotationInitiator` into the
+listener (no harness hook starts a Mac-initiated rotation), so no real Mac offers a pending key.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e70-09-rotation/scenarios --timeout 300
+ruby tools/mitm-lab/test/e70_09_scenarios_test.rb   # structure checks only
+```
