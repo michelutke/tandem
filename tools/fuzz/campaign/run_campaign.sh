@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# E71-01 / E71-02 / E71-03: long-campaign driver for the frame length-prefix parser and Envelope decoder
+# E71-01 / E71-02 / E71-03 / E71-13: long-campaign driver for the frame length-prefix parser and Envelope decoder
 # fuzz targets.
 #
-#   run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr]
+#   run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr|domain]
 #
 # The optional target (default frame) selects the fuzz target: frame is the frame length-prefix
 # parser (E71-01), envelope the Envelope protobuf decoder (E71-02), qr the Android QR pairing
-# payload parser (E71-03, jazzer only: macOS never parses QR).
+# payload parser (E71-03, jazzer only: macOS never parses QR), domain the Swift per-proto-file message
+# decoders (E71-13, libfuzzer only; MESSAGE=<proto file stem> picks the decoder, e.g. media_control).
 #
 # Fuzzes in chunks (CHUNK_SECONDS, default 1800) until <segment-seconds> of wall clock have been
 # spent in this invocation or the campaign total (accumulated in <state-dir>/state.env across
@@ -23,7 +24,7 @@
 set -uo pipefail
 
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
-  echo "usage: run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr]" >&2
+  echo "usage: run_campaign.sh <jazzer|libfuzzer> <total-seconds> <segment-seconds> <state-dir> [frame|envelope|qr|domain]" >&2
   exit 2
 fi
 ENGINE="$1"
@@ -54,13 +55,26 @@ case "$TARGET" in
     JAZZER_CLASS="dev.tandem.core.protocol.fuzz.EnvelopeDecoderFuzzTest"
     JAZZER_METHOD="fuzzTargetEnvelopeDecoder"
     ;;
+  domain)
+    if [ "$ENGINE" != libfuzzer ]; then
+      echo "run_campaign.sh: the domain target is libfuzzer only" >&2
+      exit 2
+    fi
+    if [ -z "${MESSAGE:-}" ]; then
+      echo "run_campaign.sh: the domain target needs MESSAGE=<proto file stem>" >&2
+      exit 2
+    fi
+    export TANDEM_FUZZ_MESSAGE="$MESSAGE"
+    JAZZER_CLASS=""
+    JAZZER_METHOD=""
+    ;;
   qr)
     JAZZER_CLASS="dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest"
     JAZZER_METHOD="fuzzTargetQrPayloadParser"
     JAZZER_MODULE="core:pairing"
     ;;
   *)
-    echo "run_campaign.sh: target must be frame, envelope or qr, got '$TARGET'" >&2
+    echo "run_campaign.sh: target must be frame, envelope, qr or domain, got '$TARGET'" >&2
     exit 2
     ;;
 esac
@@ -102,8 +116,8 @@ corpus_size() { find "$CORPUS_DIR" -type f | wc -l | tr -d ' '; }
 
 write_state() {
   printf 'ELAPSED=%s\nEXECS=%s\nCRASHES=%s\n' "$ELAPSED" "$EXECS" "$CRASHES" > "$STATE_FILE"
-  printf '{"engine":"%s","target":"%s","duration_seconds":%s,"total_execs":%s,"final_corpus_size":%s,"crash_count":%s}\n' \
-    "$ENGINE" "$TARGET" "$ELAPSED" "$EXECS" "$(corpus_size)" "$CRASHES" > "$LOG_FILE"
+  printf '{"engine":"%s","target":"%s","message":"%s","duration_seconds":%s,"total_execs":%s,"final_corpus_size":%s,"crash_count":%s}\n' \
+    "$ENGINE" "$TARGET" "${MESSAGE:-}" "$ELAPSED" "$EXECS" "$(corpus_size)" "$CRASHES" > "$LOG_FILE"
 }
 
 # shellcheck disable=SC2329 # dispatched via run_${ENGINE}_chunk
