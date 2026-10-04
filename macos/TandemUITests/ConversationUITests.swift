@@ -15,5 +15,6 @@ final class ConversationUITests: XCTestCase {
         XCTAssertTrue(list.waitForExistence(timeout: 10), "messageList never appeared")
         XCTAssertTrue(window.staticTexts["See you at 6"].waitForExistence(timeout: 10), "inbound bubble missing")
         XCTAssertTrue(window.staticTexts["On my way"].exists, "outbound bubble missing")
+        XCTAssertTrue(window.buttons["callButton"].waitForExistence(timeout: 10), "header Call button missing")
     }
 }

@@ -67,6 +67,16 @@ private final class IdSequence: @unchecked Sendable {
         )
     }
 
+    @Test
+    func conversationHeader_callTapped_placeCallRequested() async throws {
+        let viewModel = try await Self.makeViewModel(Fixture())
+        #expect(viewModel.callAddress.isEmpty)
+
+        await viewModel.reload()
+
+        #expect(viewModel.callAddress == "+41791234567")
+    }
+
     private static func requests(_ session: FakeTandemSession) async -> [Tandem_V1_SendSmsRequest] {
         await session.sent.compactMap {
             if case .sendSmsRequest(let request) = $0.payload { request } else { nil }

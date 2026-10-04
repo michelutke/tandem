@@ -7,6 +7,7 @@ import TandemDesign
 public struct ThreadListView: View {
     private let viewModel: ThreadListViewModel
     private let makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)?
+    private let headerAccessory: (@MainActor (String) -> AnyView)?
 
     @State private var openConversation: ConversationViewModel?
 
@@ -14,10 +15,12 @@ public struct ThreadListView: View {
 
     public init(
         viewModel: ThreadListViewModel,
-        makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)? = nil
+        makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)? = nil,
+        headerAccessory: (@MainActor (String) -> AnyView)? = nil
     ) {
         self.viewModel = viewModel
         self.makeConversation = makeConversation
+        self.headerAccessory = headerAccessory
     }
 
     public var body: some View {
@@ -29,7 +32,7 @@ public struct ThreadListView: View {
                     .foregroundStyle(TandemColor.ink2)
                     .padding([.top, .leading], TandemSpacing.windowPadding)
                     .accessibilityIdentifier("conversationBack")
-                ConversationView(viewModel: conversation)
+                ConversationView(viewModel: conversation, headerAccessory: headerAccessory)
             }
         } else {
             list

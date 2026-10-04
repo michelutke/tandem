@@ -11,11 +11,19 @@ extension ScenarioView {
     /// the message view renders without a phone.
     @MainActor
     static func makeConversationSeededView() -> some View {
-        ConversationView(viewModel: makeSeededConversationViewModel())
+        let session = FakeTandemSession()
+        let syncSource = SeededConversationSyncSource()
+        return ConversationView(
+            viewModel: makeSeededConversationViewModel(session: session, syncSource: syncSource),
+            headerAccessory: ConversationCallHost.headerAccessory(session: session, syncSource: syncSource)
+        )
     }
 
     @MainActor
-    private static func makeSeededConversationViewModel() -> ConversationViewModel {
+    private static func makeSeededConversationViewModel(
+        session: FakeTandemSession,
+        syncSource: SeededConversationSyncSource
+    ) -> ConversationViewModel {
         // swiftlint:disable:next force_try
         let peer = try! SpkiFingerprint(bytes: Data(repeating: 0xA2, count: SpkiFingerprint.byteCount))
         let smsStore = InMemorySmsStore()
@@ -40,8 +48,8 @@ extension ScenarioView {
             threadId: 1,
             title: "Ada Lovelace",
             smsStore: smsStore,
-            session: FakeTandemSession(),
-            syncSource: SeededConversationSyncSource(),
+            session: session,
+            syncSource: syncSource,
             now: { Date() }
         )
     }

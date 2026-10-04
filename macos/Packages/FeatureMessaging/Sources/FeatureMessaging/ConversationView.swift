@@ -6,14 +6,24 @@ import TandemDesign
 /// with a SIM picker when the phone has 2+ SIMs.
 public struct ConversationView: View {
     @Bindable private var viewModel: ConversationViewModel
+    private let headerAccessory: (@MainActor (String) -> AnyView)?
 
-    public init(viewModel: ConversationViewModel) {
+    /// - Parameter headerAccessory: hosted beside the title with the thread's phone number once
+    ///   loaded (the app target's Call button, E52-10).
+    public init(viewModel: ConversationViewModel, headerAccessory: (@MainActor (String) -> AnyView)? = nil) {
         self.viewModel = viewModel
+        self.headerAccessory = headerAccessory
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
-            TitleBlock(subject: "\(viewModel.title).", state: "\(viewModel.bubbles.count) messages.", size: 26)
+            HStack(alignment: .top) {
+                TitleBlock(subject: "\(viewModel.title).", state: "\(viewModel.bubbles.count) messages.", size: 26)
+                Spacer()
+                if let headerAccessory, !viewModel.callAddress.isEmpty {
+                    headerAccessory(viewModel.callAddress)
+                }
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: TandemSpacing.medium) {
                     ForEach(viewModel.bubbles) { bubble in

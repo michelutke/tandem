@@ -286,6 +286,10 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | mirror.waiting | Accept on {phone} to start. |
 | mirror.declined | Nothing was shared. |
 | control.pill | Mac is controlling |
+| call.place | Call |
+| call.dialing | Calling. |
+| call.needsPhoneTap | Tap the notification on your phone. |
+| call.failed | Couldn't call. |
 | home.ring.idle | synced today |
 | notif.accessOff | Access off. |
 | battery.restricted | Battery restricted. / Android may cut the link overnight. |

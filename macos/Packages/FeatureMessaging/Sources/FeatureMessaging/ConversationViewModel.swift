@@ -87,6 +87,8 @@ public final class ConversationViewModel {
     public var draft = ""
     public var selectedSubscriptionId: Int32?
 
+    /// The thread's phone number once loaded; handed to the header's call host, never logged.
+    public var callAddress: String { address }
     public var showsSimPicker: Bool { sims.count >= 2 }
     public var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

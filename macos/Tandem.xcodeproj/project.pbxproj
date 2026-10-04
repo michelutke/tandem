@@ -56,6 +56,7 @@
 		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
 		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
+		E52100000000000000000001 /* ConversationCallHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52100000000000000000002 /* ConversationCallHost.swift */; };
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
 		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
 		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
@@ -198,6 +199,7 @@
 		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
+		E52100000000000000000002 /* ConversationCallHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationCallHost.swift; sourceTree = "<group>"; };
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
 		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
 		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
@@ -449,6 +451,7 @@
 				E50080200000000000000000 /* ScenarioConversation.swift */,
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
 				E52060000000000000000007 /* CallHangUpView.swift */,
+				E52100000000000000000002 /* ConversationCallHost.swift */,
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
 				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
 				E62120000000000000000002 /* MirrorComposition.swift */,
@@ -734,6 +737,7 @@
 				E50080100000000000000000 /* ScenarioConversation.swift in Sources */,
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
 				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
+				E52100000000000000000001 /* ConversationCallHost.swift in Sources */,
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
 				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
 				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
