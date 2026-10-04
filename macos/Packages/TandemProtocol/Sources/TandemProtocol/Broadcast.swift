@@ -8,8 +8,8 @@ import Foundation
 /// subscribed. A broadcast made with `replayUntilSealed` instead replays every element published
 /// since creation to each subscriber that registers before ``seal()``, so consumers attached one
 /// after another during setup all see the whole prefix; ``seal()`` ends that window (once a
-/// subscriber exists) and the broadcast behaves as above. ``finish()`` finishes every subscriber's stream, and a stream subscribed afterwards
-/// finishes immediately (after any held elements).
+/// subscriber exists) and the broadcast behaves as above. ``finish()`` finishes every subscriber's
+/// stream, and a stream subscribed afterwards finishes immediately (after any held elements).
 ///
 /// A publisher that must not outrun its slowest consumer calls ``awaitCapacity(limit:)`` before
 /// each ``publish(_:)``; each subscriber reports an element taken through the closure
