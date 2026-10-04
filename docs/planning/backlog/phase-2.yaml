@@ -1340,6 +1340,32 @@ epics:
           - "unit: appComposition_sessionRegistered_allFeatureServicesAttachedOnce"
           - "unit: appComposition_unpair_everyStorePurged"
         notes: "Gap found while reviewing feature follow-ups (2026-10-03)."
+      - id: E22-13
+        title: "[macos] Finish feature composition (accept prompt, received notifier, calls, media, rotation, photo grid, focus)"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-4.1]
+        use_cases: [UC-04]
+        invariants: [1, 3, 5, 7]
+        depends_on: [E22-12]
+        description: |
+          Remainder of E22-12 (2026-10-03): production AcceptPromptPresenter (UNUserNotificationCenter,
+          routed through the single presenter-responses reader alongside notification actions and the
+          call presenter) so incoming offers can be accepted; ReceivedFileNotifier + delegate forwarding;
+          FeatureCalls presenter; media acceptor handler + MediaTicketValidator adapter (E60-03/E60-08);
+          RotationCoordinator.resume at launch + RotationInitiator routing (E70-03); photo grid UI consumer
+          over the CachingPhotoService; FeatureFocus sender with a production NSWorkspace focus source
+          (E72-09); QuickActionsViewModel.isConnected from the session host; lock-hiding setting toggle;
+          app-level purge-all test over PeerDataPurgeRegistry.
+        acceptance:
+          - An incoming FileOffer shows an accept prompt and Accept starts the transfer
+          - Every listed service attaches once per registered session and detaches on end
+        tdd:
+          - "unit: appComposition_incomingOffer_promptAcceptStartsTransfer"
+          - "unit: appComposition_unpair_registryPurgesAllStores"
+        notes: "Remainder of E22-12 (2026-10-03)."
   - id: E23
     title: Device status and find my phone
     labels: [area:status]

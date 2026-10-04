@@ -36,6 +36,7 @@ class FileReceiverTest {
 
     private val session = FakeTandemSession()
     private val publisher = RecordingPublisher()
+    private val notifier = RecordingNotifier()
 
     @Test
     fun androidReceiver_matchingHash_publishedOnceAndPartFileDeleted() =
@@ -51,6 +52,8 @@ class FileReceiverTest {
 
             assertEquals(1, publisher.published.size)
             assertEquals("report.pdf", publisher.published.single().name)
+            assertEquals("report.pdf", notifier.notified.single().first)
+            assertEquals("content://downloads/1", notifier.notified.single().third)
             assertArrayEquals(content, publisher.published.single().bytes)
             assertTrue(partFiles().isEmpty())
             assertTrue(session.sentFrames.isEmpty())
@@ -69,6 +72,7 @@ class FileReceiverTest {
             complete("a")
 
             assertTrue(publisher.published.isEmpty())
+            assertTrue(notifier.notified.isEmpty())
             assertTrue(partFiles().isEmpty())
             val cancel = session.sentFrames.single().fileCancel
             assertEquals("a", cancel.id)
@@ -240,6 +244,7 @@ class FileReceiverTest {
             session,
             store,
             publisher,
+            notifier,
             SpkiFingerprint(ByteArray(32)),
             Clock.systemUTC(),
             dispatcher,
@@ -324,9 +329,22 @@ class FileReceiverTest {
             name: String,
             mime: String,
             content: InputStream,
-        ) {
+        ): String {
             failWith?.let { throw it }
             published += Published(name, content.readBytes())
+            return "content://downloads/${published.size}"
+        }
+    }
+
+    private class RecordingNotifier : ReceivedFileNotifier {
+        val notified = mutableListOf<Triple<String, String, String>>()
+
+        override fun notifyReceived(
+            name: String,
+            mime: String,
+            contentUri: String,
+        ) {
+            notified += Triple(name, mime, contentUri)
         }
     }
 

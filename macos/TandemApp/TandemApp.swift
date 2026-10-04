@@ -198,7 +198,10 @@ struct MenuContentView: View {
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
-        let sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+        let sendEntryHandler = SendEntryHandler(
+            picker: OpenPanelFilePicker(),
+            transfer: lifecycle?.sessionFeatures.fileTransfer
+        )
         _sendEntryHandler = State(initialValue: sendEntryHandler)
         NSApplication.shared.servicesProvider = Self.finderServicesProvider(handler: sendEntryHandler)
         _quickActionsViewModel = State(initialValue: QuickActionsViewModel(

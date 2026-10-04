@@ -44,6 +44,13 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
         sessions[spkiFingerprint]
     }
 
+    /// Whether `session` is exactly the one registered for `spkiFingerprint` (E22-12): a session
+    /// reported by a handshake that failed before registering, or one already replaced, is not.
+    public func isRegistered(_ session: any TandemSession, for spkiFingerprint: SpkiFingerprint) -> Bool {
+        guard let current = sessions[spkiFingerprint] else { return false }
+        return current === session
+    }
+
     /// Whether `session`'s state may be surfaced for `spkiFingerprint` (E15-16): the registered
     /// session itself, or any session while none is registered (a handshake that failed before
     /// ever registering, e.g. a version mismatch). `false` for an unregistered session while a

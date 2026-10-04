@@ -58,4 +58,35 @@ struct ByteStreamSessionTests {
         let next = await iterator.next()
         #expect(next == nil)
     }
+
+    @Test
+    func byteStreamSession_closeWithStalledSubscriber_allSubscriberStreamsFinish() async throws {
+        let pair = InMemoryConnectionPair()
+        let multiplexerA = ChannelMultiplexer(source: InMemoryFrameSource(pair.endA), sink: pair.endA.send)
+        let multiplexerB = ChannelMultiplexer(source: InMemoryFrameSource(pair.endB), sink: pair.endB.send)
+        await multiplexerA.start()
+        await multiplexerB.start()
+        let sender = ByteStreamSession(
+            multiplexer: multiplexerA, stateMachine: ConnectionStateMachine(clock: ManualTestClock())
+        )
+        let session = ByteStreamSession(
+            multiplexer: multiplexerB, stateMachine: ConnectionStateMachine(clock: ManualTestClock())
+        )
+
+        let stalled = await session.receive(.notify)
+        let consuming = await session.receive(.notify)
+        let consumer = Task { for await _ in consuming {} }
+        for _ in 0..<(ByteStreamSession.fanOutWindow + 2) {
+            try await sender.send(.notify, payload: .heartbeat(Tandem_V1_Heartbeat()))
+        }
+        for _ in 0..<500 { await Task.yield() }
+
+        await session.close()
+
+        await consumer.value
+        var iterator = stalled.makeAsyncIterator()
+        var drained = 0
+        while await iterator.next() != nil { drained += 1 }
+        #expect(drained >= ByteStreamSession.fanOutWindow)
+    }
 }
