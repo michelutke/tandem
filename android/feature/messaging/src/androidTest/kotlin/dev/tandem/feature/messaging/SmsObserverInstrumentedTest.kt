@@ -33,14 +33,10 @@ class SmsObserverInstrumentedTest {
             val source = ContentResolverSmsSource(context)
             val change = async(start = CoroutineStart.UNDISPATCHED) { source.changes().first() }
 
-            instrumentation.uiAutomation
-                .executeShellCommand(
-                    "content insert --uri content://sms/inbox " +
-                        "--bind address:s:$INJECTED_ADDRESS --bind body:s:$INJECTED_BODY --bind read:i:0",
-                ).close()
+            val insertOutput = instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
             val observed = withTimeoutOrNull(OBSERVE_TIMEOUT_MS) { change.await() }
 
-            assumeTrue("emulator refused the seeded SMS insert", observed != null || source.maxId() > 0)
+            assumeTrue("emulator refused the seeded SMS insert: $insertOutput", observed != null || source.maxId() > 0)
             assertNotNull("no change callback within ${OBSERVE_TIMEOUT_MS}ms", observed)
         }
 

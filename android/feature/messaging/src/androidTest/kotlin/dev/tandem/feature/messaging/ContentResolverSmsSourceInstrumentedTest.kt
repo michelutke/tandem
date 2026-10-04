@@ -18,15 +18,12 @@ import org.junit.runner.RunWith
 class ContentResolverSmsSourceInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+    private var insertOutput = ""
 
     @Before
     fun grantSmsPermission() {
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_SMS)
-        instrumentation.uiAutomation
-            .executeShellCommand(
-                "content insert --uri content://sms/inbox " +
-                    "--bind address:s:$INJECTED_ADDRESS --bind body:s:$INJECTED_BODY --bind read:i:0",
-            ).close()
+        insertOutput = instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
     }
 
     @Test
@@ -36,7 +33,7 @@ class ContentResolverSmsSourceInstrumentedTest {
                 .newerThan(0)
                 .filter { it.address == INJECTED_ADDRESS && it.body == INJECTED_BODY }
 
-        assumeTrue("emulator refused the seeded SMS insert", injected.isNotEmpty())
+        assumeTrue("emulator refused the seeded SMS insert: $insertOutput", injected.isNotEmpty())
         assertTrue(injected.isNotEmpty())
         assertEquals(SmsMessageType.SMS_MESSAGE_TYPE_INBOX, injected.first().type)
     }
