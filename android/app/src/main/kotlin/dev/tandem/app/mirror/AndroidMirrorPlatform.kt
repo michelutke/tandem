@@ -113,12 +113,26 @@ class AndroidMirrorPlatform(
             Notification
                 .Builder(context, FAILURE_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle(context.getString(R.string.mirror_blocked_title))
-                .setContentText(context.getString(R.string.mirror_blocked_text))
+                .setContentTitle(context.getString(failureTitle(failure)))
+                .setContentText(context.getString(failureText(failure)))
                 .setAutoCancel(true)
                 .build(),
         )
     }
+
+    // SPEC §5: only a pin mismatch may be presented as a key problem; anything else is a generic
+    // connection error.
+    private fun failureTitle(failure: MirrorFailure): Int =
+        when (failure) {
+            MirrorFailure.PinMismatch -> R.string.mirror_blocked_title
+            MirrorFailure.Unreachable -> R.string.mirror_unreachable_title
+        }
+
+    private fun failureText(failure: MirrorFailure): Int =
+        when (failure) {
+            MirrorFailure.PinMismatch -> R.string.mirror_blocked_text
+            MirrorFailure.Unreachable -> R.string.mirror_unreachable_text
+        }
 
     private companion object {
         const val FOREGROUND_TIMEOUT_MILLIS = 5_000L
