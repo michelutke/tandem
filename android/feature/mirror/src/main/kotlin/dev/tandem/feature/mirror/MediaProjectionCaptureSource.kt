@@ -13,14 +13,20 @@ class MediaProjectionCaptureSource(
     private val densityDpi: Int,
 ) : CaptureSource {
     private var virtualDisplay: VirtualDisplay? = null
+    private var stopListener: () -> Unit = {}
 
     private val callback =
         object : MediaProjection.Callback() {
             override fun onStop() {
                 virtualDisplay?.release()
                 virtualDisplay = null
+                stopListener()
             }
         }
+
+    override fun setStopListener(listener: () -> Unit) {
+        stopListener = listener
+    }
 
     override fun start(surface: Surface) {
         projection.registerCallback(callback, null)

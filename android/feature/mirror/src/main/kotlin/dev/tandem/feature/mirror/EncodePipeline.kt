@@ -8,11 +8,14 @@ import dev.tandem.protocol.v1.mediaMessage
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Encodes the captured display and writes each encoder output buffer to the media connection as
  * `MediaFrame`s (E61-03; SPEC.md #media-frame-semantics). Frame content is never logged (invariant 7).
  * The caller must hold a granted MediaProjection consent (E61-02) before building [capture].
+ * Encoder, capture (VirtualDisplay + MediaProjection) and [stream] are released exactly once,
+ * whether the run ends on its own, on a stream failure, on [stop] or on a system capture stop.
  */
 class EncodePipeline(
     private val encoderFactory: EncoderFactory,
@@ -26,24 +29,49 @@ class EncodePipeline(
 
     private var bitrate = config.bitrateBitsPerSecond
 
-    /** Runs until the encoder ends or the stream fails; always releases encoder and capture. */
+    private val released = AtomicBoolean(false)
+
+    /** Runs until the encoder ends or the stream fails; always releases encoder, capture and stream. */
     suspend fun run() =
         withContext(ioDispatcher) {
+            if (released.get()) return@withContext
+            capture.setStopListener(::stop)
             val created = encoderFactory.create(config, capture)
             encoder = created
+            if (released.get()) {
+                created.close()
+                capture.stop()
+                return@withContext
+            }
             try {
                 writeMessage(mediaMessage { mediaFormat = config.toMediaFormat() })
                 pump(created)
             } finally {
-                encoder = null
-                created.close()
-                capture.stop()
+                release()
             }
         }
+
+    /** Idempotent: ends [run] and releases encoder, capture and the media stream. */
+    fun stop() = release()
 
     /** Mac -> phone `KeyframeRequest`. */
     fun onKeyframeRequest() {
         encoder?.requestSyncFrame()
+    }
+
+    private fun release() {
+        if (!released.compareAndSet(false, true)) return
+        val closing = encoder
+        encoder = null
+        try {
+            closing?.close()
+        } finally {
+            try {
+                capture.stop()
+            } finally {
+                stream.closeGracefully()
+            }
+        }
     }
 
     private fun pump(encoder: VideoEncoder) {

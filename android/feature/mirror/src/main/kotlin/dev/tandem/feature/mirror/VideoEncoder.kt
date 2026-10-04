@@ -34,4 +34,7 @@ interface CaptureSource {
     fun start(surface: Surface)
 
     fun stop()
+
+    /** Registers [listener] for a system-initiated end of capture (e.g. `MediaProjection.Callback.onStop`). */
+    fun setStopListener(listener: () -> Unit) = Unit
 }
