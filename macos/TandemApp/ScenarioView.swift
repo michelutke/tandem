@@ -38,6 +38,8 @@ struct ScenarioView: View {
 
     let scenario: UITestScenario
 
+    private var transferProgressViewModel: TransferProgressViewModel { Self.transferProgressViewModel }
+
     @State private var pairedConnectedViewModel = ScenarioView.makePairedConnectedViewModel()
     @State private var pairedConnectedDeviceStatusViewModel = ScenarioView.makePairedConnectedDeviceStatusViewModel()
     /// Backed by ``pairedConnectedSession`` (E23-07), the same shared fake session
@@ -153,8 +155,19 @@ struct ScenarioView: View {
             ScenarioView.makeThreadListSeededView()
         case .incomingCallActive:
             ScenarioView.makeIncomingCallActiveView()
+        case .transferProgressSeeded:
+            TransferProgressRow(viewModel: transferProgressViewModel)
+                .padding()
         }
     }
+
+    private static let transferProgressViewModel: TransferProgressViewModel = {
+        let viewModel = TransferProgressViewModel(
+            id: "seeded", name: "report.pdf", totalBytes: 100, clock: ContinuousClock()
+        ) {}
+        viewModel.record(deliveredBytes: 42)
+        return viewModel
+    }()
 
     /// The one ``FakeTandemSession`` (E12-12) shared by ``makePairedConnectedViewModel()`` and
     /// ``makePairedConnectedDeviceStatusViewModel()`` for this scenario window's lifetime -- both
