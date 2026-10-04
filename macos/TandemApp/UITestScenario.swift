@@ -66,6 +66,10 @@ enum UITestScenario: String {
     /// "Mirror Phone" reads "Mirroring declined on phone".
     case mirrorDeclined
 
+    /// One in-flight transfer already at 42% (E40-23): the row shows "42%" and a Cancel button
+    /// that flips the row to "Cancelled" through the same cancel closure production wires to E40-20.
+    case transferProgressSeeded
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

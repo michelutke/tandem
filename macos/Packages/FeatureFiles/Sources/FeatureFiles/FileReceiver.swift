@@ -25,6 +25,7 @@ public actor FileReceiver {
     private let fileManager: FileManager
     private let peer: String
     private let now: @Sendable () -> Date
+    private let notifier: ReceivedFileNotifier?
     private var transfers: [String: Transfer] = [:]
 
     public init(
@@ -33,6 +34,7 @@ public actor FileReceiver {
         sink: any FileSink,
         peer: String,
         now: @escaping @Sendable () -> Date,
+        notifier: ReceivedFileNotifier? = nil,
         fileManager: FileManager = .default
     ) {
         self.session = session
@@ -41,6 +43,7 @@ public actor FileReceiver {
         self.fileManager = fileManager
         self.peer = peer
         self.now = now
+        self.notifier = notifier
     }
 
     /// Whether a transfer with `id` is staged and not yet completed, cancelled or aborted.
@@ -167,8 +170,9 @@ public actor FileReceiver {
         }
         do {
             try transfer.handle.close()
-            try moveIntoDestination(transfer)
+            let saved = try moveIntoDestination(transfer)
             transfers[complete.id] = nil
+            await notifier?.notifyReceived(destination: saved)
         } catch {
             await abort(complete.id, .ioError)
         }
@@ -197,7 +201,7 @@ public actor FileReceiver {
         try? fileManager.removeItem(at: transfer.partURL)
     }
 
-    private func moveIntoDestination(_ transfer: Transfer) throws {
+    private func moveIntoDestination(_ transfer: Transfer) throws -> URL {
         try fileManager.createDirectory(at: directories.destination, withIntermediateDirectories: true)
         var attempt = 0
         while true {
@@ -206,7 +210,7 @@ public actor FileReceiver {
             )
             do {
                 try fileManager.moveItem(at: transfer.partURL, to: target)
-                return
+                return target
             } catch let error as CocoaError where error.code == .fileWriteFileExists {
                 attempt += 1
             }

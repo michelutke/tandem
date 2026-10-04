@@ -10,6 +10,8 @@
 #   ci: releaseLogLint_publicPrivacyOnStringValue_checkFails
 
 require 'minitest/autorun'
+require 'tmpdir'
+require 'fileutils'
 require_relative '../release-log-check'
 
 class ReleaseLogCheckTest < Minitest::Test
@@ -30,6 +32,24 @@ class ReleaseLogCheckTest < Minitest::Test
     errors = ReleaseLogCheck.check(fixture('ReleaseLogSensitiveInsideIfDebugFixture.swift'))
 
     assert_empty errors
+  end
+
+  def test_releaseLogLint_directoryNamedDotSwift_skippedNotRead
+    Dir.mktmpdir do |dir|
+      Dir.mkdir(File.join(dir, 'GRDB.swift'))
+
+      assert_empty ReleaseLogCheck.check(dir)
+    end
+  end
+
+  def test_releaseLogLint_buildOutputCheckouts_notScanned
+    Dir.mktmpdir do |dir|
+      vendored = File.join(dir, 'build', 'release', 'SourcePackages', 'checkouts', 'Dep')
+      FileUtils.mkdir_p(vendored)
+      FileUtils.cp(fixture('ReleaseLogSensitiveOsLogFixture.swift'), vendored)
+
+      assert_empty ReleaseLogCheck.check(dir)
+    end
   end
 
   def test_releaseLogLint_redactedLengthOnlyLog_checkPasses
