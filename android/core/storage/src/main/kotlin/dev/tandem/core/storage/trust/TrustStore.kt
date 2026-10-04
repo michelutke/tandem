@@ -4,9 +4,22 @@ import android.content.Context
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.storage.rotation.PinKind
+import dev.tandem.core.storage.rotation.ResolvedPin
+import dev.tandem.core.storage.rotation.RotationPinStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.io.File
+import java.util.concurrent.TimeUnit
+
+private const val GRACE_PERIOD_DAYS = 7L
+private const val PENDING_MAX_AGE_DAYS = 30L
+
+/** Grace pins expire 7 days after the swap (SPEC.md #key-rotation, Grace pin). */
+val GRACE_PERIOD_MS: Long = TimeUnit.DAYS.toMillis(GRACE_PERIOD_DAYS)
+
+/** A pending Mac pin never presented within 30 days is purged (SPEC.md #key-rotation, D-34). */
+val PENDING_MAX_AGE_MS: Long = TimeUnit.DAYS.toMillis(PENDING_MAX_AGE_DAYS)
 
 /**
  * Android trust store (F-1.2, E13-02): Room-backed put/get/list/delete keyed only by
@@ -25,9 +38,10 @@ import java.io.File
  * `RuntimeEnvironment.getApplication()` (E00-20) supplies a working `Context` in
  * `TrustStoreTest`; see the coder's report for E13-02.
  */
+@Suppress("TooManyFunctions") // one method per trust-store operation, incl. the E70-04 rotation seam.
 class TrustStore private constructor(
     private val db: TrustDatabase,
-) {
+) : RotationPinStore {
     private val dao get() = db.peerRecordDao()
 
     suspend fun put(record: PeerRecord) = dao.upsert(record.toEntity())
@@ -42,6 +56,44 @@ class TrustStore private constructor(
     suspend fun delete(fingerprint: SpkiFingerprint) = dao.deleteByFingerprint(fingerprint.base64Url)
 
     suspend fun unpair(fingerprint: SpkiFingerprint) = delete(fingerprint)
+
+    override suspend fun resolve(
+        fingerprint: SpkiFingerprint,
+        nowEpochMs: Long,
+    ): ResolvedPin? {
+        val entity = dao.findByAnyPin(fingerprint.base64Url, nowEpochMs, nowEpochMs - PENDING_MAX_AGE_MS) ?: return null
+        val kind =
+            when (fingerprint.base64Url) {
+                entity.spkiSha256Base64Url -> PinKind.PRIMARY
+                entity.graceSpkiSha256Base64Url -> PinKind.GRACE
+                else -> PinKind.PENDING
+            }
+        return ResolvedPin(kind, entity.toDomain())
+    }
+
+    override suspend fun isPrimaryOrGrace(
+        fingerprint: SpkiFingerprint,
+        nowEpochMs: Long,
+    ): Boolean = dao.countPrimaryOrGrace(fingerprint.base64Url, nowEpochMs) > 0
+
+    override suspend fun setPending(
+        primary: SpkiFingerprint,
+        pending: SpkiFingerprint,
+        sinceEpochMs: Long,
+    ): Boolean = dao.setPending(primary.base64Url, pending.base64Url, sinceEpochMs) > 0
+
+    override suspend fun promotePending(
+        pending: SpkiFingerprint,
+        graceExpiresAtEpochMs: Long,
+    ): Boolean = dao.promotePending(pending.base64Url, graceExpiresAtEpochMs) > 0
+
+    override suspend fun clearGrace(primary: SpkiFingerprint) = dao.clearGrace(primary.base64Url)
+
+    /** Purges grace pins older than 7 days and pending pins older than 30 days, with or without a session. */
+    suspend fun purgeExpiredPins(nowEpochMs: Long) {
+        dao.purgeExpiredGrace(nowEpochMs)
+        dao.purgeExpiredPending(nowEpochMs - PENDING_MAX_AGE_MS)
+    }
 
     fun close() = db.close()
 

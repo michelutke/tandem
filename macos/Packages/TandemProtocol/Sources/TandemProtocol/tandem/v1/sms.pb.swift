@@ -220,6 +220,8 @@ public nonisolated enum Tandem_V1_SendSmsErrorCode: SwiftProtobuf.Enum, Swift.Ca
   case invalidAddress // = 5
   case tooLong // = 6
   case rateLimited // = 7
+  case subscriptionRequired // = 8
+  case invalidSubscription // = 9
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -236,6 +238,8 @@ public nonisolated enum Tandem_V1_SendSmsErrorCode: SwiftProtobuf.Enum, Swift.Ca
     case 5: self = .invalidAddress
     case 6: self = .tooLong
     case 7: self = .rateLimited
+    case 8: self = .subscriptionRequired
+    case 9: self = .invalidSubscription
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -250,6 +254,8 @@ public nonisolated enum Tandem_V1_SendSmsErrorCode: SwiftProtobuf.Enum, Swift.Ca
     case .invalidAddress: return 5
     case .tooLong: return 6
     case .rateLimited: return 7
+    case .subscriptionRequired: return 8
+    case .invalidSubscription: return 9
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -264,6 +270,8 @@ public nonisolated enum Tandem_V1_SendSmsErrorCode: SwiftProtobuf.Enum, Swift.Ca
     .invalidAddress,
     .tooLong,
     .rateLimited,
+    .subscriptionRequired,
+    .invalidSubscription,
   ]
 
 }
@@ -454,7 +462,7 @@ nonisolated extension Tandem_V1_SendSmsState: SwiftProtobuf._ProtoNameProviding 
 }
 
 nonisolated extension Tandem_V1_SendSmsErrorCode: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SEND_SMS_ERROR_CODE_UNSPECIFIED\0\u{1}SEND_SMS_ERROR_CODE_GENERIC_FAILURE\0\u{1}SEND_SMS_ERROR_CODE_NO_SERVICE\0\u{1}SEND_SMS_ERROR_CODE_RADIO_OFF\0\u{1}SEND_SMS_ERROR_CODE_PERMISSION_REQUIRED\0\u{1}SEND_SMS_ERROR_CODE_INVALID_ADDRESS\0\u{1}SEND_SMS_ERROR_CODE_TOO_LONG\0\u{1}SEND_SMS_ERROR_CODE_RATE_LIMITED\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0SEND_SMS_ERROR_CODE_UNSPECIFIED\0\u{1}SEND_SMS_ERROR_CODE_GENERIC_FAILURE\0\u{1}SEND_SMS_ERROR_CODE_NO_SERVICE\0\u{1}SEND_SMS_ERROR_CODE_RADIO_OFF\0\u{1}SEND_SMS_ERROR_CODE_PERMISSION_REQUIRED\0\u{1}SEND_SMS_ERROR_CODE_INVALID_ADDRESS\0\u{1}SEND_SMS_ERROR_CODE_TOO_LONG\0\u{1}SEND_SMS_ERROR_CODE_RATE_LIMITED\0\u{1}SEND_SMS_ERROR_CODE_SUBSCRIPTION_REQUIRED\0\u{1}SEND_SMS_ERROR_CODE_INVALID_SUBSCRIPTION\0")
 }
 
 nonisolated extension Tandem_V1_SmsThread: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

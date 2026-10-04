@@ -2,6 +2,7 @@ package dev.tandem.feature.files
 
 import dev.tandem.core.protocol.DisplayStringKind
 import dev.tandem.core.protocol.DisplayStringSanitizer
+import dev.tandem.core.protocol.FilenameSanitizer
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileOffer
@@ -49,10 +50,14 @@ class AcceptFlow(
     private val activeTransfers: () -> Int,
     dispatcher: CoroutineDispatcher,
 ) {
+    /** Called before `FileAccept` is sent, so the receiver is ready for the first chunk. */
+    var onAccepted: (FileOffer) -> Unit = {}
+
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     // Offer id -> its 300 s timeout job. Only touched on the scope's dispatcher.
     private val pending = mutableMapOf<String, Job>()
+    private val pendingOffers = mutableMapOf<String, FileOffer>()
 
     init {
         session
@@ -64,9 +69,8 @@ class AcceptFlow(
 
     fun accept(offerId: String) {
         scope.launch {
-            if (resolvePending(offerId)) {
-                session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offerId } }
-            }
+            val offer = pendingOffers[offerId]
+            if (resolvePending(offerId) && offer != null) acceptOffer(offer)
         }
     }
 
@@ -84,14 +88,23 @@ class AcceptFlow(
         val rejection = rejectionFor(offer)
         when {
             rejection != null -> reject(offer.id, rejection)
-            shouldAutoAccept(offer) -> session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
+            shouldAutoAccept(offer) -> acceptOffer(offer)
             else -> promptFor(offer)
         }
+    }
+
+    private suspend fun acceptOffer(offer: FileOffer) {
+        onAccepted(offer)
+        session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
     }
 
     private fun rejectionFor(offer: FileOffer): TransferReason? {
         val busy = pending.size >= MAX_PENDING_OFFERS || activeTransfers() >= MAX_ACTIVE_TRANSFERS
         return when {
+            FilenameSanitizer.sanitize(offer.name, offer.id) == null -> {
+                TransferReason.TRANSFER_REASON_INVALID_NAME
+            }
+
             offer.size > MAX_OFFER_BYTES -> {
                 TransferReason.TRANSFER_REASON_TOO_LARGE
             }
@@ -116,12 +129,15 @@ class AcceptFlow(
     }
 
     private fun promptFor(offer: FileOffer) {
-        val name = DisplayStringSanitizer.sanitize(offer.name.toByteArray(Charsets.UTF_8), DisplayStringKind.NAME)
+        val filename = checkNotNull(FilenameSanitizer.sanitize(offer.name, offer.id))
+        val name = DisplayStringSanitizer.sanitize(filename.toByteArray(Charsets.UTF_8), DisplayStringKind.NAME)
         prompter.post(offer.id, name, offer.size)
+        pendingOffers[offer.id] = offer
         pending[offer.id] =
             scope.launch {
                 delay(OFFER_TIMEOUT)
                 pending.remove(offer.id)
+                pendingOffers.remove(offer.id)
                 prompter.cancel(offer.id)
                 reject(offer.id, TransferReason.TRANSFER_REASON_TIMEOUT)
             }
@@ -130,6 +146,7 @@ class AcceptFlow(
     /** Removes [offerId] from pending, stops its timeout and withdraws its prompt; false if not pending. */
     private fun resolvePending(offerId: String): Boolean {
         val timeout = pending.remove(offerId) ?: return false
+        pendingOffers.remove(offerId)
         timeout.cancel()
         prompter.cancel(offerId)
         return true

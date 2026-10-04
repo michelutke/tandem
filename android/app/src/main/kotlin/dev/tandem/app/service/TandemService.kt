@@ -8,11 +8,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.util.Log
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.core.pairing.revoke.TrustRemover
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -66,7 +69,7 @@ class TandemService : Service() {
         val pairedPeerRepository = pairedPeerRepositoryFactory(applicationContext)
         val sessionRegistry = sessionRegistryFactory(applicationContext)
         val trustRemover = trustRemoverFactory(applicationContext)
-        val scope = CoroutineScope(SupervisorJob() + dispatcher)
+        val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineExceptionHandler { _, e -> logFailure(e) })
         job = scope.coroutineContext[Job]
         scope.launch {
             pairedPeerRepository.observeHasPairedPeer().collectLatest { hasPairedPeer ->
@@ -78,7 +81,7 @@ class TandemService : Service() {
         }
         scope.launch {
             sessionRegistry.current.collectLatest { registered ->
-                if (registered != null) consumeControlRevoke(registered, trustRemover)
+                if (registered != null) consumeControlRevokeGuarded(registered, trustRemover)
             }
         }
     }
@@ -88,6 +91,24 @@ class TandemService : Service() {
         flags: Int,
         startId: Int,
     ): Int = START_STICKY
+
+    @Suppress("TooGenericExceptionCaught") // a failing revoke must not end the consumer for later sessions
+    private suspend fun consumeControlRevokeGuarded(
+        registered: RegisteredSession,
+        trustRemover: TrustRemover,
+    ) {
+        try {
+            consumeControlRevoke(registered, trustRemover)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (e: Exception) {
+            logFailure(e)
+        }
+    }
+
+    private fun logFailure(e: Throwable) {
+        Log.e(TAG, "Service task failed: ${e.javaClass.name}")
+    }
 
     override fun onDestroy() {
         job?.cancel()
@@ -118,5 +139,6 @@ class TandemService : Service() {
     companion object {
         const val NOTIFICATION_ID = 1
         const val NOTIFICATION_CHANNEL_ID = "connection_status"
+        private const val TAG = "TandemService"
     }
 }

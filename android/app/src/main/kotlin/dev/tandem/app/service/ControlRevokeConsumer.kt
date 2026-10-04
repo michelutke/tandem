@@ -12,9 +12,8 @@ import kotlinx.coroutines.flow.firstOrNull
  * A Revoke arriving before Ready is ignored by the handler and the wait continues. Returns without
  * throwing when the session closes first (its CONTROL flow completes).
  *
- * [ChannelMultiplexer] inbound flows are single-consumer: this must be the only long-lived CONTROL
- * collector on [registered], so [SessionRegistry.register] takes only sessions whose pairing or
- * rotation exchange is already finished.
+ * [registered]'s session fans CONTROL out to every subscriber (E20-22), so this runs alongside
+ * pairing and rotation consumers without stealing their frames.
  */
 suspend fun consumeControlRevoke(
     registered: RegisteredSession,

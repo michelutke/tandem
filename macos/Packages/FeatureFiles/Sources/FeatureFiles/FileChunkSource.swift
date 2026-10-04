@@ -4,6 +4,8 @@ import Foundation
 public protocol FileChunkReader: Sendable {
     /// Returns up to `count` bytes; an empty result means end of file.
     func read(upTo count: Int) throws -> Data
+    /// Repositions the next read to `offset` bytes from the start.
+    func seek(to offset: UInt64) throws
 }
 
 /// Opens fresh ``FileChunkReader``s over one source file (once for the hash pass, once for sending).
@@ -38,5 +40,9 @@ private final class FileHandleChunkReader: FileChunkReader, @unchecked Sendable 
 
     func read(upTo count: Int) throws -> Data {
         try handle.read(upToCount: count) ?? Data()
+    }
+
+    func seek(to offset: UInt64) throws {
+        try handle.seek(toOffset: offset)
     }
 }
