@@ -1430,7 +1430,7 @@ epics:
           existing pairing UI (QR invite, confirmation code) and trust commit (SPKI pin) so a phone can
           pair outside the harness; close the window on success, timeout or cancel.
         acceptance:
-          - "Add phone" opens the pairing window with a QR invite; confirming matching codes pins the phone
+          - 'The "Add phone" action opens the pairing window with a QR invite; confirming matching codes pins the phone'
           - The window closes on timeout and the secret cannot be reused
         tdd:
           - "unit: macPairingComposition_userOpensWindow_inviteShownAndSecretSingleUse"
