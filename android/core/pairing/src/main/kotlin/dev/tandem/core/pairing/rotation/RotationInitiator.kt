@@ -13,6 +13,9 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.RotationRejectReason
 import dev.tandem.protocol.v1.keyRotation
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -74,6 +77,10 @@ class RotationInitiator(
 
     @Volatile
     private var challenge: ByteArray? = null
+    private val challengeHeld = MutableStateFlow(false)
+
+    /** True while the Mac's `RotationChallenge` is held for this session, i.e. [rotate] can send. */
+    val hasChallenge: StateFlow<Boolean> = challengeHeld.asStateFlow()
 
     @Volatile
     private var pendingReply: CompletableDeferred<RotationOutcome>? = null
@@ -85,7 +92,10 @@ class RotationInitiator(
                 when {
                     envelope.hasRotationChallenge() -> {
                         val cb = envelope.rotationChallenge.challenge.toByteArray()
-                        if (cb.size == ROTATION_CHALLENGE_LENGTH) challenge = cb
+                        if (cb.size == ROTATION_CHALLENGE_LENGTH) {
+                            challenge = cb
+                            challengeHeld.value = true
+                        }
                     }
 
                     envelope.hasRotationAck() -> {
@@ -128,6 +138,7 @@ class RotationInitiator(
         val reply = CompletableDeferred<RotationOutcome>()
         pendingReply = reply
         challenge = null
+        challengeHeld.value = false
         val outcome =
             try {
                 session.send(Channel.CHANNEL_CONTROL) {

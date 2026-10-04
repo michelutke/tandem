@@ -25,8 +25,8 @@ import dev.tandem.core.designsystem.components.TandemScaffold
 
 /**
  * The Settings tab (E20-19; ui-spec.md §7.2): hairline rows for Paired Mac, Battery (+ Fix when
- * restricted), Key (+ Rotate, wired in E70-06) and a red Unpair row that asks for confirmation
- * before calling [onUnpair] (the E14-12 unpair action).
+ * restricted), Key (+ Rotate; [keySection] hosts the E70-06 rotation block) and a red Unpair row that
+ * asks for confirmation before calling [onUnpair] (the E14-12 unpair action).
  */
 @Composable
 @Suppress("LongParameterList") // screen composes several independent, testable slots
@@ -38,6 +38,7 @@ fun SettingsScreen(
     onRotateKey: () -> Unit,
     onUnpair: () -> Unit,
     modifier: Modifier = Modifier,
+    keySection: (@Composable () -> Unit)? = null,
 ) {
     var showUnpairDialog by remember { mutableStateOf(false) }
 
@@ -54,6 +55,7 @@ fun SettingsScreen(
             state = state,
             onFixBattery = onFixBattery,
             onRotateKey = onRotateKey,
+            keySection = keySection,
             onUnpairClick = { showUnpairDialog = true },
         )
     }
@@ -74,11 +76,13 @@ fun SettingsScreen(
 }
 
 @Composable
+@Suppress("LongParameterList") // one slot per row action
 private fun SettingsRows(
     padding: PaddingValues,
     state: SettingsState,
     onFixBattery: () -> Unit,
     onRotateKey: () -> Unit,
+    keySection: (@Composable () -> Unit)?,
     onUnpairClick: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(padding).fillMaxWidth()) {
@@ -92,7 +96,11 @@ private fun SettingsRows(
             isError = state.batteryRestricted,
         )
         HairlineRule()
-        SettingsRow(label = "Key", value = state.keyShortCode, actionLabel = "Rotate", onAction = onRotateKey)
+        if (keySection != null) {
+            keySection()
+        } else {
+            SettingsRow(label = "Key", value = state.keyShortCode, actionLabel = "Rotate", onAction = onRotateKey)
+        }
         HairlineRule()
         SettingsRow(
             label = "Unpair",

@@ -67,12 +67,14 @@ import javax.net.ssl.X509KeyManager
  * one subscriber per consumer and none competes for frames.
  */
 object SessionFeatureFactory {
+    @Suppress("LongParameterList") // one seam per process-wide collaborator
     fun create(
         context: Context,
         clock: Clock,
         trustStore: TrustStore,
         purgeRegistry: PeerDataPurgeRegistry,
         keyManager: X509KeyManager,
+        rotation: RotationComposition,
     ): List<SessionFeature> {
         val filesFeature = filesFeature(context, clock)
         purgeRegistry.register(filesFeature.purger)
@@ -118,6 +120,7 @@ object SessionFeatureFactory {
                 random = SecureRandom(),
                 eventLog = RotationEventLog { Log.w(TAG, "rotation_rejected reason=${it.name}") },
             ),
+            rotation.sessionFeature(),
         ) + smsFeatures.all()
     }
 

@@ -110,6 +110,7 @@ dependencies {
     // TandemSession-taking handler. Test-only.
     testImplementation(testFixtures(project(":core:transport")))
     testImplementation(project(":core:testing"))
+    testImplementation(testFixtures(project(":core:crypto")))
 
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)

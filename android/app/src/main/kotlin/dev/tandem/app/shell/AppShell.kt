@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName") // AppShell is the file's composable; its dependencies class leads
+
 package dev.tandem.app.shell
 
 import androidx.compose.runtime.Composable
@@ -11,8 +13,11 @@ import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
 import dev.tandem.app.onboarding.OnboardingViewModel
+import dev.tandem.app.settings.RotationSettingsScreen
+import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.settings.SettingsScreen
 import dev.tandem.app.settings.SettingsState
+import dev.tandem.app.settings.keyShortCode
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import dev.tandem.core.pairing.PairingState
@@ -21,8 +26,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Base64
-
-private const val KEY_SHORT_CODE_GROUP = 4
 
 /** Everything [AppShell] reads or calls; built from the Hilt graph in production, fakes in tests. */
 @Suppress("LongParameterList") // one slot per shell collaborator
@@ -37,6 +40,7 @@ class AppShellDependencies(
     val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
     val onSendClipboard: () -> Unit,
+    val rotation: RotationSettingsViewModel? = null,
 )
 
 /**
@@ -85,7 +89,8 @@ fun AppShell(
                     selectedToolbarItem = FloatingToolbarItem.Settings,
                     onToolbarItemSelected = navigator::select,
                     onFixBattery = {},
-                    onRotateKey = {}, // placeholder until E70-15
+                    onRotateKey = {},
+                    keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
                     onUnpair = {
                         scope.launch {
                             dependencies.unpair(peer.fingerprint())
@@ -110,12 +115,7 @@ private fun PeerRecord.toSettingsState(batteryRestricted: Boolean) =
     SettingsState(
         macName = displayName,
         batteryRestricted = batteryRestricted,
-        keyShortCode =
-            spkiSha256Base64Url
-                .take(KEY_SHORT_CODE_GROUP * 2)
-                .uppercase()
-                .chunked(KEY_SHORT_CODE_GROUP)
-                .joinToString(" "),
+        keyShortCode = keyShortCode(spkiSha256Base64Url),
     )
 
 @Composable
@@ -140,4 +140,22 @@ private fun OnboardingOrPairing(
             modifier = modifier,
         )
     }
+}
+
+@Composable
+private fun RotationSection(rotation: RotationSettingsViewModel) {
+    val state by rotation.state.collectAsState()
+    val fingerprint by rotation.currentFingerprint.collectAsState()
+    val actionEnabled by rotation.actionEnabled.collectAsState()
+    val disabledReason by rotation.disabledReason.collectAsState()
+    RotationSettingsScreen(
+        state = state,
+        currentFingerprint = fingerprint,
+        actionEnabled = actionEnabled,
+        disabledReason = disabledReason,
+        onRotate = rotation::requestRotation,
+        onConfirm = rotation::confirm,
+        onCancel = rotation::cancel,
+        onDismissResult = rotation::dismissResult,
+    )
 }
