@@ -204,13 +204,15 @@ struct MenuContentView: View {
         )
         _sendEntryHandler = State(initialValue: sendEntryHandler)
         NSApplication.shared.servicesProvider = Self.finderServicesProvider(handler: sendEntryHandler)
-        _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
+        let quickActionsViewModel = QuickActionsViewModel(
             isConnected: false,
             sendFile: { Task { _ = await sendEntryHandler.sendFileQuickAction() } },
             pushClipboard: { pushClipboardViewModel.select() },
             findPhone: { findPhoneViewModel.select() },
             mirror: {}
-        ))
+        )
+        quickActionsViewModel.observeConnection(lifecycle?.makeMenuBarStateStream?())
+        _quickActionsViewModel = State(initialValue: quickActionsViewModel)
     }
 
     private static var retainedFinderServicesProvider: FinderServicesProvider?

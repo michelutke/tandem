@@ -5,6 +5,7 @@ import Foundation
 
 /// Presents incoming-call alerts (E52-06) through the shared ``NotificationPresenter`` seam
 /// (E30-07) with Decline / Answer actions, and republishes their taps as ``CallAlertResponse``.
+/// ``handle(_:)`` is fed from the single presenter-responses reader.
 /// Lives in the app target because `FeatureCalls` may not depend on `FeatureNotifications`.
 final class NotificationCallAlertPresenter: CallAlertPresenter, @unchecked Sendable {
     static let requestIdentifierPrefix = "tandem.call."
@@ -18,26 +19,23 @@ final class NotificationCallAlertPresenter: CallAlertPresenter, @unchecked Senda
 
     let responses: AsyncStream<CallAlertResponse>
 
+    private let continuation: AsyncStream<CallAlertResponse>.Continuation
     private let presenter: any NotificationPresenter
     private let categories: CategoryRegistry
-    private let observationTask: Task<Void, Never>
 
     init(presenter: any NotificationPresenter, categories: CategoryRegistry) {
         self.presenter = presenter
         self.categories = categories
-        let (stream, continuation) = AsyncStream<CallAlertResponse>.makeStream(bufferingPolicy: .unbounded)
-        responses = stream
-        observationTask = Task {
-            for await event in presenter.responses {
-                guard let response = Self.response(from: event) else { continue }
-                continuation.yield(response)
-            }
-            continuation.finish()
-        }
+        (responses, continuation) = AsyncStream<CallAlertResponse>.makeStream(bufferingPolicy: .unbounded)
     }
 
-    deinit {
-        observationTask.cancel()
+    func handle(_ event: NotificationResponseEvent) {
+        guard let response = Self.response(from: event) else { return }
+        continuation.yield(response)
+    }
+
+    func finish() {
+        continuation.finish()
     }
 
     func present(callId: String, title: String, body: String) async {

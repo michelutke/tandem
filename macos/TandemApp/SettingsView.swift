@@ -81,6 +81,8 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     let viewModel: LaunchAtLoginViewModel
 
+    @AppStorage(NotificationsSessionService.hidesContentWhenLockedKey) private var hidesContentWhenLocked = true
+
     var body: some View {
         Form {
             Toggle("Launch at login", isOn: Binding(
@@ -94,9 +96,8 @@ private struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("Notification preferences coming soon.")
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("notificationPrefsPlaceholder")
+            Toggle("Hide notification content while locked", isOn: $hidesContentWhenLocked)
+                .accessibilityIdentifier("hideNotificationContentWhenLockedToggle")
         }
         .padding()
     }

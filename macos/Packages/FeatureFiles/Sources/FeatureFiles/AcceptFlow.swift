@@ -140,3 +140,9 @@ public actor AcceptFlow: OriginalOfferExpecting {
         try? await session.send(.files, payload: .fileReject(message))
     }
 }
+
+/// Applies the presenter's Accept / Decline responses to `flow` until cancelled or the presenter's
+/// stream finishes.
+public func startAcceptPromptReader(flow: AcceptFlow) -> Task<Void, Never> {
+    Task { await flow.run() }
+}

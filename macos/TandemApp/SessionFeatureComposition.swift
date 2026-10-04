@@ -26,8 +26,15 @@ struct SessionFeatures: Sendable {
         let notifications = NotificationsSessionService(iconCache: iconCache)
         Task { await purgeRegistry.register(notifications.coordinator) }
         services.append(notifications)
-        services.append(contentsOf: makeMessagingService(purgeRegistry: purgeRegistry))
-        let filesService = makeFilesService(fileTransfer: fileTransfer, purgeRegistry: purgeRegistry)
+        services.append(contentsOf: makeMessagingServices(
+            purgeRegistry: purgeRegistry,
+            routing: notifications.routing
+        ))
+        let filesService = makeFilesService(
+            fileTransfer: fileTransfer,
+            purgeRegistry: purgeRegistry,
+            routing: notifications.routing
+        )
         services.append(contentsOf: filesService.map { [$0] } ?? [])
         let agent = (try? SendRequestQueue()).map { SendRequestAgent(queue: $0, transfer: fileTransfer) }
         filesService?.agent = agent
@@ -64,19 +71,26 @@ struct SessionFeatures: Sendable {
         return cache
     }
 
-    private static func makeMessagingService(purgeRegistry: PeerDataPurgeRegistry) -> [any SessionService] {
+    private static func makeMessagingServices(
+        purgeRegistry: PeerDataPurgeRegistry,
+        routing: NotificationRouting
+    ) -> [any SessionService] {
         guard let smsStore = try? GrdbSmsStore.openDefault(),
               let contactsStore = try? GrdbContactsStore.openDefault() else { return [] }
         Task {
             await purgeRegistry.register(smsStore)
             await purgeRegistry.register(contactsStore)
         }
-        return [MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore)]
+        return [
+            MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore),
+            CallsSessionService(contacts: contactsStore, routing: routing)
+        ]
     }
 
     private static func makeFilesService(
         fileTransfer: ActiveFileTransferService,
-        purgeRegistry: PeerDataPurgeRegistry
+        purgeRegistry: PeerDataPurgeRegistry,
+        routing: NotificationRouting
     ) -> FilesSessionService? {
         guard let directories = try? TransferDirectories.system(),
               let thumbnailDirectory = cachesDirectory(named: "Thumbnails"),
@@ -85,7 +99,12 @@ struct SessionFeatures: Sendable {
             await purgeRegistry.register(thumbnails)
             await purgeRegistry.register(RetainedPartsPurger(staging: directories.staging))
         }
-        return FilesSessionService(directories: directories, thumbnails: thumbnails, activeTransfer: fileTransfer)
+        return FilesSessionService(
+            directories: directories,
+            thumbnails: thumbnails,
+            activeTransfer: fileTransfer,
+            routing: routing
+        )
     }
 
     private static func cachesDirectory(named name: String) -> URL? {
@@ -98,7 +117,8 @@ struct SessionFeatures: Sendable {
 
 /// Notification presentation, icon storage, dismiss sync and action replies for the attached
 /// session. `UNNotificationPresenter.responses` is single-consumer, so one long-lived reader
-/// routes every response to the handlers of whichever session is currently attached.
+/// routes every response to the handlers of whichever session is currently attached and, through
+/// ``routing``, to the accept-prompt and call-alert presenters.
 final class NotificationsSessionService: SessionService, @unchecked Sendable {
     private actor ActiveHandlers {
         private var handlers: (action: NotificationActionHandler, dismiss: NotificationDismissSync)?
@@ -113,8 +133,11 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
         }
     }
 
+    static let hidesContentWhenLockedKey = "hideNotificationContentWhenLocked"
+
     private let presenter: UNNotificationPresenter
     let coordinator: NotificationPresentationCoordinator
+    let routing: NotificationRouting
     private let iconCache: IconCache?
     private let active = ActiveHandlers()
     private let screenLock = DistributedScreenLockState(notificationCenter: DistributedNotificationCenter.default())
@@ -127,12 +150,22 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
             presenter: presenter,
             iconCache: iconCache,
             screenLockState: screenLock,
-            hidesContentWhenLocked: { true }
+            hidesContentWhenLocked: {
+                let key = NotificationsSessionService.hidesContentWhenLockedKey
+                return UserDefaults.standard.object(forKey: key) as? Bool ?? true
+            }
+        )
+        let router = NotificationResponseRouter()
+        routing = NotificationRouting(
+            presenter: presenter,
+            categories: CategoryRegistry(presenter: presenter),
+            router: router
         )
         let active = active
         Task {
             for await event in presenter.responses {
                 await active.route(event)
+                await router.route(event)
             }
         }
     }
@@ -187,22 +220,36 @@ final class MessagingSessionService: SessionService, @unchecked Sendable {
 final class FilesSessionService: SessionService, @unchecked Sendable {
     var agent: SendRequestAgent?
 
+    private static let routerKey = "accept-prompts"
+
     private let directories: TransferDirectories
     private let thumbnails: ThumbnailCache
     private let activeTransfer: ActiveFileTransferService
+    private let routing: NotificationRouting
+    private var acceptPrompts: NotificationAcceptPromptPresenter?
+    private var acceptReader: Task<Void, Never>?
 
-    init(directories: TransferDirectories, thumbnails: ThumbnailCache, activeTransfer: ActiveFileTransferService) {
+    init(
+        directories: TransferDirectories,
+        thumbnails: ThumbnailCache,
+        activeTransfer: ActiveFileTransferService,
+        routing: NotificationRouting
+    ) {
         self.directories = directories
         self.thumbnails = thumbnails
         self.activeTransfer = activeTransfer
+        self.routing = routing
     }
 
     func attach(peer: SpkiFingerprint, session: any TandemSession) async {
+        let prompts = NotificationAcceptPromptPresenter(presenter: routing.presenter, categories: routing.categories)
+        await routing.router.setSink({ prompts.handle($0) }, for: Self.routerKey)
+        acceptPrompts = prompts
         let transfers = SessionFileTransferService(session: session, scheduler: FilesScheduler(session: session))
         let acceptFlow = AcceptFlow(
             session: session,
             freeSpace: VolumeFreeSpaceProvider(),
-            presenter: UnansweredAcceptPrompts(),
+            presenter: prompts,
             clock: ContinuousClock(),
             settings: AcceptSettings(),
             destination: directories.destination
@@ -222,6 +269,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             photos: photoService
         )
         _ = startFilesChannelReader(session: session, router: router)
+        acceptReader = startAcceptPromptReader(flow: acceptFlow)
         activeTransfer.attach(transfers)
         let agent = agent
         Task {
@@ -231,16 +279,11 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
     }
 
     func detach(peer: SpkiFingerprint) async {
+        await routing.router.setSink(nil, for: Self.routerKey)
+        acceptReader?.cancel()
+        acceptReader = nil
+        acceptPrompts?.finish()
+        acceptPrompts = nil
         activeTransfer.detach()
     }
-}
-
-/// Accept prompts are not presented anywhere yet, so an offer that is neither auto-accepted nor
-/// rejected outright is rejected `TIMEOUT` by ``AcceptFlow`` after its prompt window; nothing is
-/// ever accepted without the user.
-private struct UnansweredAcceptPrompts: AcceptPromptPresenter {
-    let responses = AsyncStream<AcceptPromptResponse> { $0.finish() }
-
-    func present(offerId: String, displayName: String, size: UInt64) async {}
-    func remove(offerId: String) async {}
 }

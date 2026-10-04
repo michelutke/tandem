@@ -1,4 +1,5 @@
 import Observation
+import TandemProtocol
 
 /// The menu bar's four quick actions (backlog E22-02, PRD F-4.2, UC-05): Send File (E40-10),
 /// Push Clipboard (E31-11), Find Phone (E23-07), and Mirror (E61-12) -- each of those features
@@ -39,6 +40,9 @@ final class QuickActionsViewModel {
     /// later issue wires this to the paired session's own connection state.
     var isConnected: Bool
 
+    @ObservationIgnored
+    private nonisolated(unsafe) var connectionTask: Task<Void, Never>?
+
     private let sendFile: () -> Void
     private let pushClipboard: () -> Void
     private let findPhone: () -> Void
@@ -56,6 +60,22 @@ final class QuickActionsViewModel {
         self.pushClipboard = pushClipboard
         self.findPhone = findPhone
         self.mirror = mirror
+    }
+
+    deinit {
+        connectionTask?.cancel()
+    }
+
+    /// Keeps ``isConnected`` equal to whether the paired session is `.ready`, from the session
+    /// host's own connection-state stream; `nil` (nothing paired) leaves it unchanged.
+    func observeConnection(_ states: AsyncStream<ConnectionStateMachine.ConnectionState>?) {
+        connectionTask?.cancel()
+        guard let states else { return }
+        connectionTask = Task { [weak self] in
+            for await state in states {
+                self?.isConnected = state == .ready
+            }
+        }
     }
 
     /// Invokes `action`'s own injected handler exactly once, or does nothing while
