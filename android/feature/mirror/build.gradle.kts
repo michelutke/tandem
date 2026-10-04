@@ -12,6 +12,11 @@ android {
 }
 
 dependencies {
+    // MediaMessage/MediaFrame DSL (E61-01) and the media ByteStream (E60-02).
+    implementation(project(":core:protocol"))
+    implementation(project(":core:transport"))
+    implementation(libs.kotlinx.coroutines.core)
+
     // Drives the system MediaProjection consent dialog (E61-02 instrumented tests).
     androidTestImplementation(libs.androidx.test.uiautomator)
 }
