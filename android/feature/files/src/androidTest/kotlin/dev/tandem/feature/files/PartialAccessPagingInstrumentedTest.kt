@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.PhotoAccess
 import dev.tandem.protocol.v1.PhotoErrorReason
@@ -16,15 +17,14 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.UUID
 
 // E41-08 tdd: instrumented: partialAccess_unselectedSeededId_thumbAccessDenied
 // E41-08 tdd: instrumented: pagingCorrectness_seeded500Images_exactly500UniqueIdsInFivePages
-// Runs on the api35 managed device (E00-21): grants are toggled with `pm`, the unselected image is
-// inserted through the shell uid so the app holds no grant for it.
+// Runs on the api35 managed device (E00-21): the androidTest manifest strips READ_MEDIA_IMAGES/VIDEO so
+// the process starts without them, and the unselected image is inserted through the shell uid.
 @RunWith(AndroidJUnit4::class)
 class PartialAccessPagingInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -40,15 +40,10 @@ class PartialAccessPagingInstrumentedTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     fun partialAccess_unselectedSeededId_thumbAccessDenied() =
         runBlocking {
-            // Partial photo access (READ_MEDIA_VISUAL_USER_SELECTED) exists only on API 34+.
-            assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
             val unselectedId = insertThroughShell("$namePrefix-unselected.jpg")
-            listOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO,
-            ).forEach { pm("revoke", it) }
             pm("grant", Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
             val page =
@@ -69,7 +64,6 @@ class PartialAccessPagingInstrumentedTest {
 
     @Test
     fun pagingCorrectness_seeded500Images_exactly500UniqueIdsInFivePages() {
-        pm("grant", Manifest.permission.READ_MEDIA_IMAGES)
         seedImages()
         val pager = PhotoPager(ContentResolverMediaStoreSource(resolver))
         val seen = mutableListOf<String>()
