@@ -34,7 +34,10 @@ enum ConformanceRunner {
         let description: String
     }
 
-    static let deferredCategories: [String: String] = [:]
+    static let deferredCategories: [String: String] = [
+        "phone-normalization":
+            "E51-06's TandemStore PhoneNormalizationVectorsTests (PhoneNumberNormalizer is not in TandemProtocol)"
+    ]
     static let notApplicableCategories: [String: String] = ["qr-payload": "not applicable on macOS"]
     static let handledCategories: Set<String> = [
         "frame-encoding", "heartbeat", "spki-fingerprint", "pairing-proof", "display-strings",

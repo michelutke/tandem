@@ -68,7 +68,8 @@ class ConformanceFailure(
  * existing dependency graph instead of adding a new Gradle module (KISS).
  */
 object ConformanceRunner {
-    val deferredCategories: Map<String, String> = emptyMap()
+    val deferredCategories: Map<String, String> =
+        mapOf("phone-normalization" to "E51-06's :feature:contacts PhoneNormalizationVectorsTest (PhoneNormalizer is not a core module)")
     private val handledCategories: Set<String> =
         setOf(
             "frame-encoding",
