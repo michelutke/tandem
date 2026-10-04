@@ -20,11 +20,17 @@ extension ConformanceRunner {
         let bytes = try conformanceRunnerHexDecode(vector.input.messageHex)
         switch vector.input.kind {
         case "requestMediaTicket":
-            return try emptyMessageOutcome(vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_RequestMediaTicket.self))
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_RequestMediaTicket.self)
+            )
         case "mirrorRequest":
-            return try emptyMessageOutcome(vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorRequest.self))
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorRequest.self)
+            )
         case "mirrorDeclined":
-            return try emptyMessageOutcome(vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorDeclined.self))
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorDeclined.self)
+            )
         case "mediaTicketGrant": return try mediaTicketGrantOutcome(vector, bytes: bytes)
         case "mediaHello": return try mediaHelloOutcome(vector, bytes: bytes)
         default:
