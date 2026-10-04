@@ -272,12 +272,7 @@ public struct NWListenerFactory: ListenerFactory {
                 adapter: adapter
             )
         case .failed(let failure):
-            let closeCode: CloseCode
-            switch failure {
-            case .versionMismatch: closeCode = .versionMismatch
-            case .protocolTimeout: closeCode = .protocolTimeout
-            }
-            await stateMachine.handle(.handshakeError(closeCode))
+            await stateMachine.handle(.handshakeError(failure.closeCode))
             adapter.cancel()
             abandonIfPairingCandidate(dropReportingFailure(metadataIdentifier, session: session))
             return

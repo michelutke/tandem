@@ -1,5 +1,6 @@
 import Network
 import TandemCrypto
+import TandemProtocol
 
 extension NWListenerFactory {
     /// A connection that never reaches `.ready` (verify rejected it, or it reset/timed out first)
@@ -17,5 +18,14 @@ extension NWListenerFactory {
             return nil
         }
         return decisionCorrelator.drop(metadataIdentifier: ObjectIdentifier(metadata.securityProtocolMetadata))
+    }
+}
+
+extension VersionHandshake.HandshakeFailure {
+    var closeCode: CloseCode {
+        switch self {
+        case .versionMismatch: .versionMismatch
+        case .protocolTimeout: .protocolTimeout
+        }
     }
 }
