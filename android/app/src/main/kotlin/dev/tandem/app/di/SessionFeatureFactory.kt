@@ -3,8 +3,10 @@ package dev.tandem.app.di
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.ConnectivityManager
+import android.os.Build
 import android.telephony.TelephonyManager
 import android.util.Log
+import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.clipboard.ClipboardWriter
 import dev.tandem.app.connection.SessionFeature
@@ -18,6 +20,9 @@ import dev.tandem.app.connection.feature.RingFeature
 import dev.tandem.app.connection.feature.RotationFeature
 import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
+import dev.tandem.app.mirror.AndroidMirrorPlatform
+import dev.tandem.app.mirror.LogInputDropLog
+import dev.tandem.app.mirror.MirrorFeature
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
@@ -25,6 +30,7 @@ import dev.tandem.core.storage.rotation.RotationEventLog
 import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
+import dev.tandem.core.transport.media.PinnedTlsMediaStreamFactory
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
 import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.contacts.ContentResolverContactsSource
@@ -38,10 +44,12 @@ import dev.tandem.feature.files.MediaStoreDownloadsPublisher
 import dev.tandem.feature.files.NotificationReceivedFileNotifier
 import dev.tandem.feature.files.NotificationTransferPrompter
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
+import dev.tandem.feature.input.LiveRemoteInput
 import dev.tandem.feature.messaging.ContentResolverSmsSource
 import dev.tandem.feature.messaging.ContextSendSmsPermission
 import dev.tandem.feature.messaging.SmsManagerSender
 import dev.tandem.feature.messaging.SubscriptionManagerSource
+import dev.tandem.feature.mirror.NotificationMirrorPromptPresenter
 import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
 import dev.tandem.feature.status.BatteryReceiverStatusSource
 import dev.tandem.feature.status.ConnectivityManagerNetworkTypeSource
@@ -50,6 +58,7 @@ import dev.tandem.feature.status.TelephonyNetworkSignalStrengthSource
 import java.io.File
 import java.security.SecureRandom
 import java.time.Clock
+import javax.net.ssl.X509KeyManager
 
 /**
  * The per-session consumers the connection orchestrator attaches to every Ready session (E20-23,
@@ -62,6 +71,7 @@ object SessionFeatureFactory {
         clock: Clock,
         trustStore: TrustStore,
         purgeRegistry: PeerDataPurgeRegistry,
+        keyManager: X509KeyManager,
     ): List<SessionFeature> {
         val filesFeature = filesFeature(context, clock)
         purgeRegistry.register(filesFeature.purger)
@@ -100,6 +110,7 @@ object SessionFeatureFactory {
             ),
             FocusFeature { SystemInterruptionFilterGateway(context) },
             NotificationInteractionsFeature(context, iconSettings, AppDispatchers.default),
+            mirrorFeature(context, clock, trustStore, keyManager),
             RotationFeature(
                 pins = trustStore,
                 clock = clock,
@@ -107,6 +118,36 @@ object SessionFeatureFactory {
                 eventLog = RotationEventLog { Log.w(TAG, "rotation_rejected reason=${it.name}") },
             ),
         ) + smsFeatures.all()
+    }
+
+    private fun mirrorFeature(
+        context: Context,
+        clock: Clock,
+        trustStore: TrustStore,
+        keyManager: X509KeyManager,
+    ): MirrorFeature {
+        val application = context as TandemApplication
+        return MirrorFeature(
+            platform = AndroidMirrorPlatform(context),
+            presenter = NotificationMirrorPromptPresenter(context),
+            peerName = { peer ->
+                trustStore.list().firstOrNull { it.spkiSha256Base64Url == peer.base64Url }?.displayName
+                    ?: context.getString(R.string.mirror_peer_fallback_name)
+            },
+            controlAddress = { session ->
+                application.sessionRegistry.current.value
+                    ?.takeIf { it.session === session }
+                    ?.address
+            },
+            mediaStreams = PinnedTlsMediaStreamFactory(keyManager),
+            elapsedRealtime = SystemElapsedRealtimeSource,
+            inputTarget = { LiveRemoteInput.current },
+            dropLog = LogInputDropLog(),
+            clock = clock,
+            ioDispatcher = AppDispatchers.io,
+            random = SecureRandom(),
+            sdkInt = Build.VERSION.SDK_INT,
+        )
     }
 
     private fun filesFeature(

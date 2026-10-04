@@ -210,9 +210,10 @@ object ConnectionModule {
                 context,
                 context.getSystemService(PowerManager::class.java),
             ).also { it.start() }
+        val keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias)
         val dialer =
             TlsSessionDialer(
-                keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias),
+                keyManager = keyManager,
                 pinnedFingerprints = pairedFingerprints::load,
                 wasPreviouslyPinned = knownPeerStore::hasEverPinned,
                 clock = clock,
@@ -231,7 +232,7 @@ object ConnectionModule {
                 pairedFingerprints = pairedFingerprints::snapshot,
                 dispatcher = AppDispatchers.default,
             )
-        val features = SessionFeatureFactory.create(context, clock, trustStore, purgeRegistry)
+        val features = SessionFeatureFactory.create(context, clock, trustStore, purgeRegistry, keyManager)
         return ConnectionOrchestrator(
             dialer = dialer,
             registry = sessionRegistry,

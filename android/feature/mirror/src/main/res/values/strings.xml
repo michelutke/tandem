@@ -5,4 +5,7 @@
     <string name="mirror_prompt_text">%1$s wants to see your screen.</string>
     <string name="mirror_prompt_start">Start mirroring</string>
     <string name="mirror_prompt_decline">Not now</string>
+    <string name="mirror_active_channel_name">Mirroring</string>
+    <string name="mirror_active_title">Mirroring your screen</string>
+    <string name="mirror_active_text">Your Mac can see this screen.</string>
 </resources>

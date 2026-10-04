@@ -26,6 +26,7 @@ sealed interface DialResult {
         val session: TandemSession,
         val peer: SpkiFingerprint,
         val peerSpkiDer: ByteArray? = null,
+        val address: CandidateAddress? = null,
     ) : DialResult
 
     data class PinMismatch(
@@ -84,6 +85,7 @@ class TlsSessionDialer(
                 ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies),
                 spkiFingerprint(peerSpkiDer),
                 peerSpkiDer,
+                candidate,
             )
         } catch (e: CancellationException) {
             opened?.close()
