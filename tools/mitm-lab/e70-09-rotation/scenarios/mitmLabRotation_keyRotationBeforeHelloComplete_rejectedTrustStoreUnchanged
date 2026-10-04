@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(PROTOCOL_TIMEOUT)
+# mitm-scenario-timeout: 240
+#
+# E70-09 (1/6): a paired phone completes real mTLS, then sends a `KeyRotation` as its first frame,
+# before any `VersionHello`. SPEC.md #key-rotation: rotation is legal only on a Ready control
+# session; `VersionHandshake` discards every pre-hello CONTROL frame, so the frame never reaches the
+# rotation receiver and the Mac closes at its 5 s hello deadline (PROTOCOL_TIMEOUT, no wire signal).
+# Observed: no `RotationAck` (payload 112), the connection closed, trust store unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e70-09-common.sh
+source "$here/../lib/e70-09-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_mac
+e70_09_build_go_tool
+
+e15_10_gen_cert "$E15_10_TMP_DIR/phone" "e70-09 phone"
+PHONE_FP_HEX="$(e15_10_spki_fingerprint_hex "$E15_10_TMP_DIR/phone-cert.pem")"
+e15_10_seed_trust "$PHONE_FP_HEX" "E70-09 paired phone" "$E15_10_TMP_DIR/seed-phone.json"
+TRUST_BEFORE="$(e70_09_trust_snapshot)"
+
+PORT="$(e15_10_free_port)"
+e15_10_launch_plain "$PORT"
+
+FAILED=0
+OUT="$(e70_09_rotation_before_hello_client 127.0.0.1 "$PORT" "$E15_10_TMP_DIR/phone-cert.pem" "$E15_10_TMP_DIR/phone-key.pem" 9000)"
+e70_09_log "$OUT"
+
+if ! printf '%s\n' "$OUT" | grep -q '^HANDSHAKE_OK$'; then
+  e70_09_log "FAIL: the real mTLS handshake never completed"
+  FAILED=1
+elif printf '%s\n' "$OUT" | grep -q '^FRAME_PAYLOAD 112$'; then
+  e70_09_log "FAIL: the Mac acknowledged a KeyRotation sent before VersionHello"
+  FAILED=1
+elif printf '%s\n' "$OUT" | grep -q '^FRAME_PAYLOAD 113$' || printf '%s\n' "$OUT" | grep -q '^CLOSED_MS '; then
+  e70_09_log "OK: pre-hello KeyRotation answered with RotationReject or a closed connection"
+else
+  e70_09_log "FAIL: connection neither closed nor rejected within the read window"
+  FAILED=1
+fi
+
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(PROTOCOL_TIMEOUT)"
+else
+  echo "OUTCOME: FAILED"
+fi

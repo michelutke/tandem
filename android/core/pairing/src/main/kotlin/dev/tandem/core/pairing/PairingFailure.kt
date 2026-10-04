@@ -29,4 +29,7 @@ sealed class PairingFailure {
      * could be computed (SPEC.md §2 "Proof computation", invariant 6).
      */
     data object MalformedChallenge : PairingFailure()
+
+    /** A dialed peer presented a key that is not the QR fingerprint (SPEC.md §5 row 2); never retried. */
+    data object PinMismatch : PairingFailure()
 }

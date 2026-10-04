@@ -89,6 +89,29 @@ across scenario processes, matching the existing per-script convention in
 minutes) — this is deliberately not yet wired into CI as a required check, matching E15-08's own
 `tools/conformance/run.sh` precedent above.
 
+## E60-05: media ticket binding scenarios
+
+`tools/mitm-lab/e60-05-media-ticket/` -- six scenarios against the real Mac app launched with the
+DEBUG-only `-HarnessMediaTickets YES` hook (the real ticket table, issuer, registry and media
+acceptor, no mirror window), driven through the JVM harness client's `RAWOPEN`, `RAWTICKET`
+(real `RequestMediaTicket`/`MediaTicketGrant`) and `MEDIAOPEN` (a second pinned mTLS connection
+carrying a chosen `MediaHello`) commands; scenario 5 uses a second paired JVM client for peer B's
+certificate. Every scenario completes mTLS first (`OK MEDIA_CONNECTED`), so a rejection is the ticket
+layer, not the handshake. The Mac prints `harness-media-event: ticketRejected(<reason>)` (reason only,
+never ticket bytes) and `harness-media-event: bound`; a pass needs the Mac to close the connection,
+the expected reason, and no `bound` for the rejected connection. The acceptor's local reasons collapse
+the SPEC ones: consumed -> `reused`, revoked and peerMismatch -> `otherSession`.
+
+- `..._mediaHelloWithoutTicket_...` -> `missing`; `..._mediaReusedTicket_...` -> `reused` (first use is bound);
+  `..._mediaTicketAfter31s_...` -> `expired`; `..._mediaTicketFromEndedSession_...` and
+  `..._mediaTicketOnOtherPeersClientCert_...` -> `otherSession`.
+- `..._mediaConnectionNoHelloFor6s_closedProtocolTimeout` -- the silent connection is closed by the
+  Mac's 5 s first-frame deadline (observed 4-6.5 s after the handshake); that path emits no acceptor event.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e60-05-media-ticket/scenarios --timeout 300
+```
+
 ## E15-11: downgrade / resumption / 0-RTT / protocol-version scenarios
 
 `tools/mitm-lab/e15-11-version-scenarios/` — seven scenarios (four base scenarios, one of which
@@ -233,4 +256,64 @@ build`) supplies source-bound sockets.
 ```sh
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e15-20-preauth-dos/scenarios --timeout 300
 ruby tools/mitm-lab/test/e15_20_scenarios_test.rb   # structure checks only
+```
+
+## E70-09: key-rotation abuse scenarios
+
+`tools/mitm-lab/e70-09-rotation/` -- six scenarios against the real Mac app (SPEC.md #key-rotation),
+each asserting the connection was closed or answered with `RotationReject` for the expected reason and
+that the Mac's trust store (record count and fingerprints via `-HarnessListTrust`) is identical before
+and after: `KeyRotation` sent before `VersionHello` (Mac ignores it and closes at the 5 s hello
+deadline), in a pairing-window session (wrong payload, `PAIRING_FAILED` close, no reject), from an
+unpinned peer (handshake rejected, no session to send on), a `KeyRotation` built over session A's
+`RotationChallenge` and delivered on session B (`INVALID_SIGNATURE`), and one whose `newSpki` is
+another paired peer's key (`DUPLICATE_KEY`; the harness holds that key so both signatures verify).
+
+Three JVM harness client commands (`RawRotation.kt`, real `RotationProof` transcript, real identity
+key) build the frames: `RAWKEYGEN` (hold a new key, print its fingerprint to seed as a second paired
+peer), `RAWCHALLENGE` (print the session's `RotationChallenge`), `RAWROTATE [CB=<hex>] [HELDKEY]`.
+`lib/rotation_before_hello_client.go` sends the pre-`VersionHello` frame, which no real client can.
+
+The sixth scenario, `mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly`, starts the
+Mac's own rotation: the DEBUG-only `-HarnessMacRotation YES` hook (`HarnessHooks+MediaTickets.swift`) composes the
+production `MacKeyRotation` (E70-16) over the harness keychain and trust store and begins a rotation at launch,
+printing `harness-mac-rotation: <outcome>` (and `harness-mac-rotation-switched` if every phone acked; never key
+material). The JVM client command `RAWMACROTATION [ACK|NOACK]` (`RawMacRotation.kt`) sends the phone's
+`RotationChallenge`, receives the Mac's `KeyRotation`, verifies both signatures with the real `RotationProof` and
+prints `EVENT MAC_ROTATION_OFFERED <newSpkiFingerprintHex> VERIFIED`; the scenario never acks. It then shows the
+unacked phone keeps the old pin only: a connection pinned to the old key still succeeds (the Mac's listener
+identity is unchanged), one pinned to the pending key alone is rejected, and the Mac logs no switch.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e70-09-rotation/scenarios --timeout 300
+ruby tools/mitm-lab/test/e70_09_scenarios_test.rb   # structure checks only
+```
+
+## E62-08: input-authorization scenarios
+
+Invariant 8 (remote input only during a user-started mirror session), proven against input the real
+Mac app sends but its mirror window never would. The DEBUG-only Mac stdin command (`-HarnessInteractiveCommands YES`)
+`SENDINPUT <phoneFpHex> <TAP|TAPOUT|SETTEXT> <count> <perSecond> <NONE|RANDOM|sessionIdHex> [text]` sends the
+crafted `InputEvent`s; `MIRRORREQUEST <fpHex>` and `MIRRORSTOP` start and end a real mirror session (with
+`-HarnessMediaTickets YES`, which also prints `harness-mirror-session: <hex>`, the phone-minted reference).
+
+- Integration variant: `tools/harness/integration/e62-08.sh` (macOS, no phone). The JVM harness client's
+  `INPUTWATCH`/`INPUTSTATS` run the real `InputGate` with a recording dispatcher (`RemoteInputHarness.kt`) and
+  no mirror consent; the real Mac sends a Tap, then a `SetText` carrying a canary. Expects zero dispatcher
+  calls and one drop record per event, and `tools/log-audit/log-audit.sh` over the client capture and the Mac
+  log finds zero canary occurrences (`inputGate_realMacSendsInputWithoutSession_zeroDispatchOneDropRecord`,
+  `logAudit_droppedSetTextCanary_absentFromLogs`).
+- Device scenarios: `tools/mitm-lab/e62-08-input-auth/scenarios/` (six, `lib/e62-08-device.sh`) target the real
+  phone app over adb with `tools/companion-app`'s `InputCounterActivity` in the foreground (one logcat line per
+  touch that reaches it). No session, a stale session reference, input after the session stopped, a 1000/s flood
+  (at most 240 touches in any wall-clock second) and out-of-range coordinates (dropped, not clamped) each assert
+  zero or bounded touches at the counter and the phone's `InputGate` drop log. Needs a debug build with the
+  remote-input accessibility service enabled; the operator scans the pairing QR the script prints, and the
+  script presses the on-phone prompt through uiautomator (`E62_08_MIRROR_TAPS` overrides the button labels).
+  Not run in CI or by `audit-step.sh`.
+
+```sh
+tools/harness/integration/e62-08.sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e62-08-input-auth/scenarios --timeout 600   # phone on adb
+ruby tools/mitm-lab/test/e62_08_scenarios_test.rb   # structure checks only
 ```

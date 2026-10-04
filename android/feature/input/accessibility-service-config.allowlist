@@ -1,0 +1,5 @@
+# E62-02: the exact attributes (besides description) the AccessibilityService config may declare.
+# Gesture dispatch and window content for focused-node lookup only (E62-04/E62-05); no event types,
+# no flags (in particular no flagRequestFilterKeyEvents / flagInputMethodEditor).
+canPerformGestures=true
+canRetrieveWindowContent=true

@@ -1,0 +1,65 @@
+package dev.tandem.harness.jvmclient
+
+import com.google.protobuf.ByteString
+import dev.tandem.core.crypto.KeyHandle
+import dev.tandem.core.crypto.RotationProof
+import dev.tandem.core.crypto.spkiFingerprint
+import dev.tandem.protocol.v1.KeyRotation
+import dev.tandem.protocol.v1.keyRotation
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.PrivateKey
+import java.security.Signature
+import java.security.spec.ECGenParameterSpec
+
+/**
+ * Builds the `KeyRotation` frames behind the `RAWKEYGEN`/`RAWROTATE` commands (E70-09 mitm-lab
+ * rotation scenarios): the real [RotationProof] transcript signed by this process's real identity
+ * key (old key) and a new key, but over a caller-chosen `cb` -- so a scenario can replay a `cb` from
+ * another session, which the real `RotationInitiator` never would. The new key is a fresh P-256 key
+ * unless [generateHeldKey] pinned one earlier (a scenario seeds that key into the Mac's trust store
+ * as "another paired peer" before asking for it as `newSpki`). Never persisted.
+ */
+internal class RawRotation(
+    private val identityKey: KeyHandle,
+) {
+    private var heldKey: KeyPair? = null
+
+    /** Generates and holds a new key; returns its SPKI fingerprint (the `-HarnessSeedTrust` fingerprint) in hex. */
+    fun generateHeldKey(): String {
+        val pair = newKeyPair()
+        heldKey = pair
+        return spkiFingerprint(pair.public.encoded).bytes.joinToString(separator = "") { "%02x".format(it) }
+    }
+
+    fun build(
+        cb: ByteArray,
+        useHeldKey: Boolean,
+    ): KeyRotation {
+        val newKey = if (useHeldKey) requireNotNull(heldKey) { "no held key (RAWKEYGEN first)" } else newKeyPair()
+        val oldSpki = identityKey.publicKey.encoded
+        val newSpki = newKey.public.encoded
+        val transcript = RotationProof.transcript(oldSpki, newSpki, cb)
+        return keyRotation {
+            newSpkiDer = ByteString.copyFrom(newSpki)
+            sigOldKey = ByteString.copyFrom(sign(identityKey.privateKey, transcript))
+            sigNewKey = ByteString.copyFrom(sign(newKey.private, transcript))
+        }
+    }
+
+    private fun newKeyPair(): KeyPair =
+        KeyPairGenerator.getInstance("EC").run {
+            initialize(ECGenParameterSpec("secp256r1"))
+            generateKeyPair()
+        }
+
+    private fun sign(
+        key: PrivateKey,
+        message: ByteArray,
+    ): ByteArray =
+        Signature.getInstance("SHA256withECDSA").run {
+            initSign(key)
+            update(message)
+            sign()
+        }
+}

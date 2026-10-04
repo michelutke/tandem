@@ -11,4 +11,7 @@ import dev.tandem.core.transport.TandemSession
 object LiveClipboardSession {
     @Volatile
     var current: TandemSession? = null
+
+    /** Shared by the writer of received clips and the passive capture entry point (E31-08). */
+    val loopGuard = ClipboardLoopGuard()
 }

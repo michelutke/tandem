@@ -31,7 +31,7 @@ class FeatureAttacher(
         registered: RegisteredSession,
     ) {
         try {
-            feature.run(registered.session, registered.peer)
+            feature.run(registered.session, registered.peer, registered.peerSpkiDer)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {

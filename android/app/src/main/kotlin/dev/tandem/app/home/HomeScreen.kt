@@ -41,6 +41,7 @@ fun HomeScreen(
     selectedToolbarItem: FloatingToolbarItem,
     onToolbarItemSelected: (FloatingToolbarItem) -> Unit,
     modifier: Modifier = Modifier,
+    onSendClipboard: () -> Unit = {},
 ) {
     var showSendSheet by remember { mutableStateOf(false) }
     val ring = ringState.toDotRingContent()
@@ -62,7 +63,13 @@ fun HomeScreen(
     }
 
     if (showSendSheet) {
-        SendSheet(onDismissRequest = { showSendSheet = false })
+        SendSheet(
+            onDismissRequest = { showSendSheet = false },
+            onSendClipboard = {
+                showSendSheet = false
+                onSendClipboard()
+            },
+        )
     }
 }
 

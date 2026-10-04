@@ -45,6 +45,7 @@ class ConnectionOrchestratorTest {
         override suspend fun run(
             session: TandemSession,
             peer: SpkiFingerprint,
+            peerSpkiDer: ByteArray?,
         ) {
             attached++
             sessions += session

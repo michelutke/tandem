@@ -28,4 +28,12 @@
 
     <!-- Quick Settings tile (E31-12) -->
     <string name="clipboard_tile_label">Send clip</string>
+
+    <!-- Mirror media connection pin mismatch (E62-11, invariant 5) -->
+    <string name="mirror_peer_fallback_name">your Mac</string>
+    <string name="mirror_blocked_channel_name">Mirror errors</string>
+    <string name="mirror_blocked_title">Blocked.</string>
+    <string name="mirror_blocked_text">The Mac\'s key changed. Nothing was shared.</string>
+    <string name="mirror_unreachable_title">Mirroring stopped.</string>
+    <string name="mirror_unreachable_text">Couldn\'t connect to your Mac. Nothing was shared.</string>
 </resources>

@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.security.cert.CertificateException
 import java.time.Instant
 
 /**
@@ -134,6 +135,45 @@ class PairingStateMachineTest {
             runCurrent()
 
             assertEquals(PairingState.Failed(PairingFailure.AllAddressesUnreachable), sm.state.value)
+        }
+
+    @Test
+    fun pairingSm_pinMismatchOnAnyAddress_emitsFailedPinMismatch() =
+        runTest {
+            val connector =
+                FakePairingConnector(
+                    emptyMap(),
+                    failing = setOf(invite.addresses[1]),
+                    pinMismatching = setOf(invite.addresses[0]),
+                )
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+
+            assertEquals(listOf(invite.addresses[0], invite.addresses[1]), connector.attempted)
+            assertEquals(PairingState.Failed(PairingFailure.PinMismatch), sm.state.value)
+        }
+
+    @Test
+    fun pairingSm_confirmCodesMatch_closesPairingSessionAfterCommit() =
+        runTest {
+            val session = readySession()
+            val connector = FakePairingConnector(mapOf(invite.addresses[0] to connectionOf(session)))
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+            session.emitIncoming(challengeEnvelope())
+            runCurrent()
+            session.emitIncoming(pairAcceptedEnvelope())
+            runCurrent()
+
+            sm.confirmCodesMatch()
+            runCurrent()
+
+            assertEquals(PairingState.Paired, sm.state.value)
+            assertTrue(session.state.value is ConnectionState.Disconnected)
         }
 
     @Test
@@ -458,6 +498,7 @@ class PairingStateMachineTest {
     private class FakePairingConnector(
         private val responses: Map<String, PairingConnection>,
         private val failing: Set<String> = emptySet(),
+        private val pinMismatching: Set<String> = emptySet(),
     ) : PairingConnector {
         val attempted = mutableListOf<String>()
 
@@ -468,6 +509,7 @@ class PairingStateMachineTest {
         ): PairingConnection {
             attempted += address
             if (address in failing) error("connection refused")
+            if (address in pinMismatching) throw CertificateException("pin mismatch")
             return responses[address] ?: awaitCancellation()
         }
     }

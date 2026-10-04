@@ -31,6 +31,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import java.security.cert.CertificateException
 import java.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
@@ -89,6 +90,7 @@ class PairingStateMachine(
         val context = claimConfirmContext() ?: return
         trustCommitter.commit(context.macFingerprint, context.macName, clock.instant())
         mutableState.value = PairingState.Paired
+        context.session.close()
     }
 
     /**
@@ -161,7 +163,8 @@ class PairingStateMachine(
      * Dials every address in order (D-68). A connect timeout advances to the next address; any
      * other connect/handshake failure (connection refused, TLS pin mismatch, hello version
      * mismatch, ...) does too, rather than crashing this machine's scope (finding 4) — only
-     * exhausting every address is a terminal [PairingFailure.AllAddressesUnreachable]. The
+     * exhausting every address is a terminal [PairingFailure.AllAddressesUnreachable], or
+     * [PairingFailure.PinMismatch] if any address presented a key other than the QR fingerprint. The
      * [connector] seam is a `fun interface` with no declared throws, so any implementation's
      * connect/handshake failure surfaces as an unchecked exception of an unknown type; catching it
      * broadly here, rather than letting it escape to this machine's `SupervisorJob` uncaught, is
@@ -170,6 +173,7 @@ class PairingStateMachine(
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun dialAddresses(): PairingConnection? {
         val pinSource = QrPairingPinSource(invite)
+        var pinMismatched = false
         for (address in invite.addresses) {
             val connection =
                 try {
@@ -178,12 +182,16 @@ class PairingStateMachine(
                     null
                 } catch (cancellation: CancellationException) {
                     throw cancellation
+                } catch (pinFailure: CertificateException) {
+                    pinMismatched = true
+                    null
                 } catch (connectFailure: Exception) {
                     null
                 }
             if (connection != null) return connection
         }
-        mutableState.value = PairingState.Failed(PairingFailure.AllAddressesUnreachable)
+        val reason = if (pinMismatched) PairingFailure.PinMismatch else PairingFailure.AllAddressesUnreachable
+        mutableState.value = PairingState.Failed(reason)
         return null
     }
 

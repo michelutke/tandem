@@ -2,6 +2,7 @@ package dev.tandem.harness.jvmclient
 
 import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.IdentityKeyManager
+import dev.tandem.core.crypto.IdentityKeyStore
 import dev.tandem.core.crypto.PairingProof
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
@@ -17,6 +18,7 @@ import dev.tandem.core.pairing.qr.ParseInviteResult
 import dev.tandem.core.pairing.qr.QrPayloadParser
 import dev.tandem.core.pairing.revoke.RevokeHandler
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.transport.ByteStream
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.tls.SslClientFactory
@@ -25,12 +27,16 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.NetworkType
+import dev.tandem.protocol.v1.RotationRejectReason
 import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.deviceInfo
 import dev.tandem.protocol.v1.deviceStatus
 import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.notificationPosted
 import dev.tandem.protocol.v1.pairRequest
+import dev.tandem.protocol.v1.requestMediaTicket
+import dev.tandem.protocol.v1.rotationAck
+import dev.tandem.protocol.v1.rotationChallenge
 import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -48,7 +54,9 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.io.IOException
 import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.security.KeyPairGenerator
 import java.security.spec.ECGenParameterSpec
 import java.time.Clock
@@ -59,6 +67,8 @@ private const val RAW_CHALLENGE_TIMEOUT_MS = 10_000L
 private const val FLOOD_TICKS_PER_SECOND = 10
 private const val MILLIS_PER_SECOND = 1_000L
 private const val RAW_OUTCOME_TIMEOUT_MS = 15_000L
+private const val MEDIA_CLOSE_TIMEOUT_MS = 15_000
+private const val NANOS_PER_MILLI = 1_000_000L
 
 private const val DEFAULT_IDENTITY_FILE = "harness-identity.bin"
 
@@ -90,7 +100,8 @@ fun main(args: Array<String>) {
 
     val knownPeerStore = HarnessKnownPeerStore(identityFile)
     val deviceInfoProvider = HarnessDeviceInfoProvider(displayName)
-    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore, deviceInfoProvider)
+    val rawRotation = RawRotation(requireNotNull(identityKeyStore.get(PersistentIdentityKeyStore.IDENTITY_ALIAS)))
+    val cli = HarnessCli(keyManager, dispatcher, scope, knownPeerStore, deviceInfoProvider, rawRotation)
     try {
         while (true) {
             val line = readlnOrNull() ?: break
@@ -143,6 +154,7 @@ private class HarnessCli(
     private val scope: CoroutineScope,
     private val knownPeerStore: HarnessKnownPeerStore,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val rawRotation: RawRotation,
 ) {
     private var session: TandemSession? = null
     private var connectedPeerFingerprintHex: String? = null
@@ -172,6 +184,7 @@ private class HarnessCli(
     private var rawMacSpkiDer: ByteArray? = null
     private var rawPhoneSpkiDer: ByteArray? = null
     private var rawChallenge: ByteArray? = null
+    private var rawRotationChallenge: ByteArray? = null
 
     /**
      * Peers this process currently considers *not* paired any more (E14-20): either a live
@@ -184,6 +197,11 @@ private class HarnessCli(
     private val locallyRevoked = mutableSetOf<String>()
 
     private val heartbeatsReceived = AtomicInteger()
+
+    private val heldMediaStreams = mutableListOf<ByteStream>()
+
+    private var remoteInput: RemoteInputHarness? = null
+    private var inputWatchJob: Job? = null
 
     /** Handles one command line; returns `false` if the CLI should stop reading further commands. */
     fun handle(line: String): Boolean {
@@ -198,6 +216,8 @@ private class HarnessCli(
             "TRUSTED" -> trusted(rest)
             "STATUS" -> status(rest)
             "RINGSTATE" -> ringState()
+            "INPUTWATCH" -> inputWatch()
+            "INPUTSTATS" -> println(remoteInput?.statsLine() ?: "ERROR no INPUTWATCH running")
             "DISCONNECT" -> disconnect()
             "SENDNOTIFICATIONS" -> sendNotifications(rest)
             "FLOOD" -> flood(rest)
@@ -206,6 +226,12 @@ private class HarnessCli(
             "RAWSENDPROOF" -> rawSendProof(rest)
             "RAWREVOKE" -> rawRevoke()
             "RAWCLOSE" -> rawClose()
+            "RAWKEYGEN" -> println("OK KEYGEN ${rawRotation.generateHeldKey()}")
+            "RAWCHALLENGE" -> rawRotationChallengeCommand()
+            "RAWROTATE" -> rawRotate(rest)
+            "RAWMACROTATION" -> rawMacRotation(rest)
+            "RAWTICKET" -> rawTicket()
+            "MEDIAOPEN" -> mediaOpen(rest)
             "EXIT" -> {
                 exit()
                 return false
@@ -216,6 +242,8 @@ private class HarnessCli(
     }
 
     fun shutdown() {
+        inputWatchJob?.cancel()
+        heldMediaStreams.forEach { it.closeAbruptly() }
         session?.close()
         pairing?.close()
         stopStatusAndRingWiring()
@@ -309,6 +337,29 @@ private class HarnessCli(
         } else {
             println("ERROR STATUS_QUEUE_FULL")
         }
+    }
+
+    /**
+     * `INPUTWATCH` (E62-08): routes every `InputEvent` the connected [session] receives on the INPUT
+     * channel through a [RemoteInputHarness] (the real `InputGate`, no mirror consent, recording
+     * dispatcher); `INPUTSTATS` prints its counts.
+     */
+    private fun inputWatch() {
+        val activeSession = session
+        if (activeSession == null) {
+            println("ERROR no session open (CONNECT first)")
+            return
+        }
+        val input = RemoteInputHarness()
+        remoteInput = input
+        inputWatchJob?.cancel()
+        inputWatchJob =
+            scope.launch {
+                activeSession.receive(Channel.CHANNEL_INPUT).collect { envelope ->
+                    if (envelope.hasInputEvent()) input.handle(envelope.inputEvent)
+                }
+            }
+        println("OK INPUT_WATCHING")
     }
 
     /** `RINGSTATE` (E23-08): the harness's current [HarnessRingReactor] counters, for scenario assertions. */
@@ -644,6 +695,7 @@ private class HarnessCli(
         rawMacSpkiDer = null
         rawPhoneSpkiDer = null
         rawChallenge = null
+        rawRotationChallenge = null
 
         val fingerprint = SpkiFingerprint(fingerprintBytes)
         runCatching {
@@ -674,6 +726,9 @@ private class HarnessCli(
                                     rawChallenge = challenge
                                     println("OK OPENED ${challenge.toLowerHex()}")
                                 } else {
+                                    if (envelope.hasRotationChallenge()) {
+                                        rawRotationChallenge = envelope.rotationChallenge.challenge.toByteArray()
+                                    }
                                     println("OK OPENED NOCHALLENGE")
                                 }
                             }
@@ -789,8 +844,209 @@ private class HarnessCli(
         rawMacSpkiDer = null
         rawPhoneSpkiDer = null
         rawChallenge = null
+        rawRotationChallenge = null
         println("OK RAWCLOSED")
     }
+
+    /**
+     * `RAWCHALLENGE` (E70-09): prints the Mac's `RotationChallenge` for the current raw session as
+     * `OK CHALLENGE <cbHex>` -- the one [rawOpen] already consumed, or the next one to arrive -- so
+     * a scenario can carry it to another session with `RAWROTATE CB=<cbHex>`.
+     */
+    private fun rawRotationChallengeCommand() {
+        val cb = awaitRawRotationChallenge()
+        println(if (cb == null) "ERROR NO_CHALLENGE" else "OK CHALLENGE ${cb.toLowerHex()}")
+    }
+
+    /**
+     * `RAWROTATE [CB=<cbHex>] [HELDKEY]` (E70-09): sends one real `KeyRotation` on the raw session,
+     * signed by this process's identity key and a new key over `cb` (the session's own
+     * `RotationChallenge` unless `CB=` overrides it -- a replayed `cb` from another session, or any
+     * 32 bytes where the Mac never sends one, e.g. a pairing-candidate connection). `HELDKEY` uses
+     * the key `RAWKEYGEN` generated as `newSpki` instead of a fresh one. Prints `EVENT
+     * ROTATION_ACK`, `EVENT ROTATION_REJECT <reason>`, `EVENT ROTATION_CLOSED` or `EVENT
+     * ROTATION_TIMEOUT`.
+     */
+    private fun rawRotate(argsLine: String) {
+        val flags = argsLine.split(" ").filter { it.isNotEmpty() }
+        val cbOverride = flags.firstOrNull { it.startsWith("CB=", ignoreCase = true) }?.substringAfter("=")?.decodeHex()
+        val useHeldKey = flags.any { it.equals("HELDKEY", ignoreCase = true) }
+        val activeSession = rawSession
+        val cb = cbOverride ?: awaitRawRotationChallenge()
+        if (activeSession == null || cb == null) {
+            println("ERROR no raw session open or no RotationChallenge (RAWOPEN first, or pass CB=<hex>)")
+            return
+        }
+        val rotation = runCatching { rawRotation.build(cb, useHeldKey) }.getOrElse {
+            println("ERROR ${it.message}")
+            return
+        }
+        runBlocking(dispatcher) {
+            activeSession.send(Channel.CHANNEL_CONTROL) { keyRotation = rotation }
+        }
+        println("OK SENT_ROTATION")
+        printRawRotationOutcome(activeSession)
+    }
+
+    /**
+     * `RAWMACROTATION [ACK|NOACK]` (E70-09): the phone side of a Mac-initiated rotation on the raw
+     * session. Sends the unsolicited `RotationChallenge` a phone sends on every control session, waits
+     * for the Mac's `KeyRotation` and checks both signatures against the Mac key that authenticated
+     * this session. Prints `EVENT MAC_ROTATION_OFFERED <newSpkiFingerprintHex> VERIFIED|INVALID`, or
+     * `EVENT MAC_ROTATION_NONE` if no offer arrived. With `ACK` (default `NOACK`) a verified offer is
+     * answered with `RotationAck` and `OK ACKED` is printed. Nothing is pinned: a scenario then shows
+     * which keys the Mac still presents to a phone that has, or has not, acked.
+     */
+    private fun rawMacRotation(argsLine: String) {
+        val ack = argsLine.trim().equals("ACK", ignoreCase = true)
+        val activeSession = rawSession
+        val macSpkiDer = rawMacSpkiDer
+        if (activeSession == null || macSpkiDer == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        val challenge = RawMacRotation.newChallenge()
+        val outcome =
+            runBlocking(dispatcher) {
+                activeSession.send(Channel.CHANNEL_CONTROL) {
+                    rotationChallenge = rotationChallenge { this.challenge = ByteString.copyFrom(challenge) }
+                }
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasKeyRotation() }
+                }
+            }
+        val offer = (outcome as? RawWaitOutcome.Success)?.envelope?.keyRotation
+        if (offer == null) {
+            println("EVENT MAC_ROTATION_NONE")
+            return
+        }
+        val valid = RawMacRotation.isValidOffer(macSpkiDer, challenge, offer)
+        println("EVENT MAC_ROTATION_OFFERED ${RawMacRotation.newKeyFingerprintHex(offer)} ${if (valid) "VERIFIED" else "INVALID"}")
+        if (ack && valid) {
+            runBlocking(dispatcher) { activeSession.send(Channel.CHANNEL_CONTROL) { rotationAck = rotationAck {} } }
+            println("OK ACKED")
+        }
+    }
+
+    /**
+     * `RAWTICKET` (E60-05): sends `RequestMediaTicket` on the raw control session and prints the
+     * Mac's `MediaTicketGrant` ticket as `OK TICKET <hex>` (`ERROR NO_GRANT` if none arrives), so a
+     * scenario can present it on a media connection with `MEDIAOPEN`.
+     */
+    private fun rawTicket() {
+        val activeSession = rawSession
+        if (activeSession == null) {
+            println("ERROR no raw session open (RAWOPEN first)")
+            return
+        }
+        val outcome =
+            runBlocking(dispatcher) {
+                activeSession.send(Channel.CHANNEL_CONTROL) { requestMediaTicket = requestMediaTicket { } }
+                withTimeoutOrNull(RAW_CHALLENGE_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasMediaTicketGrant() }
+                }
+            }
+        val ticket = (outcome as? RawWaitOutcome.Success)?.envelope?.mediaTicketGrant?.ticket?.toByteArray()
+        println(if (ticket == null) "ERROR NO_GRANT" else "OK TICKET ${ticket.toLowerHex()}")
+    }
+
+    /**
+     * `MEDIAOPEN <host> <port> <macFpSpkiFingerprintBase64Url> <ticketHex|NONE|SILENT> [HOLD]`
+     * (E60-05): dials a second, fully pinned mTLS connection with this process's identity and
+     * presents `MediaHello` carrying the given ticket (`NONE`: no ticket; `SILENT`: nothing at all).
+     * Prints `OK MEDIA_CONNECTED` once the handshake completed, then `EVENT MEDIA_CLOSED <ms>` when
+     * the Mac closed the connection (ms since the handshake) or `EVENT MEDIA_OPEN` if it stayed open
+     * for [MEDIA_CLOSE_TIMEOUT_MS]. With `HOLD` the connection is kept open without waiting and
+     * `OK MEDIA_HELD` is printed instead. `ERROR HANDSHAKE_REJECTED <reason>` when mTLS failed.
+     */
+    private fun mediaOpen(argsLine: String) {
+        val args = argsLine.split(" ").filter { it.isNotEmpty() }
+        val port = args.getOrNull(1)?.toIntOrNull()
+        val fingerprintBytes = args.getOrNull(2)?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() }
+        val presentation = args.getOrNull(3)?.let(RawMedia::parsePresentation)
+        if (args.size < MEDIAOPEN_MIN_ARGS || port == null || fingerprintBytes == null || presentation == null) {
+            println("ERROR usage: MEDIAOPEN <host> <port> <spkiFingerprintBase64Url> <ticketHex|NONE|SILENT> [HOLD]")
+            return
+        }
+        val factory =
+            SslClientFactory(
+                keyManager,
+                PinningTrustManager(PinSource { listOf(SpkiFingerprint(fingerprintBytes)) }),
+                JvmConscryptSessionTicketDisabler(),
+            )
+        val socket = factory.createSocket().apply { soTimeout = MEDIA_CLOSE_TIMEOUT_MS }
+        val stream =
+            runCatching { factory.connect(socket, InetAddress.getByName(args[0]), port) }
+                .getOrElse {
+                    println("ERROR HANDSHAKE_REJECTED ${it.message}")
+                    return
+                }
+        println("OK MEDIA_CONNECTED")
+        val startNanos = System.nanoTime()
+        val hello =
+            when (presentation) {
+                MediaPresentation.NoTicket -> RawMedia.helloFrame(null)
+                MediaPresentation.Silent -> null
+                is MediaPresentation.Ticket -> RawMedia.helloFrame(presentation.bytes)
+            }
+        runCatching {
+            if (hello != null) {
+                stream.output.write(hello)
+                stream.output.flush()
+            }
+        }
+        if (args.drop(MEDIAOPEN_MIN_ARGS).any { it.equals("HOLD", ignoreCase = true) }) {
+            heldMediaStreams += stream
+            println("OK MEDIA_HELD")
+            return
+        }
+        val closed =
+            try {
+                stream.input.read()
+                true
+            } catch (_: SocketTimeoutException) {
+                false
+            } catch (_: IOException) {
+                true
+            }
+        stream.closeAbruptly()
+        println(if (closed) "EVENT MEDIA_CLOSED ${(System.nanoTime() - startNanos) / NANOS_PER_MILLI}" else "EVENT MEDIA_OPEN")
+    }
+
+    private fun awaitRawRotationChallenge(): ByteArray? {
+        rawRotationChallenge?.let { return it }
+        val activeSession = rawSession ?: return null
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_CHALLENGE_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasRotationChallenge() }
+                }
+            }
+        val cb = (outcome as? RawWaitOutcome.Success)?.envelope?.rotationChallenge?.challenge?.toByteArray()
+        rawRotationChallenge = cb
+        return cb
+    }
+
+    private fun printRawRotationOutcome(activeSession: TandemSession) {
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) { it.hasRotationAck() || it.hasRotationReject() }
+                }
+            }
+        when (outcome) {
+            null, RawWaitOutcome.TimedOut -> println("EVENT ROTATION_TIMEOUT")
+            RawWaitOutcome.ConnectionLost -> println("EVENT ROTATION_CLOSED")
+            is RawWaitOutcome.Success ->
+                if (outcome.envelope.hasRotationAck()) {
+                    println("EVENT ROTATION_ACK")
+                } else {
+                    println("EVENT ROTATION_REJECT ${outcome.envelope.rotationReject.reason.rejectName()}")
+                }
+        }
+    }
+
+    private fun RotationRejectReason.rejectName(): String = name.removePrefix("ROTATION_REJECT_REASON_")
 
     /**
      * Prints the terminal outcome of a raw pairing attempt/`Revoke`: `EVENT PAIR_ACCEPTED`,
@@ -886,6 +1142,7 @@ private class HarnessCli(
 
     private companion object {
         const val CONNECT_ARG_COUNT = 3
+        const val MEDIAOPEN_MIN_ARGS = 4
         const val STATUS_ARG_COUNT = 4
         const val STATUS_FLOW_BUFFER = 64
     }

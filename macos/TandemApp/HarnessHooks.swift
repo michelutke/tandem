@@ -143,11 +143,13 @@ enum HarnessHooks {
         )
         return ListenerController(
             identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(
+            listenerFactory: makeListenerFactory(
                 sessionRegistry: sessionRegistry,
                 decisionCorrelator: decisionCorrelator,
                 pairingCandidateDriver: pairingCandidateDriver,
-                trustStore: trustStore
+                trustStore: trustStore,
+                rotation: HarnessMacRotation.makeIfRequested(
+                    keychainStore: keychainStore, trustStore: trustStore, window: window)
             ),
             port: port,
             verify: verify

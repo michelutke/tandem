@@ -66,6 +66,7 @@ class FilesFeature(
     override suspend fun run(
         session: TandemSession,
         peer: SpkiFingerprint,
+        peerSpkiDer: ByteArray?,
     ) {
         val fileReceiver =
             FileReceiver(session, store, publisher, notifier, peer, clock, ioDispatcher, serialDispatcher())
