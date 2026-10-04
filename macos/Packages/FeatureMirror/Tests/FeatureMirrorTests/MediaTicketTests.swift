@@ -16,14 +16,18 @@ private func fingerprint(_ byte: UInt8) -> SpkiFingerprint {
 }
 
 private final class SequentialTicketSource: MediaTicketSource {
-    private let next = Mutex<UInt8>(1)
+    private let next = Mutex<UInt32>(1)
 
+    /// Distinct tickets beyond 255 issues (the over-cap test issues 257): a big-endian counter in the
+    /// first four bytes, the rest zero.
     func generateTicket() -> Data {
-        let value = next.withLock { current -> UInt8 in
+        let value = next.withLock { current -> UInt32 in
             defer { current += 1 }
             return current
         }
-        return Data(repeating: value, count: MediaTicketTable<ManualTestClock>.ticketByteCount)
+        var ticket = Data(withUnsafeBytes(of: value.bigEndian) { Array($0) })
+        ticket.append(Data(count: MediaTicketTable<ManualTestClock>.ticketByteCount - ticket.count))
+        return ticket
     }
 }
 
