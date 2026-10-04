@@ -56,6 +56,9 @@ enum UITestScenario: String {
     /// access banner and its "Select more on phone" button render without a phone.
     case photoGridPartialAccess
 
+    /// Photo grid (E41-09) over a seeded 10 000-item ``PhotoService`` (pages of 100, synthetic
+    /// 256 px thumbnails) for the memory-bound scroll test.
+    case photoGrid10k
     /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
     /// render newest first, with one resolved contact name, one international number and a badge.
     case threadListSeeded
