@@ -33,6 +33,10 @@ struct RotationInitiatorTests {
         init() throws {
             fingerprint = try SpkiFingerprint.of(spkiDer: P256.Signing.PrivateKey().publicKey.derRepresentation)
         }
+
+        init(reconnecting other: Phone) {
+            fingerprint = other.fingerprint
+        }
     }
 
     final class Counter: Sendable {
