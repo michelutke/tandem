@@ -11,10 +11,13 @@ import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
@@ -75,5 +78,77 @@ class PendingRotationSessionDialerTest {
             assertEquals(rejected, result)
             assertEquals(listOf(IDENTITY_KEY_ALIAS), dialedAliases)
             assertEquals(IDENTITY_KEY_ALIAS, fixture.activeAlias.current)
+        }
+
+    private fun TestScopeFixture.dialerOf(dial: (String) -> DialResult) =
+        PendingRotationSessionDialer(
+            handshake = PendingRotationHandshake(keyStore, activeAlias, Mutex()),
+            dialerFor = { alias ->
+                SessionDialer {
+                    dialedAliases += alias
+                    dial(alias)
+                }
+            },
+        )
+
+    @Test
+    fun pendingRotationSessionDialer_networkError_notRetriedWithPendingKey() =
+        runTest {
+            val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))
+            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val fixture = TestScopeFixture(keyStore)
+            keyStore.getOrCreate(fixture.activeAlias.nextAlias(), preferStrongBox = true)
+
+            val result = fixture.dialerOf { DialResult.Unreachable(null) }.dial(candidate)
+
+            assertEquals(DialResult.Unreachable(null), result)
+            assertEquals(listOf(IDENTITY_KEY_ALIAS), dialedAliases)
+            assertEquals(IDENTITY_KEY_ALIAS, fixture.activeAlias.current)
+        }
+
+    @Test
+    fun pendingRotationSessionDialer_sessionNeverReady_commitsNothing() =
+        runTest {
+            val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))
+            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val fixture = TestScopeFixture(keyStore)
+            val pendingAlias = fixture.activeAlias.nextAlias()
+            keyStore.getOrCreate(pendingAlias, preferStrongBox = true)
+            val sessions = mutableListOf<FakeTandemSession>()
+
+            val result =
+                fixture
+                    .dialerOf {
+                        val session = FakeTandemSession().apply { emitState(ConnectionState.Disconnected()) }
+                        sessions += session
+                        DialResult.Connected(session, SpkiFingerprint(ByteArray(32)))
+                    }.dial(candidate)
+
+            assertTrue(result is DialResult.Unreachable)
+            assertEquals(listOf(IDENTITY_KEY_ALIAS, pendingAlias), dialedAliases)
+            assertEquals(IDENTITY_KEY_ALIAS, fixture.activeAlias.current)
+            assertTrue(keyStore.get(IDENTITY_KEY_ALIAS) != null)
+            assertTrue(keyStore.get(pendingAlias) != null)
+        }
+
+    @Test
+    fun pendingRotationSessionDialer_cancelledWhileSettling_closesSession() =
+        runTest {
+            val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))
+            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val fixture = TestScopeFixture(keyStore)
+            val connecting = FakeTandemSession().apply { emitState(ConnectionState.Connecting) }
+
+            val job =
+                launch {
+                    fixture
+                        .dialerOf { DialResult.Connected(connecting, SpkiFingerprint(ByteArray(32))) }
+                        .dial(candidate)
+                }
+            runCurrent()
+            job.cancel()
+            runCurrent()
+
+            assertTrue(connecting.state.value is ConnectionState.Disconnected)
         }
 }

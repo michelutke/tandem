@@ -4,6 +4,7 @@ import dev.tandem.core.pairing.rotation.HandshakeResult
 import dev.tandem.core.pairing.rotation.PendingRotationHandshake
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.reconnect.CandidateAddress
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 /**
@@ -45,8 +46,13 @@ class PendingRotationSessionDialer(
 
     private suspend fun settle(dialed: DialResult.Connected): Pair<HandshakeResult, DialResult> {
         val settled =
-            dialed.session.state.first {
-                it is ConnectionState.Ready || it is ConnectionState.Disconnected || it is ConnectionState.Failed
+            try {
+                dialed.session.state.first {
+                    it is ConnectionState.Ready || it is ConnectionState.Disconnected || it is ConnectionState.Failed
+                }
+            } catch (e: CancellationException) {
+                dialed.session.close()
+                throw e
             }
         if (settled is ConnectionState.Ready) return HandshakeResult.Accepted(authenticated = true) to dialed
         dialed.session.close()

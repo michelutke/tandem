@@ -13,11 +13,14 @@ import dev.tandem.core.pairing.rotation.RotationInitiator
 import dev.tandem.core.pairing.rotation.RotationKeys
 import dev.tandem.core.pairing.rotation.RotationOutcome
 import dev.tandem.core.pairing.rotation.RotationScheduler
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.time.Clock
 import java.time.Duration
@@ -26,8 +29,9 @@ import java.time.Duration
  * Key rotation as composed for the app (E70-15): one [rotationLock] shared by the per-session
  * [RotationInitiator] (through [sessionFeature]), the [pendingHandshake] in the dial path, the
  * settings [keyRotator] and the scheduler, so a rotation is never concurrent with another or with a
- * reconnect. Rotation only runs on a Ready, pinned session; [authenticated] is true while one is
- * attached. Never logs keys or fingerprints.
+ * reconnect. Rotation only runs on a Ready, pinned session; [authenticated] turns true once one is
+ * attached and its initiator has received the Mac's challenge (it stays true for the session), so
+ * the scheduler never rotates before it can. Never logs keys or fingerprints.
  */
 class RotationComposition(
     private val keys: RotationKeys,
@@ -54,9 +58,17 @@ class RotationComposition(
     fun sessionFeature() =
         SessionFeature { session, _, _ ->
             val initiator = RotationInitiator(session, keys, rotationLock, peerPinned = true, pairingInProgress)
-            publish(initiator)
+            currentInitiator.value = initiator
             try {
-                initiator.run()
+                coroutineScope {
+                    val challengeWatcher =
+                        launch {
+                            initiator.hasChallenge.first { it }
+                            if (currentInitiator.value === initiator) authenticatedState.value = true
+                        }
+                    initiator.run()
+                    challengeWatcher.cancel()
+                }
             } finally {
                 if (currentInitiator.value === initiator) publish(null)
             }
