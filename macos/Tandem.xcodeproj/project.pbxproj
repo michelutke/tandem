@@ -58,6 +58,7 @@
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
 		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
 		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
+		E70160000000000000000001 /* MacRotationComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70160000000000000000002 /* MacRotationComposition.swift */; };
 		E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000004 /* MirrorWindowPresenter.swift */; };
 		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
 		E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000003 /* MirrorQuickActionUITests.swift */; };
@@ -197,6 +198,7 @@
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
 		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
 		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
+		E70160000000000000000002 /* MacRotationComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRotationComposition.swift; sourceTree = "<group>"; };
 		E62120000000000000000004 /* MirrorWindowPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
 		E61120000000000000000003 /* MirrorQuickActionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorQuickActionUITests.swift; sourceTree = "<group>"; };
@@ -441,6 +443,7 @@
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
 				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
 				E62120000000000000000002 /* MirrorComposition.swift */,
+				E70160000000000000000002 /* MacRotationComposition.swift */,
 				E62120000000000000000004 /* MirrorWindowPresenter.swift */,
 				9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */,
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
@@ -722,6 +725,7 @@
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
 				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
 				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
+				E70160000000000000000001 /* MacRotationComposition.swift in Sources */,
 				E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */,
 				C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */,
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,

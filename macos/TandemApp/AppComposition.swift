@@ -54,6 +54,8 @@ enum AppComposition {
         let pairing: MacPairingComposition
         /// Mirror media acceptor, ticket service, window and request model wiring (E62-12).
         let mirror: MirrorComposition
+        /// Mac-initiated key rotation shared by the Key settings tab and the scheduler (E70-16).
+        let rotation: MacKeyRotation
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -69,28 +71,26 @@ enum AppComposition {
     static func startListener() -> Result<RetainedLifecycle, StartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = IdentityBootstrapper(keychainStore: keychainStore)
+
+        let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
         identityBootstrapper.bootstrapIdentity()
 
         guard case .ready = identityBootstrapper.identityState else {
             return .failure(.identityNotReady)
         }
 
-        let trustStore = TrustStore(keychainStore: keychainStore)
-        let sessionRegistry = ControlSessionRegistry()
-        let purgeRegistry = PeerDataPurgeRegistry()
-        let pairing = MacPairingComposition(
-            identityBootstrapper: identityBootstrapper,
-            trustStore: trustStore,
-            sessionRegistry: sessionRegistry
-        )
         let mirror = MirrorComposition()
-        let sessionFeatures = SessionFeatures.make(purgeRegistry: purgeRegistry, mirrorService: mirror.service)
-        let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
+        let sessionFeatures = SessionFeatures.make(
+            purgeRegistry: core.purgeRegistry,
+            mirrorService: mirror.service,
+            rotationService: core.rotation
+        )
+        let menuBarWiring = makeMenuBarWiring(trustStore: core.trustStore, sessionRegistry: core.sessionRegistry)
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
-            sessionRegistry: sessionRegistry,
-            trustStore: trustStore,
-            pairing: pairing,
+            sessionRegistry: core.sessionRegistry,
+            trustStore: core.trustStore,
+            pairing: core.pairing,
             chaining: ListenerChaining(
                 features: sessionFeatures,
                 onSessionRegistered: menuBarWiring.onSessionRegistered,
@@ -101,7 +101,9 @@ enum AppComposition {
             return .failure(.listenerBindFailed)
         }
 
-        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: pairing)
+        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: core.pairing)
+        core.listenerControl.set(controllers.listenerControl)
+        core.rotation.startScheduler()
         return .success(
             RetainedLifecycle(
                 listener: started.listener,
@@ -110,15 +112,52 @@ enum AppComposition {
                 pathSource: controllers.pathSource,
                 sleepWakeController: controllers.sleepWakeController,
                 pathChangeController: controllers.pathChangeController,
-                sessionRegistry: sessionRegistry,
-                trustStore: trustStore,
-                purgeRegistry: purgeRegistry,
+                sessionRegistry: core.sessionRegistry,
+                trustStore: core.trustStore,
+                purgeRegistry: core.purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
                 pairedPeerName: menuBarWiring.peerName,
                 sessionFeatures: sessionFeatures,
-                pairing: pairing,
-                mirror: mirror
+                pairing: core.pairing,
+                mirror: mirror,
+                rotation: core.rotation
             )
+        )
+    }
+
+    private struct Core {
+        let trustStore: TrustStore
+        let sessionRegistry: ControlSessionRegistry
+        let purgeRegistry: PeerDataPurgeRegistry
+        let pairing: MacPairingComposition
+        let rotation: MacKeyRotation
+        let listenerControl: ListenerControlBox
+    }
+
+    private static func makeCore(keychainStore: any KeychainStore, identityBootstrapper: IdentityBootstrapper) -> Core {
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let sessionRegistry = ControlSessionRegistry()
+        let pairing = MacPairingComposition(
+            identityBootstrapper: identityBootstrapper,
+            trustStore: trustStore,
+            sessionRegistry: sessionRegistry
+        )
+        let listenerControl = ListenerControlBox()
+        let rotation = MacRotationComposition.make(
+            keychainStore: keychainStore,
+            trustStore: trustStore,
+            window: pairing.host,
+            identityBootstrapper: identityBootstrapper,
+            listenerControl: listenerControl
+        )
+        rotation.resume()
+        return Core(
+            trustStore: trustStore,
+            sessionRegistry: sessionRegistry,
+            purgeRegistry: PeerDataPurgeRegistry(),
+            pairing: pairing,
+            rotation: rotation,
+            listenerControl: listenerControl
         )
     }
 

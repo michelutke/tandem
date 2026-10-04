@@ -19,8 +19,8 @@ extension TandemMenuBarApp {
         return AppComposition.makePairedDevicesViewModel(lifecycle: lifecycle)
     }
 
-    /// `nil` until the E70-03 coordinator is composed into the app lifecycle; under a DEBUG
-    /// `-UITestScenario` launch, a seeded fake rotator (``SettingsScenarioSupport``).
+    /// The Key tab's view model over the production rotation (E70-16), built once per process;
+    /// under a DEBUG `-UITestScenario` launch, a seeded fake rotator (``SettingsScenarioSupport``).
     @MainActor
     static var settingsRotationViewModel: MacRotationSettingsViewModel? {
         #if DEBUG
@@ -28,8 +28,14 @@ extension TandemMenuBarApp {
             return scenarioRotationViewModel
         }
         #endif
-        return nil
+        if let existing = _settingsRotationViewModel { return existing }
+        guard let lifecycle = retainedProductionLifecycle else { return nil }
+        let created = MacRotationComposition.makeViewModel(rotation: lifecycle.rotation)
+        _settingsRotationViewModel = created
+        return created
     }
+
+    nonisolated(unsafe) private static var _settingsRotationViewModel: MacRotationSettingsViewModel?
 
     #if DEBUG
     @MainActor
