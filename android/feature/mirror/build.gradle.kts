@@ -16,7 +16,15 @@ dependencies {
     implementation(project(":core:protocol"))
     implementation(project(":core:transport"))
     implementation(libs.kotlinx.coroutines.core)
+    // NotificationCompat for NotificationMirrorPromptPresenter.
+    implementation(libs.androidx.core.ktx)
+
+    // MirrorPromptController scripts TandemSession via FakeTandemSession (E12-11); test-only.
+    testImplementation(testFixtures(project(":core:transport")))
+    testImplementation(project(":core:testing"))
+    testImplementation(libs.kotlinx.coroutines.test)
 
     // Drives the system MediaProjection consent dialog (E61-02 instrumented tests).
     androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(testFixtures(project(":core:transport")))
 }
