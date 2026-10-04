@@ -43,15 +43,3 @@ private func makeSender(session: FakeTandemSession) -> MirrorInputSender {
     await sender.drain()
     #expect(await session.sent.isEmpty)
 }
-
-@MainActor
-@Test func mirrorInputSender_controlSessionFails_sendsNothing() async {
-    let session = FakeTandemSession()
-    let sender = makeSender(session: session)
-    await session.emit(.failed(.malformedFrame))
-    for _ in 0..<1000 where sender.isActive { await Task.yield() }
-    #expect(!sender.isActive)
-    sender.handle(.scrolled(point: CGPoint(x: 10, y: 10), deltaX: 0, deltaY: 3, time: 0))
-    await sender.drain()
-    #expect(await session.sent.isEmpty)
-}

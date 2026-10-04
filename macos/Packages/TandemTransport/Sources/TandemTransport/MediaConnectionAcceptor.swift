@@ -30,6 +30,8 @@ public struct MediaBinding: Sendable {
     public let sessionID: UUID
     /// The SPKI the media connection authenticated as, equal to the ticket's control peer.
     public let peer: SpkiFingerprint
+    /// The phone-minted 16-byte id of the mirror session (D-77), echoed in input messages.
+    public let mirrorSessionId: Data
     public let connection: any ByteStreamConnection
 }
 
@@ -50,6 +52,7 @@ public protocol MediaConnectionHandling: Sendable {
 /// failure closes the connection before a second frame is read.
 public final class MediaConnectionAcceptor: MediaConnectionHandling, Sendable {
     public static let helloDeadline = FirstFrameReader.deadline
+    static let mirrorSessionIdLength = 16
 
     public let events: AsyncStream<MediaAcceptorEvent>
     private let eventContinuation: AsyncStream<MediaAcceptorEvent>.Continuation
@@ -87,25 +90,36 @@ public final class MediaConnectionAcceptor: MediaConnectionHandling, Sendable {
             return nil
         case .frame(let body, _):
             guard case .trusted(let spki) = peer else { return close(connection, .malformedFrame) }
-            guard case .mediaHello(let ticket) = FirstFrameClassifier.classify(body: body) else {
+            guard case .mediaHello(let ticket, let mirrorSessionId) = FirstFrameClassifier.classify(body: body) else {
                 return close(connection, .malformedFrame)
             }
-            return bind(connection, ticket: ticket, peer: spki, leftover: source.takeBuffered())
+            return bind(
+                connection,
+                ticket: ticket,
+                mirrorSessionId: mirrorSessionId,
+                peer: spki,
+                leftover: source.takeBuffered()
+            )
         }
     }
 
     private func bind(
         _ connection: any ByteStreamConnection,
         ticket: Data?,
+        mirrorSessionId: Data,
         peer: SpkiFingerprint,
         leftover: Data
     ) -> MediaBinding? {
         switch validator.validate(ticket: ticket, presentingSpki: peer) {
         case .success(let sessionID):
+            guard mirrorSessionId.count == Self.mirrorSessionIdLength else {
+                return close(connection, .malformedFrame)
+            }
             eventContinuation.yield(.bound(sessionID))
             return MediaBinding(
                 sessionID: sessionID,
                 peer: peer,
+                mirrorSessionId: mirrorSessionId,
                 connection: PrefixedByteStreamConnection(connection, prefix: leftover)
             )
         case .failure(let reason):

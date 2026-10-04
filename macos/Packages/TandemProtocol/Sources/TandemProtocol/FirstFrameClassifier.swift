@@ -8,9 +8,10 @@ import SwiftProtobuf
 public enum FirstFrame: Sendable, Equatable {
     /// The body decodes as an `Envelope` carrying a payload -- the control-connection path.
     case envelope
-    /// The body is a `MediaHello`; `ticket` is `nil` when the field is absent or empty. Its length
-    /// is not checked here -- the ticket validator owns SPEC case 0.
-    case mediaHello(ticket: Data?)
+    /// The body is a `MediaHello`; `ticket` is `nil` when the field is absent or empty. Neither
+    /// length is checked here -- the ticket validator owns SPEC case 0 and the media acceptor owns
+    /// the 16-byte `mirrorSessionId` (empty when absent).
+    case mediaHello(ticket: Data?, mirrorSessionId: Data)
     /// The body is neither.
     case malformed
 }
@@ -21,6 +22,6 @@ public enum FirstFrameClassifier {
             return .envelope
         }
         guard let hello = try? Tandem_V1_MediaHello(serializedBytes: body) else { return .malformed }
-        return .mediaHello(ticket: hello.ticket.isEmpty ? nil : hello.ticket)
+        return .mediaHello(ticket: hello.ticket.isEmpty ? nil : hello.ticket, mirrorSessionId: hello.mirrorSessionID)
     }
 }

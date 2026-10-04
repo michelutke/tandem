@@ -21,10 +21,16 @@ private final class SinkRecorder: SampleBufferSink, @unchecked Sendable {
 private final class RecordingPresenter: MirrorWindowPresenting {
     let sink = SinkRecorder()
     private(set) var presentedSizes: [CGSize] = []
+    private(set) var inputSender: MirrorInputSender?
     private(set) var dismissCount = 0
 
-    func present(model: MirrorWindowModel, onUserClose: @escaping @MainActor () -> Void) -> any SampleBufferSink {
+    func present(
+        model: MirrorWindowModel,
+        inputSender: MirrorInputSender?,
+        onUserClose: @escaping @MainActor () -> Void
+    ) -> any SampleBufferSink {
         presentedSizes.append(model.streamSize)
+        self.inputSender = inputSender
         return sink
     }
 
@@ -61,6 +67,8 @@ private final class ScriptedConnection: ByteStreamConnection, Sendable {
         continuation.finish()
     }
 }
+
+private let mirrorSessionId = Data(repeating: 0x5C, count: 16)
 
 private func fingerprint(_ byte: UInt8) -> SpkiFingerprint {
     // swiftlint:disable:next force_try
@@ -122,7 +130,9 @@ struct MirrorCompositionTests {
         let presenter = RecordingPresenter()
         let coordinator = MirrorMediaCoordinator(presenter: presenter)
         let connection = ScriptedConnection()
-        coordinator.mediaBound(connection, sessionID: MediaSessionID(rawValue: UUID()))
+        coordinator.mediaBound(
+            connection, sessionID: MediaSessionID(rawValue: UUID()), mirrorSessionId: mirrorSessionId
+        )
 
         let units = try h264AccessUnits()
         try connection.push(formatMessage())
@@ -150,8 +160,8 @@ struct MirrorCompositionTests {
         let peer = fingerprint(0xA1)
         await registry.register(states: session.state, id: id, peer: peer)
         let connection = ScriptedConnection()
-        #expect(await registry.bind(connection, to: id, presentedBy: peer))
-        coordinator.mediaBound(connection, sessionID: id)
+        #expect(await registry.bind(connection, to: id, mirrorSessionId: mirrorSessionId, presentedBy: peer))
+        coordinator.mediaBound(connection, sessionID: id, mirrorSessionId: mirrorSessionId)
         try connection.push(formatMessage())
         #expect(await eventually { presenter.presentedSizes.count == 1 })
 
@@ -165,13 +175,73 @@ struct MirrorCompositionTests {
         let presenter = RecordingPresenter()
         let coordinator = MirrorMediaCoordinator(presenter: presenter)
         let connection = ScriptedConnection()
-        coordinator.mediaBound(connection, sessionID: MediaSessionID(rawValue: UUID()))
+        coordinator.mediaBound(
+            connection, sessionID: MediaSessionID(rawValue: UUID()), mirrorSessionId: mirrorSessionId
+        )
         try connection.push(formatMessage())
         #expect(await eventually { presenter.presentedSizes.count == 1 })
 
         try connection.push(Tandem_V1_MediaMessage())
 
         #expect(await eventually { connection.cancelled && presenter.dismissCount == 1 })
+    }
+
+    @Test
+    func macMirrorComposition_mediaBound_inputSenderUsesMediaHelloSessionId() async throws {
+        let presenter = RecordingPresenter()
+        let session = FakeTandemSession()
+        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { session })
+        let connection = ScriptedConnection()
+        coordinator.mediaBound(
+            connection, sessionID: MediaSessionID(rawValue: UUID()), mirrorSessionId: mirrorSessionId)
+        try connection.push(formatMessage())
+        #expect(await eventually { presenter.presentedSizes.count == 1 })
+        let sender = try #require(presenter.inputSender)
+        sender.setWindowKey(true)
+
+        sender.handle(.pressed(point: CGPoint(x: 10, y: 10), time: 0))
+        sender.handle(.released(point: CGPoint(x: 10, y: 10), time: 0.01))
+        await sender.drain()
+
+        let sent = await session.sent
+        #expect(sent.count == 1)
+        guard case .inputEvent(let event)? = sent.first?.payload else {
+            Issue.record("expected inputEvent")
+            return
+        }
+        #expect(event.sessionID == mirrorSessionId)
+    }
+
+    @Test
+    func macMirrorComposition_controlSessionEnds_inputNotSentAndIdCleared() async throws {
+        let presenter = RecordingPresenter()
+        let session = FakeTandemSession()
+        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { session })
+        let clock = ManualTestClock()
+        let dates = FixedDateProvider(clock: clock, epoch: Date(timeIntervalSince1970: 1_000))
+        let issuer = MediaTicketIssuer(
+            table: MediaTicketTable(clock: clock), source: SystemMediaTicketSource(), dateProvider: dates.provider)
+        let registry = MediaSessionRegistry(issuer: issuer, onEnded: { id in
+            Task { @MainActor in coordinator.sessionEnded(id) }
+        })
+        let id = MediaSessionID(rawValue: UUID())
+        let peer = fingerprint(0xA1)
+        await registry.register(states: session.state, id: id, peer: peer)
+        let connection = ScriptedConnection()
+        #expect(await registry.bind(connection, to: id, mirrorSessionId: mirrorSessionId, presentedBy: peer))
+        #expect(await registry.mirrorSessionId(for: id) == mirrorSessionId)
+        coordinator.mediaBound(connection, sessionID: id, mirrorSessionId: mirrorSessionId)
+        try connection.push(formatMessage())
+        #expect(await eventually { presenter.presentedSizes.count == 1 })
+        let sender = try #require(presenter.inputSender)
+
+        await session.emit(.dead)
+        #expect(await eventually { !sender.isActive })
+        sender.handle(.scrolled(point: CGPoint(x: 10, y: 10), deltaX: 0, deltaY: 3, time: 0))
+        await sender.drain()
+
+        #expect(await session.sent.isEmpty)
+        #expect(await registry.mirrorSessionId(for: id) == nil)
     }
 
     @Test

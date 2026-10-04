@@ -55,7 +55,9 @@ private struct Harness {
 
     func bindMedia(presentedBy presenter: SpkiFingerprint? = nil) async -> SpyConnection {
         let connection = SpyConnection()
-        await registry.bind(connection, to: id, presentedBy: presenter ?? peer)
+        await registry.bind(
+            connection, to: id, mirrorSessionId: Data(repeating: 0x5C, count: 16), presentedBy: presenter ?? peer
+        )
         return connection
     }
 

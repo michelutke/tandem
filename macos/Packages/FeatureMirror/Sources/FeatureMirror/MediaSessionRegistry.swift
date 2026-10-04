@@ -11,6 +11,7 @@ public actor MediaSessionRegistry<C: Clock<Duration> & Sendable> {
     private struct Entry {
         let peer: SpkiFingerprint
         var media: (any ByteStreamConnection)?
+        var mirrorSessionId: Data?
         let generation: UInt64
         let watcher: Task<Void, Never>
     }
@@ -58,16 +59,19 @@ public actor MediaSessionRegistry<C: Clock<Duration> & Sendable> {
         guard var entry = entries[id] else { return nil }
         entry.media?.cancel()
         entry.media = nil
+        entry.mirrorSessionId = nil
         entries[id] = entry
         return issuer.issue(session: id, peer: entry.peer)
     }
 
-    /// Adopts a validated media connection. Cancels it and returns `false` when `id` has ended, the
+    /// Adopts a validated media connection and records the `MediaHello` mirror session id (D-77) on its
+    /// entry until the entry ends or a new ticket is requested. Cancels it and returns `false` when `id` has ended, the
     /// presenting peer is not the control peer, or a media connection is already active.
     @discardableResult
     public func bind(
         _ connection: any ByteStreamConnection,
         to id: MediaSessionID,
+        mirrorSessionId: Data,
         presentedBy peer: SpkiFingerprint
     ) -> Bool {
         guard var entry = entries[id], entry.peer == peer, entry.media == nil else {
@@ -75,8 +79,13 @@ public actor MediaSessionRegistry<C: Clock<Duration> & Sendable> {
             return false
         }
         entry.media = connection
+        entry.mirrorSessionId = mirrorSessionId
         entries[id] = entry
         return true
+    }
+
+    public func mirrorSessionId(for id: MediaSessionID) -> Data? {
+        entries[id]?.mirrorSessionId
     }
 
     public func hasActiveMedia(for id: MediaSessionID) -> Bool {

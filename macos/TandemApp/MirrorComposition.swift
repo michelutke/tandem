@@ -14,13 +14,17 @@ final class MirrorComposition {
     nonisolated let service: MirrorSessionService<ContinuousClock>
     private let coordinator: MirrorMediaCoordinator
     private var requestModel: MirrorRequestViewModel?
-    private var currentSession: (any TandemSession)?
+    fileprivate private(set) var currentSession: (any TandemSession)?
 
     nonisolated init() {
         let clock = ContinuousClock()
         let table = MediaTicketTable(clock: clock)
         let issuer = MediaTicketIssuer(table: table, source: SystemMediaTicketSource(), dateProvider: { Date() })
-        let coordinator = MirrorMediaCoordinator(presenter: MirrorWindowPresenter())
+        let holder = SessionChangeHolder()
+        let coordinator = MirrorMediaCoordinator(
+            presenter: MirrorWindowPresenter(),
+            inputSession: { holder.composition?.currentSession }
+        )
         let registry = MediaSessionRegistry(issuer: issuer, onEnded: { id in
             Task { @MainActor in coordinator.sessionEnded(id) }
         })
@@ -31,12 +35,15 @@ final class MirrorComposition {
             onBound: { binding in
                 let id = MediaSessionID(rawValue: binding.sessionID)
                 Task {
-                    guard await registry.bind(binding.connection, to: id, presentedBy: binding.peer) else { return }
-                    await coordinator.mediaBound(binding.connection, sessionID: id)
+                    guard await registry.bind(
+                        binding.connection, to: id, mirrorSessionId: binding.mirrorSessionId, presentedBy: binding.peer
+                    ) else { return }
+                    await coordinator.mediaBound(
+                        binding.connection, sessionID: id, mirrorSessionId: binding.mirrorSessionId
+                    )
                 }
             }
         )
-        let holder = SessionChangeHolder()
         service = MirrorSessionService(
             registry: registry,
             onSessionAttached: { session in holder.attached(session) },

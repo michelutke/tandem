@@ -5,10 +5,12 @@ import TandemCrypto
 
 enum MediaFrameFixtures {
     static let ticket = Data((0..<32).map { UInt8($0) })
+    static let mirrorSessionId = Data((0..<16).map { UInt8(0xA0 + $0) })
 
     /// Length-prefixed bare `MediaHello` (field 1, bytes), as the phone sends it.
-    static func mediaHelloFrame(ticket: Data) -> Data {
-        let body = Data([0x0A, UInt8(ticket.count)]) + ticket
+    static func mediaHelloFrame(ticket: Data, mirrorSessionId: Data = mirrorSessionId) -> Data {
+        var body = Data([0x0A, UInt8(ticket.count)]) + ticket
+        if !mirrorSessionId.isEmpty { body += Data([0x12, UInt8(mirrorSessionId.count)]) + mirrorSessionId }
         return lengthPrefixed(body)
     }
 

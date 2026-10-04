@@ -2,8 +2,8 @@ import AppKit
 import FeatureMirror
 
 /// The mirror NSWindow: one ``MirrorDisplayView`` fed by the decode pipeline. The window never
-/// takes input here -- ``MirrorDisplayView/inputSender`` stays `nil` until the mirror session id is
-/// available (Q19).
+/// takes input unless it is handed a ``MirrorInputSender`` (minted from the `MediaHello` mirror
+/// session id, D-77).
 @MainActor
 final class MirrorWindowPresenter: NSObject, MirrorWindowPresenting, NSWindowDelegate {
     private var window: NSWindow?
@@ -14,9 +14,14 @@ final class MirrorWindowPresenter: NSObject, MirrorWindowPresenting, NSWindowDel
         super.init()
     }
 
-    func present(model: MirrorWindowModel, onUserClose: @escaping @MainActor () -> Void) -> any SampleBufferSink {
+    func present(
+        model: MirrorWindowModel,
+        inputSender: MirrorInputSender?,
+        onUserClose: @escaping @MainActor () -> Void
+    ) -> any SampleBufferSink {
         dismiss()
         let view = MirrorDisplayView(frame: NSRect(origin: .zero, size: model.streamSize))
+        view.inputSender = inputSender
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: Self.initialSize(for: model.streamSize)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],

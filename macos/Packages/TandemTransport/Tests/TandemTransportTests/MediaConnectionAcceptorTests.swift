@@ -127,6 +127,32 @@ struct MediaConnectionAcceptorTests {
         #expect(await Self.firstEvents(acceptor, count: 1) == [.bound(validator.sessionID)])
     }
 
+    @Test(arguments: [0, 15, 17])
+    func mediaAcceptor_mirrorSessionIdNot16Bytes_closesMalformedWithoutBinding(length: Int) async {
+        let validator = OneShotTicketValidator()
+        let acceptor = Self.makeAcceptor(validator)
+        let frame = MediaFrameFixtures.mediaHelloFrame(
+            ticket: MediaFrameFixtures.ticket, mirrorSessionId: Data(repeating: 1, count: length)
+        )
+        let connection = ScriptedConnection(chunks: [frame])
+
+        let binding = await acceptor.accept(connection: connection, peer: peer)
+
+        #expect(binding == nil)
+        #expect(connection.cancelled)
+        #expect(await Self.firstEvents(acceptor, count: 1) == [.closed(.malformedFrame)])
+    }
+
+    @Test
+    func mediaAcceptor_validHello_bindingCarriesMirrorSessionId() async throws {
+        let acceptor = Self.makeAcceptor(OneShotTicketValidator())
+        let connection = ScriptedConnection(chunks: [MediaFrameFixtures.validHelloFrame])
+
+        let binding = try #require(await acceptor.accept(connection: connection, peer: peer))
+
+        #expect(binding.mirrorSessionId == MediaFrameFixtures.mirrorSessionId)
+    }
+
     private static func makeAcceptor(_ validator: any MediaTicketValidating) -> MediaConnectionAcceptor {
         MediaConnectionAcceptor(validator: validator, clock: ManualTestClock(), onBound: { _ in })
     }

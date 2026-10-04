@@ -6,9 +6,14 @@ import TandemTransport
 /// The AppKit window the mirror stream is shown in; implemented by the app target.
 @MainActor
 public protocol MirrorWindowPresenting: AnyObject, Sendable {
-    /// Opens the window and returns the sink decoded frames are enqueued on. `onUserClose` is called
-    /// when the user closes the window.
-    func present(model: MirrorWindowModel, onUserClose: @escaping @MainActor () -> Void) -> any SampleBufferSink
+    /// Opens the window and returns the sink decoded frames are enqueued on. `inputSender` is the
+    /// window's input path, `nil` when none is available. `onUserClose` is called when the user closes
+    /// the window.
+    func present(
+        model: MirrorWindowModel,
+        inputSender: MirrorInputSender?,
+        onUserClose: @escaping @MainActor () -> Void
+    ) -> any SampleBufferSink
     func dismiss()
 }
 
@@ -24,15 +29,32 @@ public final class MirrorMediaCoordinator {
     }
 
     private nonisolated let presenter: any MirrorWindowPresenting
+    private nonisolated let inputSession: @MainActor () -> (any TandemSession)?
     private var active: Active?
 
-    public nonisolated init(presenter: any MirrorWindowPresenting) {
+    /// - Parameter inputSession: The control session mapped window input is sent on.
+    public nonisolated init(
+        presenter: any MirrorWindowPresenting,
+        inputSession: @escaping @MainActor () -> (any TandemSession)? = { nil }
+    ) {
         self.presenter = presenter
+        self.inputSession = inputSession
     }
 
-    public func mediaBound(_ connection: any ByteStreamConnection, sessionID: MediaSessionID) {
+    /// `mirrorSessionId` is the 16-byte id from the bound `MediaHello`; input is sent with it only
+    /// while this stream is live.
+    public func mediaBound(
+        _ connection: any ByteStreamConnection,
+        sessionID: MediaSessionID,
+        mirrorSessionId: Data
+    ) {
         active?.stream.stop()
-        let stream = MirrorMediaStream(connection: connection, presenter: presenter)
+        let stream = MirrorMediaStream(
+            connection: connection,
+            presenter: presenter,
+            mirrorSessionId: mirrorSessionId,
+            inputSession: inputSession()
+        )
         active = Active(id: sessionID, stream: stream)
         stream.start { [weak self, weak stream] in
             guard let self, let stream, self.active?.stream === stream else { return }
@@ -50,6 +72,9 @@ public final class MirrorMediaCoordinator {
 private final class MirrorMediaStream {
     private let connection: any ByteStreamConnection
     private let presenter: any MirrorWindowPresenting
+    private let mirrorSessionId: Data
+    private let inputSession: (any TandemSession)?
+    private var inputSender: MirrorInputSender?
     private var parser = MediaMessageParser()
     private var reassembler = FragmentReassembler()
     private var model: MirrorWindowModel?
@@ -57,9 +82,16 @@ private final class MirrorMediaStream {
     private var task: Task<Void, Never>?
     private var isWindowOpen = false
 
-    init(connection: any ByteStreamConnection, presenter: any MirrorWindowPresenting) {
+    init(
+        connection: any ByteStreamConnection,
+        presenter: any MirrorWindowPresenting,
+        mirrorSessionId: Data,
+        inputSession: (any TandemSession)?
+    ) {
         self.connection = connection
         self.presenter = presenter
+        self.mirrorSessionId = mirrorSessionId
+        self.inputSession = inputSession
     }
 
     func start(onFinished: @escaping @MainActor () -> Void) {
@@ -89,6 +121,8 @@ private final class MirrorMediaStream {
     private func finish() {
         connection.cancel()
         pipeline = nil
+        inputSender?.stop()
+        inputSender = nil
         guard isWindowOpen else { return }
         isWindowOpen = false
         presenter.dismiss()
@@ -118,7 +152,10 @@ private final class MirrorMediaStream {
         }
         let size = CGSize(width: Int(format.width), height: Int(format.height))
         let model = MirrorWindowModel(streamSize: size, windowSize: size)
-        let sink = presenter.present(model: model, onUserClose: { [weak self] in self?.stop() })
+        inputSender = inputSession.flatMap { MirrorInputSender(session: $0, sessionId: mirrorSessionId, model: model) }
+        let sink = presenter.present(
+            model: model, inputSender: inputSender, onUserClose: { [weak self] in self?.stop() }
+        )
         isWindowOpen = true
         self.model = model
         pipeline = DecodePipeline(codec: codec, sink: sink, keyframeRequests: KeyframeSender(connection))
