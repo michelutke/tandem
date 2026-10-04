@@ -32,7 +32,7 @@ class AccessibilityOverlayBadge(
         }
 
     override fun attach(): Boolean {
-        if (isAttached()) return true
+        if (view != null) return true
         val badge =
             TextView(service).apply {
                 text = service.getString(R.string.remote_input_badge_label)
