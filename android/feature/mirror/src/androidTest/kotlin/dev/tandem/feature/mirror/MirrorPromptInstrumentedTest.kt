@@ -1,6 +1,5 @@
 package dev.tandem.feature.mirror
 
-import android.app.Activity
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -35,7 +34,7 @@ class MirrorPromptInstrumentedTest {
         val controller =
             MirrorPromptController(
                 session = session,
-                presenter = NotificationMirrorPromptPresenter(context, Activity::class.java),
+                presenter = NotificationMirrorPromptPresenter(context, MirrorStartTrampolineActivity::class.java),
                 starter = MirrorSessionStarter(launcher),
                 peerName = PEER_NAME,
                 scope = CoroutineScope(Dispatchers.Default),
