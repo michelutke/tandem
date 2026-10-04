@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.telephony.SmsManager
 
 /** [SmsSender] over `SmsManager.sendMultipartTextMessage` with one sent and one delivery PendingIntent per part. */
@@ -26,13 +27,13 @@ class SmsManagerSender(
         )
     }
 
-    // createForSubscriptionId needs API 31; minSdk is 29.
+    // The SmsManager system service and createForSubscriptionId need API 31; minSdk is 29.
     @Suppress("DEPRECATION")
     private fun smsManager(subscriptionId: Int): SmsManager =
-        if (subscriptionId > 0) {
-            SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
-        } else {
-            context.getSystemService(SmsManager::class.java)
+        when {
+            subscriptionId > 0 -> SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> context.getSystemService(SmsManager::class.java)
+            else -> SmsManager.getDefault()
         }
 
     private fun pendingIntent(

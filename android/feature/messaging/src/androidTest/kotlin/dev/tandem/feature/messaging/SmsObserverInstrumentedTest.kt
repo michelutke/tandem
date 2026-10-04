@@ -8,19 +8,22 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertNotNull
-import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 // E50-03 tdd: instrumented: smsObserver_adbEmuSmsSend_pushRecordedWithin1s
-// Seeds the inbox row via the shell user's `content insert` (CI has no host-side
-// `adb emu sms send` step); if the image refuses the insert the test is skipped, not failed.
+// Seeds the inbox row as the default SMS app (CI has no host-side `adb emu sms send` step).
 @RunWith(AndroidJUnit4::class)
 class SmsObserverInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+
+    @get:Rule
+    val defaultSmsRole = DefaultSmsRoleRule()
 
     @Before
     fun grantSmsPermission() {
@@ -32,15 +35,11 @@ class SmsObserverInstrumentedTest {
         runBlocking {
             val source = ContentResolverSmsSource(context)
             val change = async(start = CoroutineStart.UNDISPATCHED) { source.changes().first() }
+            yield()
 
-            instrumentation.uiAutomation
-                .executeShellCommand(
-                    "content insert --uri content://sms/inbox " +
-                        "--bind address:s:$INJECTED_ADDRESS --bind body:s:$INJECTED_BODY --bind read:i:0",
-                ).close()
+            instrumentation.insertInboxSms(INJECTED_ADDRESS, INJECTED_BODY)
             val observed = withTimeoutOrNull(OBSERVE_TIMEOUT_MS) { change.await() }
 
-            assumeTrue("emulator refused the seeded SMS insert", observed != null || source.maxId() > 0)
             assertNotNull("no change callback within ${OBSERVE_TIMEOUT_MS}ms", observed)
         }
 

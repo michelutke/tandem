@@ -2,9 +2,11 @@ package dev.tandem.feature.files
 
 import android.Manifest
 import android.content.ContentValues
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.PhotoAccess
 import dev.tandem.protocol.v1.PhotoErrorReason
@@ -21,30 +23,34 @@ import java.util.UUID
 
 // E41-08 tdd: instrumented: partialAccess_unselectedSeededId_thumbAccessDenied
 // E41-08 tdd: instrumented: pagingCorrectness_seeded500Images_exactly500UniqueIdsInFivePages
-// Runs on the api35 managed device (E00-21): grants are toggled with `pm`, the unselected image is
-// inserted through the shell uid so the app holds no grant for it.
+// Runs on the api35 managed device (E00-21): the androidTest manifest strips READ_MEDIA_IMAGES/VIDEO so
+// the process starts without them, and the unselected image is inserted through the shell uid.
 @RunWith(AndroidJUnit4::class)
 class PartialAccessPagingInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val resolver = context.contentResolver
     private val seededIds = mutableListOf<Long>()
+    private val shellInsertedIds = mutableListOf<Long>()
     private val namePrefix = "$NAME_PREFIX-${UUID.randomUUID()}"
 
     @After
     fun removeSeededImages() {
-        shell("content delete --uri $IMAGES_URI --where \"_display_name LIKE '$namePrefix%'\"")
+        resolver.delete(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?",
+            arrayOf("$namePrefix%"),
+        )
+        shellInsertedIds.forEach { shell("content delete --uri $IMAGES_URI --where _id=$it") }
+        shellInsertedIds.clear()
         seededIds.clear()
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     fun partialAccess_unselectedSeededId_thumbAccessDenied() =
         runBlocking {
             val unselectedId = insertThroughShell("$namePrefix-unselected.jpg")
-            listOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO,
-            ).forEach { pm("revoke", it) }
             pm("grant", Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
             val page =
@@ -65,7 +71,6 @@ class PartialAccessPagingInstrumentedTest {
 
     @Test
     fun pagingCorrectness_seeded500Images_exactly500UniqueIdsInFivePages() {
-        pm("grant", Manifest.permission.READ_MEDIA_IMAGES)
         seedImages()
         val pager = PhotoPager(ContentResolverMediaStoreSource(resolver))
         val seen = mutableListOf<String>()
@@ -114,15 +119,18 @@ class PartialAccessPagingInstrumentedTest {
             "content insert --uri $IMAGES_URI --bind _display_name:s:$displayName " +
                 "--bind mime_type:s:image/jpeg --bind datetaken:l:$SEED_DATE_TAKEN",
         )
-        val output = shell("content query --uri $IMAGES_URI --projection _id --where \"_display_name='$displayName'\"")
+        val where = "\"_display_name='$displayName'\""
+        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --where $where")
         val id =
             Regex("_id=(\\d+)")
-                .find(output)
+                .findAll(output)
+                .lastOrNull()
                 ?.groupValues
                 ?.get(1)
                 ?.toLong()
         assertTrue("shell insert of $displayName not found: $output", id != null)
-        return id!!
+        shellInsertedIds += id!!
+        return id
     }
 
     private fun pm(
