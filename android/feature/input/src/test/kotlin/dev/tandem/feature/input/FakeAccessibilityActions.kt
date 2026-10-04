@@ -31,6 +31,7 @@ class FakeAccessibilityActions(
     var focusedInput: FocusedInput? = null,
 ) : AccessibilityActions {
     val globalActions = mutableListOf<Int>()
+    val strokes = mutableListOf<GestureStroke>()
 
     override fun performGlobalAction(action: Int): Boolean {
         globalActions += action
@@ -38,4 +39,9 @@ class FakeAccessibilityActions(
     }
 
     override fun findFocusedInput(): FocusedInput? = focusedInput
+
+    override fun dispatchGesture(stroke: GestureStroke): Boolean {
+        strokes += stroke
+        return true
+    }
 }

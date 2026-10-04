@@ -6,7 +6,18 @@ interface AccessibilityActions {
 
     /** The input-focused editable node, or null when none. */
     fun findFocusedInput(): FocusedInput?
+
+    /** Dispatches one stroke in device pixels; a stroke whose start equals its end is a single-point tap. */
+    fun dispatchGesture(stroke: GestureStroke): Boolean
 }
+
+data class GestureStroke(
+    val startX: Float,
+    val startY: Float,
+    val endX: Float,
+    val endY: Float,
+    val durationMs: Long,
+)
 
 interface FocusedInput {
     val text: CharSequence?

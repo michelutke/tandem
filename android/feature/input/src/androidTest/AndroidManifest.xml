@@ -4,6 +4,9 @@
         <activity
             android:name="dev.tandem.feature.input.EditTextTestActivity"
             android:exported="false" />
+        <activity
+            android:name="dev.tandem.feature.input.ButtonTestActivity"
+            android:exported="false" />
         <service
             android:name="dev.tandem.feature.input.CapturingAccessibilityService"
             android:exported="true"

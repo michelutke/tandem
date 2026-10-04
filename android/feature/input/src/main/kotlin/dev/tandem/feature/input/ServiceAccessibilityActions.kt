@@ -1,6 +1,8 @@
 package dev.tandem.feature.input
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
@@ -13,6 +15,20 @@ class ServiceAccessibilityActions(
     override fun findFocusedInput(): FocusedInput? {
         val node = service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return null
         return if (node.isEditable) NodeFocusedInput(node) else null
+    }
+
+    override fun dispatchGesture(stroke: GestureStroke): Boolean {
+        val path =
+            Path().apply {
+                moveTo(stroke.startX, stroke.startY)
+                if (stroke.endX != stroke.startX || stroke.endY != stroke.startY) lineTo(stroke.endX, stroke.endY)
+            }
+        val gesture =
+            GestureDescription
+                .Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0L, stroke.durationMs))
+                .build()
+        return service.dispatchGesture(gesture, null, null)
     }
 }
 
