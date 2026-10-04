@@ -19,6 +19,7 @@ import dev.tandem.protocol.v1.rotationReject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -50,9 +51,8 @@ class RotationInitiatorTest {
         val initiator =
             RotationInitiator(
                 session = session,
-                keyStore = keyStore,
-                keyProvider = IdentityKeyProvider(keyStore, logSecurityLevel = {}),
-                activeAlias = activeAlias,
+                keys = RotationKeys(keyStore, IdentityKeyProvider(keyStore, logSecurityLevel = {}), activeAlias),
+                rotationLock = Mutex(),
                 peerPinned = peerPinned,
                 pairingInProgress = { pairingInProgress },
             )
@@ -247,9 +247,13 @@ class RotationInitiatorTest {
             val second =
                 RotationInitiator(
                     session = secondSession,
-                    keyStore = first.keyStore,
-                    keyProvider = IdentityKeyProvider(first.keyStore, logSecurityLevel = {}),
-                    activeAlias = first.activeAlias,
+                    keys =
+                        RotationKeys(
+                            first.keyStore,
+                            IdentityKeyProvider(first.keyStore, logSecurityLevel = {}),
+                            first.activeAlias,
+                        ),
+                    rotationLock = Mutex(),
                     peerPinned = true,
                     pairingInProgress = { false },
                 )
