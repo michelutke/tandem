@@ -22,10 +22,10 @@ class MitmLabE6005ScenariosTest < Minitest::Test
   }.freeze
   REASONS = {
     'mitmLabMedia_mediaHelloWithoutTicket_rejectedAfterHandshake' => 'missing',
-    'mitmLabMedia_mediaReusedTicket_rejectedAfterHandshake' => 'reused',
+    'mitmLabMedia_mediaReusedTicket_rejectedAfterHandshake' => 'consumed',
     'mitmLabMedia_mediaTicketAfter31s_rejectedAfterHandshake' => 'expired',
-    'mitmLabMedia_mediaTicketFromEndedSession_rejectedAfterHandshake' => 'otherSession',
-    'mitmLabMedia_mediaTicketOnOtherPeersClientCert_rejectedAfterHandshake' => 'otherSession'
+    'mitmLabMedia_mediaTicketFromEndedSession_rejectedAfterHandshake' => 'revoked',
+    'mitmLabMedia_mediaTicketOnOtherPeersClientCert_rejectedAfterHandshake' => 'peerMismatch'
   }.freeze
 
   def scenario_paths
