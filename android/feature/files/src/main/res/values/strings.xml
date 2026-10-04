@@ -8,4 +8,7 @@
     <string name="files_offer_text">%1$s (%2$s)</string>
     <string name="files_offer_accept">Accept</string>
     <string name="files_offer_decline">Decline</string>
+    <string name="files_received_channel_name">Received files</string>
+    <string name="files_received_title">%1$s</string>
+    <string name="files_received_text">Received. Tap to open.</string>
 </resources>

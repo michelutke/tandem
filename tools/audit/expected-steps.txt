@@ -1,0 +1,8 @@
+# Phase 1 expected audit steps (E15-23): tools/<name>/audit-step.sh directory names (D-39).
+# Later phases append here; E71-12 checks the release list.
+conformance
+fuzz
+log-audit
+mitm-lab
+nmap-audit
+pcap-audit

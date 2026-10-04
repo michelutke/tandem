@@ -81,9 +81,9 @@ class MediaPermissionCheckerTest {
     @Config(sdk = [34])
     fun mediaPermission_nothingGranted_pageReturnsZeroItemsAccessNone() {
         val checker = MediaPermissionChecker(application, sdkInt = 34)
-        val responder = PhotoPageResponder(checker) { _, _ -> error("must not query") }
+        val responder = PhotoPageResponder(checker, PhotoPager { _, _ -> error("must not query") })
 
-        val result = responder.respond(photoPage { limit = 100 })
+        val result = (responder.respond(photoPage { limit = 100 }) as PhotoPageOutcome.Page).result
 
         assertEquals(0, result.itemsCount)
         assertEquals(PhotoAccess.PHOTO_ACCESS_NONE, result.access)

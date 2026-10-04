@@ -108,6 +108,22 @@
             </intent-filter>
         </activity>
 
+        <!-- E40-11: "Send to Mac" share-sheet target for files (F-7.3). Exported so the system can
+             resolve it from another app's share sheet (E00-28 allowlist entry); only content://
+             streams are accepted, enforced in SendEntry. -->
+        <activity
+            android:name="dev.tandem.feature.files.ShareFilesActivity"
+            android:exported="true"
+            android:label="@string/clipboard_send_to_mac_label"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
         <!-- E31-06: PROCESS_TEXT entry for selected text (F-6.2/F-6.3, UC-13). Reads
              EXTRA_PROCESS_TEXT only, ignores EXTRA_PROCESS_TEXT_READONLY. Exported so the system
              can resolve it from the text-selection menu (E00-28 allowlist entry below). -->

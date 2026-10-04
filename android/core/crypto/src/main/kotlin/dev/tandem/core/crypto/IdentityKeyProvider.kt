@@ -28,13 +28,13 @@ class IdentityKeyProvider(
      * unavailable, retries exactly once without it (TEE). If that retry also fails, throws
      * [IdentityKeyError.GenerationFailed] without creating a key from any other source.
      */
-    fun getOrCreateIdentityKey(): KeyHandle =
+    fun getOrCreateIdentityKey(alias: String = IDENTITY_KEY_ALIAS): KeyHandle =
         try {
-            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            keyStore.getOrCreate(alias, preferStrongBox = true)
         } catch (expectedStrongBoxUnavailable: StrongBoxUnavailableException) {
             val fallback =
                 try {
-                    keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = false)
+                    keyStore.getOrCreate(alias, preferStrongBox = false)
                 } catch (teeFailure: IdentityKeyStoreException) {
                     throw IdentityKeyError.GenerationFailed(teeFailure)
                 }
