@@ -190,7 +190,7 @@ struct MirrorCompositionTests {
     func macMirrorComposition_mediaBound_inputSenderUsesMediaHelloSessionId() async throws {
         let presenter = RecordingPresenter()
         let session = FakeTandemSession()
-        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { session })
+        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { _ in session })
         let connection = ScriptedConnection()
         coordinator.mediaBound(
             connection, sessionID: MediaSessionID(rawValue: UUID()), mirrorSessionId: mirrorSessionId)
@@ -213,10 +213,34 @@ struct MirrorCompositionTests {
     }
 
     @Test
+    func macMirrorComposition_twoPeers_mediaForFirst_senderUsesFirstPeersSession() async throws {
+        let presenter = RecordingPresenter()
+        let first = FakeTandemSession()
+        let second = FakeTandemSession()
+        let firstID = MediaSessionID(rawValue: UUID())
+        let secondID = MediaSessionID(rawValue: UUID())
+        let sessions = [firstID: first, secondID: second]
+        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { sessions[$0] })
+        let connection = ScriptedConnection()
+        coordinator.mediaBound(connection, sessionID: firstID, mirrorSessionId: mirrorSessionId)
+        try connection.push(formatMessage())
+        #expect(await eventually { presenter.presentedSizes.count == 1 })
+        let sender = try #require(presenter.inputSender)
+        sender.setWindowKey(true)
+
+        sender.handle(.pressed(point: CGPoint(x: 10, y: 10), time: 0))
+        sender.handle(.released(point: CGPoint(x: 10, y: 10), time: 0.01))
+        await sender.drain()
+
+        #expect(await first.sent.count == 1)
+        #expect(await second.sent.isEmpty)
+    }
+
+    @Test
     func macMirrorComposition_controlSessionEnds_inputNotSentAndIdCleared() async throws {
         let presenter = RecordingPresenter()
         let session = FakeTandemSession()
-        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { session })
+        let coordinator = MirrorMediaCoordinator(presenter: presenter, inputSession: { _ in session })
         let clock = ManualTestClock()
         let dates = FixedDateProvider(clock: clock, epoch: Date(timeIntervalSince1970: 1_000))
         let issuer = MediaTicketIssuer(

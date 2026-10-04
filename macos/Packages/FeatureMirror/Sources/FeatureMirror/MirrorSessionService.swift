@@ -15,14 +15,14 @@ public final class MirrorSessionService<C: Clock<Duration> & Sendable>: SessionS
     }
 
     private let registry: MediaSessionRegistry<C>
-    private let onSessionAttached: @Sendable (any TandemSession) -> Void
-    private let onSessionDetached: @Sendable () -> Void
+    private let onSessionAttached: @Sendable (MediaSessionID, any TandemSession) -> Void
+    private let onSessionDetached: @Sendable (MediaSessionID) -> Void
     private let active = Mutex<[SpkiFingerprint: Active]>([:])
 
     public init(
         registry: MediaSessionRegistry<C>,
-        onSessionAttached: @escaping @Sendable (any TandemSession) -> Void = { _ in },
-        onSessionDetached: @escaping @Sendable () -> Void = {}
+        onSessionAttached: @escaping @Sendable (MediaSessionID, any TandemSession) -> Void = { _, _ in },
+        onSessionDetached: @escaping @Sendable (MediaSessionID) -> Void = { _ in }
     ) {
         self.registry = registry
         self.onSessionAttached = onSessionAttached
@@ -48,13 +48,13 @@ public final class MirrorSessionService<C: Clock<Duration> & Sendable>: SessionS
             ended.finish()
         }
         active.withLock { $0[peer] = Active(id: id, reader: reader) }
-        onSessionAttached(session)
+        onSessionAttached(id, session)
     }
 
     public func detach(peer: SpkiFingerprint) async {
         guard let current = active.withLock({ $0.removeValue(forKey: peer) }) else { return }
         current.reader.cancel()
         await registry.unregister(current.id)
-        onSessionDetached()
+        onSessionDetached(current.id)
     }
 }

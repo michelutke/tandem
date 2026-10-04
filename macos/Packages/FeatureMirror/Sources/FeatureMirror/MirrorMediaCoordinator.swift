@@ -29,13 +29,13 @@ public final class MirrorMediaCoordinator {
     }
 
     private nonisolated let presenter: any MirrorWindowPresenting
-    private nonisolated let inputSession: @MainActor () -> (any TandemSession)?
+    private nonisolated let inputSession: @MainActor (MediaSessionID) -> (any TandemSession)?
     private var active: Active?
 
-    /// - Parameter inputSession: The control session mapped window input is sent on.
+    /// - Parameter inputSession: The control session of the given media session; mapped window input is sent on it.
     public nonisolated init(
         presenter: any MirrorWindowPresenting,
-        inputSession: @escaping @MainActor () -> (any TandemSession)? = { nil }
+        inputSession: @escaping @MainActor (MediaSessionID) -> (any TandemSession)? = { _ in nil }
     ) {
         self.presenter = presenter
         self.inputSession = inputSession
@@ -53,7 +53,7 @@ public final class MirrorMediaCoordinator {
             connection: connection,
             presenter: presenter,
             mirrorSessionId: mirrorSessionId,
-            inputSession: inputSession()
+            inputSession: inputSession(sessionID)
         )
         active = Active(id: sessionID, stream: stream)
         stream.start { [weak self, weak stream] in

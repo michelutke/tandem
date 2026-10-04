@@ -52,11 +52,33 @@ struct MirrorSessionServiceTests {
 
         #expect(ended.count == 1)
     }
+
+    @Test
+    func mirrorSessionService_detachOnePeer_reportsOnlyItsMediaSessionId() async throws {
+        let clock = ManualTestClock()
+        let dates = FixedDateProvider(clock: clock, epoch: Date(timeIntervalSince1970: 1_000))
+        let issuer = MediaTicketIssuer(
+            table: MediaTicketTable(clock: clock), source: SystemMediaTicketSource(), dateProvider: dates.provider)
+        let registry = MediaSessionRegistry(issuer: issuer)
+        let events = EndedIDs()
+        let service = MirrorSessionService(
+            registry: registry, onSessionAttached: { id, _ in events.add(id) }, onSessionDetached: { events.add($0) })
+        let peerA = fingerprint(0xA1)
+        await service.attach(peer: peerA, session: FakeTandemSession())
+        await service.attach(peer: fingerprint(0xB2), session: FakeTandemSession())
+
+        await service.detach(peer: peerA)
+
+        #expect(events.ids.count == 3)
+        #expect(events.ids[2] == events.ids[0])
+        #expect(events.ids[2] != events.ids[1])
+    }
 }
 
 private final class EndedIDs: @unchecked Sendable {
     private let lock = NSLock()
-    private var ids: [MediaSessionID] = []
-    var count: Int { lock.withLock { ids.count } }
-    func add(_ id: MediaSessionID) { lock.withLock { ids.append(id) } }
+    private var storage: [MediaSessionID] = []
+    var ids: [MediaSessionID] { lock.withLock { storage } }
+    var count: Int { lock.withLock { storage.count } }
+    func add(_ id: MediaSessionID) { lock.withLock { storage.append(id) } }
 }

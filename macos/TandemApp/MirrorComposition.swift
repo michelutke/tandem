@@ -1,5 +1,6 @@
 import FeatureMirror
 import Foundation
+import Synchronization
 import TandemCrypto
 import TandemProtocol
 import TandemTransport
@@ -23,7 +24,7 @@ final class MirrorComposition {
         let holder = SessionChangeHolder()
         let coordinator = MirrorMediaCoordinator(
             presenter: MirrorWindowPresenter(),
-            inputSession: { holder.composition?.currentSession }
+            inputSession: { holder.session(for: $0) }
         )
         let registry = MediaSessionRegistry(issuer: issuer, onEnded: { id in
             Task { @MainActor in coordinator.sessionEnded(id) }
@@ -46,8 +47,8 @@ final class MirrorComposition {
         )
         service = MirrorSessionService(
             registry: registry,
-            onSessionAttached: { session in holder.attached(session) },
-            onSessionDetached: { holder.detached() }
+            onSessionAttached: { id, session in holder.attached(id, session) },
+            onSessionDetached: { id in holder.detached(id) }
         )
         holder.composition = self
     }
@@ -67,13 +68,34 @@ final class MirrorComposition {
 }
 
 private final class SessionChangeHolder: @unchecked Sendable {
-    weak var composition: MirrorComposition?
+    private struct State {
+        var sessions: [MediaSessionID: any TandemSession] = [:]
+        var latest: MediaSessionID?
+    }
 
-    func attached(_ session: any TandemSession) {
+    weak var composition: MirrorComposition?
+    private let state = Mutex(State())
+
+    func session(for id: MediaSessionID) -> (any TandemSession)? {
+        state.withLock { $0.sessions[id] }
+    }
+
+    func attached(_ id: MediaSessionID, _ session: any TandemSession) {
+        state.withLock {
+            $0.sessions[id] = session
+            $0.latest = id
+        }
         Task { @MainActor [composition] in composition?.sessionChanged(session) }
     }
 
-    func detached() {
+    func detached(_ id: MediaSessionID) {
+        let wasLatest = state.withLock {
+            $0.sessions[id] = nil
+            guard $0.latest == id else { return false }
+            $0.latest = nil
+            return true
+        }
+        guard wasLatest else { return }
         Task { @MainActor [composition] in composition?.sessionChanged(nil) }
     }
 }
