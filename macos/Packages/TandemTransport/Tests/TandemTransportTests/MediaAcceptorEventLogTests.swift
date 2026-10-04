@@ -6,8 +6,9 @@ import Testing
 struct MediaAcceptorEventLogTests {
     @Test
     func logDescription_ticketRejected_namesOnlyTheReason() {
-        #expect(MediaAcceptorEvent.ticketRejected(.reused).logDescription == "ticketRejected(reused)")
-        #expect(MediaAcceptorEvent.ticketRejected(.otherSession).logDescription == "ticketRejected(otherSession)")
+        #expect(MediaAcceptorEvent.ticketRejected(.consumed).logDescription == "ticketRejected(consumed)")
+        #expect(MediaAcceptorEvent.ticketRejected(.revoked).logDescription == "ticketRejected(revoked)")
+        #expect(MediaAcceptorEvent.ticketRejected(.peerMismatch).logDescription == "ticketRejected(peerMismatch)")
     }
 
     @Test
