@@ -6,6 +6,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.service.SessionRegistry
+import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.pairing.UnpairAction
 import dev.tandem.core.storage.trust.TrustStore
 
@@ -22,4 +23,6 @@ interface ShellEntryPoint {
     fun unpairAction(): UnpairAction
 
     fun sessionRegistry(): SessionRegistry
+
+    fun activeIdentityAlias(): ActiveIdentityAlias
 }

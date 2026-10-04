@@ -9,13 +9,13 @@ import dev.tandem.core.pairing.qr.PairingInvite
  * confirmation, then `TrustCommitter`), never by the app shell: the shell neither pins a
  * fingerprint nor treats an address as trusted (invariants 3, 5). The shell only observes the
  * trust store, so it shows Home once the flow has committed a peer. The production flow
- * (connector, committer, confirmation UI) is E20-26; until then [NoOpPairingStarter] is bound.
+ * is [PairingFlow] (E20-26).
  */
 fun interface PairingStarter {
     fun start(invite: PairingInvite)
 }
 
-/** Placeholder until E20-26: starts nothing, so no trust is ever created. */
+/** Starts nothing, so no trust is ever created; for tests. */
 object NoOpPairingStarter : PairingStarter {
     override fun start(invite: PairingInvite) = Unit
 }

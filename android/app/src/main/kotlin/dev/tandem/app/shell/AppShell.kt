@@ -1,6 +1,7 @@
 package dev.tandem.app.shell
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -14,6 +15,7 @@ import dev.tandem.app.settings.SettingsScreen
 import dev.tandem.app.settings.SettingsState
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.designsystem.components.FloatingToolbarItem
+import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.storage.trust.PeerRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,7 @@ class AppShellDependencies(
     val isBatteryRestricted: () -> Boolean,
     val addressStore: PairingAddressStore,
     val pairingStarter: PairingStarter,
+    val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
     val onSendClipboard: () -> Unit,
 )
@@ -51,17 +54,17 @@ fun AppShell(
     val peers by dependencies.peers.collectAsState(initial = emptyList())
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
     val ringState by dependencies.ringState.collectAsState()
+    val pairingState by dependencies.pairing.state.collectAsState()
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
 
+    LaunchedEffect(route) {
+        if (route == ShellRoute.Home && pairingState == PairingState.Paired) dependencies.pairing.reset()
+    }
+
     when (route) {
         ShellRoute.Onboarding -> {
-            OnboardingScreen(
-                viewModel = dependencies.onboarding,
-                onScanAccepted = { onScanAccepted(it, dependencies.addressStore, dependencies.pairingStarter) },
-                onCancelScan = {},
-                modifier = modifier,
-            )
+            OnboardingOrPairing(pairingState, dependencies, modifier)
         }
 
         ShellRoute.Home -> {
@@ -114,3 +117,27 @@ private fun PeerRecord.toSettingsState(batteryRestricted: Boolean) =
                 .chunked(KEY_SHORT_CODE_GROUP)
                 .joinToString(" "),
     )
+
+@Composable
+private fun OnboardingOrPairing(
+    pairingState: PairingState,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    if (pairingState == PairingState.Idle) {
+        OnboardingScreen(
+            viewModel = dependencies.onboarding,
+            onScanAccepted = { onScanAccepted(it, dependencies.addressStore, dependencies.pairingStarter) },
+            onCancelScan = {},
+            modifier = modifier,
+        )
+    } else {
+        PairingScreen(
+            state = pairingState,
+            onCodesMatch = dependencies.pairing::confirmCodesMatch,
+            onCodesDontMatch = dependencies.pairing::cancel,
+            onScanAgain = dependencies.pairing::reset,
+            modifier = modifier,
+        )
+    }
+}
