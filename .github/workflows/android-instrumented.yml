@@ -8,6 +8,10 @@ name: android-instrumented
 #   - No camera QR scan.
 #   - Telephony via `adb emu` only (SMS inject works, real carrier delivery does not).
 #   - MediaProjection consent needs UiAutomator.
+#
+# One job per API level x module group, each booting a single managed device type (`api29` /
+# `api35`, see tandem.android.instrumented). Every `tandem.android.instrumented` module must be
+# listed in a group's `modules` (tools/ci/check_instrumented_modules.rb).
 on:
   push:
     branches: [main]
@@ -17,13 +21,36 @@ on:
   schedule:
     - cron: "0 4 * * *"
 
+# Cancel a PR's superseded runs (new push or merge-from-main) so stale runs never hold the scarce
+# macOS/emulator runners; main and scheduled runs always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   instrumented:
+    name: instrumented (api${{ matrix.api }}, ${{ matrix.group.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 35]
+        group:
+          - name: app-crypto
+            modules: ":companion-app :core:crypto :app"
+          - name: discovery-pairing-contacts-notifications
+            modules: ":core:discovery :feature:pairing :feature:contacts :feature:notifications"
+          - name: messaging-files-mirror
+            modules: ":feature:messaging :feature:files :feature:mirror"
+        include:
+          - api: 29
+            image-source: google
+          - api: 35
+            image-source: google_apis
     defaults:
       run:
         working-directory: android
@@ -50,72 +77,45 @@ jobs:
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Free runner disk space
         run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup "$ANDROID_HOME/ndk" && df -h /
+      - name: Cache system image and managed device AVD
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /usr/local/lib/android/sdk/system-images/android-${{ matrix.api }}
+            ~/.android/avd/gradle-managed
+          key: gmd-api${{ matrix.api }}-${{ matrix.image-source }}-${{ hashFiles('android/build-logic/src/main/kotlin/tandem.android.instrumented.gradle.kts') }}
       - name: Install Android SDK platform
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-29;google_apis;x86_64" > /dev/null
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-${{ matrix.api }};${{ matrix.image-source }};x86_64" > /dev/null
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
       # E00-22: the companion notification-poster app is built and installed on the managed
       # devices before any other instrumented test runs (its own `companionApp_*` kind-coverage
-      # tests double as that installation/build step).
-      - name: Run companion app instrumented tests on managed devices
-        run: ./gradlew :companion-app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-      - name: Upload companion app test report
+      # tests double as that installation/build step). `:feature:notifications` bundles and
+      # installs the companion APK itself.
+      # E00-33: `--no-parallel` (gradle.properties enables parallel) so only one module's emulator
+      # boots at a time.
+      - name: Run instrumented tests on managed device
+        # A hung emulator test otherwise holds the runner for the 6 h default.
+        timeout-minutes: 40
+        env:
+          MODULES: ${{ matrix.group.modules }}
+          DEVICE: api${{ matrix.api }}
+        run: |
+          tasks=()
+          for module in $MODULES; do tasks+=("$module:${DEVICE}DebugAndroidTest"); done
+          ./gradlew --no-parallel --continue "${tasks[@]}" -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+      - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: companion-app-test-report
+          name: instrumented-test-report-api${{ matrix.api }}-${{ matrix.group.name }}
           path: |
             tools/companion-app/build/reports/androidTests/managedDevice
             tools/companion-app/build/outputs/androidTest-results
-          if-no-files-found: ignore
-      - name: Run instrumented tests on managed devices
-        run: ./gradlew :core:crypto:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-      - name: Upload core:crypto test report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: core-crypto-test-report
-          path: |
-            android/core/crypto/build/reports/androidTests/managedDevice
-            android/core/crypto/build/outputs/androidTest-results
-          if-no-files-found: ignore
-      # Separate invocation: running both modules' device groups at once (4 emulators) exhausts
-      # the runner's memory and the job is killed.
-      - name: Run app instrumented tests on managed devices
-        run: ./gradlew :app:ciGroupDebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-      - name: Upload app test report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: app-test-report
-          path: |
             android/app/build/reports/androidTests/managedDevice
             android/app/build/outputs/androidTest-results
-          if-no-files-found: ignore
-      # E00-33: every remaining module applying `tandem.android.instrumented`. One invocation,
-      # `--no-parallel` (gradle.properties enables parallel) so only one module's two devices boot
-      # at a time. `:feature:notifications` bundles and installs the companion APK itself.
-      - name: Run feature and discovery instrumented tests on managed devices
-        # A hung emulator test otherwise blocks the runner for the 6 h default.
-        timeout-minutes: 45
-        run: >-
-          ./gradlew --no-parallel --continue
-          :core:discovery:ciGroupDebugAndroidTest
-          :feature:pairing:ciGroupDebugAndroidTest
-          :feature:contacts:ciGroupDebugAndroidTest
-          :feature:notifications:ciGroupDebugAndroidTest
-          :feature:messaging:ciGroupDebugAndroidTest
-          :feature:files:ciGroupDebugAndroidTest
-          :feature:mirror:ciGroupDebugAndroidTest
-          -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-      - name: Upload feature and discovery test reports
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: feature-test-report
-          path: |
-            android/core/discovery/build/reports/androidTests/managedDevice
-            android/core/discovery/build/outputs/androidTest-results
+            android/core/*/build/reports/androidTests/managedDevice
+            android/core/*/build/outputs/androidTest-results
             android/feature/*/build/reports/androidTests/managedDevice
             android/feature/*/build/outputs/androidTest-results
           if-no-files-found: ignore
