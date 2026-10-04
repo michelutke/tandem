@@ -40,5 +40,6 @@ jobs:
         run: |
           ruby tools/ci/check_actions_pinned.rb
           ruby tools/ci/check_instrumented_modules.rb
+          ruby tools/ci/check_swift_resolved_sync.rb
           ruby tools/lint/dependency_registry.rb .
           ruby tools/sbom/sbom.rb check
