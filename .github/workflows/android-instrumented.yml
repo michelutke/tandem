@@ -34,6 +34,7 @@ jobs:
   instrumented:
     name: instrumented (api${{ matrix.api }}, ${{ matrix.group.name }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -94,13 +95,15 @@ jobs:
       # E00-33: `--no-parallel` (gradle.properties enables parallel) so only one module's emulator
       # boots at a time.
       - name: Run instrumented tests on managed device
+        # A hung emulator test otherwise holds the runner for the 6 h default.
+        timeout-minutes: 40
         env:
           MODULES: ${{ matrix.group.modules }}
           DEVICE: api${{ matrix.api }}
         run: |
           tasks=()
           for module in $MODULES; do tasks+=("$module:${DEVICE}DebugAndroidTest"); done
-          ./gradlew --no-parallel "${tasks[@]}" -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+          ./gradlew --no-parallel --continue "${tasks[@]}" -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
