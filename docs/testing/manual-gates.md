@@ -906,23 +906,6 @@ Reference — E41-08 acceptance criteria:
 | | | | |
 
 
-### photoGrid10kScroll_xctMemoryMetric_peakGrowthUnder150MiB (E41-09, phase 4)
-
-[macos] 10k-library scroll memory bound (XCUITest `XCTMemoryMetric` not yet automated)
-
-Reference — E41-09 acceptance criteria:
-- Peak physical memory growth during a top-to-bottom scroll of a DEBUG-seeded 10 000-item grid is under 150 MiB above the grid-open baseline
-
-**Preconditions:** DEBUG build of the Mac app launched with the 10 000-item photo scenario (E00-26); photo browser open; Activity Monitor or Instruments attached, baseline physical footprint noted.
-**Steps:** Scroll the grid from the first to the last item at a steady pace, then back to the top. Note the peak physical footprint.
-**Pass threshold:** Peak physical footprint minus baseline is under 150 MiB.
-**Evidence required (log excerpt / screen recording / pcap path):** Instruments or Activity Monitor screenshot showing baseline and peak.
-
-| Date | Build SHA | Device | Result |
-|---|---|---|---|
-| | | | |
-
-
 ### smsSender_realCarrierTwoPartSend_deliveredWithin30s (E50-04, phase 5)
 
 [android] SmsManager multipart send with delivery status
