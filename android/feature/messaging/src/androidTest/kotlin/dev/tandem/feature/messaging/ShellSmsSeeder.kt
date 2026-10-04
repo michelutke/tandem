@@ -1,6 +1,7 @@
 package dev.tandem.feature.messaging
 
 import android.app.Instrumentation
+import android.app.role.RoleManager
 import android.content.ContentValues
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -20,9 +21,9 @@ class DefaultSmsRoleRule : ExternalResource() {
     override fun before() {
         originalHolder = Telephony.Sms.getDefaultSmsPackage(instrumentation.targetContext).orEmpty()
         instrumentation.shell("cmd role add-role-holder --user 0 $SMS_ROLE $packageName")
-        if (!instrumentation.awaitHolder(packageName)) {
+        if (!instrumentation.awaitHolder()) {
             instrumentation.shell("settings put secure $LEGACY_SMS_SETTING $packageName")
-            check(instrumentation.awaitHolder(packageName)) { "could not become the default SMS app" }
+            check(instrumentation.awaitHolder()) { "could not become the default SMS app" }
         }
     }
 
@@ -35,9 +36,10 @@ class DefaultSmsRoleRule : ExternalResource() {
         }
     }
 
-    private fun Instrumentation.awaitHolder(expected: String): Boolean {
+    private fun Instrumentation.awaitHolder(): Boolean {
+        val roleManager = targetContext.getSystemService(RoleManager::class.java)
         repeat(HOLDER_POLL_COUNT) {
-            if (Telephony.Sms.getDefaultSmsPackage(targetContext) == expected) return true
+            if (roleManager.isRoleHeld(RoleManager.ROLE_SMS)) return true
             Thread.sleep(HOLDER_POLL_INTERVAL_MS)
         }
         return false

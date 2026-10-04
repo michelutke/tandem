@@ -119,18 +119,15 @@ class PartialAccessPagingInstrumentedTest {
             "content insert --uri $IMAGES_URI --bind _display_name:s:$displayName " +
                 "--bind mime_type:s:image/jpeg --bind datetaken:l:$SEED_DATE_TAKEN",
         )
-        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --sort \"_id DESC\"")
+        val where = "\"_display_name='$displayName'\""
+        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --where $where")
         val id =
-            output
-                .lineSequence()
-                .firstOrNull { it.endsWith("_display_name=$displayName") }
-                ?.let {
-                    Regex("_id=(\\d+)")
-                        .find(it)
-                        ?.groupValues
-                        ?.get(1)
-                        ?.toLong()
-                }
+            Regex("_id=(\\d+)")
+                .findAll(output)
+                .lastOrNull()
+                ?.groupValues
+                ?.get(1)
+                ?.toLong()
         assertTrue("shell insert of $displayName not found: $output", id != null)
         shellInsertedIds += id!!
         return id
