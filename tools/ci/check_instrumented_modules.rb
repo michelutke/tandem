@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # E00-33: every module that applies `tandem.android.instrumented` and has androidTest sources must
-# have its `ciGroupDebugAndroidTest` run by android-instrumented.yml.
+# be listed in a `modules:` entry of android-instrumented.yml, which runs its managed-device tests.
 module InstrumentedModules
   ROOT = File.expand_path('../..', __dir__)
   WORKFLOW = '.github/workflows/android-instrumented.yml'
@@ -17,7 +17,8 @@ module InstrumentedModules
   end
 
   def self.missing(workflow_text, modules)
-    modules.reject { |mod| workflow_text.include?("#{mod}:ciGroupDebugAndroidTest") }
+    listed = workflow_text.lines.grep(/^\s*modules:/).flat_map { |line| line.scan(/:[\w:-]+/) }
+    modules.reject { |mod| listed.include?(mod) }
   end
 end
 

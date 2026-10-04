@@ -19,7 +19,7 @@ class CheckInstrumentedModulesTest < Minitest::Test
   end
 
   def test_instrumentedWorkflow_featureModuleStepRemoved_isReported
-    stripped = WORKFLOW.gsub(':feature:contacts:ciGroupDebugAndroidTest', '')
+    stripped = WORKFLOW.gsub(' :feature:contacts', '')
     assert_equal [':feature:contacts'], InstrumentedModules.missing(stripped, InstrumentedModules.modules)
   end
 end
