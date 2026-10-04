@@ -2,7 +2,7 @@
 # E71-13 tdd:
 #   unit: fuzzCampaignRunner_domainTarget_logsMessage
 #   unit: fuzzCampaignRunner_domainTargetWithoutMessage_exitsTwo
-#   unit: fuzzCampaignRunner_domainTargetWithJazzer_exitsTwo
+#   unit: fuzzCampaignRunner_domainTargetWithJazzerWithoutMessage_exitsTwo
 # E71-03 tdd:
 #   unit: fuzzCampaignRunner_qrTargetWithLibfuzzer_exitsTwo
 # E71-02 tdd:
@@ -96,7 +96,7 @@ name=fuzzCampaignRunner_domainTargetWithoutMessage_exitsTwo
 [ "$?" -eq 2 ] || fail "$name: did not exit 2"
 echo "OK $name"
 
-name=fuzzCampaignRunner_domainTargetWithJazzer_exitsTwo
-MESSAGE=media "$RUNNER" jazzer 2 2 "$work/domain-jazzer" domain > /dev/null 2>&1
+name=fuzzCampaignRunner_domainTargetWithJazzerWithoutMessage_exitsTwo
+"$RUNNER" jazzer 2 2 "$work/domain-jazzer" domain > /dev/null 2>&1
 [ "$?" -eq 2 ] || fail "$name: did not exit 2"
 echo "OK $name"

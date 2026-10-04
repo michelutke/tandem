@@ -1,0 +1,9 @@
+# E71-04: this directory is Jazzer JUnit's documented "inputs directory" for
+# DomainDecoderFuzzTest#fuzzTargetDomainDecoder (github.com/CodeIntelligenceTesting/jazzer README
+# "Inputs directory") — it must exist so crash reproducers land here deterministically rather than
+# wherever the test happened to run from, but the crash files themselves are ephemeral CI/local
+# artifacts, not committed regression fixtures. tools/fuzz/jazzer/smoke.sh copies a crash out to
+# its own --artifact-dir and deletes it from here afterwards; this ignore rule is a second layer
+# of protection against ever committing one by accident.
+*
+!.gitignore

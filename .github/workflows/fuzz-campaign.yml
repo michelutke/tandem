@@ -1,9 +1,9 @@
 name: fuzz-campaign
 
-# E71-01 / E71-02 / E71-03 / E71-13: 24 h campaign for the frame length-prefix parser, the Envelope protobuf
+# E71-01 / E71-02 / E71-03 / E71-04 / E71-13: 24 h campaign for the frame length-prefix parser, the Envelope protobuf
 # decoder or the Android QR pairing payload parser (`target` input; Jazzer on Kotlin, libFuzzer on
-# Swift; qr is Jazzer only, macOS never parses QR). `domain` (E71-13) is libFuzzer only: it fuzzes the
-# Swift decoders of one proto file (`message` input, e.g. media_control); dispatch once per proto file.
+# Swift; qr is Jazzer only, macOS never parses QR). `domain` (E71-04 Jazzer, E71-13 libFuzzer) fuzzes the
+# decoders of one proto file (`message` input, e.g. media_control); dispatch once per proto file.
 # Manually dispatched only. A hosted job is capped at 6 h, so each engine runs as sequential
 # segments (max-parallel 1) that resume the previous segment's corpus and counters from the cache;
 # tools/fuzz/campaign/run_campaign.sh stops at `total-seconds` of accumulated wall clock.
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Fuzz target: frame (E71-01), envelope (E71-02), qr (E71-03, jazzer only) or domain (E71-13, libfuzzer only)"
+        description: "Fuzz target: frame (E71-01), envelope (E71-02), qr (E71-03, jazzer only) or domain (E71-04 jazzer, E71-13 libfuzzer)"
         required: true
         type: choice
         options: [frame, envelope, qr, domain]
@@ -35,7 +35,6 @@ env:
 
 jobs:
   jazzer:
-    if: ${{ inputs.target != 'domain' }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
     strategy:
@@ -56,21 +55,23 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
-          restore-keys: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-
+          key: fuzz-jazzer-${{ inputs.target }}${{ inputs.message && format('-{0}', inputs.message) }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          restore-keys: fuzz-jazzer-${{ inputs.target }}${{ inputs.message && format('-{0}', inputs.message) }}-${{ github.run_id }}-
       - name: Fuzz segment
+        env:
+          MESSAGE: ${{ inputs.message }}
         run: tools/fuzz/campaign/run_campaign.sh jazzer "${{ inputs.total-seconds }}" "$SEGMENT_SECONDS" "$RUNNER_TEMP/campaign" "${{ inputs.target }}"
       - name: Save campaign state
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/campaign
-          key: fuzz-jazzer-${{ inputs.target }}-${{ github.run_id }}-seg${{ matrix.segment }}
+          key: fuzz-jazzer-${{ inputs.target }}${{ inputs.message && format('-{0}', inputs.message) }}-${{ github.run_id }}-seg${{ matrix.segment }}
       - name: Upload campaign log and reproducers
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: jazzer-${{ inputs.target }}-campaign-seg${{ matrix.segment }}
+          name: jazzer-${{ inputs.target }}${{ inputs.message && format('-{0}', inputs.message) }}-campaign-seg${{ matrix.segment }}
           path: |
             ${{ runner.temp }}/campaign/campaign-log.json
             ${{ runner.temp }}/campaign/artifacts/
