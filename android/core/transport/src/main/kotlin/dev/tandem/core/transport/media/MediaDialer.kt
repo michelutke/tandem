@@ -14,7 +14,14 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.IOException
@@ -55,32 +62,56 @@ class MediaDialer(
     private val pinSource: PinSource,
     private val elapsedRealtime: ElapsedRealtimeSource,
     private val ioDispatcher: CoroutineDispatcher,
+    private val grantTimeoutMillis: Long = GRANT_TIMEOUT_MILLIS,
 ) {
+    private val ticketLock = Mutex()
+    private var unansweredRequests = 0
+
     suspend fun dial(address: CandidateAddress): MediaDialResult {
         val issued = requestTicket() ?: return MediaDialResult.TicketUnavailable
-        return withContext(ioDispatcher) { connectAndSendHello(address, issued) }
+        val caller = currentCoroutineContext().job
+        return withContext(ioDispatcher) {
+            connectAndSendHello(address, issued).also {
+                if (it is MediaDialResult.Connected && !caller.isActive) it.stream.closeAbruptly()
+            }
+        }
     }
 
+    /**
+     * `MediaTicketGrant` carries no request id, so grants are matched to requests by order: every
+     * request that timed out or failed to send may still be answered late, and the next dial discards
+     * that many grants before taking its own.
+     */
     private suspend fun requestTicket(): IssuedTicket? =
-        try {
-            withTimeout(GRANT_TIMEOUT_MILLIS) {
-                coroutineScope {
-                    val pending =
-                        async(start = CoroutineStart.UNDISPATCHED) {
-                            val grant =
-                                session
-                                    .receive(
-                                        Channel.CHANNEL_CONTROL,
-                                    ).first { it.hasMediaTicketGrant() }
-                                    .mediaTicketGrant
-                            IssuedTicket(grant.ticket, elapsedRealtime.elapsedRealtimeMillis() + TICKET_VALIDITY_MILLIS)
-                        }
-                    session.send(Channel.CHANNEL_CONTROL) { requestMediaTicket = requestMediaTicket { } }
-                    pending.await()
+        ticketLock.withLock {
+            try {
+                withTimeout(grantTimeoutMillis) {
+                    coroutineScope {
+                        val staleGrants = unansweredRequests
+                        val pending =
+                            async(start = CoroutineStart.UNDISPATCHED) {
+                                val grant =
+                                    session
+                                        .receive(Channel.CHANNEL_CONTROL)
+                                        .filter { it.hasMediaTicketGrant() }
+                                        .drop(staleGrants)
+                                        .first()
+                                        .mediaTicketGrant
+                                IssuedTicket(
+                                    grant.ticket,
+                                    elapsedRealtime.elapsedRealtimeMillis() + TICKET_VALIDITY_MILLIS,
+                                )
+                            }
+                        unansweredRequests = staleGrants + 1
+                        session.send(Channel.CHANNEL_CONTROL) { requestMediaTicket = requestMediaTicket { } }
+                        pending.await().also { unansweredRequests = 0 }
+                    }
                 }
+            } catch (_: TimeoutCancellationException) {
+                null
+            } catch (_: IOException) {
+                null
             }
-        } catch (_: TimeoutCancellationException) {
-            null
         }
 
     private fun connectAndSendHello(
