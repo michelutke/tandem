@@ -55,20 +55,36 @@ class DomainDecoderFuzzTest {
                 .stream()
         }
 
-        private fun collectSeeds(element: JsonElement): List<ByteArray> {
-            if (element is JsonObject) {
-                return element.entries.flatMap { (key, value) ->
-                    if (key in SEED_KEYS) hexValues(value) else collectSeeds(value)
+        private fun collectSeeds(element: JsonElement): List<ByteArray> =
+            when (element) {
+                is JsonObject -> {
+                    element.entries.flatMap { (key, value) ->
+                        if (key in SEED_KEYS) hexValues(value) else collectSeeds(value)
+                    }
+                }
+
+                is JsonArray -> {
+                    element.flatMap { collectSeeds(it) }
+                }
+
+                else -> {
+                    emptyList()
                 }
             }
-            if (element is JsonArray) return element.flatMap { collectSeeds(it) }
-            return emptyList()
-        }
 
-        private fun hexValues(element: JsonElement): List<ByteArray> {
-            if (element is JsonPrimitive) return listOf(hexToBytes(element.content))
-            if (element is JsonArray) return element.flatMap { hexValues(it) }
-            return emptyList()
-        }
+        private fun hexValues(element: JsonElement): List<ByteArray> =
+            when (element) {
+                is JsonPrimitive -> {
+                    listOf(hexToBytes(element.content))
+                }
+
+                is JsonArray -> {
+                    element.flatMap { hexValues(it) }
+                }
+
+                else -> {
+                    emptyList()
+                }
+            }
     }
 }
