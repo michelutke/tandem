@@ -88,6 +88,7 @@
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF66E68281898309742F036 /* UnpairComposition.swift */; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
+		B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */; };
 		E71B1A14376E189459382BAA /* PushClipboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928A0A048645C8946F50E0EF /* MainWindowUITests.swift */; };
@@ -175,6 +176,7 @@
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessStatusRingCommands.swift; sourceTree = "<group>"; };
 		55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HarnessNotificationLoopbackRegistry.swift; sourceTree = "<group>"; };
+		8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPairingComposition.swift; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -386,6 +388,7 @@
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
+				8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */,
 				C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */,
 				203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */,
 				77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */,
@@ -663,6 +666,7 @@
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
+				B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */,
 				43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */,
 				D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */,
 				AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */,

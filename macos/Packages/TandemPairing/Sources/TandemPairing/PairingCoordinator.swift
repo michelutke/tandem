@@ -56,6 +56,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         dateProvider: @escaping DateProvider,
         clock: any Clock<Duration> = ContinuousClock(),
         sessionRegistry: any ControlSessionRegistering,
+        regeneratesOnExpiry: Bool = true,
         onConfirmationPending: ConfirmationPendingHandler? = nil
     ) {
         let candidateSpkiDer = CandidateSpkiHolder()
@@ -73,7 +74,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
             addressSource: addressSource,
             port: port,
             name: name,
-            dateProvider: dateProvider
+            dateProvider: dateProvider,
+            regeneratesOnExpiry: regeneratesOnExpiry
         )
         self.macSpkiDerProvider = macSpkiDerProvider
         self.trustStore = trustStore

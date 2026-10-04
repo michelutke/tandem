@@ -12,10 +12,10 @@ import TandemTransport
 /// against the harness keychain); this is what every other launch actually runs, on an
 /// OS-assigned port, against whichever `KeychainStoreFactory` selects.
 ///
-/// No pairing window is wired into the app yet (E14 pairing UI lands separately): exactly like
-/// the harness's own `NeverOpenPairingWindow`, ``NoPairingWindow`` never admits a candidate, so
-/// this fails closed (invariant 5) -- only a peer whose SPKI fingerprint is already in
-/// ``TrustStore`` is ever admitted until pairing UI replaces this stub.
+/// Pairing goes through ``MacPairingComposition``: its ``TandemPairing/PairingWindowHost`` admits
+/// a first-time candidate only while the owner has a window open (E22-14), and fails closed
+/// (invariant 5) otherwise -- only a peer whose SPKI fingerprint is already in ``TrustStore`` is
+/// admitted.
 enum AppComposition {
     /// Everything ``startListener()`` wires up, kept alive for the process lifetime by whoever
     /// calls it.
@@ -50,6 +50,8 @@ enum AppComposition {
         let pairedPeerName: String?
         /// Feature services attached to every registered session (E22-12).
         let sessionFeatures: SessionFeatures
+        /// The user-opened pairing window the listener is wired against (E22-14).
+        let pairing: MacPairingComposition
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -74,31 +76,25 @@ enum AppComposition {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
         let purgeRegistry = PeerDataPurgeRegistry()
-        let decisionCorrelator = PeerDecisionCorrelator()
-        let pinMismatchBannerGate = PinMismatchBannerGate()
-        let verify = verifyBlock(
+        let pairing = MacPairingComposition(
+            identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
-            decisionCorrelator: decisionCorrelator,
-            pinMismatchBannerGate: pinMismatchBannerGate
+            sessionRegistry: sessionRegistry
         )
         let sessionFeatures = SessionFeatures.make(purgeRegistry: purgeRegistry)
         let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
-        let controller = ListenerController(
-            identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(
-                sessionRegistry: sessionRegistry,
-                decisionCorrelator: decisionCorrelator,
-                trustStore: trustStore,
-                onSessionRegistered: sessionFeatures.onSessionRegistered(chaining: menuBarWiring.onSessionRegistered),
-                onSessionEnded: sessionFeatures.onSessionEnded
-            ),
-            port: .any,
-            verify: verify
+        let controller = makeController(
+            identityBootstrapper: identityBootstrapper,
+            sessionRegistry: sessionRegistry,
+            trustStore: trustStore,
+            pairing: pairing,
+            chaining: (sessionFeatures, menuBarWiring.onSessionRegistered)
         )
         guard let started = try? controller.start() else {
             return .failure(.listenerBindFailed)
         }
 
+        pairing.listenerStarted(started.listener)
         let controllers = makeLifecycleControllers(controller: controller, started: started)
         return .success(
             RetainedLifecycle(
@@ -113,8 +109,38 @@ enum AppComposition {
                 purgeRegistry: purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
                 pairedPeerName: menuBarWiring.peerName,
-                sessionFeatures: sessionFeatures
+                sessionFeatures: sessionFeatures,
+                pairing: pairing
             )
+        )
+    }
+
+    private static func makeController(
+        identityBootstrapper: IdentityBootstrapper,
+        sessionRegistry: ControlSessionRegistry,
+        trustStore: TrustStore,
+        pairing: MacPairingComposition,
+        chaining: (features: SessionFeatures, onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?)
+    ) -> ListenerController {
+        let decisionCorrelator = PeerDecisionCorrelator()
+        let verify = verifyBlock(
+            trustStore: trustStore,
+            window: pairing.host,
+            decisionCorrelator: decisionCorrelator,
+            pinMismatchBannerGate: PinMismatchBannerGate()
+        )
+        return ListenerController(
+            identityStateProvider: identityBootstrapper,
+            listenerFactory: NWListenerFactory(
+                sessionRegistry: sessionRegistry,
+                decisionCorrelator: decisionCorrelator,
+                pairingCandidateDriver: pairing.host,
+                trustStore: trustStore,
+                onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
+                onSessionEnded: chaining.features.onSessionEnded
+            ),
+            port: .any,
+            verify: verify
         )
     }
 
@@ -198,12 +224,13 @@ enum AppComposition {
     /// counter -- never a per-connection banner.
     private static func verifyBlock(
         trustStore: TrustStore,
+        window: any PairingWindowState,
         decisionCorrelator: PeerDecisionCorrelator,
         pinMismatchBannerGate: PinMismatchBannerGate
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: trustStore),
-            window: NoPairingWindow(),
+            window: window,
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 decisionCorrelator.record(
                     metadataIdentifier: ObjectIdentifier(metadata),
@@ -218,13 +245,4 @@ enum AppComposition {
             }
         )
     }
-}
-
-/// No pairing window is wired into the app yet (E14 pairing UI lands separately); mirrors the
-/// harness's own `NeverOpenPairingWindow` so a first-time candidate is refused rather than
-/// silently admitted (invariant 5, fail closed).
-private struct NoPairingWindow: PairingWindowState {
-    var isOpen: Bool { false }
-    func admitCandidate() -> PairingCandidateToken? { nil }
-    func releaseCandidate(_ token: PairingCandidateToken) {}
 }

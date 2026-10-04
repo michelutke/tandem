@@ -183,8 +183,20 @@ struct MenuContentView: View {
     /// D-59/D-76) never reach here.
     @State private var errorBannerViewModel: ErrorBannerViewModel
 
+    private let pairingPresenter: MacPairingPresenter?
+
+    private static var retainedPairingPresenter: MacPairingPresenter?
+
+    private static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
+        if let retainedPairingPresenter { return retainedPairingPresenter }
+        let presenter = MacPairingPresenter(composition: composition)
+        retainedPairingPresenter = presenter
+        return presenter
+    }
+
     init() {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
+        pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
         let peerName = lifecycle?.pairedPeerName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
@@ -248,7 +260,11 @@ struct MenuContentView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 ErrorBannerView(viewModel: errorBannerViewModel)
-                MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
+                MenuBarContentView(
+                    viewModel: menuBarViewModel,
+                    deviceStatusViewModel: nil,
+                    onPairPhone: { pairingPresenter?.openPairingWindow() }
+                )
                 QuickActionsView(
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,
