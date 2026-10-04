@@ -43,6 +43,7 @@ import dev.tandem.feature.files.ContentResolverThumbnailLoader
 import dev.tandem.feature.files.FileTransferStore
 import dev.tandem.feature.files.MediaPermissionChecker
 import dev.tandem.feature.files.MediaStoreDownloadsPublisher
+import dev.tandem.feature.files.NotificationReceivedFileNotifier
 import dev.tandem.feature.files.NotificationTransferPrompter
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
 import java.io.File
@@ -159,6 +160,7 @@ object ConnectionModule {
         FilesFeature(
             store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
+            notifier = NotificationReceivedFileNotifier(context),
             prompter = NotificationTransferPrompter(context),
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
             reader = ContentResolverSourceFileReader(context.contentResolver),
