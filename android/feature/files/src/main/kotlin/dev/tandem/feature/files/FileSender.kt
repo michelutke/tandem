@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -122,6 +123,10 @@ class FileSender(
     private val replies = ConcurrentHashMap<String, CompletableDeferred<Reply>>()
     private val peerCancels = ConcurrentHashMap<String, TransferReason>()
     private val states = ConcurrentHashMap<String, MutableStateFlow<SenderState>>()
+    private val bytes = MutableStateFlow<Map<String, TransferBytes>>(emptyMap())
+
+    /** Bytes sent so far per in-flight transfer id (E40-12). */
+    val progress: StateFlow<Map<String, TransferBytes>> = bytes.asStateFlow()
 
     init {
         session
@@ -225,7 +230,7 @@ class FileSender(
             }
 
             Reply.Accepted -> {
-                stream(request, state)
+                stream(request, state, source.size)
             }
         }
     }
@@ -233,6 +238,7 @@ class FileSender(
     private suspend fun stream(
         request: SendRequest,
         state: MutableStateFlow<SenderState>,
+        size: Long,
     ) {
         state.value = SenderState.Sending
         val input =
@@ -242,7 +248,11 @@ class FileSender(
                 cancel(request.id, state)
                 return
             }
-        input.use { scheduler.run(ChunkStream(request.id, it, state, startSeq = 0)) }
+        try {
+            input.use { scheduler.run(ChunkStream(request.id, it, state, startSeq = 0, size = size)) }
+        } finally {
+            bytes.update { it - request.id }
+        }
     }
 
     private suspend fun resume(resume: FileResumeRequest) {
@@ -281,13 +291,18 @@ class FileSender(
         val state = MutableStateFlow<SenderState>(SenderState.Sending)
         states[id] = state
         try {
-            input.use { scheduler.run(ChunkStream(id, it, state, startSeq = fromOffset / CHUNK_BYTES)) }
+            input.use {
+                scheduler.run(
+                    ChunkStream(id, it, state, startSeq = fromOffset / CHUNK_BYTES, size = known.size),
+                )
+            }
         } catch (_: MultiplexerClosedException) {
             return
         } finally {
             replies.remove(id)
             peerCancels.remove(id)
             states.remove(id)
+            bytes.update { it - id }
         }
     }
 
@@ -367,6 +382,7 @@ class FileSender(
         private val input: InputStream,
         private val state: MutableStateFlow<SenderState>,
         startSeq: Long,
+        private val size: Long,
     ) : FrameStream {
         private val buffer = ByteArray(CHUNK_BYTES)
         private var seq = startSeq
@@ -429,6 +445,7 @@ class FileSender(
                         data = ByteString.copyFrom(buffer, 0, length)
                     }
             }
+            bytes.update { it + (id to TransferBytes(chunkSeq * CHUNK_BYTES + length, size)) }
         }
     }
 
