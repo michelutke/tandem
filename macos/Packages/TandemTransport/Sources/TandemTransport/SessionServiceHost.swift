@@ -86,6 +86,7 @@ public actor SessionServiceHost {
         for service in services {
             await service.attach(peer: peer, session: session)
         }
+        await session.sealSetup()
     }
 
     private func detachAll(peer: SpkiFingerprint) async {

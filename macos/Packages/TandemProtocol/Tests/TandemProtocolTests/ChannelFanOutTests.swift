@@ -137,4 +137,43 @@ struct ChannelFanOutTests {
         for await value in stream { values.append(value) }
         #expect(values == Array(0..<100))
     }
+
+    @Test
+    func broadcast_replayUntilSealed_lateSubscribersBeforeSealSeeEveryElement() async {
+        let broadcast = Broadcast<Int>(replayUntilSealed: true)
+        let first = broadcast.subscribe()
+        broadcast.publish(1)
+        let second = broadcast.subscribe()
+        broadcast.publish(2)
+        broadcast.seal()
+        let third = broadcast.subscribe()
+        broadcast.publish(3)
+        broadcast.finish()
+        var firstValues: [Int] = []
+        for await value in first { firstValues.append(value) }
+        var secondValues: [Int] = []
+        for await value in second { secondValues.append(value) }
+        var thirdValues: [Int] = []
+        for await value in third { thirdValues.append(value) }
+        #expect(firstValues == [1, 2, 3])
+        #expect(secondValues == [1, 2, 3])
+        #expect(thirdValues == [3])
+    }
+
+    @Test
+    func broadcast_replayUntilSealed_sealBeforeAnySubscriber_firstSubscriberStillGetsHeld() async {
+        let broadcast = Broadcast<Int>(replayUntilSealed: true)
+        broadcast.publish(1)
+        broadcast.seal()
+        let first = broadcast.subscribe()
+        broadcast.publish(2)
+        let second = broadcast.subscribe()
+        broadcast.finish()
+        var firstValues: [Int] = []
+        for await value in first { firstValues.append(value) }
+        var secondValues: [Int] = []
+        for await value in second { secondValues.append(value) }
+        #expect(firstValues == [1, 2])
+        #expect(secondValues.isEmpty)
+    }
 }

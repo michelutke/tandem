@@ -18,6 +18,7 @@ public actor ByteStreamSession: TandemSession {
     private let multiplexer: ChannelMultiplexer
     private let stateMachine: ConnectionStateMachine
     private var fanOuts: [Tandem_V1_Channel: Broadcast<InboundFrame>] = [:]
+    private var isSetupSealed = false
 
     public nonisolated var state: AsyncStream<ConnectionStateMachine.ConnectionState> {
         stateMachine.states
@@ -45,7 +46,7 @@ public actor ByteStreamSession: TandemSession {
         if let existing = fanOuts[channel] {
             return Self.subscription(to: existing)
         }
-        let fanOut = Broadcast<InboundFrame>()
+        let fanOut = Broadcast<InboundFrame>(replayUntilSealed: channel == .control && !isSetupSealed)
         fanOuts[channel] = fanOut
         let subscription = Self.subscription(to: fanOut)
         let source = await multiplexer.rawInbound(channel)
@@ -61,6 +62,14 @@ public actor ByteStreamSession: TandemSession {
             fanOut.finish()
         }
         return subscription
+    }
+
+    /// Ends the control channel's setup window (see ``Broadcast/seal()``): until then every
+    /// control subscriber is replayed the frames that arrived before it subscribed, so services
+    /// attached one after another each see the whole prefix.
+    public func sealSetup() {
+        isSetupSealed = true
+        fanOuts[.control]?.seal()
     }
 
     static let fanOutWindow = 8

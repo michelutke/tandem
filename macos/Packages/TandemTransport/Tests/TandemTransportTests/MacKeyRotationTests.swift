@@ -87,4 +87,37 @@ struct MacKeyRotationTests {
         #expect(await Self.keyRotationCount(session) == 1)
         #expect(switches.count == 1)
     }
+
+    @Test
+    func macRotation_challengeInjectedAfterAnotherControlSubscriber_isStillDelivered() async throws {
+        let keychain = InMemoryKeychainStore()
+        let trustStore = TrustStore(keychainStore: keychain)
+        _ = try IdentityKeyProvider(keychainStore: keychain).getOrCreateIdentityKey()
+        let phoneFingerprint = try SpkiFingerprint.of(spkiDer: P256.Signing.PrivateKey().publicKey.derRepresentation)
+        try trustStore.put(PeerRecord(
+            fingerprint: phoneFingerprint, displayName: "Phone", pairedAt: Self.now, lastSeen: Self.now,
+            capabilities: []
+        ))
+        let rotation = MacKeyRotation(
+            keychainStore: keychain,
+            trustStore: trustStore,
+            window: StubWindow(),
+            dateProvider: { Self.now },
+            clock: ManualTestClock(),
+            interval: .seconds(365 * 86_400),
+            dueStore: MemoryStore(nil),
+            onSwitched: {}
+        )
+        let session = FakeTandemSession()
+        _ = await session.receive(.control)
+        var challenge = Tandem_V1_RotationChallenge()
+        challenge.challenge = Self.challenge
+        await session.inject(InboundFrame(channel: .control, seq: 0, ack: 0, payload: .rotationChallenge(challenge)))
+        await rotation.attach(peer: phoneFingerprint, session: session)
+
+        let outcome = Task { await rotation.rotate() }
+
+        #expect(await Self.eventually { await Self.keyRotationCount(session) == 1 })
+        outcome.cancel()
+    }
 }

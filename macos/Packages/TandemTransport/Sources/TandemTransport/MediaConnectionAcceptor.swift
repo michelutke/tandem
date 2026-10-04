@@ -12,9 +12,10 @@ public enum MediaConnectionPeer: Sendable, Equatable {
 /// Local ticket-rejection reasons (`docs/protocol/SPEC.md` § Media ticket, Rejection).
 public enum MediaTicketRejectReason: Error, Sendable, Equatable {
     case missing
-    case reused
-    case otherSession
+    case consumed
     case expired
+    case revoked
+    case peerMismatch
 }
 
 /// Validates a presented `MediaHello` ticket against the presenting peer's SPKI and, on success,

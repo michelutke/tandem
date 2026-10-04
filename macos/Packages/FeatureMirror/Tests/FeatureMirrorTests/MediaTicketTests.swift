@@ -234,3 +234,23 @@ private struct Harness {
         #expect(!output.contains(base64))
     }
 }
+
+@Test func mediaTicketValidatorAdapter_eachRejection_reportsItsOwnReason() throws {
+    let harness = Harness()
+    let adapter = MediaTicketValidatorAdapter(validator: harness.validator)
+    let consumed = harness.issuer.issue(session: sessionA, peer: peerA)
+    let mismatched = harness.issuer.issue(session: sessionB, peer: peerB)
+    _ = try harness.validator.validate(ticket: consumed.ticket, presentingSpki: peerA)
+
+    #expect(adapter.validate(ticket: nil, presentingSpki: peerA) == .failure(.missing))
+    #expect(adapter.validate(ticket: consumed.ticket, presentingSpki: peerA) == .failure(.consumed))
+    #expect(adapter.validate(ticket: mismatched.ticket, presentingSpki: peerA) == .failure(.peerMismatch))
+
+    let revoked = harness.issuer.issue(session: sessionA, peer: peerA)
+    harness.table.endSession(sessionA)
+    #expect(adapter.validate(ticket: revoked.ticket, presentingSpki: peerA) == .failure(.revoked))
+
+    let expiring = harness.issuer.issue(session: sessionB, peer: peerB)
+    harness.clock.advance(by: .seconds(30))
+    #expect(adapter.validate(ticket: expiring.ticket, presentingSpki: peerB) == .failure(.expired))
+}
