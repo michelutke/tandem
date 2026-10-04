@@ -13,6 +13,7 @@ class ClipboardFeature(
     override suspend fun run(
         session: TandemSession,
         peer: SpkiFingerprint,
+        peerSpkiDer: ByteArray?,
     ) {
         LiveClipboardSession.current = session
         try {

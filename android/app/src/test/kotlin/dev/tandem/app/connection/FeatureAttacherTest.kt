@@ -28,11 +28,12 @@ class FeatureAttacherTest {
             val attacher =
                 FeatureAttacher(
                     listOf(
-                        SessionFeature { _, _ -> error("boom") },
+                        SessionFeature { _, _, _ -> error("boom") },
                         object : SessionFeature {
                             override suspend fun run(
                                 session: TandemSession,
                                 peer: SpkiFingerprint,
+                                peerSpkiDer: ByteArray?,
                             ) {
                                 try {
                                     awaitCancellation()
@@ -54,4 +55,73 @@ class FeatureAttacherTest {
             assertTrue(attached.isCompleted)
             assertTrue(healthyDetached)
         }
+
+    @Test
+    fun featureAttacher_sessionReady_allRemainingConsumersAttachedOnce() =
+        runTest(UnconfinedTestDispatcher()) {
+            val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+            val consumers = REMAINING_CONSUMERS.map { CountingFeature(it) }
+            val attacher = FeatureAttacher(consumers, {})
+
+            val attached = launch { attacher.attach(RegisteredSession(session, peer, peerDer)) }
+
+            consumers.forEach {
+                assertEquals(1, it.attached, it.name)
+                assertEquals(0, it.detached, it.name)
+                assertEquals(peerDer, it.peerSpkiDer, it.name)
+            }
+            session.close()
+            assertTrue(attached.isCompleted)
+        }
+
+    @Test
+    fun featureAttacher_sessionClosed_allRemainingConsumersDetached() =
+        runTest(UnconfinedTestDispatcher()) {
+            val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+            val consumers = REMAINING_CONSUMERS.map { CountingFeature(it) }
+            val attacher = FeatureAttacher(consumers, {})
+            launch { attacher.attach(RegisteredSession(session, peer, peerDer)) }
+
+            session.close()
+
+            consumers.forEach {
+                assertEquals(1, it.detached, it.name)
+                assertEquals(1, it.attached, it.name)
+            }
+        }
+
+    private class CountingFeature(
+        val name: String,
+    ) : SessionFeature {
+        var attached = 0
+        var detached = 0
+        var peerSpkiDer: ByteArray? = null
+
+        override suspend fun run(
+            session: TandemSession,
+            peer: SpkiFingerprint,
+            peerSpkiDer: ByteArray?,
+        ) {
+            attached++
+            this.peerSpkiDer = peerSpkiDer
+            try {
+                awaitCancellation()
+            } finally {
+                detached++
+            }
+        }
+    }
+
+    private companion object {
+        val peerDer = ByteArray(4) { 9 }
+        val REMAINING_CONSUMERS =
+            listOf(
+                "contacts",
+                "sms",
+                "status",
+                "focus",
+                "notificationActions",
+                "rotation",
+            )
+    }
 }

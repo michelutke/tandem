@@ -21,6 +21,7 @@ class NotificationsFeature(
     override suspend fun run(
         session: TandemSession,
         peer: SpkiFingerprint,
+        peerSpkiDer: ByteArray?,
     ) {
         val sink = NotificationSink(session, elapsedRealtimeSource, dispatcher)
         val coalescing = CoalescingNotificationEventSink(sink, clock, dispatcher)

@@ -20,6 +20,11 @@ class PairingErrorMapperTest {
     }
 
     @Test
+    fun pinMismatch_trustErrorNotNetwork() {
+        assertEquals(PairingErrorMessage.PIN_MISMATCH, PairingErrorMapper.mapFailureReason(PairingFailure.PinMismatch))
+    }
+
+    @Test
     fun allQrAddressesUnreachable_networkIsolationHint() {
         val reason = PairingFailure.AllAddressesUnreachable
         val message = PairingErrorMapper.mapFailureReason(reason)

@@ -4,6 +4,9 @@
         <activity
             android:name="dev.tandem.feature.mirror.ConsentHostActivity"
             android:exported="false" />
+        <activity
+            android:name="dev.tandem.feature.mirror.MirrorStartTrampolineActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

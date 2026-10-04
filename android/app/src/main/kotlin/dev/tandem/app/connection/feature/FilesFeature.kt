@@ -18,6 +18,7 @@ import dev.tandem.feature.files.OriginalResponder
 import dev.tandem.feature.files.PhotoPageOutcome
 import dev.tandem.feature.files.PhotoPageResponder
 import dev.tandem.feature.files.PhotoPager
+import dev.tandem.feature.files.ReceivedFileNotifier
 import dev.tandem.feature.files.SourceFileReader
 import dev.tandem.feature.files.ThumbOutcome
 import dev.tandem.feature.files.ThumbnailLoader
@@ -42,6 +43,7 @@ import java.time.Clock
 class FilesFeature(
     private val store: TransferStore,
     private val publisher: DownloadsPublisher,
+    private val notifier: ReceivedFileNotifier,
     private val prompter: TransferPrompter,
     private val freeSpace: FreeSpaceProvider,
     private val reader: SourceFileReader,
@@ -64,8 +66,10 @@ class FilesFeature(
     override suspend fun run(
         session: TandemSession,
         peer: SpkiFingerprint,
+        peerSpkiDer: ByteArray?,
     ) {
-        val fileReceiver = FileReceiver(session, store, publisher, peer, clock, ioDispatcher, serialDispatcher())
+        val fileReceiver =
+            FileReceiver(session, store, publisher, notifier, peer, clock, ioDispatcher, serialDispatcher())
         val acceptFlow =
             AcceptFlow(session, freeSpace, prompter, acceptSettings, { fileReceiver.activeCount }, serialDispatcher())
         acceptFlow.onAccepted = fileReceiver::expect

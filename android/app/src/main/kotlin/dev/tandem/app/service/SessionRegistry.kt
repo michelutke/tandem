@@ -3,6 +3,7 @@ package dev.tandem.app.service
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.reconnect.CandidateAddress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.update
 data class RegisteredSession(
     val session: TandemSession,
     val peer: SpkiFingerprint,
+    val peerSpkiDer: ByteArray? = null,
+    val address: CandidateAddress? = null,
 )
 
 /**
@@ -33,9 +36,10 @@ class SessionRegistry {
     fun register(
         session: TandemSession,
         peer: SpkiFingerprint,
+        address: CandidateAddress? = null,
     ) {
         require(session.state.value is ConnectionState.Ready) { "Only a Ready session may be registered" }
-        mutableCurrent.value = RegisteredSession(session, peer)
+        mutableCurrent.value = RegisteredSession(session, peer, address = address)
     }
 
     fun clear(session: TandemSession) {

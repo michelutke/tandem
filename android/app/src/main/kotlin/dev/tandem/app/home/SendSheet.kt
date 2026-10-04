@@ -3,6 +3,7 @@ package dev.tandem.app.home
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import dev.tandem.core.designsystem.TandemSpacing
@@ -16,12 +17,18 @@ import dev.tandem.core.designsystem.components.TandemBottomSheet
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SendSheet(onDismissRequest: () -> Unit) {
+fun SendSheet(
+    onDismissRequest: () -> Unit,
+    onSendClipboard: () -> Unit = {},
+) {
     TandemBottomSheet(onDismissRequest = onDismissRequest) {
         Text(
             text = "Send to Mac",
             style = TandemType.rowTitle,
             modifier = Modifier.padding(TandemSpacing.screenPadding),
         )
+        TextButton(onClick = onSendClipboard) {
+            Text(text = "Send clipboard to Mac", style = TandemType.rowTitle)
+        }
     }
 }
