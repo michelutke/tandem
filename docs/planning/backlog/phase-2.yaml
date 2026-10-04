@@ -808,6 +808,30 @@ epics:
           - "ui: mainActivity_freshInstall_showsOnboarding"
           - "ui: mainActivity_paired_showsHomeAndSettingsUnpairReturnsToOnboarding"
         notes: "Added 2026-10-04: E20-24 found SettingsScreen/HomeScreen/onboarding unhosted."
+      - id: E20-26
+        title: "[android] Production pairing flow: connector, trust commit and code-confirm UI"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-2.1, F-2.2]
+        use_cases: [UC-01, UC-02]
+        invariants: [1, 3, 5, 6]
+        depends_on: [E20-25]
+        description: |
+          PairingStateMachine (core/pairing) exists but production has no PairingConnector (only the
+          jvm-client harness), no TrustCommitter, no DeviceInfoProvider wiring and no "codes match"
+          confirmation UI. Implement the production PairingStarter behind E20-25's seam: dial the
+          invite's Mac over the pairing-window mTLS path per SPEC pairing, run the proof exchange,
+          show the confirmation code screen (ui-spec), and commit trust (SPKI pin) only after the user
+          confirms and the proof verifies; single-use, expiring pairing secret compared in constant time.
+        acceptance:
+          - Scanning a valid invite and confirming matching codes pins the Mac's SPKI and opens Home
+          - A wrong proof, expired invite or user rejection commits nothing and shows the fail-closed error
+        tdd:
+          - "unit: productionPairingStarter_confirmedMatchingCodes_commitsPinOnce"
+          - "unit: productionPairingStarter_rejectedOrBadProof_commitsNothing"
+        notes: "Added 2026-10-04: E20-25 found no production pairing flow on Android."
   - id: E21
     title: Bonjour discovery with rotating ID
     labels: [area:discovery]
@@ -1390,6 +1414,28 @@ epics:
           - "unit: appComposition_incomingOffer_promptAcceptStartsTransfer"
           - "unit: appComposition_unpair_registryPurgesAllStores"
         notes: "Remainder of E22-12 (2026-10-03)."
+      - id: E22-14
+        title: "[macos] Production pairing window: open, invite QR, code confirm, trust commit"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-2.1, F-2.2]
+        use_cases: [UC-01, UC-02]
+        invariants: [1, 3, 5, 6]
+        depends_on: [E22-13]
+        description: |
+          AppComposition passes NoPairingWindow in production; only HarnessHooks opens a pairing window.
+          Wire the real pairing window state (user-opened, time-limited, single-use secret) to the
+          existing pairing UI (QR invite, confirmation code) and trust commit (SPKI pin) so a phone can
+          pair outside the harness; close the window on success, timeout or cancel.
+        acceptance:
+          - "Add phone" opens the pairing window with a QR invite; confirming matching codes pins the phone
+          - The window closes on timeout and the secret cannot be reused
+        tdd:
+          - "unit: macPairingComposition_userOpensWindow_inviteShownAndSecretSingleUse"
+          - "unit: macPairingComposition_confirmedCodes_commitsPinAndClosesWindow"
+        notes: "Added 2026-10-04: production AppComposition uses NoPairingWindow."
   - id: E23
     title: Device status and find my phone
     labels: [area:status]
