@@ -12,6 +12,12 @@ on:
   pull_request:
     paths: ["android/**", "macos/**", "protocol/**", "tools/harness/**", ".github/workflows/jvm-harness.yml"]
 
+# Cancel a PR's superseded runs (new push or merge-from-main) so stale runs never hold the scarce
+# macOS/emulator runners; main and scheduled runs always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

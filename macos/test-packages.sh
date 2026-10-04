@@ -5,6 +5,16 @@ set -m
 macos_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 package_timeout_seconds=900
 
+# One shared build of every package's test target (macos/Package.swift aggregates them), so the dependency
+# graph compiles once instead of once per package. E00-29: never let CI silently re-resolve a
+# package to a version outside Package.resolved.
+aggregate_dir="$macos_dir"
+echo "== swift build --build-tests: PackageTests =="
+if ! (cd "$aggregate_dir" && swift build --build-tests --only-use-versions-from-resolved-file); then
+  echo "swift build --build-tests failed for macos" >&2
+  exit 1
+fi
+
 failures=()
 for package_dir in "$macos_dir"/Packages/*/; do
   package_name="$(basename "$package_dir")"
@@ -12,8 +22,7 @@ for package_dir in "$macos_dir"/Packages/*/; do
     continue
   fi
   echo "== swift test: $package_name =="
-  # E00-29: never let CI silently re-resolve a package to a version outside Package.resolved.
-  (cd "$package_dir" && exec swift test --only-use-versions-from-resolved-file) &
+  (cd "$aggregate_dir" && exec swift test --skip-build --only-use-versions-from-resolved-file --filter "${package_name}Tests") &
   test_pid=$!
 
   timed_out=0
