@@ -8,8 +8,8 @@
 # pinned mTLS connection. A second JVM client B (its own identity, paired too) supplies "peer B's
 # client certificate". Every scenario completes mTLS first (`OK MEDIA_CONNECTED`); a pass requires the
 # Mac to close the connection, print `harness-media-event: ticketRejected(<reason>)` (reason enum
-# only, never ticket bytes) and print no `harness-media-event: bound`. The acceptor's local reasons
-# collapse the SPEC reasons: consumed -> reused, revoked and peerMismatch -> otherSession.
+# only, never ticket bytes) and print no `harness-media-event: bound`. The acceptor reports the
+# five local reasons distinctly: missing, consumed, expired, revoked, peerMismatch.
 set -uo pipefail
 
 E60_05_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"

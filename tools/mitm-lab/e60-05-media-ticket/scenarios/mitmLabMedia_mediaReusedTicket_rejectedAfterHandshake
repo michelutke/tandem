@@ -5,7 +5,7 @@
 # mitm-scenario-timeout: 240
 #
 # E60-05 (2/6): a valid ticket is used once (the first media connection is bound), then presented
-# again on a second connection. SPEC.md #media-ticket single use: rejected as `reused`.
+# again on a second connection. SPEC.md #media-ticket single use: rejected as `consumed`.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,7 +26,7 @@ if [ "$FAILED" -eq 0 ]; then
 fi
 if [ "$FAILED" -eq 0 ]; then
   e60_05_media_open A "$E60_05_TICKET" || FAILED=1
-  e60_05_assert_rejected reused || FAILED=1
+  e60_05_assert_rejected consumed || FAILED=1
   e60_05_assert_bound_count 1 || FAILED=1
 fi
 e15_10_assert_mac_alive "$PORT" || FAILED=1
