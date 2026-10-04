@@ -18,6 +18,7 @@ import dev.tandem.protocol.v1.MediaHello
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.mediaTicketGrant
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -27,7 +28,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -173,6 +176,56 @@ class MediaDialerTest {
             assertArrayEquals(TICKET_B, tickets[1])
         }
 
+    @Test
+    fun mediaDialer_cancelledDuringConnect_closesOpenedStream() =
+        runBlocking {
+            val entered = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val stream = RecordingByteStream()
+            val factory =
+                MediaStreamFactory { _, _ ->
+                    entered.countDown()
+                    release.await()
+                    stream
+                }
+            val job = launch(Dispatchers.Default) { dialer(sessionIssuing(TICKET_A), factory).dial(address) }
+            assertTrue(entered.await(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+
+            job.cancel()
+            release.countDown()
+            job.join()
+
+            assertTrue(stream.closedAbruptly)
+        }
+
+    @Test
+    fun mediaDialer_sendRequestFailsWithIoException_returnsTicketUnavailable() =
+        runBlocking {
+            val session = sessionIssuing(TICKET_A)
+            session.failNextSend(IOException("broken pipe"))
+
+            val result = dialer(session, { _, _ -> RecordingByteStream() }).dial(address)
+
+            assertEquals(MediaDialResult.TicketUnavailable, result)
+        }
+
+    @Test
+    fun mediaDialer_lateGrantFromTimedOutRequest_isNotConsumedByNextDial() =
+        runBlocking {
+            val session = FakeTandemSession()
+            val streams = mutableListOf<RecordingByteStream>()
+            val dialer =
+                dialer(session, { _, _ -> RecordingByteStream().also { streams += it } }, grantTimeoutMillis = 50L)
+
+            assertEquals(MediaDialResult.TicketUnavailable, dialer.dial(address))
+            session.emitIncoming(grantEnvelope(TICKET_A))
+            session.emitIncoming(grantEnvelope(TICKET_B))
+            dialer.dial(address)
+
+            val written = streams.single().written.toByteArray()
+            assertArrayEquals(TICKET_B, MediaHello.parseFrom(written.copyOfRange(4, written.size)).ticket.toByteArray())
+        }
+
     private fun sessionIssuing(ticket: ByteArray): FakeTandemSession =
         FakeTandemSession().also { it.emitIncoming(grantEnvelope(ticket)) }
 
@@ -187,7 +240,8 @@ class MediaDialerTest {
         factory: MediaStreamFactory,
         pinSource: PinSource = pin,
         elapsedRealtime: ElapsedRealtimeSource = ElapsedRealtimeSource { 0L },
-    ) = MediaDialer(session, factory, pinSource, elapsedRealtime, Dispatchers.IO)
+        grantTimeoutMillis: Long = 5_000L,
+    ) = MediaDialer(session, factory, pinSource, elapsedRealtime, Dispatchers.IO, grantTimeoutMillis)
 
     private class RecordingByteStream : ByteStream {
         val written = ByteArrayOutputStream()
@@ -196,7 +250,11 @@ class MediaDialerTest {
 
         override fun closeGracefully() = Unit
 
-        override fun closeAbruptly() = Unit
+        var closedAbruptly = false
+
+        override fun closeAbruptly() {
+            closedAbruptly = true
+        }
     }
 
     private companion object {
