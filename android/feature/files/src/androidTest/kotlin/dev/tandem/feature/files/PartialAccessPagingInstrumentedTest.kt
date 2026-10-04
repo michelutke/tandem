@@ -31,11 +31,18 @@ class PartialAccessPagingInstrumentedTest {
     private val context = instrumentation.targetContext
     private val resolver = context.contentResolver
     private val seededIds = mutableListOf<Long>()
+    private val shellInsertedIds = mutableListOf<Long>()
     private val namePrefix = "$NAME_PREFIX-${UUID.randomUUID()}"
 
     @After
     fun removeSeededImages() {
-        shell("content delete --uri $IMAGES_URI --where \"_display_name LIKE '$namePrefix%'\"")
+        resolver.delete(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?",
+            arrayOf("$namePrefix%"),
+        )
+        shellInsertedIds.forEach { shell("content delete --uri $IMAGES_URI --where _id=$it") }
+        shellInsertedIds.clear()
         seededIds.clear()
     }
 
@@ -112,15 +119,21 @@ class PartialAccessPagingInstrumentedTest {
             "content insert --uri $IMAGES_URI --bind _display_name:s:$displayName " +
                 "--bind mime_type:s:image/jpeg --bind datetaken:l:$SEED_DATE_TAKEN",
         )
-        val output = shell("content query --uri $IMAGES_URI --projection _id --where \"_display_name='$displayName'\"")
+        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --sort \"_id DESC\"")
         val id =
-            Regex("_id=(\\d+)")
-                .find(output)
-                ?.groupValues
-                ?.get(1)
-                ?.toLong()
+            output
+                .lineSequence()
+                .firstOrNull { it.endsWith("_display_name=$displayName") }
+                ?.let {
+                    Regex("_id=(\\d+)")
+                        .find(it)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toLong()
+                }
         assertTrue("shell insert of $displayName not found: $output", id != null)
-        return id!!
+        shellInsertedIds += id!!
+        return id
     }
 
     private fun pm(
