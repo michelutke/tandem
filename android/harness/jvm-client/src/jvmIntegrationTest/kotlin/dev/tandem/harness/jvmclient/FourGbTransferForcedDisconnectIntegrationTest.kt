@@ -136,6 +136,7 @@ class FourGbTransferForcedDisconnectIntegrationTest {
                         session,
                         store,
                         publisher,
+                        { _, _, _ -> },
                         senderFingerprint,
                         Clock.systemUTC(),
                         Dispatchers.IO,
@@ -237,6 +238,7 @@ class FourGbTransferForcedDisconnectIntegrationTest {
                 bytes += read
             }
             published.complete(Published(digest.digest(), bytes))
+            "content://harness/big.bin"
         }
 
     private fun sha256Of(input: InputStream): ByteArray {
