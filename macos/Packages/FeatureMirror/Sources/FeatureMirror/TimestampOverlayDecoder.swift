@@ -25,8 +25,8 @@ public enum TimestampOverlayDecoder {
         var frameIndex: UInt32 = 0
         var clock: UInt64 = 0
         for bit in 0..<totalBits {
-            let x = bit * cellSize + cellSize / 2
-            let isSet: UInt64 = luma[(cellSize / 2) * width + x] >= threshold ? 1 : 0
+            let column = bit * cellSize + cellSize / 2
+            let isSet: UInt64 = luma[(cellSize / 2) * width + column] >= threshold ? 1 : 0
             if bit < frameIndexBits {
                 frameIndex = frameIndex << 1 | UInt32(isSet)
             } else {

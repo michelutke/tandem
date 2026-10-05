@@ -3,15 +3,31 @@ import Foundation
 import Testing
 
 @Suite struct MirrorPerformanceHarnessTests {
-    private func fixtureLuma() throws -> (luma: [UInt8], width: Int, height: Int) {
+    private struct FixtureFrame {
+        let luma: [UInt8]
+        let width: Int
+        let height: Int
+    }
+
+    private struct RoundTripLegs {
+        let sent: Int64
+        let outbound: Int64
+        let inbound: Int64
+    }
+
+    private func fixtureLuma() throws -> FixtureFrame {
         let url = try #require(
-            Bundle.module.url(forResource: "timestamp-overlay-800x16", withExtension: "pgm", subdirectory: "Fixtures/media")
+            Bundle.module.url(
+                forResource: "timestamp-overlay-800x16",
+                withExtension: "pgm",
+                subdirectory: "Fixtures/media"
+            )
         )
         let data = [UInt8](try Data(contentsOf: url))
         let newlines = data.indices.filter { data[$0] == UInt8(ascii: "\n") }
-        let header = String(decoding: data[0...newlines[2]], as: UTF8.self)
+        let header = String(bytes: data[0...newlines[2]], encoding: .utf8)
         #expect(header == "P5\n800 16\n255\n")
-        return (Array(data[(newlines[2] + 1)...]), 800, 16)
+        return FixtureFrame(luma: Array(data[(newlines[2] + 1)...]), width: 800, height: 16)
     }
 
     @Test func timestampOverlayDecoder_fixtureFrame_recoversFrameIndexAndClock() throws {
@@ -26,8 +42,11 @@ import Testing
 
     @Test func clockOffsetEstimator_fixtureRoundTrips_withinHalfMinimumRtt() throws {
         let trueOffsetMs: Int64 = 5_000
-        let legs: [(sent: Int64, outbound: Int64, inbound: Int64)] = [
-            (0, 30, 10), (100, 8, 14), (200, 25, 25), (300, 4, 19)
+        let legs: [RoundTripLegs] = [
+            RoundTripLegs(sent: 0, outbound: 30, inbound: 10),
+            RoundTripLegs(sent: 100, outbound: 8, inbound: 14),
+            RoundTripLegs(sent: 200, outbound: 25, inbound: 25),
+            RoundTripLegs(sent: 300, outbound: 4, inbound: 19)
         ]
         var roundTrips: [ClockRoundTrip] = []
         for leg in legs {
@@ -62,7 +81,10 @@ import Testing
     }
 
     @Test func latencyReport_offsetApplied_shiftsLatency() throws {
-        let samples = [FrameSample(phoneClockMs: 5_000, receivedMs: 100), FrameSample(phoneClockMs: 5_050, receivedMs: 150)]
+        let samples = [
+            FrameSample(phoneClockMs: 5_000, receivedMs: 100),
+            FrameSample(phoneClockMs: 5_050, receivedMs: 150)
+        ]
         let report = try #require(LatencyReport(samples: samples, phoneMinusMacOffsetMs: 4_940))
         #expect(report.p95LatencyMs == 40)
     }
