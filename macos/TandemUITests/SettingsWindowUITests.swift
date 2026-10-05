@@ -116,6 +116,8 @@ final class SettingsWindowUITests: XCTestCase {
 
         let newFingerprint = app.staticTexts["rotationNewFingerprint"]
         XCTAssertTrue(newFingerprint.waitForExistence(timeout: 10), "new fingerprint never rendered")
-        XCTAssertTrue(newFingerprint.label.contains("DD:EE:FF:02"), "new fingerprint text was \(newFingerprint.label)")
+        let text = newFingerprint.value as? String ?? ""
+        let rendered = text.isEmpty ? newFingerprint.label : text
+        XCTAssertTrue(rendered.contains("DD:EE:FF:02"), "new fingerprint text was \(rendered)")
     }
 }

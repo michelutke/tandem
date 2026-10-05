@@ -13,17 +13,20 @@ extension ScenarioView {
     static func makeConversationSeededView() -> some View {
         let session = FakeTandemSession()
         let syncSource = SeededConversationSyncSource()
-        return ConversationView(
-            viewModel: makeSeededConversationViewModel(session: session, syncSource: syncSource),
-            headerAccessory: ConversationCallHost.headerAccessory(session: session, syncSource: syncSource)
-        )
+        let seeded = makeSeededConversationViewModel(session: session, syncSource: syncSource)
+        return SeededConversationHost(seed: seeded.seed) {
+            ConversationView(
+                viewModel: seeded.viewModel,
+                headerAccessory: ConversationCallHost.headerAccessory(session: session, syncSource: syncSource)
+            )
+        }
     }
 
     @MainActor
     private static func makeSeededConversationViewModel(
         session: FakeTandemSession,
         syncSource: SeededConversationSyncSource
-    ) -> ConversationViewModel {
+    ) -> (viewModel: ConversationViewModel, seed: @Sendable () async -> Void) {
         // swiftlint:disable:next force_try
         let peer = try! SpkiFingerprint(bytes: Data(repeating: 0xA2, count: SpkiFingerprint.byteCount))
         let smsStore = InMemorySmsStore()
@@ -42,8 +45,10 @@ extension ScenarioView {
             )
         ]
         let cursors = SmsSyncCursors(highWatermarkId: 2, backfillCursorId: 0, backfillComplete: true)
-        Task { try? await smsStore.applyPage(peer: peer, threads: [thread], messages: messages, cursors: cursors) }
-        return ConversationViewModel(
+        let seed: @Sendable () async -> Void = {
+            try? await smsStore.applyPage(peer: peer, threads: [thread], messages: messages, cursors: cursors)
+        }
+        let viewModel = ConversationViewModel(
             peer: peer,
             threadId: 1,
             title: "Ada Lovelace",
@@ -52,6 +57,25 @@ extension ScenarioView {
             syncSource: syncSource,
             now: { Date() }
         )
+        return (viewModel, seed)
+    }
+}
+
+/// Applies the seeded page before the conversation first loads, so the scenario never races its store.
+private struct SeededConversationHost<Content: View>: View {
+    let seed: @Sendable () async -> Void
+    @ViewBuilder let content: () -> Content
+    @State private var isSeeded = false
+
+    var body: some View {
+        if isSeeded {
+            content()
+        } else {
+            Color.clear.task {
+                await seed()
+                isSeeded = true
+            }
+        }
     }
 }
 
