@@ -129,6 +129,8 @@ class PartialAccessPagingInstrumentedTest {
                 .lastOrNull()
         assertTrue("shell insert of $displayName not found: ${output.take(300)}", id != null)
         shellInsertedIds += id!!
+        shell("sh -c 'printf x | content write --uri $IMAGES_URI/$id'")
+        shell("content update --uri $IMAGES_URI/$id --bind is_pending:i:0")
         return id
     }
 

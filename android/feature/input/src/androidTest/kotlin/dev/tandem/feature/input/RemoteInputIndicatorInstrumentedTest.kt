@@ -28,17 +28,20 @@ class RemoteInputIndicatorInstrumentedTest {
 
     @Before
     fun enableServiceAndShowIndicator() {
+        shell("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
         shell("settings put secure enabled_accessibility_services $serviceComponent")
         shell("settings put secure accessibility_enabled 1")
         awaitService()
         service = checkNotNull(CapturingAccessibilityService.instance)
         indicator = RemoteInputIndicator(AndroidNotificationPresenter(context), AccessibilityOverlayBadge(service))
-        assertTrue(indicator.show())
+        var shown = false
+        instrumentation.runOnMainSync { shown = indicator.show() }
+        assertTrue(shown)
     }
 
     @After
     fun hideIndicatorAndDisableService() {
-        indicator.hide()
+        instrumentation.runOnMainSync { indicator.hide() }
         shell("settings put secure enabled_accessibility_services \"\"")
         shell("settings put secure accessibility_enabled 0")
     }

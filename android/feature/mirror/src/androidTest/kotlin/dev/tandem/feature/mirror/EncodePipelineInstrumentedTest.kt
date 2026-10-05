@@ -1,5 +1,6 @@
 package dev.tandem.feature.mirror
 
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -18,6 +19,7 @@ import java.io.OutputStream
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlin.random.Random
 
 /**
  * E61-03 instrumented tdd on the emulator's software AVC encoder (E00-21):
@@ -37,10 +39,11 @@ class EncodePipelineInstrumentedTest {
             running = true
             drawer =
                 thread {
+                    val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
                     var tick = 0
                     while (running) {
                         val canvas = surface.lockCanvas(null)
-                        canvas.drawColor(Color.rgb(tick % COLOR_MAX, (tick * 3) % COLOR_MAX, (tick * 7) % COLOR_MAX))
+                        canvas.drawBitmap(noiseFrames[tick % NOISE_FRAME_COUNT], 0f, 0f, null)
                         surface.unlockCanvasAndPost(canvas)
                         tick++
                         Thread.sleep(FRAME_INTERVAL_MILLIS)
@@ -51,6 +54,14 @@ class EncodePipelineInstrumentedTest {
         override fun stop() {
             running = false
             drawer?.join()
+        }
+
+        private fun noiseBitmap(random: Random): Bitmap {
+            val pixels =
+                IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
+                    Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
+                }
+            return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
         }
     }
 
@@ -75,8 +86,8 @@ class EncodePipelineInstrumentedTest {
                 onFrame(encoder, buffer)
             }
         } finally {
-            encoder.close()
             capture.stop()
+            encoder.close()
         }
         return outputs
     }
@@ -84,7 +95,7 @@ class EncodePipelineInstrumentedTest {
     private val config =
         EncoderConfigBuilder
             .build(sdkInt = android.os.Build.VERSION.SDK_INT)
-            .copy(width = 1280, height = 720)
+            .copy(width = FRAME_WIDTH, height = FRAME_HEIGHT)
 
     @Test
     fun encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s() {
@@ -193,6 +204,9 @@ class EncodePipelineInstrumentedTest {
         const val ROTATION_BUDGET_MILLIS = 500L
         const val LENGTH_PREFIX_BYTES = 4
         const val COLOR_MAX = 256
+        const val FRAME_WIDTH = 1280
+        const val FRAME_HEIGHT = 720
+        const val NOISE_FRAME_COUNT = 4
         const val FRAME_INTERVAL_MILLIS = 33L
         const val NANOS_PER_SECOND = 1_000_000_000.0
         const val BITS_PER_BYTE = 8

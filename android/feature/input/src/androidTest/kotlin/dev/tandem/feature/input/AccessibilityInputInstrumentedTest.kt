@@ -80,8 +80,7 @@ class AccessibilityInputInstrumentedTest {
         assertNotNull(launcher)
         assertTrue(
             awaitCondition {
-                shell("dumpsys activity activities").contains("topResumedActivity") &&
-                    foregroundPackage() == launcher
+                foregroundPackage() == launcher
             },
         )
     }
@@ -95,7 +94,7 @@ class AccessibilityInputInstrumentedTest {
     private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
 
     private fun foregroundPackage(): String? =
-        Regex("""topResumedActivity=ActivityRecord\{\S+ \S+ ([^/\s]+)/""")
+        Regex("""ResumedActivity[=:]\s*ActivityRecord\{\S+ \S+ ([^/\s]+)/""")
             .find(shell("dumpsys activity activities"))
             ?.groupValues
             ?.get(1)
