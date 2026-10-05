@@ -5,7 +5,9 @@ import Testing
 @testable import TandemProtocol
 
 @Suite struct FocusSessionServiceTests {
+    // swiftlint:disable:next force_try
     private let peer = try! SpkiFingerprint(bytes: Data(repeating: 1, count: 32))
+    // swiftlint:disable:next force_try
     private let otherPeer = try! SpkiFingerprint(bytes: Data(repeating: 2, count: 32))
 
     private func focusStates(_ session: FakeTandemSession) async -> [Bool] {

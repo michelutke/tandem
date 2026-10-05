@@ -77,3 +77,10 @@ All acceptance criteria for E72-03 are met:
 - Carrying channel chosen: `TandemSession` control channel, with new `focus_sync.proto` message.
 
 The design is ready for protocol implementation (E72-04/E72-09 depend on this note).
+
+> **Signing note (2026-10-05):** `INFocusStatusCenter` authorization needs the Communication Notifications
+> capability (`com.apple.developer.usernotifications.communication`). That entitlement requires a
+> provisioning profile, so it is **not** in `TandemApp.entitlements` for the ad-hoc/unsigned CI and dev
+> builds (an ad-hoc app claiming a restricted entitlement is refused at launch). Without it, authorization
+> fails and Focus sync reports "capability unavailable" and sends nothing. Release signing must add the
+> capability, plus its `mac-entitlements.allowlist` entry (E72-09).
