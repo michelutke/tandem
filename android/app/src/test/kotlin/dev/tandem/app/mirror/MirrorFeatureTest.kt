@@ -417,7 +417,7 @@ class MirrorFeatureTest {
             val job = launchFeature(f)
 
             f.startMirror(expectIndicator = false)
-            await { f.platform.failures.isNotEmpty() }
+            await { f.platform.failures.isNotEmpty() && f.session.sentFrames.any { it.hasMirrorDeclined() } }
 
             assertEquals(listOf(MirrorFailure.PinMismatch), f.platform.failures)
             assertEquals(

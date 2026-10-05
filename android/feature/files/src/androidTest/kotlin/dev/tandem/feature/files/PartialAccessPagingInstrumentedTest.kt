@@ -53,13 +53,14 @@ class PartialAccessPagingInstrumentedTest {
             val unselectedId = insertThroughShell("$namePrefix-unselected.jpg")
             pm("grant", Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
+            val checker = MediaPermissionChecker(context)
             val page =
                 PhotoPageResponder(
-                    MediaPermissionChecker(context),
+                    checker,
                     PhotoPager(ContentResolverMediaStoreSource(resolver)),
                 ).respond(photoPage { limit = 100 })
             val thumb =
-                ThumbnailResponder(ContentResolverThumbnailLoader(resolver), Dispatchers.IO)
+                ThumbnailResponder(ContentResolverThumbnailLoader(resolver, checker::access), Dispatchers.IO)
                     .respond(thumbRequest { id = unselectedId.toString() })
 
             assertEquals(PhotoAccess.PHOTO_ACCESS_PARTIAL, (page as PhotoPageOutcome.Page).result.access)
