@@ -13,6 +13,13 @@
 #   dropped session  the session is dropped right after `KeyRotation` (as a lost `RotationAck` does); the
 #                    phone re-sends the same new key on the old key's grace session and gets the idempotent
 #                    `RotationAck` (SPEC.md #idempotent-re-send, E70-08/E70-13).
+#   two phones       rotationE2e_twoJvmClientsOneNeverAcks_listenerKeepsOldIdentityBothStillConnect -- two paired
+#                    phone identities (one process at a time); one acks the Mac's offer, one never does; the Mac
+#                    keeps presenting its old identity and both phones still connect pinned to it.
+#   finish after 7d  rotationE2e_finishAfter7DaysVirtual_pendingClientHandshakeFailsAckedClientOnNewKey -- same
+#                    setup, then the Mac's rotation clock jumps 7 days (`-HarnessMacRotationFinishTrigger`, no
+#                    sleeping) and Finish unpairs the phone that never acked; the acked phone connects on the new
+#                    Mac key, the other is refused.
 #   restart in grace both processes restart between the rotation and the next session; the old key is
 #                    accepted exactly once (rotationE2e_bothProcessesRestartedDuringGrace_oldKeyAcceptedOnce).
 set -uo pipefail
@@ -186,6 +193,74 @@ scenario_dropped_session() {
   expect_open "dropped: new key authenticates after the recovered rotation"
 }
 
+# $1=scenario name $2=finish trigger path or "". Pairs two phone identities ("$1-a.bin" acks the Mac's offer,
+# "$1-b.bin" never does), launches the Mac with a Mac-initiated rotation and leaves the client on phone A.
+# Sets PHONE_B_FP_HEX, OLD_MAC_FP_HEX and PENDING_MAC_FP_HEX.
+setup_two_phones() {
+  local name="$1" trigger="$2" offer
+  log "=== $name"
+  e15_10_stop_client
+  harness_kill
+  harness_clear_trust || { log "-HarnessClearTrust failed"; exit 1; }
+  e15_10_start_client "$name-a.bin"
+  e15_10_seed_trust "$CLIENT_SPKI_HEX" "E70-10 $name phone A" "$E15_10_TMP_DIR/$name-seed-a.json"
+  restart_client_as "$name-b.bin"
+  PHONE_B_FP_HEX="$CLIENT_SPKI_HEX"
+  e15_10_seed_trust "$PHONE_B_FP_HEX" "E70-10 $name phone B" "$E15_10_TMP_DIR/$name-seed-b.json"
+  if [ -n "$trigger" ]; then
+    launch_mac -HarnessMacRotation YES -HarnessMacRotationFinishTrigger "$trigger"
+  else
+    launch_mac -HarnessMacRotation YES
+  fi
+  OLD_MAC_FP_HEX="$(harness_identity_spki)"
+  e15_10_wait_for_log_line 'harness-mac-rotation: awaitingPhones' 20 >/dev/null || fail "$name: Mac did not begin a rotation"
+
+  expect_open "$name: phone B session opened"
+  e15_10_send "RAWMACROTATION NOACK"
+  offer="$(e15_10_read "$E70_09_ROTATE_TIMEOUT_SECONDS")" || offer="EVENT NO_RESPONSE"
+  case "$offer" in
+    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED") PENDING_MAC_FP_HEX="$(printf '%s' "$offer" | cut -d' ' -f4)" ;;
+    *) fail "$name: phone B expected a verified offer (got: $offer)" ;;
+  esac
+  close_raw
+
+  restart_client_as "$name-a.bin"
+  expect_open "$name: phone A session opened"
+  e15_10_send "RAWMACROTATION ACK"
+  e15_10_read "$E70_09_ROTATE_TIMEOUT_SECONDS" >/dev/null || true
+  [ "$(e15_10_read 10)" = "OK ACKED" ] || fail "$name: phone A did not ack"
+  close_raw
+}
+
+scenario_two_phones_one_never_acks() {
+  setup_two_phones twophones ""
+  if grep -q 'harness-mac-rotation-switched' "$HARNESS_LOG_PATH"; then
+    fail "twophones: Mac switched before every phone acked"
+  fi
+  expect_open "twophones: phone A still connects pinned to the old Mac key" "$(e15_10_hex_to_b64url "$OLD_MAC_FP_HEX")"
+  close_raw
+  restart_client_as twophones-b.bin
+  expect_open "twophones: phone B still connects pinned to the old Mac key" "$(e15_10_hex_to_b64url "$OLD_MAC_FP_HEX")"
+  close_raw
+}
+
+scenario_finish_after_seven_days() {
+  local trigger="$E15_10_TMP_DIR/finish-trigger"
+  setup_two_phones finish "$trigger"
+  : > "$trigger"
+  e15_10_wait_for_log_line 'harness-mac-rotation-finished' 20 >/dev/null || fail "finish: Finish did not run after 7 virtual days"
+  e15_10_wait_for_log_line 'harness-mac-rotation-switched' 20 >/dev/null || fail "finish: Mac did not switch after Finish"
+
+  relaunch_mac
+  [ "$(harness_identity_spki)" = "$PENDING_MAC_FP_HEX" ] || fail "finish: restarted Mac is not on the offered key"
+  local new_mac_fp_b64
+  new_mac_fp_b64="$(e15_10_hex_to_b64url "$PENDING_MAC_FP_HEX")"
+  expect_open "finish: acked phone A connects on the new Mac key" "$new_mac_fp_b64"
+  close_raw
+  restart_client_as finish-b.bin
+  expect_rejected "finish: phone B that never acked is refused after Finish" "$new_mac_fp_b64"
+}
+
 scenario_restart_during_grace() {
   begin_scenario grace
   generate_new_key grace
@@ -209,6 +284,8 @@ scenario_phone_initiated
 scenario_mac_initiated
 scenario_dropped_session
 scenario_restart_during_grace
+scenario_two_phones_one_never_acks
+scenario_finish_after_seven_days
 
 e15_10_assert_mac_alive "$PORT" || FAILED=1
 if [ "$FAILED" -eq 0 ]; then
