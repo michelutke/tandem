@@ -17,7 +17,7 @@ trap 'rm -rf "$dest" "$planted" "$planted_b"' EXIT
 
 printf 'a' > "$planted"
 printf 'b' > "$planted_b"
-expected=$(find "$DIR/frame" "$DIR/envelope" -type f ! -name '.gitkeep' | wc -l | tr -d ' ')
+expected=$(find "$DIR/frame" "$DIR/envelope" -type f ! -name README.md | wc -l | tr -d ' ')
 
 count="$("$DIR/stage.sh" "$dest" frame envelope)" || fail "$name: stage.sh exited non-zero"
 [ "$count" = "$expected" ] || fail "$name: staged $count of $expected reproducers"

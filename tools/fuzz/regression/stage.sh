@@ -22,6 +22,6 @@ for target in "$@"; do
   while IFS= read -r file; do
     cp "$file" "$DEST/regression-$target-$(basename "$file")"
     count=$((count + 1))
-  done < <(find "$DIR/$target" -type f ! -name '.gitkeep' | sort)
+  done < <(find "$DIR/$target" -type f ! -name README.md | sort)
 done
 echo "$count"
