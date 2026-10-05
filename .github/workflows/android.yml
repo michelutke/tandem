@@ -74,9 +74,10 @@ jobs:
 
   fuzz-smoke:
     # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing
-    # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 10 min job wall-clock budget.
+    # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 15 min job wall-clock budget (also covers
+    # the 60 s domain media smoke and regression-corpus replay).
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: android
