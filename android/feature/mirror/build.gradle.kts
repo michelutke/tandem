@@ -28,3 +28,13 @@ dependencies {
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(testFixtures(project(":core:transport")))
 }
+
+// E61-08: TimestampOverlayEncoderTest compares against the fixture frame the macOS decoder test also
+// reads, committed under macos/ (outside this Gradle build), rather than duplicating it.
+tasks.withType<Test>().configureEach {
+    val fixtureDir = "../macos/Packages/FeatureMirror/Tests/FeatureMirrorTests/Fixtures/media"
+    systemProperty(
+        "tandem.overlayFixture",
+        rootProject.projectDir.resolve("$fixtureDir/timestamp-overlay-800x16.pgm").absolutePath,
+    )
+}

@@ -1199,13 +1199,15 @@ Reference — E61-08 acceptance criteria:
 - The report computes sustained fps and p95 latency from a sample set; fixture values match expected numbers exactly.
 - A 60 s harness run at 1080p over 5 GHz Wi-Fi on the device matrix (E00-23) reports sustained ≥30 fps and p95 end-to-end latency under 120 ms (manual device gate).
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Physical phone and Mac from the device matrix (E00-23), paired, on the same 5 GHz Wi-Fi network with no other heavy traffic. Debug builds of both apps with the timestamp overlay enabled on the phone encoder (`TimestampOverlayEncoder`, 8x8 px cells at the top-left of each frame). Phone display set to 1080p encoder output (long edge 1920).
+**Steps:**
+1. Start a mirror session from the Mac (Mirror quick action) and accept the phone prompt.
+2. Run the clock-sync probe (`ClockRoundTrip` samples); the Mac derives the phone-minus-Mac offset with `ClockOffsetEstimator` (minimum-RTT sample).
+3. Let the session run for 60 s. The Mac decodes every received frame with `TimestampOverlayDecoder` and records `FrameSample(phoneClockMs, receivedMs)`.
+4. Build the `LatencyReport` from the samples and the offset; record sustained fps and p95 latency.
+**Pass threshold:** Sustained fps >= 30 and p95 end-to-end latency < 120 ms over the 60 s run.
+**Evidence required (log excerpt / screen recording / pcap path):** Report values (fps, p95, offset, minimum RTT, sample count) and the device and network used.
 
-| Date | Build SHA | Device | Result |
-|---|---|---|---|
 | | | | |
 
 
