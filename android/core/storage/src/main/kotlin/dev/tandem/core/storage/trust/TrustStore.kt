@@ -90,7 +90,7 @@ class TrustStore private constructor(
     override suspend fun clearGrace(primary: SpkiFingerprint) = dao.clearGrace(primary.base64Url)
 
     /** Purges grace pins older than 7 days and pending pins older than 30 days, with or without a session. */
-    suspend fun purgeExpiredPins(nowEpochMs: Long) {
+    override suspend fun purgeExpiredPins(nowEpochMs: Long) {
         dao.purgeExpiredGrace(nowEpochMs)
         dao.purgeExpiredPending(nowEpochMs - PENDING_MAX_AGE_MS)
     }

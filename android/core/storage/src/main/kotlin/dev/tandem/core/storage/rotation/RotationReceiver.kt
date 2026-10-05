@@ -56,14 +56,15 @@ class RotationReceiver(
     suspend fun run() {
         session.state.first { it is ConnectionState.Ready }
         sendChallenge()
-        val graceFingerprint = applyHandshakePinRules()
+        storageOrNull { pins.purgeExpiredPins(nowEpochMs()) }
+        val graceFingerprint = storageOrNull { applyHandshakePinRules() }
         try {
             session
                 .receive(Channel.CHANNEL_CONTROL)
                 .filter { it.hasKeyRotation() }
                 .collect { handle(it.keyRotation) }
         } finally {
-            graceFingerprint?.let { withContext(NonCancellable) { pins.clearGrace(it) } }
+            graceFingerprint?.let { withContext(NonCancellable) { storageOrNull { pins.clearGrace(it) } } }
         }
     }
 
@@ -103,24 +104,43 @@ class RotationReceiver(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private suspend fun handle(message: KeyRotation) {
+        val reason =
+            try {
+                rejectReason(message)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE
+            }
+        if (reason == null) sendAck() else sendReject(reason)
+    }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun <T> storageOrNull(block: suspend () -> T): T? =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RuntimeException) {
+            eventLog.rotationRejected(RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE)
+            null
+        }
+
+    private suspend fun rejectReason(message: KeyRotation): RotationRejectReason? {
         val peer = authenticatedPeerFingerprint()
         val resolved = peer?.let { pins.resolve(it, nowEpochMs()) }
         val newSpkiDer = message.newSpkiDer.toByteArray()
         val newFingerprint = strictFingerprintOrNull(newSpkiDer)
-        if (resolved != null && isIdempotentResend(resolved, newFingerprint)) {
-            sendAck()
-            return
+        if (resolved != null && isIdempotentResend(resolved, newFingerprint)) return null
+        return when {
+            resolved == null -> RotationRejectReason.ROTATION_REJECT_REASON_UNAUTHENTICATED_SESSION
+            resolved.kind != PinKind.PRIMARY -> RotationRejectReason.ROTATION_REJECT_REASON_NOT_PRIMARY_PIN
+            hasActivePending(resolved) -> RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE
+            newFingerprint == null -> RotationRejectReason.ROTATION_REJECT_REASON_INVALID_SIGNATURE
+            else -> verifyAndStore(requireNotNull(peer), newFingerprint, newSpkiDer, message)
         }
-        val reason =
-            when {
-                resolved == null -> RotationRejectReason.ROTATION_REJECT_REASON_UNAUTHENTICATED_SESSION
-                resolved.kind != PinKind.PRIMARY -> RotationRejectReason.ROTATION_REJECT_REASON_NOT_PRIMARY_PIN
-                hasActivePending(resolved) -> RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE
-                newFingerprint == null -> RotationRejectReason.ROTATION_REJECT_REASON_INVALID_SIGNATURE
-                else -> verifyAndStore(requireNotNull(peer), newFingerprint, newSpkiDer, message)
-            }
-        if (reason == null) sendAck() else sendReject(reason)
     }
 
     private suspend fun verifyAndStore(

@@ -43,4 +43,7 @@ interface RotationPinStore {
 
     /** Purges the grace pin of the record whose primary pin is [primary]. */
     suspend fun clearGrace(primary: SpkiFingerprint)
+
+    /** Purges grace pins past their expiry and pending pins older than 30 days, with or without a session. */
+    suspend fun purgeExpiredPins(nowEpochMs: Long)
 }
