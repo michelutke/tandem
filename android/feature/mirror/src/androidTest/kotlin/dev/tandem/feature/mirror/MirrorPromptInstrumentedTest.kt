@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -22,7 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
 
-/** E61-16 instrumented tdd: `mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` (E00-21). */
+/** E61-16 manual tdd: `mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` (E00-21). */
 @RunWith(AndroidJUnit4::class)
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 class MirrorPromptInstrumentedTest {
@@ -30,6 +31,7 @@ class MirrorPromptInstrumentedTest {
     private val device = UiDevice.getInstance(instrumentation)
 
     @Test
+    @RequiresDevice
     fun mirrorPrompt_tapNotificationOnEmulator_consentDialogShown() {
         val context = instrumentation.targetContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
