@@ -70,6 +70,11 @@ tools/fuzz
 tools/fuzz/campaign
 tools/fuzz/jazzer
 tools/fuzz/libfuzzer
+tools/fuzz/regression
+tools/fuzz/regression/envelope
+tools/fuzz/regression/frame
+tools/fuzz/regression/qr
+tools/fuzz/regression/test
 tools/log-audit
 tools/mitm-lab
 tools/pcap-audit
