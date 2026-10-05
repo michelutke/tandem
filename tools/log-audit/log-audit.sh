@@ -14,6 +14,10 @@ usage() {
 log-audit.sh — runtime canary scan over app logs (E15-17).
 
   log-audit.sh --canary <CANARY> --logcat <FILE> --unified-log <FILE>
+  log-audit.sh --manifest <FILE> --logcat <FILE> --unified-log <FILE>
+
+The manifest holds one `kind=canary` line per kind (`#` comments allowed). Every kind listed in
+required-canary-kinds.txt must have a canary, and every canary is searched in every log.
 
 Searches for canary string in raw, hex, base64, and base64url encodings.
 EOF
@@ -94,8 +98,48 @@ search_canary_in_file() {
   return $found
 }
 
+REQUIRED_KINDS_FILE="$(dirname "${BASH_SOURCE[0]}")/required-canary-kinds.txt"
+CANARIES=()
+
+# Reads kind=canary lines into CANARIES; fails naming every required kind without a canary.
+load_manifest() {
+  local manifest="$1"
+  if [[ ! -f "$manifest" ]]; then
+    echo "ERROR: manifest not found: $manifest" >&2
+    return 1
+  fi
+
+  local present_kinds=" "
+  local line kind canary
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    kind="${line%%=*}"
+    canary="${line#*=}"
+    if [[ "$line" != *=* || -z "$kind" || -z "$canary" ]]; then
+      echo "ERROR: malformed manifest line: $line" >&2
+      return 1
+    fi
+    present_kinds+="$kind "
+    CANARIES+=("$canary")
+  done < "$manifest"
+
+  local missing=()
+  while IFS= read -r kind; do
+    [[ -z "$kind" ]] && continue
+    [[ "$present_kinds" == *" $kind "* ]] || missing+=("$kind")
+  done < "$REQUIRED_KINDS_FILE"
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: manifest missing required kinds: ${missing[*]}" >&2
+    return 1
+  fi
+}
+
 # Parse CLI arguments
 CANARY=""
+MANIFEST_FILE=""
 LOGCAT_FILE=""
 UNIFIED_LOG_FILE=""
 
@@ -103,6 +147,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --canary)
       CANARY="$2"
+      shift 2
+      ;;
+    --manifest)
+      MANIFEST_FILE="$2"
       shift 2
       ;;
     --logcat)
@@ -123,9 +171,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$CANARY" ]]; then
-  echo "ERROR: must specify --canary" >&2
+if [[ -n "$CANARY" && -n "$MANIFEST_FILE" ]]; then
+  echo "ERROR: specify --canary or --manifest, not both" >&2
   usage
+fi
+
+if [[ -z "$CANARY" && -z "$MANIFEST_FILE" ]]; then
+  echo "ERROR: must specify --canary or --manifest" >&2
+  usage
+fi
+
+if [[ -n "$MANIFEST_FILE" ]]; then
+  load_manifest "$MANIFEST_FILE" || exit 1
+else
+  CANARIES=("$CANARY")
 fi
 
 # Check if we have any log files
@@ -147,13 +206,14 @@ fi
 
 exit_code=0
 
-# Search in both log files if provided
-if [[ -n "$LOGCAT_FILE" ]]; then
-  search_canary_in_file "$CANARY" "$LOGCAT_FILE" "logcat" || exit_code=1
-fi
+for canary in "${CANARIES[@]}"; do
+  if [[ -n "$LOGCAT_FILE" ]]; then
+    search_canary_in_file "$canary" "$LOGCAT_FILE" "logcat" || exit_code=1
+  fi
 
-if [[ -n "$UNIFIED_LOG_FILE" ]]; then
-  search_canary_in_file "$CANARY" "$UNIFIED_LOG_FILE" "unified" || exit_code=1
-fi
+  if [[ -n "$UNIFIED_LOG_FILE" ]]; then
+    search_canary_in_file "$canary" "$UNIFIED_LOG_FILE" "unified" || exit_code=1
+  fi
+done
 
 exit "$exit_code"

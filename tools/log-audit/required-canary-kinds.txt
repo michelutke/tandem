@@ -1,0 +1,13 @@
+notificationText
+clipboardText
+fileName
+fileContent
+smsBody
+smsAddress
+contactName
+callerNumber
+inputText
+inputCoordinates
+displayName
+pairingSecret
+mediaTicket

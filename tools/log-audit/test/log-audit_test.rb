@@ -87,9 +87,51 @@ class LogAuditTest < Minitest::Test
     assert_includes output, 'base64', 'expected base64 encoding noted'
   end
 
+  def run_manifest(manifest_text, logcat: nil, unified_log: nil)
+    Dir.mktmpdir do |tmpdir|
+      manifest = File.join(tmpdir, 'canaries.txt')
+      File.write(manifest, manifest_text)
+      cmd = [SCRIPT, '--manifest', manifest]
+      cmd.concat(['--logcat', logcat]) if logcat
+      cmd.concat(['--unified-log', unified_log]) if unified_log
+      stdout, stderr, status = Open3.capture3(*cmd)
+      [stdout + stderr, status.exitstatus]
+    end
+  end
+
+  def full_manifest_text(except: nil)
+    kinds = File.readlines(File.join(__dir__, '..', 'required-canary-kinds.txt'), chomp: true)
+    (kinds - [except]).map { |k| "#{k}=TANDEM-CANARY-absent-#{k}" }.join("\n") + "\n"
+  end
+
   def test_logAudit_manifestMissingRequiredKindForEnabledFeature_exitsNonZero
-    # This test requires a manifest file. For now, skip as it's a later-cycle feature.
-    # The TDD entry lists it, but manifest checking is cycle 4 and optional for phase 1 exit.
-    skip "manifest checking is cycle 4 (later phase)"
+    output, exitstatus = run_manifest(full_manifest_text(except: 'mediaTicket'),
+                                      logcat: File.join(FIXTURES, 'logcat-redacted-only.txt'))
+
+    refute_equal 0, exitstatus
+    assert_includes output, 'mediaTicket'
+  end
+
+  def test_logAudit_manifestEveryKindAbsentFromLogs_exitsZero
+    output, exitstatus = run_manifest(full_manifest_text,
+                                      logcat: File.join(FIXTURES, 'logcat-redacted-only.txt'))
+
+    assert_equal 0, exitstatus, output
+  end
+
+  def test_logAudit_manifestCanaryInLog_exitsOneWithSourceAndLine
+    manifest = full_manifest_text(except: 'smsBody') + "smsBody=TANDEM-CANARY-abc123def456ghi789\n"
+    output, exitstatus = run_manifest(manifest, logcat: File.join(FIXTURES, 'logcat-with-canary.txt'))
+
+    refute_equal 0, exitstatus
+    assert_includes output, 'logcat'
+    assert_includes output, 'line'
+  end
+
+  def test_logAudit_manifestMalformedLine_exitsNonZero
+    output, exitstatus = run_manifest("smsBody\n", logcat: File.join(FIXTURES, 'logcat-redacted-only.txt'))
+
+    refute_equal 0, exitstatus
+    assert_includes output, 'malformed'
   end
 end
