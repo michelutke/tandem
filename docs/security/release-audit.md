@@ -40,6 +40,36 @@ Legend: `[ ]` open, `[x]` evidence attached to the release PR. Decisions in
 | [ ] | Manual gates for every P0 `manual:` row in phases 1-7 signed off | all | [manual-gates](../testing/manual-gates.md) | Every sign-off table row filled with date, SHA, device, pass |
 | [ ] | Canary procedure on a live phone and Mac, all channels | E15-07, E71-07 | manual gate `canaryProcedure_livePhoneMacPairingWithCanaryName_zeroOccurrencesInCapture` in [manual-gates](../testing/manual-gates.md) | 0 canary occurrences in capture and logs |
 
+### Running the aggregated audits (E71-07, E71-08)
+
+Both runners are release-time, owner-run, and print one combined report; they exit non-zero unless every
+check passed. Aggregation logic is covered by fixture tests (`ruby tools/release-audit/test/*_test.rb`).
+
+**Full-feature canary audit (E71-07).** Run one session using notifications, clipboard, files, SMS,
+contacts, calls and mirroring together, capturing with [pcap-audit](../../tools/pcap-audit/README.md)
+`capture.sh` and collecting the release-build logcat and macOS unified log. List every
+[log-audit](../../tools/log-audit/README.md) canary kind in a manifest (`kind=canary` per line; kinds are
+`REQUIRED_KINDS` in the runner), then:
+
+```sh
+ruby tools/release-audit/full-feature-canary-audit.rb --pcap session.pcapng --port <port> \
+  --manifest canaries.txt --logcat logcat.txt --unified-log unified.log
+```
+
+It runs `tls13_assertion.py`, `media_volume.py`, and `canary_scan.py` plus `log-audit.sh` once per manifest
+canary. A manifest missing a kind fails the audit.
+
+**nmap + full mitm-lab suite (E71-08).** With every feature active and the Mac app listening:
+
+```sh
+ruby tools/release-audit/network-audit.rb --phone-ip <phone> --mac-host <mac> --mac-port <port> \
+  [--target-host <mac> --target-port <port>]
+```
+
+It runs [nmap-phone-check](../../tools/mitm-lab/nmap-phone-check.sh), every `tools/mitm-lab/*/scenarios`
+directory through [runner.rb](../../tools/mitm-lab/runner.rb) (a missing expected directory fails), and
+`openssl s_client -tls1_2` against the Mac listener, which must not negotiate TLSv1.2.
+
 ## 2. PRD security-test rows
 
 | Done | PRD row | Evidence | Link |
