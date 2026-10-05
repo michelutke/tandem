@@ -201,3 +201,13 @@ pip install -r requirements.txt
 cd tools/pcap-audit
 pytest tests -q
 ```
+
+## media_volume.py and mirror-canary-audit.sh (E61-09)
+
+`canary.sh`'s mirror step starts the companion `InputCounterActivity` and types the canary into it
+with `adb shell input text`, so `TANDEM-CANARY-<random>` is on the mirrored screen while a mirror
+session streams. `mirror-canary-audit.sh <pcap> --canary <string> --port <port> [--min-bytes <n>]`
+then passes only if `canary_scan.py` finds zero occurrences and `media_volume.py` finds at least
+1 MB (default) of TCP payload on the Tandem port, so a zero-occurrence result is never vacuous.
+The live run needs a phone and the Mac app: wrap `canary.sh` in `capture.sh` per the manual gate in
+`docs/testing/manual-gates.md`.

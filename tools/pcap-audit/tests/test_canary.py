@@ -87,3 +87,19 @@ def test_canaryScript_featureDoneButStepDisabled_exitsNonZero():
     # feature it would exercise does not exist.
     enable_e40_11 = _run("--dry-run", "--enable-e40-11")
     assert enable_e40_11.returncode != 0
+
+
+def test_canaryScript_mirrorStepDryRun_typesCanaryIntoCompanionActivity():
+    result = _run("--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    canary = CANARY_LINE_RE.search(result.stdout).group(1)
+    assert "STEP mirror enabled" in result.stdout
+    assert "CMD adb shell am start -n dev.tandem.companion/.InputCounterActivity" in result.stdout
+    assert f"CMD adb shell input text {canary}" in result.stdout
+
+
+def test_canaryScript_mirrorStepDisabledAfterE61_09Done_exitsNonZero():
+    assert _run("--dry-run", "--disable-e61-09").returncode != 0
+    phase1_only = _run("--dry-run", "--phase1-only")
+    assert "STEP mirror skipped (--phase1-only)" in phase1_only.stdout
