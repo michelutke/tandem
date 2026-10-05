@@ -44,3 +44,5 @@ jobs:
         # script, and everything it launched, if it runs past 15 minutes, failing this step rather
         # than hanging or soft-failing.
         run: time perl -e 'alarm shift; exec @ARGV' 900 tools/harness/integration/e15-15.sh
+      - name: JVM harness key rotation (E70-10)
+        run: time perl -e 'alarm shift; exec @ARGV' 900 tools/harness/integration/e70-10.sh

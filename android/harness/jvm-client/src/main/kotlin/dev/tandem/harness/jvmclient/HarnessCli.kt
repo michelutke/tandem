@@ -229,6 +229,7 @@ private class HarnessCli(
             "RAWKEYGEN" -> println("OK KEYGEN ${rawRotation.generateHeldKey()}")
             "RAWCHALLENGE" -> rawRotationChallengeCommand()
             "RAWROTATE" -> rawRotate(rest)
+            "RAWSAVEHELDKEY" -> rawSaveHeldKey(rest)
             "RAWMACROTATION" -> rawMacRotation(rest)
             "RAWTICKET" -> rawTicket()
             "MEDIAOPEN" -> mediaOpen(rest)
@@ -865,12 +866,14 @@ private class HarnessCli(
      * 32 bytes where the Mac never sends one, e.g. a pairing-candidate connection). `HELDKEY` uses
      * the key `RAWKEYGEN` generated as `newSpki` instead of a fresh one. Prints `EVENT
      * ROTATION_ACK`, `EVENT ROTATION_REJECT <reason>`, `EVENT ROTATION_CLOSED` or `EVENT
-     * ROTATION_TIMEOUT`.
+     * ROTATION_TIMEOUT`. With `NOWAIT` the reply is not awaited (only `OK SENT_ROTATION` is printed),
+     * so a scenario can drop the session before the Ack is read, as a lost `RotationAck` does.
      */
     private fun rawRotate(argsLine: String) {
         val flags = argsLine.split(" ").filter { it.isNotEmpty() }
         val cbOverride = flags.firstOrNull { it.startsWith("CB=", ignoreCase = true) }?.substringAfter("=")?.decodeHex()
         val useHeldKey = flags.any { it.equals("HELDKEY", ignoreCase = true) }
+        val awaitReply = flags.none { it.equals("NOWAIT", ignoreCase = true) }
         val activeSession = rawSession
         val cb = cbOverride ?: awaitRawRotationChallenge()
         if (activeSession == null || cb == null) {
@@ -885,7 +888,23 @@ private class HarnessCli(
             activeSession.send(Channel.CHANNEL_CONTROL) { keyRotation = rotation }
         }
         println("OK SENT_ROTATION")
-        printRawRotationOutcome(activeSession)
+        if (awaitReply) printRawRotationOutcome(activeSession)
+    }
+
+    /**
+     * `RAWSAVEHELDKEY <path>` (E70-10): writes the key `RAWKEYGEN` generated, with its certificate, as an
+     * identity file a later process can start with (`--identity-file <path>`), so a scenario can dial as
+     * the phone that completed a `RAWROTATE HELDKEY`.
+     */
+    private fun rawSaveHeldKey(argsLine: String) {
+        val path = argsLine.trim()
+        if (path.isEmpty()) {
+            println("ERROR usage: RAWSAVEHELDKEY <path>")
+            return
+        }
+        runCatching { PersistentIdentityKeyStore.write(File(path), rawRotation.heldKeyHandle()) }
+            .onSuccess { println("OK SAVED") }
+            .onFailure { println("ERROR ${it.message}") }
     }
 
     /**

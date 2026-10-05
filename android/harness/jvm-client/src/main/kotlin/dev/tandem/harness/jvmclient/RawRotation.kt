@@ -3,6 +3,7 @@ package dev.tandem.harness.jvmclient
 import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.KeyHandle
 import dev.tandem.core.crypto.RotationProof
+import dev.tandem.core.crypto.SoftwareIdentityKeyStore
 import dev.tandem.core.crypto.spkiFingerprint
 import dev.tandem.protocol.v1.KeyRotation
 import dev.tandem.protocol.v1.keyRotation
@@ -11,6 +12,7 @@ import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
+import java.time.Clock
 
 /**
  * Builds the `KeyRotation` frames behind the `RAWKEYGEN`/`RAWROTATE` commands (E70-09 mitm-lab
@@ -23,20 +25,24 @@ import java.security.spec.ECGenParameterSpec
 internal class RawRotation(
     private val identityKey: KeyHandle,
 ) {
-    private var heldKey: KeyPair? = null
+    private val heldKeyStore = SoftwareIdentityKeyStore(Clock.systemUTC())
+    private var heldKey: KeyHandle? = null
 
     /** Generates and holds a new key; returns its SPKI fingerprint (the `-HarnessSeedTrust` fingerprint) in hex. */
     fun generateHeldKey(): String {
-        val pair = newKeyPair()
-        heldKey = pair
-        return spkiFingerprint(pair.public.encoded).bytes.joinToString(separator = "") { "%02x".format(it) }
+        val handle = heldKeyStore.getOrCreate(HELD_KEY_ALIAS, preferStrongBox = false)
+        heldKey = handle
+        return spkiFingerprint(handle.publicKey.encoded).bytes.joinToString(separator = "") { "%02x".format(it) }
     }
+
+    /** The key [generateHeldKey] generated, with its certificate, so it can become a process's identity. */
+    fun heldKeyHandle(): KeyHandle = requireNotNull(heldKey) { "no held key (RAWKEYGEN first)" }
 
     fun build(
         cb: ByteArray,
         useHeldKey: Boolean,
     ): KeyRotation {
-        val newKey = if (useHeldKey) requireNotNull(heldKey) { "no held key (RAWKEYGEN first)" } else newKeyPair()
+        val newKey = if (useHeldKey) heldKeyHandle().let { KeyPair(it.publicKey, it.privateKey) } else newKeyPair()
         val oldSpki = identityKey.publicKey.encoded
         val newSpki = newKey.public.encoded
         val transcript = RotationProof.transcript(oldSpki, newSpki, cb)
@@ -62,4 +68,8 @@ internal class RawRotation(
             update(message)
             sign()
         }
+
+    private companion object {
+        const val HELD_KEY_ALIAS = "harness-held-key"
+    }
 }

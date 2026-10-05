@@ -53,15 +53,7 @@ class PersistentIdentityKeyStore(
         preferStrongBox: Boolean,
     ): KeyHandle {
         val handle = delegate.getOrCreate(alias, preferStrongBox)
-        file.parentFile?.mkdirs()
-        DataOutputStream(file.outputStream()).use { out ->
-            val privateKeyBytes = handle.privateKey.encoded
-            val certificateBytes = handle.certificate.encoded
-            out.writeInt(privateKeyBytes.size)
-            out.write(privateKeyBytes)
-            out.writeInt(certificateBytes.size)
-            out.write(certificateBytes)
-        }
+        write(file, handle)
         return handle
     }
 
@@ -89,5 +81,21 @@ class PersistentIdentityKeyStore(
 
     companion object {
         const val IDENTITY_ALIAS = "harness-jvm-client"
+
+        /** Writes [handle] to [file] in the format a [PersistentIdentityKeyStore] reads back as its identity. */
+        fun write(
+            file: File,
+            handle: KeyHandle,
+        ) {
+            file.parentFile?.mkdirs()
+            DataOutputStream(file.outputStream()).use { out ->
+                val privateKeyBytes = handle.privateKey.encoded
+                val certificateBytes = handle.certificate.encoded
+                out.writeInt(privateKeyBytes.size)
+                out.write(privateKeyBytes)
+                out.writeInt(certificateBytes.size)
+                out.write(certificateBytes)
+            }
+        }
     }
 }
