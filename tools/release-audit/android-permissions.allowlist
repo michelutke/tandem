@@ -20,3 +20,7 @@ android.permission.READ_MEDIA_VIDEO E41-02
 android.permission.READ_MEDIA_VISUAL_USER_SELECTED E41-02
 android.permission.READ_EXTERNAL_STORAGE E41-02
 android.permission.INTERNET E12-04
+android.permission.READ_CONTACTS E51-02
+android.permission.READ_SMS E50-02
+android.permission.SEND_SMS E50-04
+android.permission.READ_PHONE_STATE E50-05

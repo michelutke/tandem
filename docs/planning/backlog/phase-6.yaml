@@ -839,7 +839,7 @@ epics:
           - "unit: mirrorPrompt_noTapWithin30s_sendsMirrorDeclinedAndRemovesPrompt"
           - "unit: mirrorPrompt_userDeclinesOrDismisses_sendsMirrorDeclined"
           - "unit: mirrorPrompt_consentGranted_sendsRequestMediaTicket"
-          - "instrumented: mirrorPrompt_tapNotificationOnEmulator_consentDialogShown"
+          - "manual: mirrorPrompt_tapNotificationOnEmulator_consentDialogShown"
         notes: "Split from E61-12 in review cycle 3."
 
   - id: E62
@@ -1040,7 +1040,7 @@ epics:
           - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
           - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
           - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
-          - "instrumented: globalActionHome_onEmulator_launcherInForeground"
+          - "manual: globalActionHome_onEmulator_launcherInForeground"
           - "unit: textEditHandler_insertAtSelection_setsTextWithInsertion"
           - "unit: textEditHandler_deleteBackwardTwo_removesTwoCharsBeforeCursor"
           - "unit: textEditHandler_imeEnterOnApi29_returnsNoOp"

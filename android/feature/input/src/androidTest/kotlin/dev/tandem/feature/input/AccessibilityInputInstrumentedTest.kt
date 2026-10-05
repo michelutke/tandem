@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.GlobalActionKind
 import dev.tandem.protocol.v1.globalAction
@@ -18,7 +19,7 @@ import java.io.FileInputStream
 
 // E62-05 tdd:
 //   instrumented: setText_focusedEditTextOnEmulator_contentReplaced
-//   instrumented: globalActionHome_onEmulator_launcherInForeground
+//   manual: globalActionHome_onEmulator_launcherInForeground
 //
 // Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
 // drives the real ServiceAccessibilityActions through InputActionHandler.
@@ -66,6 +67,7 @@ class AccessibilityInputInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun globalActionHome_onEmulator_launcherInForeground() {
         val result = handler().handle(globalAction { action = GlobalActionKind.GLOBAL_ACTION_KIND_HOME })
 

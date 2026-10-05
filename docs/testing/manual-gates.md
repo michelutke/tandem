@@ -1523,3 +1523,48 @@ Reference — E61-05 acceptance criteria:
 |---|---|---|---|
 | | | | |
 
+### mirrorPrompt_tapNotificationOnEmulator_consentDialogShown (E61-16, phase 6)
+
+[android] MirrorRequest on-phone start prompt
+
+Reference — E61-16 acceptance criteria:
+- MirrorRequest posts exactly one prompt and sends nothing (no RequestMediaTicket, no capture started).
+- Repeated MirrorRequests while a prompt is pending leave exactly one prompt posted.
+- Decline, dismiss, or 30 s without a tap sends MirrorDeclined and removes the prompt.
+- Tapping accept launches the MediaProjection consent; RequestMediaTicket is sent only after consent is granted.
+- On the emulator, tapping the prompt notification brings up the system consent dialog.
+
+**Preconditions:** Physical Android phone (API 30+), debug build, notification permission granted, paired Mac; `MirrorPromptInstrumentedTest.mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` is `@RequiresDevice` because emulator system UI is unreliable for notification taps.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or start a mirror from the Mac.
+2. Pull down the shade and tap the Tandem mirror prompt notification.
+**Pass threshold:** The system screen-capture consent dialog appears after the tap and no media ticket is requested before consent.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
+### globalActionHome_onEmulator_launcherInForeground (E62-05, phase 6)
+
+[android] performGlobalAction + ACTION_SET_TEXT
+
+Reference — E62-05 acceptance criteria:
+- BACK/HOME/RECENTS invoke GLOBAL_ACTION_BACK/HOME/RECENTS respectively.
+- SetText on a focused editable node performs ACTION_SET_TEXT with the text in ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE.
+- SetText with no focused editable node returns NoOp without throwing.
+- On the emulator, SetText replaces a focused EditText's content with the given text, and HOME brings the launcher to the foreground.
+- insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter on API 29 returns NoOp.
+
+**Preconditions:** Physical Android phone (API 29+), debug build, Tandem accessibility service enabled; `AccessibilityInputInstrumentedTest.globalActionHome_onEmulator_launcherInForeground` is `@RequiresDevice` because emulator launcher/system UI is unreliable.
+**Steps:**
+1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or send a HOME global action from the Mac while another app is foreground.
+2. Check which package is in the foreground.
+**Pass threshold:** The default launcher is in the foreground within 10 s of the HOME action and the action result is Performed.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
