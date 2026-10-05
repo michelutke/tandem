@@ -68,7 +68,11 @@ class ConformanceFailure(
  * existing dependency graph instead of adding a new Gradle module (KISS).
  */
 object ConformanceRunner {
-    val deferredCategories: Map<String, String> = emptyMap()
+    val deferredCategories: Map<String, String> =
+        mapOf(
+            "phone-normalization" to
+                "E51-06's :feature:contacts PhoneNormalizationVectorsTest (PhoneNormalizer is not a core module)",
+        )
     private val handledCategories: Set<String> =
         setOf(
             "frame-encoding",
@@ -87,8 +91,12 @@ object ConformanceRunner {
             "sms-encoding",
             "calls-encoding",
             "media-encoding",
+            "media-frame-encoding",
+            "input-encoding",
+            "manual-pairing",
             "rotation-encoding",
             "focus-encoding",
+            "media-control-encoding",
             "filenames",
         )
 
@@ -204,8 +212,22 @@ object ConformanceRunner {
             "sms-encoding" -> smsEncodingOutcome(vector)
             "calls-encoding" -> callsEncodingOutcome(vector)
             "media-encoding" -> mediaEncodingOutcome(vector)
+            "media-frame-encoding" -> mediaFrameEncodingOutcome(vector)
+            "input-encoding" -> inputEncodingOutcome(vector)
+            "manual-pairing" -> manualPairingOutcome(vector)
+            else -> runControlPayloadCategory(category, vector)
+        }
+
+    /** CONTROL/STATUS-channel payload categories, split out of [runDomainPayloadCategory] for the same
+     * `CyclomaticComplexMethod` detekt budget reason. */
+    private fun runControlPayloadCategory(
+        category: String,
+        vector: JsonObject,
+    ): VectorOutcome =
+        when (category) {
             "rotation-encoding" -> rotationEncodingOutcome(vector)
             "focus-encoding" -> focusEncodingOutcome(vector)
+            "media-control-encoding" -> mediaControlEncodingOutcome(vector)
             "filenames" -> filenamesOutcome(vector)
             else -> throw UnknownVectorCategoryException(category)
         }

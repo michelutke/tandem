@@ -9,9 +9,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
+import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
+import dev.tandem.app.connection.ConnectionLoop
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.di.ConnectionEntryPoint
 import dev.tandem.core.pairing.revoke.TrustRemover
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -42,6 +45,10 @@ import kotlinx.coroutines.launch
  * same file would never see writes made through the first (e.g. an unpair action elsewhere in
  * `:app`), and this service would never stop.
  *
+ * Runs the [ConnectionLoop] (E20-23): dialing the paired Mac, registering the Ready session and
+ * attaching the feature consumers all live in `ConnectionOrchestrator`; this class only starts and
+ * stops it with the service (default factory resolves the Hilt singleton).
+ *
  * Also consumes the CONTROL channel of whichever session is registered in [sessionRegistry]
  * (E20-21): an incoming `Revoke` deletes that peer's trust record through [trustRemoverFactory]
  * and closes the session (AC-09), via the real `RevokeHandler`.
@@ -57,9 +64,13 @@ class TandemService : Service() {
         val trustStore = (context.applicationContext as TandemApplication).trustStore
         TrustRemover { fingerprint -> trustStore.unpair(fingerprint) }
     }
+    internal var connectionLoopFactory: (Context) -> ConnectionLoop = { context ->
+        EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).connectionOrchestrator()
+    }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
 
     private var job: Job? = null
+    private var connectionLoop: ConnectionLoop? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -69,6 +80,7 @@ class TandemService : Service() {
         val pairedPeerRepository = pairedPeerRepositoryFactory(applicationContext)
         val sessionRegistry = sessionRegistryFactory(applicationContext)
         val trustRemover = trustRemoverFactory(applicationContext)
+        connectionLoop = connectionLoopFactory(applicationContext).also { it.start() }
         val scope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineExceptionHandler { _, e -> logFailure(e) })
         job = scope.coroutineContext[Job]
         scope.launch {
@@ -111,6 +123,7 @@ class TandemService : Service() {
     }
 
     override fun onDestroy() {
+        connectionLoop?.stop()
         job?.cancel()
         super.onDestroy()
     }

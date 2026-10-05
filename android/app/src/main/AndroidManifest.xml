@@ -70,6 +70,15 @@
             android:name=".ring.RingStopActionReceiver"
             android:exported="false" />
 
+        <!-- E62-11: transparent host for the system MediaProjection consent dialog. Not exported:
+             reached only via the explicit-component intent AndroidMirrorPlatform builds. -->
+        <activity
+            android:name=".mirror.MirrorConsentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tandem.Transparent"
+            android:excludeFromRecents="true"
+            android:taskAffinity="" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -62,8 +62,14 @@ enum UITestScenario: String {
     /// Messages thread list (E50-07) over seeded in-memory SMS and contacts stores: three threads
     /// render newest first, with one resolved contact name, one international number and a badge.
     case threadListSeeded
+    /// Message view (E50-08) over a seeded in-memory store: inbound and outbound bubbles and the composer render.
+    case conversationSeeded
     /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
     case incomingCallActive
+
+    /// A paired, connected peer that declined a Mirror request (E61-12): the status line under
+    /// "Mirror Phone" reads "Mirroring declined on phone".
+    case mirrorDeclined
 
     /// One in-flight transfer already at 42% (E40-23): the row shows "42%" and a Cancel button
     /// that flips the row to "Cancelled" through the same cancel closure production wires to E40-20.

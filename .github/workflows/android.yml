@@ -74,9 +74,10 @@ jobs:
 
   fuzz-smoke:
     # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing
-    # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 10 min job wall-clock budget.
+    # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 15 min job wall-clock budget (also covers
+    # the 60 s domain media smoke and regression-corpus replay).
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: android
@@ -98,6 +99,14 @@ jobs:
       - name: Jazzer fuzz smoke (frame/envelope parser)
         working-directory: .
         run: tools/fuzz/jazzer/smoke.sh dev.tandem.core.protocol.fuzz.FrameDecoderFuzzTest 300 "$RUNNER_TEMP/jazzer-artifacts"
+      - name: Jazzer registry check (E71-04, one entry per proto file)
+        working-directory: .
+        run: |
+          tools/fuzz/jazzer/test/check_registry_test.sh
+          tools/fuzz/jazzer/check_registry.sh
+      - name: Jazzer fuzz smoke (domain message decoders)
+        working-directory: .
+        run: TANDEM_FUZZ_MESSAGE=media tools/fuzz/jazzer/smoke.sh dev.tandem.core.protocol.fuzz.DomainDecoderFuzzTest 60 "$RUNNER_TEMP/jazzer-artifacts-domain"
       - name: Jazzer fuzz smoke (QR pairing payload parser)
         working-directory: .
         run: JAZZER_MODULE=core:pairing tools/fuzz/jazzer/smoke.sh dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest 120 "$RUNNER_TEMP/jazzer-artifacts-qr"

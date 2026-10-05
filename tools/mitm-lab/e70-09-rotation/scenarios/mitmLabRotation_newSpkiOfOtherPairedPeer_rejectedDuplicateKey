@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabRotation_newSpkiOfOtherPairedPeer_rejectedDuplicateKey
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(DUPLICATE_KEY)
+# mitm-scenario-timeout: 240
+#
+# E70-09 (5/6): a paired phone sends a `KeyRotation` whose `newSpki` is another paired peer's key.
+# The harness holds that other peer's private key (`RAWKEYGEN`, seeded into the Mac's trust store as
+# a second paired peer), so both signatures genuinely verify against the session's own
+# `RotationChallenge` and the Mac reaches SPEC.md #key-rotation receiver step 7: `RotationReject
+# DUPLICATE_KEY`. Trust store unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e70-09-common.sh
+source "$here/../lib/e70-09-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_setup_mac
+e15_10_start_client "phone-identity.bin"
+
+e15_10_send "RAWKEYGEN"
+keygen="$(e15_10_read 10)" || keygen=""
+OTHER_FP_HEX="${keygen#OK KEYGEN }"
+if ! printf '%s' "$OTHER_FP_HEX" | grep -qE '^[0-9a-f]{64}$'; then
+  e70_09_log "FAIL: RAWKEYGEN did not return a fingerprint: $keygen"
+  echo "OUTCOME: FAILED"
+  exit 0
+fi
+
+e15_10_seed_trust "$CLIENT_SPKI_HEX" "E70-09 rotating phone" "$E15_10_TMP_DIR/seed-phone.json"
+e15_10_seed_trust "$OTHER_FP_HEX" "E70-09 other paired phone" "$E15_10_TMP_DIR/seed-other.json"
+TRUST_BEFORE="$(e70_09_trust_snapshot)"
+
+PORT="$(e15_10_free_port)"
+e15_10_launch_plain "$PORT"
+MAC_FP_B64="$(e15_10_hex_to_b64url "$(harness_identity_spki)")"
+
+FAILED=0
+response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+case "$response" in
+  "OK OPENED "*) ;;
+  *)
+    e70_09_log "FAIL: authenticated session did not open: $response"
+    FAILED=1
+    ;;
+esac
+
+if [ "$FAILED" -eq 0 ]; then
+  e70_09_rawrotate "HELDKEY"
+  case "$E70_09_ROTATE_EVENT" in
+    "EVENT ROTATION_REJECT DUPLICATE_KEY") e70_09_log "OK: other peer's key rejected DUPLICATE_KEY" ;;
+    *)
+      e70_09_log "FAIL: expected RotationReject DUPLICATE_KEY, got: $E70_09_ROTATE_EVENT"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e15_10_stop_client
+e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(DUPLICATE_KEY)"
+else
+  echo "OUTCOME: FAILED"
+fi

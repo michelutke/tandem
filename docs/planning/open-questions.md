@@ -5,7 +5,7 @@ assumes; work proceeds on the default unless the owner overrides it. Answered qu
 [`decisions.md`](decisions.md).
 
 Q1–Q16 were answered on 2026-09-24 (owner accepted every recommended default) and are logged as
-D-41 … D-56 in [`decisions.md`](decisions.md).
+D-41 … D-56 in [`decisions.md`](decisions.md). Q19 was answered on 2026-10-04 and is logged as D-77.
 
 | # | Question | Recommended default | Affects |
 |---|---|---|---|

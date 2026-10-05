@@ -8,6 +8,9 @@
             android:name=".MirrorCaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+        <receiver
+            android:name=".MirrorPromptActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

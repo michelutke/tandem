@@ -22,6 +22,12 @@ for package_dir in "$macos_dir"/Packages/*/; do
     continue
   fi
   echo "== swift test: $package_name =="
+  # A package whose tests are missing from the aggregate manifest would otherwise "pass" with 0 tests.
+  if [ -d "$package_dir/Tests/${package_name}Tests" ] && ! grep -q "name: \"${package_name}Tests\"" "$aggregate_dir/Package.swift"; then
+    echo "missing from aggregate macos/Package.swift: ${package_name}Tests" >&2
+    failures+=("$package_name (not in aggregate manifest)")
+    continue
+  fi
   (cd "$aggregate_dir" && exec swift test --skip-build --only-use-versions-from-resolved-file --filter "${package_name}Tests") &
   test_pid=$!
 

@@ -95,4 +95,29 @@ final class SettingsWindowUITests: XCTestCase {
         let revokeButton = app.buttons["Revoke"]
         XCTAssertTrue(revokeButton.waitForExistence(timeout: 10), "Revoke button never appeared for the seeded row")
     }
+
+    // MARK: - macRotationSettings_seededSuccessScenario_rendersNewFingerprint
+
+    func test_macRotationSettings_seededSuccessScenario_rendersNewFingerprint() throws {
+        let app = XCUIApplication()
+        let window = launchToScenarioWindow(app)
+        window.buttons["settingsMenuItem"].click()
+
+        let toggle = app.checkBoxes["launchAtLoginToggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), "Settings window never opened")
+        app.buttons["keyTab"].click()
+
+        let rotateButton = app.buttons["Rotate key"]
+        XCTAssertTrue(rotateButton.waitForExistence(timeout: 10), "Rotate key button never appeared")
+        rotateButton.click()
+        let confirmButton = app.buttons["Rotate"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 10), "confirmation never appeared")
+        confirmButton.click()
+
+        let newFingerprint = app.staticTexts["rotationNewFingerprint"]
+        XCTAssertTrue(newFingerprint.waitForExistence(timeout: 10), "new fingerprint never rendered")
+        let text = newFingerprint.value as? String ?? ""
+        let rendered = text.isEmpty ? newFingerprint.label : text
+        XCTAssertTrue(rendered.contains("DD:EE:FF:02"), "new fingerprint text was \(rendered)")
+    }
 }

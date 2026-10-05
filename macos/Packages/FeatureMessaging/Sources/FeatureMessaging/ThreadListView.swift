@@ -6,14 +6,40 @@ import TandemDesign
 /// with the unread count, then hairline-separated rows (avatar, name, snippet, unread badge).
 public struct ThreadListView: View {
     private let viewModel: ThreadListViewModel
+    private let makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)?
+    private let headerAccessory: (@MainActor (String) -> AnyView)?
+
+    @State private var openConversation: ConversationViewModel?
 
     @Environment(\.colorSchemeContrast) private var contrast
 
-    public init(viewModel: ThreadListViewModel) {
+    public init(
+        viewModel: ThreadListViewModel,
+        makeConversation: (@MainActor (ThreadRow) -> ConversationViewModel)? = nil,
+        headerAccessory: (@MainActor (String) -> AnyView)? = nil
+    ) {
         self.viewModel = viewModel
+        self.makeConversation = makeConversation
+        self.headerAccessory = headerAccessory
     }
 
     public var body: some View {
+        if let conversation = openConversation {
+            VStack(alignment: .leading, spacing: 0) {
+                Button("Messages") { openConversation = nil }
+                    .buttonStyle(.plain)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(TandemColor.ink2)
+                    .padding([.top, .leading], TandemSpacing.windowPadding)
+                    .accessibilityIdentifier("conversationBack")
+                ConversationView(viewModel: conversation, headerAccessory: headerAccessory)
+            }
+        } else {
+            list
+        }
+    }
+
+    private var list: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
             TitleBlock(subject: "Messages.", state: stateText, size: 26)
             content
@@ -86,6 +112,8 @@ public struct ThreadListView: View {
                 .frame(height: 1)
         }
         .accessibilityElement(children: .contain)
+        .contentShape(Rectangle())
+        .onTapGesture { openConversation = makeConversation?(row) }
         .accessibilityIdentifier("threadRow-\(row.id)")
     }
 

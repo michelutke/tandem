@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application>
         <activity
             android:name="dev.tandem.feature.mirror.ConsentHostActivity"
+            android:exported="false" />
+        <activity
+            android:name="dev.tandem.feature.mirror.MirrorStartTrampolineActivity"
             android:exported="false" />
     </application>
 

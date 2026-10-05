@@ -12,10 +12,10 @@ import TandemTransport
 /// against the harness keychain); this is what every other launch actually runs, on an
 /// OS-assigned port, against whichever `KeychainStoreFactory` selects.
 ///
-/// No pairing window is wired into the app yet (E14 pairing UI lands separately): exactly like
-/// the harness's own `NeverOpenPairingWindow`, ``NoPairingWindow`` never admits a candidate, so
-/// this fails closed (invariant 5) -- only a peer whose SPKI fingerprint is already in
-/// ``TrustStore`` is ever admitted until pairing UI replaces this stub.
+/// Pairing goes through ``MacPairingComposition``: its ``TandemPairing/PairingWindowHost`` admits
+/// a first-time candidate only while the owner has a window open (E22-14), and fails closed
+/// (invariant 5) otherwise -- only a peer whose SPKI fingerprint is already in ``TrustStore`` is
+/// admitted.
 enum AppComposition {
     /// Everything ``startListener()`` wires up, kept alive for the process lifetime by whoever
     /// calls it.
@@ -48,6 +48,14 @@ enum AppComposition {
         /// The same peer's display name (``TandemStore/PeerRecord/displayName``), or `nil` alongside
         /// ``makeMenuBarStateStream`` when none is paired.
         let pairedPeerName: String?
+        /// Feature services attached to every registered session (E22-12).
+        let sessionFeatures: SessionFeatures
+        /// The user-opened pairing window the listener is wired against (E22-14).
+        let pairing: MacPairingComposition
+        /// Mirror media acceptor, ticket service, window and request model wiring (E62-12).
+        let mirror: MirrorComposition
+        /// Mac-initiated key rotation shared by the Key settings tab and the scheduler (E70-16).
+        let rotation: MacKeyRotation
     }
 
     /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
@@ -63,40 +71,39 @@ enum AppComposition {
     static func startListener() -> Result<RetainedLifecycle, StartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = IdentityBootstrapper(keychainStore: keychainStore)
+
+        let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
         identityBootstrapper.bootstrapIdentity()
 
         guard case .ready = identityBootstrapper.identityState else {
             return .failure(.identityNotReady)
         }
 
-        let trustStore = TrustStore(keychainStore: keychainStore)
-        let sessionRegistry = ControlSessionRegistry()
-        let purgeRegistry = PeerDataPurgeRegistry()
-        let decisionCorrelator = PeerDecisionCorrelator()
-        let pinMismatchBannerGate = PinMismatchBannerGate()
-        let verify = verifyBlock(
-            trustStore: trustStore,
-            decisionCorrelator: decisionCorrelator,
-            pinMismatchBannerGate: pinMismatchBannerGate
+        let mirror = MirrorComposition()
+        let sessionFeatures = SessionFeatures.make(
+            purgeRegistry: core.purgeRegistry,
+            mirrorService: mirror.service,
+            rotationService: core.rotation
         )
-        let menuBarWiring = makeMenuBarWiring(trustStore: trustStore, sessionRegistry: sessionRegistry)
-        let controller = ListenerController(
-            identityStateProvider: identityBootstrapper,
-            listenerFactory: NWListenerFactory(
-                sessionRegistry: sessionRegistry,
-                decisionCorrelator: decisionCorrelator,
-                trustStore: trustStore,
+        let menuBarWiring = makeMenuBarWiring(trustStore: core.trustStore, sessionRegistry: core.sessionRegistry)
+        let controller = makeController(
+            identityBootstrapper: identityBootstrapper,
+            sessionRegistry: core.sessionRegistry,
+            trustStore: core.trustStore,
+            pairing: core.pairing,
+            chaining: ListenerChaining(
+                features: sessionFeatures,
                 onSessionRegistered: menuBarWiring.onSessionRegistered,
-                rotation: RotationReceiverConfiguration(window: NoPairingWindow(), dateProvider: { Date() })
-            ),
-            port: .any,
-            verify: verify
+                mediaConnectionHandler: mirror.acceptor
+            )
         )
         guard let started = try? controller.start() else {
             return .failure(.listenerBindFailed)
         }
 
-        let controllers = makeLifecycleControllers(controller: controller, started: started)
+        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: core.pairing)
+        core.listenerControl.set(controllers.listenerControl)
+        core.rotation.startScheduler()
         return .success(
             RetainedLifecycle(
                 listener: started.listener,
@@ -105,12 +112,89 @@ enum AppComposition {
                 pathSource: controllers.pathSource,
                 sleepWakeController: controllers.sleepWakeController,
                 pathChangeController: controllers.pathChangeController,
-                sessionRegistry: sessionRegistry,
-                trustStore: trustStore,
-                purgeRegistry: purgeRegistry,
+                sessionRegistry: core.sessionRegistry,
+                trustStore: core.trustStore,
+                purgeRegistry: core.purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
-                pairedPeerName: menuBarWiring.peerName
+                pairedPeerName: menuBarWiring.peerName,
+                sessionFeatures: sessionFeatures,
+                pairing: core.pairing,
+                mirror: mirror,
+                rotation: core.rotation
             )
+        )
+    }
+
+    private struct Core {
+        let trustStore: TrustStore
+        let sessionRegistry: ControlSessionRegistry
+        let purgeRegistry: PeerDataPurgeRegistry
+        let pairing: MacPairingComposition
+        let rotation: MacKeyRotation
+        let listenerControl: ListenerControlBox
+    }
+
+    private static func makeCore(keychainStore: any KeychainStore, identityBootstrapper: IdentityBootstrapper) -> Core {
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        let sessionRegistry = ControlSessionRegistry()
+        let pairing = MacPairingComposition(
+            identityBootstrapper: identityBootstrapper,
+            trustStore: trustStore,
+            sessionRegistry: sessionRegistry
+        )
+        let listenerControl = ListenerControlBox()
+        let rotation = MacRotationComposition.make(
+            keychainStore: keychainStore,
+            trustStore: trustStore,
+            window: pairing.host,
+            identityBootstrapper: identityBootstrapper,
+            listenerControl: listenerControl
+        )
+        rotation.resume()
+        return Core(
+            trustStore: trustStore,
+            sessionRegistry: sessionRegistry,
+            purgeRegistry: PeerDataPurgeRegistry(),
+            pairing: pairing,
+            rotation: rotation,
+            listenerControl: listenerControl
+        )
+    }
+
+    private struct ListenerChaining {
+        let features: SessionFeatures
+        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?
+        let mediaConnectionHandler: any MediaConnectionHandling
+    }
+
+    private static func makeController(
+        identityBootstrapper: IdentityBootstrapper,
+        sessionRegistry: ControlSessionRegistry,
+        trustStore: TrustStore,
+        pairing: MacPairingComposition,
+        chaining: ListenerChaining
+    ) -> ListenerController {
+        let decisionCorrelator = PeerDecisionCorrelator()
+        let verify = verifyBlock(
+            trustStore: trustStore,
+            window: pairing.host,
+            decisionCorrelator: decisionCorrelator,
+            pinMismatchBannerGate: PinMismatchBannerGate()
+        )
+        return ListenerController(
+            identityStateProvider: identityBootstrapper,
+            listenerFactory: NWListenerFactory(
+                sessionRegistry: sessionRegistry,
+                decisionCorrelator: decisionCorrelator,
+                pairingCandidateDriver: pairing.host,
+                trustStore: trustStore,
+                onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
+                onSessionEnded: chaining.features.onSessionEnded,
+                mediaConnectionHandler: chaining.mediaConnectionHandler,
+                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() })
+            ),
+            port: .any,
+            verify: verify
         )
     }
 
@@ -162,9 +246,15 @@ enum AppComposition {
 
     private static func makeLifecycleControllers(
         controller: ListenerController,
-        started: ListenerController.StartedListener
+        started: ListenerController.StartedListener,
+        pairing: MacPairingComposition
     ) -> LifecycleControllers {
-        let listenerControl = ProductionListenerControl(listenerController: controller, initiallyStarted: started)
+        pairing.listenerStarted(started.listener)
+        let listenerControl = ProductionListenerControl(
+            listenerController: controller,
+            initiallyStarted: started,
+            onStarted: { pairing.listenerStarted($0.listener) }
+        )
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
         let pathSource = NWPathMonitorSource()
@@ -194,12 +284,13 @@ enum AppComposition {
     /// counter -- never a per-connection banner.
     private static func verifyBlock(
         trustStore: TrustStore,
+        window: any PairingWindowState,
         decisionCorrelator: PeerDecisionCorrelator,
         pinMismatchBannerGate: PinMismatchBannerGate
     ) -> TandemVerifyBlock {
         PeerVerifier.makeVerifyBlock(
             trustStore: TandemTrustStoreReader(trustStore: trustStore, dateProvider: { Date() }),
-            window: NoPairingWindow(),
+            window: window,
             onDecision: { metadata, decision, fingerprint, spkiDer, candidateToken in
                 decisionCorrelator.record(
                     metadataIdentifier: ObjectIdentifier(metadata),
@@ -214,13 +305,4 @@ enum AppComposition {
             }
         )
     }
-}
-
-/// No pairing window is wired into the app yet (E14 pairing UI lands separately); mirrors the
-/// harness's own `NeverOpenPairingWindow` so a first-time candidate is refused rather than
-/// silently admitted (invariant 5, fail closed).
-private struct NoPairingWindow: PairingWindowState {
-    var isOpen: Bool { false }
-    func admitCandidate() -> PairingCandidateToken? { nil }
-    func releaseCandidate(_ token: PairingCandidateToken) {}
 }

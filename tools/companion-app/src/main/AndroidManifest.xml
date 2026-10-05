@@ -29,6 +29,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- E62-08: foreground touch counter for the input-authorization mitm-lab scenarios. -->
+        <activity
+            android:name=".InputCounterActivity"
+            android:exported="true" />
+
         <!-- Debug-only read-back for recorded actions/replies (E00-22 acceptance). -->
         <provider
             android:name=".RecordsProvider"

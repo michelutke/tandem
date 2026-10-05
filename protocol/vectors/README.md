@@ -258,12 +258,16 @@ bodies for one call (`input.messageHexes`). The manifest includes an incoming `R
 ### `media-encoding.json` (E60-01)
 
 Vectors for `docs/protocol/SPEC.md` `#media-ticket`'s message types (`protocol/proto/tandem/v1/media.proto`,
-`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`. Entries are the raw serialized
+`control.proto`): `RequestMediaTicket`, `MediaTicketGrant`, `MediaHello`, and (E61-15, `#mirror-request`) the empty
+`MirrorRequest`/`MirrorDeclined`. Entries are the raw serialized
 message bytes (`input.messageHex`); `input.kind` selects the type
-(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`). Positive entries carry a `messageSha256` (both
+(`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`). Positive entries carry a `messageSha256` (both
 codecs also re-encode to the same bytes). Negative `mediaHello` entries (no `ticket`, 31 bytes, 33 bytes)
 carry `expectedError: "ticketRejected"` with `closeCode`/`localReason` (`TICKET_REJECTED`/`MISSING`):
-both parsers reject any `ticket` that is not exactly 32 bytes.
+both parsers reject any `ticket` that is not exactly 32 bytes. Positive `mediaHello` entries also carry a
+16-byte `mirrorSessionId` (`expected.mirrorSessionIdHex`, Q19/D-77); negative entries with a valid ticket and a
+`mirrorSessionId` that is absent, 15 or 17 bytes carry `expectedError: "malformedFrame"` (`closeCode`
+`MALFORMED_FRAME`).
 
 ### `rotation-encoding.json` (E70-01)
 
@@ -286,6 +290,59 @@ Vectors for `docs/protocol/SPEC.md` `#focus-sync`'s message types (`protocol/pro
 `expected.flag` (`on` for `focusState`, `available` for `focusSyncCapability`) and a `messageSha256`;
 both codecs also re-encode to the same bytes.
 
+### `media-control-encoding.json` (E72-02)
+
+Vectors for `docs/protocol/SPEC.md` `#media-control`'s message types
+(`protocol/proto/tandem/v1/media_control.proto`): `NowPlaying`, `PlayPause`, `Next`, `Previous`,
+`Stop`, `CapabilityUnavailable`. Entries are the raw serialized message bytes (`input.messageHex`);
+`input.kind` selects the type (`nowPlaying`/`playPause`/`next`/`previous`/`stop`/`capabilityUnavailable`).
+Every entry carries `expected.summary` (the canonical decoded view: `title=..|artist=..|state=<n>|album=..|durationMs=..`
+with `<absent>` for unset optionals, `empty` for commands, `feature=<n>`) and a `messageSha256`; both
+codecs also re-encode to the same bytes.
+
+### `media-frame-encoding.json` (E61-01)
+
+Vectors for `docs/protocol/SPEC.md` `#media-frame-semantics` (`protocol/proto/tandem/v1/media.proto`).
+`input.kind` selects the shape:
+
+- `mediaFormat`/`mediaFrame`/`keyframeRequest`/`rotationChanged`: `input.messageHex` is a serialized
+  `MediaMessage`; `expected.summary` is the canonical decoded view (`codec=..|width=..|height=..|fps=..`,
+  `pts=..|flags=..|dataLength=..|index=..|count=..`, `empty`, `orientation=..`) and `messageSha256`
+  digests the bytes; both codecs also re-encode to the same bytes.
+- `mediaFrameSequence`: `input.messagesHex` is an ordered list of serialized `MediaMessage` fragments.
+  Valid entries give `expected.pts`, `reassembledLength` and `reassembledSha256`; invalid entries use
+  `expectedError: "malformedFrame"`, `localReason: "FRAGMENT_VIOLATION"` and `input.rejectedAtIndex`
+  (the first fragment that violates the rule).
+- `mediaFrameLengthPrefix`: `input.frameHex` is a bare 4-byte `length_prefix` (1 MiB + 1) that the
+  framing layer rejects `MALFORMED_FRAME`/`TOO_LARGE`.
+
+### `input-encoding.json` (E62-01)
+
+Vectors for `docs/protocol/SPEC.md` `#input-events` (`protocol/proto/tandem/v1/input.proto`).
+`input.kind` is always `inputEvent`: `input.messageHex` is a serialized `InputEvent`,
+`input.activeSessionIdHex` the active mirror session's id and `input.windowWidth`/`windowHeight` the
+reported window size. Positive entries give `expected.summary` (`variant=tap|x=..|y=..`,
+`variant=swipe|..|durationMs=..`, `variant=scroll|..`, `variant=globalAction|action=..`,
+`variant=setText|text=..`, `variant=textEdit|insert=..`/`deleteBackward=..`/`imeEnter`) and
+`messageSha256`; both codecs also re-encode to the same bytes. Negative entries give `expectedError`,
+the first violated rule: `missingSessionReference`, `sessionMismatch`, `coordinatesOutOfRange`,
+`durationOutOfRange`, `unknownGlobalAction`, `textTooLong` or `deleteCountOutOfRange`.
+
+### `manual-pairing.json` (E73-02)
+
+Vectors for `docs/protocol/SPEC.md` `#manual-pairing` (`protocol/proto/tandem/v1/manual_pairing.proto`).
+`input.kind` selects the shape: `message` (`messageType` `commitment|reveal|manualPairResult`,
+`messageHex`; positives give `expected.summary` `type=commitment|hash=..` / `type=reveal|nonce=..` /
+`type=manualPairResult|accepted=true` and `messageSha256`, both codecs re-encode to the same bytes;
+negatives `malformedCommitment`, `malformedReveal`, `resultNotAccepted`); `sas` (`noncePhoneHex`,
+`nonceMacHex`, `macSpkiDerHex`, `phoneSpkiDerHex`, `cbHex`; `expected` gives `commitPhoneHex`,
+`commitMacHex`, `hmacHex`, `sas`); `commitment` (verifier side: `committerRole`, `commitmentHex`,
+`revealNonceHex` plus the verifier's own SPKIs and `cbHex`; negatives `commitmentMismatch`,
+`closeCode` `PAIRING_FAILED`); `sasCompare` (`phoneView` and `macView` each shaped like `sas`; expects
+`{match, sas}` or `sasMismatch`); `sequence` (`messages` list of `{from, type}`; the valid order is
+phone commitment, Mac commitment, phone reveal, Mac reveal, Mac manualPairResult, expecting
+`{complete: true}`, any deviation `outOfOrder` with `closeCode` `PAIRING_FAILED`).
+
 ## Authoritativeness
 
 Per E01-16, a vector category is not authoritative until its PR is reviewed and approved: both
@@ -298,3 +355,14 @@ Vectors for SPEC.md `#filename-sanitization`. `input.rawUtf8Hex` is the UTF-8 of
 `FileOffer.name` (hex, so NUL, bidi controls and NFD text survive editors) and
 `input.transferId` is `FileOffer.id`. Valid entries give `expected.filename`; a name containing
 U+0000 uses `expectedError: "invalidName"` (the receiver answers `FileReject{INVALID_NAME}`).
+
+### `phone-normalization.json` (E51-06)
+
+Raw-to-E.164 cases for the contacts/SMS/call matching key. `input.raw` is the phone string as read
+from the device, `input.region` the ISO 3166-1 alpha-2 default region used for national formats.
+`expected.e164` is the E.164 string for a valid number (libphonenumber `isValidNumber` semantics;
+extensions are dropped) or `null` for invalid numbers, short codes and alphanumeric sender ids.
+The category is run against the production normalizers by `:feature:contacts`
+`PhoneNormalizationVectorsTest` (libphonenumber) and TandemStore's
+`PhoneNormalizationVectorsTests` (PhoneNumberKit); both core conformance runners report it as
+deferred to those suites because the normalizers live outside the core modules.

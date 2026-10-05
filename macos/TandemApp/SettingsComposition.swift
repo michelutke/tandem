@@ -19,7 +19,35 @@ extension TandemMenuBarApp {
         return AppComposition.makePairedDevicesViewModel(lifecycle: lifecycle)
     }
 
+    /// The Key tab's view model over the production rotation (E70-16), built once per process;
+    /// under a DEBUG `-UITestScenario` launch, a seeded fake rotator (``SettingsScenarioSupport``).
+    @MainActor
+    static var settingsRotationViewModel: MacRotationSettingsViewModel? {
+        #if DEBUG
+        if UITestScenario.fromLaunchArguments() != nil {
+            return scenarioRotationViewModel
+        }
+        #endif
+        if let existing = _settingsRotationViewModel { return existing }
+        guard let lifecycle = retainedProductionLifecycle else { return nil }
+        let created = MacRotationComposition.makeViewModel(rotation: lifecycle.rotation)
+        _settingsRotationViewModel = created
+        return created
+    }
+
+    nonisolated(unsafe) private static var _settingsRotationViewModel: MacRotationSettingsViewModel?
+
     #if DEBUG
+    @MainActor
+    private static var scenarioRotationViewModel: MacRotationSettingsViewModel {
+        if let existing = _scenarioRotationViewModel { return existing }
+        let created = SettingsScenarioSupport.makeRotationViewModel()
+        _scenarioRotationViewModel = created
+        return created
+    }
+
+    nonisolated(unsafe) private static var _scenarioRotationViewModel: MacRotationSettingsViewModel?
+
     /// Built once per process on first Settings-window open under `-UITestScenario` -- a fresh
     /// `PairedDevicesViewModel` per open would still show the same seeded row (its own
     /// `TrustStore` is a real on-disk file), but caching here matches how

@@ -5,6 +5,7 @@ import TandemDevices
 enum SettingsTab: Hashable {
     case general
     case pairedDevices
+    case key
 }
 
 /// The Settings window's shell (E22-05, `docs/design/ui-spec.md` "Settings"): a General tab
@@ -22,11 +23,15 @@ struct SettingsView: View {
     /// like "no paired devices".
     let pairedDevicesViewModel: PairedDevicesViewModel?
 
+    /// `nil` when no rotation composition exists (E70-11) -- the Key tab shows a placeholder.
+    let rotationViewModel: MacRotationSettingsViewModel?
+
     @State private var selectedTab: SettingsTab = .general
     @State private var launchAtLoginViewModel: LaunchAtLoginViewModel
 
-    init(pairedDevicesViewModel: PairedDevicesViewModel?) {
+    init(pairedDevicesViewModel: PairedDevicesViewModel?, rotationViewModel: MacRotationSettingsViewModel? = nil) {
         self.pairedDevicesViewModel = pairedDevicesViewModel
+        self.rotationViewModel = rotationViewModel
         #if DEBUG
         if UITestScenario.fromLaunchArguments() != nil {
             _launchAtLoginViewModel = State(initialValue: LaunchAtLoginViewModel(
@@ -55,6 +60,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 tabButton("General", tab: .general, identifier: "generalTab")
                 tabButton("Paired Devices", tab: .pairedDevices, identifier: "pairedDevicesTab")
+                tabButton("Key", tab: .key, identifier: "keyTab")
                 Spacer()
             }
             .padding([.horizontal, .top])
@@ -64,6 +70,8 @@ struct SettingsView: View {
                 GeneralSettingsView(viewModel: launchAtLoginViewModel)
             case .pairedDevices:
                 PairedDevicesSettingsView(viewModel: pairedDevicesViewModel)
+            case .key:
+                KeySettingsView(viewModel: rotationViewModel)
             }
         }
         .frame(width: 420, height: 320)
@@ -81,6 +89,8 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     let viewModel: LaunchAtLoginViewModel
 
+    @AppStorage(NotificationsSessionService.hidesContentWhenLockedKey) private var hidesContentWhenLocked = true
+
     var body: some View {
         Form {
             Toggle("Launch at login", isOn: Binding(
@@ -94,9 +104,8 @@ private struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("Notification preferences coming soon.")
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("notificationPrefsPlaceholder")
+            Toggle("Hide notification content while locked", isOn: $hidesContentWhenLocked)
+                .accessibilityIdentifier("hideNotificationContentWhenLockedToggle")
         }
         .padding()
     }
@@ -112,6 +121,21 @@ private struct PairedDevicesSettingsView: View {
         } else {
             Text("No paired devices")
                 .accessibilityIdentifier("pairedDevicesUnavailableLabel")
+                .padding()
+        }
+    }
+}
+
+private struct KeySettingsView: View {
+    let viewModel: MacRotationSettingsViewModel?
+
+    var body: some View {
+        if let viewModel {
+            MacRotationSettingsView(viewModel: viewModel)
+                .padding()
+        } else {
+            Text("Key rotation unavailable")
+                .accessibilityIdentifier("keyRotationUnavailableLabel")
                 .padding()
         }
     }

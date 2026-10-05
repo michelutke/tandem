@@ -14,6 +14,9 @@ enum class PairingErrorMessage {
 
     /** Can't reach your Mac */
     NETWORK,
+
+    /** Peer identity is not the scanned one; re-pair, never retry */
+    PIN_MISMATCH,
 }
 
 /**
@@ -29,6 +32,7 @@ object PairingErrorMapper {
             is PairingFailure.ConfirmationTimeout -> PairingErrorMessage.QR_EXPIRED
             is PairingFailure.ChallengeTimeout -> PairingErrorMessage.NETWORK
             is PairingFailure.MalformedChallenge -> PairingErrorMessage.QR_EXPIRED
+            is PairingFailure.PinMismatch -> PairingErrorMessage.PIN_MISMATCH
         }
 
     fun mapRejectionReason(reason: PairRejectedReason): PairingErrorMessage =

@@ -167,6 +167,10 @@ epics:
           - "unit: mediaRegistry_newTicketRequestedWhileActive_closesPriorBeforeIssuing"
           - "unit: mediaRegistry_perControlSession_atMostOneOpenMediaConnection"
         notes: |
+          E60-03 verifier (2026-10-03): when wiring mediaConnectionHandler, a trusted peer whose media
+          connection times out or sends a bad first frame is dropped via plain decisionCorrelator.drop
+          (ListenerFactory+Media.swift) — route it through dropReportingFailure / the state machine so
+          the failure is observable (E15-16 menu reporting). CloseCode.ticketRejected is currently unused.
           Split from [cross] in review cycle 3: this issue keeps the macOS half; the Android half
           is E60-09.
       - id: E60-05
@@ -178,7 +182,7 @@ epics:
         prd: [F-3.3]
         use_cases: [AC-08]
         invariants: [1, 5, 6]
-        depends_on: [E60-03, E60-04, E15-08]
+        depends_on: [E60-03, E60-04, E15-08, E62-12]
         description: |
           Extend tools/mitm-lab with media-connection scenarios per the test-strategy "session
           binding" row. Every scenario completes a valid mTLS handshake first, so a rejection
@@ -211,7 +215,7 @@ epics:
         prd: [F-3.3]
         use_cases: [AC-02]
         invariants: [1, 2]
-        depends_on: [E60-04, E60-09, E15-04, E15-05]
+        depends_on: [E60-04, E60-09, E15-04, E15-05, E62-11, E62-12]
         description: |
           Confirm the media connection independently satisfies the "no plaintext on the wire"
           requirement (test-strategy), noting the media connection terminates on the same single Tandem port (no second listener, PRD goals), so the E15-04/E15-05 capture must classify both connections on that port.
@@ -237,7 +241,7 @@ epics:
         prd: [F-3.3]
         use_cases: [UC-22]
         invariants: [1]
-        depends_on: [E60-04, E60-09, E11-07, E11-08, E15-15, E00-23]
+        depends_on: [E60-04, E60-09, E11-07, E11-08, E15-15, E00-23, E62-11, E62-12]
         description: |
           Verify the entire reason for ADR-005's two-connection design: with the control
           connection saturated by a large file transfer on the FILES channel (E11-07/E11-08's flow
@@ -460,6 +464,7 @@ epics:
           - "instrumented: encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s"
           - "instrumented: encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames"
           - "instrumented: encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent"
+          - "manual: encodePipeline_cbr4MbpsOnHardwareCodec_bitrateWithin20Percent"
           - "unit: encodePipeline_accessUnit2500KiB_sentAsThreeFragmentsSamePts"
           - "unit: encodePipeline_accessUnitNeedingNineFragments_notSentBitrateLoweredIdrRequested"
         notes: |
@@ -523,6 +528,7 @@ epics:
           - "unit: encodePipeline_rotationEvent_emitsRotationChangedBeforeNextFrame"
           - "unit: encodePipeline_rotationEvent_recreatesEncoderAndDisplayAtPlannedSize"
           - "instrumented: encodePipeline_emulatorRotation_newDimensionsWithin500ms"
+          - "manual: encodePipeline_deviceRotation_newDimensionsWithin500ms"
         notes: ""
       - id: E61-06
         title: "[macos] VTDecompressionSession decode pipeline"
@@ -589,7 +595,7 @@ epics:
         prd: [F-9.1, F-9.2]
         use_cases: [UC-22]
         invariants: []
-        depends_on: [E61-03, E61-06, E61-07, E00-23]
+        depends_on: [E61-03, E61-06, E61-07, E00-23, E62-11, E62-12]
         description: |
           Measurement harness for the PRD success metric: 1080p ≥30 fps, end-to-end latency
           under 120 ms. Method: a timestamp overlay burned into each captured frame (frame index
@@ -833,7 +839,7 @@ epics:
           - "unit: mirrorPrompt_noTapWithin30s_sendsMirrorDeclinedAndRemovesPrompt"
           - "unit: mirrorPrompt_userDeclinesOrDismisses_sendsMirrorDeclined"
           - "unit: mirrorPrompt_consentGranted_sendsRequestMediaTicket"
-          - "instrumented: mirrorPrompt_tapNotificationOnEmulator_consentDialogShown"
+          - "manual: mirrorPrompt_tapNotificationOnEmulator_consentDialogShown"
         notes: "Split from E61-12 in review cycle 3."
 
   - id: E62
@@ -1034,7 +1040,7 @@ epics:
           - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
           - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
           - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
-          - "instrumented: globalActionHome_onEmulator_launcherInForeground"
+          - "manual: globalActionHome_onEmulator_launcherInForeground"
           - "unit: textEditHandler_insertAtSelection_setsTextWithInsertion"
           - "unit: textEditHandler_deleteBackwardTwo_removesTwoCharsBeforeCursor"
           - "unit: textEditHandler_imeEnterOnApi29_returnsNoOp"
@@ -1129,7 +1135,7 @@ epics:
         prd: [F-9.3]
         use_cases: [AC-06, AC-19]
         invariants: [8]
-        depends_on: [E62-06, E15-08, E15-15, E15-17]
+        depends_on: [E62-06, E15-08, E15-15, E15-17, E62-11]
         description: |
           mitm-lab / integration scenarios sending INPUT frames with no active mirror session,
           and from a connection lacking a valid session binding, per the test-strategy "input
@@ -1218,3 +1224,53 @@ epics:
         notes: |
           Gated placeholder per PRD F-9.4; do not begin implementation before E61-10 records an
           explicit "authorized" decision.
+      - id: E62-11
+        title: "[android] Compose mirror, media and remote input into the app"
+        type: task
+        platforms: [android]
+        priority: P0
+        size: M
+        prd: [F-9.1, F-9.3]
+        use_cases: [UC-22, UC-23]
+        invariants: [1, 3, 5, 7, 8]
+        depends_on: [E20-24, E60-09, E61-05, E61-11, E61-16, E62-06]
+        description: |
+          The mirror/input stack is built behind seams but nothing in :app constructs it. Wire per Ready
+          session: MediaDialer + MediaConnectionLifecycle (PinSource = the control session's pinned peer),
+          MirrorPromptController (stop() bound to session end) whose onUserStart is the only caller of
+          MirrorConsent.grantFromUserAction, EncodePipeline + MirrorSessionLifecycle with a real
+          MirrorIndicator, a reader that routes KeyframeRequest/RotationChanged on the media stream,
+          and InputGate + RemoteInputIndicator inside TandemAccessibilityService (add
+          implementation(project(":feature:input")) to :app and the exported-allowlist line for the
+          service). PinMismatch on the media dial surfaces the visible fail-closed error.
+        acceptance:
+          - A MirrorRequest shows the prompt; Start + projection consent opens the media connection, starts encoding and shows the indicator
+          - Remote input executes only while the gate is open; session end closes media, encoder, indicator and gate
+        tdd:
+          - "unit: appMirrorComposition_sessionReady_promptControllerAndGateAttachedOnce"
+          - "unit: appMirrorComposition_sessionEnded_mediaEncoderIndicatorAndGateTornDown"
+        notes: "Added 2026-10-04: wiring gap collected from E60-02, E60-09, E61-03, E61-11, E61-16, E62-02..E62-06."
+      - id: E62-12
+        title: "[macos] Compose mirror window, decode and input capture into the app"
+        type: task
+        platforms: [macos]
+        priority: P0
+        size: M
+        prd: [F-9.1, F-9.3]
+        use_cases: [UC-22, UC-23]
+        invariants: [1, 3, 5, 7, 8]
+        depends_on: [E22-13, E60-04, E61-07, E61-12, E62-07]
+        description: |
+          Wire MediaSessionRegistry into the media acceptor (onBound -> bind, RequestMediaTicket ->
+          requestTicket) using a dedicated or fanned-out connection-state source (the session state
+          AsyncStream is unicast and already consumed by ConnectionStateRelay; see ControlRevokeConsumer)
+          and a generation token on re-register; open the mirror NSWindow with MirrorDisplayView fed by
+          DecodePipeline; MirrorRequestViewModel on the real session; MirrorInputSender with the mirror
+          session id per Q19 once answered.
+        acceptance:
+          - Accepting a mirror on the phone opens the mirror window showing decoded frames
+          - Control session end closes the media connection and the window
+        tdd:
+          - "unit: macMirrorComposition_mediaBound_windowShowsDecodedFrames"
+          - "unit: macMirrorComposition_controlSessionEnds_mediaAndWindowClosed"
+        notes: "Added 2026-10-04: wiring gap from E60-04 (verifier wiring hazard), E61-06/07/12, E62-07."

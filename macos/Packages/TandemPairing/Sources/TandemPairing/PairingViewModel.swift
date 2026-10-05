@@ -28,6 +28,7 @@ public final class PairingViewModel: @unchecked Sendable {
     private let port: Int
     private let name: String
     private let dateProvider: DateProvider
+    private let regeneratesOnExpiry: Bool
 
     private let lock = NSLock()
     private var payload: QrPayload
@@ -41,7 +42,8 @@ public final class PairingViewModel: @unchecked Sendable {
         addressSource: any LocalAddressSource,
         port: Int,
         name: String,
-        dateProvider: @escaping DateProvider
+        dateProvider: @escaping DateProvider,
+        regeneratesOnExpiry: Bool = true
     ) {
         self.window = window
         self.fingerprint = fingerprint
@@ -50,6 +52,7 @@ public final class PairingViewModel: @unchecked Sendable {
         self.port = port
         self.name = name
         self.dateProvider = dateProvider
+        self.regeneratesOnExpiry = regeneratesOnExpiry
         let payload = QrPayloadEncoder.generate(
             fingerprint: fingerprint,
             secretSource: secretSource,
@@ -103,7 +106,7 @@ public final class PairingViewModel: @unchecked Sendable {
     /// attempts are exhausted (``regenerate()`` is manual there) or while still open. Call once
     /// per UI-visible countdown tick.
     public func tick() {
-        guard window.closedReason == .expired else { return }
+        guard regeneratesOnExpiry, window.closedReason == .expired else { return }
         regenerate()
     }
 

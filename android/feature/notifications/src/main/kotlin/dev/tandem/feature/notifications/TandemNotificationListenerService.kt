@@ -57,13 +57,22 @@ import java.util.concurrent.ConcurrentHashMap
  * wires it to [SecretNotificationPolicy.showContent] so a toggle applies to the next notification.
  */
 class TandemNotificationListenerService : NotificationListenerService() {
-    internal var eventSink: NotificationEventSink = NotificationEventSink.NoOp
+    internal var eventSink: NotificationEventSink = LiveNotificationEventSink
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
     internal var notificationFilter: (StatusBarNotification, String) -> Boolean = NotificationFilter::shouldForward
     internal var iconSender: IconSender? = null
+        get() = field ?: LiveNotificationListener.iconSender
     internal var showSecretContent: () -> Boolean = { false }
 
     private val trackedNotifications = ConcurrentHashMap<String, StatusBarNotification>()
+
+    override fun onListenerConnected() {
+        LiveNotificationListener.listener = this
+    }
+
+    override fun onListenerDisconnected() {
+        if (LiveNotificationListener.listener === this) LiveNotificationListener.listener = null
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (!notificationFilter(sbn, packageName)) return

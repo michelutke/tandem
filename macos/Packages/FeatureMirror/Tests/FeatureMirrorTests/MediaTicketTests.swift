@@ -16,14 +16,18 @@ private func fingerprint(_ byte: UInt8) -> SpkiFingerprint {
 }
 
 private final class SequentialTicketSource: MediaTicketSource {
-    private let next = Mutex<UInt8>(1)
+    private let next = Mutex<UInt32>(1)
 
+    /// Distinct tickets beyond 255 issues (the over-cap test issues 257): a big-endian counter in the
+    /// first four bytes, the rest zero.
     func generateTicket() -> Data {
-        let value = next.withLock { current -> UInt8 in
+        let value = next.withLock { current -> UInt32 in
             defer { current += 1 }
             return current
         }
-        return Data(repeating: value, count: MediaTicketTable<ManualTestClock>.ticketByteCount)
+        var ticket = Data(withUnsafeBytes(of: value.bigEndian) { Array($0) })
+        ticket.append(Data(count: MediaTicketTable<ManualTestClock>.ticketByteCount - ticket.count))
+        return ticket
     }
 }
 
@@ -110,12 +114,30 @@ private struct Harness {
     #expect(harness.validationError(issued.ticket, peer: peerA) == .expired)
 }
 
-@Test func mediaTicketValidator_clockAdvancedPast30s_returnsUnknownOncePurged() {
+@Test func mediaTicketValidator_presentedAt31s_returnsExpired() {
     let harness = Harness()
     let issued = harness.issuer.issue(session: sessionA, peer: peerA)
     harness.clock.advance(by: .seconds(31))
 
+    #expect(harness.validationError(issued.ticket, peer: peerA) == .expired)
+}
+
+@Test func mediaTicketValidator_presentedAt61s_returnsUnknownOncePurged() {
+    let harness = Harness()
+    let issued = harness.issuer.issue(session: sessionA, peer: peerA)
+    harness.clock.advance(by: .seconds(61))
+
     #expect(harness.validationError(issued.ticket, peer: peerA) == .unknown)
+}
+
+@Test func mediaTicketTable_overCap_dropsOldestRecords() {
+    let harness = Harness()
+    let first = harness.issuer.issue(session: sessionA, peer: peerA)
+    for _ in 0..<MediaTicketTable<ManualTestClock>.maxRecords {
+        _ = harness.issuer.issue(session: sessionB, peer: peerA)
+    }
+
+    #expect(harness.validationError(first.ticket, peer: peerA) == .unknown)
 }
 
 @Test func mediaTicketValidator_secondPresentation_returnsConsumed() throws {
@@ -233,4 +255,24 @@ private struct Harness {
         #expect(!output.lowercased().contains(hex))
         #expect(!output.contains(base64))
     }
+}
+
+@Test func mediaTicketValidatorAdapter_eachRejection_reportsItsOwnReason() throws {
+    let harness = Harness()
+    let adapter = MediaTicketValidatorAdapter(validator: harness.validator)
+    let consumed = harness.issuer.issue(session: sessionA, peer: peerA)
+    let mismatched = harness.issuer.issue(session: sessionB, peer: peerB)
+    _ = try harness.validator.validate(ticket: consumed.ticket, presentingSpki: peerA)
+
+    #expect(adapter.validate(ticket: nil, presentingSpki: peerA) == .failure(.missing))
+    #expect(adapter.validate(ticket: consumed.ticket, presentingSpki: peerA) == .failure(.consumed))
+    #expect(adapter.validate(ticket: mismatched.ticket, presentingSpki: peerA) == .failure(.peerMismatch))
+
+    let revoked = harness.issuer.issue(session: sessionA, peer: peerA)
+    harness.table.endSession(sessionA)
+    #expect(adapter.validate(ticket: revoked.ticket, presentingSpki: peerA) == .failure(.revoked))
+
+    let expiring = harness.issuer.issue(session: sessionB, peer: peerB)
+    harness.clock.advance(by: .seconds(30))
+    #expect(adapter.validate(ticket: expiring.ticket, presentingSpki: peerB) == .failure(.expired))
 }

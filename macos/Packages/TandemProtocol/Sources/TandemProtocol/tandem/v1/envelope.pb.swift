@@ -123,6 +123,31 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .revoke(newValue)}
   }
 
+  /// manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+  public var commitment: Tandem_V1_Commitment {
+    get {
+      if case .commitment(let v)? = payload {return v}
+      return Tandem_V1_Commitment()
+    }
+    set {payload = .commitment(newValue)}
+  }
+
+  public var reveal: Tandem_V1_Reveal {
+    get {
+      if case .reveal(let v)? = payload {return v}
+      return Tandem_V1_Reveal()
+    }
+    set {payload = .reveal(newValue)}
+  }
+
+  public var manualPairResult: Tandem_V1_ManualPairResult {
+    get {
+      if case .manualPairResult(let v)? = payload {return v}
+      return Tandem_V1_ManualPairResult()
+    }
+    set {payload = .manualPairResult(newValue)}
+  }
+
   public var deviceStatus: Tandem_V1_DeviceStatus {
     get {
       if case .deviceStatus(let v)? = payload {return v}
@@ -394,6 +419,15 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .callActionResult(newValue)}
   }
 
+  /// input.proto (E62-01) — INPUT channel.
+  public var inputEvent: Tandem_V1_InputEvent {
+    get {
+      if case .inputEvent(let v)? = payload {return v}
+      return Tandem_V1_InputEvent()
+    }
+    set {payload = .inputEvent(newValue)}
+  }
+
   /// rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
   public var rotationChallenge: Tandem_V1_RotationChallenge {
     get {
@@ -444,6 +478,72 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     set {payload = .focusSyncCapability(newValue)}
   }
 
+  /// media_control.proto (E72-02) — STATUS channel.
+  public var nowPlaying: Tandem_V1_NowPlaying {
+    get {
+      if case .nowPlaying(let v)? = payload {return v}
+      return Tandem_V1_NowPlaying()
+    }
+    set {payload = .nowPlaying(newValue)}
+  }
+
+  public var playPause: Tandem_V1_PlayPause {
+    get {
+      if case .playPause(let v)? = payload {return v}
+      return Tandem_V1_PlayPause()
+    }
+    set {payload = .playPause(newValue)}
+  }
+
+  public var next: Tandem_V1_Next {
+    get {
+      if case .next(let v)? = payload {return v}
+      return Tandem_V1_Next()
+    }
+    set {payload = .next(newValue)}
+  }
+
+  public var previous: Tandem_V1_Previous {
+    get {
+      if case .previous(let v)? = payload {return v}
+      return Tandem_V1_Previous()
+    }
+    set {payload = .previous(newValue)}
+  }
+
+  public var stop: Tandem_V1_Stop {
+    get {
+      if case .stop(let v)? = payload {return v}
+      return Tandem_V1_Stop()
+    }
+    set {payload = .stop(newValue)}
+  }
+
+  public var capabilityUnavailable: Tandem_V1_CapabilityUnavailable {
+    get {
+      if case .capabilityUnavailable(let v)? = payload {return v}
+      return Tandem_V1_CapabilityUnavailable()
+    }
+    set {payload = .capabilityUnavailable(newValue)}
+  }
+
+  /// media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+  public var mirrorRequest: Tandem_V1_MirrorRequest {
+    get {
+      if case .mirrorRequest(let v)? = payload {return v}
+      return Tandem_V1_MirrorRequest()
+    }
+    set {payload = .mirrorRequest(newValue)}
+  }
+
+  public var mirrorDeclined: Tandem_V1_MirrorDeclined {
+    get {
+      if case .mirrorDeclined(let v)? = payload {return v}
+      return Tandem_V1_MirrorDeclined()
+    }
+    set {payload = .mirrorDeclined(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
@@ -460,6 +560,10 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case pairAccepted(Tandem_V1_PairAccepted)
     case pairRejected(Tandem_V1_PairRejected)
     case revoke(Tandem_V1_Revoke)
+    /// manual_pairing.proto (E73-02) — CONTROL channel, manual-mode pairing-candidate connections only.
+    case commitment(Tandem_V1_Commitment)
+    case reveal(Tandem_V1_Reveal)
+    case manualPairResult(Tandem_V1_ManualPairResult)
     case deviceStatus(Tandem_V1_DeviceStatus)
     case ring(Tandem_V1_Ring)
     case ringStop(Tandem_V1_RingStop)
@@ -500,6 +604,8 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     case callAction(Tandem_V1_CallAction)
     case placeCallRequest(Tandem_V1_PlaceCallRequest)
     case callActionResult(Tandem_V1_CallActionResult)
+    /// input.proto (E62-01) — INPUT channel.
+    case inputEvent(Tandem_V1_InputEvent)
     /// rotation.proto (E70-01) — CONTROL channel, authenticated control sessions only.
     case rotationChallenge(Tandem_V1_RotationChallenge)
     case keyRotation(Tandem_V1_KeyRotation)
@@ -508,6 +614,16 @@ public nonisolated struct Tandem_V1_Envelope: Sendable {
     /// focus.proto (E72-04) — CONTROL channel, authenticated control sessions only.
     case focusState(Tandem_V1_FocusState)
     case focusSyncCapability(Tandem_V1_FocusSyncCapability)
+    /// media_control.proto (E72-02) — STATUS channel.
+    case nowPlaying(Tandem_V1_NowPlaying)
+    case playPause(Tandem_V1_PlayPause)
+    case next(Tandem_V1_Next)
+    case previous(Tandem_V1_Previous)
+    case stop(Tandem_V1_Stop)
+    case capabilityUnavailable(Tandem_V1_CapabilityUnavailable)
+    /// media.proto (E61-15) — CONTROL channel, authenticated control sessions only.
+    case mirrorRequest(Tandem_V1_MirrorRequest)
+    case mirrorDeclined(Tandem_V1_MirrorDeclined)
 
   }
 
@@ -520,7 +636,7 @@ fileprivate nonisolated let _protobuf_package = "tandem.v1"
 
 nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Envelope"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{4}\u{6}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{4}\u{11}rotation_challenge\0\u{3}key_rotation\0\u{3}rotation_ack\0\u{3}rotation_reject\0\u{4}\u{7}focus_state\0\u{3}focus_sync_capability\0\u{c}\u{9}\u{1}\u{c}\u{f}\u{5}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}d\u{1}\u{a}\u{c}r\u{1}\u{6}\u{c}z\u{1}\u{8}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}channel\0\u{1}seq\0\u{1}ack\0\u{3}version_hello\0\u{1}heartbeat\0\u{3}credit_grant\0\u{3}media_ticket_grant\0\u{3}request_media_ticket\0\u{4}\u{2}pair_challenge\0\u{3}pair_request\0\u{3}pair_accepted\0\u{3}pair_rejected\0\u{1}revoke\0\u{1}commitment\0\u{1}reveal\0\u{3}manual_pair_result\0\u{4}\u{3}device_status\0\u{1}ring\0\u{3}ring_stop\0\u{4}\u{8}notification_posted\0\u{3}icon_data\0\u{3}notification_action\0\u{3}notification_dismiss\0\u{3}notification_action_result\0\u{4}\u{6}clipboard_text\0\u{4}\u{a}file_offer\0\u{3}file_accept\0\u{3}file_reject\0\u{3}file_chunk\0\u{3}file_complete\0\u{3}file_cancel\0\u{3}file_resume_request\0\u{4}\u{4}photo_page\0\u{3}photo_page_result\0\u{3}thumb_request\0\u{3}thumb_result\0\u{3}original_request\0\u{3}photo_error\0\u{4}\u{5}sms_sync_request\0\u{3}sms_sync_response\0\u{3}send_sms_request\0\u{3}send_sms_status\0\u{3}sim_list\0\u{4}\u{6}contacts_sync_request\0\u{3}contacts_sync_response\0\u{4}\u{9}call_event\0\u{3}call_action\0\u{3}place_call_request\0\u{3}call_action_result\0\u{4}\u{7}input_event\0\u{4}\u{a}rotation_challenge\0\u{3}key_rotation\0\u{3}rotation_ack\0\u{3}rotation_reject\0\u{4}\u{7}focus_state\0\u{3}focus_sync_capability\0\u{4}\u{9}now_playing\0\u{3}play_pause\0\u{1}next\0\u{1}previous\0\u{1}stop\0\u{3}capability_unavailable\0\u{4}\u{5}mirror_request\0\u{3}mirror_declined\0\u{c}\u{9}\u{1}\u{c}\u{12}\u{2}\u{c}\u{17}\u{7}\u{c}#\u{5}\u{c})\u{9}\u{c}9\u{3}\u{c}B\u{1}\u{4}\u{c}K\u{1}\u{5}\u{c}R\u{1}\u{8}\u{c}^\u{1}\u{6}\u{c}e\u{1}\u{9}\u{c}r\u{1}\u{6}\u{c}z\u{1}\u{8}\u{c}H\u{2}\u{4}\u{c}N\u{2}\u{8}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -659,6 +775,45 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
         if let v = v {
           if hadOneofValue {try decoder.handleConflictingOneOf()}
           self.payload = .revoke(v)
+        }
+      }()
+      case 15: try {
+        var v: Tandem_V1_Commitment?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .commitment(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .commitment(v)
+        }
+      }()
+      case 16: try {
+        var v: Tandem_V1_Reveal?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .reveal(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .reveal(v)
+        }
+      }()
+      case 17: try {
+        var v: Tandem_V1_ManualPairResult?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .manualPairResult(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .manualPairResult(v)
         }
       }()
       case 20: try {
@@ -1090,6 +1245,19 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .callActionResult(v)
         }
       }()
+      case 100: try {
+        var v: Tandem_V1_InputEvent?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .inputEvent(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .inputEvent(v)
+        }
+      }()
       case 110: try {
         var v: Tandem_V1_RotationChallenge?
         var hadOneofValue = false
@@ -1168,6 +1336,110 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
           self.payload = .focusSyncCapability(v)
         }
       }()
+      case 130: try {
+        var v: Tandem_V1_NowPlaying?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .nowPlaying(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .nowPlaying(v)
+        }
+      }()
+      case 131: try {
+        var v: Tandem_V1_PlayPause?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .playPause(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .playPause(v)
+        }
+      }()
+      case 132: try {
+        var v: Tandem_V1_Next?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .next(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .next(v)
+        }
+      }()
+      case 133: try {
+        var v: Tandem_V1_Previous?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .previous(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .previous(v)
+        }
+      }()
+      case 134: try {
+        var v: Tandem_V1_Stop?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .stop(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .stop(v)
+        }
+      }()
+      case 135: try {
+        var v: Tandem_V1_CapabilityUnavailable?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .capabilityUnavailable(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .capabilityUnavailable(v)
+        }
+      }()
+      case 140: try {
+        var v: Tandem_V1_MirrorRequest?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .mirrorRequest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .mirrorRequest(v)
+        }
+      }()
+      case 141: try {
+        var v: Tandem_V1_MirrorDeclined?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .mirrorDeclined(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .mirrorDeclined(v)
+        }
+      }()
       default: break
       }
     }
@@ -1227,6 +1499,18 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .revoke?: try {
       guard case .revoke(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 14)
+    }()
+    case .commitment?: try {
+      guard case .commitment(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 15)
+    }()
+    case .reveal?: try {
+      guard case .reveal(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 16)
+    }()
+    case .manualPairResult?: try {
+      guard case .manualPairResult(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
     }()
     case .deviceStatus?: try {
       guard case .deviceStatus(let v)? = self.payload else { preconditionFailure() }
@@ -1360,6 +1644,10 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
       guard case .callActionResult(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 93)
     }()
+    case .inputEvent?: try {
+      guard case .inputEvent(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 100)
+    }()
     case .rotationChallenge?: try {
       guard case .rotationChallenge(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 110)
@@ -1383,6 +1671,38 @@ nonisolated extension Tandem_V1_Envelope: SwiftProtobuf.Message, SwiftProtobuf._
     case .focusSyncCapability?: try {
       guard case .focusSyncCapability(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 121)
+    }()
+    case .nowPlaying?: try {
+      guard case .nowPlaying(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 130)
+    }()
+    case .playPause?: try {
+      guard case .playPause(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 131)
+    }()
+    case .next?: try {
+      guard case .next(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 132)
+    }()
+    case .previous?: try {
+      guard case .previous(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 133)
+    }()
+    case .stop?: try {
+      guard case .stop(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 134)
+    }()
+    case .capabilityUnavailable?: try {
+      guard case .capabilityUnavailable(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 135)
+    }()
+    case .mirrorRequest?: try {
+      guard case .mirrorRequest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 140)
+    }()
+    case .mirrorDeclined?: try {
+      guard case .mirrorDeclined(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 141)
     }()
     case nil: break
     }

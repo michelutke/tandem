@@ -1,0 +1,127 @@
+{
+  "$schema": "./schema.json",
+  "category": "media-control-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "now-playing-playing-title-artist-round-trip",
+      "description": "NowPlaying with title, artist and PLAYING state and no album or duration, round-tripping to the same golden bytes on both codecs (docs/protocol/SPEC.md #media-control).",
+      "input": {
+        "kind": "nowPlaying",
+        "messageHex": "0a0d426c756520696e20477265656e120b4d696c65732044617669731801"
+      },
+      "expected": {
+        "summary": "title=Blue in Green|artist=Miles Davis|state=1|album=<absent>|durationMs=<absent>",
+        "messageSha256": "d493a968f3e0c169c07508fabe69a7444143543004a492b2af0fbcf5e8eb3774"
+      }
+    },
+    {
+      "id": "now-playing-all-fields-round-trip",
+      "description": "NowPlaying with every field set (PAUSED, album, duration_ms) round-tripping to the same golden bytes on both codecs.",
+      "input": {
+        "kind": "nowPlaying",
+        "messageHex": "0a07536f2057686174120b4d696c65732044617669731802220c4b696e64206f6620426c756528d0a622"
+      },
+      "expected": {
+        "summary": "title=So What|artist=Miles Davis|state=2|album=Kind of Blue|durationMs=562000",
+        "messageSha256": "b83fc9602d945c8536724c97ea1486901f463701ae3cfbf5bafb3c144231d5ca"
+      }
+    },
+    {
+      "id": "now-playing-unicode-round-trip",
+      "description": "NowPlaying with non-ASCII UTF-8 title and artist and STOPPED state round-tripping.",
+      "input": {
+        "kind": "nowPlaying",
+        "messageHex": "0a1246c3bc7220456c69736520e2809320e5a49c120d42656574686f76656e20e299aa1803"
+      },
+      "expected": {
+        "summary": "title=Für Elise – 夜|artist=Beethoven ♪|state=3|album=<absent>|durationMs=<absent>",
+        "messageSha256": "580da9c8273c4e223d78a3c79ac7daa81385542e5d658c3c572eb5020865d824"
+      }
+    },
+    {
+      "id": "now-playing-empty-album-present-round-trip",
+      "description": "NowPlaying with album explicitly present but empty: explicit presence survives the round trip on both codecs, distinct from an absent album.",
+      "input": {
+        "kind": "nowPlaying",
+        "messageHex": "0a08556e7469746c65641207556e6b6e6f776e18012200"
+      },
+      "expected": {
+        "summary": "title=Untitled|artist=Unknown|state=1|album=|durationMs=<absent>",
+        "messageSha256": "25b43832877a10c85ba7c8513586e63fa29a3f9d027c0587fd8051257d8d1a5e"
+      }
+    },
+    {
+      "id": "now-playing-max-length-strings-round-trip",
+      "description": "NowPlaying with a 256-character title and a 128-character artist (the SPEC caps) round-tripping to the same golden bytes.",
+      "input": {
+        "kind": "nowPlaying",
+        "messageHex": "0a80027474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747474747412800161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161611801"
+      },
+      "expected": {
+        "summary": "title=tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt|artist=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|state=1|album=<absent>|durationMs=<absent>",
+        "messageSha256": "9a273ff4842a70bd4a345c08105918daa50f22f44e139d7b8599be3882c116a8"
+      }
+    },
+    {
+      "id": "play-pause-round-trip",
+      "description": "PlayPause, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
+      "input": {
+        "kind": "playPause",
+        "messageHex": ""
+      },
+      "expected": {
+        "summary": "empty",
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "next-round-trip",
+      "description": "Next, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
+      "input": {
+        "kind": "next",
+        "messageHex": ""
+      },
+      "expected": {
+        "summary": "empty",
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "previous-round-trip",
+      "description": "Previous, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
+      "input": {
+        "kind": "previous",
+        "messageHex": ""
+      },
+      "expected": {
+        "summary": "empty",
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "stop-round-trip",
+      "description": "Stop, an empty message under proto3 default elision, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #media-control).",
+      "input": {
+        "kind": "stop",
+        "messageHex": ""
+      },
+      "expected": {
+        "summary": "empty",
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "capability-unavailable-media-control-round-trip",
+      "description": "CapabilityUnavailable { feature: FEATURE_MEDIA_CONTROL } decoding to feature = 1 on both codecs and re-encoding to the same golden bytes.",
+      "input": {
+        "kind": "capabilityUnavailable",
+        "messageHex": "0801"
+      },
+      "expected": {
+        "summary": "feature=1",
+        "messageSha256": "fb8da7eb5b1b399e7321179dac9e9f65773d7331e1e30554e3911e4325e1ef19"
+      }
+    }
+  ]
+}

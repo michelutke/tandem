@@ -27,6 +27,14 @@ Jazzer JUnit fuzz scaffolding for the Android frame/envelope parser
   `JAZZER_MODULE=core:pairing tools/fuzz/jazzer/smoke.sh dev.tandem.core.pairing.fuzz.QrPayloadFuzzTest <s> <dir>`
   (`JAZZER_MODULE` selects the Gradle module, default `core:protocol`).
 
+- `DomainDecoderFuzzTest` + `DomainFuzzRegistry` (E71-04) — one generic target over every domain message
+  decoder in `:core:protocol`. `TANDEM_FUZZ_MESSAGE=<proto file stem>` (e.g. `media_control`) picks the
+  proto file; unset, all entries run. The registry has one entry per `protocol/proto/tandem/v1/*.proto` and
+  lists the `protocol/vectors` files that seed it. `check_registry.sh` exits non-zero naming any proto
+  file without an entry (self-test `test/check_registry_test.sh`). `media.proto` fuzzes decoding only
+  (`MediaFrame` etc.): the phone only sends fragments, so Android has no reassembly logic to drive. 24 h
+  campaigns: `fuzz-campaign.yml` with `target=domain`, `message=<stem>`, one dispatch per proto file.
+
 ## Running fuzz tests normally
 
 `./gradlew :core:protocol:test` (part of the existing `build` job's `./gradlew build`) runs both

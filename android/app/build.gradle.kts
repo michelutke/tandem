@@ -76,6 +76,8 @@ dependencies {
     // E00-03 Hilt DI wiring skeleton: app assembles the SingletonComponent from every core
     // module's empty @Module @InstallIn shell.
     implementation(project(":core:crypto"))
+    // E20-23: ConnectionOrchestrator composes NSD discovery (PairedMacBonjourSource's ServiceDiscovery).
+    implementation(project(":core:discovery"))
     // E20-17: Home screen composables (TitleBlock, DotRing, FloatingToolbar, CookieFab, etc.).
     implementation(project(":core:designsystem"))
     implementation(project(":core:pairing"))
@@ -88,18 +90,27 @@ dependencies {
     implementation(project(":feature:pairing"))
     // E30-02: TandemNotificationListenerService, declared below in this module's manifest.
     implementation(project(":feature:notifications"))
+    // E20-23: FilesFeature attaches FileReceiver/AcceptFlow/FileSender and the photo responders.
+    implementation(project(":feature:files"))
+    // E20-24: ContactsFeature, SmsFeatures and StatusFeature attach these modules' consumers.
+    implementation(project(":feature:contacts"))
+    implementation(project(":feature:messaging"))
+    implementation(project(":feature:status"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
     // E40-11: ShareFilesActivity, declared below in this module's manifest.
     implementation(project(":feature:files"))
     // E61-02: MirrorCaptureService (mediaProjection foreground service), merged from this module's manifest.
     implementation(project(":feature:mirror"))
+    // E62-11: TandemAccessibilityService, LiveRemoteInput and InputGate.
+    implementation(project(":feature:input"))
 
     // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
     // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a
     // TandemSession-taking handler. Test-only.
     testImplementation(testFixtures(project(":core:transport")))
     testImplementation(project(":core:testing"))
+    testImplementation(testFixtures(project(":core:crypto")))
 
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)

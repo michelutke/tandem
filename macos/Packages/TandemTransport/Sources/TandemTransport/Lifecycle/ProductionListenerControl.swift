@@ -14,17 +14,22 @@ public actor ProductionListenerControl: ListenerControl {
 
     private let listenerController: ListenerController
     private var current: ListenerController.StartedListener?
+    private let onStarted: (@Sendable (ListenerController.StartedListener) -> Void)?
 
     /// - Parameter initiallyStarted: An already-running listener/admission pair, if the caller
     ///   started one synchronously up front (as `HarnessHooks` does, so a startup failure still
     ///   fails the process immediately). `stop()`/`start()` manage it from here on; omit this to
     ///   have this instance perform the first `start()` itself.
+    /// - Parameter onStarted: Called with every listener ``start()`` rebinds, so a consumer of the
+    ///   listener's port (the pairing QR) never keeps a stale one.
     public init(
         listenerController: ListenerController,
-        initiallyStarted: ListenerController.StartedListener? = nil
+        initiallyStarted: ListenerController.StartedListener? = nil,
+        onStarted: (@Sendable (ListenerController.StartedListener) -> Void)? = nil
     ) {
         self.listenerController = listenerController
         self.current = initiallyStarted
+        self.onStarted = onStarted
     }
 
     public func start() async throws {
@@ -33,6 +38,7 @@ public actor ProductionListenerControl: ListenerControl {
             throw StartError.identityNotReady
         }
         current = started
+        onStarted?(started)
     }
 
     public func stop() async {

@@ -25,10 +25,12 @@
 		3A3D0508C5CF70D21E37460E /* QuickActionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF20C4F3C47025C0506B8DD /* QuickActionsViewModel.swift */; };
 		3CEE3ED42D968EA33509BDB2 /* DeviceStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */; };
 		43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */; };
+		A60500B1C0DE4E60A0500001 /* HarnessHooks+MediaTickets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */; };
 		4CF15945A231CDA685E26206 /* LaunchAtLoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD74961775D9359BBD2C9A6 /* LaunchAtLoginViewModel.swift */; };
 		5298599E544DCDD0447D8A66 /* MainWindowScenarioSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */; };
 		E41050400000000000000000 /* ScenarioPhotoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050500000000000000000 /* ScenarioPhotoGrid.swift */; };
 		E50070100000000000000000 /* ScenarioThreadList.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50070200000000000000000 /* ScenarioThreadList.swift */; };
+		E50080100000000000000000 /* ScenarioConversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50080200000000000000000 /* ScenarioConversation.swift */; };
 		539567A339C850584891C604 /* MainWindowComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C6E5F69C66780495EEA2D5 /* MainWindowComposition.swift */; };
 		58DF92881178D8785F0A90CE /* TandemTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 9198B05ADBA40A7A02B76C74 /* TandemTransport */; };
 		5C59C085A4552AA68D1A7FA5 /* PushClipboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */; };
@@ -50,10 +52,20 @@
 		A40100000000000000E40A02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40A01 /* FeatureFiles */; };
 		E50070000000000000000A02 /* FeatureMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = E50070000000000000000A01 /* FeatureMessaging */; };
 		E52060000000000000000001 /* FeatureCalls in Frameworks */ = {isa = PBXBuildFile; productRef = E52060000000000000000012 /* FeatureCalls */; };
+		E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */; };
+		E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */; };
+		E22130000000000000000003 /* CallsSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000004 /* CallsSessionService.swift */; };
+		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
 		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
+		E52100000000000000000001 /* ConversationCallHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52100000000000000000002 /* ConversationCallHost.swift */; };
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
+		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
+		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
+		E70160000000000000000001 /* MacRotationComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70160000000000000000002 /* MacRotationComposition.swift */; };
+		E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000004 /* MirrorWindowPresenter.swift */; };
 		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
+		E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000003 /* MirrorQuickActionUITests.swift */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
 		85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */; };
@@ -86,18 +98,21 @@
 		E05C58FC7E50230C0D8639F7 /* TandemShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A99C8E0FE674D8AF165C8E36 /* TandemShare.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF66E68281898309742F036 /* UnpairComposition.swift */; };
 		E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5600AA250B6FE2ECF965468B /* HarnessHooks.swift */; };
+		B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */; };
 		E71B1A14376E189459382BAA /* PushClipboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928A0A048645C8946F50E0EF /* MainWindowUITests.swift */; };
 		E41050600000000000000000 /* PhotoGridUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050700000000000000000 /* PhotoGridUITests.swift */; };
 		E40230300000000000000000 /* TransferProgressUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E40230400000000000000000 /* TransferProgressUITests.swift */; };
 		E50070300000000000000000 /* ThreadListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50070400000000000000000 /* ThreadListUITests.swift */; };
+		E50080300000000000000000 /* ConversationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50080400000000000000000 /* ConversationUITests.swift */; };
 		E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */; };
 		F28D5C6ECE889FE54A43092F /* MainWindowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */; };
 		F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */; };
 		F66E40871791C2532B715C5C /* ErrorPresenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 914DF049130A763AC77ED363 /* ErrorPresenterTests.swift */; };
 		F9688097D3E090DD745B8855 /* LoginItemService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B585178A98786DB4AB6D5375 /* LoginItemService.swift */; };
 		F9E0416499FC95D142722EF3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E5E9400B6C02CECEDC03084 /* SettingsView.swift */; };
+		E22120000000000000000002 /* SessionFeatureComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22120000000000000000006 /* SessionFeatureComposition.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -173,6 +188,7 @@
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessStatusRingCommands.swift; sourceTree = "<group>"; };
 		55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HarnessNotificationLoopbackRegistry.swift; sourceTree = "<group>"; };
+		8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacPairingComposition.swift; sourceTree = "<group>"; };
 		5600AA250B6FE2ECF965468B /* HarnessHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessHooks.swift; sourceTree = "<group>"; };
 		630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindPhoneViewModel.swift; sourceTree = "<group>"; };
 		6E5E9400B6C02CECEDC03084 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -180,10 +196,20 @@
 		A40100000000000000E40A03 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
 		E50070000000000000000A03 /* FeatureMessaging */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMessaging; path = Packages/FeatureMessaging; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000010 /* FeatureCalls */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureCalls; path = Packages/FeatureCalls; sourceTree = SOURCE_ROOT; };
+		E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAcceptPromptPresenter.swift; sourceTree = "<group>"; };
+		E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationReceivedFilePresenter.swift; sourceTree = "<group>"; };
+		E22130000000000000000004 /* CallsSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallsSessionService.swift; sourceTree = "<group>"; };
+		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
+		E52100000000000000000002 /* ConversationCallHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationCallHost.swift; sourceTree = "<group>"; };
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
+		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
+		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
+		E70160000000000000000002 /* MacRotationComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRotationComposition.swift; sourceTree = "<group>"; };
+		E62120000000000000000004 /* MirrorWindowPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
+		E61120000000000000000003 /* MirrorQuickActionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorQuickActionUITests.swift; sourceTree = "<group>"; };
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
@@ -195,6 +221,7 @@
 		81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowScenarioSupport.swift; sourceTree = "<group>"; };
 		E41050500000000000000000 /* ScenarioPhotoGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioPhotoGrid.swift; sourceTree = "<group>"; };
 		E50070200000000000000000 /* ScenarioThreadList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioThreadList.swift; sourceTree = "<group>"; };
+		E50080200000000000000000 /* ScenarioConversation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioConversation.swift; sourceTree = "<group>"; };
 		86769ADA9F9034205A270081 /* URLOpener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLOpener.swift; sourceTree = "<group>"; };
 		89549CE1AAB6CEDB9469135E /* MenuBarViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarViewModelTests.swift; sourceTree = "<group>"; };
 		8A44A1216CFE5055E0699868 /* TandemApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemApp.entitlements; sourceTree = "<group>"; };
@@ -206,6 +233,7 @@
 		E41050700000000000000000 /* PhotoGridUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhotoGridUITests.swift; sourceTree = "<group>"; };
 		E40230400000000000000000 /* TransferProgressUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TransferProgressUITests.swift; sourceTree = "<group>"; };
 		E50070400000000000000000 /* ThreadListUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThreadListUITests.swift; sourceTree = "<group>"; };
+		E50080400000000000000000 /* ConversationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationUITests.swift; sourceTree = "<group>"; };
 		AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioVersionMismatchMenuUITests.swift; sourceTree = "<group>"; };
 		9CB0190769744BA6B44C66E6 /* TandemShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TandemShare.entitlements; sourceTree = "<group>"; };
 		9CCF1B115421D313E1D549EA /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -222,6 +250,7 @@
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionBannerView.swift; sourceTree = "<group>"; };
 		C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
+		A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+MediaTickets.swift"; sourceTree = "<group>"; };
 		D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
 		D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelay.swift; sourceTree = "<group>"; };
 		D4D890067B09F0862A11DF58 /* TandemProtocol */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TandemProtocol; path = Packages/TandemProtocol; sourceTree = SOURCE_ROOT; };
@@ -235,6 +264,7 @@
 		F21DA8871FF4E3B7134F74B2 /* MainWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowView.swift; sourceTree = "<group>"; };
 		F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TandemApp.swift; sourceTree = "<group>"; };
 		FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HarnessLatencyNotificationPresenter.swift; sourceTree = "<group>"; };
+		E22120000000000000000006 /* SessionFeatureComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionFeatureComposition.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -261,6 +291,7 @@
 				A40100000000000000E40A02 /* FeatureFiles in Frameworks */,
 				E50070000000000000000A02 /* FeatureMessaging in Frameworks */,
 				E52060000000000000000001 /* FeatureCalls in Frameworks */,
+				E61120000000000000000001 /* FeatureMirror in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -302,7 +333,9 @@
 				E41050700000000000000000 /* PhotoGridUITests.swift */,
 				E50070400000000000000000 /* ThreadListUITests.swift */,
 				E40230400000000000000000 /* TransferProgressUITests.swift */,
+				E50080400000000000000000 /* ConversationUITests.swift */,
 				E52060000000000000000009 /* CallAlertUITests.swift */,
+				E61120000000000000000003 /* MirrorQuickActionUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
 			);
 			path = TandemUITests;
@@ -369,6 +402,7 @@
 				A40100000000000000E40A03 /* FeatureFiles */,
 				E50070000000000000000A03 /* FeatureMessaging */,
 				E52060000000000000000010 /* FeatureCalls */,
+				E61120000000000000000010 /* FeatureMirror */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -383,7 +417,9 @@
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
+				8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */,
 				C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */,
+				A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */,
 				203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */,
 				77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */,
 				54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */,
@@ -406,6 +442,7 @@
 				F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */,
 				A5E30F71572BF267AF52CCFE /* UITestScenario.swift */,
 				7CF66E68281898309742F036 /* UnpairComposition.swift */,
+				E22120000000000000000006 /* SessionFeatureComposition.swift */,
 				86769ADA9F9034205A270081 /* URLOpener.swift */,
 				07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */,
 				F21DA8871FF4E3B7134F74B2 /* MainWindowView.swift */,
@@ -414,9 +451,18 @@
 				81A7F690391BFD60D295D384 /* MainWindowScenarioSupport.swift */,
 				E41050500000000000000000 /* ScenarioPhotoGrid.swift */,
 				E50070200000000000000000 /* ScenarioThreadList.swift */,
+				E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */,
+				E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */,
+				E22130000000000000000004 /* CallsSessionService.swift */,
+				E50080200000000000000000 /* ScenarioConversation.swift */,
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
 				E52060000000000000000007 /* CallHangUpView.swift */,
+				E52100000000000000000002 /* ConversationCallHost.swift */,
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
+				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
+				E62120000000000000000002 /* MirrorComposition.swift */,
+				E70160000000000000000002 /* MacRotationComposition.swift */,
+				E62120000000000000000004 /* MirrorWindowPresenter.swift */,
 				9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */,
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
@@ -493,6 +539,7 @@
 				A40100000000000000E40A01 /* FeatureFiles */,
 				E50070000000000000000A01 /* FeatureMessaging */,
 				E52060000000000000000012 /* FeatureCalls */,
+				E61120000000000000000012 /* FeatureMirror */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -554,6 +601,7 @@
 				F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 				A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */,
 				E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */,
+				E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -620,7 +668,9 @@
 				E41050600000000000000000 /* PhotoGridUITests.swift in Sources */,
 				E50070300000000000000000 /* ThreadListUITests.swift in Sources */,
 				E40230300000000000000000 /* TransferProgressUITests.swift in Sources */,
+				E50080300000000000000000 /* ConversationUITests.swift in Sources */,
 				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
+				E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -658,7 +708,9 @@
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
+				B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */,
 				43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */,
+				A60500B1C0DE4E60A0500001 /* HarnessHooks+MediaTickets.swift in Sources */,
 				D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */,
 				AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */,
 				28A3FFB150F4336FC8BB6314 /* HarnessStatusRingCommands.swift in Sources */,
@@ -679,6 +731,7 @@
 				EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */,
 				A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */,
 				E23561801197DAC9C7460B32 /* UnpairComposition.swift in Sources */,
+				E22120000000000000000002 /* SessionFeatureComposition.swift in Sources */,
 				F28D5C6ECE889FE54A43092F /* MainWindowViewModel.swift in Sources */,
 				6C59B7EAEB5B9F6642D7445F /* MainWindowView.swift in Sources */,
 				539567A339C850584891C604 /* MainWindowComposition.swift in Sources */,
@@ -686,9 +739,18 @@
 				5298599E544DCDD0447D8A66 /* MainWindowScenarioSupport.swift in Sources */,
 				E41050400000000000000000 /* ScenarioPhotoGrid.swift in Sources */,
 				E50070100000000000000000 /* ScenarioThreadList.swift in Sources */,
+				E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */,
+				E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */,
+				E22130000000000000000003 /* CallsSessionService.swift in Sources */,
+				E50080100000000000000000 /* ScenarioConversation.swift in Sources */,
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
 				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
+				E52100000000000000000001 /* ConversationCallHost.swift in Sources */,
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
+				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
+				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
+				E70160000000000000000001 /* MacRotationComposition.swift in Sources */,
+				E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */,
 				C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */,
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
@@ -1080,6 +1142,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureCalls;
 		};
+		E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureMirror;
+		};
 		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemTransport;
@@ -1149,6 +1215,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */;
 			productName = FeatureCalls;
+		};
+		E61120000000000000000012 /* FeatureMirror */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */;
+			productName = FeatureMirror;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

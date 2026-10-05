@@ -56,6 +56,10 @@ configurations.matching { it.isCanBeResolved }.configureEach {
     // androidx.core-ktx nor the Compose UI classes feature:files pulls in via core:ui.
     exclude(group = "androidx.core", module = "core-ktx")
     exclude(group = "androidx.compose")
+    // feature:input (E62-08): its BOM-versioned Compose dependencies do not propagate the platform
+    // to this consumer, and the gate classes the harness uses touch no Compose type.
+    exclude(group = "androidx.compose.material3")
+    exclude(group = "androidx.compose.ui")
     exclude(group = "androidx.activity")
 }
 
@@ -73,9 +77,16 @@ dependencies {
     // FileSender/FilesScheduler (E40-03), for E40-15's no-starvation scenarios: the real FILES
     // sender against a real TLS mux, not a reimplementation of its chunk loop.
     implementation(project(":feature:files"))
+    // ContactsSyncSession (E51-02/05), for E51-07: the real phone-side contacts sync against a real
+    // TLS mux, not a reimplementation of its paging/tombstone/watermark logic.
+    implementation(project(":feature:contacts"))
     // SendSmsHandler (E50-04), for E50-11's send-limit scenarios: the real phone-side validation and
     // rate limiting against a real TLS session, not a reimplementation of them.
     implementation(project(":feature:messaging"))
+    // InputGate/InputActionHandler/GestureTranslator (E62-06), for E62-08's input-authorization
+    // scenario: the real gate with a recording dispatcher against input a real Mac sends. Only the
+    // plain-Kotlin gate classes are touched; the AccessibilityService and Compose parts are not.
+    implementation(project(":feature:input"))
     // RingController/RingHandler live in `:app` (a `com.android.application` module whose runtime
     // graph pulls in the full androidx.compose BOM -- AAR-only, no plain-jar variant, confirmed by
     // actually attempting `implementation(project(":app"))` here: resolution fails on

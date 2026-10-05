@@ -45,10 +45,10 @@ jobs:
           - name: discovery-pairing-contacts-notifications
             modules: ":core:discovery :feature:pairing :feature:contacts :feature:notifications"
           - name: messaging-files-mirror
-            modules: ":feature:messaging :feature:files :feature:mirror"
+            modules: ":feature:messaging :feature:files :feature:mirror :feature:input"
         include:
           - api: 29
-            image-source: google
+            image-source: google_apis
           - api: 35
             image-source: google_apis
     defaults:

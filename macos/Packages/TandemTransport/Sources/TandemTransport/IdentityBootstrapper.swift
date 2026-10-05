@@ -74,7 +74,9 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
     private func computeIdentityState() -> IdentityState {
         do {
             let usable = try IdentityKeyProvider(keychainStore: keychainStore).hasUsableIdentityKey()
-            return usable ? try readyState() : resetIdentity()
+            let adoptingPendingKey = usable
+                && RotationCoordinator.isAdoptingUnackedPendingKey(keychainStore: keychainStore)
+            return usable && !adoptingPendingKey ? try readyState() : resetIdentity()
         } catch let error as KeychainError {
             return .error(String(describing: error))
         } catch {
@@ -87,7 +89,12 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
     /// regeneration itself succeeds.
     private func resetIdentity() -> IdentityState {
         try? keychainStore.deleteCertificate(label: identityCertLabel)
-        try? keychainStore.deleteKey(tag: identityKeyApplicationTag)
+        try? keychainStore.deleteGenericPassword(
+            service: RotationCoordinator.attemptService, account: RotationCoordinator.attemptAccount
+        )
+        for tag in [identityKeyApplicationTag, IdentityKeySlots.secondaryTag] {
+            try? keychainStore.deleteKey(tag: tag)
+        }
         state.withLock { $0.requiresRePair = true }
         onIdentityReset()
         do {

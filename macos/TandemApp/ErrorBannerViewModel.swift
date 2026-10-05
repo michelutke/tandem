@@ -99,7 +99,7 @@ final class ErrorBannerViewModel {
         case .versionMismatch:
             let name = peerName ?? "This device"
             return "\(name) runs an incompatible Tandem version. Update both apps."
-        case .malformedFrame, .creditViolation, .protocolTimeout, .limitExceeded:
+        case .malformedFrame, .creditViolation, .protocolTimeout, .limitExceeded, .ticketRejected:
             return nil
         }
     }

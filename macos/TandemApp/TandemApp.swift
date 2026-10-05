@@ -1,4 +1,5 @@
 import FeatureFiles
+import FeatureMirror
 import SwiftUI
 import TandemCrypto
 import TandemDevices
@@ -107,11 +108,17 @@ struct TandemMenuBarApp: App {
         .menuBarExtraStyle(.window)
 
         Window("Tandem", id: "main") {
-            MainWindowView(viewModel: Self.mainWindowViewModel)
+            MainWindowView(
+                viewModel: Self.mainWindowViewModel,
+                photoService: Self.retainedProductionLifecycle?.sessionFeatures.photos
+            )
         }
 
         Settings {
-            SettingsView(pairedDevicesViewModel: Self.settingsPairedDevicesViewModel)
+            SettingsView(
+                pairedDevicesViewModel: Self.settingsPairedDevicesViewModel,
+                rotationViewModel: Self.settingsRotationViewModel
+            )
         }
     }
 }
@@ -143,10 +150,11 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
         HarnessHooks.runOneShotHooksIfRequested()
         HarnessHooks.startListenerIfRequested()
 
-        guard UITestScenario.fromLaunchArguments() != nil else { return }
+        guard let scenario = UITestScenario.fromLaunchArguments() else { return }
         let window = NSWindow(contentViewController: NSHostingController(rootView: MenuContentView()))
         window.title = "Tandem UI Test Scenario"
-        window.setContentSize(NSSize(width: 320, height: 200))
+        let conversationSize = NSSize(width: 640, height: 480)
+        window.setContentSize(scenario == .conversationSeeded ? conversationSize : NSSize(width: 320, height: 200))
         window.makeKeyAndOrderFront(nil)
         scenarioWindow = window
     }
@@ -170,6 +178,7 @@ struct MenuContentView: View {
     /// ``AppComposition``, ``select()`` on either instance is a no-op.
     @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
     @State private var pushClipboardViewModel = PushClipboardViewModel(sender: nil)
+    @State private var mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
 
     /// The remaining two quick actions (E22-02) share `menuBarViewModel`'s own sessionless gap
     /// above, so this is `isConnected: false` with no-op stub closures for those two.
@@ -178,13 +187,29 @@ struct MenuContentView: View {
     /// No transfer service is composed yet (same gap as above), so drops and the Send File picker
     /// yield `notConnected` until a later issue passes one in.
     @State private var sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+    private let transferProgress: TransferProgressCenter?
+    private let activeCall: ActiveCallAlert?
 
     /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
     /// D-59/D-76) never reach here.
     @State private var errorBannerViewModel: ErrorBannerViewModel
 
+    private let pairingPresenter: MacPairingPresenter?
+
+    private static var retainedPairingPresenter: MacPairingPresenter?
+
+    private static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
+        if let retainedPairingPresenter { return retainedPairingPresenter }
+        let presenter = MacPairingPresenter(composition: composition)
+        retainedPairingPresenter = presenter
+        return presenter
+    }
+
     init() {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
+        pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
+        transferProgress = lifecycle?.sessionFeatures.transferProgress
+        activeCall = lifecycle?.sessionFeatures.activeCall
         let peerName = lifecycle?.pairedPeerName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
@@ -196,18 +221,26 @@ struct MenuContentView: View {
         ))
         let findPhoneViewModel = FindPhoneViewModel(session: nil)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
+        _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
+        lifecycle?.mirror.bind(mirrorRequestViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
-        let sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
+        let sendEntryHandler = SendEntryHandler(
+            picker: OpenPanelFilePicker(),
+            transfer: lifecycle?.sessionFeatures.fileTransfer
+        )
         _sendEntryHandler = State(initialValue: sendEntryHandler)
         NSApplication.shared.servicesProvider = Self.finderServicesProvider(handler: sendEntryHandler)
-        _quickActionsViewModel = State(initialValue: QuickActionsViewModel(
+        let quickActionsViewModel = QuickActionsViewModel(
             isConnected: false,
             sendFile: { Task { _ = await sendEntryHandler.sendFileQuickAction() } },
             pushClipboard: { pushClipboardViewModel.select() },
             findPhone: { findPhoneViewModel.select() },
-            mirror: {}
-        ))
+            mirror: { mirrorRequestViewModel.request() }
+        )
+        quickActionsViewModel.observeConnection(lifecycle?.makeMenuBarStateStream?())
+        _quickActionsViewModel = State(initialValue: quickActionsViewModel)
     }
 
     private static var retainedFinderServicesProvider: FinderServicesProvider?
@@ -243,12 +276,23 @@ struct MenuContentView: View {
         } else {
             VStack(alignment: .leading, spacing: 8) {
                 ErrorBannerView(viewModel: errorBannerViewModel)
-                MenuBarContentView(viewModel: menuBarViewModel, deviceStatusViewModel: nil)
+                MenuBarContentView(
+                    viewModel: menuBarViewModel,
+                    deviceStatusViewModel: nil,
+                    onPairPhone: { pairingPresenter?.openPairingWindow() }
+                )
+                if let transferProgress {
+                    TransferProgressListView(center: transferProgress)
+                }
                 QuickActionsView(
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,
-                    pushClipboardViewModel: pushClipboardViewModel
+                    pushClipboardViewModel: pushClipboardViewModel,
+                    mirrorRequestViewModel: mirrorRequestViewModel
                 )
+                if let activeCall {
+                    ActiveCallHangUpView(activeCall: activeCall)
+                }
                 OpenTandemMenuButton()
                 SettingsMenuButton()
             }

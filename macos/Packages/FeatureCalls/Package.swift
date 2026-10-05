@@ -11,12 +11,13 @@ let package = Package(
         .package(path: "../TandemCrypto"),
         .package(path: "../TandemProtocol"),
         .package(path: "../TandemStore"),
+        .package(path: "../TandemDesign"),
         .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "FeatureCalls",
-            dependencies: ["TandemCrypto", "TandemProtocol", "TandemStore"],
+            dependencies: ["TandemCrypto", "TandemProtocol", "TandemStore", "TandemDesign"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

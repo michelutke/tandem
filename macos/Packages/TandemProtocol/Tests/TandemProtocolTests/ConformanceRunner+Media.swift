@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import SwiftProtobuf
 import TandemTestSupport
 @testable import TandemProtocol
 
@@ -9,6 +10,7 @@ import TandemTestSupport
 /// `control.proto`), selected by `input.kind`.
 extension ConformanceRunner {
     private static let mediaTicketLength = 32
+    private static let mirrorSessionIdLength = 16
 
     static func runMediaEncoding(data: Data) throws -> [VectorOutcome] {
         let manifest = try JSONDecoder().decode(MediaEncodingManifest.self, from: data)
@@ -18,7 +20,18 @@ extension ConformanceRunner {
     private static func mediaEncodingOutcome(_ vector: MediaEncodingManifest.Vector) throws -> VectorOutcome {
         let bytes = try conformanceRunnerHexDecode(vector.input.messageHex)
         switch vector.input.kind {
-        case "requestMediaTicket": return try requestMediaTicketOutcome(vector, bytes: bytes)
+        case "requestMediaTicket":
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_RequestMediaTicket.self)
+            )
+        case "mirrorRequest":
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorRequest.self)
+            )
+        case "mirrorDeclined":
+            return try emptyMessageOutcome(
+                vector, bytes: bytes, reencode: Self.reencoded(Tandem_V1_MirrorDeclined.self)
+            )
         case "mediaTicketGrant": return try mediaTicketGrantOutcome(vector, bytes: bytes)
         case "mediaHello": return try mediaHelloOutcome(vector, bytes: bytes)
         default:
@@ -37,16 +50,20 @@ extension ConformanceRunner {
         SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
 
-    private static func requestMediaTicketOutcome(
-        _ vector: MediaEncodingManifest.Vector, bytes: Data
+    private static func reencoded<Message: SwiftProtobuf.Message>(_ type: Message.Type) -> (Data) -> Data?? {
+        { bytes in (try? Message(serializedBytes: bytes)).map { try? $0.serializedData() } }
+    }
+
+    private static func emptyMessageOutcome(
+        _ vector: MediaEncodingManifest.Vector, bytes: Data, reencode: (Data) -> Data??
     ) throws -> VectorOutcome {
-        guard let decoded = try? Tandem_V1_RequestMediaTicket(serializedBytes: bytes) else {
+        guard let reencoded = reencode(bytes) else {
             return mediaUndecodable(vector)
         }
         guard let expectedSha = vector.expected?.messageSha256 else {
             throw ConformanceFailure(description: "media-encoding vector \(vector.id) missing expected fields")
         }
-        let passed = (try? decoded.serializedData()) == bytes && sha256Hex(bytes) == expectedSha
+        let passed = reencoded == bytes && sha256Hex(bytes) == expectedSha
         return VectorOutcome(
             id: vector.id, category: "media-encoding", outcome: passed ? "pass" : "fail",
             expected: "sha256=\(expectedSha)", actual: "sha256=\(sha256Hex(bytes))"
@@ -79,13 +96,17 @@ extension ConformanceRunner {
         guard let decoded = try? Tandem_V1_MediaHello(serializedBytes: bytes) else {
             return mediaUndecodable(vector)
         }
-        let actual = decoded.ticket.count == mediaTicketLength ? "accepted" : "ticketRejected"
+        let actual = decoded.ticket.count != mediaTicketLength ? "ticketRejected"
+            : decoded.mirrorSessionID.count != mirrorSessionIdLength ? "malformedFrame" : "accepted"
         if let expected = vector.expected {
-            guard let expectedTicketHex = expected.ticketHex, let expectedSha = expected.messageSha256 else {
+            guard let expectedTicketHex = expected.ticketHex, let expectedSha = expected.messageSha256,
+                  let expectedMirrorIdHex = expected.mirrorSessionIdHex else {
                 throw ConformanceFailure(description: "media-encoding vector \(vector.id) missing expected fields")
             }
             let expectedTicket = try conformanceRunnerHexDecode(expectedTicketHex)
+            let expectedMirrorId = try conformanceRunnerHexDecode(expectedMirrorIdHex)
             let passed = actual == "accepted" && decoded.ticket == expectedTicket
+                && decoded.mirrorSessionID == expectedMirrorId
                 && (try? decoded.serializedData()) == bytes && sha256Hex(bytes) == expectedSha
             return VectorOutcome(
                 id: vector.id, category: "media-encoding", outcome: passed ? "pass" : "fail",
@@ -109,6 +130,7 @@ struct MediaEncodingManifest: Decodable {
     }
     struct Expected: Decodable {
         let ticketHex: String?
+        let mirrorSessionIdHex: String?
         let expiresAt: Int64?
         let messageSha256: String?
     }

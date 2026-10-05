@@ -153,8 +153,13 @@ struct ScenarioView: View {
             ScenarioView.makePhotoGrid10kView()
         case .threadListSeeded:
             ScenarioView.makeThreadListSeededView()
+        case .conversationSeeded:
+            ScenarioView.makeConversationSeededView()
         case .incomingCallActive:
             ScenarioView.makeIncomingCallActiveView()
+        case .mirrorDeclined:
+            ScenarioView.makeMirrorDeclinedView()
+
         case .transferProgressSeeded:
             TransferProgressRow(viewModel: transferProgressViewModel)
                 .padding()

@@ -27,11 +27,13 @@ public enum MediaTicketError: Error, Equatable, Sendable {
 public typealias MediaTicketComparator = @Sendable (Data, Data) -> Bool
 
 /// In-memory ticket records shared by ``MediaTicketIssuer`` and ``MediaTicketValidator``. Records are
-/// retained, marked, until exactly 30 s after issuance so rejections stay distinguishable (D-65);
+/// retained, marked, until 60 s (twice the lifetime) after issuance so rejections stay distinguishable (D-65);
 /// never persisted, never logged.
 public final class MediaTicketTable<C: Clock<Duration> & Sendable>: Sendable, CustomStringConvertible {
     public static var ticketByteCount: Int { 32 }
     public static var lifetime: Duration { .seconds(30) }
+    static var retention: Duration { lifetime * 2 }
+    static var maxRecords: Int { 256 }
 
     private struct Record {
         let ticket: Data
@@ -64,6 +66,7 @@ public final class MediaTicketTable<C: Clock<Duration> & Sendable>: Sendable, Cu
                 records[index].consumed = true
             }
             records.append(Record(ticket: ticket, session: session, peer: peer, expiresAt: expiresAt))
+            if records.count > Self.maxRecords { records.removeFirst(records.count - Self.maxRecords) }
         }
         return expiresAt
     }
@@ -105,6 +108,6 @@ public final class MediaTicketTable<C: Clock<Duration> & Sendable>: Sendable, Cu
     }
 
     private func purge(_ records: inout [Record], now: Duration) {
-        records.removeAll { now > $0.expiresAt }
+        records.removeAll { now > $0.expiresAt + Self.retention - Self.lifetime }
     }
 }

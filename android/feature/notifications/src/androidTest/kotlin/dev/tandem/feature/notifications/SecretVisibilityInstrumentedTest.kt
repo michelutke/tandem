@@ -45,9 +45,9 @@ class SecretVisibilityInstrumentedTest {
 
     @Test
     fun secretVisibility_companionSecretKind_capturedPayloadHasEmptyText() {
-        shellOutput(companionCommand(KIND_SECRET, "--es text $SECRET_TEXT"))
+        val post = companionCommand(KIND_SECRET, "--es text $SECRET_TEXT")
 
-        val posted = awaitCaptured()
+        val posted = awaitCaptured(post)
 
         assertEquals(CapturingListenerService.COMPANION_APP_NAME, posted.title)
         assertEquals("", posted.text)
@@ -70,10 +70,17 @@ class SecretVisibilityInstrumentedTest {
         }
     }
 
-    private fun awaitCaptured(): NotificationPosted {
+    // The first broadcast can land while the just-installed companion is still settling and be
+    // dropped, so the (idempotent, same-key) post is re-sent until the listener sees it.
+    private fun awaitCaptured(post: String): NotificationPosted {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)
+        var nextPost = 0L
         while (System.nanoTime() < deadline) {
             CapturingListenerService.captured.firstOrNull()?.let { return it }
+            if (System.nanoTime() >= nextPost) {
+                shellOutput(post)
+                nextPost = System.nanoTime() + TimeUnit.SECONDS.toNanos(REPOST_INTERVAL_SECONDS)
+            }
             Thread.sleep(POLL_INTERVAL_MS)
         }
         error("no companion notification captured within ${TIMEOUT_SECONDS}s")
@@ -106,5 +113,6 @@ class SecretVisibilityInstrumentedTest {
         const val SECRET_TEXT = "secretbody"
         const val POLL_INTERVAL_MS = 50L
         const val TIMEOUT_SECONDS = 60L
+        const val REPOST_INTERVAL_SECONDS = 10L
     }
 }

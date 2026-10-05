@@ -1,0 +1,342 @@
+import FeatureFiles
+import FeatureMessaging
+import FeatureNotifications
+import Foundation
+import TandemCrypto
+import TandemProtocol
+import TandemStore
+import TandemTransport
+
+/// Everything E22-12 composes onto registered sessions: one ``SessionServiceHost`` attaching each
+/// feature service exactly once per session (every channel read goes through
+/// ``TandemSession/receive(_:)``, the one per-channel dispatch point) and detaching it when the
+/// session ends. Every store with peer data is registered in `purgeRegistry`, so an unpair purges
+/// all of it.
+struct SessionFeatures: Sendable {
+    let host: SessionServiceHost
+    /// Routes ``SendEntryHandler`` and ``SendRequestAgent`` to whichever session is attached;
+    /// not connected between sessions.
+    let fileTransfer: ActiveFileTransferService
+    /// In-flight transfer rows fed by every session's ``FileSender`` and ``FileReceiver``.
+    let transferProgress: TransferProgressCenter
+    /// Photo browsing over whichever session is attached, thumbnails cached on disk per peer.
+    let photos: ActivePhotoService
+    /// Drives the menu bar's Hang Up item.
+    let activeCall: ActiveCallAlert
+    private let sendRequestWake: SendRequestWakeObserver?
+
+    static func make(
+        purgeRegistry: PeerDataPurgeRegistry,
+        mirrorService: any SessionService,
+        rotationService: any SessionService
+    ) -> SessionFeatures {
+        let fileTransfer = ActiveFileTransferService()
+        let transferProgress = TransferProgressCenter(clock: ContinuousClock())
+        let photos = ActivePhotoService()
+        let activeCall = ActiveCallAlert()
+        var services: [any SessionService] = []
+        let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
+        let notifications = NotificationsSessionService(iconCache: iconCache)
+        Task { await purgeRegistry.register(notifications.coordinator) }
+        services.append(notifications)
+        services.append(contentsOf: makeMessagingServices(
+            purgeRegistry: purgeRegistry,
+            routing: notifications.routing,
+            activeCall: activeCall
+        ))
+        let filesService = makeFilesService(
+            fileTransfer: fileTransfer,
+            transferProgress: transferProgress,
+            photos: photos,
+            purgeRegistry: purgeRegistry,
+            routing: notifications.routing
+        )
+        services.append(contentsOf: filesService.map { [$0] } ?? [])
+        services.append(mirrorService)
+        services.append(rotationService)
+        let agent = (try? SendRequestQueue()).map { SendRequestAgent(queue: $0, transfer: fileTransfer) }
+        filesService?.agent = agent
+        let wake = agent.map { agent in SendRequestWakeObserver { Task { await agent.drain() } } }
+        return SessionFeatures(
+            host: SessionServiceHost(services: services),
+            fileTransfer: fileTransfer,
+            transferProgress: transferProgress,
+            photos: photos,
+            activeCall: activeCall,
+            sendRequestWake: wake
+        )
+    }
+
+    /// `chaining`'s own handling plus attaching every feature service to the new session.
+    func onSessionRegistered(
+        chaining existing: NWListenerFactory.SessionRegisteredHandler?
+    ) -> NWListenerFactory.SessionRegisteredHandler {
+        let host = host
+        return { peer, session in
+            existing?(peer, session)
+            host.sessionRegistered(peer: peer, session: session)
+        }
+    }
+
+    var onSessionEnded: NWListenerFactory.SessionRegisteredHandler {
+        let host = host
+        return { peer, session in
+            host.sessionEnded(peer: peer, session: session)
+        }
+    }
+
+    private static func makeIconCache(purgeRegistry: PeerDataPurgeRegistry) -> IconCache? {
+        guard let directory = cachesDirectory(named: "NotificationIcons"),
+              let cache = try? IconCache(directory: directory) else { return nil }
+        Task { await purgeRegistry.register(cache) }
+        return cache
+    }
+
+    private static func makeMessagingServices(
+        purgeRegistry: PeerDataPurgeRegistry,
+        routing: NotificationRouting,
+        activeCall: ActiveCallAlert
+    ) -> [any SessionService] {
+        guard let smsStore = try? GrdbSmsStore.openDefault(),
+              let contactsStore = try? GrdbContactsStore.openDefault() else { return [] }
+        Task {
+            await purgeRegistry.register(smsStore)
+            await purgeRegistry.register(contactsStore)
+        }
+        return [
+            MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore),
+            CallsSessionService(contacts: contactsStore, routing: routing, activeCall: activeCall)
+        ]
+    }
+
+    private static func makeFilesService(
+        fileTransfer: ActiveFileTransferService,
+        transferProgress: TransferProgressCenter,
+        photos: ActivePhotoService,
+        purgeRegistry: PeerDataPurgeRegistry,
+        routing: NotificationRouting
+    ) -> FilesSessionService? {
+        guard let directories = try? TransferDirectories.system(),
+              let thumbnailDirectory = cachesDirectory(named: "Thumbnails"),
+              let thumbnails = try? ThumbnailCache(directory: thumbnailDirectory, now: { Date() }) else { return nil }
+        Task {
+            await purgeRegistry.register(thumbnails)
+            await purgeRegistry.register(RetainedPartsPurger(staging: directories.staging))
+        }
+        return FilesSessionService(
+            directories: directories,
+            thumbnails: thumbnails,
+            activeTransfer: fileTransfer,
+            transferProgress: transferProgress,
+            photos: photos,
+            routing: routing
+        )
+    }
+
+    private static func cachesDirectory(named name: String) -> URL? {
+        try? FileManager.default
+            .url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("Tandem", isDirectory: true)
+            .appendingPathComponent(name, isDirectory: true)
+    }
+}
+
+/// Notification presentation, icon storage, dismiss sync and action replies for the attached
+/// session. `UNNotificationPresenter.responses` is single-consumer, so one long-lived reader
+/// routes every response to the handlers of whichever session is currently attached and, through
+/// ``routing``, to the accept-prompt and call-alert presenters.
+final class NotificationsSessionService: SessionService, @unchecked Sendable {
+    private actor ActiveHandlers {
+        private var handlers: (action: NotificationActionHandler, dismiss: NotificationDismissSync)?
+
+        func set(_ handlers: (action: NotificationActionHandler, dismiss: NotificationDismissSync)?) {
+            self.handlers = handlers
+        }
+
+        func route(_ event: NotificationResponseEvent) async {
+            await handlers?.action.handle(event)
+            await handlers?.dismiss.handle(event)
+        }
+    }
+
+    static let hidesContentWhenLockedKey = "hideNotificationContentWhenLocked"
+
+    private let presenter: UNNotificationPresenter
+    let coordinator: NotificationPresentationCoordinator
+    let routing: NotificationRouting
+    private let iconCache: IconCache?
+    private let active = ActiveHandlers()
+    private let screenLock = DistributedScreenLockState(notificationCenter: DistributedNotificationCenter.default())
+
+    init(iconCache: IconCache?) {
+        let presenter = UNNotificationPresenter()
+        self.presenter = presenter
+        self.iconCache = iconCache
+        coordinator = NotificationPresentationCoordinator(
+            presenter: presenter,
+            iconCache: iconCache,
+            screenLockState: screenLock,
+            hidesContentWhenLocked: {
+                let key = NotificationsSessionService.hidesContentWhenLockedKey
+                return UserDefaults.standard.object(forKey: key) as? Bool ?? true
+            }
+        )
+        let router = NotificationResponseRouter()
+        routing = NotificationRouting(
+            presenter: presenter,
+            categories: CategoryRegistry(presenter: presenter),
+            router: router
+        )
+        let active = active
+        Task {
+            for await event in presenter.responses {
+                await active.route(event)
+                await router.route(event)
+            }
+        }
+    }
+
+    func attach(peer: SpkiFingerprint, session: any TandemSession) async {
+        let action = NotificationActionHandler(presenter: presenter, session: session)
+        let dismiss = NotificationDismissSync(presenter: presenter, session: session)
+        await active.set((action, dismiss))
+        _ = startNotificationPresentationReader(
+            peer: peer,
+            session: session,
+            coordinator: coordinator,
+            iconCache: iconCache,
+            actionHandler: action,
+            dismissSync: dismiss
+        )
+    }
+
+    func detach(peer: SpkiFingerprint) async {
+        await active.set(nil)
+    }
+}
+
+/// SMS and contacts sync clients over the GRDB stores. The channel readers end on their own once
+/// the session's streams finish.
+final class MessagingSessionService: SessionService, @unchecked Sendable {
+    private let smsStore: any SmsStore
+    private let contactsStore: any ContactsStore
+
+    init(smsStore: any SmsStore, contactsStore: any ContactsStore) {
+        self.smsStore = smsStore
+        self.contactsStore = contactsStore
+    }
+
+    func attach(peer: SpkiFingerprint, session: any TandemSession) async {
+        let sms = SmsSyncClient(peer: peer, store: smsStore, session: session)
+        let contacts = ContactsSyncClient(peer: peer, session: session, store: contactsStore)
+        _ = startSmsSyncReader(session: session, client: sms)
+        _ = startContactsSyncReader(session: session, client: contacts)
+        Task {
+            await sms.requestSync()
+            try? await contacts.requestSync()
+        }
+    }
+
+    func detach(peer: SpkiFingerprint) async {}
+}
+
+/// File transfer and photos for the attached session: one FILES reader (``FilesChannelRouter``),
+/// the production ``SessionFileTransferService`` behind ``ActiveFileTransferService``, and a
+/// drain of the Share-extension queue once connected.
+final class FilesSessionService: SessionService, @unchecked Sendable {
+    var agent: SendRequestAgent?
+
+    private static let routerKey = "accept-prompts"
+    private static let receivedRouterKey = "received-file"
+
+    private let directories: TransferDirectories
+    private let thumbnails: ThumbnailCache
+    private let activeTransfer: ActiveFileTransferService
+    private let transferProgress: TransferProgressCenter
+    private let photos: ActivePhotoService
+    private let routing: NotificationRouting
+    private var acceptPrompts: NotificationAcceptPromptPresenter?
+    private var acceptReader: Task<Void, Never>?
+    private var receivedFiles: NotificationReceivedFilePresenter?
+    private var receivedActivations: Task<Void, Never>?
+
+    init(
+        directories: TransferDirectories,
+        thumbnails: ThumbnailCache,
+        activeTransfer: ActiveFileTransferService,
+        transferProgress: TransferProgressCenter,
+        photos: ActivePhotoService,
+        routing: NotificationRouting
+    ) {
+        self.directories = directories
+        self.thumbnails = thumbnails
+        self.activeTransfer = activeTransfer
+        self.transferProgress = transferProgress
+        self.photos = photos
+        self.routing = routing
+    }
+
+    func attach(peer: SpkiFingerprint, session: any TandemSession) async {
+        let prompts = NotificationAcceptPromptPresenter(presenter: routing.presenter, categories: routing.categories)
+        await routing.router.setSink({ prompts.handle($0) }, for: Self.routerKey)
+        acceptPrompts = prompts
+        let received = NotificationReceivedFilePresenter(presenter: routing.presenter)
+        await routing.router.setSink({ received.handle($0) }, for: Self.receivedRouterKey)
+        receivedFiles = received
+        let notifier = ReceivedFileNotifier(presenter: received, revealer: WorkspaceFileRevealer())
+        receivedActivations = Task { await notifier.runActivations() }
+        let transfers = SessionFileTransferService(
+            session: session,
+            scheduler: FilesScheduler(session: session),
+            progress: transferProgress
+        )
+        let acceptFlow = AcceptFlow(
+            session: session,
+            freeSpace: VolumeFreeSpaceProvider(),
+            presenter: prompts,
+            clock: ContinuousClock(),
+            settings: AcceptSettings(),
+            destination: directories.destination
+        )
+        let receiver = FileReceiver(
+            session: session,
+            directories: directories,
+            sink: FileHandleSink(),
+            peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
+            now: { Date() },
+            notifier: notifier,
+            progress: transferProgress
+        )
+        let photoService = SessionPhotoService(session: session)
+        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer))
+        let router = FilesChannelRouter(
+            acceptFlow: acceptFlow,
+            receiver: receiver,
+            transfers: transfers,
+            photos: photoService
+        )
+        _ = startFilesChannelReader(session: session, router: router)
+        acceptReader = startAcceptPromptReader(flow: acceptFlow)
+        activeTransfer.attach(transfers)
+        let agent = agent
+        Task {
+            await receiver.resumeRetained()
+            await agent?.drain()
+        }
+    }
+
+    func detach(peer: SpkiFingerprint) async {
+        await routing.router.setSink(nil, for: Self.routerKey)
+        acceptReader?.cancel()
+        acceptReader = nil
+        acceptPrompts?.finish()
+        acceptPrompts = nil
+        await routing.router.setSink(nil, for: Self.receivedRouterKey)
+        receivedFiles?.finish()
+        receivedFiles = nil
+        receivedActivations?.cancel()
+        receivedActivations = nil
+        activeTransfer.detach()
+        photos.detach()
+    }
+}

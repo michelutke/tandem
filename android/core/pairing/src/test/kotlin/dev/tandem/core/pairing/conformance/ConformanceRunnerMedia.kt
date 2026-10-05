@@ -1,8 +1,11 @@
 package dev.tandem.core.pairing.conformance
 
 import com.google.protobuf.ByteString
+import com.google.protobuf.MessageLite
 import dev.tandem.protocol.v1.MediaHello
 import dev.tandem.protocol.v1.MediaTicketGrant
+import dev.tandem.protocol.v1.MirrorDeclined
+import dev.tandem.protocol.v1.MirrorRequest
 import dev.tandem.protocol.v1.RequestMediaTicket
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -13,6 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 // ConformanceRunner+Media.swift split).
 
 private const val MEDIA_TICKET_LENGTH = 32
+private const val MIRROR_SESSION_ID_LENGTH = 16
 
 /** `media-encoding` category (E60-01): decodes the raw message bytes each vector describes
  * (`input.messageHex` -- see protocol/vectors/README.md) with the real generated media-ticket message
@@ -23,7 +27,9 @@ internal fun mediaEncodingOutcome(vector: JsonObject): VectorOutcome {
     val messageBytes = hexToBytes(input.getValue("messageHex").jsonPrimitive.content)
     return try {
         when (val kind = input.getValue("kind").jsonPrimitive.content) {
-            "requestMediaTicket" -> requestMediaTicketOutcome(id, messageBytes, vector)
+            "requestMediaTicket" -> emptyMessageOutcome(id, messageBytes, vector, RequestMediaTicket::parseFrom)
+            "mirrorRequest" -> emptyMessageOutcome(id, messageBytes, vector, MirrorRequest::parseFrom)
+            "mirrorDeclined" -> emptyMessageOutcome(id, messageBytes, vector, MirrorDeclined::parseFrom)
             "mediaTicketGrant" -> mediaTicketGrantOutcome(id, messageBytes, vector)
             "mediaHello" -> mediaHelloOutcome(id, messageBytes, vector)
             else -> error("unsupported media-encoding kind: $kind")
@@ -33,19 +39,20 @@ internal fun mediaEncodingOutcome(vector: JsonObject): VectorOutcome {
     }
 }
 
-private fun requestMediaTicketOutcome(
+private fun emptyMessageOutcome(
     id: String,
     messageBytes: ByteArray,
     vector: JsonObject,
+    parse: (ByteArray) -> MessageLite,
 ): VectorOutcome {
-    val decoded = RequestMediaTicket.parseFrom(messageBytes)
+    val reencoded = parse(messageBytes).toByteArray()
     val expectedSha =
         vector
             .getValue("expected")
             .jsonObject
             .getValue("messageSha256")
             .jsonPrimitive.content
-    val passed = decoded.toByteArray().contentEquals(messageBytes) && sha256Hex(messageBytes) == expectedSha
+    val passed = reencoded.contentEquals(messageBytes) && sha256Hex(messageBytes) == expectedSha
     return VectorOutcome(
         id,
         "media-encoding",
@@ -88,11 +95,20 @@ private fun mediaHelloOutcome(
     vector: JsonObject,
 ): VectorOutcome {
     val decoded = MediaHello.parseFrom(messageBytes)
-    val rejected = decoded.ticket.size() != MEDIA_TICKET_LENGTH
+    val actual =
+        when {
+            decoded.ticket.size() != MEDIA_TICKET_LENGTH -> "ticketRejected"
+            decoded.mirrorSessionId.size() != MIRROR_SESSION_ID_LENGTH -> "malformedFrame"
+            else -> "accepted"
+        }
     if ("expected" in vector) {
         val expected = vector.getValue("expected").jsonObject
         val passed =
-            !rejected &&
+            actual == "accepted" &&
+                decoded.mirrorSessionId ==
+                ByteString.copyFrom(
+                    hexToBytes(expected.getValue("mirrorSessionIdHex").jsonPrimitive.content),
+                ) &&
                 decoded.ticket ==
                 ByteString.copyFrom(
                     hexToBytes(expected.getValue("ticketHex").jsonPrimitive.content),
@@ -104,10 +120,9 @@ private fun mediaHelloOutcome(
             "media-encoding",
             if (passed) "pass" else "fail",
             "accepted",
-            if (rejected) "ticketRejected" else "accepted",
+            actual,
         )
     }
     val expectedError = vector.getValue("expectedError").jsonPrimitive.content
-    val actual = if (rejected) "ticketRejected" else "accepted"
     return VectorOutcome(id, "media-encoding", if (actual == expectedError) "pass" else "fail", expectedError, actual)
 }

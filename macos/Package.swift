@@ -15,6 +15,7 @@ let package = Package(
         .package(path: "Packages/../Packages/FeatureCalls"),
         .package(path: "Packages/../Packages/FeatureClipboard"),
         .package(path: "Packages/../Packages/FeatureFiles"),
+        .package(path: "Packages/../Packages/FeatureFocus"),
         .package(path: "Packages/../Packages/FeatureMessaging"),
         .package(path: "Packages/../Packages/FeatureMirror"),
         .package(path: "Packages/../Packages/FeatureNotifications"),
@@ -33,6 +34,12 @@ let package = Package(
             name: "FeatureCallsTests",
             dependencies: ["FeatureCalls", "TandemCrypto", "TandemProtocol", "TandemStore", "TandemTestSupport"],
             path: "Packages/FeatureCalls/Tests/FeatureCallsTests",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "FeatureFocusTests",
+            dependencies: ["FeatureFocus", "TandemProtocol", "TandemTestSupport"],
+            path: "Packages/FeatureFocus/Tests/FeatureFocusTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
@@ -55,8 +62,9 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureMirrorTests",
-            dependencies: ["FeatureMirror", "TandemCrypto", "TandemTestSupport"],
+            dependencies: ["FeatureMirror", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
             path: "Packages/FeatureMirror/Tests/FeatureMirrorTests",
+            resources: [.copy("Fixtures")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

@@ -1056,10 +1056,10 @@ Reference — E51-07 acceptance criteria:
 - Editing one fixture contact then deleting another results in the Mac cache reflecting both within 2 s, with one updated record and one tombstone sent (no full resync).
 - Physical phone: a contact edited on the phone shows its new name in the Mac thread list within 10 s.
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Physical phone paired with the Mac, session Ready; READ_CONTACTS granted; initial contacts sync complete; Messages thread list open on the Mac showing a thread with a known contact.
+**Steps:** 1. On the phone, rename that contact in the Contacts app. 2. Start a stopwatch on save. 3. Watch the Mac thread list until the thread shows the new name; stop the stopwatch. 4. Repeat 3 times.
+**Pass threshold:** New name appears on the Mac within 10 s in all 3 runs, with no manual refresh and no full resync.
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of phone and Mac with a visible clock; redacted log excerpt showing one incremental ContactsSyncResponse (no names).
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
@@ -1473,3 +1473,92 @@ Not a `manual:` entry, so not managed by `tools/planning/manual_gates.rb`. Physi
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
 | | | | |
+
+### encodePipeline_cbr4MbpsOnHardwareCodec_bitrateWithin20Percent (E61-03, phase 6)
+
+[android] VirtualDisplay + MediaCodec encode pipeline to MediaFrame
+
+Reference — E61-03 acceptance criteria:
+- A KeyframeRequest causes exactly one sync-frame request on the encoder (unit), and on the emulator software encoder an IDR arrives within the next 2 output frames.
+- Every encoder output buffer becomes one MediaFrame with the buffer's pts and keyframe flag; the codec-config buffer is sent first, flagged as config.
+- On the emulator, the software AVC encoder produces an IDR within 1 s of pipeline start.
+- On the emulator at a configured 4 Mbps CBR, measured output bitrate over 10 s is within ±20 % of the target.
+- An access unit larger than 960 KiB is sent as ceil(size / 960 KiB) fragments (<= 8) with the same pts; an access unit that would need more than 8 fragments is not sent, the bitrate is lowered and a new IDR requested.
+
+**Preconditions:** Physical Android phone (hardware AVC encoder), debug build with the E61-03 encode pipeline; Mac attached or the instrumented harness run on the device. The emulator's software encoder ignores CBR, so `EncodePipelineInstrumentedTest.encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent` is `@RequiresDevice`.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or mirror a high-motion screen for 10 s with a 4 Mbps target.
+2. Read the measured bitrate (sum of encoded buffer bytes x 8 / elapsed seconds).
+**Pass threshold:** Measured bitrate within 20% of 4 Mbps (3.2 to 4.8 Mbps).
+**Evidence required:** Test report or measured bitrate, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
+### encodePipeline_deviceRotation_newDimensionsWithin500ms (E61-05, phase 6)
+
+[android] Rotation and resolution change handling
+
+Reference — E61-05 acceptance criteria:
+- Rotating 1080x1920 portrait to landscape plans a 1920x1080 encoder; a 2208x1840 foldable display plans 1920x1600 (long edge ≤ 1920, even dimensions, aspect preserved).
+- A rotation event emits RotationChanged before the next MediaFrame and recreates both encoder and VirtualDisplay at the planned size.
+- On the emulator (`adb emu rotate`), the first post-rotation frame has the new dimensions and arrives within 500 ms of the last pre-rotation frame, without restarting the session.
+
+**Preconditions:** Physical Android phone, debug build, mirror session running; the emulator cannot recreate the encoder inside the budget, so `EncodePipelineInstrumentedTest.encodePipeline_emulatorRotation_newDimensionsWithin500ms` is `@RequiresDevice`.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or start a mirror and physically rotate the phone portrait to landscape.
+2. Compare the timestamp of the last frame at the old size with the first frame at the new size.
+**Pass threshold:** `RotationChanged` and the new `MediaFormat` precede the first new-size frame, which arrives within 500 ms of the last old-size frame.
+**Evidence required:** Test report or frame timestamps, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+### mirrorPrompt_tapNotificationOnEmulator_consentDialogShown (E61-16, phase 6)
+
+[android] MirrorRequest on-phone start prompt
+
+Reference — E61-16 acceptance criteria:
+- MirrorRequest posts exactly one prompt and sends nothing (no RequestMediaTicket, no capture started).
+- Repeated MirrorRequests while a prompt is pending leave exactly one prompt posted.
+- Decline, dismiss, or 30 s without a tap sends MirrorDeclined and removes the prompt.
+- Tapping accept launches the MediaProjection consent; RequestMediaTicket is sent only after consent is granted.
+- On the emulator, tapping the prompt notification brings up the system consent dialog.
+
+**Preconditions:** Physical Android phone (API 30+), debug build, notification permission granted, paired Mac; `MirrorPromptInstrumentedTest.mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` is `@RequiresDevice` because emulator system UI is unreliable for notification taps.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or start a mirror from the Mac.
+2. Pull down the shade and tap the Tandem mirror prompt notification.
+**Pass threshold:** The system screen-capture consent dialog appears after the tap and no media ticket is requested before consent.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
+### globalActionHome_onEmulator_launcherInForeground (E62-05, phase 6)
+
+[android] performGlobalAction + ACTION_SET_TEXT
+
+Reference — E62-05 acceptance criteria:
+- BACK/HOME/RECENTS invoke GLOBAL_ACTION_BACK/HOME/RECENTS respectively.
+- SetText on a focused editable node performs ACTION_SET_TEXT with the text in ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE.
+- SetText with no focused editable node returns NoOp without throwing.
+- On the emulator, SetText replaces a focused EditText's content with the given text, and HOME brings the launcher to the foreground.
+- insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter on API 29 returns NoOp.
+
+**Preconditions:** Physical Android phone (API 29+), debug build, Tandem accessibility service enabled; `AccessibilityInputInstrumentedTest.globalActionHome_onEmulator_launcherInForeground` is `@RequiresDevice` because emulator launcher/system UI is unreliable.
+**Steps:**
+1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or send a HOME global action from the Mac while another app is foreground.
+2. Check which package is in the foreground.
+**Pass threshold:** The default launcher is in the foreground within 10 s of the HOME action and the action result is Performed.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+

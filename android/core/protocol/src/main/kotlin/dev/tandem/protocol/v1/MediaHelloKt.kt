@@ -14,7 +14,8 @@ public inline fun mediaHello(block: dev.tandem.protocol.v1.MediaHelloKt.Dsl.() -
  * ```
  * MediaHello: phone -> Mac, the first frame on the media connection. A receiver MUST reject a
  * MediaHello whose `ticket` is absent or not exactly 32 bytes (TICKET_REJECTED, local reason
- * MISSING) before comparing it against anything and before reading any further frame.
+ * MISSING) before comparing it against anything and before reading any further frame. A
+ * MediaHello whose `mirror_session_id` is not exactly 16 bytes is malformed (MALFORMED_FRAME).
  * ```
  *
  * Protobuf type `tandem.v1.MediaHello`
@@ -58,6 +59,33 @@ public object MediaHelloKt {
      */
     public fun clearTicket() {
       _builder.clearTicket()
+    }
+
+    /**
+     * ```
+     * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+     * (Q19, D-77). The Mac echoes it in every input message of the session.
+     * ```
+     *
+     * `bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];`
+     */
+    public var mirrorSessionId: com.google.protobuf.ByteString
+      @kotlin.jvm.JvmName("getMirrorSessionId")
+        get() = _builder.mirrorSessionId
+      @kotlin.jvm.JvmName("setMirrorSessionId")
+        set(value) {
+        _builder.mirrorSessionId = value
+      }
+    /**
+     * ```
+     * Exactly 16 bytes from a CSPRNG, minted by the phone when the user starts the mirror session
+     * (Q19, D-77). The Mac echoes it in every input message of the session.
+     * ```
+     *
+     * `bytes mirror_session_id = 2 [json_name = "mirrorSessionId"];`
+     */
+    public fun clearMirrorSessionId() {
+      _builder.clearMirrorSessionId()
     }
   }
 }

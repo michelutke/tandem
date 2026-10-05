@@ -29,14 +29,37 @@
     },
     {
       "id": "media-hello-round-trip",
-      "description": "MediaHello with a 32-byte ticket decoding to the same ticket on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #media-ticket \"Consumption and single use\").",
+      "description": "MediaHello with a 32-byte ticket and a 16-byte mirrorSessionId decoding to the same fields on both codecs and re-encoding to the same golden bytes (docs/protocol/SPEC.md #media-ticket \"Consumption and single use\").",
       "input": {
         "kind": "mediaHello",
-        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2"
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e212103110dc093bef9b74368bc0be498c5336"
       },
       "expected": {
         "ticketHex": "e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2",
-        "messageSha256": "9228098ecf33a603ed453a68f91b3c4202910711839e518bfdadd0e975a805d4"
+        "mirrorSessionIdHex": "3110dc093bef9b74368bc0be498c5336",
+        "messageSha256": "f3433ded5e1834082f72590c429b1bdaac3640f7ec2d4391824e7e91e2c68456"
+      }
+    },
+    {
+      "id": "mirror-request-round-trip",
+      "description": "MirrorRequest, an empty message, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mirrorRequest",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mirror-declined-round-trip",
+      "description": "MirrorDeclined, an empty message, decoding on both codecs and re-encoding to the same golden (zero-length) bytes (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mirrorDeclined",
+        "messageHex": ""
+      },
+      "expected": {
+        "messageSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
     },
     {
@@ -71,6 +94,36 @@
       "expectedError": "ticketRejected",
       "closeCode": "TICKET_REJECTED",
       "localReason": "MISSING"
+    },
+    {
+      "id": "media-hello-missing-mirror-session-id",
+      "description": "A MediaHello with a valid ticket and no mirrorSessionId MUST be rejected MALFORMED_FRAME by both parsers (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2"
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME"
+    },
+    {
+      "id": "media-hello-mirror-session-id-15-bytes",
+      "description": "A MediaHello whose mirrorSessionId is 15 bytes MUST be rejected MALFORMED_FRAME by both parsers (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e2120f3110dc093bef9b74368bc0be498c53"
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME"
+    },
+    {
+      "id": "media-hello-mirror-session-id-17-bytes",
+      "description": "A MediaHello whose mirrorSessionId is 17 bytes MUST be rejected MALFORMED_FRAME by both parsers (docs/protocol/SPEC.md #mirror-request).",
+      "input": {
+        "kind": "mediaHello",
+        "messageHex": "0a20e9e140143ee205253d00ae41bbd3e4805ea16543600902311d1e8c82cd6412e212113110dc093bef9b74368bc0be498c533600"
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME"
     }
   ]
 }

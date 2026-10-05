@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabRotation_pendingMacKeyOfferedBeforeAllAcks_unackedPhoneKeepsOldPinOnly
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E70-09 (6/6): the real Mac begins a Mac-initiated rotation (`-HarnessMacRotation YES`) and offers the
+# pending key to a paired phone as it connects. SPEC.md #key-rotation two-phase: the Mac switches its
+# listener identity only after *every* paired phone acked. This phone verifies the offer (both
+# signatures) but never acks, so it keeps its old pin only: the Mac still presents the old identity
+# (a connection pinned to the old key succeeds), the pending key is not presented (a connection pinned
+# to it alone is rejected), and the Mac never reports a switch. Trust store unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e70-09-common.sh
+source "$here/../lib/e70-09-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_setup_mac
+e15_10_start_client "phone-identity.bin"
+e15_10_seed_trust "$CLIENT_SPKI_HEX" "E70-09 paired phone" "$E15_10_TMP_DIR/seed-phone.json"
+TRUST_BEFORE="$(e70_09_trust_snapshot)"
+
+PORT="$(e15_10_free_port)"
+e15_10_launch_plain "$PORT" -HarnessMacRotation YES
+OLD_MAC_FP_HEX="$(harness_identity_spki)"
+MAC_FP_B64="$(e15_10_hex_to_b64url "$OLD_MAC_FP_HEX")"
+
+FAILED=0
+
+if e15_10_wait_for_log_line 'harness-mac-rotation: awaitingPhones' 20 >/dev/null; then
+  e70_09_log "OK: Mac began a rotation and is waiting for its phones"
+else
+  e70_09_log "FAIL: Mac did not begin a rotation: $(grep 'harness-mac-rotation' "$HARNESS_LOG_PATH" | tail -1)"
+  FAILED=1
+fi
+
+PENDING_FP_HEX=""
+if [ "$FAILED" -eq 0 ]; then
+  response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+  case "$response" in
+    "OK OPENED "*) ;;
+    *)
+      e70_09_log "FAIL: session did not open: $response"
+      FAILED=1
+      ;;
+  esac
+fi
+if [ "$FAILED" -eq 0 ]; then
+  e15_10_send "RAWMACROTATION NOACK"
+  offer="$(e15_10_read "$E70_09_ROTATE_TIMEOUT_SECONDS")" || offer="EVENT NO_RESPONSE"
+  case "$offer" in
+    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED")
+      PENDING_FP_HEX="$(printf '%s' "$offer" | cut -d' ' -f4)"
+      e70_09_log "OK: Mac offered a pending key before any ack, both signatures verify"
+      ;;
+    *)
+      e70_09_log "FAIL: expected a verified pending key offer, got: $offer"
+      FAILED=1
+      ;;
+  esac
+  e15_10_send "RAWCLOSE"
+  e15_10_read 5 >/dev/null || true
+fi
+if [ "$FAILED" -eq 0 ] && { [ -z "$PENDING_FP_HEX" ] || [ "$PENDING_FP_HEX" = "$OLD_MAC_FP_HEX" ]; }; then
+  e70_09_log "FAIL: offered key is missing or equals the current identity"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+  case "$response" in
+    "OK OPENED "*) e70_09_log "OK: phone pinned to the old key only still connects (listener identity unchanged)" ;;
+    *)
+      e70_09_log "FAIL: connection pinned to the old key failed: $response"
+      FAILED=1
+      ;;
+  esac
+  e15_10_send "RAWCLOSE"
+  e15_10_read 5 >/dev/null || true
+fi
+if [ "$FAILED" -eq 0 ]; then
+  response="$(e70_09_rawopen "$PORT" "$(e15_10_hex_to_b64url "$PENDING_FP_HEX")")"
+  case "$response" in
+    "ERROR HANDSHAKE_REJECTED "*) e70_09_log "OK: Mac does not present the pending key, handshake pinned to it is rejected" ;;
+    *)
+      e70_09_log "FAIL: expected a rejected handshake for the pending key, got: $response"
+      FAILED=1
+      ;;
+  esac
+fi
+if grep -q 'harness-mac-rotation-switched' "$HARNESS_LOG_PATH"; then
+  e70_09_log "FAIL: Mac switched its identity before every phone acked"
+  FAILED=1
+fi
+
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e15_10_stop_client
+e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

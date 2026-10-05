@@ -4,13 +4,16 @@ Covers encode/decode vectors for the message types of docs/protocol/SPEC.md #med
 
     RequestMediaTicket {} (media.proto; empty message, Envelope.payload field 8)
     MediaTicketGrant { ticket (bytes, 1), expires_at (int64, 2) } (control.proto, E01-12)
-    MediaHello { ticket (bytes, 1) } (media.proto; first frame on the media connection)
+    MediaHello { ticket (bytes, 1), mirror_session_id (bytes, 2) } (media.proto; first frame on the media connection)
+    MirrorRequest {} and MirrorDeclined {} (media.proto, E61-15; empty messages, Envelope.payload
+    fields 140 and 141, docs/protocol/SPEC.md #mirror-request)
 
 Entries are the raw serialized message bytes for one message type at a time; `input.kind` selects
-the message type (`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`, all with `input.messageHex`).
+the message type (`requestMediaTicket`/`mediaTicketGrant`/`mediaHello`/`mirrorRequest`/`mirrorDeclined`, all with `input.messageHex`).
 A `mediaHello` entry with `expectedError` is a MediaHello whose `ticket` is absent or not exactly
 32 bytes: both parsers MUST reject it (TICKET_REJECTED, local reason MISSING) from the decoded
-message alone, before any further frame is read.
+message alone, before any further frame is read. A `mediaHello` entry with a valid ticket and a
+`mirror_session_id` that is not exactly 16 bytes carries `expectedError: "malformedFrame"`.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ import hashlib
 from typing import Any
 
 TICKET_LENGTH = 32
+MIRROR_SESSION_ID_LENGTH = 16
 ISSUED_AT_MS = 1_700_000_000_000
 TICKET_LIFETIME_MS = 30_000
 
@@ -62,20 +66,47 @@ def encode_request_media_ticket() -> bytes:
     return b""
 
 
+def encode_mirror_request() -> bytes:
+    """Encodes a MirrorRequest message body (no fields)."""
+    return b""
+
+
+def encode_mirror_declined() -> bytes:
+    """Encodes a MirrorDeclined message body (no fields)."""
+    return b""
+
+
 def encode_media_ticket_grant(*, ticket: bytes, expires_at: int) -> bytes:
     """Encodes a MediaTicketGrant message body."""
     return _field_bytes(1, ticket) + _field_varint(2, expires_at)
 
 
-def encode_media_hello(*, ticket: bytes) -> bytes:
+def encode_media_hello(*, ticket: bytes, mirror_session_id: bytes = b"") -> bytes:
     """Encodes a MediaHello message body."""
-    return _field_bytes(1, ticket)
+    return _field_bytes(1, ticket) + _field_bytes(2, mirror_session_id)
 
 
 def _ticket(length: int) -> bytes:
     """Deterministic fixed ticket bytes of the given length (golden test data, never a secret)."""
     seed = b"tandem-media-ticket-vector"
     return (hashlib.sha256(seed).digest() * 2)[:length]
+
+
+def _mirror_session_id(length: int) -> bytes:
+    """Deterministic fixed mirror session id bytes of the given length (golden test data)."""
+    seed = b"tandem-mirror-session-id-vector"
+    return (hashlib.sha256(seed).digest())[:length]
+
+
+def _mirror_id_error_vector(slug: str, description: str, mirror_session_id: bytes) -> dict[str, Any]:
+    hello = encode_media_hello(ticket=_ticket(TICKET_LENGTH), mirror_session_id=mirror_session_id)
+    return {
+        "id": f"media-hello-{slug}",
+        "description": description,
+        "input": {"kind": "mediaHello", "messageHex": hello.hex()},
+        "expectedError": "malformedFrame",
+        "closeCode": "MALFORMED_FRAME",
+    }
 
 
 def _hello_error_vector(slug: str, description: str, ticket: bytes) -> dict[str, Any]:
@@ -89,13 +120,28 @@ def _hello_error_vector(slug: str, description: str, ticket: bytes) -> dict[str,
     }
 
 
+def _empty_message_vector(
+    slug: str, kind: str, name: str, message: bytes
+) -> dict[str, Any]:
+    return {
+        "id": slug,
+        "description": (
+            f"{name}, an empty message, decoding on both codecs and re-encoding to the same golden "
+            "(zero-length) bytes (docs/protocol/SPEC.md #mirror-request)."
+        ),
+        "input": {"kind": kind, "messageHex": message.hex()},
+        "expected": {"messageSha256": hashlib.sha256(message).hexdigest()},
+    }
+
+
 def generate_media_encoding_vectors() -> dict[str, Any]:
     """Generates media-ticket message encode/decode vectors."""
 
     ticket = _ticket(TICKET_LENGTH)
     request = encode_request_media_ticket()
     grant = encode_media_ticket_grant(ticket=ticket, expires_at=ISSUED_AT_MS + TICKET_LIFETIME_MS)
-    hello = encode_media_hello(ticket=ticket)
+    mirror_session_id = _mirror_session_id(MIRROR_SESSION_ID_LENGTH)
+    hello = encode_media_hello(ticket=ticket, mirror_session_id=mirror_session_id)
 
     vectors: list[dict[str, Any]] = [
         {
@@ -124,16 +170,23 @@ def generate_media_encoding_vectors() -> dict[str, Any]:
         {
             "id": "media-hello-round-trip",
             "description": (
-                "MediaHello with a 32-byte ticket decoding to the same ticket on both codecs and "
-                "re-encoding to the same golden bytes (docs/protocol/SPEC.md #media-ticket "
-                "\"Consumption and single use\")."
+                "MediaHello with a 32-byte ticket and a 16-byte mirrorSessionId decoding to the same "
+                "fields on both codecs and re-encoding to the same golden bytes "
+                "(docs/protocol/SPEC.md #media-ticket \"Consumption and single use\")."
             ),
             "input": {"kind": "mediaHello", "messageHex": hello.hex()},
             "expected": {
                 "ticketHex": ticket.hex(),
+                "mirrorSessionIdHex": mirror_session_id.hex(),
                 "messageSha256": hashlib.sha256(hello).hexdigest(),
             },
         },
+        _empty_message_vector(
+            "mirror-request-round-trip", "mirrorRequest", "MirrorRequest", encode_mirror_request()
+        ),
+        _empty_message_vector(
+            "mirror-declined-round-trip", "mirrorDeclined", "MirrorDeclined", encode_mirror_declined()
+        ),
         _hello_error_vector(
             "missing-ticket-field",
             (
@@ -160,6 +213,30 @@ def generate_media_encoding_vectors() -> dict[str, Any]:
                 "case 0)."
             ),
             _ticket(TICKET_LENGTH + 1),
+        ),
+        _mirror_id_error_vector(
+            "missing-mirror-session-id",
+            (
+                "A MediaHello with a valid ticket and no mirrorSessionId MUST be rejected "
+                "MALFORMED_FRAME by both parsers (docs/protocol/SPEC.md #mirror-request)."
+            ),
+            b"",
+        ),
+        _mirror_id_error_vector(
+            "mirror-session-id-15-bytes",
+            (
+                "A MediaHello whose mirrorSessionId is 15 bytes MUST be rejected MALFORMED_FRAME "
+                "by both parsers (docs/protocol/SPEC.md #mirror-request)."
+            ),
+            _mirror_session_id(MIRROR_SESSION_ID_LENGTH - 1),
+        ),
+        _mirror_id_error_vector(
+            "mirror-session-id-17-bytes",
+            (
+                "A MediaHello whose mirrorSessionId is 17 bytes MUST be rejected MALFORMED_FRAME "
+                "by both parsers (docs/protocol/SPEC.md #mirror-request)."
+            ),
+            _mirror_session_id(MIRROR_SESSION_ID_LENGTH) + b"\x00",
         ),
     ]
 

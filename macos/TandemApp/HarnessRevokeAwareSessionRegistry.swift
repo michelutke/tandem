@@ -48,6 +48,8 @@ final class HarnessRevokeAwareSessionRegistry: ControlSessionRegistering, Sendab
 
     func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
         await wrapped.register(spkiFingerprint, session: session)
+        print("harness-session-registered: \(spkiFingerprint.hexString)")
+        fflush(stdout)
         if streamStatus {
             Task { await Self.streamDeviceStatus(session: session) }
         }

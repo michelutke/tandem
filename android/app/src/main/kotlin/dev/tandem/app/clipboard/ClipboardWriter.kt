@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.os.Build
 import android.os.PersistableBundle
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.feature.clipboard.ClipboardLoopGuard
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.ClipboardText
 import kotlinx.coroutines.flow.collect
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.collect
  */
 class ClipboardWriter(
     private val clipboardManager: ClipboardManager,
+    private val loopGuard: ClipboardLoopGuard? = null,
 ) {
     suspend fun start(session: TandemSession) {
         session.receive(Channel.CHANNEL_CLIPBOARD).collect { envelope ->
@@ -35,6 +37,7 @@ class ClipboardWriter(
     }
 
     fun write(clipboardText: ClipboardText) {
+        loopGuard?.recordReceived(clipboardText.originTag, clipboardText.contentHash.toByteArray())
         val clip = ClipData.newPlainText(CLIP_LABEL, clipboardText.text)
         if (clipboardText.sensitive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             clip.description.extras =

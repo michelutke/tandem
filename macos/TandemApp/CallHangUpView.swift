@@ -16,3 +16,14 @@ struct CallHangUpView: View {
         }
     }
 }
+
+/// ``CallHangUpView`` over whichever session's call alerts are attached (E22-13).
+struct ActiveCallHangUpView: View {
+    let activeCall: ActiveCallAlert
+
+    var body: some View {
+        if let viewModel = activeCall.viewModel {
+            CallHangUpView(viewModel: viewModel)
+        }
+    }
+}

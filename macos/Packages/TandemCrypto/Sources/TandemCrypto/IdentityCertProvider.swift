@@ -80,12 +80,13 @@ extension Certificate.SerialNumber {
     /// A random positive 16-byte serial number (E10-06 acceptance). The top bit of the first byte
     /// is cleared before handing the bytes to `Certificate.SerialNumber`, so the value is already
     /// non-negative in DER's two's-complement INTEGER encoding and the encoded length stays
-    /// exactly 16 bytes (no extra leading `0x00`).
+    /// exactly 16 bytes (no extra leading `0x00`). The low bit is set too: a first byte of `0x00` would be
+    /// dropped by DER's minimal INTEGER encoding and leave a 15-byte serial (about 1 in 128 certificates).
     fileprivate static func randomPositive16Byte() -> Certificate.SerialNumber {
         var bytes = [UInt8](repeating: 0, count: 16)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         precondition(status == errSecSuccess, "SecRandomCopyBytes failed with status \(status)")
-        bytes[0] &= 0x7F
+        bytes[0] = (bytes[0] & 0x7F) | 0x01
         return Certificate.SerialNumber(bytes: bytes)
     }
 }

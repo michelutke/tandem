@@ -12,4 +12,9 @@ import kotlinx.coroutines.Dispatchers
  */
 object AppDispatchers {
     val default: CoroutineDispatcher = Dispatchers.Default
+
+    val io: CoroutineDispatcher = Dispatchers.IO
+
+    /** A fresh single-threaded dispatcher, for protocol state that must not run concurrently. */
+    fun serial(): CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1)
 }

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLabRotation_keyRotationReplayedOnNewSession_rejectedTrustStoreUnchanged
+# mitm-scenario-role: client
+# mitm-scenario-expect: closedWithCode(INVALID_SIGNATURE)
+# mitm-scenario-timeout: 240
+#
+# E70-09 (4/6): a paired phone builds a valid `KeyRotation` (both signatures verify) over session
+# A's `RotationChallenge` and delivers it on a new session B. SPEC.md #key-rotation: `cb` is the
+# receiver's challenge for *that* session, so the transcript differs and the Mac replies
+# `RotationReject INVALID_SIGNATURE`. The frame is never sent on A (the Mac would accept it there
+# and rotate the pin), so the replayed frame is the only one the Mac ever sees. Trust store
+# unchanged.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e70-09-common.sh
+source "$here/../lib/e70-09-common.sh"
+trap e15_10_teardown EXIT
+
+e15_10_setup_jvm
+e15_10_setup_mac
+e15_10_start_client "phone-identity.bin"
+e15_10_seed_trust "$CLIENT_SPKI_HEX" "E70-09 paired phone" "$E15_10_TMP_DIR/seed-phone.json"
+TRUST_BEFORE="$(e70_09_trust_snapshot)"
+
+PORT="$(e15_10_free_port)"
+e15_10_launch_plain "$PORT"
+MAC_FP_B64="$(e15_10_hex_to_b64url "$(harness_identity_spki)")"
+
+FAILED=0
+
+e70_09_log "session A: capture the Mac's RotationChallenge"
+response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+case "$response" in
+  "OK OPENED "*) ;;
+  *)
+    e70_09_log "FAIL: session A did not open: $response"
+    FAILED=1
+    ;;
+esac
+CB_A=""
+if [ "$FAILED" -eq 0 ]; then
+  CB_A="$(e70_09_rawchallenge)"
+  if [ -z "$CB_A" ]; then
+    e70_09_log "FAIL: no RotationChallenge arrived on session A"
+    FAILED=1
+  fi
+  e15_10_send "RAWCLOSE"
+  e15_10_read 5 >/dev/null || true
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  e70_09_log "session B: replay a KeyRotation built over session A's challenge"
+  response="$(e70_09_rawopen "$PORT" "$MAC_FP_B64")"
+  case "$response" in
+    "OK OPENED "*) ;;
+    *)
+      e70_09_log "FAIL: session B did not open: $response"
+      FAILED=1
+      ;;
+  esac
+fi
+if [ "$FAILED" -eq 0 ]; then
+  e70_09_rawrotate "CB=$CB_A"
+  case "$E70_09_ROTATE_EVENT" in
+    "EVENT ROTATION_REJECT INVALID_SIGNATURE") e70_09_log "OK: replayed KeyRotation rejected INVALID_SIGNATURE" ;;
+    *)
+      e70_09_log "FAIL: expected RotationReject INVALID_SIGNATURE, got: $E70_09_ROTATE_EVENT"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_10_assert_mac_alive "$PORT" || FAILED=1
+e15_10_stop_client
+e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: closedWithCode(INVALID_SIGNATURE)"
+else
+  echo "OUTCOME: FAILED"
+fi

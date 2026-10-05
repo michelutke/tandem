@@ -83,6 +83,11 @@ public actor AcceptFlow: OriginalOfferExpecting {
         expectedOriginals.remove(transferId)
     }
 
+    /// Whether `id` was accepted and its transfer has not ended yet.
+    public func isActive(id: String) -> Bool {
+        active.contains(id)
+    }
+
     /// Frees the active-transfer slot taken by an accepted offer once its transfer finishes.
     public func transferEnded(id: String) {
         active.remove(id)
@@ -134,4 +139,10 @@ public actor AcceptFlow: OriginalOfferExpecting {
         message.reason = reason
         try? await session.send(.files, payload: .fileReject(message))
     }
+}
+
+/// Applies the presenter's Accept / Decline responses to `flow` until cancelled or the presenter's
+/// stream finishes.
+public func startAcceptPromptReader(flow: AcceptFlow) -> Task<Void, Never> {
+    Task { await flow.run() }
 }

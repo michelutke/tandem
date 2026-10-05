@@ -282,10 +282,15 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | pair.paired | {device} is ready. |
 | scan.invalid | Not a Tandem code. / Or it was already used. |
 | scan.unreachable | Can't reach the Mac. / Same Wi-Fi? |
+| scan.pinMismatch | Not trusted. / This Mac's identity changed. Pair again. |
 | mirror.request | {mac} wants to see your screen. |
 | mirror.waiting | Accept on {phone} to start. |
 | mirror.declined | Nothing was shared. |
 | control.pill | Mac is controlling |
+| call.place | Call |
+| call.dialing | Calling. |
+| call.needsPhoneTap | Tap the notification on your phone. |
+| call.failed | Couldn't call. |
 | home.ring.idle | synced today |
 | notif.accessOff | Access off. |
 | battery.restricted | Battery restricted. / Android may cut the link overnight. |

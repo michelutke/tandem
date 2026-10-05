@@ -13,6 +13,9 @@ struct MenuBarContentView: View {
     /// entirely.
     let deviceStatusViewModel: DeviceStatusViewModel?
 
+    /// Opens the pairing window (E22-14); a no-op in scenario/preview hosts.
+    var onPairPhone: () -> Void = {}
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(viewModel.label)
@@ -20,7 +23,7 @@ struct MenuBarContentView: View {
                 .accessibilityLabel(viewModel.label)
 
             if viewModel.showsPairPhoneMenuItem {
-                Button("Pair phone…") {}
+                Button("Pair phone…") { onPairPhone() }
                     .accessibilityIdentifier("pairPhoneMenuItem")
                     .accessibilityLabel("Pair phone…")
             } else {

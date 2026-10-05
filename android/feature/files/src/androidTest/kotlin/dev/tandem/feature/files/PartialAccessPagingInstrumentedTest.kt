@@ -53,13 +53,14 @@ class PartialAccessPagingInstrumentedTest {
             val unselectedId = insertThroughShell("$namePrefix-unselected.jpg")
             pm("grant", Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
+            val checker = MediaPermissionChecker(context)
             val page =
                 PhotoPageResponder(
-                    MediaPermissionChecker(context),
+                    checker,
                     PhotoPager(ContentResolverMediaStoreSource(resolver)),
                 ).respond(photoPage { limit = 100 })
             val thumb =
-                ThumbnailResponder(ContentResolverThumbnailLoader(resolver), Dispatchers.IO)
+                ThumbnailResponder(ContentResolverThumbnailLoader(resolver, checker::access), Dispatchers.IO)
                     .respond(thumbRequest { id = unselectedId.toString() })
 
             assertEquals(PhotoAccess.PHOTO_ACCESS_PARTIAL, (page as PhotoPageOutcome.Page).result.access)
@@ -119,17 +120,18 @@ class PartialAccessPagingInstrumentedTest {
             "content insert --uri $IMAGES_URI --bind _display_name:s:$displayName " +
                 "--bind mime_type:s:image/jpeg --bind datetaken:l:$SEED_DATE_TAKEN",
         )
-        val where = "\"_display_name='$displayName'\""
-        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --where $where")
+        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name")
         val id =
-            Regex("_id=(\\d+)")
-                .findAll(output)
+            output
+                .lineSequence()
+                .filter { it.contains("_display_name=$displayName") }
+                .mapNotNull { ID_PATTERN.find(it) }
+                .map { it.groupValues[1].toLong() }
                 .lastOrNull()
-                ?.groupValues
-                ?.get(1)
-                ?.toLong()
-        assertTrue("shell insert of $displayName not found: $output", id != null)
+        assertTrue("shell insert of $displayName not found: ${output.take(300)}", id != null)
         shellInsertedIds += id!!
+        writeThroughShell("$IMAGES_URI/$id", SEED_BYTES)
+        shell("content update --uri $IMAGES_URI/$id --bind is_pending:i:0")
         return id
     }
 
@@ -140,15 +142,26 @@ class PartialAccessPagingInstrumentedTest {
         shell("pm $action ${context.packageName} $permission")
     }
 
+    private fun writeThroughShell(
+        uri: String,
+        bytes: ByteArray,
+    ) {
+        val (stdout, stdin) = instrumentation.uiAutomation.executeShellCommandRw("content write --uri $uri")
+        ParcelFileDescriptor.AutoCloseOutputStream(stdin).use { it.write(bytes) }
+        ParcelFileDescriptor.AutoCloseInputStream(stdout).use { it.readBytes() }
+    }
+
     private fun shell(command: String): String =
         ParcelFileDescriptor
             .AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
             .use { it.readBytes().decodeToString() }
 
     private companion object {
+        val ID_PATTERN = Regex("_id=(\\d+)")
         const val SEED_COUNT = 500
         const val PAGE_LIMIT = 100
         const val SEED_DATE_TAKEN = 1_700_000_000_000L
+        val SEED_BYTES = "x".encodeToByteArray()
         const val NAME_PREFIX = "tandem-e41-08"
         const val IMAGES_URI = "content://media/external/images/media"
     }

@@ -179,6 +179,15 @@ public actor ChannelMultiplexer {
         }
     }
 
+    /// `channel`'s frames without counting their consumption: the caller (``ByteStreamSession``'s
+    /// per-channel fan-out) reports each one itself through ``frameConsumed(_:)``.
+    func rawInbound(_ channel: Tandem_V1_Channel) -> AsyncStream<InboundFrame> {
+        guard let stream = streams[channel] else {
+            preconditionFailure("\(channel) is not a routable channel")
+        }
+        return stream
+    }
+
     /// Sends `payload` on `channel`: assigns the next `seq` for `channel` (this side's own
     /// counter, starting at 1 and incrementing by exactly 1 per send on that channel) and the
     /// current ack watermark this side holds for `channel`

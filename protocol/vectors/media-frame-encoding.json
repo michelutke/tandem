@@ -1,0 +1,155 @@
+{
+  "$schema": "./schema.json",
+  "category": "media-frame-encoding",
+  "generatedBy": "tools/vectors/generate.py",
+  "vectors": [
+    {
+      "id": "media-frame-keyframe-round-trip",
+      "description": "Unfragmented keyframe MediaFrame (fragment 0 of 1) round-tripping to golden bytes on both codecs.",
+      "input": {
+        "kind": "mediaFrame",
+        "messageHex": "122808c0843d10011a1e0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e2801"
+      },
+      "expected": {
+        "summary": "pts=1000000|flags=1|dataLength=30|index=0|count=1",
+        "messageSha256": "8c059ec0279abdfe94460cb3fbd4c03a48b808221b1aa00b5e75ed4c56897287"
+      }
+    },
+    {
+      "id": "media-frame-codec-config-round-trip",
+      "description": "Codec-config MediaFrame (SPS/PPS bytes, flag 0x2) round-tripping to golden bytes on both codecs.",
+      "input": {
+        "kind": "mediaFrame",
+        "messageHex": "122110021a1b0000000167640028acd940780227e5c044000003000400000300f02801"
+      },
+      "expected": {
+        "summary": "pts=0|flags=2|dataLength=27|index=0|count=1",
+        "messageSha256": "ba0e055e2769fdfef9256a864ebf6964b6a9fab88800e9de86bdf8078e0085a9"
+      }
+    },
+    {
+      "id": "media-format-round-trip",
+      "description": "MediaFormat H.264 1080x2400 at 60 fps round-tripping to golden bytes on both codecs.",
+      "input": {
+        "kind": "mediaFormat",
+        "messageHex": "0a0a080110b80818e012203c"
+      },
+      "expected": {
+        "summary": "codec=1|width=1080|height=2400|fps=60",
+        "messageSha256": "8bd10e51c2f65de244f152b7d64ece65c665af57d5ec551f6fae4ec263c2bbd5"
+      }
+    },
+    {
+      "id": "keyframe-request-round-trip",
+      "description": "KeyframeRequest, an empty payload inside MediaMessage, round-tripping to golden bytes.",
+      "input": {
+        "kind": "keyframeRequest",
+        "messageHex": "1a00"
+      },
+      "expected": {
+        "summary": "empty",
+        "messageSha256": "fdbb66f97af044e4b88b0bb0a4789f8f014f98b53f5fe11102bd19f45d53c45b"
+      }
+    },
+    {
+      "id": "rotation-changed-round-trip",
+      "description": "RotationChanged to landscape round-tripping to golden bytes on both codecs.",
+      "input": {
+        "kind": "rotationChanged",
+        "messageHex": "22020802"
+      },
+      "expected": {
+        "summary": "orientation=2",
+        "messageSha256": "9d4372d4ba8ab1308af3e093274e1ac3bd9decb7b62cd0e0296396b2246ed27b"
+      }
+    },
+    {
+      "id": "media-frame-over-max-frame-size",
+      "description": "A media-connection frame with length_prefix = 1 MiB + 1 is rejected by the framing layer using only the 4 prefix bytes (docs/protocol/SPEC.md #framing-and-envelope, #media-frame-semantics).",
+      "input": {
+        "kind": "mediaFrameLengthPrefix",
+        "frameHex": "00100001",
+        "lengthPrefix": 1048577
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "TOO_LARGE"
+    },
+    {
+      "id": "media-frame-fragments-three-fragment-access-unit",
+      "description": "Three contiguous in-order fragments sharing one pts reassemble to the concatenated data.",
+      "input": {
+        "kind": "mediaFrameSequence",
+        "messagesHex": [
+          "120e08c0843d10011a04a0a0a0a02803",
+          "121008c0843d10011a04a1a1a1a120012803",
+          "121008c0843d10011a04a2a2a2a220022803"
+        ]
+      },
+      "expected": {
+        "pts": 1000000,
+        "reassembledLength": 12,
+        "reassembledSha256": "f900b1c1869cfff30b53c3a2955bf04c95cc74cb3e88dc472562e0ed5f1e313b"
+      }
+    },
+    {
+      "id": "media-frame-fragments-index-gap",
+      "description": "Fragment 0 followed by fragment 2 (index 1 skipped) closes MALFORMED_FRAME/FRAGMENT_VIOLATION.",
+      "input": {
+        "kind": "mediaFrameSequence",
+        "messagesHex": [
+          "120e08c0843d10011a04a0a0a0a02803",
+          "121008c0843d10011a04a2a2a2a220022803"
+        ],
+        "rejectedAtIndex": 1
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "FRAGMENT_VIOLATION"
+    },
+    {
+      "id": "media-frame-fragments-count-change",
+      "description": "Fragment 0 of 3 followed by fragment 1 of 4 (same pts) closes MALFORMED_FRAME/FRAGMENT_VIOLATION.",
+      "input": {
+        "kind": "mediaFrameSequence",
+        "messagesHex": [
+          "120e08c0843d10011a04a0a0a0a02803",
+          "121008c0843d10011a04a1a1a1a120012804"
+        ],
+        "rejectedAtIndex": 1
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "FRAGMENT_VIOLATION"
+    },
+    {
+      "id": "media-frame-fragments-count-nine",
+      "description": "A fragment with fragment_count 9 closes MALFORMED_FRAME/FRAGMENT_VIOLATION.",
+      "input": {
+        "kind": "mediaFrameSequence",
+        "messagesHex": [
+          "120e08c0843d10011a04a0a0a0a02809"
+        ],
+        "rejectedAtIndex": 0
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "FRAGMENT_VIOLATION"
+    },
+    {
+      "id": "media-frame-fragments-interleaved-pts",
+      "description": "Fragment 0 of 3 followed by another pts's fragment 0 closes MALFORMED_FRAME/FRAGMENT_VIOLATION.",
+      "input": {
+        "kind": "mediaFrameSequence",
+        "messagesHex": [
+          "120e08c0843d10011a04a0a0a0a02803",
+          "120e08f5883f10011a04a0a0a0a02803"
+        ],
+        "rejectedAtIndex": 1
+      },
+      "expectedError": "malformedFrame",
+      "closeCode": "MALFORMED_FRAME",
+      "localReason": "FRAGMENT_VIOLATION"
+    }
+  ]
+}
