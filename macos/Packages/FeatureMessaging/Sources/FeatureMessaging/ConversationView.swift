@@ -53,6 +53,7 @@ public struct ConversationView: View {
             meta(bubble)
         }
         .frame(maxWidth: .infinity, alignment: bubble.isOutbound ? .trailing : .leading)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("messageBubble-\(bubble.id)")
     }
 

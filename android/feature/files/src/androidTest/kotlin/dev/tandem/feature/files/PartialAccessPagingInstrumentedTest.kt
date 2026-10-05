@@ -129,7 +129,7 @@ class PartialAccessPagingInstrumentedTest {
                 .lastOrNull()
         assertTrue("shell insert of $displayName not found: ${output.take(300)}", id != null)
         shellInsertedIds += id!!
-        shell("sh -c 'printf x | content write --uri $IMAGES_URI/$id'")
+        writeThroughShell("$IMAGES_URI/$id", SEED_BYTES)
         shell("content update --uri $IMAGES_URI/$id --bind is_pending:i:0")
         return id
     }
@@ -139,6 +139,15 @@ class PartialAccessPagingInstrumentedTest {
         permission: String,
     ) {
         shell("pm $action ${context.packageName} $permission")
+    }
+
+    private fun writeThroughShell(
+        uri: String,
+        bytes: ByteArray,
+    ) {
+        val (stdout, stdin) = instrumentation.uiAutomation.executeShellCommandRw("content write --uri $uri")
+        ParcelFileDescriptor.AutoCloseOutputStream(stdin).use { it.write(bytes) }
+        ParcelFileDescriptor.AutoCloseInputStream(stdout).use { it.readBytes() }
     }
 
     private fun shell(command: String): String =
@@ -151,6 +160,7 @@ class PartialAccessPagingInstrumentedTest {
         const val SEED_COUNT = 500
         const val PAGE_LIMIT = 100
         const val SEED_DATE_TAKEN = 1_700_000_000_000L
+        val SEED_BYTES = "x".encodeToByteArray()
         const val NAME_PREFIX = "tandem-e41-08"
         const val IMAGES_URI = "content://media/external/images/media"
     }
