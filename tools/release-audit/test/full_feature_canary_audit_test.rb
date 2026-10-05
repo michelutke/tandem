@@ -16,19 +16,19 @@ class FullFeatureCanaryAuditTest < Minitest::Test
   end
 
   def test_parseManifest_commentsAndBlankLines_ignored
-    manifest = FullFeatureCanaryAudit.parse_manifest("# c\n\nsms-body=TANDEM-CANARY-a=b\n")
-    assert_equal({ 'sms-body' => 'TANDEM-CANARY-a=b' }, manifest)
+    manifest = FullFeatureCanaryAudit.parse_manifest("# c\n\nsmsBody=TANDEM-CANARY-a=b\n")
+    assert_equal({ 'smsBody' => 'TANDEM-CANARY-a=b' }, manifest)
   end
 
   def test_parseManifest_lineWithoutCanary_raises
-    assert_raises(RuntimeError) { FullFeatureCanaryAudit.parse_manifest("sms-body\n") }
+    assert_raises(RuntimeError) { FullFeatureCanaryAudit.parse_manifest("smsBody\n") }
   end
 
   def test_manifestCheck_missingKind_failsNamingKind
-    manifest = full_manifest.reject { |k, _| k == 'media-ticket' }
+    manifest = full_manifest.reject { |k, _| k == 'mediaTicket' }
     check = FullFeatureCanaryAudit.manifest_check(manifest)
     refute check.pass?
-    assert_includes check.detail, 'media-ticket'
+    assert_includes check.detail, 'mediaTicket'
   end
 
   def test_manifestCheck_everyKind_passes
@@ -56,7 +56,7 @@ class FullFeatureCanaryAuditTest < Minitest::Test
   end
 
   def test_logCheck_failure_carriesOutput
-    check = FullFeatureCanaryAudit.log_check('sms-body', 'logcat', "ERROR: canary found\n", false)
+    check = FullFeatureCanaryAudit.log_check('smsBody', 'logcat', "ERROR: canary found\n", false)
     refute check.pass?
     assert_includes check.detail, 'canary found'
   end

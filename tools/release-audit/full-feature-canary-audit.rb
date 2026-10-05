@@ -18,8 +18,8 @@ require_relative 'audit_report'
 
 module FullFeatureCanaryAudit
   REQUIRED_KINDS = %w[
-    notification-text clipboard file-name file-content sms-body sms-address contact-name
-    caller-number input-text sentinel-coordinates display-name pairing-secret media-ticket
+    notificationText clipboardText fileName fileContent smsBody smsAddress contactName
+    callerNumber inputText inputCoordinates displayName pairingSecret mediaTicket
   ].freeze
   PCAP_AUDIT = File.expand_path('../pcap-audit', __dir__)
   LOG_AUDIT = File.expand_path('../log-audit/log-audit.sh', __dir__)
