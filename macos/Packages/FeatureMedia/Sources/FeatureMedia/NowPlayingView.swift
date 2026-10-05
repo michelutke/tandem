@@ -31,6 +31,5 @@ public struct NowPlayingView: View {
                 }
             }
         }
-        .task { viewModel.start() }
     }
 }

@@ -39,6 +39,9 @@ packages:
   # E52-06: CallAlertViewModel and the incoming-call alert.
   FeatureCalls:
     path: Packages/FeatureCalls
+  # E72-08: NowPlayingViewModel and the now-playing display.
+  FeatureMedia:
+    path: Packages/FeatureMedia
   # E61-12: MirrorRequestViewModel, the Mirror quick action's request/declined state.
   FeatureMirror:
     path: Packages/FeatureMirror
@@ -84,6 +87,7 @@ targets:
       - package: FeatureFiles
       - package: FeatureMessaging
       - package: FeatureCalls
+      - package: FeatureMedia
       - package: FeatureMirror
 
   TandemShare:

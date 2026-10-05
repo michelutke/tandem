@@ -23,6 +23,8 @@ struct SessionFeatures: Sendable {
     let photos: ActivePhotoService
     /// Drives the menu bar's Hang Up item.
     let activeCall: ActiveCallAlert
+    /// Drives the menu bar's now-playing section.
+    let activeNowPlaying: ActiveNowPlaying
     private let sendRequestWake: SendRequestWakeObserver?
 
     static func make(
@@ -34,6 +36,7 @@ struct SessionFeatures: Sendable {
         let transferProgress = TransferProgressCenter(clock: ContinuousClock())
         let photos = ActivePhotoService()
         let activeCall = ActiveCallAlert()
+        let activeNowPlaying = ActiveNowPlaying()
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
         let notifications = NotificationsSessionService(iconCache: iconCache)
@@ -52,6 +55,7 @@ struct SessionFeatures: Sendable {
             routing: notifications.routing
         )
         services.append(contentsOf: filesService.map { [$0] } ?? [])
+        services.append(NowPlayingSessionService(active: activeNowPlaying))
         services.append(mirrorService)
         services.append(rotationService)
         let agent = (try? SendRequestQueue()).map { SendRequestAgent(queue: $0, transfer: fileTransfer) }
@@ -63,6 +67,7 @@ struct SessionFeatures: Sendable {
             transferProgress: transferProgress,
             photos: photos,
             activeCall: activeCall,
+            activeNowPlaying: activeNowPlaying,
             sendRequestWake: wake
         )
     }

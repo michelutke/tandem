@@ -188,6 +188,7 @@ struct MenuContentView: View {
     @State private var sendEntryHandler = SendEntryHandler(picker: OpenPanelFilePicker(), transfer: nil)
     private let transferProgress: TransferProgressCenter?
     private let activeCall: ActiveCallAlert?
+    private let activeNowPlaying: ActiveNowPlaying?
 
     /// Same real wiring as ``menuBarViewModel`` above (E22-11); pre-pin-check rejections (E22-10,
     /// D-59/D-76) never reach here.
@@ -209,6 +210,7 @@ struct MenuContentView: View {
         pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
         transferProgress = lifecycle?.sessionFeatures.transferProgress
         activeCall = lifecycle?.sessionFeatures.activeCall
+        activeNowPlaying = lifecycle?.sessionFeatures.activeNowPlaying
         let peerName = lifecycle?.pairedPeerName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
@@ -291,6 +293,9 @@ struct MenuContentView: View {
                 )
                 if let activeCall {
                     ActiveCallHangUpView(activeCall: activeCall)
+                }
+                if let activeNowPlaying {
+                    ActiveNowPlayingView(activeNowPlaying: activeNowPlaying)
                 }
                 OpenTandemMenuButton()
                 SettingsMenuButton()
