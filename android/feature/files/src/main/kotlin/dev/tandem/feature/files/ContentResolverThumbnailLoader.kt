@@ -9,8 +9,10 @@ import dev.tandem.protocol.v1.PhotoAccess
 import java.io.FileNotFoundException
 
 /**
- * Real [ThumbnailLoader] over MediaStore images. Under partial access MediaStore hides unselected
- * items as not found, so a miss there is reported as a denied grant.
+ * Real [ThumbnailLoader] over MediaStore images. Under partial access (READ_MEDIA_VISUAL_USER_SELECTED)
+ * MediaStore filters every query by the user's selection inside the provider, so an unselected item and a
+ * nonexistent row both surface as [FileNotFoundException]. The app has no unfiltered query to tell them apart
+ * (a probe query is filtered the same way), so under partial access a miss is reported as a denied grant.
  */
 class ContentResolverThumbnailLoader(
     private val contentResolver: ContentResolver,

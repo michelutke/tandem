@@ -1,5 +1,6 @@
 package dev.tandem.feature.mirror
 
+import android.Manifest
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -29,6 +30,7 @@ class MirrorPromptInstrumentedTest {
     @Test
     fun mirrorPrompt_tapNotificationOnEmulator_consentDialogShown() {
         val context = instrumentation.targetContext
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
         val session = FakeTandemSession()
         val launcher =
             MediaProjectionConsentLauncher(context.getSystemService(MediaProjectionManager::class.java)) { intent ->

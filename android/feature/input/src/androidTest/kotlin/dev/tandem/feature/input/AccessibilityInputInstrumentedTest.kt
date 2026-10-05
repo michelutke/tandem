@@ -6,12 +6,14 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import dev.tandem.protocol.v1.GlobalActionKind
 import dev.tandem.protocol.v1.globalAction
 import dev.tandem.protocol.v1.setText
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -73,16 +75,13 @@ class AccessibilityInputInstrumentedTest {
 
         assertEquals(InputResult.Performed, result)
         val launcher =
-            context.packageManager
-                .resolveActivity(homeIntent(), 0)
-                ?.activityInfo
-                ?.packageName
-        assertNotNull(launcher)
-        assertTrue(
-            awaitCondition {
-                foregroundPackage() == launcher
-            },
-        )
+            checkNotNull(
+                context.packageManager
+                    .resolveActivity(homeIntent(), 0)
+                    ?.activityInfo
+                    ?.packageName,
+            )
+        assertTrue(UiDevice.getInstance(instrumentation).wait(Until.hasObject(By.pkg(launcher)), TIMEOUT_MS))
     }
 
     private fun handler() =
@@ -92,12 +91,6 @@ class AccessibilityInputInstrumentedTest {
         )
 
     private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-
-    private fun foregroundPackage(): String? =
-        Regex("""ResumedActivity[=:]\s*ActivityRecord\{\S+ \S+ ([^/\s]+)/""")
-            .find(shell("dumpsys activity activities"))
-            ?.groupValues
-            ?.get(1)
 
     private fun shell(command: String): String =
         FileInputStream(
@@ -116,15 +109,6 @@ class AccessibilityInputInstrumentedTest {
             Thread.sleep(POLL_MS)
         }
         throw AssertionError("condition not met within ${TIMEOUT_MS}ms")
-    }
-
-    private fun awaitCondition(block: () -> Boolean): Boolean {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            if (block()) return true
-            Thread.sleep(POLL_MS)
-        }
-        return false
     }
 
     private companion object {

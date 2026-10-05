@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Build
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.filters.SdkSuppress
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.protocol.v1.MediaMessage
@@ -142,6 +143,7 @@ class EncodePipelineInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent() {
         val target = 4_000_000
         val outputs = encode(config.copy(bitrateBitsPerSecond = target), durationMillis = 10_000)
@@ -185,6 +187,7 @@ class EncodePipelineInstrumentedTest {
 
     /** E61-05 `encodePipeline_emulatorRotation_newDimensionsWithin500ms`; the display event stands in for `adb emu rotate`. */
     @Test
+    @RequiresDevice
     fun encodePipeline_emulatorRotation_newDimensionsWithin500ms() {
         val stream = TimedStream()
         val displayChanges = ManualDisplayChanges()

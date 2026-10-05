@@ -150,10 +150,11 @@ final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
         HarnessHooks.runOneShotHooksIfRequested()
         HarnessHooks.startListenerIfRequested()
 
-        guard UITestScenario.fromLaunchArguments() != nil else { return }
+        guard let scenario = UITestScenario.fromLaunchArguments() else { return }
         let window = NSWindow(contentViewController: NSHostingController(rootView: MenuContentView()))
         window.title = "Tandem UI Test Scenario"
-        window.setContentSize(NSSize(width: 320, height: 200))
+        let conversationSize = NSSize(width: 640, height: 480)
+        window.setContentSize(scenario == .conversationSeeded ? conversationSize : NSSize(width: 320, height: 200))
         window.makeKeyAndOrderFront(nil)
         scenarioWindow = window
     }
