@@ -7,7 +7,8 @@
 # (JAZZER_FUZZ=1) for a bounded duration and maps the outcome to an exit code:
 #
 #   0  no crash found — either the run exhausted its duration budget without one (timeout alone
-#      is not a failure), or the seed-corpus/regression pass itself never fails.
+#      is not a failure), or the seed-corpus/regression pass itself never fails. Every reproducer under
+#      tools/fuzz/regression/<target>/ is staged into the inputs directory first, so Jazzer replays it.
 #   1  Jazzer found a crash. The crashing input it saved to the fuzz test's "inputs directory"
 #      (github.com/CodeIntelligenceTesting/jazzer README "Inputs directory") is copied to
 #      <artifact-dir>/crash-input, and removed from the source tree so the crash doesn't linger
@@ -55,11 +56,42 @@ PKG_PATH="$(echo "${CLASS_FQCN%.*}" | tr '.' '/')"
 CLASS_NAME="${CLASS_FQCN##*.}"
 INPUTS_DIR="$MODULE_DIR/src/test/resources/$PKG_PATH/${CLASS_NAME}Inputs"
 
+case "$CLASS_NAME" in
+  FrameDecoderFuzzTest) REGRESSION_TARGETS=(frame) ;;
+  EnvelopeDecoderFuzzTest) REGRESSION_TARGETS=(envelope) ;;
+  QrPayloadFuzzTest) REGRESSION_TARGETS=(qr) ;;
+  DomainDecoderFuzzTest)
+    if [ -n "${TANDEM_FUZZ_MESSAGE:-}" ]; then
+      REGRESSION_TARGETS=("$TANDEM_FUZZ_MESSAGE")
+    else
+      REGRESSION_TARGETS=()
+      for dir in "$REPO_ROOT"/tools/fuzz/regression/*/; do
+        name="$(basename "$dir")"
+        case "$name" in frame | envelope | qr | test) ;; *) REGRESSION_TARGETS+=("$name") ;; esac
+      done
+    fi
+    ;;
+  *) REGRESSION_TARGETS=() ;;
+esac
+
 mkdir -p "$ARTIFACT_DIR"
 
+STAGED_DIR="$(mktemp -d)"
 MARKER="$(mktemp)"
-cleanup() { rm -f "$MARKER"; }
+cleanup() {
+  for staged in "$STAGED_DIR"/*; do
+    [ -e "$staged" ] && rm -f "$INPUTS_DIR/$(basename "$staged")"
+  done
+  rm -rf "$MARKER" "$STAGED_DIR"
+}
 trap cleanup EXIT
+
+if [ "${#REGRESSION_TARGETS[@]}" -gt 0 ]; then
+  "$REPO_ROOT/tools/fuzz/regression/stage.sh" "$STAGED_DIR" "${REGRESSION_TARGETS[@]}" > /dev/null
+  mkdir -p "$INPUTS_DIR"
+  cp "$STAGED_DIR"/* "$INPUTS_DIR"/ 2>/dev/null || true
+  touch "$MARKER"
+fi
 
 STATUS=0
 JAZZER_FUZZ=1 JAZZER_MAX_DURATION="${DURATION_SECONDS}s" \
