@@ -17,4 +17,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     // GlobalAction/SetText/TextEdit DSL types (E62-01).
     implementation(project(":core:protocol"))
+
+    androidTestImplementation(libs.androidx.test.uiautomator)
 }

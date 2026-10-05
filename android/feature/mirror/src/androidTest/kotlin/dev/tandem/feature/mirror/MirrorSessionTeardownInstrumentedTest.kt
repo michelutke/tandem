@@ -115,10 +115,23 @@ class MirrorSessionTeardownInstrumentedTest {
         }
 
         assertEquals(0, factory.liveCodecs.get())
-        assertEquals(displaysBefore, displayManager.displays.size)
+        assertTrue(awaitDisplayCount(displayManager, displaysBefore))
+    }
+
+    private fun awaitDisplayCount(
+        displayManager: DisplayManager,
+        expected: Int,
+    ): Boolean {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(AWAIT_SECONDS)
+        while (displayManager.displays.size != expected) {
+            if (System.nanoTime() > deadline) return false
+            Thread.sleep(POLL_MILLIS)
+        }
+        return true
     }
 
     private companion object {
+        const val POLL_MILLIS = 50L
         const val CYCLES = 10
         const val WIDTH = 1280
         const val HEIGHT = 720

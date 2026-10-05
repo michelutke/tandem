@@ -1479,3 +1479,47 @@ Not a `manual:` entry, so not managed by `tools/planning/manual_gates.rb`. Physi
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
 | | | | |
+
+### encodePipeline_cbr4MbpsOnHardwareCodec_bitrateWithin20Percent (E61-03, phase 6)
+
+[android] VirtualDisplay + MediaCodec encode pipeline to MediaFrame
+
+Reference — E61-03 acceptance criteria:
+- A KeyframeRequest causes exactly one sync-frame request on the encoder (unit), and on the emulator software encoder an IDR arrives within the next 2 output frames.
+- Every encoder output buffer becomes one MediaFrame with the buffer's pts and keyframe flag; the codec-config buffer is sent first, flagged as config.
+- On the emulator, the software AVC encoder produces an IDR within 1 s of pipeline start.
+- On the emulator at a configured 4 Mbps CBR, measured output bitrate over 10 s is within ±20 % of the target.
+- An access unit larger than 960 KiB is sent as ceil(size / 960 KiB) fragments (<= 8) with the same pts; an access unit that would need more than 8 fragments is not sent, the bitrate is lowered and a new IDR requested.
+
+**Preconditions:** Physical Android phone (hardware AVC encoder), debug build with the E61-03 encode pipeline; Mac attached or the instrumented harness run on the device. The emulator's software encoder ignores CBR, so `EncodePipelineInstrumentedTest.encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent` is `@RequiresDevice`.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or mirror a high-motion screen for 10 s with a 4 Mbps target.
+2. Read the measured bitrate (sum of encoded buffer bytes x 8 / elapsed seconds).
+**Pass threshold:** Measured bitrate within 20% of 4 Mbps (3.2 to 4.8 Mbps).
+**Evidence required:** Test report or measured bitrate, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
+### encodePipeline_deviceRotation_newDimensionsWithin500ms (E61-05, phase 6)
+
+[android] Rotation and resolution change handling
+
+Reference — E61-05 acceptance criteria:
+- Rotating 1080x1920 portrait to landscape plans a 1920x1080 encoder; a 2208x1840 foldable display plans 1920x1600 (long edge ≤ 1920, even dimensions, aspect preserved).
+- A rotation event emits RotationChanged before the next MediaFrame and recreates both encoder and VirtualDisplay at the planned size.
+- On the emulator (`adb emu rotate`), the first post-rotation frame has the new dimensions and arrives within 500 ms of the last pre-rotation frame, without restarting the session.
+
+**Preconditions:** Physical Android phone, debug build, mirror session running; the emulator cannot recreate the encoder inside the budget, so `EncodePipelineInstrumentedTest.encodePipeline_emulatorRotation_newDimensionsWithin500ms` is `@RequiresDevice`.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test, or start a mirror and physically rotate the phone portrait to landscape.
+2. Compare the timestamp of the last frame at the old size with the first frame at the new size.
+**Pass threshold:** `RotationChanged` and the new `MediaFormat` precede the first new-size frame, which arrives within 500 ms of the last old-size frame.
+**Evidence required:** Test report or frame timestamps, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+

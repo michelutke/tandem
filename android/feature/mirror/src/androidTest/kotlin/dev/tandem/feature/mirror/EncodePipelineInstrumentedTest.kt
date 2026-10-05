@@ -1,8 +1,12 @@
 package dev.tandem.feature.mirror
 
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Build
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
+import androidx.test.filters.SdkSuppress
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.protocol.v1.MediaMessage
 import dev.tandem.protocol.v1.Orientation
@@ -18,15 +22,18 @@ import java.io.OutputStream
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlin.random.Random
 
 /**
  * E61-03 instrumented tdd on the emulator's software AVC encoder (E00-21):
  * `encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s`,
  * `encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames` and
  * `encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent`. A canvas-drawing capture stands
- * in for MediaProjection, which needs the system consent dialog (E61-02).
+ * in for MediaProjection, which needs the system consent dialog (E61-02). API 29 is excluded: its OMX software
+ * encoder reports ERROR(0x80001001) on the first surface frame.
  */
 @RunWith(AndroidJUnit4::class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 class EncodePipelineInstrumentedTest {
     private class CanvasCapture : CaptureSource {
         @Volatile
@@ -34,16 +41,22 @@ class EncodePipelineInstrumentedTest {
         private var drawer: Thread? = null
 
         override fun start(surface: Surface) {
+            stop()
             running = true
             drawer =
                 thread {
+                    val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
                     var tick = 0
-                    while (running) {
-                        val canvas = surface.lockCanvas(null)
-                        canvas.drawColor(Color.rgb(tick % COLOR_MAX, (tick * 3) % COLOR_MAX, (tick * 7) % COLOR_MAX))
-                        surface.unlockCanvasAndPost(canvas)
-                        tick++
-                        Thread.sleep(FRAME_INTERVAL_MILLIS)
+                    try {
+                        while (running) {
+                            val canvas = surface.lockCanvas(null)
+                            canvas.drawBitmap(noiseFrames[tick % NOISE_FRAME_COUNT], 0f, 0f, null)
+                            surface.unlockCanvasAndPost(canvas)
+                            tick++
+                            Thread.sleep(FRAME_INTERVAL_MILLIS)
+                        }
+                    } catch (_: IllegalArgumentException) {
+                        running = false
                     }
                 }
         }
@@ -51,6 +64,20 @@ class EncodePipelineInstrumentedTest {
         override fun stop() {
             running = false
             drawer?.join()
+        }
+
+        private fun noiseBitmap(random: Random): Bitmap {
+            val blocksPerRow = FRAME_WIDTH / NOISE_BLOCK_PX
+            val blockColors =
+                IntArray(blocksPerRow * (FRAME_HEIGHT / NOISE_BLOCK_PX)) {
+                    Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
+                }
+            val pixels =
+                IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
+                    val blockRow = it / FRAME_WIDTH / NOISE_BLOCK_PX
+                    blockColors[blockRow * blocksPerRow + it % FRAME_WIDTH / NOISE_BLOCK_PX]
+                }
+            return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
         }
     }
 
@@ -75,8 +102,8 @@ class EncodePipelineInstrumentedTest {
                 onFrame(encoder, buffer)
             }
         } finally {
-            encoder.close()
             capture.stop()
+            encoder.close()
         }
         return outputs
     }
@@ -84,7 +111,7 @@ class EncodePipelineInstrumentedTest {
     private val config =
         EncoderConfigBuilder
             .build(sdkInt = android.os.Build.VERSION.SDK_INT)
-            .copy(width = 1280, height = 720)
+            .copy(width = FRAME_WIDTH, height = FRAME_HEIGHT)
 
     @Test
     fun encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s() {
@@ -116,6 +143,7 @@ class EncodePipelineInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent() {
         val target = 4_000_000
         val outputs = encode(config.copy(bitrateBitsPerSecond = target), durationMillis = 10_000)
@@ -159,6 +187,7 @@ class EncodePipelineInstrumentedTest {
 
     /** E61-05 `encodePipeline_emulatorRotation_newDimensionsWithin500ms`; the display event stands in for `adb emu rotate`. */
     @Test
+    @RequiresDevice
     fun encodePipeline_emulatorRotation_newDimensionsWithin500ms() {
         val stream = TimedStream()
         val displayChanges = ManualDisplayChanges()
@@ -193,6 +222,10 @@ class EncodePipelineInstrumentedTest {
         const val ROTATION_BUDGET_MILLIS = 500L
         const val LENGTH_PREFIX_BYTES = 4
         const val COLOR_MAX = 256
+        const val FRAME_WIDTH = 1280
+        const val FRAME_HEIGHT = 720
+        const val NOISE_FRAME_COUNT = 4
+        const val NOISE_BLOCK_PX = 8
         const val FRAME_INTERVAL_MILLIS = 33L
         const val NANOS_PER_SECOND = 1_000_000_000.0
         const val BITS_PER_BYTE = 8

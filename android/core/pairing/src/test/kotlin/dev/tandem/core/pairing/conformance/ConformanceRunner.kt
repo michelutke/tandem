@@ -69,7 +69,10 @@ class ConformanceFailure(
  */
 object ConformanceRunner {
     val deferredCategories: Map<String, String> =
-        mapOf("phone-normalization" to "E51-06's :feature:contacts PhoneNormalizationVectorsTest (PhoneNormalizer is not a core module)")
+        mapOf(
+            "phone-normalization" to
+                "E51-06's :feature:contacts PhoneNormalizationVectorsTest (PhoneNormalizer is not a core module)",
+        )
     private val handledCategories: Set<String> =
         setOf(
             "frame-encoding",

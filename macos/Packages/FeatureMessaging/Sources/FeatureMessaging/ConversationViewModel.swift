@@ -101,7 +101,7 @@ public final class ConversationViewModel {
     @ObservationIgnored private let syncSource: any ConversationSyncSource
     @ObservationIgnored private let now: DateProvider
     @ObservationIgnored private let makeClientMessageId: @Sendable () -> String
-    @ObservationIgnored private var address = ""
+    private var address = ""
     @ObservationIgnored private var supersededIds: Set<String> = []
     @ObservationIgnored private var failedBodies: [String: String] = [:]
 

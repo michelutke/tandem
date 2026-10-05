@@ -11,8 +11,6 @@ import dev.tandem.protocol.v1.globalAction
 import dev.tandem.protocol.v1.setText
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,17 +71,14 @@ class AccessibilityInputInstrumentedTest {
 
         assertEquals(InputResult.Performed, result)
         val launcher =
-            context.packageManager
-                .resolveActivity(homeIntent(), 0)
-                ?.activityInfo
-                ?.packageName
-        assertNotNull(launcher)
-        assertTrue(
-            awaitCondition {
-                shell("dumpsys activity activities").contains("topResumedActivity") &&
-                    foregroundPackage() == launcher
-            },
-        )
+            checkNotNull(Regex("""\{([^/]+)/""").find(shell("cmd shortcut get-default-launcher"))?.groupValues?.get(1))
+        awaitNotNull {
+            launcher.takeIf {
+                shell("dumpsys activity activities")
+                    .lineSequence()
+                    .any { line -> line.contains(TOP_RESUMED_MARKER) && line.contains(" $it/") }
+            }
+        }
     }
 
     private fun handler() =
@@ -91,14 +86,6 @@ class AccessibilityInputInstrumentedTest {
             ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)),
             android.os.Build.VERSION.SDK_INT,
         )
-
-    private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-
-    private fun foregroundPackage(): String? =
-        Regex("""topResumedActivity=ActivityRecord\{\S+ \S+ ([^/\s]+)/""")
-            .find(shell("dumpsys activity activities"))
-            ?.groupValues
-            ?.get(1)
 
     private fun shell(command: String): String =
         FileInputStream(
@@ -119,17 +106,9 @@ class AccessibilityInputInstrumentedTest {
         throw AssertionError("condition not met within ${TIMEOUT_MS}ms")
     }
 
-    private fun awaitCondition(block: () -> Boolean): Boolean {
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            if (block()) return true
-            Thread.sleep(POLL_MS)
-        }
-        return false
-    }
-
     private companion object {
         const val REPLACEMENT = "after"
+        const val TOP_RESUMED_MARKER = "topResumedActivity="
         const val TIMEOUT_MS = 10_000L
         const val POLL_MS = 200L
     }

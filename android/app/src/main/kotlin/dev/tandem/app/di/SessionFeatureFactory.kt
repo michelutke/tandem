@@ -157,8 +157,9 @@ object SessionFeatureFactory {
     private fun filesFeature(
         context: Context,
         clock: Clock,
-    ): FilesFeature =
-        FilesFeature(
+    ): FilesFeature {
+        val mediaPermissionChecker = MediaPermissionChecker(context)
+        return FilesFeature(
             store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
             notifier = NotificationReceivedFileNotifier(context),
@@ -166,13 +167,14 @@ object SessionFeatureFactory {
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
             reader = ContentResolverSourceFileReader(context.contentResolver),
             mediaSource = ContentResolverMediaStoreSource(context.contentResolver),
-            thumbnailLoader = ContentResolverThumbnailLoader(context.contentResolver),
-            permissionChecker = MediaPermissionChecker(context),
+            thumbnailLoader = ContentResolverThumbnailLoader(context.contentResolver, mediaPermissionChecker::access),
+            permissionChecker = mediaPermissionChecker,
             acceptSettings = { AcceptSettings() },
             clock = clock,
             ioDispatcher = AppDispatchers.io,
             serialDispatcher = AppDispatchers::serial,
         )
+    }
 
     private const val TAG = "SessionFeatureFactory"
     private const val INCOMING_TRANSFERS_DIRECTORY = "incoming-transfers"

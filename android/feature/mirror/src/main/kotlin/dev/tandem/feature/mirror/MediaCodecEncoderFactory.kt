@@ -61,8 +61,18 @@ private class MediaCodecVideoEncoder(
     private fun dequeueNext(): EncodedBuffer? {
         val info = MediaCodec.BufferInfo()
         var index = MediaCodec.INFO_TRY_AGAIN_LATER
-        while (!closed && index < 0) index = codec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_MICROS)
-        if (closed) return null
+        var config: EncodedBuffer? = null
+        while (!closed && index < 0 && config == null) {
+            index = codec.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_MICROS)
+            if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) config = formatConfig()
+        }
+        return config ?: takeUnless { closed }?.readOutput(info, index)
+    }
+
+    private fun readOutput(
+        info: MediaCodec.BufferInfo,
+        index: Int,
+    ): EncodedBuffer? {
         val data = ByteArray(info.size)
         codec.getOutputBuffer(index)?.apply {
             position(info.offset)
@@ -77,10 +87,26 @@ private class MediaCodecVideoEncoder(
         ).takeUnless { info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0 }
     }
 
+    private fun formatConfig(): EncodedBuffer? {
+        val format = codec.outputFormat
+        val data =
+            listOf("csd-0", "csd-1")
+                .mapNotNull { format.getByteBuffer(it) }
+                .fold(ByteArray(0)) { acc, csd -> acc + ByteArray(csd.remaining()).also { csd.duplicate().get(it) } }
+        return data.takeIf { it.isNotEmpty() }?.let {
+            EncodedBuffer(data = it, ptsMicros = 0, isKeyFrame = false, isCodecConfig = true)
+        }
+    }
+
     override fun close() {
         closed = true
-        codec.stop()
-        codec.release()
+        try {
+            codec.stop()
+        } catch (_: IllegalStateException) {
+            // codec already in the error state; release below still frees it
+        } finally {
+            codec.release()
+        }
     }
 
     private companion object {

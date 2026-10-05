@@ -464,6 +464,7 @@ epics:
           - "instrumented: encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s"
           - "instrumented: encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames"
           - "instrumented: encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent"
+          - "manual: encodePipeline_cbr4MbpsOnHardwareCodec_bitrateWithin20Percent"
           - "unit: encodePipeline_accessUnit2500KiB_sentAsThreeFragmentsSamePts"
           - "unit: encodePipeline_accessUnitNeedingNineFragments_notSentBitrateLoweredIdrRequested"
         notes: |
@@ -527,6 +528,7 @@ epics:
           - "unit: encodePipeline_rotationEvent_emitsRotationChangedBeforeNextFrame"
           - "unit: encodePipeline_rotationEvent_recreatesEncoderAndDisplayAtPlannedSize"
           - "instrumented: encodePipeline_emulatorRotation_newDimensionsWithin500ms"
+          - "manual: encodePipeline_deviceRotation_newDimensionsWithin500ms"
         notes: ""
       - id: E61-06
         title: "[macos] VTDecompressionSession decode pipeline"
