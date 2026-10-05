@@ -39,7 +39,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureFocusTests",
-            dependencies: ["FeatureFocus", "TandemProtocol", "TandemTestSupport"],
+            dependencies: ["FeatureFocus", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
             path: "Packages/FeatureFocus/Tests/FeatureFocusTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

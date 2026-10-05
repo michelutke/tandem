@@ -58,6 +58,7 @@
 		E22130000000000000000003 /* CallsSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000004 /* CallsSessionService.swift */; };
 		E72080000000000000000006 /* NowPlayingSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000007 /* NowPlayingSessionService.swift */; };
 		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
+		E72130000000000000000001 /* FeatureFocus in Frameworks */ = {isa = PBXBuildFile; productRef = E72130000000000000000012 /* FeatureFocus */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
 		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
 		E52100000000000000000001 /* ConversationCallHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52100000000000000000002 /* ConversationCallHost.swift */; };
@@ -206,6 +207,7 @@
 		E22130000000000000000004 /* CallsSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallsSessionService.swift; sourceTree = "<group>"; };
 		E72080000000000000000007 /* NowPlayingSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingSessionService.swift; sourceTree = "<group>"; };
 		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
+		E72130000000000000000010 /* FeatureFocus */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFocus; path = Packages/FeatureFocus; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
 		E52100000000000000000002 /* ConversationCallHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationCallHost.swift; sourceTree = "<group>"; };
@@ -301,6 +303,7 @@
 				E52060000000000000000001 /* FeatureCalls in Frameworks */,
 				E72080000000000000000001 /* FeatureMedia in Frameworks */,
 				E61120000000000000000001 /* FeatureMirror in Frameworks */,
+				E72130000000000000000001 /* FeatureFocus in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -414,6 +417,7 @@
 				E52060000000000000000010 /* FeatureCalls */,
 				E72080000000000000000010 /* FeatureMedia */,
 				E61120000000000000000010 /* FeatureMirror */,
+				E72130000000000000000010 /* FeatureFocus */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -554,6 +558,7 @@
 				E52060000000000000000012 /* FeatureCalls */,
 				E72080000000000000000012 /* FeatureMedia */,
 				E61120000000000000000012 /* FeatureMirror */,
+				E72130000000000000000012 /* FeatureFocus */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -617,6 +622,7 @@
 				E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */,
 				E72080000000000000000011 /* XCLocalSwiftPackageReference "FeatureMedia" */,
 				E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */,
+				E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1168,6 +1174,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureMirror;
 		};
+		E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureFocus;
+		};
 		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/TandemTransport;
@@ -1247,6 +1257,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */;
 			productName = FeatureMirror;
+		};
+		E72130000000000000000012 /* FeatureFocus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */;
+			productName = FeatureFocus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
