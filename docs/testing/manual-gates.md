@@ -1369,10 +1369,14 @@ Reference — E71-14 acceptance criteria:
 - Manual gate: a 24 h per-app capture on a physical phone shows only flows to the paired Mac on the Tandem port.
 - The parser exits non-zero on a fixture capture containing a flow to a third-party host.
 
-**Preconditions:** _TBD_
-**Steps:** _TBD_
-**Pass threshold:** _TBD_
-**Evidence required (log excerpt / screen recording / pcap path):** _TBD_
+**Preconditions:** Release-build phone paired with the Mac; PCAPdroid installed; the Mac's LAN address and Tandem port known; phone in normal daily use for the 24 h window.
+**Steps:**
+1. In PCAPdroid select only the Tandem app and start a PCAP capture (not "dump to remote").
+2. Use the phone normally for 24 h with the Tandem app running and the Mac reachable at times.
+3. Stop the capture and export the pcap.
+4. Convert and audit: `tshark -r <capture.pcap> -T fields -e ip.src -e ip.dst -e ipv6.src -e ipv6.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -Y "tcp or udp" > flows.tsv && ruby tools/release-audit/egress-audit.rb flows --side phone --peer <mac-address> --port <tandem-port> flows.tsv`
+**Pass threshold:** `egress-audit.rb` exits 0: every flow is TCP between the phone and the paired Mac's Tandem port; no other host, port, or UDP.
+**Evidence required (log excerpt / screen recording / pcap path):** pcap path and the `egress-audit.rb` output.
 
 | Date | Build SHA | Device | Result |
 |---|---|---|---|
