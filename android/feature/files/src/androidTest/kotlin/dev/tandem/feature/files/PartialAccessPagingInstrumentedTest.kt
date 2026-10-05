@@ -119,16 +119,15 @@ class PartialAccessPagingInstrumentedTest {
             "content insert --uri $IMAGES_URI --bind _display_name:s:$displayName " +
                 "--bind mime_type:s:image/jpeg --bind datetaken:l:$SEED_DATE_TAKEN",
         )
-        val where = "\"_display_name='$displayName'\""
-        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name --where $where")
+        val output = shell("content query --uri $IMAGES_URI --projection _id:_display_name")
         val id =
-            Regex("_id=(\\d+)")
-                .findAll(output)
+            output
+                .lineSequence()
+                .filter { it.contains("_display_name=$displayName") }
+                .mapNotNull { ID_PATTERN.find(it) }
+                .map { it.groupValues[1].toLong() }
                 .lastOrNull()
-                ?.groupValues
-                ?.get(1)
-                ?.toLong()
-        assertTrue("shell insert of $displayName not found: $output", id != null)
+        assertTrue("shell insert of $displayName not found: ${output.take(300)}", id != null)
         shellInsertedIds += id!!
         return id
     }
@@ -146,6 +145,7 @@ class PartialAccessPagingInstrumentedTest {
             .use { it.readBytes().decodeToString() }
 
     private companion object {
+        val ID_PATTERN = Regex("_id=(\\d+)")
         const val SEED_COUNT = 500
         const val PAGE_LIMIT = 100
         const val SEED_DATE_TAKEN = 1_700_000_000_000L

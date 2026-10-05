@@ -1,5 +1,6 @@
 package dev.tandem.feature.input
 
+import android.app.UiAutomation
 import android.graphics.PixelFormat
 import android.view.View
 import android.view.WindowManager
@@ -101,7 +102,12 @@ class RemoteInputIndicatorInstrumentedTest {
     }
 
     private fun shell(command: String): String =
-        FileInputStream(instrumentation.uiAutomation.executeShellCommand(command).fileDescriptor).use {
+        FileInputStream(
+            instrumentation
+                .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+                .executeShellCommand(command)
+                .fileDescriptor,
+        ).use {
             it.readBytes().decodeToString()
         }
 

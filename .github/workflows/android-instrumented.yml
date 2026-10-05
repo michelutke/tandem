@@ -48,7 +48,7 @@ jobs:
             modules: ":feature:messaging :feature:files :feature:mirror :feature:input"
         include:
           - api: 29
-            image-source: google
+            image-source: google_apis
           - api: 35
             image-source: google_apis
     defaults:

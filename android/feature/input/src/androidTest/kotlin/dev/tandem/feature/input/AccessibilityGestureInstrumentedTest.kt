@@ -1,5 +1,6 @@
 package dev.tandem.feature.input
 
+import android.app.UiAutomation
 import android.content.ComponentName
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
@@ -89,7 +90,12 @@ class AccessibilityGestureInstrumentedTest {
     }
 
     private fun shell(command: String): String =
-        FileInputStream(instrumentation.uiAutomation.executeShellCommand(command).fileDescriptor).use {
+        FileInputStream(
+            instrumentation
+                .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+                .executeShellCommand(command)
+                .fileDescriptor,
+        ).use {
             it.readBytes().decodeToString()
         }
 
