@@ -57,7 +57,7 @@ struct SessionFeatures: Sendable {
         )
         services.append(contentsOf: filesService.map { [$0] } ?? [])
         services.append(NowPlayingSessionService(active: activeNowPlaying))
-        services.append(FocusSessionService(makeSource: { WorkspaceFocusStateSource() }))
+        services.append(FocusSessionService(makeSource: { IntentsFocusStateSource() }))
         services.append(mirrorService)
         services.append(rotationService)
         let agent = (try? SendRequestQueue()).map { SendRequestAgent(queue: $0, transfer: fileTransfer) }
