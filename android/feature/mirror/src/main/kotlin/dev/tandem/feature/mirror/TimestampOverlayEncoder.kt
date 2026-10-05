@@ -36,7 +36,7 @@ object TimestampOverlayEncoder {
         }
     }
 
-    private fun bitAt(
+    fun bitAt(
         bit: Int,
         frameIndex: Long,
         clockMs: Long,
