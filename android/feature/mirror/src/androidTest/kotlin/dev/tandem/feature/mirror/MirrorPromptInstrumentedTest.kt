@@ -10,6 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.envelope
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
 
 /** E61-16 instrumented tdd: `mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` (E00-21). */
 @RunWith(AndroidJUnit4::class)
@@ -31,7 +33,7 @@ class MirrorPromptInstrumentedTest {
     fun mirrorPrompt_tapNotificationOnEmulator_consentDialogShown() {
         val context = instrumentation.targetContext
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
-        val session = FakeTandemSession()
+        val session = FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
         val launcher =
             MediaProjectionConsentLauncher(context.getSystemService(MediaProjectionManager::class.java)) { intent ->
                 context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

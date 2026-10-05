@@ -6,15 +6,11 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import dev.tandem.protocol.v1.GlobalActionKind
 import dev.tandem.protocol.v1.globalAction
 import dev.tandem.protocol.v1.setText
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,13 +71,14 @@ class AccessibilityInputInstrumentedTest {
 
         assertEquals(InputResult.Performed, result)
         val launcher =
-            checkNotNull(
-                context.packageManager
-                    .resolveActivity(homeIntent(), 0)
-                    ?.activityInfo
-                    ?.packageName,
-            )
-        assertTrue(UiDevice.getInstance(instrumentation).wait(Until.hasObject(By.pkg(launcher)), TIMEOUT_MS))
+            checkNotNull(Regex("""\{([^/]+)/""").find(shell("cmd shortcut get-default-launcher"))?.groupValues?.get(1))
+        awaitNotNull {
+            launcher.takeIf {
+                shell("dumpsys activity activities")
+                    .lineSequence()
+                    .any { line -> line.contains(TOP_RESUMED_MARKER) && line.contains(" $it/") }
+            }
+        }
     }
 
     private fun handler() =
@@ -89,8 +86,6 @@ class AccessibilityInputInstrumentedTest {
             ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)),
             android.os.Build.VERSION.SDK_INT,
         )
-
-    private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
 
     private fun shell(command: String): String =
         FileInputStream(
@@ -113,6 +108,7 @@ class AccessibilityInputInstrumentedTest {
 
     private companion object {
         const val REPLACEMENT = "after"
+        const val TOP_RESUMED_MARKER = "topResumedActivity="
         const val TIMEOUT_MS = 10_000L
         const val POLL_MS = 200L
     }

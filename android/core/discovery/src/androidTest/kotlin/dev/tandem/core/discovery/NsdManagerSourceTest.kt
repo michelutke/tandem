@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterIsInstance
@@ -25,7 +26,8 @@ import kotlin.time.Duration.Companion.seconds
  * `_tandem._tcp` test service against the real system `NsdManager` -- only test sources are exempt
  * from the `NoListenerSockets` detekt rule's `registerService` ban (invariant 4: the app's own main
  * sources never advertise; that is the Mac's job, E21-02) -- and asserts [NsdManagerSource] plus
- * [NsdServiceDiscovery] resolve it back with the same host/port/TXT. The real cross-device gate is
+ * [NsdServiceDiscovery] resolve it back with the same host/port/TXT. The emulator has no mDNS-capable interface (registration callback never fires), so this runs
+ * on physical devices only. The real cross-device gate is
  * `docs/testing/manual-gates.md`'s `nsdBrowse_realMacSameWifi_resolvedWithin3s`.
  */
 @RunWith(AndroidJUnit4::class)
@@ -37,6 +39,7 @@ class NsdManagerSourceTest {
             .getSystemService(Context.NSD_SERVICE) as NsdManager
 
     @Test
+    @RequiresDevice
     fun nsdManager_selfRegisteredTandemService_resolvedWithTxt() =
         runBlocking(Dispatchers.IO) {
             val serviceName = "tandem-test-${System.nanoTime()}"

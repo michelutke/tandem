@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class MirrorSessionLifecycleTest {
     private class BlockingEncoder : VideoEncoder {
         val closes = AtomicInteger()
+        val pumping = CountDownLatch(1)
         private val closed = CountDownLatch(1)
 
         override fun requestSyncFrame() = Unit
@@ -33,6 +34,7 @@ class MirrorSessionLifecycleTest {
         override fun setBitrate(bitsPerSecond: Int) = Unit
 
         override fun nextOutput(): EncodedBuffer? {
+            pumping.countDown()
             closed.await()
             return null
         }
@@ -83,7 +85,6 @@ class MirrorSessionLifecycleTest {
     private val encoder = BlockingEncoder()
     private val capture = RecordingCapture()
     private val session = FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
-    private val encoderCreated = CountDownLatch(1)
     private val indicatorStops = AtomicInteger()
     private val indicatorNotified = CountDownLatch(1)
 
@@ -97,7 +98,6 @@ class MirrorSessionLifecycleTest {
             EncodePipeline(
                 encoderFactory =
                     EncoderFactory { _, _ ->
-                        encoderCreated.countDown()
                         encoder
                     },
                 capture = capture,
@@ -132,7 +132,7 @@ class MirrorSessionLifecycleTest {
     fun mirrorSession_projectionOnStopCallback_releasesDisplayCodecAndProjection() {
         val stream = RecordingStream()
         lifecycle(stream)
-        assertTrue(encoderCreated.await(AWAIT_SECONDS, TimeUnit.SECONDS))
+        assertTrue(encoder.pumping.await(AWAIT_SECONDS, TimeUnit.SECONDS))
 
         capture.revokeProjection()
         awaitStopped()
@@ -144,7 +144,7 @@ class MirrorSessionLifecycleTest {
     fun mirrorSession_controlSessionEnded_releasesAllMirrorResources() {
         val stream = RecordingStream()
         lifecycle(stream)
-        assertTrue(encoderCreated.await(AWAIT_SECONDS, TimeUnit.SECONDS))
+        assertTrue(encoder.pumping.await(AWAIT_SECONDS, TimeUnit.SECONDS))
 
         session.emitState(ConnectionState.Disconnected())
         awaitStopped()
@@ -156,7 +156,7 @@ class MirrorSessionLifecycleTest {
     fun mirrorSession_stopCalledTwice_releasesEachResourceOnce() {
         val stream = RecordingStream()
         val lifecycle = lifecycle(stream)
-        assertTrue(encoderCreated.await(AWAIT_SECONDS, TimeUnit.SECONDS))
+        assertTrue(encoder.pumping.await(AWAIT_SECONDS, TimeUnit.SECONDS))
 
         lifecycle.stop()
         lifecycle.stop()
