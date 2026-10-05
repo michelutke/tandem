@@ -140,6 +140,25 @@ Fails (exit 1, offending lines on stdout) if any `message` declaration under `pr
 has a name containing `Debug`, `Echo`, or `Test` — there is no test-only wire message for canary
 injection or anything else. Exits 0 otherwise.
 
+## flows.py (E60-06)
+
+Flow audit for the control + media connection pair. The media connection terminates on the same
+single Tandem port as the control connection (no second listener), so a mirror-session capture holds
+two distinct TCP flows on that port. Fails if any TCP flow in the capture targets another port, is
+not TLS 1.3, or if fewer than `--min-flows` (default 2) flows are seen, so a pass is never vacuous.
+
+```sh
+python3 tools/pcap-audit/flows.py session.pcapng --port 7623 [--min-flows 2]
+```
+
+Prints `{"result": "pass", "flowCount": <n>, "flows": [...]}` or `{"result": "fail", "reason":
+"off-port-flow" | "non-tls13-flow" | "too-few-flows", ...}`; exits 0 on pass, 1 on fail.
+
+`tools/harness/integration/e60-06.sh` runs it (with `tls13_assertion.py` and an `lsof` single-listener
+check) against the real Mac server with a JVM harness control + held media connection; it runs in the
+jvm-harness workflow. The matching security tests in `tests/test_flows.py` are opt-in locally via
+`TANDEM_E60_06_LIVE=1`.
+
 ## Fixtures
 
 `fixtures/` holds small pcaps generated once from real local traffic:
@@ -158,6 +177,10 @@ injection or anything else. Exits 0 otherwise.
 The canary fixtures all embed the same fixed, non-secret string
 (`TANDEM-CANARY-0123456789abcdef0123456789abcdef`) — structural test data, not a real
 pairing/session canary (those are generated fresh per run by E15-07).
+
+- `two-tls13-flows-one-port.pcapng` — `tls13-handshake.pcapng` duplicated with the second copy's
+  client port rewritten (`make_two_flow_fixture.py`, needs `editcap`/`mergecap`): two TLS 1.3 flows on
+  one server port.
 
 Regenerate all of the above with `tools/pcap-audit/fixtures/regenerate.sh` (same
 tshark/openssl/nc/python3-on-lo0 requirements as above). The keys used for the TLS fixtures are

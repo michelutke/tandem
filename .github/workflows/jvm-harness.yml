@@ -46,3 +46,7 @@ jobs:
         run: time perl -e 'alarm shift; exec @ARGV' 900 tools/harness/integration/e15-15.sh
       - name: JVM harness key rotation (E70-10)
         run: time perl -e 'alarm shift; exec @ARGV' 900 tools/harness/integration/e70-10.sh
+      - name: JVM harness media connection pcap-audit (E60-06)
+        run: |
+          command -v tshark >/dev/null || brew install wireshark >/dev/null
+          time perl -e 'alarm shift; exec @ARGV' 600 tools/harness/integration/e60-06.sh
