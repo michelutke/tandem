@@ -3,6 +3,7 @@ import Foundation
 import Security
 import TandemCrypto
 import TandemPairing
+import TandemProtocol
 import TandemStore
 import TandemTransport
 
