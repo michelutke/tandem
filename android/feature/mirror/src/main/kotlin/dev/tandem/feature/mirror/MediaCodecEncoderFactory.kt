@@ -4,6 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Bundle
+import android.view.Surface
 
 /** Real [EncoderFactory]: a surface-input `MediaCodec` configured from [EncoderConfig]. */
 class MediaCodecEncoderFactory : EncoderFactory {
@@ -12,11 +13,21 @@ class MediaCodecEncoderFactory : EncoderFactory {
         capture: CaptureSource,
     ): VideoEncoder {
         val codec = MediaCodec.createEncoderByType(config.mimeType)
-        codec.configure(config.toMediaFormat(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        val surface = codec.createInputSurface()
-        codec.start()
-        capture.start(surface)
-        return MediaCodecVideoEncoder(codec)
+        var surface: Surface? = null
+        var started = false
+        try {
+            codec.configure(config.toMediaFormat(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            surface = codec.createInputSurface()
+            codec.start()
+            capture.start(surface)
+            started = true
+            return MediaCodecVideoEncoder(codec)
+        } finally {
+            if (!started) {
+                surface?.release()
+                codec.release()
+            }
+        }
     }
 
     private fun EncoderConfig.toMediaFormat(): MediaFormat =
