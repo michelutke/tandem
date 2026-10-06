@@ -959,7 +959,7 @@ epics:
           - "unit: clipboardTile_click_startsTransparentCaptureActivity"
           - "unit: clipboardCaptureActivity_windowFocusWithTextClip_sendsClipAndFinishes"
           - "unit: clipboardCaptureActivity_emptyClipboard_sendsNothing"
-          - "instrumented: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip"
+          - "manual: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip"
           - "ci: mergedManifest_captureActivityAndTile_notExportedAndBindPermissionRequired"
         notes: "Split from E31-06 in review cycle 3."
       - id: E31-13

@@ -8,6 +8,7 @@ import android.provider.Settings
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import dev.tandem.app.MainActivity
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.feature.clipboard.ClipboardCaptureActivity
@@ -22,7 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 // E31-12 tdd:
-//   instrumented: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip
+//   manual: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip
 //
 // Runs on the api33 and api35 managed devices (E00-21) with no AccessibilityService enabled
 // (asserted below). Each UC-13 entry point -- share target, PROCESS_TEXT, the QS tile's capture
@@ -36,6 +37,7 @@ class ClipboardEntryPointsInstrumentedTest {
     private val application = ApplicationProvider.getApplicationContext<Application>()
 
     @Test
+    @RequiresDevice
     fun clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip() {
         assertNoAccessibilityServiceEnabled()
 

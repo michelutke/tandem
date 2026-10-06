@@ -1588,3 +1588,36 @@ Reference — E62-05 acceptance criteria:
 |---|---|---|---|
 | | | | |
 
+
+### clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip (E31-12, phase 3)
+
+Reference — E31-12 acceptance criteria:
+- With no AccessibilityService enabled on API 33 and 35, share target, PROCESS_TEXT, QS tile capture activity, and in-app button each produce one ClipboardText send (UC-13).
+
+**Preconditions:** Physical Android phone (API 33+), debug build, no AccessibilityService enabled, paired Mac; `ClipboardEntryPointsInstrumentedTest.clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip` is `@RequiresDevice` because emulator window focus is unreliable and the tile capture activity may never gain focus.
+**Steps:**
+1. Run `./gradlew :app:connectedDebugAndroidTest` on the phone for that test, or perform the steps below by hand.
+2. Copy text, then trigger each entry point in turn: share sheet, PROCESS_TEXT selection menu, Quick Settings tile, in-app button.
+3. Check the Mac clipboard after each.
+**Pass threshold:** Each entry point sends exactly one ClipboardText that arrives on the Mac, with no AccessibilityService enabled.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+### remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost (E62-06, phase 6)
+
+Reference — E62-06 acceptance criteria:
+- The remote-input indicator is a TYPE_ACCESSIBILITY_OVERLAY that stays above another app's overlay window (Inv 8).
+
+**Preconditions:** Physical Android phone (API 33+), debug build, Tandem accessibility service enabled, SYSTEM_ALERT_WINDOW granted to a second app; `RemoteInputIndicatorInstrumentedTest.remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost` is `@RequiresDevice` because emulator window z-order is nondeterministic.
+**Steps:**
+1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or start a remote-input session from the Mac.
+2. With the indicator showing, draw an overlay from another app.
+3. Inspect the window stack (`adb shell dumpsys window windows`) or the screen.
+**Pass threshold:** The indicator window is above the other app's overlay and remains visible for 10 s.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|

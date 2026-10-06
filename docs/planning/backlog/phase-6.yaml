@@ -1093,7 +1093,7 @@ epics:
           - "unit: inputGate_burstOf1000Events_atMost240Dispatched"
           - "unit: inputGate_setTextOver4096Chars_dropped"
           - "unit: inputGate_indicatorOverlayDetached_frameDropped"
-          - "instrumented: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost"
+          - "manual: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost"
         notes: ""
       - id: E62-07
         title: "[macos] Mouse/keyboard/scroll capture in mirror window"
