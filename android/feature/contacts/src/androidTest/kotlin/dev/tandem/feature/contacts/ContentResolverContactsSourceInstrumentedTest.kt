@@ -14,8 +14,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,9 +64,15 @@ class ContentResolverContactsSourceInstrumentedTest {
 
             val firstChange = async { changes.first() }
             delay(OBSERVER_SETTLE_MS)
-            insertContact("Tandem Test Observer", "+41790000099", "observer@example.com")
-            // The 2 s budget starts once the edit is committed; the insert itself is slow on CI emulators.
-            withTimeout(OBSERVER_TIMEOUT_MS) { firstChange.await() }
+            // The observer registers asynchronously; an edit committed before that is never seen, so each attempt
+            // gets its own 2 s budget that starts once its edit is committed.
+            var attempt = 0
+            while (!firstChange.isCompleted && attempt < OBSERVER_MAX_ATTEMPTS) {
+                insertContact("Tandem Test Observer $attempt", "+4179000009$attempt", "observer$attempt@example.com")
+                withTimeoutOrNull(OBSERVER_TIMEOUT_MS) { firstChange.await() }
+                attempt++
+            }
+            assertTrue("no observer push within ${OBSERVER_TIMEOUT_MS} ms of an edit", firstChange.isCompleted)
         }
 
     private fun readAll(): List<Contact> {
@@ -116,5 +123,6 @@ class ContentResolverContactsSourceInstrumentedTest {
     private companion object {
         const val OBSERVER_TIMEOUT_MS = 2_000L
         const val OBSERVER_SETTLE_MS = 100L
+        const val OBSERVER_MAX_ATTEMPTS = 3
     }
 }

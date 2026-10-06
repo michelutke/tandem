@@ -51,7 +51,7 @@ import kotlin.time.TimeSource
  * E40-15 tdd: integration: noStarvation_notifyDuringSaturatingFilesTransfer_p95Under100ms and
  * noStarvation_notifyBurstsAt20Hz_filesThroughputNonZeroEverySecond.
  *
- * The real [FileSender]/[FilesScheduler] (E40-03) push a synthetic 8 GiB file (long enough that 220 ticks at 20 Hz land mid-transfer) through a real
+ * The real [FileSender]/[FilesScheduler] (E40-03) push a synthetic 24 GiB file (the sender hashes it first; at loopback rates it still outlasts the 11 s sampling window, 3x the 8 GiB margin) through a real
  * [ByteStreamSession] (real `ChannelMultiplexer` credit ledgers, E11-07/E11-08) over a real
  * Conscrypt mTLS loopback socket to an in-process [ByteStreamSession] peer standing in for the
  * Mac server (no app launch). NOTIFY frames are sent at 20 Hz while the FILES transfer is in the
@@ -199,13 +199,13 @@ class FlowControlNoStarvationIntegrationTest {
 
     private companion object {
         const val TRANSFER_ID = "e40-15"
-        const val TRANSFER_BYTES = 8L shl 30
+        const val TRANSFER_BYTES = 24L shl 30
         const val SAMPLE_TICKS = 220
         const val BURST_FRAMES = 4
         const val MIN_WINDOWS = 10
         const val P95_BUDGET_MILLIS = 100L
         const val MAX_BUDGET_MILLIS = 500L
         val TICK = 50.milliseconds
-        val SCENARIO_TIMEOUT = 120.seconds
+        val SCENARIO_TIMEOUT = 240.seconds
     }
 }

@@ -97,7 +97,11 @@ class EncodePipelineInstrumentedTest {
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(durationMillis)
         try {
             while (System.nanoTime() < deadline) {
-                val buffer = encoder.nextOutput() ?: break
+                val buffer = encoder.nextOutput()
+                if (buffer == null) {
+                    Thread.sleep(POLL_MILLIS)
+                    continue
+                }
                 outputs += Output(buffer, System.nanoTime())
                 onFrame(encoder, buffer)
             }
@@ -219,6 +223,7 @@ class EncodePipelineInstrumentedTest {
 
     private companion object {
         const val SETTLE_MILLIS = 2_000L
+        const val POLL_MILLIS = 10L
         const val ROTATION_BUDGET_MILLIS = 500L
         const val LENGTH_PREFIX_BYTES = 4
         const val COLOR_MAX = 256

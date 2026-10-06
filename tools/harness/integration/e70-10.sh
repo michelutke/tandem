@@ -160,7 +160,7 @@ scenario_mac_initiated() {
   e15_10_send "RAWMACROTATION ACK"
   offer="$(e15_10_read "$E70_09_ROTATE_TIMEOUT_SECONDS")" || offer="EVENT NO_RESPONSE"
   case "$offer" in
-    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED") pending_fp_hex="$(printf '%s' "$offer" | cut -d' ' -f4)" ;;
+    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED") pending_fp_hex="$(printf '%s' "$offer" | cut -d' ' -f3)" ;;
     *) fail "mac: expected a verified offer (got: $offer)"; return ;;
   esac
   acked="$(e15_10_read 10)" || acked=""
@@ -219,7 +219,7 @@ setup_two_phones() {
   e15_10_send "RAWMACROTATION NOACK"
   offer="$(e15_10_read "$E70_09_ROTATE_TIMEOUT_SECONDS")" || offer="EVENT NO_RESPONSE"
   case "$offer" in
-    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED") PENDING_MAC_FP_HEX="$(printf '%s' "$offer" | cut -d' ' -f4)" ;;
+    "EVENT MAC_ROTATION_OFFERED "*" VERIFIED") PENDING_MAC_FP_HEX="$(printf '%s' "$offer" | cut -d' ' -f3)" ;;
     *) fail "$name: phone B expected a verified offer (got: $offer)" ;;
   esac
   close_raw

@@ -9,6 +9,7 @@ import android.graphics.Rect
 import android.media.ImageReader
 import android.os.Handler
 import android.view.Surface
+import androidx.core.graphics.createBitmap
 
 /**
  * Harness-only [CaptureSource] decorator (E61-08): routes the display into an intermediate [ImageReader],
@@ -61,7 +62,7 @@ class TimestampOverlayCaptureSource(
         image.use {
             val plane = it.planes[0]
             val stridePixels = plane.rowStride / plane.pixelStride
-            val bitmap = Bitmap.createBitmap(stridePixels, it.height, Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(stridePixels, it.height, Bitmap.Config.ARGB_8888)
             bitmap.copyPixelsFromBuffer(plane.buffer)
             val target = output ?: return
             val canvas = target.lockCanvas(null)

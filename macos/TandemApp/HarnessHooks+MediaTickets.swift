@@ -154,6 +154,7 @@ extension HarnessHooks {
         decisionCorrelator: PeerDecisionCorrelator,
         pairingCandidateDriver: (any PairingCandidateDriver)?,
         trustStore: TrustStore,
+        window: any PairingWindowState,
         rotation: MacKeyRotation?
     ) -> NWListenerFactory {
         let media = HarnessMediaTickets.makeIfRequested()
@@ -174,7 +175,8 @@ extension HarnessHooks {
             trustStore: trustStore,
             onSessionRegistered: registered,
             onSessionEnded: ended,
-            mediaConnectionHandler: media?.acceptor
+            mediaConnectionHandler: media?.acceptor,
+            rotation: RotationReceiverConfiguration(window: window, dateProvider: { Date() })
         )
     }
 }

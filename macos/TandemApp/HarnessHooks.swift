@@ -148,6 +148,7 @@ enum HarnessHooks {
                 decisionCorrelator: decisionCorrelator,
                 pairingCandidateDriver: pairingCandidateDriver,
                 trustStore: trustStore,
+                window: window,
                 rotation: HarnessMacRotation.makeIfRequested(
                     keychainStore: keychainStore, trustStore: trustStore, window: window)
             ),
