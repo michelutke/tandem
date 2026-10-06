@@ -408,6 +408,7 @@ class RotationReceiverTest {
             val before = store.list()
             val failing = FailingResolveStore(store)
             val job = startReady(receiver(oldKey, pins = failing))
+            awaitUntil { failing.resolveCalls.get() > 0 }
             failing.failResolve = true
             rotate(challengeOf())
 
@@ -437,10 +438,14 @@ class RotationReceiverTest {
         private val delegate: TrustStore,
     ) : RotationPinStore by delegate {
         @Volatile var failResolve = false
+        val resolveCalls = java.util.concurrent.atomic.AtomicInteger()
 
         override suspend fun resolve(
             fingerprint: dev.tandem.core.crypto.SpkiFingerprint,
             nowEpochMs: Long,
-        ): ResolvedPin? = if (failResolve) error("injected fault") else delegate.resolve(fingerprint, nowEpochMs)
+        ): ResolvedPin? {
+            resolveCalls.incrementAndGet()
+            return if (failResolve) error("injected fault") else delegate.resolve(fingerprint, nowEpochMs)
+        }
     }
 }

@@ -146,17 +146,20 @@ enum HarnessMacRotation {
     }
 }
 
+struct ListenerFactoryInputs {
+    let sessionRegistry: any ControlSessionRegistering
+    let decisionCorrelator: PeerDecisionCorrelator
+    let pairingCandidateDriver: (any PairingCandidateDriver)?
+    let trustStore: TrustStore
+    let window: any PairingWindowState
+    let rotation: MacKeyRotation?
+}
+
 extension HarnessHooks {
     /// The harness's ``NWListenerFactory``: the E15-22 wiring, plus the media acceptor and the
     /// ticket-issuing session service when `-HarnessMediaTickets YES` is set.
-    static func makeListenerFactory(
-        sessionRegistry: any ControlSessionRegistering,
-        decisionCorrelator: PeerDecisionCorrelator,
-        pairingCandidateDriver: (any PairingCandidateDriver)?,
-        trustStore: TrustStore,
-        window: any PairingWindowState,
-        rotation: MacKeyRotation?
-    ) -> NWListenerFactory {
+    static func makeListenerFactory(_ inputs: ListenerFactoryInputs) -> NWListenerFactory {
+        let rotation = inputs.rotation
         let media = HarnessMediaTickets.makeIfRequested()
         var services: [any SessionService] = []
         if let service = media?.service { services.append(service) }
@@ -169,14 +172,14 @@ extension HarnessHooks {
             ended = { peer, session in host.sessionEnded(peer: peer, session: session) }
         }
         return NWListenerFactory(
-            sessionRegistry: sessionRegistry,
-            decisionCorrelator: decisionCorrelator,
-            pairingCandidateDriver: pairingCandidateDriver,
-            trustStore: trustStore,
+            sessionRegistry: inputs.sessionRegistry,
+            decisionCorrelator: inputs.decisionCorrelator,
+            pairingCandidateDriver: inputs.pairingCandidateDriver,
+            trustStore: inputs.trustStore,
             onSessionRegistered: registered,
             onSessionEnded: ended,
             mediaConnectionHandler: media?.acceptor,
-            rotation: RotationReceiverConfiguration(window: window, dateProvider: { Date() })
+            rotation: RotationReceiverConfiguration(window: inputs.window, dateProvider: { Date() })
         )
     }
 }
