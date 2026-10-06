@@ -304,7 +304,7 @@ enum HarnessHooks {
 
 /// No pairing window in the harness: connections are admitted only via a seeded trust record,
 /// never via the pairing-candidate relaxation (D-18).
-private struct NeverOpenPairingWindow: PairingWindowState {
+struct NeverOpenPairingWindow: PairingWindowState {
     var isOpen: Bool { false }
     func admitCandidate() -> PairingCandidateToken? { nil }
     func releaseCandidate(_ token: PairingCandidateToken) {}
