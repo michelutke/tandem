@@ -1335,7 +1335,7 @@ the 4 prefix bytes alone.
 
 | `MediaMessage` field | Message | Direction | Meaning |
 |---|---|---|---|
-| 1 | `MediaFormat { codec, width, height, fps }` | phone → Mac | Encoded stream format. Sent before the first `MediaFrame` and again whenever codec, size or frame rate changes. `codec` is `H264` or `HEVC` (PRD F-9.1: HEVC only if both sides support it). |
+| 1 | `MediaFormat { codec, width, height, fps }` | phone → Mac | Encoded stream format. Sent before the first `MediaFrame` and again whenever codec, size or frame rate changes. `codec` is `H264` or `HEVC` (PRD F-9.1: HEVC only if both sides support it). v1 senders use `H264` (D-78). |
 | 2 | `MediaFrame { pts, flags, data, fragment_index, fragment_count }` | phone → Mac | One fragment of one encoded access unit. |
 | 3 | `KeyframeRequest {}` | Mac → phone | Asks the encoder for a keyframe (decoder error, new viewer). |
 | 4 | `RotationChanged { orientation }` | phone → Mac | The device display rotated (`PORTRAIT`, `LANDSCAPE`, `REVERSE_PORTRAIT`, `REVERSE_LANDSCAPE`). A `MediaFormat` with the new size follows before the next `MediaFrame`. |

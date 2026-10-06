@@ -208,6 +208,7 @@ only after those tests and the matching audit rows above are green on the releas
 | D-75 | macOS Keychain access is split by KeychainTarget: production always uses the data-protection... | E10-07, E15-22 | [decisions](../planning/decisions.md), [phase-1](../planning/backlog/phase-1.yaml), [phase-1-e15](../planning/backlog/phase-1-e15.yaml) | [ ] |
 | D-76 | The Mac listener's verify-callback .rejected outcome never surfaces a per-connection banner: it is... | E22-10, E12-16, E70 | [decisions](../planning/decisions.md), [phase-2](../planning/backlog/phase-2.yaml), [phase-1](../planning/backlog/phase-1.yaml) | [ ] |
 | D-77 | The 16-byte mirror session id carried by input messages (E62-07) is minted by the phone: a random... | Q19, E62-07, E61-15, E62-06 | [decisions](../planning/decisions.md), [phase-6](../planning/backlog/phase-6.yaml) | [ ] |
+| D-78 | v1 mirroring is H.264 only; the E61-04 HEVC negotiation stays dormant until a post-v1 Mac decoder-capability field exists... | E61-04, E61-14, E61-15 | [decisions](../planning/decisions.md), [phase-6](../planning/backlog/phase-6.yaml) | [ ] |
 
 ## Owner sign-off
 
