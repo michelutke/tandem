@@ -13,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -111,27 +113,18 @@ class MirrorSessionTeardownInstrumentedTest {
             Thread.sleep(RUN_MILLIS)
             lifecycle.stop()
             assertTrue(stopped.await(AWAIT_SECONDS, TimeUnit.SECONDS))
+            runBlocking {
+                scope.coroutineContext.job.children
+                    .forEach { it.join() }
+            }
             scope.cancel()
         }
 
         assertEquals(0, factory.liveCodecs.get())
-        assertTrue(awaitDisplayCount(displayManager, displaysBefore))
-    }
-
-    private fun awaitDisplayCount(
-        displayManager: DisplayManager,
-        expected: Int,
-    ): Boolean {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(AWAIT_SECONDS)
-        while (displayManager.displays.size != expected) {
-            if (System.nanoTime() > deadline) return false
-            Thread.sleep(POLL_MILLIS)
-        }
-        return true
+        assertEquals(displaysBefore, displayManager.displays.size)
     }
 
     private companion object {
-        const val POLL_MILLIS = 50L
         const val CYCLES = 10
         const val WIDTH = 1280
         const val HEIGHT = 720
