@@ -64,7 +64,6 @@ class MirrorFeature(
     private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val random: SecureRandom,
-    private val sdkInt: Int,
 ) : SessionFeature {
     override suspend fun run(
         session: TandemSession,
@@ -199,7 +198,7 @@ class MirrorFeature(
                 EncodePipeline(
                     encoderFactory = platform.encoderFactory(),
                     capture = capture,
-                    config = EncoderConfigBuilder.build(sdkInt, size.width, size.height),
+                    config = EncoderConfigBuilder.build(size.width, size.height),
                     stream = stream,
                     ioDispatcher = ioDispatcher,
                     displayChanges = platform.displayChanges(),

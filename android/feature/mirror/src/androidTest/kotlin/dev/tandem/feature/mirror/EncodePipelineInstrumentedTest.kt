@@ -2,11 +2,9 @@ package dev.tandem.feature.mirror
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.Build
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.RequiresDevice
-import androidx.test.filters.SdkSuppress
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.protocol.v1.MediaMessage
 import dev.tandem.protocol.v1.Orientation
@@ -29,11 +27,9 @@ import kotlin.random.Random
  * `encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s`,
  * `encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames` and
  * `encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent`. A canvas-drawing capture stands
- * in for MediaProjection, which needs the system consent dialog (E61-02). API 29 is excluded: its OMX software
- * encoder reports ERROR(0x80001001) on the first surface frame.
+ * in for MediaProjection, which needs the system consent dialog (E61-02).
  */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 class EncodePipelineInstrumentedTest {
     private class CanvasCapture : CaptureSource {
         @Volatile
@@ -114,7 +110,7 @@ class EncodePipelineInstrumentedTest {
 
     private val config =
         EncoderConfigBuilder
-            .build(sdkInt = android.os.Build.VERSION.SDK_INT)
+            .build()
             .copy(width = FRAME_WIDTH, height = FRAME_HEIGHT)
 
     @Test

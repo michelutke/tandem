@@ -2,7 +2,6 @@ package dev.tandem.feature.input
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -17,7 +16,7 @@ class TandemAccessibilityService : AccessibilityService() {
         val actions = ServiceAccessibilityActions(this)
         val connected =
             RemoteInputTarget(
-                handler = InputActionHandler(actions, Build.VERSION.SDK_INT),
+                handler = InputActionHandler(actions),
                 translator = GestureTranslator(actions),
                 indicator = RemoteInputIndicator(AndroidNotificationPresenter(this), AccessibilityOverlayBadge(this)),
             )

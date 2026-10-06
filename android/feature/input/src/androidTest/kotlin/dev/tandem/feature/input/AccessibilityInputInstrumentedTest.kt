@@ -84,10 +84,7 @@ class AccessibilityInputInstrumentedTest {
     }
 
     private fun handler() =
-        InputActionHandler(
-            ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)),
-            android.os.Build.VERSION.SDK_INT,
-        )
+        InputActionHandler(ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)))
 
     private fun shell(command: String): String =
         FileInputStream(

@@ -1,6 +1,5 @@
 package dev.tandem.core.crypto
 
-import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
@@ -96,14 +95,8 @@ class AndroidKeyStoreIdentityKeyStore(
 }
 
 private fun KeyInfo.toSecurityLevel(): SecurityLevel =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        when (securityLevel) {
-            KeyProperties.SECURITY_LEVEL_STRONGBOX -> SecurityLevel.STRONGBOX
-            KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> SecurityLevel.TRUSTED_ENVIRONMENT
-            else -> SecurityLevel.SOFTWARE
-        }
-    } else if (isInsideSecureHardware) {
-        SecurityLevel.TRUSTED_ENVIRONMENT
-    } else {
-        SecurityLevel.SOFTWARE
+    when (securityLevel) {
+        KeyProperties.SECURITY_LEVEL_STRONGBOX -> SecurityLevel.STRONGBOX
+        KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT -> SecurityLevel.TRUSTED_ENVIRONMENT
+        else -> SecurityLevel.SOFTWARE
     }

@@ -3,10 +3,8 @@ package dev.tandem.feature.mirror
 import android.Manifest
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.RequiresDevice
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
@@ -25,7 +23,6 @@ import java.time.Instant
 
 /** E61-16 manual tdd: `mirrorPrompt_tapNotificationOnEmulator_consentDialogShown` (E00-21). */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 class MirrorPromptInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val device = UiDevice.getInstance(instrumentation)

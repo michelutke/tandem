@@ -22,9 +22,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 // E31-12 tdd:
-//   instrumented: clipboardEntryPoints_api29And35NoAccessibility_eachSendsOneClip
+//   instrumented: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip
 //
-// Runs on the api29 and api35 managed devices (E00-21) with no AccessibilityService enabled
+// Runs on the api33 and api35 managed devices (E00-21) with no AccessibilityService enabled
 // (asserted below). Each UC-13 entry point -- share target, PROCESS_TEXT, the QS tile's capture
 // activity, and the in-app button -- must produce exactly one ClipboardText send. No production
 // composition root wires a live TandemSession yet, so the FakeTandemSession is injected through
@@ -36,7 +36,7 @@ class ClipboardEntryPointsInstrumentedTest {
     private val application = ApplicationProvider.getApplicationContext<Application>()
 
     @Test
-    fun clipboardEntryPoints_api29And35NoAccessibility_eachSendsOneClip() {
+    fun clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip() {
         assertNoAccessibilityServiceEnabled()
 
         assertOneClip("shared text") { session ->

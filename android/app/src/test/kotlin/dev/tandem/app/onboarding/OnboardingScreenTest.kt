@@ -25,7 +25,6 @@ class OnboardingScreenTest {
                         deviceManufacturerSource = FakeDeviceManufacturerSource(manufacturer = "Xiaomi"),
                     ),
                 permissionRequester = RecordingPermissionRequester(),
-                sdkVersionProvider = FakeSdkVersionProvider(sdkInt = 33),
             )
 
         composeRule.setContent {

@@ -3,7 +3,6 @@ package dev.tandem.app.di
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.ConnectivityManager
-import android.os.Build
 import android.telephony.TelephonyManager
 import android.util.Log
 import dev.tandem.app.R
@@ -150,7 +149,6 @@ object SessionFeatureFactory {
             clock = clock,
             ioDispatcher = AppDispatchers.io,
             random = SecureRandom(),
-            sdkInt = Build.VERSION.SDK_INT,
         )
     }
 

@@ -8,10 +8,8 @@ object EncoderConfigBuilder {
     private const val I_FRAME_INTERVAL_SECONDS = 2
     private const val REALTIME_PRIORITY = 0
     private const val LOW_LATENCY_ENABLED = 1
-    private const val LOW_LATENCY_MIN_SDK = 30
 
     fun build(
-        sdkInt: Int,
         width: Int = DEFAULT_WIDTH,
         height: Int = DEFAULT_HEIGHT,
         codec: MirrorCodec = MirrorCodec.H264,
@@ -27,6 +25,6 @@ object EncoderConfigBuilder {
             level = if (codec == MirrorCodec.Hevc) EncoderLevel.HevcMain41 else EncoderLevel.Avc41,
             iFrameIntervalSeconds = I_FRAME_INTERVAL_SECONDS,
             priority = REALTIME_PRIORITY,
-            lowLatency = if (sdkInt >= LOW_LATENCY_MIN_SDK) LOW_LATENCY_ENABLED else null,
+            lowLatency = LOW_LATENCY_ENABLED,
         )
 }

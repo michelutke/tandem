@@ -86,7 +86,7 @@ class MirrorSessionTeardownInstrumentedTest {
         val displaysBefore = displayManager.displays.size
         val config =
             EncoderConfigBuilder
-                .build(sdkInt = android.os.Build.VERSION.SDK_INT)
+                .build()
                 .copy(width = WIDTH, height = HEIGHT)
 
         repeat(CYCLES) {

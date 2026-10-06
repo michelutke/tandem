@@ -19,7 +19,6 @@ import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemDeviceManufacturerSource
 import dev.tandem.app.onboarding.SystemPermissionRequester
-import dev.tandem.app.onboarding.SystemSdkVersionProvider
 import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
@@ -94,7 +93,6 @@ class MainActivity : TandemActivity() {
                     SystemPermissionRequester(activity) {
                         requestPostNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                     },
-                    SystemSdkVersionProvider,
                 ),
             isBatteryRestricted = { !SystemBatteryOptimizationSource(activity).isIgnoringBatteryOptimizations() },
             addressStore = graph.pairingAddressStore(),

@@ -3,7 +3,6 @@ package dev.tandem.feature.clipboard
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
 
 /** A text clip read from the system clipboard, and whether its source flagged it sensitive. */
 data class ClipboardClip(
@@ -41,12 +40,6 @@ class AndroidClipboardReader(
         return text?.let { ClipboardClip(it, sensitive = isSensitive(clipData.description)) }
     }
 
-    private fun isSensitive(description: ClipDescription): Boolean {
-        if (Build.VERSION.SDK_INT < MIN_SDK_FOR_EXTRA_IS_SENSITIVE) return false
-        return description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) ?: false
-    }
-
-    private companion object {
-        const val MIN_SDK_FOR_EXTRA_IS_SENSITIVE = 33
-    }
+    private fun isSensitive(description: ClipDescription): Boolean =
+        description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) ?: false
 }

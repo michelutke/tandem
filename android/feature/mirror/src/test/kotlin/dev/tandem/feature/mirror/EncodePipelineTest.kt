@@ -89,7 +89,7 @@ class EncodePipelineTest {
             EncodePipeline(
                 encoderFactory = { _, _ -> encoder },
                 capture = FakeCapture(),
-                config = EncoderConfigBuilder.build(sdkInt = 30),
+                config = EncoderConfigBuilder.build(),
                 stream = stream,
                 ioDispatcher = Dispatchers.Unconfined,
             )
@@ -197,7 +197,7 @@ class EncodePipelineTest {
                     encoders.removeFirst()
                 },
                 capture = capture,
-                config = EncoderConfigBuilder.build(sdkInt = 30),
+                config = EncoderConfigBuilder.build(),
                 stream = stream,
                 ioDispatcher = Dispatchers.Unconfined,
                 displayChanges = displayChanges,

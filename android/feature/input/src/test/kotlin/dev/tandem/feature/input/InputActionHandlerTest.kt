@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test
 class InputActionHandlerTest {
     private val actions = FakeAccessibilityActions()
 
-    private fun handler(sdkInt: Int = 34) = InputActionHandler(actions, sdkInt)
+    private fun handler() = InputActionHandler(actions)
 
     @Test
     fun globalActionHandler_eachOfBackHomeRecents_invokesMatchingConstant() {
@@ -93,19 +93,10 @@ class InputActionHandlerTest {
     }
 
     @Test
-    fun textEditHandler_imeEnterOnApi29_returnsNoOp() {
+    fun textEditHandler_imeEnter_performsImeEnter() {
         val node = FakeFocusedInput("abc")
         actions.focusedInput = node
-        val result = handler(sdkInt = 29).handle(textEdit { imeEnter = imeEnter {} })
-        assertEquals(InputResult.NoOp, result)
-        assertEquals(0, node.imeEnterCalls)
-    }
-
-    @Test
-    fun textEditHandler_imeEnterOnApi30_performsImeEnter() {
-        val node = FakeFocusedInput("abc")
-        actions.focusedInput = node
-        val result = handler(sdkInt = 30).handle(textEdit { imeEnter = imeEnter {} })
+        val result = handler().handle(textEdit { imeEnter = imeEnter {} })
         assertEquals(InputResult.Performed, result)
         assertEquals(1, node.imeEnterCalls)
     }

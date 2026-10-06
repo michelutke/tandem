@@ -3,7 +3,6 @@ package dev.tandem.app.clipboard
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
-import android.os.Build
 import android.os.PersistableBundle
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.feature.clipboard.ClipboardLoopGuard
@@ -39,7 +38,7 @@ class ClipboardWriter(
     fun write(clipboardText: ClipboardText) {
         loopGuard?.recordReceived(clipboardText.originTag, clipboardText.contentHash.toByteArray())
         val clip = ClipData.newPlainText(CLIP_LABEL, clipboardText.text)
-        if (clipboardText.sensitive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (clipboardText.sensitive) {
             clip.description.extras =
                 PersistableBundle().apply {
                     putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)

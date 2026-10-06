@@ -48,7 +48,7 @@ class InputGateTest {
 
                     override fun indicatorShowing() = indicatorShowing
                 },
-            handler = InputActionHandler(actions, sdkInt = 34),
+            handler = InputActionHandler(actions),
             translator = GestureTranslator(actions),
             dropLog =
                 object : DropLog {
@@ -356,7 +356,7 @@ class InputGateTest {
         InputGate(
             consent = consent,
             live = live,
-            handler = InputActionHandler(actions, sdkInt = 34),
+            handler = InputActionHandler(actions),
             translator = GestureTranslator(actions),
             dropLog =
                 object : DropLog {

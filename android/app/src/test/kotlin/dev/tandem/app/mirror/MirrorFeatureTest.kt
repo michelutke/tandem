@@ -246,7 +246,7 @@ class MirrorFeatureTest {
         val drops = mutableListOf<GateDropReason>()
         val target =
             RemoteInputTarget(
-                handler = InputActionHandler(actions, sdkInt = 34),
+                handler = InputActionHandler(actions),
                 translator = GestureTranslator(actions),
                 indicator = RemoteInputIndicator(notification, overlay),
             )
@@ -281,7 +281,6 @@ class MirrorFeatureTest {
                             sessionIdBytes.copyInto(bytes)
                         }
                     },
-                sdkInt = 34,
             )
 
         fun mirrorRequest(): Envelope =
