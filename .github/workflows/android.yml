@@ -72,6 +72,27 @@ jobs:
           ruby tools/release-audit/check-proto-descriptors.rb --debug "$classes/debug/compileDebugJavaWithJavac/classes/dev/tandem/protocol" \
             --release "$classes/release/compileReleaseJavaWithJavac/classes/dev/tandem/protocol"
 
+  jvm-integration:
+    # `integration:` tier: the plain-JVM jvmIntegrationTest source set (in-process mTLS loopback, no
+    # Mac app, no emulator), including E50-10 (SMS sync + send), E51-07 and E40-14.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: corretto
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Install Android SDK platform
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+      - name: JVM integration tests
+        run: ./gradlew :harness:jvm-client:jvmIntegrationTest
+
   fuzz-smoke:
     # E15-13: Jazzer fuzz smoke run for the frame/envelope parser. 5 min of fuzzing
     # (-max_total_time / JAZZER_MAX_DURATION=300s) inside a 15 min job wall-clock budget (also covers

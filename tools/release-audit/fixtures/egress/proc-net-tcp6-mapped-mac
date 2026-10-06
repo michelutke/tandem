@@ -1,0 +1,2 @@
+  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 0000000000000000FFFF00000F02000A:C350 0000000000000000FFFF00000202000A:1B3A 01 00000000:00000000 00:00000000 00000000 10123        0 1 1 0 0

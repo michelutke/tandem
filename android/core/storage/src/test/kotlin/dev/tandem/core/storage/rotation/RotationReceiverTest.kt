@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val AWAIT_TIMEOUT_MS = 5_000L
 private const val POLL_MS = 10L
@@ -369,4 +370,83 @@ class RotationReceiverTest {
             assertNull(record.pendingSpkiSha256Base64Url)
             assertEquals(PinKind.PRIMARY, store.resolve(oldKey.fingerprint, NOW_MS)!!.kind)
         }
+
+    @Test
+    fun androidRotationReceiver_sessionStart_purgesExpiredPins() =
+        runBlocking {
+            store.put(
+                peerRecord(newKey).copy(
+                    graceSpkiSha256Base64Url = oldKey.fingerprint.base64Url,
+                    graceExpiresAtEpochMs = NOW_MS,
+                ),
+            )
+            val job = startReady(receiver(null))
+
+            assertNull(store.get(newKey.fingerprint)!!.graceSpkiSha256Base64Url)
+            job.cancel()
+        }
+
+    @Test
+    fun androidRotationReceiver_purgeThrows_receiverStaysAliveAndStillRejects() =
+        runBlocking {
+            pinOld()
+            val failingPurge =
+                object : RotationPinStore by store {
+                    override suspend fun purgeExpiredPins(nowEpochMs: Long): Unit = error("injected fault")
+                }
+            val job = startReady(receiver(oldKey, pins = failingPurge))
+            rotate(challengeOf())
+
+            assertTrue(session.sentFrames.last().hasRotationAck())
+            assertTrue(job.isActive)
+            job.cancel()
+        }
+
+    @Test
+    fun androidRotationReceiver_resolveThrowsOnRotation_rejectsUnavailableLogsReasonAndStaysAlive() =
+        runBlocking {
+            pinOld()
+            val before = store.list()
+            val failing = FailingResolveStore(store)
+            val job = startReady(receiver(oldKey, pins = failing))
+            awaitUntil { failing.resolveCalls.get() > 0 }
+            failing.failResolve = true
+            rotate(challengeOf())
+
+            assertEquals(RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE, lastReject())
+            assertEquals(listOf(RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE), rejections)
+            assertEquals(before, store.list())
+            assertTrue(job.isActive)
+
+            failing.failResolve = false
+            rotate(challengeOf())
+            assertTrue(session.sentFrames.last().hasRotationAck() || session.sentFrames.last().hasRotationReject())
+            job.cancel()
+        }
+
+    @Test
+    fun androidRotationReceiver_handshakeRulesThrow_receiverStaysAlive() =
+        runBlocking {
+            pinOld()
+            val failing = FailingResolveStore(store).apply { failResolve = true }
+            val job = startReady(receiver(oldKey, pins = failing))
+
+            assertTrue(job.isActive)
+            job.cancel()
+        }
+
+    private class FailingResolveStore(
+        private val delegate: TrustStore,
+    ) : RotationPinStore by delegate {
+        @Volatile var failResolve = false
+        val resolveCalls = AtomicInteger()
+
+        override suspend fun resolve(
+            fingerprint: dev.tandem.core.crypto.SpkiFingerprint,
+            nowEpochMs: Long,
+        ): ResolvedPin? {
+            resolveCalls.incrementAndGet()
+            return if (failResolve) error("injected fault") else delegate.resolve(fingerprint, nowEpochMs)
+        }
+    }
 }

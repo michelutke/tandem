@@ -15,7 +15,11 @@
 #      `adb shell am broadcast -a dev.tandem.companion.POST --es kind canary --es nonce <nonce>`;
 #      Tandem filters its own notifications, so the companion app is required.
 #   3. clipboard (E31-06): fires the share-target `SEND` intent with the canary as clipboard text.
-#   4. file (E40-11): would fire a `SEND` intent with the canary as file content; E40-11 (file
+#   4. mirror (E61-09): starts the companion InputCounterActivity and types the canary into its
+#      focused text field with `adb shell input text`, so the canary is on the phone screen while a
+#      mirror session streams it. The capture window around this step must also contain >= 1 MB of
+#      media-connection traffic (media_volume.py), so a zero-occurrence result is not vacuous.
+#   5. file (E40-11): would fire a `SEND` intent with the canary as file content; E40-11 (file
 #      share target, Phase 4) isn't built yet, so this step stays disabled until it lands.
 #
 # Steps 2-4 need a live phone with adb attached (and, for a real run, paired with a Mac) — they are
@@ -49,18 +53,20 @@ PHASE1_SCRIPT="$CANARY_ROOT/tools/harness/integration/e15-07-canary-phase1.sh"
 # non-zero").
 readonly E30_NOTIFICATION_DONE=true   # E30 notifications + E00-22 companion app: shipped.
 readonly E31_06_CLIPBOARD_DONE=true   # E31-06 share target: shipped.
+readonly E61_09_MIRROR_DONE=true      # E61-09 mirror canary: this step.
 readonly E40_11_FILE_DONE=false       # E40-11 file share target (Phase 4): not built yet.
 
 DRY_RUN=false
 PHASE1_ONLY=false
 DISABLE_E30=false
 DISABLE_E31_06=false
+DISABLE_E61_09=false
 ENABLE_E40_11=false
 OUT_DIR=""
 
 usage() {
   cat <<'EOF'
-Usage: canary.sh [--dry-run] [--phase1-only] [--disable-e30] [--disable-e31-06] [--enable-e40-11] [--out-dir <dir>]
+Usage: canary.sh [--dry-run] [--phase1-only] [--disable-e30] [--disable-e31-06] [--disable-e61-09] [--enable-e40-11] [--out-dir <dir>]
 EOF
 }
 
@@ -70,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     --phase1-only) PHASE1_ONLY=true; shift ;;
     --disable-e30) DISABLE_E30=true; shift ;;
     --disable-e31-06) DISABLE_E31_06=true; shift ;;
+    --disable-e61-09) DISABLE_E61_09=true; shift ;;
     --enable-e40-11) ENABLE_E40_11=true; shift ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -89,6 +96,10 @@ if [[ "$DISABLE_E31_06" == true && "$E31_06_CLIPBOARD_DONE" == true && "$PHASE1_
   echo "canary.sh: --disable-e31-06 refused -- E31-06 (share target) is done, a canary run may no longer skip it" >&2
   exit 1
 fi
+if [[ "$DISABLE_E61_09" == true && "$E61_09_MIRROR_DONE" == true && "$PHASE1_ONLY" != true ]]; then
+  echo "canary.sh: --disable-e61-09 refused -- E61-09 (mirror canary) is done, a canary run may no longer skip it" >&2
+  exit 1
+fi
 if [[ "$ENABLE_E40_11" == true && "$E40_11_FILE_DONE" != true ]]; then
   echo "canary.sh: --enable-e40-11 refused -- E40-11 (file share target) is not done, the feature does not exist yet" >&2
   exit 1
@@ -96,12 +107,14 @@ fi
 
 NOTIFICATION_ENABLED=$([[ "$PHASE1_ONLY" == true || "$DISABLE_E30" == true ]] && echo false || echo true)
 CLIPBOARD_ENABLED=$([[ "$PHASE1_ONLY" == true || "$DISABLE_E31_06" == true ]] && echo false || echo true)
+MIRROR_ENABLED=$([[ "$PHASE1_ONLY" == true || "$DISABLE_E61_09" == true ]] && echo false || echo true)
 FILE_ENABLED=$([[ "$PHASE1_ONLY" != true && "$ENABLE_E40_11" == true ]] && echo true || echo false)
 
 NONCE="$(openssl rand -hex 16)"
 CANARY="TANDEM-CANARY-${NONCE}"
 
 SHARE_TARGET_COMPONENT="dev.tandem/dev.tandem.feature.clipboard.ShareTargetActivity"
+MIRROR_CANARY_ACTIVITY="dev.tandem.companion/.InputCounterActivity"
 
 phase1_cmd() {
   local out_pcap="$1"
@@ -115,6 +128,14 @@ notification_cmd() {
 clipboard_cmd() {
   printf 'adb shell am start -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "%s" -n %s' \
     "$CANARY" "$SHARE_TARGET_COMPONENT"
+}
+
+mirror_display_cmd() {
+  printf 'adb shell am start -n %s' "$MIRROR_CANARY_ACTIVITY"
+}
+
+mirror_type_cmd() {
+  printf 'adb shell input text %s' "$CANARY"
 }
 
 echo "CANARY: $CANARY"
@@ -142,6 +163,16 @@ if [[ "$DRY_RUN" == true ]]; then
     echo "STEP clipboard skipped (--phase1-only)"
   else
     echo "STEP clipboard skipped (--disable-e31-06)"
+  fi
+
+  if [[ "$MIRROR_ENABLED" == true ]]; then
+    echo "STEP mirror enabled"
+    echo "CMD $(mirror_display_cmd)"
+    echo "CMD $(mirror_type_cmd)"
+  elif [[ "$PHASE1_ONLY" == true ]]; then
+    echo "STEP mirror skipped (--phase1-only)"
+  else
+    echo "STEP mirror skipped (--disable-e61-09)"
   fi
 
   if [[ "$FILE_ENABLED" == true ]]; then
@@ -179,6 +210,14 @@ if [[ "$CLIPBOARD_ENABLED" == true ]]; then
   if ! adb shell am start -a android.intent.action.SEND -t text/plain \
     --es android.intent.extra.TEXT "$CANARY" -n "$SHARE_TARGET_COMPONENT"; then
     echo "canary.sh: clipboard step FAILED" >&2
+    FAILED=1
+  fi
+fi
+
+if [[ "$MIRROR_ENABLED" == true ]]; then
+  echo "STEP mirror enabled"
+  if ! adb shell am start -n "$MIRROR_CANARY_ACTIVITY" || ! adb shell input text "$CANARY"; then
+    echo "canary.sh: mirror step FAILED" >&2
     FAILED=1
   fi
 fi

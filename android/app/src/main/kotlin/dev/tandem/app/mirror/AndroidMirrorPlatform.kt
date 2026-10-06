@@ -96,7 +96,8 @@ class AndroidMirrorPlatform(
                 }
             }
         return projection?.let {
-            MediaProjectionCaptureSource(it, width, height, context.resources.displayMetrics.densityDpi)
+            val capture = MediaProjectionCaptureSource(it, width, height, context.resources.displayMetrics.densityDpi)
+            MirrorOverlayHarness.wrap(context, capture, width, height)
         }
     }
 

@@ -157,6 +157,8 @@ struct ScenarioView: View {
             ScenarioView.makeConversationSeededView()
         case .incomingCallActive:
             ScenarioView.makeIncomingCallActiveView()
+        case .nowPlayingSeeded:
+            ScenarioView.makeNowPlayingSeededView()
         case .mirrorDeclined:
             ScenarioView.makeMirrorDeclinedView()
 

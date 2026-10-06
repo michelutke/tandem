@@ -67,6 +67,9 @@ enum UITestScenario: String {
     /// An incoming call already `ACTIVE` (E52-06): the menu bar's Hang Up item renders.
     case incomingCallActive
 
+    /// A phone already playing a seeded track (E72-08): title, artist and transport controls render.
+    case nowPlayingSeeded
+
     /// A paired, connected peer that declined a Mirror request (E61-12): the status line under
     /// "Mirror Phone" reads "Mirroring declined on phone".
     case mirrorDeclined

@@ -40,6 +40,7 @@ macos/Packages/FeatureCalls
 macos/Packages/FeatureClipboard
 macos/Packages/FeatureFiles
 macos/Packages/FeatureFocus
+macos/Packages/FeatureMedia
 macos/Packages/FeatureMessaging
 macos/Packages/FeatureMirror
 macos/Packages/FeatureNotifications
@@ -70,6 +71,11 @@ tools/fuzz
 tools/fuzz/campaign
 tools/fuzz/jazzer
 tools/fuzz/libfuzzer
+tools/fuzz/regression
+tools/fuzz/regression/envelope
+tools/fuzz/regression/frame
+tools/fuzz/regression/qr
+tools/fuzz/regression/test
 tools/log-audit
 tools/mitm-lab
 tools/pcap-audit

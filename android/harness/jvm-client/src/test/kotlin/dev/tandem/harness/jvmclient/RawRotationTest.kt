@@ -56,4 +56,19 @@ class RawRotationTest {
         val newFingerprintHex = spkiFingerprint(rotation.newSpkiDer.toByteArray()).bytes.joinToString("") { "%02x".format(it) }
         assertEquals(heldFingerprintHex, newFingerprintHex)
     }
+
+    @Test
+    fun rawRotation_heldKeyWrittenAsIdentity_reloadsWithHeldFingerprint() {
+        val rawRotation = RawRotation(identityKey)
+        val heldFingerprintHex = rawRotation.generateHeldKey()
+        val file = Files.createTempFile("held-identity", ".bin").toFile()
+
+        PersistentIdentityKeyStore.write(file, rawRotation.heldKeyHandle())
+        val reloaded =
+            PersistentIdentityKeyStore(Clock.systemUTC(), file)
+                .getOrCreate(PersistentIdentityKeyStore.IDENTITY_ALIAS, preferStrongBox = false)
+
+        val reloadedFingerprintHex = spkiFingerprint(reloaded.certificate.publicKey.encoded).bytes.joinToString("") { "%02x".format(it) }
+        assertEquals(heldFingerprintHex, reloadedFingerprintHex)
+    }
 }

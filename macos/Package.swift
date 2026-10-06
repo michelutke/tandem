@@ -16,6 +16,7 @@ let package = Package(
         .package(path: "Packages/../Packages/FeatureClipboard"),
         .package(path: "Packages/../Packages/FeatureFiles"),
         .package(path: "Packages/../Packages/FeatureFocus"),
+        .package(path: "Packages/../Packages/FeatureMedia"),
         .package(path: "Packages/../Packages/FeatureMessaging"),
         .package(path: "Packages/../Packages/FeatureMirror"),
         .package(path: "Packages/../Packages/FeatureNotifications"),
@@ -38,8 +39,14 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureFocusTests",
-            dependencies: ["FeatureFocus", "TandemProtocol", "TandemTestSupport"],
+            dependencies: ["FeatureFocus", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
             path: "Packages/FeatureFocus/Tests/FeatureFocusTests",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "FeatureMediaTests",
+            dependencies: ["FeatureMedia", "TandemProtocol", "TandemTestSupport"],
+            path: "Packages/FeatureMedia/Tests/FeatureMediaTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

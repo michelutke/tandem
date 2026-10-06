@@ -11,7 +11,8 @@
 #      toolchain cannot do this (no libFuzzer runtime); the Swift.org / Linux `swift:*` Docker
 #      toolchain can. If the build fails, this step is skipped with a clear message rather than
 #      failing the job — step 1 already gates the PR on this toolchain.
-#   3. If the real target built, run_fuzz_target.sh replays the seed corpus through it (0 crashes
+#   3. If the real target built, run_fuzz_target.sh replays the seed corpus and every reproducer in
+#      tools/fuzz/regression/frame through it (0 crashes
 #      required) and then fuzzes for up to 300s (a timeout alone is not a failure).
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +26,9 @@ if ! python3 "$DIR/generate_seed_corpus.py" "$WORK/corpus"; then
   echo "smoke.sh: seed corpus generation failed" >&2
   exit 1
 fi
+
+echo "=== staging regression reproducers (tools/fuzz/regression/frame) ==="
+"$DIR/../regression/stage.sh" "$WORK/corpus" frame || exit 1
 
 echo "=== swift test: FrameEnvelopeFuzzerCore (cross-platform, no sanitizer) ==="
 if ! (cd "$DIR/swift" && swift test); then

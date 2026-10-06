@@ -41,5 +41,7 @@ jobs:
           ruby tools/ci/check_actions_pinned.rb
           ruby tools/ci/check_instrumented_modules.rb
           ruby tools/ci/check_swift_resolved_sync.rb
+          ruby tools/ci/check_release_audit_checklist.rb
+          tools/fuzz/regression/test/stage_test.sh
           ruby tools/lint/dependency_registry.rb .
           ruby tools/sbom/sbom.rb check

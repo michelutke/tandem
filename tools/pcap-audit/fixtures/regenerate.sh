@@ -137,5 +137,8 @@ sleep 2
 kill "$tshark_pid" >/dev/null 2>&1 || true
 wait "$tshark_pid" 2>/dev/null || true
 
+echo "building two-TLS-1.3-flows-on-one-port fixture (E60-06)..."
+python3 "$FIXTURES_DIR/make_two_flow_fixture.py" "$FIXTURES_DIR"
+
 echo "done:"
 ls -la "$FIXTURES_DIR"/*.pcapng

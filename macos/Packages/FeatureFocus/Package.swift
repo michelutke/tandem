@@ -8,18 +8,20 @@ let package = Package(
         .library(name: "FeatureFocus", targets: ["FeatureFocus"])
     ],
     dependencies: [
+        .package(path: "../TandemCrypto"),
         .package(path: "../TandemProtocol"),
+        .package(path: "../TandemTransport"),
         .package(path: "../TandemTestSupport")
     ],
     targets: [
         .target(
             name: "FeatureFocus",
-            dependencies: ["TandemProtocol"],
+            dependencies: ["TandemCrypto", "TandemProtocol", "TandemTransport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureFocusTests",
-            dependencies: ["FeatureFocus", "TandemProtocol", "TandemTestSupport"],
+            dependencies: ["FeatureFocus", "TandemCrypto", "TandemProtocol", "TandemTransport", "TandemTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

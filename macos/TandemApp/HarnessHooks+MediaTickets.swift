@@ -73,8 +73,28 @@ enum HarnessMediaTickets {
 /// seeded phone is offered the pending key as it connects (`KeyRotation` after its `RotationChallenge`).
 /// Prints `harness-mac-rotation: <outcome>` once begun and `harness-mac-rotation-switched` when every
 /// phone acked and the identity switched; never any key material (the pending key reaches a phone only
-/// inside that phone's own `KeyRotation`).
+/// inside that phone's own `KeyRotation`). With `-HarnessMacRotationFinishTrigger <path>` the rotation's
+/// clock is virtual: when that file appears it is deleted, the clock jumps 7 days forward (no sleeping)
+/// and ``MacKeyRotation/finish()`` runs, printing `harness-mac-rotation-finished` or
+/// `harness-mac-rotation-finish-failed: <error>`.
 enum HarnessMacRotation {
+    private final class VirtualClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private var offset: TimeInterval = 0
+
+        func now() -> Date {
+            lock.lock()
+            defer { lock.unlock() }
+            return Date().addingTimeInterval(offset)
+        }
+
+        func advance(by interval: TimeInterval) {
+            lock.lock()
+            defer { lock.unlock() }
+            offset += interval
+        }
+    }
+
     static func makeIfRequested(
         keychainStore: any KeychainStore,
         trustStore: TrustStore,
@@ -83,11 +103,12 @@ enum HarnessMacRotation {
         guard UserDefaults.standard.bool(forKey: "HarnessMacRotation") else { return nil }
         let dueDateURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("tandem-harness-next-rotation-due-\(UUID().uuidString)")
+        let clock = VirtualClock()
         let rotation = MacKeyRotation(
             keychainStore: keychainStore,
             trustStore: trustStore,
             window: window,
-            dateProvider: { Date() },
+            dateProvider: { clock.now() },
             interval: .seconds(365 * 86_400),
             dueDateURL: dueDateURL,
             onSwitched: {
@@ -101,20 +122,44 @@ enum HarnessMacRotation {
             print("harness-mac-rotation: \(outcome)")
             fflush(stdout)
         }
+        if let triggerPath = UserDefaults.standard.string(forKey: "HarnessMacRotationFinishTrigger") {
+            watchFinishTrigger(path: triggerPath, rotation: rotation, clock: clock)
+        }
         return rotation
     }
+
+    private static func watchFinishTrigger(path: String, rotation: MacKeyRotation, clock: VirtualClock) {
+        Task.detached {
+            while !FileManager.default.fileExists(atPath: path) {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            try? FileManager.default.removeItem(atPath: path)
+            clock.advance(by: TrustStore.gracePinLifetime)
+            do {
+                try rotation.finish()
+                print("harness-mac-rotation-finished")
+            } catch {
+                print("harness-mac-rotation-finish-failed: \(error)")
+            }
+            fflush(stdout)
+        }
+    }
+}
+
+struct ListenerFactoryInputs {
+    let sessionRegistry: any ControlSessionRegistering
+    let decisionCorrelator: PeerDecisionCorrelator
+    let pairingCandidateDriver: (any PairingCandidateDriver)?
+    let trustStore: TrustStore
+    let window: any PairingWindowState
+    let rotation: MacKeyRotation?
 }
 
 extension HarnessHooks {
     /// The harness's ``NWListenerFactory``: the E15-22 wiring, plus the media acceptor and the
     /// ticket-issuing session service when `-HarnessMediaTickets YES` is set.
-    static func makeListenerFactory(
-        sessionRegistry: any ControlSessionRegistering,
-        decisionCorrelator: PeerDecisionCorrelator,
-        pairingCandidateDriver: (any PairingCandidateDriver)?,
-        trustStore: TrustStore,
-        rotation: MacKeyRotation?
-    ) -> NWListenerFactory {
+    static func makeListenerFactory(_ inputs: ListenerFactoryInputs) -> NWListenerFactory {
+        let rotation = inputs.rotation
         let media = HarnessMediaTickets.makeIfRequested()
         var services: [any SessionService] = []
         if let service = media?.service { services.append(service) }
@@ -127,13 +172,14 @@ extension HarnessHooks {
             ended = { peer, session in host.sessionEnded(peer: peer, session: session) }
         }
         return NWListenerFactory(
-            sessionRegistry: sessionRegistry,
-            decisionCorrelator: decisionCorrelator,
-            pairingCandidateDriver: pairingCandidateDriver,
-            trustStore: trustStore,
+            sessionRegistry: inputs.sessionRegistry,
+            decisionCorrelator: inputs.decisionCorrelator,
+            pairingCandidateDriver: inputs.pairingCandidateDriver,
+            trustStore: inputs.trustStore,
             onSessionRegistered: registered,
             onSessionEnded: ended,
-            mediaConnectionHandler: media?.acceptor
+            mediaConnectionHandler: media?.acceptor,
+            rotation: RotationReceiverConfiguration(window: inputs.window, dateProvider: { Date() })
         )
     }
 }

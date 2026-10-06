@@ -24,6 +24,7 @@
 		37514F52E2CE1541F53D6B5F /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5319BE92DEC9F94E1C83D1EC /* README.md */; };
 		3A3D0508C5CF70D21E37460E /* QuickActionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF20C4F3C47025C0506B8DD /* QuickActionsViewModel.swift */; };
 		3CEE3ED42D968EA33509BDB2 /* DeviceStatusViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08C1BE9907AF105E7D4476B1 /* DeviceStatusViewModelTests.swift */; };
+		B1C2D3E4F5A60718293A4B5D /* HarnessHooks+PairingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* HarnessHooks+PairingWindow.swift */; };
 		43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */ = {isa = PBXBuildFile; fileRef = C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */; };
 		A60500B1C0DE4E60A0500001 /* HarnessHooks+MediaTickets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */; };
 		4CF15945A231CDA685E26206 /* LaunchAtLoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BD74961775D9359BBD2C9A6 /* LaunchAtLoginViewModel.swift */; };
@@ -52,19 +53,24 @@
 		A40100000000000000E40A02 /* FeatureFiles in Frameworks */ = {isa = PBXBuildFile; productRef = A40100000000000000E40A01 /* FeatureFiles */; };
 		E50070000000000000000A02 /* FeatureMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = E50070000000000000000A01 /* FeatureMessaging */; };
 		E52060000000000000000001 /* FeatureCalls in Frameworks */ = {isa = PBXBuildFile; productRef = E52060000000000000000012 /* FeatureCalls */; };
+		E72080000000000000000001 /* FeatureMedia in Frameworks */ = {isa = PBXBuildFile; productRef = E72080000000000000000012 /* FeatureMedia */; };
 		E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */; };
 		E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */; };
 		E22130000000000000000003 /* CallsSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E22130000000000000000004 /* CallsSessionService.swift */; };
+		E72080000000000000000006 /* NowPlayingSessionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000007 /* NowPlayingSessionService.swift */; };
 		E61120000000000000000001 /* FeatureMirror in Frameworks */ = {isa = PBXBuildFile; productRef = E61120000000000000000012 /* FeatureMirror */; };
+		E72130000000000000000001 /* FeatureFocus in Frameworks */ = {isa = PBXBuildFile; productRef = E72130000000000000000012 /* FeatureFocus */; };
 		E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000006 /* NotificationCallAlertPresenter.swift */; };
 		E52060000000000000000003 /* CallHangUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000007 /* CallHangUpView.swift */; };
 		E52100000000000000000001 /* ConversationCallHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52100000000000000000002 /* ConversationCallHost.swift */; };
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
+		E72080000000000000000004 /* ScenarioNowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000008 /* ScenarioNowPlaying.swift */; };
 		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
 		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
 		E70160000000000000000001 /* MacRotationComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70160000000000000000002 /* MacRotationComposition.swift */; };
 		E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000004 /* MirrorWindowPresenter.swift */; };
 		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
+		E72080000000000000000005 /* NowPlayingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000009 /* NowPlayingUITests.swift */; };
 		E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000003 /* MirrorQuickActionUITests.swift */; };
 		838080FD0780F86B2A637C93 /* ManualTestClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDC0B6E63738D6308D4CAE8 /* ManualTestClock.swift */; };
 		E1516000000000000000B001 /* InMemoryConnectionPair.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1516000000000000000F001 /* InMemoryConnectionPair.swift */; };
@@ -196,19 +202,24 @@
 		A40100000000000000E40A03 /* FeatureFiles */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFiles; path = Packages/FeatureFiles; sourceTree = SOURCE_ROOT; };
 		E50070000000000000000A03 /* FeatureMessaging */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMessaging; path = Packages/FeatureMessaging; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000010 /* FeatureCalls */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureCalls; path = Packages/FeatureCalls; sourceTree = SOURCE_ROOT; };
+		E72080000000000000000010 /* FeatureMedia */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMedia; path = Packages/FeatureMedia; sourceTree = SOURCE_ROOT; };
 		E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAcceptPromptPresenter.swift; sourceTree = "<group>"; };
 		E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationReceivedFilePresenter.swift; sourceTree = "<group>"; };
 		E22130000000000000000004 /* CallsSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallsSessionService.swift; sourceTree = "<group>"; };
+		E72080000000000000000007 /* NowPlayingSessionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingSessionService.swift; sourceTree = "<group>"; };
 		E61120000000000000000010 /* FeatureMirror */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureMirror; path = Packages/FeatureMirror; sourceTree = SOURCE_ROOT; };
+		E72130000000000000000010 /* FeatureFocus */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureFocus; path = Packages/FeatureFocus; sourceTree = SOURCE_ROOT; };
 		E52060000000000000000006 /* NotificationCallAlertPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationCallAlertPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000007 /* CallHangUpView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallHangUpView.swift; sourceTree = "<group>"; };
 		E52100000000000000000002 /* ConversationCallHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationCallHost.swift; sourceTree = "<group>"; };
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
+		E72080000000000000000008 /* ScenarioNowPlaying.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioNowPlaying.swift; sourceTree = "<group>"; };
 		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
 		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
 		E70160000000000000000002 /* MacRotationComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRotationComposition.swift; sourceTree = "<group>"; };
 		E62120000000000000000004 /* MirrorWindowPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowPresenter.swift; sourceTree = "<group>"; };
 		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
+		E72080000000000000000009 /* NowPlayingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingUITests.swift; sourceTree = "<group>"; };
 		E61120000000000000000003 /* MirrorQuickActionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorQuickActionUITests.swift; sourceTree = "<group>"; };
 		7138E67ACC4C2A670AA358E4 /* FeatureNotifications */ = {isa = PBXFileReference; includeInIndex = 1; name = FeatureNotifications; path = Packages/FeatureNotifications; sourceTree = SOURCE_ROOT; };
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
@@ -249,6 +260,7 @@
 		B585178A98786DB4AB6D5375 /* LoginItemService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemService.swift; sourceTree = "<group>"; };
 		B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		BB50C840776166869342E6D0 /* LocalNetworkPermissionBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermissionBannerView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5C /* HarnessHooks+PairingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+PairingWindow.swift"; sourceTree = "<group>"; };
 		C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+RotatingId.swift"; sourceTree = "<group>"; };
 		A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HarnessHooks+MediaTickets.swift"; sourceTree = "<group>"; };
 		D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
@@ -291,7 +303,9 @@
 				A40100000000000000E40A02 /* FeatureFiles in Frameworks */,
 				E50070000000000000000A02 /* FeatureMessaging in Frameworks */,
 				E52060000000000000000001 /* FeatureCalls in Frameworks */,
+				E72080000000000000000001 /* FeatureMedia in Frameworks */,
 				E61120000000000000000001 /* FeatureMirror in Frameworks */,
+				E72130000000000000000001 /* FeatureFocus in Frameworks */,
 				C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -335,6 +349,7 @@
 				E40230400000000000000000 /* TransferProgressUITests.swift */,
 				E50080400000000000000000 /* ConversationUITests.swift */,
 				E52060000000000000000009 /* CallAlertUITests.swift */,
+				E72080000000000000000009 /* NowPlayingUITests.swift */,
 				E61120000000000000000003 /* MirrorQuickActionUITests.swift */,
 				AE2CD51E2842F42B5D271C17 /* ScenarioVersionMismatchMenuUITests.swift */,
 			);
@@ -402,7 +417,9 @@
 				A40100000000000000E40A03 /* FeatureFiles */,
 				E50070000000000000000A03 /* FeatureMessaging */,
 				E52060000000000000000010 /* FeatureCalls */,
+				E72080000000000000000010 /* FeatureMedia */,
 				E61120000000000000000010 /* FeatureMirror */,
+				E72130000000000000000010 /* FeatureFocus */,
 				7138E67ACC4C2A670AA358E4 /* FeatureNotifications */,
 			);
 			path = Packages;
@@ -418,6 +435,7 @@
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
 				8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */,
+				A1B2C3D4E5F60718293A4B5C /* HarnessHooks+PairingWindow.swift */,
 				C566FC1A2B8FFE40B822B811 /* HarnessHooks+RotatingId.swift */,
 				A60500B1C0DE4E60A0500002 /* HarnessHooks+MediaTickets.swift */,
 				203AE56CB7FA35FB0146A6A1 /* HarnessPeerRecordFixture.swift */,
@@ -454,11 +472,13 @@
 				E22130000000000000000002 /* NotificationAcceptPromptPresenter.swift */,
 				E22130000000000000000006 /* NotificationReceivedFilePresenter.swift */,
 				E22130000000000000000004 /* CallsSessionService.swift */,
+				E72080000000000000000007 /* NowPlayingSessionService.swift */,
 				E50080200000000000000000 /* ScenarioConversation.swift */,
 				E52060000000000000000006 /* NotificationCallAlertPresenter.swift */,
 				E52060000000000000000007 /* CallHangUpView.swift */,
 				E52100000000000000000002 /* ConversationCallHost.swift */,
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
+				E72080000000000000000008 /* ScenarioNowPlaying.swift */,
 				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
 				E62120000000000000000002 /* MirrorComposition.swift */,
 				E70160000000000000000002 /* MacRotationComposition.swift */,
@@ -539,7 +559,9 @@
 				A40100000000000000E40A01 /* FeatureFiles */,
 				E50070000000000000000A01 /* FeatureMessaging */,
 				E52060000000000000000012 /* FeatureCalls */,
+				E72080000000000000000012 /* FeatureMedia */,
 				E61120000000000000000012 /* FeatureMirror */,
+				E72130000000000000000012 /* FeatureFocus */,
 				A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */,
 			);
 			productName = TandemApp;
@@ -601,7 +623,9 @@
 				F0660F4B776D4E909F09E6D3 /* XCLocalSwiftPackageReference "FeatureClipboard" */,
 				A40100000000000000E40A04 /* XCLocalSwiftPackageReference "FeatureFiles" */,
 				E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */,
+				E72080000000000000000011 /* XCLocalSwiftPackageReference "FeatureMedia" */,
 				E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */,
+				E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */,
 				8D44A28EA3C41DA1C33B2BAF /* XCLocalSwiftPackageReference "FeatureNotifications" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -670,6 +694,7 @@
 				E40230300000000000000000 /* TransferProgressUITests.swift in Sources */,
 				E50080300000000000000000 /* ConversationUITests.swift in Sources */,
 				E52060000000000000000005 /* CallAlertUITests.swift in Sources */,
+				E72080000000000000000005 /* NowPlayingUITests.swift in Sources */,
 				E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */,
 				E31FB1CB0E45F1B30D6718B7 /* ScenarioVersionMismatchMenuUITests.swift in Sources */,
 			);
@@ -709,6 +734,7 @@
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
 				B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */,
+				B1C2D3E4F5A60718293A4B5D /* HarnessHooks+PairingWindow.swift in Sources */,
 				43FF9E088013FEC617B854E6 /* HarnessHooks+RotatingId.swift in Sources */,
 				A60500B1C0DE4E60A0500001 /* HarnessHooks+MediaTickets.swift in Sources */,
 				D0A8C41E00EA75198BDB8DA1 /* HarnessPeerRecordFixture.swift in Sources */,
@@ -742,11 +768,13 @@
 				E22130000000000000000001 /* NotificationAcceptPromptPresenter.swift in Sources */,
 				E22130000000000000000005 /* NotificationReceivedFilePresenter.swift in Sources */,
 				E22130000000000000000003 /* CallsSessionService.swift in Sources */,
+				E72080000000000000000006 /* NowPlayingSessionService.swift in Sources */,
 				E50080100000000000000000 /* ScenarioConversation.swift in Sources */,
 				E52060000000000000000002 /* NotificationCallAlertPresenter.swift in Sources */,
 				E52060000000000000000003 /* CallHangUpView.swift in Sources */,
 				E52100000000000000000001 /* ConversationCallHost.swift in Sources */,
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
+				E72080000000000000000004 /* ScenarioNowPlaying.swift in Sources */,
 				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
 				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
 				E70160000000000000000001 /* MacRotationComposition.swift in Sources */,
@@ -1142,9 +1170,17 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureCalls;
 		};
+		E72080000000000000000011 /* XCLocalSwiftPackageReference "FeatureMedia" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureMedia;
+		};
 		E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FeatureMirror;
+		};
+		E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeatureFocus;
 		};
 		FE7626BCD2453DAC6B0044D3 /* XCLocalSwiftPackageReference "TandemTransport" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -1216,10 +1252,20 @@
 			package = E52060000000000000000011 /* XCLocalSwiftPackageReference "FeatureCalls" */;
 			productName = FeatureCalls;
 		};
+		E72080000000000000000012 /* FeatureMedia */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E72080000000000000000011 /* XCLocalSwiftPackageReference "FeatureMedia" */;
+			productName = FeatureMedia;
+		};
 		E61120000000000000000012 /* FeatureMirror */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E61120000000000000000011 /* XCLocalSwiftPackageReference "FeatureMirror" */;
 			productName = FeatureMirror;
+		};
+		E72130000000000000000012 /* FeatureFocus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E72130000000000000000011 /* XCLocalSwiftPackageReference "FeatureFocus" */;
+			productName = FeatureFocus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
