@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.tandem.app"
-        minSdk = 29
+        minSdk = 33
         targetSdk = 37
         // Gradle Managed Devices for `instrumented:` tdd entries (E00-21); `app` configures these
         // directly rather than applying `tandem.android.instrumented` because that convention
@@ -26,12 +26,11 @@ android {
     testOptions {
         managedDevices {
             localDevices {
-                create("api29") {
+                create("api33") {
                     device = "Pixel 6"
-                    apiLevel = 29
+                    apiLevel = 33
                     require64Bit = true
-                    // No ATD image exists below API 30, so API 29 uses the regular Google image.
-                    systemImageSource = "google"
+                    systemImageSource = "google_apis"
                 }
                 create("api35") {
                     device = "Pixel 6"
@@ -42,7 +41,7 @@ android {
             }
             groups {
                 create("ci") {
-                    targetDevices.add(allDevices["api29"])
+                    targetDevices.add(allDevices["api33"])
                     targetDevices.add(allDevices["api35"])
                 }
             }

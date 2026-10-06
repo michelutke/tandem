@@ -13,7 +13,7 @@ extensions.configure<LibraryExtension> {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 29
+        minSdk = 33
     }
 
     compileOptions {

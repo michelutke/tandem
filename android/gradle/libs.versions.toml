@@ -52,7 +52,7 @@ zxingcpp = "3.1.1"
 # cleanly with JUnit5 / Turbine test infrastructure. 0.9.2 is latest stable on Maven Central.
 kover = "0.9.10"
 # androidx.core for ContextCompat.registerReceiver (E23-02): the only API that lets a receiver
-# declare RECEIVER_NOT_EXPORTED correctly on every minSdk 29+ device in one call. 1.18.0 matches
+# declare RECEIVER_NOT_EXPORTED correctly on every minSdk 33+ device in one call. 1.18.0 matches
 # the version already resolved transitively elsewhere in this build (feature/pairing's lockfile).
 androidx-core = "1.18.0"
 
