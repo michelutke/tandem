@@ -43,7 +43,7 @@ epics:
       - "`CLAUDE.md` exists at repo root and contains the eight security invariants verbatim."
       - "`CLAUDE.md` has a testing section listing the eight tdd layer prefixes and the seam rule (inject Clock/dispatchers/ByteStream/KeyStore/Keychain; no `System.currentTimeMillis()`/`Date()` in core)."
       - "`android/core/testing` (TestClock, FakeElapsedRealtime, InMemoryDuplexPipe) and `macos/Packages/TandemTestSupport` (ManualTestClock, InMemoryConnectionPair) exist; neither is on a release classpath/link map."
-      - "Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 29 + 35) is a required check on `android/**` PRs."
+      - "Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 33 + 35) is a required check on `android/**` PRs."
       - "Phase 3 start (E00-22): `tools/companion-app` builds in CI and is installed on the managed devices before instrumented tests run."
       - "Phase 1 start (E00-26): `TandemUITests` XCUITest target runs on the macOS runner; Release binary contains no `UITestScenario` string."
       - "Phase 1 start (E00-29, E00-30): supply-chain checks fail on a changed artifact checksum, a + version, a tag-referenced action, a changed Package.resolved, a GPL-3.0 dependency or one missing from docs/dependencies.md; the release test-code scan fails on fixtures containing SoftwareIdentityKeyStore, ManualTestClock or an extra executable in Tandem.app and passes on the current release build."
@@ -123,7 +123,7 @@ epics:
           Robolectric Hilt tests substitute `HiltTestApplication`, so they would not catch a broken
           real `@HiltAndroidApp` / generated component in the shipped APK.
         acceptance:
-          - App module builds and launches `MainActivity` to a blank screen with the real `TandemApplication` Hilt component initialized, on API 29 and API 35 managed devices, with no crash in logcat.
+          - App module builds and launches `MainActivity` to a blank screen with the real `TandemApplication` Hilt component initialized, on API 33 and API 35 managed devices, with no crash in logcat.
           - Each of the five `core/*` modules (`protocol`, `crypto`, `transport`, `pairing`, `storage`) contains exactly one `@Module @InstallIn(SingletonComponent::class)` class with zero bindings.
         tdd:
           - "instrumented: tandemApplication_launchMainActivity_activityReachesResumedState"
@@ -628,8 +628,7 @@ epics:
         invariants: []
         depends_on: [E00-04, E00-11]
         description: |
-          Runner for every `instrumented:` tdd entry. Gradle Managed Devices `api29` (google — no ATD image exists below API 30)
-          and `api35` (google_apis) on ubuntu-latest with KVM, workflow `android-instrumented.yml`:
+          Runner for every `instrumented:` tdd entry. Gradle Managed Devices `api33` and `api35` (both google_apis) on ubuntu-latest with KVM, workflow `android-instrumented.yml`:
           required check on PRs touching `android/**`, plus nightly on `main`. Emulator limits are
           documented next to the workflow: no StrongBox, TEE is emulated (no hardware-backed
           attestation), no camera QR scan, telephony via `adb emu` only (SMS inject works, real
@@ -696,7 +695,7 @@ epics:
         depends_on: []
         description: |
           `docs/testing/device-matrix.md`: the physical devices every `manual:` gate runs on
-          (minimum: one StrongBox Pixel on current Android, one TEE-only device, one API 29
+          (minimum: one StrongBox Pixel on current Android, one TEE-only device, one API 33
           device, one Samsung One UI, one aggressive-battery OEM such as Xiaomi/OnePlus; Mac:
           Apple silicon on macOS 15 and on the latest macOS). `docs/testing/manual-gates.md`: one
           section per `manual:` tdd entry in the backlog (heading = the entry's test name) with
@@ -1036,7 +1035,7 @@ epics:
           `adb install` in the test runner's setup) so the companion kinds are postable.
         acceptance:
           - A deliberately failing assertion in either feature module's androidTest fails the workflow
-          - The E30-11 and E51-02 instrumented tests pass on api29 and api35
+          - The E30-11 and E51-02 instrumented tests pass on api33 and api35
         tdd:
           - "ci: instrumentedWorkflow_featureModuleFailingTest_workflowFails"
         notes: |
@@ -2225,7 +2224,7 @@ epics:
           `X509KeyManager` backed by an AndroidKeyStore P-256 key (StrongBox if available, else
           TEE, never exportable) and a custom `X509TrustManager` doing an SPKI pin check. Run
           on the physical devices listed in `docs/testing/device-matrix.md` (E00-23; at minimum
-          one StrongBox-capable device, one TEE-only device, one API 29 device) to confirm
+          one StrongBox-capable device, one TEE-only device, one API 33 device) to confirm
           client-cert presentation actually works end-to-end on real hardware, not just an
           emulator. Peer for the spike is `openssl s_server -Verify 1 -tls1_3` (E03-04 covers the
           real Mac listener).

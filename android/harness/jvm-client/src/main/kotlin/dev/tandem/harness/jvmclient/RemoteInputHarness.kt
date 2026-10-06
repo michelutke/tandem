@@ -80,7 +80,7 @@ internal class RemoteInputHarness(
         InputGate(
             consent = MirrorConsent(),
             live = noLiveState,
-            handler = InputActionHandler(actions, SDK_INT),
+            handler = InputActionHandler(actions),
             translator = GestureTranslator(actions),
             dropLog = dropLog,
             clock = clock,
@@ -98,7 +98,6 @@ internal class RemoteInputHarness(
     }
 
     private companion object {
-        const val SDK_INT = 34
         val WINDOW = Size(540, 1200)
         val DISPLAY = Size(1080, 2400)
     }

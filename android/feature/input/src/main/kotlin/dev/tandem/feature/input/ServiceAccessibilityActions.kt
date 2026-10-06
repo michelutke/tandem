@@ -3,7 +3,6 @@ package dev.tandem.feature.input
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
-import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -56,7 +55,5 @@ private class NodeFocusedInput(
         return node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
     }
 
-    override fun imeEnter(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+    override fun imeEnter(): Boolean = node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
 }

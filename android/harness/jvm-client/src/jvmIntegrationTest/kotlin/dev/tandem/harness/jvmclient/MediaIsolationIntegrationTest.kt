@@ -68,7 +68,7 @@ class MediaIsolationIntegrationTest {
         assertEquals(FRAME_COUNT, result.saturatedMicros.size)
         val baselineP95 = NearestRankPercentile.p95(result.baselineMicros)
         val saturatedP95 = NearestRankPercentile.p95(result.saturatedMicros)
-        assertTrue(result.stillSending, "FILES transfer finished before the saturated media window ended")
+        assertTrue(result.senderState is SenderState.Sending, "FILES transfer left Sending before the saturated media window ended: ${result.senderState}")
         assertTrue(
             saturatedP95 <= baselineP95 + WITHIN_BASELINE_MICROS,
             "media p95 saturated $saturatedP95 us vs baseline $baselineP95 us",
@@ -119,7 +119,7 @@ class MediaIsolationIntegrationTest {
                         val state = sender.send(SendRequest(TRANSFER_ID, "synthetic", "big.bin", "application/octet-stream"))
                         state.first { it is SenderState.Sending }
                         val saturated = streamFrames(mediaExecutor, mediaStream, peerMedia)
-                        val stillSending = state.value is SenderState.Sending
+                        val senderState = state.value
                         peer.send(Channel.CHANNEL_FILES) {
                             fileCancel =
                                 fileCancel {
@@ -127,7 +127,7 @@ class MediaIsolationIntegrationTest {
                                     reason = TransferReason.TRANSFER_REASON_USER_CANCELLED
                                 }
                         }
-                        ScenarioResult(baseline, saturated, stillSending)
+                        ScenarioResult(baseline, saturated, senderState)
                     }
                 }
             } finally {
@@ -192,7 +192,7 @@ class MediaIsolationIntegrationTest {
     private class ScenarioResult(
         val baselineMicros: List<Long>,
         val saturatedMicros: List<Long>,
-        val stillSending: Boolean,
+        val senderState: SenderState,
     )
 
     private class ZeroStream(
@@ -215,7 +215,8 @@ class MediaIsolationIntegrationTest {
 
     private companion object {
         const val TRANSFER_ID = "e60-07"
-        const val TRANSFER_BYTES = 8L shl 30
+        // 24 GiB (synthetic, not on disk): an 8 GiB transfer could finish before the media window on fast runners.
+        const val TRANSFER_BYTES = 24L shl 30
         const val FRAME_COUNT = 240
         const val FRAME_PAYLOAD_BYTES = 4096
         const val FRAME_INTERVAL_NANOS = 33_333_333L
@@ -225,6 +226,6 @@ class MediaIsolationIntegrationTest {
         const val WITHIN_BASELINE_MICROS = 10_000L
         const val P95_BUDGET_MICROS = 120_000L
         const val READ_TIMEOUT_SECONDS = 30L
-        val SCENARIO_TIMEOUT = 120.seconds
+        val SCENARIO_TIMEOUT = 240.seconds
     }
 }

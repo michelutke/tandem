@@ -28,12 +28,8 @@ class MediaPermissionChecker(
                 )
             }
 
-            sdkInt >= Build.VERSION_CODES.TIRAMISU -> {
-                listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-            }
-
             else -> {
-                listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                listOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
             }
         }
 
@@ -45,11 +41,7 @@ class MediaPermissionChecker(
         }
 
     private fun hasFullAccess(): Boolean =
-        if (sdkInt >= Build.VERSION_CODES.TIRAMISU) {
-            isGranted(Manifest.permission.READ_MEDIA_IMAGES) || isGranted(Manifest.permission.READ_MEDIA_VIDEO)
-        } else {
-            isGranted(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
+        isGranted(Manifest.permission.READ_MEDIA_IMAGES) || isGranted(Manifest.permission.READ_MEDIA_VIDEO)
 
     private fun hasOnlyUserSelectedAccess(): Boolean =
         sdkInt >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&

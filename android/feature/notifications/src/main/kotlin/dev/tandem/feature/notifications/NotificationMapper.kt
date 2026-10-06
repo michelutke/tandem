@@ -1,7 +1,6 @@
 package dev.tandem.feature.notifications
 
 import android.app.Notification
-import android.os.Build
 import android.os.Parcelable
 import android.service.notification.StatusBarNotification
 import dev.tandem.protocol.v1.NotificationDismiss
@@ -94,11 +93,7 @@ object NotificationMapper {
 
     // Reconstructed from the built Notification's own extras (this listener never holds the
     // MessagingStyle instance another app's process built), message order preserved.
-    // Message.getMessagesFromBundleArray is API 30+; minSdk is 29, so API 29 devices get no
-    // MessagingStyle content at all (falls back to the plain EXTRA_TEXT summary above) rather
-    // than crashing.
     private fun messagingStyleMessages(notification: Notification): List<MessagingStyleMessage> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
         val messages = messagesExtra(notification) ?: emptyArray()
         return Notification.MessagingStyle.Message
             .getMessagesFromBundleArray(messages)
@@ -114,14 +109,6 @@ object NotificationMapper {
             }
     }
 
-    // Bundle.getParcelableArray(String, Class) is API 33+; the single-arg overload below it is
-    // minSdk 29's only option and deprecated only from API 33, so branch on SDK_INT rather than
-    // pulling in androidx.core just for BundleCompat.getParcelableArray.
-    @Suppress("DEPRECATION")
     private fun messagesExtra(notification: Notification): Array<out Parcelable>? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
-        } else {
-            notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES)
-        }
+        notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES, Parcelable::class.java)
 }

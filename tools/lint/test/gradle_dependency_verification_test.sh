@@ -89,7 +89,7 @@ V1="0.0.1-tampered-$RUN_ID"
 DIR1="$(make_artifact "$V1")"
 JAR_SHA="$(sha256_of "$DIR1/verify-target-$V1.jar")"
 POM_SHA="$(sha256_of "$DIR1/verify-target-$V1.pom")"
-BAD_SHA="${JAR_SHA%??}00"
+case "$JAR_SHA" in *0) BAD_SHA="${JAR_SHA%?}1" ;; *) BAD_SHA="${JAR_SHA%?}0" ;; esac
 [ "$BAD_SHA" != "$JAR_SHA" ] || { echo "fixture setup error: mutated checksum equals the real one" >&2; exit 1; }
 
 write_metadata "$V1" "$BAD_SHA" "$POM_SHA"

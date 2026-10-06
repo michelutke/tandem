@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 // E62-05 tdd:
-//   instrumented: setText_focusedEditTextOnEmulator_contentReplaced
+//   manual: setText_focusedEditTextOnEmulator_contentReplaced
 //   manual: globalActionHome_onEmulator_launcherInForeground
 //
 // Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
@@ -40,9 +40,11 @@ class AccessibilityInputInstrumentedTest {
     fun disableService() {
         shell("settings put secure enabled_accessibility_services \"\"")
         shell("settings put secure accessibility_enabled 0")
+        awaitServiceUnbound()
     }
 
     @Test
+    @RequiresDevice
     fun setText_focusedEditTextOnEmulator_contentReplaced() {
         val intent =
             Intent()
@@ -83,11 +85,16 @@ class AccessibilityInputInstrumentedTest {
         }
     }
 
+    private fun awaitServiceUnbound() {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MS
+        while (CapturingAccessibilityService.instance != null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(POLL_MS)
+        }
+        check(CapturingAccessibilityService.instance == null) { "accessibility service still bound" }
+    }
+
     private fun handler() =
-        InputActionHandler(
-            ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)),
-            android.os.Build.VERSION.SDK_INT,
-        )
+        InputActionHandler(ServiceAccessibilityActions(checkNotNull(CapturingAccessibilityService.instance)))
 
     private fun shell(command: String): String =
         FileInputStream(

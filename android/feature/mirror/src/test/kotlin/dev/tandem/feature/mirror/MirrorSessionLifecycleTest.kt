@@ -101,7 +101,7 @@ class MirrorSessionLifecycleTest {
                         encoder
                     },
                 capture = capture,
-                config = EncoderConfigBuilder.build(sdkInt = 30),
+                config = EncoderConfigBuilder.build(),
                 stream = stream,
                 ioDispatcher = executor.asCoroutineDispatcher(),
             )

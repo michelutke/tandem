@@ -11,7 +11,6 @@ import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.BatteryOnboardingViewModel
 import dev.tandem.app.onboarding.FakeBatteryOptimizationSource
 import dev.tandem.app.onboarding.FakeDeviceManufacturerSource
-import dev.tandem.app.onboarding.FakeSdkVersionProvider
 import dev.tandem.app.onboarding.NOTIFICATION_LISTENER_ONBOARDING_TITLE
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
@@ -50,7 +49,6 @@ class AppShellTest {
                             FakeDeviceManufacturerSource(manufacturer = "Google"),
                         ),
                         RecordingPermissionRequester(),
-                        FakeSdkVersionProvider(sdkInt = 33),
                     ),
                 isBatteryRestricted = { false },
                 addressStore = PairingAddressStore(File.createTempFile("addr", null)),

@@ -916,7 +916,7 @@ epics:
         depends_on: [E20-02, E41-01, E00-20, E00-21]
         description: |
           Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` (API 33+, plus
-          `READ_MEDIA_VISUAL_USER_SELECTED` on API 34+) or `READ_EXTERNAL_STORAGE` below 33.
+          `READ_MEDIA_VISUAL_USER_SELECTED` on API 34+).
           A feature-local `MediaPermissionChecker` over `checkSelfPermission` and SDK_INT maps the
           grant state to FULL, PARTIAL (API 34+: only USER_SELECTED granted) or NONE, reported in
           every PhotoPageResult.access. When access is PARTIAL and the Mac asks for more, the
@@ -926,14 +926,13 @@ epics:
           `instrumented:` (E00-21, API 35 device, grants via `pm grant` / `pm revoke`).
         acceptance:
           - On API 33 the request contains READ_MEDIA_IMAGES and READ_MEDIA_VIDEO; on API 34+ it
-            also contains READ_MEDIA_VISUAL_USER_SELECTED; on API 32 only READ_EXTERNAL_STORAGE
+            also contains READ_MEDIA_VISUAL_USER_SELECTED
           - Only USER_SELECTED granted maps to PARTIAL; IMAGES granted maps to FULL; nothing
             granted maps to NONE and PhotoPage returns zero items with access NONE
           - With PARTIAL access, a Mac request for more posts exactly one "Select more photos"
             notification whose tap launches the permission request
         tdd:
           - "unit: mediaPermission_api34_requestIncludesVisualUserSelected"
-          - "unit: mediaPermission_api32_requestsOnlyReadExternalStorage"
           - "unit: mediaPermission_onlyUserSelectedGranted_mapsToPartial"
           - "unit: mediaPermission_nothingGranted_pageReturnsZeroItemsAccessNone"
           - "unit: mediaPermission_partialAndMoreRequested_postsOneSelectMoreNotification"

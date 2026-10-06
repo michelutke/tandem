@@ -2820,7 +2820,7 @@ epics:
           - "ui: pairingConfirmScreen_awaitingUserConfirm_showsCodeAndBothButtons"
 
       - id: E14-18
-        title: "[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)"
+        title: "[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)"
         type: test
         platforms: [android]
         priority: P0
@@ -2833,7 +2833,7 @@ epics:
           PRD risk "Keystore-backed keys with SSLSocket client auth behave differently across OEMs"
           requires an early device-matrix test in Phase 1 (E03-03 only covered the throwaway spike).
           Physical-device `manual:` gates (procedure in docs/testing/manual-gates.md, E00-23) on at
-          minimum one StrongBox device, one TEE-only device, one API 29 device and one Samsung,
+          minimum one StrongBox device, one TEE-only device, one API 33 device and one Samsung,
           each completing the production mTLS handshake and VersionHello against a real Mac
           listener, plus one timed real QR scan-to-Paired run (UC-03 < 10 s). The "never falls back
           to an exportable key" rule is also automated: `unit:` via
@@ -2847,7 +2847,7 @@ epics:
         tdd:
           - "manual: keystoreClientAuth_strongBoxDevice_readyFiveOfFiveAttempts"
           - "manual: keystoreClientAuth_teeOnlyDevice_readyFiveOfFiveAttempts"
-          - "manual: keystoreClientAuth_api29Device_readyFiveOfFiveAttempts"
+          - "manual: keystoreClientAuth_api33Device_readyFiveOfFiveAttempts"
           - "manual: keystoreClientAuth_samsungDevice_readyFiveOfFiveAttempts"
           - "unit: identityKeyProvider_strongBoxGenerateFails_neverFallsBackToExportableKey"
           - "instrumented: identityKeyProvider_emulatorStrongBoxUnavailable_privateKeyNotExportable"

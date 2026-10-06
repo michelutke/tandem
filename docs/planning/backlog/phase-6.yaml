@@ -738,17 +738,16 @@ epics:
           Pure `EncoderConfigBuilder` producing an `EncoderConfig` value (MIME type, size, bitrate,
           bitrate mode, profile/level, I-frame interval, low-latency and priority keys, API-level
           gated) that a thin adapter in E61-03 applies to `android.media.MediaFormat`. Defaults for
-          1080p30 H.264: CBR 8 Mbps, `KEY_PRIORITY` 0 (realtime), `KEY_LOW_LATENCY` 1 on API 30+ only,
+          1080p30 H.264: CBR 8 Mbps, `KEY_PRIORITY` 0 (realtime), `KEY_LOW_LATENCY` 1,
           AVC Constrained Baseline level 4.1 (no B-frames), I-frame interval 2 s (keyframes otherwise
           on request).
         acceptance:
           - The default 1080p H.264 config has bitrate mode CBR at 8 Mbps.
-          - Realtime priority is always set; `KEY_LOW_LATENCY` is set on API 30+ and omitted on API 29.
+          - Realtime priority is always set; `KEY_LOW_LATENCY` is always set.
           - Profile is AVC Constrained Baseline, level 4.1; I-frame interval is 2 s.
         tdd:
           - "unit: encoderConfig_default1080pH264_cbrAt8Mbps"
-          - "unit: encoderConfig_api30Device_setsLowLatencyAndRealtimePriority"
-          - "unit: encoderConfig_api29Device_omitsLowLatencyKey"
+          - "unit: encoderConfig_default1080pH264_setsLowLatencyAndRealtimePriority"
           - "unit: encoderConfig_h264_constrainedBaselineLevel41"
           - "unit: encoderConfig_default_iFrameInterval2s"
         notes: "Split from E61-03 in review cycle 3."
@@ -1007,7 +1006,7 @@ epics:
           - "unit: gestureTranslator_swipe_strokeFromStartToEndOverDuration"
           - "unit: gestureTranslator_scrollPositiveDy_strokeMovesUpwardFromAnchor"
           - "unit: gestureTranslator_droppedMapping_noGestureDispatched"
-          - "instrumented: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered"
+          - "manual: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered"
         notes: ""
       - id: E62-05
         title: "[android] performGlobalAction + ACTION_SET_TEXT"
@@ -1026,7 +1025,7 @@ epics:
           findFocus(FOCUS_INPUT)); recording fake in Robolectric tests, real service on the emulator.
           Cycle 4: TextEdit (E62-01) is applied to the focused editable node: insert and deleteBackward compute
           the new text from the node's current text and selection and apply ACTION_SET_TEXT (then restore the
-          cursor via ACTION_SET_SELECTION); imeEnter uses ACTION_IME_ENTER on API 30+ and is a NoOp on API 29.
+          cursor via ACTION_SET_SELECTION); imeEnter uses ACTION_IME_ENTER.
           Text of password nodes (`isPassword`) is never read into logs.
         acceptance:
           - BACK/HOME/RECENTS invoke GLOBAL_ACTION_BACK/HOME/RECENTS respectively.
@@ -1035,16 +1034,16 @@ epics:
           - SetText with no focused editable node returns NoOp without throwing.
           - On the emulator, SetText replaces a focused EditText's content with the given text, and
             HOME brings the launcher to the foreground.
-          - "insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter on API 29 returns NoOp."
+          - "insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter performs ACTION_IME_ENTER."
         tdd:
           - "unit: globalActionHandler_eachOfBackHomeRecents_invokesMatchingConstant"
           - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
           - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
-          - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
+          - "manual: setText_focusedEditTextOnEmulator_contentReplaced"
           - "manual: globalActionHome_onEmulator_launcherInForeground"
           - "unit: textEditHandler_insertAtSelection_setsTextWithInsertion"
           - "unit: textEditHandler_deleteBackwardTwo_removesTwoCharsBeforeCursor"
-          - "unit: textEditHandler_imeEnterOnApi29_returnsNoOp"
+          - "unit: textEditHandler_imeEnter_performsImeEnter"
         notes: ""
       - id: E62-06
         title: "[android] Input authorization gate + persistent on-phone indicator"
@@ -1094,7 +1093,7 @@ epics:
           - "unit: inputGate_burstOf1000Events_atMost240Dispatched"
           - "unit: inputGate_setTextOver4096Chars_dropped"
           - "unit: inputGate_indicatorOverlayDetached_frameDropped"
-          - "instrumented: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost"
+          - "manual: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost"
         notes: ""
       - id: E62-07
         title: "[macos] Mouse/keyboard/scroll capture in mirror window"

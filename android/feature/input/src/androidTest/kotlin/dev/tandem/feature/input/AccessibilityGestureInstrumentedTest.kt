@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.tap
 import org.junit.After
@@ -15,7 +16,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 // E62-04 tdd:
-//   instrumented: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered
+//   manual: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered
 //
 // Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
 // drives the real ServiceAccessibilityActions through GestureTranslator with an identity mapping.
@@ -36,9 +37,11 @@ class AccessibilityGestureInstrumentedTest {
     fun disableService() {
         shell("settings put secure enabled_accessibility_services \"\"")
         shell("settings put secure accessibility_enabled 0")
+        awaitServiceUnbound()
     }
 
     @Test
+    @RequiresDevice
     fun accessibilityGesture_remoteTapOnTestButton_oneClickRegistered() {
         val intent =
             Intent()
@@ -79,6 +82,14 @@ class AccessibilityGestureInstrumentedTest {
             scenario.onActivity { clicks = it.clickCount.get() }
             assertEquals(1, clicks)
         }
+    }
+
+    private fun awaitServiceUnbound() {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MS
+        while (CapturingAccessibilityService.instance != null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(POLL_MS)
+        }
+        check(CapturingAccessibilityService.instance == null) { "accessibility service still bound" }
     }
 
     private fun awaitService() {

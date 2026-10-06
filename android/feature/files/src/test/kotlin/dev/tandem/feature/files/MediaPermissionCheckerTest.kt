@@ -38,13 +38,6 @@ class MediaPermissionCheckerTest {
     }
 
     @Test
-    fun mediaPermission_api32_requestsOnlyReadExternalStorage() {
-        val permissions = MediaPermissionChecker(application, sdkInt = 32).requiredPermissions()
-
-        assertEquals(listOf(Manifest.permission.READ_EXTERNAL_STORAGE), permissions)
-    }
-
-    @Test
     @Config(sdk = [34])
     fun mediaPermission_onlyUserSelectedGranted_mapsToPartial() {
         shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
@@ -61,14 +54,6 @@ class MediaPermissionCheckerTest {
         )
 
         assertEquals(PhotoAccess.PHOTO_ACCESS_FULL, MediaPermissionChecker(application, sdkInt = 34).access())
-    }
-
-    @Test
-    @Config(sdk = [32])
-    fun mediaPermission_api32ReadExternalStorageGranted_mapsToFull() {
-        shadowOf(application).grantPermissions(Manifest.permission.READ_EXTERNAL_STORAGE)
-
-        assertEquals(PhotoAccess.PHOTO_ACCESS_FULL, MediaPermissionChecker(application, sdkInt = 32).access())
     }
 
     @Test

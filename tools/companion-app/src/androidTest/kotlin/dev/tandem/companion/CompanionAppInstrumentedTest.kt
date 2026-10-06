@@ -40,9 +40,6 @@ class CompanionAppInstrumentedTest {
         }
 
         val notification = awaitActiveNotification(key)
-        // Notification.MessagingStyle.Message.getMessagesFromBundleArray(...) is API 30+ only
-        // (this module's minSdk is 29, and CI runs an API 29 device); reading the raw extras
-        // array's size checks the same thing without needing that method.
         val messages = requireNotNull(notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES))
         assertEquals(3, messages.size)
     }

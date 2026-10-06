@@ -61,6 +61,7 @@ import java.security.SecureRandom
 import java.security.cert.CertificateException
 import java.time.Clock
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLHandshakeException
@@ -140,7 +141,7 @@ class MirrorFeatureTest {
         val launches = AtomicInteger()
         val captureStops = AtomicInteger()
         val captureServiceStarts = AtomicInteger()
-        val failures = mutableListOf<MirrorFailure>()
+        val failures = CopyOnWriteArrayList<MirrorFailure>()
         val capture = FakeCapture()
         val encoder = BlockingEncoder()
 
@@ -179,8 +180,8 @@ class MirrorFeatureTest {
     }
 
     private class RecordingActions : AccessibilityActions {
-        val globalActions = mutableListOf<Int>()
-        val strokes = mutableListOf<GestureStroke>()
+        val globalActions = CopyOnWriteArrayList<Int>()
+        val strokes = CopyOnWriteArrayList<GestureStroke>()
 
         override fun performGlobalAction(action: Int): Boolean {
             globalActions += action
@@ -243,10 +244,10 @@ class MirrorFeatureTest {
         val notification = FakeNotification()
         val overlay = FakeOverlay()
         val targetLookups = AtomicInteger()
-        val drops = mutableListOf<GateDropReason>()
+        val drops = CopyOnWriteArrayList<GateDropReason>()
         val target =
             RemoteInputTarget(
-                handler = InputActionHandler(actions, sdkInt = 34),
+                handler = InputActionHandler(actions),
                 translator = GestureTranslator(actions),
                 indicator = RemoteInputIndicator(notification, overlay),
             )
@@ -281,7 +282,6 @@ class MirrorFeatureTest {
                             sessionIdBytes.copyInto(bytes)
                         }
                     },
-                sdkInt = 34,
             )
 
         fun mirrorRequest(): Envelope =

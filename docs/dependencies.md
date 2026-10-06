@@ -73,7 +73,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `androidx.camera:camera-lifecycle` | Apache-2.0 | `ProcessCameraProvider`/`bindToLifecycle` | E14-10 |
 | `androidx.camera:camera-view` | Apache-2.0 | `PreviewView` viewfinder widget | E14-10 |
 | `io.github.zxing-cpp:android` | Apache-2.0 | QR decoding (E14-23 spike: zero Google/Firebase/telemetry transitive deps, unlike ML Kit's bundled barcode-scanning artifact, which also fails the license-allowlist gate) | E14-10 |
-| `androidx.core:core` | Apache-2.0 | `ContextCompat.registerReceiver`'s `RECEIVER_NOT_EXPORTED` flag for the battery status broadcast receiver (correct on every minSdk 29+ device in one call) | E23-02 |
+| `androidx.core:core` | Apache-2.0 | `ContextCompat.registerReceiver`'s `RECEIVER_NOT_EXPORTED` flag for the battery status broadcast receiver (correct on every minSdk 33+ device in one call) | E23-02 |
 | `androidx.core:core-ktx` | Apache-2.0 | `Bitmap.createBitmap` KTX extension (`IconEncoder`'s app-icon PNG encoding) | E30-05 |
 | `swift-crypto` | Apache-2.0 | `TandemCrypto`'s Linux-only `Crypto` module fallback for `SHA256`/`HMAC<SHA256>` (CryptoKit is Apple-only; fuzz-libfuzzer.yml's CI container is Linux) — already transitively resolved via `swift-certificates`, now also a direct dependency | E15-14 |
 

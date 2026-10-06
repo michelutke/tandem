@@ -19,7 +19,7 @@ class CodecNegotiatorTest {
             )
 
         val codec = CodecNegotiator.negotiate(source, macDecoders = setOf(MirrorCodec.H264, MirrorCodec.Hevc))
-        val config = EncoderConfigBuilder.build(sdkInt = 30, codec = codec)
+        val config = EncoderConfigBuilder.build(codec = codec)
 
         assertEquals(MirrorCodec.Hevc, codec)
         assertEquals("video/hevc", config.mimeType)
@@ -36,7 +36,7 @@ class CodecNegotiatorTest {
         val codec = CodecNegotiator.negotiate(source, macDecoders = setOf(MirrorCodec.H264))
 
         assertEquals(MirrorCodec.H264, codec)
-        assertEquals("video/avc", EncoderConfigBuilder.build(sdkInt = 30, codec = codec).mimeType)
+        assertEquals("video/avc", EncoderConfigBuilder.build(codec = codec).mimeType)
     }
 
     @Test

@@ -14,7 +14,6 @@ enum class InputResult { Performed, NoOp }
  */
 class InputActionHandler(
     private val actions: AccessibilityActions,
-    private val sdkInt: Int,
 ) {
     fun handle(globalAction: GlobalAction): InputResult {
         val action =
@@ -47,8 +46,7 @@ class InputActionHandler(
         count: Int,
     ): InputResult = if (count in DELETE_BACKWARD_RANGE) replaceSelection(input, "", count) else InputResult.NoOp
 
-    private fun imeEnter(input: FocusedInput): InputResult =
-        if (sdkInt >= IME_ENTER_MIN_SDK) result(input.imeEnter()) else InputResult.NoOp
+    private fun imeEnter(input: FocusedInput): InputResult = result(input.imeEnter())
 
     private fun replaceSelection(
         input: FocusedInput,
@@ -69,7 +67,6 @@ class InputActionHandler(
     private fun result(performed: Boolean) = if (performed) InputResult.Performed else InputResult.NoOp
 
     private companion object {
-        const val IME_ENTER_MIN_SDK = 30
         val DELETE_BACKWARD_RANGE = 1..64
     }
 }

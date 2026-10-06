@@ -20,10 +20,15 @@ class DefaultSmsRoleRule : ExternalResource() {
 
     override fun before() {
         originalHolder = Telephony.Sms.getDefaultSmsPackage(instrumentation.targetContext).orEmpty()
-        instrumentation.shell("cmd role add-role-holder --user 0 $SMS_ROLE $packageName")
-        if (!instrumentation.awaitHolder()) {
+        var output = ""
+        val held =
+            (1..ADD_HOLDER_ATTEMPTS).any {
+                output = instrumentation.shell("cmd role add-role-holder --user 0 $SMS_ROLE $packageName")
+                instrumentation.awaitHolder()
+            }
+        if (!held) {
             instrumentation.shell("settings put secure $LEGACY_SMS_SETTING $packageName")
-            check(instrumentation.awaitHolder()) { "could not become the default SMS app" }
+            check(instrumentation.awaitHolder()) { "could not become the default SMS app: $output" }
         }
     }
 
@@ -48,6 +53,7 @@ class DefaultSmsRoleRule : ExternalResource() {
     private companion object {
         const val SMS_ROLE = "android.app.role.SMS"
         const val LEGACY_SMS_SETTING = "sms_default_application"
+        const val ADD_HOLDER_ATTEMPTS = 4
         const val HOLDER_POLL_COUNT = 50
         const val HOLDER_POLL_INTERVAL_MS = 200L
     }

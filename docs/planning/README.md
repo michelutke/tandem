@@ -75,7 +75,7 @@ Prefix on every `tdd:` entry; tells the implementer which harness to use.
 | `unit:` | JUnit5 + Turbine (Robolectric only for unavoidable framework types) / Swift Testing | E00-04, E00-18, E00-19, E00-20, E10-15 / E00-08, E00-24, E00-25, E10-16 | every PR |
 | `conformance:` | `tools/conformance` over `protocol/vectors/` on both codecs | E15-01, E15-02, E15-03 | every PR |
 | `integration:` | JVM client ↔ real Mac server on the macOS runner, or in-process loopback (two real sessions, localhost TLS) | E15-15 (E15-21 client, E15-22 Mac driver) | every PR (macOS runner) |
-| `instrumented:` | Android emulator, Gradle Managed Devices (API 29 + 35) | E00-21, E00-22 | PRs touching `android/**`, nightly |
+| `instrumented:` | Android emulator, Gradle Managed Devices (API 33 + 35) | E00-21, E00-22 | PRs touching `android/**`, nightly |
 | `ui:` | Compose UI tests under Robolectric / XCUITest with DEBUG-only scenario seeding | E00-20 / E00-26 | every PR |
 | `manual:` | Physical-device gate, procedure + sign-off in `docs/testing/manual-gates.md` | E00-23 | phase exit |
 | `security:` | mitm-lab, pcap-audit, nmap, log-audit | E15-04…E15-20, runner E15-18, gate E15-23 | core/* PRs (subset), phase exit |

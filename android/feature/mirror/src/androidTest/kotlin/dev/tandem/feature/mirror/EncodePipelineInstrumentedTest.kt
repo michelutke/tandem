@@ -2,11 +2,9 @@ package dev.tandem.feature.mirror
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.Build
 import android.view.Surface
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.RequiresDevice
-import androidx.test.filters.SdkSuppress
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.protocol.v1.MediaMessage
 import dev.tandem.protocol.v1.Orientation
@@ -29,13 +27,13 @@ import kotlin.random.Random
  * `encodePipeline_emulatorSoftwareAvcEncoder_firstIdrWithin1s`,
  * `encodePipeline_keyframeRequestOnSoftwareCodec_idrWithinNext2Frames` and
  * `encodePipeline_cbr4MbpsOnSoftwareCodec_bitrateWithin20Percent`. A canvas-drawing capture stands
- * in for MediaProjection, which needs the system consent dialog (E61-02). API 29 is excluded: its OMX software
- * encoder reports ERROR(0x80001001) on the first surface frame.
+ * in for MediaProjection, which needs the system consent dialog (E61-02).
  */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 class EncodePipelineInstrumentedTest {
-    private class CanvasCapture : CaptureSource {
+    private class CanvasCapture(
+        private val noiseFrames: List<Bitmap>,
+    ) : CaptureSource {
         @Volatile
         private var running = false
         private var drawer: Thread? = null
@@ -45,7 +43,6 @@ class EncodePipelineInstrumentedTest {
             running = true
             drawer =
                 thread {
-                    val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
                     var tick = 0
                     try {
                         while (running) {
@@ -65,20 +62,6 @@ class EncodePipelineInstrumentedTest {
             running = false
             drawer?.join()
         }
-
-        private fun noiseBitmap(random: Random): Bitmap {
-            val blocksPerRow = FRAME_WIDTH / NOISE_BLOCK_PX
-            val blockColors =
-                IntArray(blocksPerRow * (FRAME_HEIGHT / NOISE_BLOCK_PX)) {
-                    Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
-                }
-            val pixels =
-                IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
-                    val blockRow = it / FRAME_WIDTH / NOISE_BLOCK_PX
-                    blockColors[blockRow * blocksPerRow + it % FRAME_WIDTH / NOISE_BLOCK_PX]
-                }
-            return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
-        }
     }
 
     private class Output(
@@ -86,13 +69,29 @@ class EncodePipelineInstrumentedTest {
         val atNanos: Long,
     )
 
+    private val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
+
+    private fun noiseBitmap(random: Random): Bitmap {
+        val blocksPerRow = FRAME_WIDTH / NOISE_BLOCK_PX
+        val blockColors =
+            IntArray(blocksPerRow * (FRAME_HEIGHT / NOISE_BLOCK_PX)) {
+                Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
+            }
+        val pixels =
+            IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
+                val blockRow = it / FRAME_WIDTH / NOISE_BLOCK_PX
+                blockColors[blockRow * blocksPerRow + it % FRAME_WIDTH / NOISE_BLOCK_PX]
+            }
+        return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
+    }
+
     private fun encode(
         config: EncoderConfig,
         durationMillis: Long,
         onFrame: (VideoEncoder, EncodedBuffer) -> Unit = { _, _ -> },
     ): List<Output> {
         val outputs = mutableListOf<Output>()
-        val capture = CanvasCapture()
+        val capture = CanvasCapture(noiseFrames)
         val encoder = MediaCodecEncoderFactory().create(config, capture)
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(durationMillis)
         try {
@@ -114,7 +113,7 @@ class EncodePipelineInstrumentedTest {
 
     private val config =
         EncoderConfigBuilder
-            .build(sdkInt = android.os.Build.VERSION.SDK_INT)
+            .build()
             .copy(width = FRAME_WIDTH, height = FRAME_HEIGHT)
 
     @Test
@@ -196,7 +195,14 @@ class EncodePipelineInstrumentedTest {
         val stream = TimedStream()
         val displayChanges = ManualDisplayChanges()
         val pipeline =
-            EncodePipeline(MediaCodecEncoderFactory(), CanvasCapture(), config, stream, Dispatchers.IO, displayChanges)
+            EncodePipeline(
+                MediaCodecEncoderFactory(),
+                CanvasCapture(noiseFrames),
+                config,
+                stream,
+                Dispatchers.IO,
+                displayChanges,
+            )
         val runner = thread { runBlocking { pipeline.run() } }
         Thread.sleep(SETTLE_MILLIS)
         val lastBefore = stream.messages.last { it.second.hasMediaFrame() }.first

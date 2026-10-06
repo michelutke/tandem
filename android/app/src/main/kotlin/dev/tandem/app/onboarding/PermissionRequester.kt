@@ -7,7 +7,7 @@ import android.provider.Settings
 /**
  * Seam over the two permission-requesting actions this onboarding sequence performs (E20-14):
  * notification-listener access (no runtime dialog exists for this special access -- only the
- * system's dedicated Settings screen) and the POST_NOTIFICATIONS runtime permission (API 33+).
+ * system's dedicated Settings screen) and the POST_NOTIFICATIONS runtime permission.
  * [OnboardingViewModel.allow] calls this instead of touching `Settings`/
  * `ActivityResultContracts` directly, so it stays plain unit-tested against a recording fake
  * (CLAUDE.md's Robolectric rule). Battery-optimization and CAMERA each already have their own

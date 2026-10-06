@@ -4,7 +4,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 // Gradle Managed Devices for `instrumented:` tdd entries (E00-21). Modules opt in by applying
 // this plugin instead of `tandem.android.library`; it wires the AndroidJUnitRunner instrumentation
 // runner, the androidx.test dependencies every androidTest needs, and the two managed devices the
-// android-instrumented workflow runs: `api29` (google) and `api35` (google_apis). See
+// android-instrumented workflow runs: `api33` (google_apis) and `api35` (google_apis). See
 // android-instrumented.yml for known emulator limits (no StrongBox, emulated TEE, no camera QR
 // scan, telephony via `adb emu` only, MediaProjection consent needs UiAutomator).
 // `app` (a `com.android.application` module, not a `tandem.android.library` one) configures the
@@ -26,12 +26,11 @@ extensions.configure<LibraryExtension> {
     testOptions {
         managedDevices {
             localDevices {
-                create("api29") {
+                create("api33") {
                     device = "Pixel 6"
-                    apiLevel = 29
+                    apiLevel = 33
                     require64Bit = true
-                    // No ATD image exists below API 30, so API 29 uses the regular Google image.
-                    systemImageSource = "google"
+                    systemImageSource = "google_apis"
                 }
                 create("api35") {
                     device = "Pixel 6"
@@ -42,7 +41,7 @@ extensions.configure<LibraryExtension> {
             }
             groups {
                 create("ci") {
-                    targetDevices.add(allDevices["api29"])
+                    targetDevices.add(allDevices["api33"])
                     targetDevices.add(allDevices["api35"])
                 }
             }

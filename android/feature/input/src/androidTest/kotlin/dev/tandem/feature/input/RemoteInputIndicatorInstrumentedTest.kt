@@ -5,6 +5,7 @@ import android.graphics.PixelFormat
 import android.view.View
 import android.view.WindowManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.swipe
 import org.junit.After
@@ -17,7 +18,7 @@ import java.io.FileInputStream
 
 // E62-06 tdd:
 //   instrumented: remoteInputIndicator_remoteSwipeOverNotification_indicatorStillPosted
-//   instrumented: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost
+//   manual: remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost
 @RunWith(AndroidJUnit4::class)
 class RemoteInputIndicatorInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -69,6 +70,7 @@ class RemoteInputIndicatorInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost() {
         shell("appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow")
         val windowManager = context.getSystemService(WindowManager::class.java)

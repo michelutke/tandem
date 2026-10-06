@@ -24,7 +24,7 @@ exit does not wait for them.
 - [ ] `CLAUDE.md` exists at repo root and contains the eight security invariants verbatim.
 - [ ] `CLAUDE.md` has a testing section listing the eight tdd layer prefixes and the seam rule (inject Clock/dispatchers/ByteStream/KeyStore/Keychain; no `System.currentTimeMillis()`/`Date()` in core).
 - [ ] `android/core/testing` (TestClock, FakeElapsedRealtime, InMemoryDuplexPipe) and `macos/Packages/TandemTestSupport` (ManualTestClock, InMemoryConnectionPair) exist; neither is on a release classpath/link map.
-- [ ] Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 29 + 35) is a required check on `android/**` PRs.
+- [ ] Robolectric + Compose `ui:` tests run in the ubuntu `android` job with no emulator; the `android-instrumented` emulator job (API 33 + 35) is a required check on `android/**` PRs.
 - [ ] Phase 3 start (E00-22): `tools/companion-app` builds in CI and is installed on the managed devices before instrumented tests run.
 - [ ] Phase 1 start (E00-26): `TandemUITests` XCUITest target runs on the macOS runner; Release binary contains no `UITestScenario` string.
 - [ ] Phase 1 start (E00-29, E00-30): supply-chain checks fail on a changed artifact checksum, a + version, a tag-referenced action, a changed Package.resolved, a GPL-3.0 dependency or one missing from docs/dependencies.md; the release test-code scan fails on fixtures containing SoftwareIdentityKeyStore, ManualTestClock or an extra executable in Tandem.app and passes on the current release build.
@@ -397,7 +397,7 @@ both apps.
 | E14-20 | [cross] Integration: revoke over the JVM harness (connected and offline) | test | P0 | S | E15-15, E14-12, E14-13, E14-15, E14-19, E12-16 |
 | E14-16 | [cross] End-to-end: QR pair then reconnect after restarting both apps | test | P0 | L | E15-15, E14-05, E14-06, E14-08 |
 | E14-17 | [android] Pairing failure messages: expired/used QR, declined, Mac unreachable | story | P0 | S | E14-05, E12-16, E00-20, E00-31 |
-| E14-18 | [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM) | test | P0 | M | E10-01, E10-15, E12-04, E12-06, E14-10, E00-21, E00-23, E14-05, E14-06, E14-08, E14-11 |
+| E14-18 | [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM) | test | P0 | M | E10-01, E10-15, E12-04, E12-06, E14-10, E00-21, E00-23, E14-05, E14-06, E14-08, E14-11 |
 | E14-21 | [android] DisplayStringSanitizer (vector-tested) | task | P0 | S | E01-24, E00-04 |
 | E14-22 | [macos] DisplayStringSanitizer (vector-tested) | task | P0 | S | E01-24, E00-08 |
 | E14-23 | [android] Spike: QR decoder choice (ML Kit bundled telemetry vs. zxing-cpp) | spike | P0 | S | E00-23 |

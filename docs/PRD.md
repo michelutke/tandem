@@ -537,7 +537,7 @@ if the bytes appear anywhere in the capture.
 
 **Android**
 - Kotlin, Coroutines/Flow, Jetpack Compose, Hilt, DataStore.
-- `minSdk 29` (Android 10), `targetSdk` latest.
+- `minSdk 33` (Android 13), `targetSdk` latest.
 - Platform `SSLSocket` (Conscrypt) with custom `X509TrustManager` / `X509KeyManager`;
   AndroidKeyStore P-256 (StrongBox preferred).
 - `protobuf-kotlin-lite` generated from `protocol/proto`.

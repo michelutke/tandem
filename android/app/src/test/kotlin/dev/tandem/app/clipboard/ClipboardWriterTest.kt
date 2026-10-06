@@ -70,7 +70,7 @@ class ClipboardWriterTest {
     }
 
     @Test
-    @Config(sdk = [29, 33])
+    @Config(sdk = [33])
     fun clipboardWriter_receivedText_primaryClipEqualsText() {
         val writer = ClipboardWriter(clipboardManager())
 
@@ -105,17 +105,5 @@ class ClipboardWriterTest {
 
         val extras = clipboardManager().primaryClip?.description?.extras
         assertFalse(extras?.containsKey(ClipDescription.EXTRA_IS_SENSITIVE) == true)
-    }
-
-    @Test
-    @Config(sdk = [29])
-    fun clipboardWriter_sensitiveOnApi29_writtenWithoutExtra() {
-        val writer = ClipboardWriter(clipboardManager())
-
-        driveIncoming(writer, text = "secret", sensitive = true)
-
-        val clip = clipboardManager().primaryClip
-        assertEquals("secret", clip?.getItemAt(0)?.text.toString())
-        assertNull(clip?.description?.extras)
     }
 }
