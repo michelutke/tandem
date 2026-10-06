@@ -36,6 +36,7 @@ class AccessibilityGestureInstrumentedTest {
     fun disableService() {
         shell("settings put secure enabled_accessibility_services \"\"")
         shell("settings put secure accessibility_enabled 0")
+        awaitServiceUnbound()
     }
 
     @Test
@@ -79,6 +80,14 @@ class AccessibilityGestureInstrumentedTest {
             scenario.onActivity { clicks = it.clickCount.get() }
             assertEquals(1, clicks)
         }
+    }
+
+    private fun awaitServiceUnbound() {
+        val deadline = System.currentTimeMillis() + TIMEOUT_MS
+        while (CapturingAccessibilityService.instance != null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(POLL_MS)
+        }
+        check(CapturingAccessibilityService.instance == null) { "accessibility service still bound" }
     }
 
     private fun awaitService() {
