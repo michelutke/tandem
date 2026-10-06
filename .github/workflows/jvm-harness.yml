@@ -49,4 +49,5 @@ jobs:
       - name: JVM harness media connection pcap-audit (E60-06)
         run: |
           command -v tshark >/dev/null || brew install wireshark >/dev/null
+          sudo chmod o+rw /dev/bpf*
           time perl -e 'alarm shift; exec @ARGV' 600 tools/harness/integration/e60-06.sh

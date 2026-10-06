@@ -33,8 +33,14 @@ for _ in $(seq 1 150); do
   sleep 0.1
 done
 sleep 0.5
+if ! kill -0 "$TSHARK_PID" 2>/dev/null; then
+  e60_05_log "FAIL: tshark capture did not start: $(tr '\n' ' ' <"$TSHARK_LOG")"
+  FAILED=1
+fi
 
-e60_05_open_control || FAILED=1
+if [ "$FAILED" -eq 0 ]; then
+  e60_05_open_control || FAILED=1
+fi
 if [ "$FAILED" -eq 0 ]; then
   e60_05_request_ticket || FAILED=1
 fi
