@@ -1503,6 +1503,27 @@ Reference — E61-03 acceptance criteria:
 | | | | |
 
 
+### codecCapabilitySource_hardwareDevice_reportsHardwareAvcEncoder (E61-04, phase 6)
+
+[android] HEVC capability negotiation with H.264 fallback
+
+Reference — E61-04 acceptance criteria:
+- When both sides report hardware HEVC support, the negotiator selects HEVC and the encoder config uses the HEVC MIME type.
+- When the Mac reports H.264-only support, the negotiator selects H.264 and no error is surfaced.
+- When the only HEVC encoder in the codec list is software-only, H.264 is selected.
+
+**Preconditions:** Physical Android phone (hardware AVC encoder); the emulator reports only software codecs, so `CodecCapabilityInstrumentedTest` is `@RequiresDevice`.
+**Steps:**
+1. Run `./gradlew :feature:mirror:connectedDebugAndroidTest` on the phone for that test.
+2. On an HEVC-capable phone, confirm `MediaCodecListCapabilitySource().encoders()` lists a hardware-accelerated `Hevc` entry.
+**Pass threshold:** Test passes; hardware AVC encoder reported (and hardware HEVC where the device has one).
+**Evidence required:** Test report, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
 ### encodePipeline_deviceRotation_newDimensionsWithin500ms (E61-05, phase 6)
 
 [android] Rotation and resolution change handling

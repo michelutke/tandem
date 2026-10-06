@@ -497,6 +497,7 @@ epics:
           - "unit: codecNegotiator_bothAdvertiseHardwareHevc_selectsHevc"
           - "unit: codecNegotiator_macAdvertisesH264Only_selectsH264WithoutError"
           - "unit: codecNegotiator_androidHevcSoftwareOnly_selectsH264"
+          - "manual: codecCapabilitySource_hardwareDevice_reportsHardwareAvcEncoder"
         notes: ""
       - id: E61-05
         title: "[android] Rotation and resolution change handling"
