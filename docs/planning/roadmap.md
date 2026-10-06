@@ -283,7 +283,7 @@ How:
 | E00-21 [ci] Android emulator instrumented-test job (Gradle Managed Devices) | 40 | E15-23 [tools] Phase 1 security audit gate: every Phase 1 step green in one report | 13 |
 | E00-23 [docs] Physical device matrix and manual-gate procedure | 40 | E71-04 [tools] Fuzz targets: per-domain message decoders, Android Jazzer (24 h each) | 13 |
 | E12-11 [android] Transport session abstraction exposing channels | 37 | E71-12 [docs] Release security audit checklist and sign-off | 12 |
-| E12-12 [macos] Transport session abstraction exposing channels | 36 | E14-18 [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM) | 11 |
+| E12-12 [macos] Transport session abstraction exposing channels | 36 | E14-18 [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM) | 11 |
 | E00-24 [macos] TandemTestSupport package: injectable Clock and ManualTestClock | 34 | E30-13 [cross] Phase 3 notification exit test | 9 |
 | E00-08 [macos] Swift Testing baseline + SwiftLint configuration | 31 | E31-10 [cross] Clipboard exit test: no echo loop, concealed never leaves Mac | 9 |
 | E00-18 [android] core/testing fixtures: injectable Clock, TestClock, dispatcher rules | 30 | E41-01 [protocol] photos.proto: PhotoPage and Thumb messages | 9 |

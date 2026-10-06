@@ -119,7 +119,7 @@ Reference — E14-10 acceptance criteria:
 
 ### keystoreClientAuth_strongBoxDevice_readyFiveOfFiveAttempts (E14-18, phase 1)
 
-[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)
+[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)
 
 Reference — E14-18 acceptance criteria:
 - Every matrix device reaches Ready (handshake + VersionHello) against the real Mac using its Keystore identity, 5 of 5 attempts
@@ -139,7 +139,7 @@ Reference — E14-18 acceptance criteria:
 
 ### keystoreClientAuth_teeOnlyDevice_readyFiveOfFiveAttempts (E14-18, phase 1)
 
-[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)
+[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)
 
 Reference — E14-18 acceptance criteria:
 - Every matrix device reaches Ready (handshake + VersionHello) against the real Mac using its Keystore identity, 5 of 5 attempts
@@ -157,9 +157,9 @@ Reference — E14-18 acceptance criteria:
 | | | | |
 
 
-### keystoreClientAuth_api29Device_readyFiveOfFiveAttempts (E14-18, phase 1)
+### keystoreClientAuth_api33Device_readyFiveOfFiveAttempts (E14-18, phase 1)
 
-[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)
+[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)
 
 Reference — E14-18 acceptance criteria:
 - Every matrix device reaches Ready (handshake + VersionHello) against the real Mac using its Keystore identity, 5 of 5 attempts
@@ -179,7 +179,7 @@ Reference — E14-18 acceptance criteria:
 
 ### keystoreClientAuth_samsungDevice_readyFiveOfFiveAttempts (E14-18, phase 1)
 
-[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)
+[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)
 
 Reference — E14-18 acceptance criteria:
 - Every matrix device reaches Ready (handshake + VersionHello) against the real Mac using its Keystore identity, 5 of 5 attempts
@@ -199,7 +199,7 @@ Reference — E14-18 acceptance criteria:
 
 ### qrPairing_realScanSameWifi_pairedUnder10s (E14-18, phase 1)
 
-[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 29, OEM)
+[android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM)
 
 Reference — E14-18 acceptance criteria:
 - Every matrix device reaches Ready (handshake + VersionHello) against the real Mac using its Keystore identity, 5 of 5 attempts
@@ -722,7 +722,6 @@ Reference — E31-05 acceptance criteria:
 - A received ClipboardText becomes the primary clip with identical text
 - On API 33+, a sensitive ClipboardText's ClipDescription extras contain EXTRA_IS_SENSITIVE = true
 - On API 33+, a non-sensitive ClipboardText has no EXTRA_IS_SENSITIVE extra
-- On API 29, a sensitive ClipboardText is written without the extra and without error
 - On a physical Android 13+ device, a sensitive clip shows no clipboard preview overlay
 
 **Preconditions:** _TBD_
@@ -1576,9 +1575,9 @@ Reference — E62-05 acceptance criteria:
 - SetText on a focused editable node performs ACTION_SET_TEXT with the text in ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE.
 - SetText with no focused editable node returns NoOp without throwing.
 - On the emulator, SetText replaces a focused EditText's content with the given text, and HOME brings the launcher to the foreground.
-- insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter on API 29 returns NoOp.
+- insert places text at the selection, deleteBackward(2) removes the two characters before the cursor, and imeEnter performs ACTION_IME_ENTER.
 
-**Preconditions:** Physical Android phone (API 29+), debug build, Tandem accessibility service enabled; `AccessibilityInputInstrumentedTest.globalActionHome_onEmulator_launcherInForeground` is `@RequiresDevice` because emulator launcher/system UI is unreliable.
+**Preconditions:** Physical Android phone (API 33+), debug build, Tandem accessibility service enabled; `AccessibilityInputInstrumentedTest.globalActionHome_onEmulator_launcherInForeground` is `@RequiresDevice` because emulator launcher/system UI is unreliable.
 **Steps:**
 1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or send a HOME global action from the Mac while another app is foreground.
 2. Check which package is in the foreground.

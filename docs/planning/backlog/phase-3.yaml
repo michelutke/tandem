@@ -756,20 +756,18 @@ epics:
           On receiving ClipboardText, write it to the system ClipboardManager; when `sensitive`
           is set, add `ClipDescription.EXTRA_IS_SENSITIVE` (Android 13+) so the system clipboard
           preview is suppressed. Tests run ClipboardManager under Robolectric (E00-20,
-          `@Config(sdk = [29, 33])`) with `FakeTandemSession` (E12-11); the visual preview
+          `@Config(sdk = [33])`) with `FakeTandemSession` (E12-11); the visual preview
           suppression is a manual gate (E00-23).
         acceptance:
           - A received ClipboardText becomes the primary clip with identical text
           - On API 33+, a sensitive ClipboardText's ClipDescription extras contain
             EXTRA_IS_SENSITIVE = true
           - On API 33+, a non-sensitive ClipboardText has no EXTRA_IS_SENSITIVE extra
-          - On API 29, a sensitive ClipboardText is written without the extra and without error
           - On a physical Android 13+ device, a sensitive clip shows no clipboard preview overlay
         tdd:
           - "unit: clipboardWriter_receivedText_primaryClipEqualsText"
           - "unit: clipboardWriter_sensitiveOnApi33_extraIsSensitiveTrue"
           - "unit: clipboardWriter_notSensitiveOnApi33_extraIsSensitiveAbsent"
-          - "unit: clipboardWriter_sensitiveOnApi29_writtenWithoutExtra"
           - "manual: sensitiveClip_android13Device_noPreviewOverlayThreeOfThree"
       - id: E31-06
         title: "[android] Share target and PROCESS_TEXT entry points"
@@ -947,13 +945,13 @@ epics:
           background clipboard reads, so a tile click starts a transparent capture activity
           (`startActivityAndCollapse`) that reads on window focus via E31-07's foreground
           capture and finishes. TileService/activity tests run under Robolectric (E00-20); the
-          emulator test (E00-21, api29 and api35) proves all four UC-13 entry points send without
+          emulator test (E00-21, api33 and api35) proves all four UC-13 entry points send without
           an AccessibilityService, using a Hilt test module that binds `FakeTandemSession`.
         acceptance:
           - Tile click starts the transparent capture activity
           - The capture activity sends the current text clip and finishes; an empty clipboard
             sends nothing
-          - On api29 and api35 emulators with no AccessibilityService enabled, share target,
+          - On api33 and api35 emulators with no AccessibilityService enabled, share target,
             PROCESS_TEXT, QS tile capture activity, and in-app button each produce one
             ClipboardText send (UC-13)
           - "The capture activity is not exported and the TileService requires BIND_QUICK_SETTINGS_TILE (merged manifest, E00-28 allowlist)."
@@ -961,7 +959,7 @@ epics:
           - "unit: clipboardTile_click_startsTransparentCaptureActivity"
           - "unit: clipboardCaptureActivity_windowFocusWithTextClip_sendsClipAndFinishes"
           - "unit: clipboardCaptureActivity_emptyClipboard_sendsNothing"
-          - "instrumented: clipboardEntryPoints_api29And35NoAccessibility_eachSendsOneClip"
+          - "instrumented: clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip"
           - "ci: mergedManifest_captureActivityAndTile_notExportedAndBindPermissionRequired"
         notes: "Split from E31-06 in review cycle 3."
       - id: E31-13
