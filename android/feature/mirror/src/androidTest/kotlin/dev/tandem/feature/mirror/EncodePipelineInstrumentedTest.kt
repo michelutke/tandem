@@ -31,7 +31,9 @@ import kotlin.random.Random
  */
 @RunWith(AndroidJUnit4::class)
 class EncodePipelineInstrumentedTest {
-    private class CanvasCapture : CaptureSource {
+    private class CanvasCapture(
+        private val noiseFrames: List<Bitmap>,
+    ) : CaptureSource {
         @Volatile
         private var running = false
         private var drawer: Thread? = null
@@ -41,7 +43,6 @@ class EncodePipelineInstrumentedTest {
             running = true
             drawer =
                 thread {
-                    val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
                     var tick = 0
                     try {
                         while (running) {
@@ -61,20 +62,6 @@ class EncodePipelineInstrumentedTest {
             running = false
             drawer?.join()
         }
-
-        private fun noiseBitmap(random: Random): Bitmap {
-            val blocksPerRow = FRAME_WIDTH / NOISE_BLOCK_PX
-            val blockColors =
-                IntArray(blocksPerRow * (FRAME_HEIGHT / NOISE_BLOCK_PX)) {
-                    Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
-                }
-            val pixels =
-                IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
-                    val blockRow = it / FRAME_WIDTH / NOISE_BLOCK_PX
-                    blockColors[blockRow * blocksPerRow + it % FRAME_WIDTH / NOISE_BLOCK_PX]
-                }
-            return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
-        }
     }
 
     private class Output(
@@ -82,13 +69,29 @@ class EncodePipelineInstrumentedTest {
         val atNanos: Long,
     )
 
+    private val noiseFrames = List(NOISE_FRAME_COUNT) { noiseBitmap(Random(it)) }
+
+    private fun noiseBitmap(random: Random): Bitmap {
+        val blocksPerRow = FRAME_WIDTH / NOISE_BLOCK_PX
+        val blockColors =
+            IntArray(blocksPerRow * (FRAME_HEIGHT / NOISE_BLOCK_PX)) {
+                Color.rgb(random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX), random.nextInt(COLOR_MAX))
+            }
+        val pixels =
+            IntArray(FRAME_WIDTH * FRAME_HEIGHT) {
+                val blockRow = it / FRAME_WIDTH / NOISE_BLOCK_PX
+                blockColors[blockRow * blocksPerRow + it % FRAME_WIDTH / NOISE_BLOCK_PX]
+            }
+        return Bitmap.createBitmap(pixels, FRAME_WIDTH, FRAME_HEIGHT, Bitmap.Config.ARGB_8888)
+    }
+
     private fun encode(
         config: EncoderConfig,
         durationMillis: Long,
         onFrame: (VideoEncoder, EncodedBuffer) -> Unit = { _, _ -> },
     ): List<Output> {
         val outputs = mutableListOf<Output>()
-        val capture = CanvasCapture()
+        val capture = CanvasCapture(noiseFrames)
         val encoder = MediaCodecEncoderFactory().create(config, capture)
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(durationMillis)
         try {
@@ -192,7 +195,14 @@ class EncodePipelineInstrumentedTest {
         val stream = TimedStream()
         val displayChanges = ManualDisplayChanges()
         val pipeline =
-            EncodePipeline(MediaCodecEncoderFactory(), CanvasCapture(), config, stream, Dispatchers.IO, displayChanges)
+            EncodePipeline(
+                MediaCodecEncoderFactory(),
+                CanvasCapture(noiseFrames),
+                config,
+                stream,
+                Dispatchers.IO,
+                displayChanges,
+            )
         val runner = thread { runBlocking { pipeline.run() } }
         Thread.sleep(SETTLE_MILLIS)
         val lastBefore = stream.messages.last { it.second.hasMediaFrame() }.first

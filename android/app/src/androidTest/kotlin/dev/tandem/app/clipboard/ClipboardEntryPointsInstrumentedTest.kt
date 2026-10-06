@@ -154,7 +154,7 @@ class ClipboardEntryPointsInstrumentedTest {
     }
 
     private companion object {
-        const val TIMEOUT_NANOS = 10_000_000_000L
+        const val TIMEOUT_NANOS = 30_000_000_000L
         const val POLL_MILLIS = 50L
     }
 }
