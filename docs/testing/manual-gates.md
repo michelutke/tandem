@@ -1589,6 +1589,44 @@ Reference — E62-05 acceptance criteria:
 | | | | |
 
 
+### accessibilityGesture_remoteTapOnTestButton_oneClickRegistered (E62-04, phase 6)
+
+[android] Accessibility gesture dispatch (Tap, Swipe, Scroll)
+
+Reference — E62-04 acceptance criteria:
+- On the emulator, a remote Tap on a test activity's button registers exactly one click.
+
+**Preconditions:** Physical Android phone (API 33+), debug build; `AccessibilityGestureInstrumentedTest.accessibilityGesture_remoteTapOnTestButton_oneClickRegistered` is `@RequiresDevice` because emulator accessibility gesture dispatch is nondeterministic.
+**Steps:**
+1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or send a remote Tap from the Mac onto a test button.
+2. Count the clicks registered by the button.
+**Pass threshold:** Exactly one click is registered per remote Tap.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
+### setText_focusedEditTextOnEmulator_contentReplaced (E62-05, phase 6)
+
+[android] performGlobalAction + ACTION_SET_TEXT
+
+Reference — E62-05 acceptance criteria:
+- SetText replaces a focused EditText's content with the given text.
+
+**Preconditions:** Physical Android phone (API 33+), debug build; `AccessibilityInputInstrumentedTest.setText_focusedEditTextOnEmulator_contentReplaced` is `@RequiresDevice` because emulator focus and accessibility node state are nondeterministic.
+**Steps:**
+1. Run `./gradlew :feature:input:connectedDebugAndroidTest` on the phone for that test, or send a SetText from the Mac while an EditText is focused.
+2. Read the EditText content.
+**Pass threshold:** The EditText content equals the sent text within 10 s of the SetText action.
+**Evidence required:** Test report or screen recording, device model and API level.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
 ### clipboardEntryPoints_api33And35NoAccessibility_eachSendsOneClip (E31-12, phase 3)
 
 Reference — E31-12 acceptance criteria:

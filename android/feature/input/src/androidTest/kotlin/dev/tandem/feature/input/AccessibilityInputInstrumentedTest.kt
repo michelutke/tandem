@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 // E62-05 tdd:
-//   instrumented: setText_focusedEditTextOnEmulator_contentReplaced
+//   manual: setText_focusedEditTextOnEmulator_contentReplaced
 //   manual: globalActionHome_onEmulator_launcherInForeground
 //
 // Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
@@ -44,6 +44,7 @@ class AccessibilityInputInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun setText_focusedEditTextOnEmulator_contentReplaced() {
         val intent =
             Intent()

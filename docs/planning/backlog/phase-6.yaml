@@ -1006,7 +1006,7 @@ epics:
           - "unit: gestureTranslator_swipe_strokeFromStartToEndOverDuration"
           - "unit: gestureTranslator_scrollPositiveDy_strokeMovesUpwardFromAnchor"
           - "unit: gestureTranslator_droppedMapping_noGestureDispatched"
-          - "instrumented: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered"
+          - "manual: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered"
         notes: ""
       - id: E62-05
         title: "[android] performGlobalAction + ACTION_SET_TEXT"
@@ -1039,7 +1039,7 @@ epics:
           - "unit: globalActionHandler_eachOfBackHomeRecents_invokesMatchingConstant"
           - "unit: setTextHandler_focusedEditableNode_performsSetTextWithArgument"
           - "unit: setTextHandler_noFocusedEditableNode_returnsNoOpWithoutThrowing"
-          - "instrumented: setText_focusedEditTextOnEmulator_contentReplaced"
+          - "manual: setText_focusedEditTextOnEmulator_contentReplaced"
           - "manual: globalActionHome_onEmulator_launcherInForeground"
           - "unit: textEditHandler_insertAtSelection_setsTextWithInsertion"
           - "unit: textEditHandler_deleteBackwardTwo_removesTwoCharsBeforeCursor"

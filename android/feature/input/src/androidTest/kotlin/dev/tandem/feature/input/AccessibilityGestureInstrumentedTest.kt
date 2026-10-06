@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.RequiresDevice
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.tandem.protocol.v1.tap
 import org.junit.After
@@ -15,7 +16,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 // E62-04 tdd:
-//   instrumented: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered
+//   manual: accessibilityGesture_remoteTapOnTestButton_oneClickRegistered
 //
 // Enables this test APK's CapturingAccessibilityService via `settings put secure` (E00-21), then
 // drives the real ServiceAccessibilityActions through GestureTranslator with an identity mapping.
@@ -40,6 +41,7 @@ class AccessibilityGestureInstrumentedTest {
     }
 
     @Test
+    @RequiresDevice
     fun accessibilityGesture_remoteTapOnTestButton_oneClickRegistered() {
         val intent =
             Intent()
