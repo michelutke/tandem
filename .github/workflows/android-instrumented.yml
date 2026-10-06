@@ -9,7 +9,7 @@ name: android-instrumented
 #   - Telephony via `adb emu` only (SMS inject works, real carrier delivery does not).
 #   - MediaProjection consent needs UiAutomator.
 #
-# One job per API level x module group, each booting a single managed device type (`api29` /
+# One job per API level x module group, each booting a single managed device type (`api33` /
 # `api35`, see tandem.android.instrumented). Every `tandem.android.instrumented` module must be
 # listed in a group's `modules` (tools/ci/check_instrumented_modules.rb).
 on:
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [29, 35]
+        api: [33, 35]
         group:
           - name: app-crypto
             modules: ":companion-app :core:crypto :app"
@@ -47,7 +47,7 @@ jobs:
           - name: messaging-files-mirror
             modules: ":feature:messaging :feature:files :feature:mirror :feature:input"
         include:
-          - api: 29
+          - api: 33
             image-source: google_apis
           - api: 35
             image-source: google_apis
