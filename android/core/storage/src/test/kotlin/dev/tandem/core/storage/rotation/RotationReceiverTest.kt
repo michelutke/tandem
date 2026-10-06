@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicInteger
 
 private const val AWAIT_TIMEOUT_MS = 5_000L
 private const val POLL_MS = 10L
@@ -438,7 +439,7 @@ class RotationReceiverTest {
         private val delegate: TrustStore,
     ) : RotationPinStore by delegate {
         @Volatile var failResolve = false
-        val resolveCalls = java.util.concurrent.atomic.AtomicInteger()
+        val resolveCalls = AtomicInteger()
 
         override suspend fun resolve(
             fingerprint: dev.tandem.core.crypto.SpkiFingerprint,
