@@ -26,10 +26,22 @@ class MediaCodecEncoderFactory : EncoderFactory {
             setInteger(MediaFormat.KEY_FRAME_RATE, frameRate)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, iFrameIntervalSeconds)
             setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
-            setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline)
-            setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel41)
+            setInteger(MediaFormat.KEY_PROFILE, profile.mediaCodecProfile())
+            setInteger(MediaFormat.KEY_LEVEL, level.mediaCodecLevel())
             setInteger(MediaFormat.KEY_PRIORITY, priority)
             lowLatency?.let { setInteger(KEY_LOW_LATENCY, it) }
+        }
+
+    private fun EncoderProfile.mediaCodecProfile(): Int =
+        when (this) {
+            EncoderProfile.AvcConstrainedBaseline -> MediaCodecInfo.CodecProfileLevel.AVCProfileConstrainedBaseline
+            EncoderProfile.HevcMain -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+        }
+
+    private fun EncoderLevel.mediaCodecLevel(): Int =
+        when (this) {
+            EncoderLevel.Avc41 -> MediaCodecInfo.CodecProfileLevel.AVCLevel41
+            EncoderLevel.HevcMain41 -> MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41
         }
 
     private companion object {

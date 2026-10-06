@@ -6,10 +6,12 @@ enum class EncoderBitrateMode {
 
 enum class EncoderProfile {
     AvcConstrainedBaseline,
+    HevcMain,
 }
 
 enum class EncoderLevel {
     Avc41,
+    HevcMain41,
 }
 
 /** Platform-neutral encoder settings; the E61-03 adapter maps them onto `android.media.MediaFormat`. */
