@@ -30,7 +30,8 @@ extension AppComposition {
                 trustStore: lifecycle.trustStore,
                 sessionRegistry: lifecycle.sessionRegistry,
                 purgeRegistry: lifecycle.purgeRegistry,
-                clock: clock
+                clock: clock,
+                onUnpaired: { await lifecycle.pairedPeer.refresh() }
             )
         )
     }
@@ -45,7 +46,8 @@ extension AppComposition {
         trustStore: TrustStore,
         sessionRegistry: ControlSessionRegistry,
         purgeRegistry: PeerDataPurgeRegistry,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        onUnpaired: @escaping @Sendable () async -> Void = {}
     ) -> @Sendable (SpkiFingerprint) async throws -> Void {
         { fingerprint in
             let liveSession = await sessionRegistry.session(for: fingerprint)
@@ -59,6 +61,7 @@ extension AppComposition {
                     clock: clock
                 )
             )
+            await onUnpaired()
         }
     }
 }

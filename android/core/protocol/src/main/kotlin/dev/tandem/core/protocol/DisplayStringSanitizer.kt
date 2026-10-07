@@ -80,7 +80,9 @@ object DisplayStringSanitizer {
     private const val C0_END = 0x1F
     private const val C1_START = 0x7F
     private const val C1_END = 0x9F
-    private val WHITESPACE_RUN = Regex("(?U)\\s+")
+
+    // Explicit Unicode whitespace class: Android's ICU regex rejects the JVM-only (?U) flag (crashed at runtime).
+    private val WHITESPACE_RUN = Regex("[\\s\\p{Z}\\u0085\\u180E]+")
 
     fun sanitize(
         raw: ByteArray,

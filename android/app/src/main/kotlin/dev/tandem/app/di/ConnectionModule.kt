@@ -18,6 +18,7 @@ import dev.tandem.app.clipboard.ClipboardWriter
 import dev.tandem.app.connection.ConnectionOrchestrator
 import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.connection.FeatureAttacher
+import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
@@ -37,6 +38,7 @@ import dev.tandem.app.connection.feature.RotationFeature
 import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
 import dev.tandem.app.connection.orchestratorConnectionState
+import dev.tandem.app.onboarding.hasLocalNetworkAccess
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.SessionRegistry
@@ -50,6 +52,7 @@ import dev.tandem.core.crypto.IdentityKeyProvider
 import dev.tandem.core.discovery.NsdManagerSource
 import dev.tandem.core.discovery.NsdServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
+import dev.tandem.core.discovery.PermissionGatedServiceDiscovery
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.PeerDataPurging
@@ -127,6 +130,7 @@ object ConnectionModule {
     fun pairingFlow(
         trustStore: TrustStore,
         activeIdentityAlias: ActiveIdentityAlias,
+        identityBootstrap: IdentityBootstrap,
     ): PairingFlow {
         val clock = AppClock.system
         return PairingFlow(
@@ -138,6 +142,7 @@ object ConnectionModule {
                     clock = clock,
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
+                    identity = identityBootstrap,
                 ),
             trustCommitter = TrustStoreCommitter(trustStore::put),
             deviceInfoProvider = SystemDeviceInfoProvider,
@@ -214,6 +219,7 @@ object ConnectionModule {
         activeIdentityAlias: ActiveIdentityAlias,
         trustStore: TrustStore,
         rotation: RotationComposition,
+        identityBootstrap: IdentityBootstrap,
     ): ConnectionOrchestrator {
         val clock = AppClock.system
         val idleSource =
@@ -230,6 +236,7 @@ object ConnectionModule {
                 dialerFor = { alias ->
                     TlsSessionDialer(
                         keyManager = IdentityKeyManager(keyStore, alias),
+                        identity = identityBootstrap,
                         pinnedFingerprints = pairedFingerprints::load,
                         wasPreviouslyPinned = knownPeerStore::hasEverPinned,
                         clock = clock,
@@ -244,9 +251,13 @@ object ConnectionModule {
         val bonjourSource =
             PairedMacBonjourSource(
                 discovery =
-                    NsdServiceDiscovery(
-                        NsdManagerSource(context.getSystemService(NsdManager::class.java)),
-                        AppDispatchers.default,
+                    PermissionGatedServiceDiscovery(
+                        delegate =
+                            NsdServiceDiscovery(
+                                NsdManagerSource(context.getSystemService(NsdManager::class.java)),
+                                AppDispatchers.default,
+                            ),
+                        hasLocalNetworkAccess = { hasLocalNetworkAccess(context) },
                     ),
                 matcher = PairedMacMatcher(clock),
                 pairedFingerprints = pairedFingerprints::snapshot,

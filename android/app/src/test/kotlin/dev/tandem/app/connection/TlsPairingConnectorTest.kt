@@ -8,6 +8,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayInputStream
@@ -68,10 +70,44 @@ class TlsPairingConnectorTest {
             assertTrue(thrown is IOException)
         }
 
+    @Test
+    fun connect_identityBootstrapFails_throwsIdentityUnavailableWithoutDialing() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            var dialed = false
+            val connector =
+                connector(dispatcher, IdentityBootstrap({ error("keystore") }, dispatcher)) { _, _, _ ->
+                    dialed = true
+                    throw IOException("unreachable")
+                }
+
+            val thrown = runCatching { connector.connect("10.0.0.2", 8443) { emptyList() } }.exceptionOrNull()
+
+            assertTrue(thrown is dev.tandem.core.pairing.IdentityUnavailableException)
+            assertFalse(dialed)
+        }
+
+    @Test
+    fun connect_awaitsIdentityBootstrapBeforeDialing() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val events = mutableListOf<String>()
+            val connector =
+                connector(dispatcher, IdentityBootstrap({ events += "bootstrap" }, dispatcher)) { _, _, _ ->
+                    events += "dial"
+                    throw IOException("refused")
+                }
+
+            runCatching { connector.connect("10.0.0.2", 8443) { emptyList() } }
+
+            assertEquals(listOf("bootstrap", "dial"), events)
+        }
+
     private fun TestScope.connector(
         dispatcher: CoroutineDispatcher,
+        identity: IdentityBootstrap = IdentityBootstrap({}, dispatcher),
         dialer: PairingSocketDialer,
-    ) = TlsPairingConnector(UnusedKeyManager, TestClock(testScheduler), dispatcher, dispatcher, dialer)
+    ) = TlsPairingConnector(UnusedKeyManager, TestClock(testScheduler), dispatcher, dispatcher, identity, dialer)
 
     private class RecordingByteStream : ByteStream {
         var closed = false

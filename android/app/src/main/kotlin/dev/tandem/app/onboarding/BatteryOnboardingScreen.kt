@@ -1,7 +1,5 @@
 package dev.tandem.app.onboarding
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
@@ -21,13 +19,10 @@ internal const val BATTERY_ONBOARDING_SKIP_LABEL = "Skip"
  * (skipped entirely by the caller when [BatteryOnboardingViewModel.shouldShowScreen] is false),
  * and re-accessible later from [BatteryOptimizationSettingsScreen]'s "Battery optimization" row.
  *
- * Tapping "Allow" opens the system's battery-optimization settings list
- * (`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`) directly -- this isn't a seam over
- * `PowerManager`/`Build.MANUFACTURER`, so it stays inline rather than going through
- * [BatteryOptimizationSource]/[DeviceManufacturerSource]. Tapping "Skip" only invokes [onSkip];
+ * Tapping "Allow" opens the system's direct battery-exemption dialog via
+ * [launchBatteryExemption]. Tapping "Skip" only invokes [onSkip];
  * no intent is launched.
  */
-@Suppress("ImplicitInternalIntent") // Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS is genuinely external.
 @Composable
 fun BatteryOnboardingScreen(
     manufacturer: String,
@@ -40,7 +35,7 @@ fun BatteryOnboardingScreen(
     Column(modifier = modifier.fillMaxSize()) {
         Text(text = BATTERY_ONBOARDING_TITLE)
         Text(text = BATTERY_ONBOARDING_BODY)
-        Button(onClick = { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) {
+        Button(onClick = { launchBatteryExemption(context) }) {
             Text(BATTERY_ONBOARDING_ALLOW_LABEL)
         }
         Button(onClick = onSkip) {

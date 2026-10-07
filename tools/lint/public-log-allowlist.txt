@@ -6,3 +6,5 @@
 
 # tools/lint/fixtures/swift/ReleaseLogPublicPrivacyAllowlistedFixture.swift
 category
+event
+String(describing: reason)

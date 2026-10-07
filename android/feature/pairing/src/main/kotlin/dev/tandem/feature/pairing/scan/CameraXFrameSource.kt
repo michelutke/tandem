@@ -2,9 +2,12 @@ package dev.tandem.feature.pairing.scan
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
+import java.util.concurrent.Executors
 
 /**
  * The real frame source (E14-10): binds a CameraX `Preview` (into a [PreviewView] viewfinder) and
@@ -39,12 +43,30 @@ fun CameraXFrameSource(
                     val cameraProvider = cameraProviderFuture.get()
                     val preview =
                         Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                    // 640x480 (CameraX's default analysis size) is too coarse for a dense, dotted pairing
+                    // QR: ask for ~1080p and decode off the main thread, delivering hits back on it.
                     val analysis =
                         ImageAnalysis
                             .Builder()
-                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .setResolutionSelector(
+                                ResolutionSelector
+                                    .Builder()
+                                    .setResolutionStrategy(
+                                        ResolutionStrategy(
+                                            Size(ANALYSIS_WIDTH, ANALYSIS_HEIGHT),
+                                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                                        ),
+                                    ).build(),
+                            ).setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
-                            .also { it.setAnalyzer(viewContext.mainExecutor, ZxingQrAnalyzer(onResult = onResult)) }
+                            .also {
+                                it.setAnalyzer(
+                                    analysisExecutor,
+                                    ZxingQrAnalyzer(
+                                        onResult = { result -> viewContext.mainExecutor.execute { onResult(result) } },
+                                    ),
+                                )
+                            }
 
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
@@ -68,3 +90,9 @@ private tailrec fun Context.asLifecycleOwner(): LifecycleOwner =
         is ContextWrapper -> baseContext.asLifecycleOwner()
         else -> error("no LifecycleOwner found in the Context chain")
     }
+
+private const val ANALYSIS_WIDTH = 1920
+private const val ANALYSIS_HEIGHT = 1080
+
+/** One decode thread for the process: the analyzer is KEEP_ONLY_LATEST, so frames never queue up. */
+private val analysisExecutor = Executors.newSingleThreadExecutor()

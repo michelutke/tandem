@@ -25,6 +25,14 @@ class PairingErrorMapperTest {
     }
 
     @Test
+    fun identityUnavailable_distinctFromNetwork() {
+        assertEquals(
+            PairingErrorMessage.IDENTITY_UNAVAILABLE,
+            PairingErrorMapper.mapFailureReason(PairingFailure.IdentityUnavailable),
+        )
+    }
+
+    @Test
     fun allQrAddressesUnreachable_networkIsolationHint() {
         val reason = PairingFailure.AllAddressesUnreachable
         val message = PairingErrorMapper.mapFailureReason(reason)

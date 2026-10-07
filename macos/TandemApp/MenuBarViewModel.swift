@@ -35,6 +35,11 @@ final class MenuBarViewModel {
 
     private(set) var state: State
 
+    @ObservationIgnored
+    private var peerName: String?
+    @ObservationIgnored
+    private var lastConnectionState: ConnectionStateMachine.ConnectionState?
+
     /// Threaded through now (E00-24 seam rule); not read directly by this view model -- E22-08's
     /// own "within 1 s" acceptance is proved the same way every other issue's own "publishes within
     /// 1 s" case already is, a yield-bounded loop rather than a wall-clock deadline, so callers only
@@ -65,8 +70,8 @@ final class MenuBarViewModel {
 
     /// - Parameters:
     ///   - stateStream: The paired session's own connection-state stream
-    ///     (``TandemSession/state``), or `nil` if no peer is paired yet (UC-01) -- must be
-    ///     non-nil exactly when `peerName` is non-nil.
+    ///     (``TandemSession/state``), or `nil` if none is available. May be non-nil while `peerName`
+    ///     is `nil`; ``updatePeerName(_:)`` then picks up a peer paired after launch.
     ///   - peerName: The paired peer's display name, or `nil` if none is paired.
     ///   - powerEvents: The Mac's own sleep/wake stream (E20-10), or `nil` to observe none -- only
     ///     ever observed when a session is paired; there is nothing to reconnect otherwise.
@@ -80,17 +85,18 @@ final class MenuBarViewModel {
         pathSource: (any NetworkPathSource)? = nil
     ) {
         self.clock = clock
-        if let stateStream, let peerName {
-            state = .connecting
-            observe(stateStream, peerName: peerName)
+        self.peerName = peerName
+        state = peerName == nil ? .notPaired : .connecting
+        if let stateStream {
+            observe(stateStream)
+        }
+        if peerName != nil {
             if let powerEvents {
                 observePower(powerEvents)
             }
             if let pathSource {
                 observePath(pathSource)
             }
-        } else {
-            state = .notPaired
         }
     }
 
@@ -139,17 +145,31 @@ final class MenuBarViewModel {
         state == .notPaired
     }
 
-    private func observe(_ stream: AsyncStream<ConnectionStateMachine.ConnectionState>, peerName: String) {
+    /// Re-syncs ``state`` after the paired peer changed (pairing commit or unpair): `nil` drops to
+    /// ``State/notPaired``; a newly paired name resumes from the latest forwarded connection state.
+    func updatePeerName(_ newName: String?) {
+        guard newName != peerName else { return }
+        peerName = newName
+        guard let newName else {
+            state = .notPaired
+            return
+        }
+        state = lastConnectionState.map { Self.map($0, peerName: newName) } ?? .connecting
+    }
+
+    private func observe(_ stream: AsyncStream<ConnectionStateMachine.ConnectionState>) {
         observationTask?.cancel()
         observationTask = Task { [weak self] in
             for await connectionState in stream {
                 guard !Task.isCancelled else { return }
-                self?.apply(connectionState, peerName: peerName)
+                self?.apply(connectionState)
             }
         }
     }
 
-    private func apply(_ connectionState: ConnectionStateMachine.ConnectionState, peerName: String) {
+    private func apply(_ connectionState: ConnectionStateMachine.ConnectionState) {
+        lastConnectionState = connectionState
+        guard let peerName else { return }
         state = Self.map(connectionState, peerName: peerName)
     }
 

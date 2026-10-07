@@ -26,26 +26,29 @@ public actor PasteboardWriter {
     private let source: any PasteboardSource
     private let session: any TandemSession
     private let loopGuard: ClipboardLoopGuard
+    private let onApplied: @Sendable () -> Void
 
     private var readTask: Task<Void, Never>?
 
     public init(
         source: any PasteboardSource,
         session: any TandemSession,
-        loopGuard: ClipboardLoopGuard = ClipboardLoopGuard()
+        loopGuard: ClipboardLoopGuard = ClipboardLoopGuard(),
+        onApplied: @escaping @Sendable () -> Void = {}
     ) {
         self.source = source
         self.session = session
         self.loopGuard = loopGuard
+        self.onApplied = onApplied
     }
 
     /// Starts reading the CLIPBOARD channel. Idempotent: replaces any read loop already running.
     public func start() async {
         readTask?.cancel()
+        let stream = await session.receive(.clipboard)
         readTask = Task { [weak self] in
-            guard let self else { return }
-            let stream = await self.session.receive(.clipboard)
             for await frame in stream {
+                guard let self else { return }
                 guard case .clipboardText(let clipboardText) = frame.payload else { continue }
                 await self.handle(clipboardText)
             }
@@ -67,5 +70,6 @@ public actor PasteboardWriter {
             source.setString("", forType: ConcealedTypeFilter.transientType)
         }
         await loopGuard.recordAppliedReceive(changeCount: source.changeCount)
+        onApplied()
     }
 }

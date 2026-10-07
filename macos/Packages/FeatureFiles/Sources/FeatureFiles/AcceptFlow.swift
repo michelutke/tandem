@@ -18,7 +18,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     private let presenter: any AcceptPromptPresenter
     private let clock: any Clock<Duration>
     private let settings: AcceptSettings
-    private let destination: URL
+    private let destination: any DestinationResolving
 
     private var pending: [String: Task<Void, Never>] = [:]
     private var active: Set<String> = []
@@ -30,7 +30,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
         presenter: any AcceptPromptPresenter,
         clock: any Clock<Duration>,
         settings: AcceptSettings,
-        destination: URL
+        destination: any DestinationResolving
     ) {
         self.session = session
         self.freeSpace = freeSpace
@@ -38,6 +38,24 @@ public actor AcceptFlow: OriginalOfferExpecting {
         self.clock = clock
         self.settings = settings
         self.destination = destination
+    }
+
+    public init(
+        session: any TandemSession,
+        freeSpace: any FreeSpaceProvider,
+        presenter: any AcceptPromptPresenter,
+        clock: any Clock<Duration>,
+        settings: AcceptSettings,
+        destination: URL
+    ) {
+        self.init(
+            session: session,
+            freeSpace: freeSpace,
+            presenter: presenter,
+            clock: clock,
+            settings: settings,
+            destination: StaticDestination(destination)
+        )
     }
 
     /// Applies prompt responses from the presenter until its stream finishes.
@@ -48,6 +66,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     public func handle(offer: Tandem_V1_FileOffer) async {
+        FilesLog.event("offer received")
         if let reason = rejectionReason(for: offer) {
             await sendReject(offer.id, reason)
             return
@@ -103,7 +122,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
         if pending.count >= Self.maxPendingOffers || active.count >= Self.maxActiveTransfers {
             return .busy
         }
-        if freeSpace.availableBytes(at: destination) < offer.size + Self.spaceReserve {
+        if destination.withAccess({ freeSpace.availableBytes(at: $0) }) < offer.size + Self.spaceReserve {
             return .insufficientSpace
         }
         return nil
@@ -127,6 +146,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     private func sendAccept(_ id: String) async {
+        FilesLog.event("accept sent")
         active.insert(id)
         var message = Tandem_V1_FileAccept()
         message.id = id
@@ -134,6 +154,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     private func sendReject(_ id: String, _ reason: Tandem_V1_TransferReason) async {
+        FilesLog.event("reject sent", reason: reason)
         var message = Tandem_V1_FileReject()
         message.id = id
         message.reason = reason

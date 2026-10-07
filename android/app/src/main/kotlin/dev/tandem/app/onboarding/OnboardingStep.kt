@@ -1,18 +1,16 @@
 package dev.tandem.app.onboarding
 
 /**
- * The onboarding sequence's fixed step order (E20-14, F-4.1, F-1.1, UC-02): identity bootstrap,
- * notification-listener access, POST_NOTIFICATIONS (API 33+ only), unrestricted battery (E20-04),
- * then Scan Mac QR (E14-10). [IDENTITY] has no screen of its own -- it runs silently before any
- * onboarding UI shows (E10-04) -- every other step has a Composable screen in this package.
+ * The onboarding sequence's fixed step order (F-4.1, F-1.1, UC-02, ui-spec §7.2): identity
+ * bootstrap, the welcome screen, the permissions screen, then Scan Mac QR (E14-10). [IDENTITY] has
+ * no screen of its own -- it runs silently before any onboarding UI shows (E10-04).
  *
- * Later features (SMS, contacts, phone, media, accessibility, notification policy) are
- * deliberately absent: they ask lazily from their own future epics, never during onboarding.
+ * Features not listed on the permissions screen (media, accessibility, notification policy) ask
+ * lazily from their own epics, never during onboarding.
  */
 enum class OnboardingStep {
     IDENTITY,
-    NOTIFICATION_LISTENER,
-    POST_NOTIFICATIONS,
-    BATTERY,
+    WELCOME,
+    PERMISSIONS,
     SCAN_QR,
 }

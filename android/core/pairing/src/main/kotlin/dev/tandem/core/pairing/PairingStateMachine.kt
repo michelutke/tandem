@@ -174,6 +174,7 @@ class PairingStateMachine(
     private suspend fun dialAddresses(): PairingConnection? {
         val pinSource = QrPairingPinSource(invite)
         var pinMismatched = false
+        var identityUnavailable = false
         for (address in invite.addresses) {
             val connection =
                 try {
@@ -182,6 +183,9 @@ class PairingStateMachine(
                     null
                 } catch (cancellation: CancellationException) {
                     throw cancellation
+                } catch (identityFailure: IdentityUnavailableException) {
+                    identityUnavailable = true
+                    null
                 } catch (pinFailure: CertificateException) {
                     pinMismatched = true
                     null
@@ -189,8 +193,14 @@ class PairingStateMachine(
                     null
                 }
             if (connection != null) return connection
+            if (identityUnavailable) break
         }
-        val reason = if (pinMismatched) PairingFailure.PinMismatch else PairingFailure.AllAddressesUnreachable
+        val reason =
+            when {
+                identityUnavailable -> PairingFailure.IdentityUnavailable
+                pinMismatched -> PairingFailure.PinMismatch
+                else -> PairingFailure.AllAddressesUnreachable
+            }
         mutableState.value = PairingState.Failed(reason)
         return null
     }

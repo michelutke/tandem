@@ -1,5 +1,6 @@
 package dev.tandem.app.onboarding
 
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -52,7 +53,8 @@ class BatteryOnboardingScreenTest {
         composeRule.onNodeWithText("Allow").performClick()
 
         val startedIntent = shadowOf(composeRule.activity).nextStartedActivity
-        assertEquals(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS, startedIntent?.action)
+        assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, startedIntent?.action)
+        assertEquals(Uri.parse("package:${composeRule.activity.packageName}"), startedIntent?.data)
     }
 
     @Test

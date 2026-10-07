@@ -37,7 +37,12 @@ struct PushClipboardViewModelTests {
             return
         }
         #expect(clipboardText.text == "hello")
-        #expect(await viewModel.statusMessage == nil)
+        var statusAttempts = 0
+        while await viewModel.statusMessage == nil, statusAttempts < 10_000 {
+            await Task.yield()
+            statusAttempts += 1
+        }
+        #expect(await viewModel.statusMessage == PushClipboardViewModel.sentMessage)
     }
 
     // MARK: - pushClipboardAction_concealedItem_noFrameAndStatusNotSentProtectedItem
@@ -84,5 +89,23 @@ struct PushClipboardViewModelTests {
 
         #expect(await viewModel.statusMessage == ClipboardSender.tooLargeHint)
         #expect(await session.sent.isEmpty)
+    }
+
+    // MARK: - pushClipboardViewModel_phoneClipReceived_statusReceivedFromPhone
+
+    @Test
+    func pushClipboardViewModel_phoneClipReceived_statusReceivedFromPhone() async throws {
+        let clipboard = ActiveClipboard()
+        let viewModel = await PushClipboardViewModel(clipboard: clipboard)
+
+        clipboard.reportReceived()
+
+        var attempts = 0
+        while await viewModel.statusMessage == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.statusMessage == PushClipboardViewModel.receivedMessage)
     }
 }

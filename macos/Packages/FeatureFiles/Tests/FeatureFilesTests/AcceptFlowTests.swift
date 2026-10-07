@@ -199,3 +199,27 @@ private func accept(_ id: String) -> Tandem_V1_Envelope.OneOf_Payload {
         #expect(await harness.sentPayloads() == [reject("t1", .insufficientSpace)])
     }
 }
+
+@Suite struct AcceptFlowRealFreeSpaceTests {
+    @Test func macosAcceptFlow_destinationNotCreatedYet_promptsInsteadOfInsufficientSpace() async {
+        let session = FakeTandemSession()
+        let presenter = RecordingPromptPresenter()
+        let missingDestination = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("Tandem", isDirectory: true)
+        let flow = AcceptFlow(
+            session: session,
+            freeSpace: VolumeFreeSpaceProvider(),
+            presenter: presenter,
+            clock: ManualTestClock(),
+            settings: AcceptSettings(),
+            destination: missingDestination
+        )
+
+        await flow.handle(offer: offer())
+        for _ in 0..<200 { await Task.yield() }
+
+        #expect(await session.sent.isEmpty)
+        #expect(await presenter.prompts.count == 1)
+    }
+}

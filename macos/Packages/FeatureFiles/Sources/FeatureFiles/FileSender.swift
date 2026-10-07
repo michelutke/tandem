@@ -58,6 +58,7 @@ public actor FileSender: FilesFrameStream {
     public func start() async {
         guard state == .idle else { return }
         guard let digest = try? hashSource() else {
+            FilesLog.event("send failed: source unreadable")
             state = .failed
             return
         }
@@ -68,12 +69,14 @@ public actor FileSender: FilesFrameStream {
         offer.mime = mime
         offer.sha256 = digest
         state = .offered
+        FilesLog.event("offer sent")
         try? await session.send(.files, payload: .fileOffer(offer))
         await progress?.began(id: id, name: name, totalBytes: Int64(size)) { [weak self] in await self?.cancel() }
     }
 
     public func handle(accept: Tandem_V1_FileAccept) async {
         guard accept.id == id, state == .offered else { return }
+        FilesLog.event("accept received")
         state = .sending
         await scheduler.enqueue(stream: self)
     }
@@ -107,6 +110,7 @@ public actor FileSender: FilesFrameStream {
 
     public func handle(reject: Tandem_V1_FileReject) async {
         guard reject.id == id, state == .offered else { return }
+        FilesLog.event("reject received", reason: reject.reason)
         state = .rejected(reject.reason)
         await progress?.ended(id: id)
     }

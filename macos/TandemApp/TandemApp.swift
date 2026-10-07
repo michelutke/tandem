@@ -1,8 +1,10 @@
+import AppKit
 import FeatureFiles
 import FeatureMirror
 import SwiftUI
 import TandemCrypto
 import TandemDevices
+import TandemStore
 import TandemTransport
 
 /// Maps a failure reason to a user-visible, secret-free error string (E12-10, invariant 5).
@@ -59,16 +61,7 @@ struct ErrorPresenter: Sendable {
 
 @main
 struct TandemMenuBarApp: App {
-    #if DEBUG
-    // E00-26: on headless CI runners the status item is unreliable to find/click, so a
-    // `-UITestScenario` launch also opens a regular window with the same seeded content and
-    // XCUITest asserts against that window instead. `SceneBuilder` has no support for a
-    // conditional scene (an `if` alone crashes the compiler; `if`/`else` is a hard "closure
-    // containing control flow statement" diagnostic on this toolchain), so the window is opened
-    // imperatively from an `NSApplicationDelegateAdaptor` rather than declared in `body`.
-    // DEBUG-only, gated the same as `UITestScenario` itself (invariant 2).
-    @NSApplicationDelegateAdaptor(UITestScenarioWindowDelegate.self) private var scenarioWindowDelegate
-    #endif
+    @NSApplicationDelegateAdaptor(TandemAppDelegate.self) private var appDelegate
 
     /// Starts the production listener (E22-01's own follow-up: "production listener startup") for
     /// every ordinary launch -- Debug or Release. Skipped only when a DEBUG harness or
@@ -138,28 +131,66 @@ private let identityBootstrapFailureReason: String? = {
     }
 }()
 
-#if DEBUG
-import AppKit
-
-final class UITestScenarioWindowDelegate: NSObject, NSApplicationDelegate {
+/// Shows the main window on launch/Dock reopen (the app has a Dock icon, ui-spec), the pairing
+/// window on launch when unpaired, and in DEBUG hosts the E00-26 scenario window.
+///
+/// E00-26: on headless CI runners the status item is unreliable to find/click, so a
+/// `-UITestScenario` launch also opens a regular window with the same seeded content and
+/// XCUITest asserts against that window instead. `SceneBuilder` has no support for a
+/// conditional scene (an `if` alone crashes the compiler; `if`/`else` is a hard "closure
+/// containing control flow statement" diagnostic on this toolchain), so the window is opened
+/// imperatively from this delegate rather than declared in `body`. DEBUG-only, gated the same as
+/// `UITestScenario` itself (invariant 2).
+@MainActor
+final class TandemAppDelegate: NSObject, NSApplicationDelegate {
+    #if DEBUG
     private var scenarioWindow: NSWindow?
+    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
         // E15-22: one-shot trust seeding/clearing hooks exit the process immediately; the listener
         // hook (if requested) keeps it running as the ordinary menu bar app.
         HarnessHooks.runOneShotHooksIfRequested()
         HarnessHooks.startListenerIfRequested()
 
-        guard let scenario = UITestScenario.fromLaunchArguments() else { return }
-        let window = NSWindow(contentViewController: NSHostingController(rootView: MenuContentView()))
-        window.title = "Tandem UI Test Scenario"
-        let conversationSize = NSSize(width: 640, height: 480)
-        window.setContentSize(scenario == .conversationSeeded ? conversationSize : NSSize(width: 320, height: 200))
+        if let scenario = UITestScenario.fromLaunchArguments() {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: MenuContentView()))
+            window.title = "Tandem UI Test Scenario"
+            let conversationSize = NSSize(width: 640, height: 480)
+            window.setContentSize(scenario == .conversationSeeded ? conversationSize : NSSize(width: 320, height: 200))
+            window.makeKeyAndOrderFront(nil)
+            scenarioWindow = window
+            return
+        }
+        #endif
+        guard let lifecycle = TandemMenuBarApp.retainedProductionLifecycle else { return }
+        showMainWindow()
+        if lifecycle.pairedPeer.displayName == nil {
+            let presenter = MenuContentView.pairingPresenter(for: lifecycle.pairing)
+            Task {
+                try? await ContinuousClock().sleep(for: .seconds(1))
+                presenter.openPairingWindow()
+            }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        !showMainWindow()
+    }
+
+    /// Brings the SwiftUI `Window("Tandem", id: "main")` forward; `false` if it doesn't exist yet,
+    /// so the system's default reopen handling creates it.
+    @discardableResult
+    private func showMainWindow() -> Bool {
+        guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix("main") == true }) else {
+            return false
+        }
+        NSApp.activate()
         window.makeKeyAndOrderFront(nil)
-        scenarioWindow = window
+        return true
     }
 }
-#endif
 
 /// The menu bar popover content. Normally empty scaffolding until the connection UI (F-4.2)
 /// lands; under a DEBUG `-UITestScenario` launch argument it renders the seeded scenario view
@@ -196,10 +227,11 @@ struct MenuContentView: View {
     @State private var errorBannerViewModel: ErrorBannerViewModel
 
     private let pairingPresenter: MacPairingPresenter?
+    private let pairedPeer: PairedPeerState?
 
     private static var retainedPairingPresenter: MacPairingPresenter?
 
-    private static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
+    static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
         if let retainedPairingPresenter { return retainedPairingPresenter }
         let presenter = MacPairingPresenter(composition: composition)
         retainedPairingPresenter = presenter
@@ -212,7 +244,8 @@ struct MenuContentView: View {
         transferProgress = lifecycle?.sessionFeatures.transferProgress
         activeCall = lifecycle?.sessionFeatures.activeCall
         activeNowPlaying = lifecycle?.sessionFeatures.activeNowPlaying
-        let peerName = lifecycle?.pairedPeerName
+        pairedPeer = lifecycle?.pairedPeer
+        let peerName = lifecycle?.pairedPeer.displayName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
             peerName: peerName
@@ -226,7 +259,7 @@ struct MenuContentView: View {
         let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         lifecycle?.mirror.bind(mirrorRequestViewModel)
-        let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
+        let pushClipboardViewModel = PushClipboardViewModel(clipboard: lifecycle?.sessionFeatures.clipboard)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(
             picker: OpenPanelFilePicker(),
@@ -243,6 +276,11 @@ struct MenuContentView: View {
         )
         quickActionsViewModel.observeConnection(lifecycle?.makeMenuBarStateStream?())
         _quickActionsViewModel = State(initialValue: quickActionsViewModel)
+    }
+
+    private func syncPairedPeer() {
+        pairedPeer?.refresh()
+        menuBarViewModel.updatePeerName(pairedPeer?.displayName)
     }
 
     private static var retainedFinderServicesProvider: FinderServicesProvider?
@@ -290,7 +328,8 @@ struct MenuContentView: View {
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,
                     pushClipboardViewModel: pushClipboardViewModel,
-                    mirrorRequestViewModel: mirrorRequestViewModel
+                    mirrorRequestViewModel: mirrorRequestViewModel,
+                    sendEntryHandler: sendEntryHandler
                 )
                 if let activeCall {
                     ActiveCallHangUpView(activeCall: activeCall)
@@ -302,6 +341,8 @@ struct MenuContentView: View {
                 SettingsMenuButton()
             }
             .acceptsFileDrops(sendEntryHandler)
+            .onAppear { syncPairedPeer() }
+            .onChange(of: pairedPeer?.displayName) { syncPairedPeer() }
         }
     }
 }

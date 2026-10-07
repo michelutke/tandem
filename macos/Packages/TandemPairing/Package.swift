@@ -29,6 +29,7 @@ let package = Package(
                 "TandemTransport",
                 "TandemStore",
                 "TandemProtocol",
+                "TandemDesign",
                 "TandemTestSupport"
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]

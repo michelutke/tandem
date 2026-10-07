@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
 import dev.tandem.app.activity.ActivityStore
+import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
@@ -11,13 +12,16 @@ import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
+import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
+import dev.tandem.feature.notifications.PerAppNotificationFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+import javax.inject.Inject
 import kotlin.time.Duration.Companion.days
 
 /**
@@ -49,6 +53,18 @@ class TandemApplication : Application() {
         )
     }
 
+    val notificationFilter: PerAppNotificationFilter by lazy {
+        PerAppNotificationFilter(
+            SettingsStore(
+                createSettingsDataStore(File(filesDir, NOTIFICATION_FILTER_FILE_NAME), AppDispatchers.default),
+            ),
+            CoroutineScope(SupervisorJob() + AppDispatchers.default),
+        )
+    }
+
+    @Inject
+    lateinit var identityBootstrap: IdentityBootstrap
+
     override fun onCreate() {
         super.onCreate()
 
@@ -58,6 +74,7 @@ class TandemApplication : Application() {
                 startForegroundService = { startForegroundService(Intent(this, TandemService::class.java)) },
             )
         val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+        appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }
         appScope.launch {
             while (true) {
@@ -71,5 +88,6 @@ class TandemApplication : Application() {
         const val TRUST_STORE_FILE_NAME = "trust.db"
         const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"
+        const val NOTIFICATION_FILTER_FILE_NAME = "notification-filter.preferences_pb"
     }
 }

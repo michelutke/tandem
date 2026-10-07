@@ -1,43 +1,113 @@
 package dev.tandem.app.onboarding
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 
 /**
- * Seam over the two permission-requesting actions this onboarding sequence performs (E20-14):
- * notification-listener access (no runtime dialog exists for this special access -- only the
- * system's dedicated Settings screen) and the POST_NOTIFICATIONS runtime permission.
- * [OnboardingViewModel.allow] calls this instead of touching `Settings`/
- * `ActivityResultContracts` directly, so it stays plain unit-tested against a recording fake
- * (CLAUDE.md's Robolectric rule). Battery-optimization and CAMERA each already have their own
- * request path ([BatteryOnboardingScreen], [dev.tandem.feature.pairing.scan.ScannerScreen]) and
- * are deliberately not routed through this seam. [SystemPermissionRequester] is the only
- * production implementation.
+ * Seam over the permission-requesting actions onboarding performs: runtime permission dialogs and
+ * the system Settings screens for special accesses (notification listener, battery). Lets
+ * [OnboardingViewModel.allow] stay plain unit-tested against a recording fake.
+ * [SystemPermissionRequester] is the only production implementation.
  */
 fun interface PermissionRequester {
     fun request(permission: OnboardingPermission)
 }
 
+/** Seam over the current grant state of each [OnboardingPermission]. */
+fun interface PermissionChecker {
+    fun isGranted(permission: OnboardingPermission): Boolean
+}
+
+private val SMS_AND_CALLS_PERMISSIONS =
+    arrayOf(
+        Manifest.permission.READ_SMS,
+        Manifest.permission.SEND_SMS,
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.READ_CONTACTS,
+    )
+
 /**
- * Production implementation. POST_NOTIFICATIONS needs a real runtime-permission launcher, which
- * only a Composable can create (`rememberLauncherForActivityResult`); [requestPostNotifications]
- * is that launcher's `launch` call, wired in by whichever composition root constructs this class.
+ * Production implementation. Runtime permissions need an Activity Result launcher, which only the
+ * hosting activity can register; [requestRuntimePermissions] is that launcher's `launch` call.
+ * A denied permission leaves its feature off; it can be granted later from system Settings.
  */
 class SystemPermissionRequester(
     private val context: Context,
-    private val requestPostNotifications: () -> Unit,
+    private val requestRuntimePermissions: (Array<String>) -> Unit,
 ) : PermissionRequester {
-    @Suppress("ImplicitInternalIntent") // Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS is genuinely external.
+    @Suppress("ImplicitInternalIntent") // the Settings actions below are genuinely external.
     override fun request(permission: OnboardingPermission) {
         when (permission) {
+            OnboardingPermission.POST_NOTIFICATIONS -> {
+                requestRuntimePermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+            }
+
+            OnboardingPermission.CAMERA -> {
+                requestRuntimePermissions(arrayOf(Manifest.permission.CAMERA))
+            }
+
+            OnboardingPermission.SMS_AND_CALLS -> {
+                requestRuntimePermissions(SMS_AND_CALLS_PERMISSIONS)
+            }
+
+            OnboardingPermission.LOCAL_NETWORK -> {
+                requestRuntimePermissions(arrayOf(Manifest.permission.ACCESS_LOCAL_NETWORK))
+            }
+
             OnboardingPermission.NOTIFICATION_LISTENER -> {
                 context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
 
-            OnboardingPermission.POST_NOTIFICATIONS -> {
-                requestPostNotifications()
+            OnboardingPermission.BATTERY -> {
+                launchBatteryExemption(context)
             }
         }
     }
 }
+
+class SystemPermissionChecker(
+    private val context: Context,
+) : PermissionChecker {
+    override fun isGranted(permission: OnboardingPermission): Boolean =
+        when (permission) {
+            OnboardingPermission.POST_NOTIFICATIONS -> {
+                hasRuntime(Manifest.permission.POST_NOTIFICATIONS)
+            }
+
+            OnboardingPermission.CAMERA -> {
+                hasRuntime(Manifest.permission.CAMERA)
+            }
+
+            OnboardingPermission.SMS_AND_CALLS -> {
+                SMS_AND_CALLS_PERMISSIONS.all(::hasRuntime)
+            }
+
+            OnboardingPermission.LOCAL_NETWORK -> {
+                hasLocalNetworkAccess(context)
+            }
+
+            OnboardingPermission.NOTIFICATION_LISTENER -> {
+                context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
+            }
+
+            OnboardingPermission.BATTERY -> {
+                context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+            }
+        }
+
+    private fun hasRuntime(permission: String): Boolean =
+        context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+}
+
+/** `ACCESS_LOCAL_NETWORK` exists from API 37; earlier releases never gate the local network. */
+fun hasLocalNetworkAccess(context: Context): Boolean =
+    Build.VERSION.SDK_INT < LOCAL_NETWORK_PERMISSION_API ||
+        context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
+
+private const val LOCAL_NETWORK_PERMISSION_API = 37

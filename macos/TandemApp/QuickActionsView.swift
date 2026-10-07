@@ -1,3 +1,4 @@
+import FeatureFiles
 import FeatureMirror
 import SwiftUI
 
@@ -22,14 +23,26 @@ struct QuickActionsView: View {
     /// (E61-12).
     var mirrorRequestViewModel: MirrorRequestViewModel?
 
+    /// Drives the confirmation/explanation shown under "Send File…".
+    var sendEntryHandler: SendEntryHandler?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             actionButton(.sendFile, identifier: "sendFileMenuItem")
+            sendFileStatusLabel
             actionButton(.pushClipboard, identifier: "pushClipboardMenuItem")
             pushClipboardStatusLabel
             findPhoneButton
             actionButton(.mirror, identifier: "mirrorPhoneMenuItem")
             mirrorStatusLabel
+        }
+    }
+
+    @ViewBuilder
+    private var sendFileStatusLabel: some View {
+        if let statusText = sendEntryHandler?.lastResult?.statusText {
+            Text(statusText)
+                .accessibilityIdentifier("sendFileStatusLabel")
         }
     }
 
@@ -61,5 +74,17 @@ struct QuickActionsView: View {
             .disabled(!viewModel.isConnected)
             .accessibilityIdentifier(identifier)
             .accessibilityLabel(action.label)
+    }
+}
+
+extension SendEntryResult {
+    /// ui-spec.md §9.4; `nil` when there is nothing to tell (the user cancelled the picker).
+    var statusText: String? {
+        switch self {
+        case .started: return "Sending to phone."
+        case .unsupportedFolder: return "Folders can't be sent."
+        case .notConnected: return "Phone not connected."
+        case .cancelled: return nil
+        }
     }
 }

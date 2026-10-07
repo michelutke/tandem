@@ -107,5 +107,6 @@ private fun errorText(message: PairingErrorMessage): Pair<String, String> =
         PairingErrorMessage.DECLINED -> "Declined." to "The Mac said no."
         PairingErrorMessage.NETWORK -> "Can't reach the Mac." to "Same Wi-Fi?"
         PairingErrorMessage.PIN_MISMATCH -> "Not trusted." to "This Mac's identity changed. Pair again."
+        PairingErrorMessage.IDENTITY_UNAVAILABLE -> "Not paired." to "This phone's key couldn't be created."
         PairingErrorMessage.QR_EXPIRED -> "Code expired." to "Scan a new one."
     }

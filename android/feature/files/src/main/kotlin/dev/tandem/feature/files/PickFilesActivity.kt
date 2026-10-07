@@ -1,5 +1,7 @@
 package dev.tandem.feature.files
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,7 +13,7 @@ import dev.tandem.core.ui.TandemActivity
  * empty list and sends nothing. [registry] and [starter] are seams (see [ShareFilesActivity]).
  */
 class PickFilesActivity : TandemActivity() {
-    var starter: TransferStarter = TransferStarter { }
+    var starter: TransferStarter? = null
     internal var registry: ActivityResultRegistry? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,9 +23,22 @@ class PickFilesActivity : TandemActivity() {
                 ActivityResultContracts.OpenMultipleDocuments(),
                 registry ?: activityResultRegistry,
             ) { uris ->
-                SendEntry(packageName, contentResolver, starter).offer(uris)
+                uris.forEach(::keepReadAccess)
+                entry().offer(uris)
                 finish()
             }
         picker.launch(arrayOf("*/*"))
     }
+
+    // The picker's grant ends with this activity, but bytes are read only after the Mac accepts.
+    private fun keepReadAccess(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+            Unit
+        }
+    }
+
+    private fun entry() =
+        SendEntry(packageName, contentResolver, starter ?: SendFeedbackToasts.liveStarter(applicationContext))
 }

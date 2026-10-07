@@ -32,4 +32,7 @@ sealed class PairingFailure {
 
     /** A dialed peer presented a key that is not the QR fingerprint (SPEC.md §5 row 2); never retried. */
     data object PinMismatch : PairingFailure()
+
+    /** This phone's identity key could not be created or used, so no TLS dial was attempted (invariant 5). */
+    data object IdentityUnavailable : PairingFailure()
 }

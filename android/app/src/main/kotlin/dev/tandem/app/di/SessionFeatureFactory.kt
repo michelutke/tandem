@@ -3,8 +3,11 @@ package dev.tandem.app.di
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.ConnectivityManager
+import android.os.Handler
+import android.os.Looper
 import android.telephony.TelephonyManager
 import android.util.Log
+import android.widget.Toast
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.clipboard.ClipboardWriter
@@ -100,7 +103,10 @@ object SessionFeatureFactory {
         return listOf(
             NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default),
             ClipboardFeature(
-                ClipboardWriter(context.getSystemService(ClipboardManager::class.java), LiveClipboardSession.loopGuard),
+                ClipboardWriter(
+                    context.getSystemService(ClipboardManager::class.java),
+                    LiveClipboardSession.loopGuard,
+                ) { showReceivedToast(context) },
             ),
             filesFeature,
             ContactsFeature(ContentResolverContactsSource(context), AppDispatchers.io, clock),
@@ -121,6 +127,12 @@ object SessionFeatureFactory {
             ),
             rotation.sessionFeature(),
         ) + smsFeatures.all()
+    }
+
+    private fun showReceivedToast(context: Context) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(context, R.string.clipboard_received, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun mirrorFeature(

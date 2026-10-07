@@ -134,11 +134,13 @@ class FileSender(
             .onEach { envelope ->
                 when {
                     envelope.hasFileAccept() -> {
+                        FilesLog.event("accept received")
                         replies[envelope.fileAccept.id]?.complete(Reply.Accepted)
                     }
 
                     envelope.hasFileReject() -> {
                         val reject = envelope.fileReject
+                        FilesLog.event("reject received", reject.reason)
                         replies[reject.id]?.complete(Reply.Rejected(reject.reason))
                     }
 
@@ -197,6 +199,7 @@ class FileSender(
             try {
                 withContext(ioDispatcher) { hash(request.uri) }
             } catch (_: IOException) {
+                FilesLog.event("send failed: source unreadable")
                 state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_SOURCE_UNAVAILABLE)
                 return
             }
@@ -217,6 +220,7 @@ class FileSender(
                     sha256 = ByteString.copyFrom(source.sha256)
                 }
         }
+        FilesLog.event("offer sent")
         state.value = SenderState.Offered
         when (val answer = reply.await()) {
             is Reply.Rejected -> {
@@ -399,6 +403,7 @@ class FileSender(
 
                 read == 0 -> {
                     session.send(Channel.CHANNEL_FILES) { fileComplete = fileComplete { id = this@ChunkStream.id } }
+                    FilesLog.event("transfer complete")
                     state.value = SenderState.Completed
                     false
                 }

@@ -12,19 +12,25 @@ public final class ListenerController: Sendable {
     private let port: NWEndpoint.Port
     private let verify: TandemVerifyBlock
     private let clock: any Clock<Duration>
+    private let portStore: (any ListenerPortStore)?
+    private let binder: any ListenerBinder
 
     public init(
         identityStateProvider: any IdentityStateProvider,
         listenerFactory: any ListenerFactory,
         port: NWEndpoint.Port,
         verify: @escaping TandemVerifyBlock,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        portStore: (any ListenerPortStore)? = nil,
+        binder: any ListenerBinder = NWListenerBinder()
     ) {
         self.identityStateProvider = identityStateProvider
         self.listenerFactory = listenerFactory
         self.port = port
         self.verify = verify
         self.clock = clock
+        self.portStore = portStore
+        self.binder = binder
     }
 
     /// A running listener paired with the ``ConnectionAdmission`` instance backing it -- the only
@@ -46,13 +52,47 @@ public final class ListenerController: Sendable {
             return nil
         }
         let admission = ConnectionAdmission(clock: clock)
-        let listener = try listenerFactory.makeListener(
-            identity: identity,
-            port: port,
-            verify: verify,
-            admission: admission
-        )
-        listener.start(queue: .global())
+        guard let portStore else {
+            let listener = try makeListener(identity: identity, port: port, admission: admission)
+            listener.start(queue: .global())
+            return StartedListener(listener: listener, admission: admission)
+        }
+        return try startRememberingPort(identity: identity, admission: admission, portStore: portStore)
+    }
+
+    /// Binds the persisted port first and falls back to `port` (OS-assigned) only when that bind
+    /// fails, persisting whichever port actually bound so the phone's stored address stays valid.
+    private func startRememberingPort(
+        identity: SecIdentity,
+        admission: ConnectionAdmission,
+        portStore: any ListenerPortStore
+    ) throws -> StartedListener? {
+        if let preferred = portStore.preferredPort.flatMap(NWEndpoint.Port.init(rawValue:)) {
+            let listener = try makeListener(identity: identity, port: preferred, admission: admission)
+            if case .ready(let bound) = binder.bind(listener) {
+                portStore.persist(bound)
+                return StartedListener(listener: listener, admission: admission)
+            }
+            listener.cancel()
+        }
+        let listener = try makeListener(identity: identity, port: port, admission: admission)
+        guard case .ready(let bound) = binder.bind(listener) else {
+            listener.cancel()
+            throw ListenerBindError.bindFailed
+        }
+        portStore.persist(bound)
         return StartedListener(listener: listener, admission: admission)
     }
+
+    private func makeListener(
+        identity: SecIdentity,
+        port: NWEndpoint.Port,
+        admission: ConnectionAdmission
+    ) throws -> NWListener {
+        try listenerFactory.makeListener(identity: identity, port: port, verify: verify, admission: admission)
+    }
+}
+
+public enum ListenerBindError: Error, Sendable, Equatable {
+    case bindFailed
 }

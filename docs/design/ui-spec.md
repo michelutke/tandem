@@ -283,6 +283,7 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | scan.invalid | Not a Tandem code. / Or it was already used. |
 | scan.unreachable | Can't reach the Mac. / Same Wi-Fi? |
 | scan.pinMismatch | Not trusted. / This Mac's identity changed. Pair again. |
+| scan.identityUnavailable | Not paired. / This phone's key couldn't be created. |
 | mirror.request | {mac} wants to see your screen. |
 | mirror.waiting | Accept on {phone} to start. |
 | mirror.declined | Nothing was shared. |
@@ -294,6 +295,22 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | home.ring.idle | synced today |
 | notif.accessOff | Access off. |
 | battery.restricted | Battery restricted. / Android may cut the link overnight. |
+| send.clipboard.sent | Sent to Mac. (Android toast) / Sent to phone. (Mac menu) |
+| send.clipboard.received | Received from Mac. (Android toast) / Received from phone. (Mac menu) |
+| send.clipboard.empty | Nothing on the clipboard to send. |
+| send.clipboard.tooLarge | Text too large to send (max 1 MiB). (Android) / Clipboard too large to send, use file transfer (Mac) |
+| send.clipboard.protected | Not sent: protected item (Mac menu) |
+| send.file.started | Sending to Mac… (Android toast) / Sending to phone. (Mac menu) |
+| send.file.sent | Sent to Mac. (Android toast) |
+| send.file.rejected | Mac declined the file. (Android toast) |
+| send.file.failed | Couldn't send the file. (Android toast) |
+| files.saveTo | Save files to |
+| files.choose | Choose… |
+| files.reset | Reset |
+| files.folderFailed | Couldn't use that folder. |
+| send.notConnected | Not connected to your Mac. (Android) / Phone not connected. (Mac menu) |
+| send.file.folder | Folders can't be sent. (Mac menu) |
+| file.incoming | Incoming file / {name} ({size}) with Accept and Decline: notification and, on Mac, an in-app alert |
 
 ## 11. Accessibility
 

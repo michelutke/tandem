@@ -26,7 +26,8 @@ final class MacPairingComposition: @unchecked Sendable {
     init(
         identityBootstrapper: IdentityBootstrapper,
         trustStore: TrustStore,
-        sessionRegistry: any ControlSessionRegistering
+        sessionRegistry: any ControlSessionRegistering,
+        onPeerPaired: @escaping @Sendable () -> Void = {}
     ) {
         let state = PairingCompositionState()
         self.state = state
@@ -47,7 +48,8 @@ final class MacPairingComposition: @unchecked Sendable {
                 dateProvider: { Date() },
                 sessionRegistry: sessionRegistry,
                 regeneratesOnExpiry: false,
-                onConfirmationPending: { _, viewModel in state.deliverConfirmation(viewModel, generation: generation) }
+                onConfirmationPending: { _, viewModel in state.deliverConfirmation(viewModel, generation: generation) },
+                onPeerPaired: onPeerPaired
             )
         }
     }

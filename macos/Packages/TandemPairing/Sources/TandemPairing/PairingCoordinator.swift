@@ -34,6 +34,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     private let clock: any Clock<Duration>
     private let sessionRegistry: any ControlSessionRegistering
     private let onConfirmationPending: ConfirmationPendingHandler?
+    private let onPeerPaired: (@Sendable () -> Void)?
     private let candidateSpkiDer: CandidateSpkiHolder
 
     /// - Parameters:
@@ -57,7 +58,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         clock: any Clock<Duration> = ContinuousClock(),
         sessionRegistry: any ControlSessionRegistering,
         regeneratesOnExpiry: Bool = true,
-        onConfirmationPending: ConfirmationPendingHandler? = nil
+        onConfirmationPending: ConfirmationPendingHandler? = nil,
+        onPeerPaired: (@Sendable () -> Void)? = nil
     ) {
         let candidateSpkiDer = CandidateSpkiHolder()
         let proofVerifier = PairProofVerifier(
@@ -83,6 +85,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         self.clock = clock
         self.sessionRegistry = sessionRegistry
         self.onConfirmationPending = onConfirmationPending
+        self.onPeerPaired = onPeerPaired
         self.candidateSpkiDer = candidateSpkiDer
     }
 
@@ -242,13 +245,14 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
             trustStore: trustStore,
             dateProvider: dateProvider,
             onResolved: { context.resolution.resolve() },
-            onPaired: { [sessionRegistry, context] in
+            onPaired: { [sessionRegistry, context, onPeerPaired] in
                 guard let fingerprint = try? SpkiFingerprint.of(spkiDer: context.handshakeSpkiDer) else { return }
                 context.registeredFingerprint.set(fingerprint)
                 await sessionRegistry.register(fingerprint, session: context.session)
                 // No SessionServiceHost attaches to a pairing-registered session, so end the
                 // control-channel replay window here or held frames would accumulate for its lifetime.
                 await context.session.sealSetup()
+                onPeerPaired?()
             }
         )
         onConfirmationPending?(code, confirmationViewModel)

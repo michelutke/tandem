@@ -103,6 +103,7 @@ let package = Package(
             dependencies: [
                 "TandemPairing",
                 "TandemCrypto",
+                "TandemDesign",
                 "TandemTransport",
                 "TandemStore",
                 "TandemProtocol",

@@ -17,6 +17,9 @@ enum class PairingErrorMessage {
 
     /** Peer identity is not the scanned one; re-pair, never retry */
     PIN_MISMATCH,
+
+    /** This phone's own identity key is unavailable; nothing was dialed */
+    IDENTITY_UNAVAILABLE,
 }
 
 /**
@@ -33,6 +36,7 @@ object PairingErrorMapper {
             is PairingFailure.ChallengeTimeout -> PairingErrorMessage.NETWORK
             is PairingFailure.MalformedChallenge -> PairingErrorMessage.QR_EXPIRED
             is PairingFailure.PinMismatch -> PairingErrorMessage.PIN_MISMATCH
+            is PairingFailure.IdentityUnavailable -> PairingErrorMessage.IDENTITY_UNAVAILABLE
         }
 
     fun mapRejectionReason(reason: PairRejectedReason): PairingErrorMessage =

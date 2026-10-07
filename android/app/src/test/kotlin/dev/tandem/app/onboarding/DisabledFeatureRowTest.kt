@@ -22,12 +22,12 @@ class DisabledFeatureRowTest {
     fun deniedFeatureRow_tapped_launchesMatchingSettingsIntent() {
         composeRule.setContent {
             DisabledFeatureRow(
-                featureName = NOTIFICATION_LISTENER_ONBOARDING_TITLE,
+                featureName = PermissionRow.NOTIFICATIONS.label,
                 settingsIntentAction = Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS,
             )
         }
 
-        composeRule.onNodeWithText(NOTIFICATION_LISTENER_ONBOARDING_TITLE).assertExists()
+        composeRule.onNodeWithText(PermissionRow.NOTIFICATIONS.label).assertExists()
         composeRule.onNodeWithText(DISABLED_FEATURE_ROW_LABEL).assertExists()
 
         composeRule.onNodeWithText(DISABLED_FEATURE_ROW_LABEL).performClick()

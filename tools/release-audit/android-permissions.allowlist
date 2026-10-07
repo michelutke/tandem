@@ -23,3 +23,5 @@ android.permission.READ_CONTACTS E51-02
 android.permission.READ_SMS E50-02
 android.permission.SEND_SMS E50-04
 android.permission.READ_PHONE_STATE E50-05
+android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS E20-04
+android.permission.ACCESS_LOCAL_NETWORK E21-04

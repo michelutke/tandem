@@ -3,11 +3,11 @@ package dev.tandem.app
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
-import dev.tandem.app.onboarding.BatteryOnboardingViewModel
-import dev.tandem.app.onboarding.FakeBatteryOptimizationSource
-import dev.tandem.app.onboarding.FakeDeviceManufacturerSource
+import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
+import dev.tandem.app.service.FakePairedPeerRepository
+import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.NoOpPairingStarter
 import dev.tandem.core.transport.FakeTandemSession
@@ -103,6 +103,43 @@ class MainActivityTest {
         assertEquals(true, sent.sensitive)
     }
 
+    @Test
+    fun serviceStart_activityStartedWhilePaired_startsService() {
+        var startCount = 0
+        val controller = Robolectric.buildActivity(MainActivity::class.java)
+        val activity = controller.get()
+        activity.serviceStarterProvider = {
+            ServiceStarter(FakePairedPeerRepository(hasPairedPeer = true)) { startCount++ }
+        }
+        activity.shellDependenciesProvider = { shellDependencies() }
+
+        controller.create().start()
+
+        assertEquals(1, startCount)
+    }
+
+    @Test
+    fun serviceStart_activityStartedWhileUnpaired_doesNotStartService() {
+        var startCount = 0
+        val controller = Robolectric.buildActivity(MainActivity::class.java)
+        val activity = controller.get()
+        activity.serviceStarterProvider = {
+            ServiceStarter(FakePairedPeerRepository(hasPairedPeer = false)) { startCount++ }
+        }
+        activity.shellDependenciesProvider = { shellDependencies() }
+
+        controller.create().start()
+
+        assertEquals(0, startCount)
+    }
+
+    @Test
+    fun theme_mainActivity_hasNoActionBar() {
+        val activity = buildAndCreate(FakeTandemSession(), RecordingClipboardReader(null))
+
+        assertEquals(null, activity.actionBar)
+    }
+
     private fun buildAndCreate(
         session: FakeTandemSession,
         reader: ClipboardReader,
@@ -113,6 +150,7 @@ class MainActivityTest {
         activity.dispatcher = UnconfinedTestDispatcher()
         activity.clipboardReaderProvider = { reader }
         activity.shellDependenciesProvider = { shellDependencies() }
+        activity.serviceStarterProvider = { ServiceStarter(FakePairedPeerRepository(false)) {} }
         controller.create()
         return activity
     }
@@ -123,13 +161,7 @@ class MainActivityTest {
             statusLine = flowOf(""),
             ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
             onboarding =
-                OnboardingViewModel(
-                    BatteryOnboardingViewModel(
-                        FakeBatteryOptimizationSource(ignoringBatteryOptimizations = true),
-                        FakeDeviceManufacturerSource(manufacturer = "Google"),
-                    ),
-                    RecordingPermissionRequester(),
-                ),
+                OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
             isBatteryRestricted = { false },
             addressStore = PairingAddressStore(File.createTempFile("addr", null)),
             pairingStarter = NoOpPairingStarter,

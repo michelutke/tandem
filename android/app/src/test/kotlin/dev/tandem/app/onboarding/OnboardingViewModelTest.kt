@@ -1,36 +1,23 @@
 package dev.tandem.app.onboarding
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-// E20-14 tdd:
-//   unit: onboardingViewModel_api33_ordersIdentityListenerPostNotificationsBatteryScan
-//   unit: onboardingViewModel_fullRunAllSkipped_requestedPermissionsExcludeLazyOnes
+// Onboarding order per ui-spec §7.2: welcome, permissions, scan.
 class OnboardingViewModelTest {
-    private fun viewModel(
-        batteryScreenShown: Boolean = true,
-        permissionRequester: PermissionRequester = RecordingPermissionRequester(),
-    ) = OnboardingViewModel(
-        batteryOnboardingViewModel =
-            BatteryOnboardingViewModel(
-                batteryOptimizationSource =
-                    FakeBatteryOptimizationSource(ignoringBatteryOptimizations = !batteryScreenShown),
-                deviceManufacturerSource = FakeDeviceManufacturerSource(manufacturer = "Google"),
-            ),
-        permissionRequester = permissionRequester,
-    )
+    private val requester = RecordingPermissionRequester()
+    private val checker = FakePermissionChecker()
+    private val viewModel = OnboardingViewModel(requester, checker)
 
     @Test
-    fun onboardingViewModel_api33_ordersIdentityListenerPostNotificationsBatteryScan() {
-        val viewModel = viewModel()
-
+    fun onboardingViewModel_steps_ordersIdentityWelcomePermissionsScan() {
         assertEquals(
             listOf(
                 OnboardingStep.IDENTITY,
-                OnboardingStep.NOTIFICATION_LISTENER,
-                OnboardingStep.POST_NOTIFICATIONS,
-                OnboardingStep.BATTERY,
+                OnboardingStep.WELCOME,
+                OnboardingStep.PERMISSIONS,
                 OnboardingStep.SCAN_QR,
             ),
             viewModel.steps(),
@@ -38,16 +25,45 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun onboardingViewModel_fullRunAllSkipped_requestedPermissionsExcludeLazyOnes() {
-        val requester = RecordingPermissionRequester()
-        val viewModel = viewModel(permissionRequester = requester)
+    fun onboardingViewModel_rows_matchUiSpecOrder() {
+        assertEquals(
+            listOf(
+                PermissionRow.NOTIFICATIONS,
+                PermissionRow.BATTERY,
+                PermissionRow.CAMERA,
+                PermissionRow.SMS_AND_CALLS,
+                PermissionRow.LOCAL_NETWORK,
+            ),
+            viewModel.rows(),
+        )
+    }
 
-        // A full run where every optional screen's Skip is tapped never calls
-        // OnboardingViewModel.allow, so the requester never sees a call for any permission --
-        // lazy features (SMS, contacts, phone, media, accessibility, notification policy) least
-        // of all; OnboardingPermission itself has no case for any of them.
-        viewModel.steps()
+    @Test
+    fun onboardingViewModel_allowNotifications_requestsPostNotificationsThenListener() {
+        viewModel.allow(PermissionRow.NOTIFICATIONS)
+        checker.granted += OnboardingPermission.POST_NOTIFICATIONS
+        viewModel.allow(PermissionRow.NOTIFICATIONS)
+
+        assertEquals(
+            listOf(OnboardingPermission.POST_NOTIFICATIONS, OnboardingPermission.NOTIFICATION_LISTENER),
+            requester.requested,
+        )
+    }
+
+    @Test
+    fun onboardingViewModel_notificationsRowPartiallyGranted_notGranted() {
+        checker.granted += OnboardingPermission.POST_NOTIFICATIONS
+
+        assertFalse(viewModel.isGranted(PermissionRow.NOTIFICATIONS))
+    }
+
+    @Test
+    fun onboardingViewModel_allowGrantedRow_requestsNothing() {
+        checker.granted += OnboardingPermission.CAMERA
+
+        viewModel.allow(PermissionRow.CAMERA)
 
         assertTrue(requester.requested.isEmpty())
+        assertTrue(viewModel.isGranted(PermissionRow.CAMERA))
     }
 }

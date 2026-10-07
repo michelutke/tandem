@@ -85,6 +85,7 @@ class AcceptFlow(
     }
 
     private suspend fun onOffer(offer: FileOffer) {
+        FilesLog.event("offer received")
         val rejection = rejectionFor(offer)
         when {
             rejection != null -> reject(offer.id, rejection)
@@ -94,6 +95,7 @@ class AcceptFlow(
     }
 
     private suspend fun acceptOffer(offer: FileOffer) {
+        FilesLog.event("accept sent")
         onAccepted(offer)
         session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
     }
@@ -156,6 +158,7 @@ class AcceptFlow(
         offerId: String,
         why: TransferReason,
     ) {
+        FilesLog.event("reject sent", why)
         session.send(Channel.CHANNEL_FILES) {
             fileReject =
                 fileReject {
