@@ -196,7 +196,8 @@ enum AppComposition {
                 rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() })
             ),
             port: .any,
-            verify: verify
+            verify: verify,
+            portStore: UserDefaultsListenerPortStore()
         )
     }
 
