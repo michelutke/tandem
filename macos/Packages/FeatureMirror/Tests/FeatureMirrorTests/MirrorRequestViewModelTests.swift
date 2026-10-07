@@ -25,6 +25,29 @@ struct MirrorRequestViewModelTests {
     }
 
     @Test
+    func mirrorQuickAction_noSession_showsPhoneNotConnected() async {
+        let model = MirrorRequestViewModel(session: nil)
+
+        model.request()
+
+        #expect(model.state == .notConnected)
+        #expect(model.statusText == "Phone not connected.")
+    }
+
+    @Test
+    func mirrorQuickAction_sessionAttachedAfterNotConnected_requestReachesSession() async {
+        let session = FakeTandemSession()
+        let model = MirrorRequestViewModel(session: nil)
+        model.request()
+
+        await model.sessionChanged(session)
+        model.request()
+
+        #expect(await waitUntilTrue { await session.sent.count == 1 })
+        #expect(model.state == .waiting)
+    }
+
+    @Test
     func mirrorQuickAction_requestPending_noTicketUntilPhoneRequestsOne() async {
         let session = FakeTandemSession()
         let model = MirrorRequestViewModel(session: session)
@@ -94,13 +117,6 @@ struct MirrorRequestViewModelTests {
         model.cancel()
         #expect(model.state == .idle)
         #expect(model.statusText == nil)
-    }
-
-    @Test
-    func mirrorQuickAction_noSession_requestIsNoOp() {
-        let model = MirrorRequestViewModel(session: nil)
-        model.request()
-        #expect(model.state == .idle)
     }
 
     private func waitUntilTrue(_ condition: @MainActor () async -> Bool) async -> Bool {

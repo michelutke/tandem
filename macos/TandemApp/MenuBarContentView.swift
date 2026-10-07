@@ -234,6 +234,7 @@ struct PopoverActionsView: View {
             row(2, "Push clipboard", id: "pushClipboardMenuItem") { viewModel.select(.pushClipboard) }
             status(pushClipboardViewModel.statusMessage, id: "pushClipboardStatusLabel")
             row(3, findPhoneTitle, id: "findPhoneMenuItem") { viewModel.select(.findPhone) }
+            status(findPhoneViewModel.statusText, id: "findPhoneStatusLabel")
             row(4, "Mirror screen", id: "mirrorPhoneMenuItem") { viewModel.select(.mirror) }
             status(mirrorRequestViewModel?.statusText, id: "mirrorStatusLabel")
             row(5, "Messages", id: "messagesMenuItem", action: onOpenMessages)

@@ -259,8 +259,9 @@ struct MenuContentView: View {
             stateStream: lifecycle?.makeMenuBarStateStream?(),
             peerName: peerName
         ))
-        let findPhoneViewModel = FindPhoneViewModel(session: nil)
+        let findPhoneViewModel = FindPhoneViewModel(session: lifecycle?.sessionFeatures.live.session)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        lifecycle?.sessionFeatures.live.onSessionChanged = { findPhoneViewModel.sessionChanged($0) }
         let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         lifecycle?.mirror.bind(mirrorRequestViewModel)

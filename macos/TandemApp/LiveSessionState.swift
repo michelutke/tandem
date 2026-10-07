@@ -25,6 +25,9 @@ final class LiveSessionState {
     private(set) var deviceStatus: DeviceStatusViewModel?
     private(set) var generation = 0
 
+    /// Called on the main actor with the new session on attach and `nil` on detach.
+    @ObservationIgnored var onSessionChanged: ((any TandemSession)?) -> Void = { _ in }
+
     nonisolated init() {}
 
     func attach(peer: SpkiFingerprint, session: any TandemSession, deviceStatus: DeviceStatusViewModel) {
@@ -32,6 +35,7 @@ final class LiveSessionState {
         self.session = session
         self.deviceStatus = deviceStatus
         generation += 1
+        onSessionChanged(session)
     }
 
     func setSmsSync(_ client: SmsSyncClient?) {
@@ -42,6 +46,7 @@ final class LiveSessionState {
         session = nil
         smsSync = nil
         deviceStatus = nil
+        onSessionChanged(nil)
     }
 }
 
