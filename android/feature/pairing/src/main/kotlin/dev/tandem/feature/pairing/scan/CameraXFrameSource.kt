@@ -62,7 +62,9 @@ fun CameraXFrameSource(
                             .also {
                                 it.setAnalyzer(
                                     analysisExecutor,
-                                    ZxingQrAnalyzer(onResult = { result -> viewContext.mainExecutor.execute { onResult(result) } }),
+                                    ZxingQrAnalyzer(
+                                        onResult = { result -> viewContext.mainExecutor.execute { onResult(result) } },
+                                    ),
                                 )
                             }
 
