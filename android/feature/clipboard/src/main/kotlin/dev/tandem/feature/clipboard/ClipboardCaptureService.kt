@@ -2,6 +2,8 @@ package dev.tandem.feature.clipboard
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.view.accessibility.AccessibilityEvent
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
 
@@ -20,15 +22,37 @@ class ClipboardCaptureService : AccessibilityService() {
             clock = SystemElapsedRealtimeSource,
         )
     internal var launcher: (Intent) -> Unit = ::startActivity
+    internal var localizedMarkers: () -> List<String> = ::systemUiCopyStrings
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val isCopy =
-            CopyEventFilter.isCopyOverlay(event.packageName, event.eventType, event.className, event.text)
+            CopyEventFilter.isCopyOverlay(
+                event.packageName,
+                event.eventType,
+                event.className,
+                event.text,
+                localizedMarkers(),
+            )
         if (isCopy && gate.tryAcquire()) {
             launcher(ClipboardCaptureActivity.autoCaptureIntent(this))
         }
     }
 
     override fun onInterrupt() = Unit
+
+    // Resolved per event so a locale change applies without restarting the service.
+    @Suppress("DiscouragedApi") // System UI exposes no public API for these labels
+    private fun systemUiCopyStrings(): List<String> =
+        try {
+            val res = packageManager.getResourcesForApplication(CopyEventFilter.SYSTEM_UI_PACKAGE)
+            CopyEventFilter.SYSTEM_UI_COPY_STRINGS.mapNotNull { name ->
+                val id = res.getIdentifier(name, "string", CopyEventFilter.SYSTEM_UI_PACKAGE)
+                if (id == 0) null else res.getString(id)
+            }
+        } catch (_: PackageManager.NameNotFoundException) {
+            emptyList()
+        } catch (_: Resources.NotFoundException) {
+            emptyList()
+        }
 }

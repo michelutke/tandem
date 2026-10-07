@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ADR-007: read System UI's localized copy-overlay labels for locale-independent detection. -->
+    <queries>
+        <package android:name="com.android.systemui" />
+    </queries>
+
     <application>
         <!-- ADR-007 / D-82: opt-in copy detector; exported so the system can bind it, guarded by
              BIND_ACCESSIBILITY_SERVICE so no other app can. -->

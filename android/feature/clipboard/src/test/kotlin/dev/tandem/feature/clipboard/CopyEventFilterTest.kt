@@ -27,6 +27,32 @@ class CopyEventFilterTest {
     }
 
     @Test
+    fun isCopyOverlay_localizedSystemUiLabel_isCopy() {
+        assertTrue(
+            CopyEventFilter.isCopyOverlay(
+                "com.android.systemui",
+                windowState,
+                "android.widget.FrameLayout",
+                listOf("Zwischenablage"),
+                localizedMarkers = listOf("Zwischenablage", "Kopiert"),
+            ),
+        )
+    }
+
+    @Test
+    fun isCopyOverlay_localizedVolumeWindow_isNotCopy() {
+        assertFalse(
+            CopyEventFilter.isCopyOverlay(
+                "com.android.systemui",
+                windowState,
+                "android.widget.FrameLayout",
+                listOf("Lautstärke"),
+                localizedMarkers = listOf("Zwischenablage", "Kopiert"),
+            ),
+        )
+    }
+
+    @Test
     fun isCopyOverlay_otherPackage_isNotCopy() {
         assertFalse(CopyEventFilter.isCopyOverlay("com.example.app", windowState, "ClipboardView", listOf("Copied")))
     }
