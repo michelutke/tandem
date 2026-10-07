@@ -16,5 +16,9 @@ class ContentResolverSourceFileReader(
     private val contentResolver: ContentResolver,
 ) : SourceFileReader {
     override fun open(uri: String): InputStream =
-        contentResolver.openInputStream(uri.toUri()) ?: throw FileNotFoundException()
+        try {
+            contentResolver.openInputStream(uri.toUri()) ?: throw FileNotFoundException()
+        } catch (_: SecurityException) {
+            throw FileNotFoundException()
+        }
 }

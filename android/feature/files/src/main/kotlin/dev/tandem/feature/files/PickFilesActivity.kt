@@ -1,5 +1,7 @@
 package dev.tandem.feature.files
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,10 +23,20 @@ class PickFilesActivity : TandemActivity() {
                 ActivityResultContracts.OpenMultipleDocuments(),
                 registry ?: activityResultRegistry,
             ) { uris ->
+                uris.forEach(::keepReadAccess)
                 entry().offer(uris)
                 finish()
             }
         picker.launch(arrayOf("*/*"))
+    }
+
+    // The picker's grant ends with this activity, but bytes are read only after the Mac accepts.
+    private fun keepReadAccess(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+            Unit
+        }
     }
 
     private fun entry() =
