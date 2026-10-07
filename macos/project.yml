@@ -59,7 +59,6 @@ targets:
     info:
       path: TandemApp/Info.plist
       properties:
-        LSUIElement: true
         # E21-03: Local Network privacy prompt copy and the Bonjour service this app advertises
         # (_tandem._tcp, E21-02) -- both required for the Local Network permission prompt to show
         # the right copy and for NetService/NWListener publish to succeed once granted.
