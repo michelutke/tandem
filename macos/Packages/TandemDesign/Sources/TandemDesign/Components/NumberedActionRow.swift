@@ -65,6 +65,7 @@ public struct NumberedActionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .accessibilityLabel(title)
         .accessibilityIdentifier(identifier ?? title)
     }
 }

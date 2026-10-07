@@ -107,6 +107,9 @@ struct TandemMenuBarApp: App {
                 services: Self.mainWindowServices,
                 onPairPhone: { Self.openPairingWindow() }
             )
+            #if DEBUG
+            .background(ScenarioWindowCloser())
+            #endif
         }
         .windowStyle(.hiddenTitleBar)
 
