@@ -23,7 +23,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
-import dev.tandem.app.home.StubHomeRingStateSource
+import dev.tandem.app.home.ActivityHomeRingStateSource
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemPermissionChecker
@@ -119,7 +119,12 @@ class MainActivity : TandemActivity() {
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
             statusLine = graph.connectionStatusViewModel().statusText,
-            ringState = StubHomeRingStateSource().state,
+            ringState =
+                ActivityHomeRingStateSource(
+                    app.activityStore.entries,
+                    AppClock.system,
+                    CoroutineScope(SupervisorJob() + dispatcher),
+                ).state,
             onboarding =
                 OnboardingViewModel(
                     SystemPermissionRequester(activity) { requestRuntimePermissions.launch(it) },
@@ -141,6 +146,8 @@ class MainActivity : TandemActivity() {
             onSendClipboard = ::onSendClipboardButtonTapped,
             onSendFiles = ::onSendFilesTapped,
             isConnected = { sessionProvider(this) != null },
+            featureStates = app.featureToggles.states,
+            onToggleFeature = app.featureToggles::set,
             activityEntries = app.activityStore.entries,
             notificationRows = {
                 app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps())

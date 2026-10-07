@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
@@ -23,10 +24,6 @@ import dev.tandem.core.designsystem.components.DotRing
 import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import dev.tandem.core.designsystem.components.M3ESwitch
 import dev.tandem.core.designsystem.components.TandemScaffold
-
-/** Placeholder labels for Home's numbered feature switches (ui-spec.md §7.2 "01-04 feature switches"). */
-private val FEATURE_SWITCH_LABELS =
-    listOf("Notifications", "Clipboard", "Find phone", "Mirroring")
 
 /**
  * The Home screen (E20-17; ui-spec.md §6, §7.2): TitleBlock, the ring (§6), numbered feature
@@ -43,6 +40,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onSendClipboard: () -> Unit = {},
     onSendFiles: () -> Unit = {},
+    featureStates: Map<SyncFeature, Boolean> = SyncFeature.entries.associateWith { true },
+    onFeatureToggled: (SyncFeature, Boolean) -> Unit = { _, _ -> },
 ) {
     var showSendSheet by remember { mutableStateOf(false) }
     val ring = ringState.toDotRingContent()
@@ -60,7 +59,7 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        HomeContent(padding = padding, ring = ring)
+        HomeContent(padding = padding, ring = ring, featureStates = featureStates, onFeatureToggled = onFeatureToggled)
     }
 
     if (showSendSheet) {
@@ -82,6 +81,8 @@ fun HomeScreen(
 private fun HomeContent(
     padding: PaddingValues,
     ring: DotRingContent,
+    featureStates: Map<SyncFeature, Boolean>,
+    onFeatureToggled: (SyncFeature, Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier.padding(padding).fillMaxWidth(),
@@ -93,8 +94,13 @@ private fun HomeContent(
             unit = ring.unit,
             modifier = Modifier.padding(TandemSpacing.lg),
         )
-        FEATURE_SWITCH_LABELS.forEachIndexed { index, label ->
-            FeatureSwitchRow(index = index + 1, label = label)
+        SyncFeature.entries.forEachIndexed { index, feature ->
+            FeatureSwitchRow(
+                index = index + 1,
+                label = feature.label,
+                checked = featureStates[feature] ?: true,
+                onCheckedChange = { onFeatureToggled(feature, it) },
+            )
         }
     }
 }
@@ -103,8 +109,9 @@ private fun HomeContent(
 private fun FeatureSwitchRow(
     index: Int,
     label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    var checked by remember { mutableStateOf(true) }
     Row(
         modifier =
             Modifier
@@ -124,6 +131,6 @@ private fun FeatureSwitchRow(
             color = TandemColors.ink,
             modifier = Modifier.weight(1f),
         )
-        M3ESwitch(checked = checked, onCheckedChange = { checked = it })
+        M3ESwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

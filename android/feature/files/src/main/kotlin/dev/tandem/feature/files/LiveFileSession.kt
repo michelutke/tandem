@@ -39,16 +39,23 @@ object LiveFileSession {
         if (active?.sender === sender) active = null
     }
 
-    fun starter(feedback: (SendFeedback) -> Unit): TransferStarter =
+    /** [onFinished] runs once per request when its transfer ends, or at once if none could start. */
+    fun starter(
+        onFinished: (SendRequest) -> Unit = {},
+        feedback: (SendFeedback) -> Unit,
+    ): TransferStarter =
         TransferStarter { request ->
             val current = active
             if (current == null) {
                 feedback(SendFeedback.NOT_CONNECTED)
+                onFinished(request)
             } else {
                 feedback(SendFeedback.STARTED)
                 val state = current.sender.send(request)
                 current.scope.launch {
-                    feedback(state.first { it.isTerminal() }.toFeedback())
+                    val terminal = state.first { it.isTerminal() }
+                    feedback(terminal.toFeedback())
+                    onFinished(request)
                 }
             }
         }

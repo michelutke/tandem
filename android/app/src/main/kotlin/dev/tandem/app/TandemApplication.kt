@@ -3,6 +3,7 @@ package dev.tandem.app
 import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
+import dev.tandem.app.activity.ActivityRecorder
 import dev.tandem.app.activity.ActivityStore
 import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
@@ -12,9 +13,12 @@ import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
+import dev.tandem.app.settings.FeatureToggles
+import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
+import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +57,19 @@ class TandemApplication : Application() {
         )
     }
 
+    private val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+
+    val activityRecorder: ActivityRecorder by lazy { ActivityRecorder(activityStore, appScope, AppClock.system) }
+
+    val featureToggles: FeatureToggles by lazy {
+        FeatureToggles(
+            SettingsStore(
+                createSettingsDataStore(File(filesDir, FEATURE_TOGGLES_FILE_NAME), AppDispatchers.default),
+            ),
+            appScope,
+        )
+    }
+
     val notificationFilter: PerAppNotificationFilter by lazy {
         PerAppNotificationFilter(
             SettingsStore(
@@ -73,7 +90,9 @@ class TandemApplication : Application() {
                 pairedPeerRepository = TrustStorePairedPeerRepository(trustStore),
                 startForegroundService = { startForegroundService(Intent(this, TandemService::class.java)) },
             )
-        val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+        LiveNotificationListener.filter = { sbn, ownPackage ->
+            featureToggles.isEnabled(SyncFeature.Notifications) && notificationFilter.shouldForward(sbn, ownPackage)
+        }
         appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }
         appScope.launch {
@@ -88,6 +107,7 @@ class TandemApplication : Application() {
         const val TRUST_STORE_FILE_NAME = "trust.db"
         const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"
+        const val FEATURE_TOGGLES_FILE_NAME = "feature-toggles.preferences_pb"
         const val NOTIFICATION_FILTER_FILE_NAME = "notification-filter.preferences_pb"
     }
 }

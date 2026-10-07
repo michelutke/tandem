@@ -16,6 +16,7 @@ class RingFeature(
     private val alarmPlayer: () -> AlarmPlayer,
     private val policyAccess: () -> NotificationPolicyAccess,
     private val elapsedRealtimeSource: ElapsedRealtimeSource,
+    private val onRing: () -> Unit = {},
 ) : SessionFeature {
     override suspend fun run(
         session: TandemSession,
@@ -27,7 +28,7 @@ class RingFeature(
         try {
             session.receive(Channel.CHANNEL_STATUS).collect { envelope ->
                 when {
-                    envelope.hasRing() -> controller.ring()
+                    envelope.hasRing() -> if (controller.ring()) onRing()
                     envelope.hasRingStop() -> controller.ringStopReceived()
                 }
             }

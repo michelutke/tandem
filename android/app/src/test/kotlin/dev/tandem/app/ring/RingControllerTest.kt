@@ -42,6 +42,15 @@ class RingControllerTest {
         }
 
     @Test
+    fun ringController_ringStartsAlarm_reportsStartedOnlyOnce() =
+        runTest {
+            val controller = ringController(FakeAlarmPlayer(), FakeTandemSession())
+
+            assertTrue(controller.ring())
+            assertFalse(controller.ring())
+        }
+
+    @Test
     fun ringController_macRingStopReceived_stopsPlaybackWithoutEcho() =
         runTest {
             val alarmPlayer = FakeAlarmPlayer()

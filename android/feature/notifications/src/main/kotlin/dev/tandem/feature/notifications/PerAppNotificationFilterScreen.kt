@@ -6,13 +6,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
+import dev.tandem.core.designsystem.TandemColors
+import dev.tandem.core.designsystem.TandemSpacing
+import dev.tandem.core.designsystem.TandemType
+import dev.tandem.core.designsystem.components.M3ESwitch
 
 /**
  * E30-04: settings screen listing every installed app ([rows], sourced from
@@ -29,11 +31,19 @@ fun PerAppNotificationFilterScreen(
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(rows, key = { it.packageName }) { row ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = TandemSpacing.screenPadding, vertical = TandemSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(text = row.label, modifier = Modifier.weight(1f))
-                Switch(
+                Text(
+                    text = row.label,
+                    style = TandemType.rowTitle,
+                    color = TandemColors.ink,
+                    modifier = Modifier.weight(1f),
+                )
+                M3ESwitch(
                     checked = row.allowed,
                     onCheckedChange = { checked -> onToggle(row.packageName, checked) },
                     modifier = Modifier.testTag("switch_${row.packageName}"),

@@ -30,21 +30,25 @@ class RingController(
     private var isRinging = false
     private val recentStartTimestampsMillis = ArrayDeque<Long>()
 
-    /** Reacts to a received `Ring`: starts the alarm, subject to D-62's idempotency and cooldown. */
-    fun ring() {
-        if (isRinging) return
+    /** Reacts to a received `Ring` (D-62 idempotency and cooldown); returns true if the alarm started. */
+    fun ring(): Boolean {
+        val started = !isRinging && withinStartBudget()
+        if (started) {
+            recentStartTimestampsMillis.addLast(elapsedRealtimeSource.elapsedRealtimeMillis())
+            isRinging = true
+            ringHandler.ring()
+        }
+        return started
+    }
 
+    private fun withinStartBudget(): Boolean {
         val now = elapsedRealtimeSource.elapsedRealtimeMillis()
         while (recentStartTimestampsMillis.isNotEmpty() &&
             now - recentStartTimestampsMillis.first() >= COOLDOWN_WINDOW_MILLIS
         ) {
             recentStartTimestampsMillis.removeFirst()
         }
-        if (recentStartTimestampsMillis.size >= MAX_STARTS_PER_WINDOW) return
-
-        recentStartTimestampsMillis.addLast(now)
-        isRinging = true
-        ringHandler.ring()
+        return recentStartTimestampsMillis.size < MAX_STARTS_PER_WINDOW
     }
 
     /**

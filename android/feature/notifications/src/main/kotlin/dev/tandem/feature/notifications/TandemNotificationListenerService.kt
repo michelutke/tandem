@@ -23,9 +23,10 @@ import java.util.concurrent.ConcurrentHashMap
  * filtered (a filtered notification is never sent, so there is nothing on the Mac to withdraw).
  *
  * [notificationFilter] is the same seam idiom as [eventSink]: an `internal var` defaulting to
- * [NotificationFilter]'s static rules, so a composition root can wire in E30-04's
- * [PerAppNotificationFilter] (whose overrides apply to the next notification with no session
- * reconnect) without this class knowing about DataStore or per-app overrides at all.
+ * [LiveNotificationListener.filter] (where the composition root installs E30-04's
+ * [PerAppNotificationFilter], whose overrides apply to the next notification with no session
+ * reconnect) and to [NotificationFilter]'s static rules while none is installed, so this class
+ * knows nothing about DataStore or per-app overrides.
  *
  * [notificationCanceller] is the same seam pattern, defaulting to the inherited
  * `cancelNotification(String)`: E30-10's incoming-dismiss reader (`startNotificationDismissReader`)
@@ -59,7 +60,9 @@ import java.util.concurrent.ConcurrentHashMap
 class TandemNotificationListenerService : NotificationListenerService() {
     internal var eventSink: NotificationEventSink = LiveNotificationEventSink
     internal var notificationCanceller: (String) -> Unit = ::cancelNotification
-    internal var notificationFilter: (StatusBarNotification, String) -> Boolean = NotificationFilter::shouldForward
+    internal var notificationFilter: (StatusBarNotification, String) -> Boolean = { sbn, ownPackage ->
+        LiveNotificationListener.filter?.invoke(sbn, ownPackage) ?: NotificationFilter.shouldForward(sbn, ownPackage)
+    }
     internal var iconSender: IconSender? = null
         get() = field ?: LiveNotificationListener.iconSender
     internal var showSecretContent: () -> Boolean = { false }

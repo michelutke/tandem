@@ -101,6 +101,36 @@ class FilesFeatureWiringTest {
         }
 
     @Test
+    fun filesFeature_attached_sendCompletes_reportsFinishedRequest() =
+        runTest {
+            val job = startFeature()
+            val finished = mutableListOf<SendRequest>()
+
+            LiveFileSession.starter(onFinished = { finished += it }) {}.start(sendRequest())
+            runCurrent()
+            assertTrue(finished.isEmpty())
+            session.emitIncoming(
+                envelope {
+                    channel = Channel.CHANNEL_FILES
+                    fileAccept = fileAccept { id = SEND_ID }
+                },
+            )
+            runCurrent()
+
+            assertEquals(listOf(SEND_ID), finished.map { it.id })
+            job.cancel()
+        }
+
+    @Test
+    fun filesFeature_notAttached_sendReportsFinishedRequestAtOnce() {
+        val finished = mutableListOf<SendRequest>()
+
+        LiveFileSession.starter(onFinished = { finished += it }) {}.start(sendRequest())
+
+        assertEquals(listOf(SEND_ID), finished.map { it.id })
+    }
+
+    @Test
     fun filesFeature_sessionEnds_unbindsSendAndAcceptEntryPoints() =
         runTest {
             val job = startFeature()

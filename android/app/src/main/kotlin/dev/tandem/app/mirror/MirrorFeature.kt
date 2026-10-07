@@ -64,6 +64,7 @@ class MirrorFeature(
     private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val random: SecureRandom,
+    private val onMirrorEnded: (durationSeconds: Long) -> Unit = {},
 ) : SessionFeature {
     override suspend fun run(
         session: TandemSession,
@@ -117,6 +118,9 @@ class MirrorFeature(
 
         @Volatile
         private var lifecycle: MirrorSessionLifecycle? = null
+
+        @Volatile
+        private var mirrorStartedMillis: Long? = null
 
         suspend fun run() =
             coroutineScope {
@@ -205,6 +209,7 @@ class MirrorFeature(
                 )
             val mirror = MirrorSessionLifecycle(pipeline, session, StoppedIndicator(), scope)
             lifecycle = mirror
+            mirrorStartedMillis = elapsedRealtime.elapsedRealtimeMillis()
             target?.indicator?.show()
             mirror.start()
             scope.launch(ioDispatcher) {
@@ -215,6 +220,10 @@ class MirrorFeature(
 
         private inner class StoppedIndicator : MirrorIndicator {
             override fun onMirrorStopped() {
+                mirrorStartedMillis?.let { started ->
+                    onMirrorEnded((elapsedRealtime.elapsedRealtimeMillis() - started) / MILLIS_PER_SECOND)
+                }
+                mirrorStartedMillis = null
                 consent.revoke()
                 target?.indicator?.hide()
                 platform.stopCaptureService()
@@ -261,5 +270,6 @@ class MirrorFeature(
 
     private companion object {
         const val SESSION_ID_BYTES = 16
+        const val MILLIS_PER_SECOND = 1000L
     }
 }

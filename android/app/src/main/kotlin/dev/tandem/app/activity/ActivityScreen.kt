@@ -53,6 +53,14 @@ fun ActivityScreen(
                 labels = chart.labels,
                 modifier = Modifier.padding(TandemSpacing.screenPadding),
             )
+            if (entries.isEmpty()) {
+                Text(
+                    text = "Nothing synced yet.",
+                    style = TandemType.body,
+                    color = TandemColors.ink2,
+                    modifier = Modifier.padding(horizontal = TandemSpacing.screenPadding),
+                )
+            }
             LazyColumn {
                 items(entries.sortedByDescending { it.timestamp }) { entry ->
                     ActivityRow(entry = entry, zone = zone)

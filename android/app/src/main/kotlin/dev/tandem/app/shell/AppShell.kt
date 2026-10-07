@@ -24,6 +24,7 @@ import dev.tandem.app.activity.ActivityEntry
 import dev.tandem.app.activity.ActivityScreen
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.di.AppClock
+import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
@@ -34,9 +35,11 @@ import dev.tandem.app.settings.RotationSettingsScreen
 import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.settings.SettingsScreen
 import dev.tandem.app.settings.SettingsState
+import dev.tandem.app.settings.SyncFeature
 import dev.tandem.app.settings.keyShortCode
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.designsystem.components.FloatingToolbarItem
+import dev.tandem.core.designsystem.components.TandemLoadingIndicator
 import dev.tandem.core.designsystem.components.TandemScaffold
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.storage.trust.PeerRecord
@@ -44,9 +47,11 @@ import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDate
 import java.util.Base64
@@ -71,25 +76,13 @@ class AppShellDependencies(
     val activityEntries: Flow<List<ActivityEntry>> = flowOf(emptyList()),
     val notificationRows: () -> List<PerAppFilterRow> = { emptyList() },
     val onToggleNotificationApp: suspend (packageName: String, allowed: Boolean) -> Unit = { _, _ -> },
+    val featureStates: StateFlow<Map<SyncFeature, Boolean>> = ALL_FEATURES_ON,
+    val onToggleFeature: suspend (SyncFeature, Boolean) -> Unit = { _, _ -> },
     val clock: Clock = AppClock.system,
 )
 
-private const val NOT_CONNECTED_MESSAGE = "Not connected to your Mac."
+private val ALL_FEATURES_ON = MutableStateFlow(SyncFeature.entries.associateWith { true })
 private val SNACKBAR_BOTTOM_PADDING = 96.dp
-
-private fun whenConnected(
-    dependencies: AppShellDependencies,
-    scope: CoroutineScope,
-    snackbarHostState: SnackbarHostState,
-    action: () -> Unit,
-): () -> Unit =
-    {
-        if (dependencies.isConnected()) {
-            action()
-        } else {
-            scope.launch { snackbarHostState.showSnackbar(NOT_CONNECTED_MESSAGE) }
-        }
-    }
 
 /**
  * The app shell (E20-25, F-4.1): onboarding (ending in the pairing scan) until a peer is paired,
@@ -116,8 +109,6 @@ fun AppShell(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val sendClipboard = whenConnected(dependencies, scope, snackbarHostState, dependencies.onSendClipboard)
-    val sendFiles = whenConnected(dependencies, scope, snackbarHostState, dependencies.onSendFiles)
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (route) {
@@ -126,19 +117,15 @@ fun AppShell(
             }
 
             ShellRoute.Home -> {
-                HomeScreen(
-                    statusLine = statusLine,
-                    ringState = ringState,
-                    selectedToolbarItem = FloatingToolbarItem.Home,
-                    onToolbarItemSelected = navigator::select,
-                    onSendClipboard = sendClipboard,
-                    onSendFiles = sendFiles,
-                    modifier = insetsModifier,
-                )
+                HomeTab(navigator, dependencies, statusLine, ringState, snackbarHostState, insetsModifier)
             }
 
             ShellRoute.Settings -> {
-                if (peer != null) SettingsTab(peer, navigator, dependencies, insetsModifier)
+                if (peer != null) {
+                    SettingsTab(peer, navigator, dependencies, insetsModifier)
+                } else {
+                    LoadingScreen(insetsModifier)
+                }
             }
 
             ShellRoute.Notifications -> {
@@ -150,7 +137,7 @@ fun AppShell(
             }
 
             null -> {
-                Unit
+                LoadingScreen(insetsModifier)
             }
         }
         SnackbarHost(
@@ -163,6 +150,11 @@ fun AppShell(
                     .padding(bottom = SNACKBAR_BOTTOM_PADDING),
         )
     }
+}
+
+@Composable
+private fun LoadingScreen(modifier: Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TandemLoadingIndicator() }
 }
 
 @Composable
@@ -215,24 +207,32 @@ private fun NotificationsTab(
     dependencies: AppShellDependencies,
     modifier: Modifier,
 ) {
-    var rows by remember { mutableStateOf(dependencies.notificationRows()) }
+    var rows by remember { mutableStateOf<List<PerAppFilterRow>?>(null) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { rows = withContext(AppDispatchers.io) { dependencies.notificationRows() } }
+    val loaded = rows.orEmpty()
     TandemScaffold(
         title = "Notifications.",
-        state = "${rows.count { it.allowed }} of ${rows.size} apps.",
+        state = if (rows == null) "Loading apps." else "${loaded.count { it.allowed }} of ${loaded.size} apps.",
         modifier = modifier,
         toolbarItems = FloatingToolbarItem.entries,
         selectedToolbarItem = FloatingToolbarItem.Notifications,
         onToolbarItemSelected = navigator::select,
     ) { padding ->
-        PerAppNotificationFilterScreen(
-            rows = rows,
-            onToggle = { packageName, allowed ->
-                rows = rows.map { if (it.packageName == packageName) it.copy(allowed = allowed) else it }
-                scope.launch { dependencies.onToggleNotificationApp(packageName, allowed) }
-            },
-            modifier = Modifier.padding(padding),
-        )
+        if (rows == null) {
+            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                TandemLoadingIndicator()
+            }
+        } else {
+            PerAppNotificationFilterScreen(
+                rows = loaded,
+                onToggle = { packageName, allowed ->
+                    rows = loaded.map { if (it.packageName == packageName) it.copy(allowed = allowed) else it }
+                    scope.launch { dependencies.onToggleNotificationApp(packageName, allowed) }
+                },
+                modifier = Modifier.padding(padding),
+            )
+        }
     }
 }
 
