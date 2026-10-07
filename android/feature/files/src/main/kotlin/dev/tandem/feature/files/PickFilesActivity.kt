@@ -11,7 +11,7 @@ import dev.tandem.core.ui.TandemActivity
  * empty list and sends nothing. [registry] and [starter] are seams (see [ShareFilesActivity]).
  */
 class PickFilesActivity : TandemActivity() {
-    var starter: TransferStarter = TransferStarter { }
+    var starter: TransferStarter? = null
     internal var registry: ActivityResultRegistry? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,9 +21,12 @@ class PickFilesActivity : TandemActivity() {
                 ActivityResultContracts.OpenMultipleDocuments(),
                 registry ?: activityResultRegistry,
             ) { uris ->
-                SendEntry(packageName, contentResolver, starter).offer(uris)
+                entry().offer(uris)
                 finish()
             }
         picker.launch(arrayOf("*/*"))
     }
+
+    private fun entry() =
+        SendEntry(packageName, contentResolver, starter ?: SendFeedbackToasts.liveStarter(applicationContext))
 }

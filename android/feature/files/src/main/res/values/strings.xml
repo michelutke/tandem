@@ -15,4 +15,9 @@
     <string name="files_received_channel_name">Received files</string>
     <string name="files_received_title">%1$s</string>
     <string name="files_received_text">Received. Tap to open.</string>
+    <string name="files_send_started">Sending to Mac…</string>
+    <string name="files_send_sent">Sent to Mac.</string>
+    <string name="files_send_rejected">Mac declined the file.</string>
+    <string name="files_send_failed">Couldn\'t send the file.</string>
+    <string name="files_send_not_connected">Not connected to your Mac.</string>
 </resources>

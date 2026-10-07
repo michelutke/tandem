@@ -11,15 +11,15 @@ import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.TandemBottomSheet
 
 /**
- * Placeholder for "Send to Mac" (ui-spec.md §7.2 #280 #261), opened by the Home cookie FAB
- * (E20-17). The real share/send flow is a separate, not-yet-built issue; this is only the
- * minimal sheet shell the FAB needs to open something.
+ * "Send to Mac" sheet (ui-spec.md §7.2 #280 #261), opened by the Home cookie FAB (E20-17):
+ * clipboard and file picker entry points.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SendSheet(
     onDismissRequest: () -> Unit,
     onSendClipboard: () -> Unit = {},
+    onSendFiles: () -> Unit = {},
 ) {
     TandemBottomSheet(onDismissRequest = onDismissRequest) {
         Text(
@@ -29,6 +29,9 @@ fun SendSheet(
         )
         TextButton(onClick = onSendClipboard) {
             Text(text = "Send clipboard to Mac", style = TandemType.rowTitle)
+        }
+        TextButton(onClick = onSendFiles) {
+            Text(text = "Send files to Mac", style = TandemType.rowTitle)
         }
     }
 }

@@ -37,4 +37,8 @@
     <string name="mirror_blocked_text">The Mac\'s key changed. Nothing was shared.</string>
     <string name="mirror_unreachable_title">Mirroring stopped.</string>
     <string name="mirror_unreachable_text">Couldn\'t connect to your Mac. Nothing was shared.</string>
+    <string name="clipboard_sent">Sent to Mac.</string>
+    <string name="clipboard_empty">Nothing on the clipboard to send.</string>
+    <string name="clipboard_too_large">Text too large to send (max 1 MiB).</string>
+    <string name="clipboard_received">Received from Mac.</string>
 </resources>

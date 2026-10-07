@@ -42,6 +42,7 @@ import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.storage.trust.PeerRecord
 import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -63,6 +64,7 @@ class AppShellDependencies(
     val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
     val onSendClipboard: () -> Unit,
+    val onSendFiles: () -> Unit = {},
     val rotation: RotationSettingsViewModel? = null,
     val onOpenPermissionSettings: () -> Unit = {},
     val isConnected: () -> Boolean = { true },
@@ -74,6 +76,20 @@ class AppShellDependencies(
 
 private const val NOT_CONNECTED_MESSAGE = "Not connected to your Mac."
 private val SNACKBAR_BOTTOM_PADDING = 96.dp
+
+private fun whenConnected(
+    dependencies: AppShellDependencies,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    action: () -> Unit,
+): () -> Unit =
+    {
+        if (dependencies.isConnected()) {
+            action()
+        } else {
+            scope.launch { snackbarHostState.showSnackbar(NOT_CONNECTED_MESSAGE) }
+        }
+    }
 
 /**
  * The app shell (E20-25, F-4.1): onboarding (ending in the pairing scan) until a peer is paired,
@@ -100,13 +116,8 @@ fun AppShell(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val sendClipboard: () -> Unit = {
-        if (dependencies.isConnected()) {
-            dependencies.onSendClipboard()
-        } else {
-            scope.launch { snackbarHostState.showSnackbar(NOT_CONNECTED_MESSAGE) }
-        }
-    }
+    val sendClipboard = whenConnected(dependencies, scope, snackbarHostState, dependencies.onSendClipboard)
+    val sendFiles = whenConnected(dependencies, scope, snackbarHostState, dependencies.onSendFiles)
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (route) {
@@ -121,6 +132,7 @@ fun AppShell(
                     selectedToolbarItem = FloatingToolbarItem.Home,
                     onToolbarItemSelected = navigator::select,
                     onSendClipboard = sendClipboard,
+                    onSendFiles = sendFiles,
                     modifier = insetsModifier,
                 )
             }

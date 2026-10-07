@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.collect
 class ClipboardWriter(
     private val clipboardManager: ClipboardManager,
     private val loopGuard: ClipboardLoopGuard? = null,
+    private val onWritten: () -> Unit = {},
 ) {
     suspend fun start(session: TandemSession) {
         session.receive(Channel.CHANNEL_CLIPBOARD).collect { envelope ->
@@ -45,6 +46,7 @@ class ClipboardWriter(
                 }
         }
         clipboardManager.setPrimaryClip(clip)
+        onWritten()
     }
 
     private companion object {

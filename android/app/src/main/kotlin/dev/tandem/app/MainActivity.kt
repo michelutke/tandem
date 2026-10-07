@@ -6,10 +6,12 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
@@ -41,6 +43,7 @@ import dev.tandem.feature.clipboard.AndroidClipboardReader
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
 import dev.tandem.feature.clipboard.LiveClipboardSession
+import dev.tandem.feature.files.PickFilesActivity
 import dev.tandem.feature.notifications.FilterOverride
 import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -136,6 +139,7 @@ class MainActivity : TandemActivity() {
                 )
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
+            onSendFiles = ::onSendFilesTapped,
             isConnected = { sessionProvider(this) != null },
             activityEntries = app.activityStore.entries,
             notificationRows = {
@@ -180,17 +184,39 @@ class MainActivity : TandemActivity() {
     }
 
     internal fun onSendClipboardButtonTapped() {
-        val clip = clipboardReaderProvider(this).currentClip() ?: return
-        sendClip(clip.text, sensitive = clip.sensitive)
+        val clip = clipboardReaderProvider(this).currentClip()
+        if (clip == null) {
+            showToast(R.string.clipboard_empty)
+            return
+        }
+        sendClip(clip.text, sensitive = clip.sensitive, confirm = true)
+    }
+
+    internal fun onSendFilesTapped() {
+        startActivity(Intent(this, PickFilesActivity::class.java))
     }
 
     private fun sendClip(
         text: String,
         sensitive: Boolean,
+        confirm: Boolean = false,
     ) {
         val session = sessionProvider(this) ?: return
         CoroutineScope(SupervisorJob() + dispatcher).launch {
-            ClipboardSender.send(text, session, sensitive = sensitive)
+            val sent =
+                ClipboardSender.send(
+                    text,
+                    session,
+                    sensitive = sensitive,
+                    onTooLarge = { if (confirm) showToast(R.string.clipboard_too_large) },
+                )
+            if (sent && confirm) showToast(R.string.clipboard_sent)
         }
+    }
+
+    private fun showToast(
+        @StringRes message: Int,
+    ) {
+        runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
     }
 }
