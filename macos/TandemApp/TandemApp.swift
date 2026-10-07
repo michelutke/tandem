@@ -3,6 +3,7 @@ import FeatureMirror
 import SwiftUI
 import TandemCrypto
 import TandemDevices
+import TandemStore
 import TandemTransport
 
 /// Maps a failure reason to a user-visible, secret-free error string (E12-10, invariant 5).
@@ -196,6 +197,7 @@ struct MenuContentView: View {
     @State private var errorBannerViewModel: ErrorBannerViewModel
 
     private let pairingPresenter: MacPairingPresenter?
+    private let pairedPeer: PairedPeerState?
 
     private static var retainedPairingPresenter: MacPairingPresenter?
 
@@ -212,7 +214,8 @@ struct MenuContentView: View {
         transferProgress = lifecycle?.sessionFeatures.transferProgress
         activeCall = lifecycle?.sessionFeatures.activeCall
         activeNowPlaying = lifecycle?.sessionFeatures.activeNowPlaying
-        let peerName = lifecycle?.pairedPeerName
+        pairedPeer = lifecycle?.pairedPeer
+        let peerName = lifecycle?.pairedPeer.displayName
         _menuBarViewModel = State(initialValue: MenuBarViewModel(
             stateStream: lifecycle?.makeMenuBarStateStream?(),
             peerName: peerName
@@ -243,6 +246,11 @@ struct MenuContentView: View {
         )
         quickActionsViewModel.observeConnection(lifecycle?.makeMenuBarStateStream?())
         _quickActionsViewModel = State(initialValue: quickActionsViewModel)
+    }
+
+    private func syncPairedPeer() {
+        pairedPeer?.refresh()
+        menuBarViewModel.updatePeerName(pairedPeer?.displayName)
     }
 
     private static var retainedFinderServicesProvider: FinderServicesProvider?
@@ -302,6 +310,8 @@ struct MenuContentView: View {
                 SettingsMenuButton()
             }
             .acceptsFileDrops(sendEntryHandler)
+            .onAppear { syncPairedPeer() }
+            .onChange(of: pairedPeer?.displayName) { syncPairedPeer() }
         }
     }
 }

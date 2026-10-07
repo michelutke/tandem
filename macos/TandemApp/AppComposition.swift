@@ -40,14 +40,12 @@ enum AppComposition {
         /// own kdoc, E50-09/E51-04); retained here so every unpair -- incoming `Revoke` or an
         /// owner-initiated Devices-screen unpair -- runs against the same registry.
         let purgeRegistry: PeerDataPurgeRegistry
-        /// The currently-paired peer's real ``ConnectionStateMachine/ConnectionState`` stream
-        /// (E22-11), forwarded across reconnects by a ``ConnectionStateRelay`` -- `nil` if no peer
-        /// is paired at all (``MenuBarViewModel``/``ErrorBannerViewModel`` then show `.notPaired`/no
-        /// banner, exactly like their own `stateStream: nil` default already did).
+        /// The paired peer's real ``ConnectionStateMachine/ConnectionState`` stream (E22-11),
+        /// forwarded across reconnects (and across a first pairing made after launch) by a
+        /// ``ConnectionStateRelay``.
         let makeMenuBarStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
-        /// The same peer's display name (``TandemStore/PeerRecord/displayName``), or `nil` alongside
-        /// ``makeMenuBarStateStream`` when none is paired.
-        let pairedPeerName: String?
+        /// The paired peer's display name, republished on pairing commit and unpair.
+        let pairedPeer: PairedPeerState
         /// Feature services attached to every registered session (E22-12).
         let sessionFeatures: SessionFeatures
         /// The user-opened pairing window the listener is wired against (E22-14).
@@ -85,7 +83,7 @@ enum AppComposition {
             mirrorService: mirror.service,
             rotationService: core.rotation
         )
-        let menuBarWiring = makeMenuBarWiring(trustStore: core.trustStore, sessionRegistry: core.sessionRegistry)
+        let menuBarWiring = makeMenuBarWiring(sessionRegistry: core.sessionRegistry)
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
             sessionRegistry: core.sessionRegistry,
@@ -116,7 +114,7 @@ enum AppComposition {
                 trustStore: core.trustStore,
                 purgeRegistry: core.purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
-                pairedPeerName: menuBarWiring.peerName,
+                pairedPeer: core.pairedPeer,
                 sessionFeatures: sessionFeatures,
                 pairing: core.pairing,
                 mirror: mirror,
@@ -130,6 +128,7 @@ enum AppComposition {
         let sessionRegistry: ControlSessionRegistry
         let purgeRegistry: PeerDataPurgeRegistry
         let pairing: MacPairingComposition
+        let pairedPeer: PairedPeerState
         let rotation: MacKeyRotation
         let listenerControl: ListenerControlBox
     }
@@ -137,10 +136,12 @@ enum AppComposition {
     private static func makeCore(keychainStore: any KeychainStore, identityBootstrapper: IdentityBootstrapper) -> Core {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
+        let pairedPeer = MainActor.assumeIsolated { PairedPeerState(trustStore: trustStore) }
         let pairing = MacPairingComposition(
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
-            sessionRegistry: sessionRegistry
+            sessionRegistry: sessionRegistry,
+            onPeerPaired: { Task { @MainActor in pairedPeer.refresh() } }
         )
         let listenerControl = ListenerControlBox()
         let rotation = MacRotationComposition.make(
@@ -156,6 +157,7 @@ enum AppComposition {
             sessionRegistry: sessionRegistry,
             purgeRegistry: PeerDataPurgeRegistry(),
             pairing: pairing,
+            pairedPeer: pairedPeer,
             rotation: rotation,
             listenerControl: listenerControl
         )
@@ -199,37 +201,25 @@ enum AppComposition {
     }
 
     /// Every ``RetainedLifecycle`` field E22-11 adds, split out purely to keep ``startListener()``
-    /// under this repo's `function_body_length` lint budget. No pairing UI exists yet (E14) to pair
-    /// more than one peer in practice, so the first (only, in practice) paired record is "the
-    /// currently paired peer" the menu bar and error banner observe -- a ``ConnectionStateRelay``
-    /// keeps forwarding that one peer's real ``ConnectionStateMachine/ConnectionState`` across
-    /// reconnects, since `onSessionRegistered` fires again each time a new `TandemSession` reaches
-    /// Ready for the same fingerprint.
+    /// under this repo's `function_body_length` lint budget. A ``ConnectionStateRelay`` forwards
+    /// the real ``ConnectionStateMachine/ConnectionState`` of whichever trusted session registers
+    /// last (one peer in practice, including a peer first paired after launch), since
+    /// `onSessionRegistered` fires again each time a new `TandemSession` reaches Ready.
     private struct MenuBarWiring {
-        let makeStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
-        let peerName: String?
-        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler?
+        let makeStream: @Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>
+        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler
     }
 
-    private static func makeMenuBarWiring(
-        trustStore: TrustStore,
-        sessionRegistry: ControlSessionRegistry
-    ) -> MenuBarWiring {
-        guard let pairedPeer = (try? trustStore.list())?.first else {
-            return MenuBarWiring(makeStream: nil, peerName: nil, onSessionRegistered: nil)
-        }
+    private static func makeMenuBarWiring(sessionRegistry: ControlSessionRegistry) -> MenuBarWiring {
         let relay = ConnectionStateRelay()
-        let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler = { fingerprint, session in
-            guard fingerprint == pairedPeer.fingerprint else { return }
-            Task {
-                guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
-                await relay.attach(session)
-            }
-        }
         return MenuBarWiring(
             makeStream: { relay.makeStream() },
-            peerName: pairedPeer.displayName,
-            onSessionRegistered: onSessionRegistered
+            onSessionRegistered: { fingerprint, session in
+                Task {
+                    guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
+                    await relay.attach(session)
+                }
+            }
         )
     }
 
