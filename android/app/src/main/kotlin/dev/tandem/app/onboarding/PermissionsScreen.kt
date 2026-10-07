@@ -7,15 +7,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
@@ -44,15 +37,8 @@ fun PermissionsScreen(
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var refreshCount by remember { mutableIntStateOf(0) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer =
-            LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) refreshCount++ }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    val granted = refreshCount.let { viewModel.rows().associateWith(viewModel::isGranted) }
+    val resumeCount by rememberResumeCount()
+    val granted = resumeCount.let { viewModel.rows().associateWith(viewModel::isGranted) }
 
     TandemScaffold(title = PERMISSIONS_TITLE, state = PERMISSIONS_STATE, modifier = modifier) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {

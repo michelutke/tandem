@@ -1,10 +1,12 @@
 package dev.tandem.app.shell
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
@@ -29,9 +31,10 @@ import java.util.Base64
 @RunWith(AndroidJUnit4::class)
 class AppShellTest {
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     private val peers = MutableStateFlow<List<PeerRecord>>(emptyList())
+    private var batteryRestricted = false
     private val unpaired = mutableListOf<SpkiFingerprint>()
 
     private fun setShell() {
@@ -42,7 +45,7 @@ class AppShellTest {
                 ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
                 onboarding =
                     OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
-                isBatteryRestricted = { false },
+                isBatteryRestricted = { batteryRestricted },
                 addressStore = PairingAddressStore(File.createTempFile("addr", null)),
                 pairingStarter = PairingStarter {},
                 unpair = { fingerprint ->
@@ -76,6 +79,21 @@ class AppShellTest {
 
         assertEquals(1, unpaired.size)
         composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+    }
+
+    @Test
+    fun settings_batteryUnrestrictedThenResume_updatesBatteryRow() {
+        batteryRestricted = true
+        peers.value = listOf(PEER)
+        setShell()
+        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Restricted").assertExists()
+
+        batteryRestricted = false
+        composeRule.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+        composeRule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+
+        composeRule.onNodeWithText("Unrestricted").assertExists()
     }
 
     private companion object {

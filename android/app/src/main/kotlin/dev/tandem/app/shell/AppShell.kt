@@ -14,6 +14,7 @@ import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
 import dev.tandem.app.onboarding.OnboardingViewModel
+import dev.tandem.app.onboarding.rememberResumeCount
 import dev.tandem.app.settings.RotationSettingsScreen
 import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.settings.SettingsScreen
@@ -62,6 +63,7 @@ fun AppShell(
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
     val ringState by dependencies.ringState.collectAsState()
     val pairingState by dependencies.pairing.state.collectAsState()
+    val resumeCount by rememberResumeCount()
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
 
@@ -88,7 +90,7 @@ fun AppShell(
         ShellRoute.Settings -> {
             if (peer != null) {
                 SettingsScreen(
-                    state = peer.toSettingsState(dependencies.isBatteryRestricted()),
+                    state = peer.toSettingsState(resumeCount.let { dependencies.isBatteryRestricted() }),
                     selectedToolbarItem = FloatingToolbarItem.Settings,
                     onToolbarItemSelected = navigator::select,
                     onFixBattery = {},

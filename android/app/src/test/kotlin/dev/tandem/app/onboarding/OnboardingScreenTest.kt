@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -68,5 +69,18 @@ class OnboardingScreenTest {
 
         composeRule.onNodeWithText(PERMISSIONS_CONTINUE_LABEL).assertExists()
         composeRule.onNodeWithText(PERMISSIONS_SKIP_LABEL).assertDoesNotExist()
+    }
+
+    @Test
+    fun permissionsScreen_batteryGrantedInSettingsThenResume_rowShowsOn() {
+        setOnboarding()
+        composeRule.onNodeWithText(WELCOME_GET_STARTED_LABEL).performClick()
+        composeRule.onNodeWithText(PERMISSION_ON_LABEL).assertDoesNotExist()
+
+        checker.granted += OnboardingPermission.BATTERY
+        composeRule.activityRule.scenario.moveToState(Lifecycle.State.STARTED)
+        composeRule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+
+        composeRule.onNodeWithText(PERMISSION_ON_LABEL).assertExists()
     }
 }
