@@ -3,9 +3,7 @@ package dev.tandem.app
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
-import dev.tandem.app.onboarding.BatteryOnboardingViewModel
-import dev.tandem.app.onboarding.FakeBatteryOptimizationSource
-import dev.tandem.app.onboarding.FakeDeviceManufacturerSource
+import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
 import dev.tandem.app.shell.AppShellDependencies
@@ -103,6 +101,13 @@ class MainActivityTest {
         assertEquals(true, sent.sensitive)
     }
 
+    @Test
+    fun theme_mainActivity_hasNoActionBar() {
+        val activity = buildAndCreate(FakeTandemSession(), RecordingClipboardReader(null))
+
+        assertEquals(null, activity.actionBar)
+    }
+
     private fun buildAndCreate(
         session: FakeTandemSession,
         reader: ClipboardReader,
@@ -123,13 +128,7 @@ class MainActivityTest {
             statusLine = flowOf(""),
             ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
             onboarding =
-                OnboardingViewModel(
-                    BatteryOnboardingViewModel(
-                        FakeBatteryOptimizationSource(ignoringBatteryOptimizations = true),
-                        FakeDeviceManufacturerSource(manufacturer = "Google"),
-                    ),
-                    RecordingPermissionRequester(),
-                ),
+                OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
             isBatteryRestricted = { false },
             addressStore = PairingAddressStore(File.createTempFile("addr", null)),
             pairingStarter = NoOpPairingStarter,

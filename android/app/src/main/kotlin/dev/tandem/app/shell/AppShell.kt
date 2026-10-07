@@ -2,6 +2,7 @@
 
 package dev.tandem.app.shell
 
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +42,7 @@ class AppShellDependencies(
     val unpair: suspend (SpkiFingerprint) -> Unit,
     val onSendClipboard: () -> Unit,
     val rotation: RotationSettingsViewModel? = null,
+    val onOpenPermissionSettings: () -> Unit = {},
 )
 
 /**
@@ -54,6 +56,7 @@ fun AppShell(
     dependencies: AppShellDependencies,
     modifier: Modifier = Modifier,
 ) {
+    val insetsModifier = modifier.safeDrawingPadding()
     val route by navigator.route.collectAsState(initial = null)
     val peers by dependencies.peers.collectAsState(initial = emptyList())
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
@@ -68,7 +71,7 @@ fun AppShell(
 
     when (route) {
         ShellRoute.Onboarding -> {
-            OnboardingOrPairing(pairingState, dependencies, modifier)
+            OnboardingOrPairing(pairingState, dependencies, insetsModifier)
         }
 
         ShellRoute.Home -> {
@@ -78,7 +81,7 @@ fun AppShell(
                 selectedToolbarItem = FloatingToolbarItem.Home,
                 onToolbarItemSelected = navigator::select,
                 onSendClipboard = dependencies.onSendClipboard,
-                modifier = modifier,
+                modifier = insetsModifier,
             )
         }
 
@@ -89,6 +92,7 @@ fun AppShell(
                     selectedToolbarItem = FloatingToolbarItem.Settings,
                     onToolbarItemSelected = navigator::select,
                     onFixBattery = {},
+                    onOpenPermissionSettings = dependencies.onOpenPermissionSettings,
                     onRotateKey = {},
                     keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
                     onUnpair = {
@@ -97,7 +101,7 @@ fun AppShell(
                             navigator.resetToHome()
                         }
                     },
-                    modifier = modifier,
+                    modifier = insetsModifier,
                 )
             }
         }

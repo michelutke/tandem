@@ -1,9 +1,12 @@
 package dev.tandem.app
 
-import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -14,16 +17,16 @@ import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.StubHomeRingStateSource
-import dev.tandem.app.onboarding.BatteryOnboardingViewModel
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
-import dev.tandem.app.onboarding.SystemDeviceManufacturerSource
+import dev.tandem.app.onboarding.SystemPermissionChecker
 import dev.tandem.app.onboarding.SystemPermissionRequester
 import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
 import dev.tandem.app.shell.ShellEntryPoint
+import dev.tandem.core.designsystem.TandemTheme
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
@@ -62,16 +65,19 @@ class MainActivity : TandemActivity() {
 
     internal var shellDependenciesProvider: (MainActivity) -> AppShellDependencies = ::liveShellDependencies
 
-    private val requestPostNotifications =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    private val requestRuntimePermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val dependencies = shellDependenciesProvider(this)
         setContent {
             val navigator = remember { AppShellNavigator(dependencies.peers) }
-            Surface(modifier = Modifier.fillMaxSize()) {
-                AppShell(navigator = navigator, dependencies = dependencies)
+            TandemTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppShell(navigator = navigator, dependencies = dependencies)
+                }
             }
         }
     }
@@ -86,13 +92,8 @@ class MainActivity : TandemActivity() {
             ringState = StubHomeRingStateSource().state,
             onboarding =
                 OnboardingViewModel(
-                    BatteryOnboardingViewModel(
-                        SystemBatteryOptimizationSource(activity),
-                        SystemDeviceManufacturerSource,
-                    ),
-                    SystemPermissionRequester(activity) {
-                        requestPostNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    },
+                    SystemPermissionRequester(activity) { requestRuntimePermissions.launch(it) },
+                    SystemPermissionChecker(activity),
                 ),
             isBatteryRestricted = { !SystemBatteryOptimizationSource(activity).isIgnoringBatteryOptimizations() },
             addressStore = graph.pairingAddressStore(),
@@ -108,6 +109,7 @@ class MainActivity : TandemActivity() {
                 )
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
+            onOpenPermissionSettings = ::openAppPermissionSettings,
             rotation =
                 RotationSettingsViewModel(
                     rotator = rotationComposition.keyRotator,
@@ -115,6 +117,12 @@ class MainActivity : TandemActivity() {
                     currentFingerprint = rotationComposition.activeFingerprint,
                     scope = CoroutineScope(SupervisorJob() + dispatcher),
                 ),
+        )
+    }
+
+    private fun openAppPermissionSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
         )
     }
 

@@ -38,6 +38,7 @@ fun SettingsScreen(
     onRotateKey: () -> Unit,
     onUnpair: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenPermissionSettings: () -> Unit = {},
     keySection: (@Composable () -> Unit)? = null,
 ) {
     var showUnpairDialog by remember { mutableStateOf(false) }
@@ -55,6 +56,7 @@ fun SettingsScreen(
             state = state,
             onFixBattery = onFixBattery,
             onRotateKey = onRotateKey,
+            onOpenPermissionSettings = onOpenPermissionSettings,
             keySection = keySection,
             onUnpairClick = { showUnpairDialog = true },
         )
@@ -82,6 +84,7 @@ private fun SettingsRows(
     state: SettingsState,
     onFixBattery: () -> Unit,
     onRotateKey: () -> Unit,
+    onOpenPermissionSettings: () -> Unit,
     keySection: (@Composable () -> Unit)?,
     onUnpairClick: () -> Unit,
 ) {
@@ -108,6 +111,8 @@ private fun SettingsRows(
             isError = true,
             modifier = Modifier.clickable(onClick = onUnpairClick),
         )
+        HairlineRule()
+        SettingsRow(label = "Permissions", value = null, actionLabel = "Review", onAction = onOpenPermissionSettings)
     }
 }
 

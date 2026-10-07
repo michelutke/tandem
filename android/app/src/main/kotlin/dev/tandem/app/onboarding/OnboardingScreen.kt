@@ -10,12 +10,9 @@ import androidx.compose.ui.Modifier
 import dev.tandem.core.pairing.qr.PairingInvite
 
 /**
- * Hosts the onboarding sequence (E20-14, F-4.1, F-1.1, UC-02): renders [viewModel]'s current
- * [OnboardingStep] and advances on "Allow"/"Skip". [OnboardingStep.IDENTITY] has no screen of its
- * own -- identity bootstrap runs silently before this host is shown (E10-04) -- so it is skipped
- * over here. The caller supplies [onScanAccepted]/[onCancelScan] for the reused
- * [OnboardingScanScreen]; [viewModel]'s own [OnboardingViewModel.batteryManufacturer] /
- * [OnboardingViewModel.batteryOemGuidance] feed the reused [BatteryOnboardingScreen].
+ * Hosts the onboarding sequence (F-4.1, F-1.1, UC-02): welcome, permissions, then the reused
+ * [OnboardingScanScreen]. [OnboardingStep.IDENTITY] has no screen of its own -- identity bootstrap
+ * runs silently before this host is shown (E10-04) -- so it is skipped over here.
  */
 @Composable
 fun OnboardingScreen(
@@ -28,35 +25,12 @@ fun OnboardingScreen(
     var stepIndex by remember { mutableIntStateOf(0) }
 
     when (screenSteps.getOrElse(stepIndex) { OnboardingStep.SCAN_QR }) {
-        OnboardingStep.NOTIFICATION_LISTENER -> {
-            NotificationListenerOnboardingScreen(
-                onAllow = {
-                    viewModel.allow(OnboardingStep.NOTIFICATION_LISTENER)
-                    stepIndex++
-                },
-                onSkip = { stepIndex++ },
-                modifier = modifier.fillMaxSize(),
-            )
+        OnboardingStep.WELCOME -> {
+            WelcomeScreen(onGetStarted = { stepIndex++ }, modifier = modifier.fillMaxSize())
         }
 
-        OnboardingStep.POST_NOTIFICATIONS -> {
-            PostNotificationsOnboardingScreen(
-                onAllow = {
-                    viewModel.allow(OnboardingStep.POST_NOTIFICATIONS)
-                    stepIndex++
-                },
-                onSkip = { stepIndex++ },
-                modifier = modifier.fillMaxSize(),
-            )
-        }
-
-        OnboardingStep.BATTERY -> {
-            BatteryOnboardingScreen(
-                manufacturer = viewModel.batteryManufacturer(),
-                oemGuidance = viewModel.batteryOemGuidance(),
-                onSkip = { stepIndex++ },
-                modifier = modifier.fillMaxSize(),
-            )
+        OnboardingStep.PERMISSIONS -> {
+            PermissionsScreen(viewModel = viewModel, onDone = { stepIndex++ }, modifier = modifier.fillMaxSize())
         }
 
         OnboardingStep.SCAN_QR, OnboardingStep.IDENTITY -> {

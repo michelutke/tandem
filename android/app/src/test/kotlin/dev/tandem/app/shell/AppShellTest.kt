@@ -8,12 +8,10 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
-import dev.tandem.app.onboarding.BatteryOnboardingViewModel
-import dev.tandem.app.onboarding.FakeBatteryOptimizationSource
-import dev.tandem.app.onboarding.FakeDeviceManufacturerSource
-import dev.tandem.app.onboarding.NOTIFICATION_LISTENER_ONBOARDING_TITLE
+import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
+import dev.tandem.app.onboarding.WELCOME_STATE
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.storage.trust.PeerRecord
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,13 +41,7 @@ class AppShellTest {
                 statusLine = flowOf("Linked to MacBook Pro."),
                 ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
                 onboarding =
-                    OnboardingViewModel(
-                        BatteryOnboardingViewModel(
-                            FakeBatteryOptimizationSource(ignoringBatteryOptimizations = true),
-                            FakeDeviceManufacturerSource(manufacturer = "Google"),
-                        ),
-                        RecordingPermissionRequester(),
-                    ),
+                    OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
                 isBatteryRestricted = { false },
                 addressStore = PairingAddressStore(File.createTempFile("addr", null)),
                 pairingStarter = PairingStarter {},
@@ -66,7 +58,7 @@ class AppShellTest {
     fun mainActivity_freshInstall_showsOnboarding() {
         setShell()
 
-        composeRule.onNodeWithText(NOTIFICATION_LISTENER_ONBOARDING_TITLE).assertExists()
+        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
         composeRule.onNodeWithText("Home").assertDoesNotExist()
     }
 
@@ -83,7 +75,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         assertEquals(1, unpaired.size)
-        composeRule.onNodeWithText(NOTIFICATION_LISTENER_ONBOARDING_TITLE).assertExists()
+        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
     }
 
     private companion object {
