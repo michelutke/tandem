@@ -1,3 +1,5 @@
+import AppKit
+import FeatureFiles
 import SwiftUI
 import TandemDevices
 
@@ -5,6 +7,7 @@ import TandemDevices
 enum SettingsTab: Hashable {
     case general
     case pairedDevices
+    case files
     case key
 }
 
@@ -60,6 +63,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 tabButton("General", tab: .general, identifier: "generalTab")
                 tabButton("Paired Devices", tab: .pairedDevices, identifier: "pairedDevicesTab")
+                tabButton("Files", tab: .files, identifier: "filesTab")
                 tabButton("Key", tab: .key, identifier: "keyTab")
                 Spacer()
             }
@@ -70,6 +74,8 @@ struct SettingsView: View {
                 GeneralSettingsView(viewModel: launchAtLoginViewModel)
             case .pairedDevices:
                 PairedDevicesSettingsView(viewModel: pairedDevicesViewModel)
+            case .files:
+                FilesSettingsView()
             case .key:
                 KeySettingsView(viewModel: rotationViewModel)
             }
@@ -151,5 +157,53 @@ struct SettingsMenuButton: View {
         Button("Settings…") { openSettings() }
             .accessibilityIdentifier("settingsMenuItem")
             .accessibilityLabel("Settings…")
+    }
+}
+
+private struct FilesSettingsView: View {
+    @State private var folder = DownloadFolderStore.standard.current
+    @State private var errorText: String?
+
+    var body: some View {
+        Form {
+            LabeledContent("Save files to") {
+                Text(folder.path)
+                    .truncationMode(.middle)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("downloadFolderPathLabel")
+            }
+            HStack {
+                Button("Choose…") { chooseFolder() }
+                    .accessibilityIdentifier("chooseDownloadFolderButton")
+                Button("Reset") {
+                    DownloadFolderStore.standard.resetToDefault()
+                    folder = DownloadFolderStore.standard.current
+                }
+                .accessibilityIdentifier("resetDownloadFolderButton")
+            }
+            if let errorText {
+                Text(errorText)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("downloadFolderErrorLabel")
+            }
+        }
+        .padding()
+        .onAppear { folder = DownloadFolderStore.standard.current }
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try DownloadFolderStore.standard.choose(url)
+            errorText = nil
+        } catch {
+            errorText = "Couldn't use that folder."
+        }
+        folder = DownloadFolderStore.standard.current
     }
 }

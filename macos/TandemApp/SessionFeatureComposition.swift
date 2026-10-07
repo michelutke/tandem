@@ -316,7 +316,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             presenter: CompositeAcceptPromptPresenter([prompts, alerts]),
             clock: ContinuousClock(),
             settings: AcceptSettings(),
-            destination: directories.destination
+            destination: DownloadFolderStore.standard
         )
         let receiver = FileReceiver(
             session: session,
@@ -325,7 +325,8 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
             now: { Date() },
             notifier: notifier,
-            progress: transferProgress
+            progress: transferProgress,
+            destination: DownloadFolderStore.standard
         )
         let photoService = SessionPhotoService(session: session)
         photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer))

@@ -21,6 +21,7 @@ public actor FileReceiver {
 
     private let session: any TandemSession
     private let directories: TransferDirectories
+    private let destination: any DestinationResolving
     private let sink: any FileSink
     private let fileManager: FileManager
     private let peer: String
@@ -37,10 +38,12 @@ public actor FileReceiver {
         now: @escaping @Sendable () -> Date,
         notifier: ReceivedFileNotifier? = nil,
         progress: (any TransferProgressReporting)? = nil,
+        destination: (any DestinationResolving)? = nil,
         fileManager: FileManager = .default
     ) {
         self.session = session
         self.directories = directories
+        self.destination = destination ?? StaticDestination(directories.destination)
         self.sink = sink
         self.fileManager = fileManager
         self.peer = peer
@@ -215,17 +218,19 @@ public actor FileReceiver {
     }
 
     private func moveIntoDestination(_ transfer: Transfer) throws -> URL {
-        try fileManager.createDirectory(at: directories.destination, withIntermediateDirectories: true)
-        var attempt = 0
-        while true {
-            let target = directories.destination.appendingPathComponent(
-                Self.collisionName(transfer.filename, attempt: attempt)
-            )
-            do {
-                try fileManager.moveItem(at: transfer.partURL, to: target)
-                return target
-            } catch let error as CocoaError where error.code == .fileWriteFileExists {
-                attempt += 1
+        try destination.withAccess { folder in
+            try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+            var attempt = 0
+            while true {
+                let target = folder.appendingPathComponent(
+                    Self.collisionName(transfer.filename, attempt: attempt)
+                )
+                do {
+                    try fileManager.moveItem(at: transfer.partURL, to: target)
+                    return target
+                } catch let error as CocoaError where error.code == .fileWriteFileExists {
+                    attempt += 1
+                }
             }
         }
     }

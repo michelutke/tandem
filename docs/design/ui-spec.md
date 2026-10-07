@@ -304,6 +304,10 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | send.file.sent | Sent to Mac. (Android toast) |
 | send.file.rejected | Mac declined the file. (Android toast) |
 | send.file.failed | Couldn't send the file. (Android toast) |
+| files.saveTo | Save files to |
+| files.choose | Choose… |
+| files.reset | Reset |
+| files.folderFailed | Couldn't use that folder. |
 | send.notConnected | Not connected to your Mac. (Android) / Phone not connected. (Mac menu) |
 | send.file.folder | Folders can't be sent. (Mac menu) |
 | file.incoming | Incoming file / {name} ({size}) with Accept and Decline: notification and, on Mac, an in-app alert |
