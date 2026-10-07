@@ -5,12 +5,18 @@ public protocol FreeSpaceProvider: Sendable {
     func availableBytes(at destination: URL) -> UInt64
 }
 
-/// Production ``FreeSpaceProvider`` over `volumeAvailableCapacityForImportantUsageKey`.
+/// Production ``FreeSpaceProvider`` over `volumeAvailableCapacityForImportantUsageKey`. A destination
+/// that does not exist yet (`~/Downloads/Tandem` before the first receive) is measured through its
+/// nearest existing ancestor, which sits on the same volume.
 public struct VolumeFreeSpaceProvider: FreeSpaceProvider {
     public init() {}
 
     public func availableBytes(at destination: URL) -> UInt64 {
-        let values = try? destination.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        var url = destination
+        while !FileManager.default.fileExists(atPath: url.path), url.pathComponents.count > 1 {
+            url.deleteLastPathComponent()
+        }
+        let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return UInt64(max(0, values?.volumeAvailableCapacityForImportantUsage ?? 0))
     }
 }

@@ -22,7 +22,27 @@
 	<array>
 		<string>_tandem._tcp</string>
 	</array>
+	<key>NSFocusStatusUsageDescription</key>
+	<string>Tandem shares your Mac's Focus state with your phone so it can silence notifications too.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Tandem needs Local Network access so your phone can find this Mac.</string>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Send to phone</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>sendToPhone</string>
+			<key>NSPortName</key>
+			<string>$(PRODUCT_NAME)</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

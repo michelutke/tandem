@@ -260,6 +260,7 @@ class FileReceiver(
                 return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
         discard(id)
+        FilesLog.event("transfer complete")
         notifier.notifyReceived(transfer.name, transfer.offer.mime, contentUri)
     }
 
@@ -267,6 +268,7 @@ class FileReceiver(
         id: String,
         why: TransferReason,
     ) {
+        FilesLog.event("transfer aborted", why)
         discard(id)
         send {
             fileCancel =
@@ -281,6 +283,7 @@ class FileReceiver(
         id: String,
         why: TransferReason,
     ) {
+        FilesLog.event("reject sent", why)
         send {
             fileReject =
                 fileReject {

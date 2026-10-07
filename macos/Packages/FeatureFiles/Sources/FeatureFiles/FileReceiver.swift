@@ -181,6 +181,7 @@ public actor FileReceiver {
             let saved = try moveIntoDestination(transfer)
             transfers[complete.id] = nil
             await progress?.ended(id: complete.id)
+            FilesLog.event("transfer complete")
             await notifier?.notifyReceived(destination: saved)
         } catch {
             await abort(complete.id, .ioError)
@@ -200,6 +201,7 @@ public actor FileReceiver {
     }
 
     private func abort(_ id: String, _ reason: Tandem_V1_TransferReason) async {
+        FilesLog.event("transfer aborted", reason: reason)
         if let transfer = transfers.removeValue(forKey: id) {
             discard(transfer)
         }
@@ -236,6 +238,7 @@ public actor FileReceiver {
     }
 
     private func sendReject(_ id: String, _ reason: Tandem_V1_TransferReason) async {
+        FilesLog.event("reject sent", reason: reason)
         var message = Tandem_V1_FileReject()
         message.id = id
         message.reason = reason

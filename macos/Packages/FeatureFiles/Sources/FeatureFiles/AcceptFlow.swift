@@ -48,6 +48,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     public func handle(offer: Tandem_V1_FileOffer) async {
+        FilesLog.event("offer received")
         if let reason = rejectionReason(for: offer) {
             await sendReject(offer.id, reason)
             return
@@ -127,6 +128,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     private func sendAccept(_ id: String) async {
+        FilesLog.event("accept sent")
         active.insert(id)
         var message = Tandem_V1_FileAccept()
         message.id = id
@@ -134,6 +136,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     }
 
     private func sendReject(_ id: String, _ reason: Tandem_V1_TransferReason) async {
+        FilesLog.event("reject sent", reason: reason)
         var message = Tandem_V1_FileReject()
         message.id = id
         message.reason = reason
