@@ -38,6 +38,7 @@ import dev.tandem.app.connection.feature.RotationFeature
 import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
 import dev.tandem.app.connection.orchestratorConnectionState
+import dev.tandem.app.onboarding.hasLocalNetworkAccess
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.SessionRegistry
@@ -51,6 +52,7 @@ import dev.tandem.core.crypto.IdentityKeyProvider
 import dev.tandem.core.discovery.NsdManagerSource
 import dev.tandem.core.discovery.NsdServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
+import dev.tandem.core.discovery.PermissionGatedServiceDiscovery
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.PeerDataPurging
@@ -249,9 +251,13 @@ object ConnectionModule {
         val bonjourSource =
             PairedMacBonjourSource(
                 discovery =
-                    NsdServiceDiscovery(
-                        NsdManagerSource(context.getSystemService(NsdManager::class.java)),
-                        AppDispatchers.default,
+                    PermissionGatedServiceDiscovery(
+                        delegate =
+                            NsdServiceDiscovery(
+                                NsdManagerSource(context.getSystemService(NsdManager::class.java)),
+                                AppDispatchers.default,
+                            ),
+                        hasLocalNetworkAccess = { hasLocalNetworkAccess(context) },
                     ),
                 matcher = PairedMacMatcher(clock),
                 pairedFingerprints = pairedFingerprints::snapshot,

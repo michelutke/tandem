@@ -5,6 +5,7 @@ import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.discovery.DiscoveryEvent
 import dev.tandem.core.discovery.FakeServiceDiscovery
 import dev.tandem.core.discovery.PairedMacMatcher
+import dev.tandem.core.discovery.PermissionGatedServiceDiscovery
 import dev.tandem.core.discovery.ResolvedService
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -41,6 +42,26 @@ class PairedMacBonjourSourceTest {
                         ),
                 ),
         )
+
+    @Test
+    fun pairedMacBonjourSource_localNetworkPermissionMissing_snapshotStaysEmpty() =
+        runTest {
+            val discovery = FakeServiceDiscovery()
+            val source =
+                PairedMacBonjourSource(
+                    discovery = PermissionGatedServiceDiscovery(discovery) { false },
+                    matcher = PairedMacMatcher(Clock.fixed(now, ZoneOffset.UTC)),
+                    pairedFingerprints = { listOf(pairedFingerprint) },
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            source.start()
+            discovery.emit(DiscoveryEvent.Resolved(matchingService()))
+            runCurrent()
+
+            assertTrue(source.snapshot().isEmpty())
+            source.close()
+        }
 
     @Test
     fun pairedMacBonjourSource_resolvedMatchingService_appearsInSnapshot() =

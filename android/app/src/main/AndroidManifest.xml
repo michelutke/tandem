@@ -32,6 +32,10 @@
          connection (F-4.1) survives Doze. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- Local network access (API 37+): without it the platform answers NsdManager browsing with a
+         device-picker dialog; onboarding requests it and discovery is skipped while it is missing. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
     <!--
     E00-28 platform-hardening baseline (invariants 1, 2, 4):
       - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
@@ -55,6 +56,10 @@ class SystemPermissionRequester(
                 requestRuntimePermissions(SMS_AND_CALLS_PERMISSIONS)
             }
 
+            OnboardingPermission.LOCAL_NETWORK -> {
+                requestRuntimePermissions(arrayOf(Manifest.permission.ACCESS_LOCAL_NETWORK))
+            }
+
             OnboardingPermission.NOTIFICATION_LISTENER -> {
                 context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
@@ -83,6 +88,10 @@ class SystemPermissionChecker(
                 SMS_AND_CALLS_PERMISSIONS.all(::hasRuntime)
             }
 
+            OnboardingPermission.LOCAL_NETWORK -> {
+                hasLocalNetworkAccess(context)
+            }
+
             OnboardingPermission.NOTIFICATION_LISTENER -> {
                 context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
             }
@@ -95,3 +104,10 @@ class SystemPermissionChecker(
     private fun hasRuntime(permission: String): Boolean =
         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 }
+
+/** `ACCESS_LOCAL_NETWORK` exists from API 37; earlier releases never gate the local network. */
+fun hasLocalNetworkAccess(context: Context): Boolean =
+    Build.VERSION.SDK_INT < LOCAL_NETWORK_PERMISSION_API ||
+        context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
+
+private const val LOCAL_NETWORK_PERMISSION_API = 37

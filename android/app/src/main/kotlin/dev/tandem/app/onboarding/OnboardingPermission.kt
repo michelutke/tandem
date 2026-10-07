@@ -11,6 +11,7 @@ enum class OnboardingPermission {
     BATTERY,
     CAMERA,
     SMS_AND_CALLS,
+    LOCAL_NETWORK,
 }
 
 /** One numbered row of the permissions screen (ui-spec §7.2 Onboarding · Permissions). */
@@ -38,5 +39,10 @@ enum class PermissionRow(
         label = "SMS & calls",
         reason = "Read and send texts, and show who is calling.",
         permissions = listOf(OnboardingPermission.SMS_AND_CALLS),
+    ),
+    LOCAL_NETWORK(
+        label = "Local network",
+        reason = "Find your Mac on this network.",
+        permissions = listOf(OnboardingPermission.LOCAL_NETWORK),
     ),
 }

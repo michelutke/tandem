@@ -32,6 +32,7 @@ class OnboardingViewModelTest {
                 PermissionRow.BATTERY,
                 PermissionRow.CAMERA,
                 PermissionRow.SMS_AND_CALLS,
+                PermissionRow.LOCAL_NETWORK,
             ),
             viewModel.rows(),
         )
