@@ -11,15 +11,20 @@ extension ScenarioView {
     /// the message view renders without a phone.
     @MainActor
     static func makeConversationSeededView() -> some View {
+        ScenarioConversationHost()
+    }
+
+    @MainActor
+    fileprivate static func seededConversation() -> SeededConversation {
         let session = FakeTandemSession()
         let syncSource = SeededConversationSyncSource()
         let seeded = makeSeededConversationViewModel(session: session, syncSource: syncSource)
-        return SeededConversationHost(seed: seeded.seed) {
-            ConversationView(
-                viewModel: seeded.viewModel,
-                headerAccessory: ConversationCallHost.headerAccessory(session: session, syncSource: syncSource)
-            )
-        }
+        return SeededConversation(
+            session: session,
+            syncSource: syncSource,
+            viewModel: seeded.viewModel,
+            seed: seeded.seed
+        )
     }
 
     @MainActor
@@ -58,6 +63,31 @@ extension ScenarioView {
             now: { Date() }
         )
         return (viewModel, seed)
+    }
+}
+
+private struct SeededConversation {
+    let session: FakeTandemSession
+    let syncSource: any ConversationSyncSource
+    let viewModel: ConversationViewModel
+    let seed: @Sendable () async -> Void
+}
+
+/// Holds the seeded conversation in `@State`: the scenario root re-evaluates its body, and a view
+/// model built inline would restart loading every time.
+private struct ScenarioConversationHost: View {
+    @State private var conversation = ScenarioView.seededConversation()
+
+    var body: some View {
+        SeededConversationHost(seed: conversation.seed) {
+            ConversationView(
+                viewModel: conversation.viewModel,
+                headerAccessory: ConversationCallHost.headerAccessory(
+                    session: conversation.session,
+                    syncSource: conversation.syncSource
+                )
+            )
+        }
     }
 }
 

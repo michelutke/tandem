@@ -10,7 +10,12 @@ extension ScenarioView {
     /// an unread badge, and an alphanumeric sender id, so the list renders without a phone.
     @MainActor
     static func makeThreadListSeededView() -> some View {
-        ThreadListView(viewModel: makeSeededThreadListViewModel())
+        ScenarioThreadListHost()
+    }
+
+    @MainActor
+    fileprivate static func seededThreadListViewModel() -> ThreadListViewModel {
+        makeSeededThreadListViewModel()
     }
 
     @MainActor
@@ -48,6 +53,16 @@ extension ScenarioView {
             syncStatus: SeededCompleteSyncStatus(seedStores: seedStores),
             defaultRegion: "CH"
         )
+    }
+}
+
+/// Holds the list's view model in `@State`: the scenario root re-evaluates its body, and a view
+/// model built inline would restart loading every time.
+private struct ScenarioThreadListHost: View {
+    @State private var viewModel = ScenarioView.seededThreadListViewModel()
+
+    var body: some View {
+        ThreadListView(viewModel: viewModel)
     }
 }
 

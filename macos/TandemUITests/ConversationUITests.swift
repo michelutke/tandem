@@ -13,9 +13,19 @@ final class ConversationUITests: XCTestCase {
 
         let list = window.descendants(matching: .any)["messageList"]
         XCTAssertTrue(list.waitForExistence(timeout: 10), "messageList never appeared")
-        XCTAssertTrue(window.staticTexts["See you at 6"].waitForExistence(timeout: 10), "inbound bubble missing")
+        let inbound = window.staticTexts["See you at 6"]
+        if !inbound.waitForExistence(timeout: 10) { attachHierarchy(app, "conversation-hierarchy") }
+        XCTAssertTrue(inbound.exists, "inbound bubble missing")
         XCTAssertTrue(window.staticTexts["On my way"].waitForExistence(timeout: 10), "outbound bubble missing")
         let callButton = window.descendants(matching: .any)["callButton"]
         XCTAssertTrue(callButton.waitForExistence(timeout: 10), "header Call button missing")
+    }
+
+    private func attachHierarchy(_ app: XCUIApplication, _ name: String) {
+        print(app.debugDescription)
+        let attachment = XCTAttachment(string: app.debugDescription)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }
