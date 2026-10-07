@@ -117,6 +117,7 @@ is on: state changes become instant, pulses stop.
 | `PillButton` | Primary (ink / alert fill) and secondary (ink 5 %) |
 | `DotProgress`, `DotRing`, `DotQR` | Dot visuals; DotQR renders modules as dots with rounded finder patterns and a ≥ 4-module quiet zone |
 | `GlassSheet` | Modal confirmation on a 20 % scrim |
+| `ToastPill` | Glass pill with a signal dot and one line; shown top right in a click-through, non-activating panel for 1.8 s (clipboard received) |
 
 ### 5.2 Android (`core/designsystem`, #414)
 
@@ -316,6 +317,7 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | files.folderFailed | Couldn't use that folder. |
 | send.notConnected | Not connected to your Mac. (Android) / Phone not connected. (Mac menu) |
 | send.file.folder | Folders can't be sent. (Mac menu) |
+| clipboard.receivedToast | Copied from {device}. (Mac toast; falls back to "your phone"; never shows the clip) |
 | file.incoming | Incoming file / {name} ({size}) with Accept and Decline: notification and, on Mac, an in-app alert |
 
 ## 11. Accessibility

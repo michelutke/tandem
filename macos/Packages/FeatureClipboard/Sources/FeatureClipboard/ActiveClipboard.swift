@@ -14,6 +14,7 @@ public final class ActiveClipboard: Sendable {
 
     private let continuation: AsyncStream<Event>.Continuation
     private let sender = Mutex<ClipboardSender?>(nil)
+    private let receivedHandler = Mutex<(@Sendable () -> Void)?>(nil)
 
     public init() {
         (events, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .bufferingNewest(8))
@@ -37,7 +38,13 @@ public final class ActiveClipboard: Sendable {
         return await current.pushCurrentItem()
     }
 
+    /// Called, in addition to ``events``, every time a clip from the phone was written; the toast hook.
+    public func setReceivedHandler(_ handler: (@Sendable () -> Void)?) {
+        receivedHandler.withLock { $0 = handler }
+    }
+
     func reportReceived() {
         continuation.yield(.received)
+        receivedHandler.withLock { $0 }?()
     }
 }
