@@ -236,13 +236,8 @@ struct MenuContentView: View {
 
     @Environment(\.openWindow) private var openWindow
 
-    private static var retainedPairingPresenter: MacPairingPresenter?
-
     static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
-        if let retainedPairingPresenter { return retainedPairingPresenter }
-        let presenter = MacPairingPresenter(composition: composition)
-        retainedPairingPresenter = presenter
-        return presenter
+        SharedPairingPresenter.presenter(for: composition)
     }
 
     init() {

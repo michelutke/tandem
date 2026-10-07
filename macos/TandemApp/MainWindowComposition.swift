@@ -54,9 +54,23 @@ extension TandemMenuBarApp {
     @MainActor
     static func openPairingWindow() {
         guard let lifecycle = retainedProductionLifecycle else { return }
-        MenuContentView.pairingPresenter(for: lifecycle.pairing).openPairingWindow()
+        SharedPairingPresenter.presenter(for: lifecycle.pairing).openPairingWindow()
     }
 
     nonisolated(unsafe) private static var _mainWindowViewModel: MainWindowViewModel?
     nonisolated(unsafe) private static var _mainWindowServices: MainWindowServices?
+}
+
+/// The one pairing presenter shared by the menu bar and the main window. Lives outside
+/// TandemApp.swift because the release-scan fixture build replaces that file wholesale.
+@MainActor
+enum SharedPairingPresenter {
+    private static var retained: MacPairingPresenter?
+
+    static func presenter(for composition: MacPairingComposition) -> MacPairingPresenter {
+        if let retained { return retained }
+        let presenter = MacPairingPresenter(composition: composition)
+        retained = presenter
+        return presenter
+    }
 }
