@@ -135,4 +135,23 @@ struct ErrorBannerViewModelTests {
 
         #expect(await viewModel.message == "Pixel 8 runs an incompatible Tandem version. Update both apps.")
     }
+
+    // MARK: - errorBannerViewModel_failedThenDismissed_closeCodeSurvivesDismiss
+
+    @Test
+    func errorBannerViewModel_failedThenDismissed_closeCodeSurvivesDismiss() async throws {
+        let session = FakeTandemSession()
+        let viewModel = await ErrorBannerViewModel(stateStream: session.state, peerName: "Pixel 8")
+
+        await session.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.closeCode == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        await viewModel.dismiss()
+
+        #expect(await viewModel.closeCode == .versionMismatch)
+        #expect(await viewModel.message == nil)
+    }
 }

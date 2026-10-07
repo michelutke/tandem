@@ -189,6 +189,15 @@ struct MenuBarViewModelTests {
         #expect(await viewModel.state == .connected(peerName: "Pixel 8"))
     }
 
+    @Test
+    func menuBarViewModel_pairedPeer_exposesDisplayNameInEveryState() async {
+        let paired = await MenuBarViewModel(stateStream: nil, peerName: "Pixel 9")
+        let unpaired = await MenuBarViewModel(stateStream: nil, peerName: nil)
+
+        #expect(await paired.displayName == "Pixel 9")
+        #expect(await unpaired.displayName == nil)
+    }
+
     /// Yields several times so a view model's background observation `Task` has a chance to consume
     /// an event already sent on a fake stream, without an artificial wall-clock sleep -- mirrors
     /// `SleepWakeControllerTests`/`PathChangeControllerTests`'s own `settle()`.

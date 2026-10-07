@@ -26,6 +26,10 @@ final class ErrorBannerViewModel {
     /// fail-closed event, or after ``dismiss()``).
     private(set) var message: String?
 
+    /// The close code of the latest fail-closed event, kept after ``dismiss()`` so the menu bar can
+    /// still name the failure ("Key changed." vs "Update needed.").
+    private(set) var closeCode: CloseCode?
+
     /// Threaded through now (E00-24 seam rule), exactly like ``MenuBarViewModel``'s own `clock`:
     /// this view model starts no timer of its own, so it is never read, but its presence is what
     /// lets `errorBannerViewModel_after1hWithoutAck_bannerStillShown` prove that advancing a
@@ -78,8 +82,10 @@ final class ErrorBannerViewModel {
     }
 
     private func apply(_ connectionState: ConnectionStateMachine.ConnectionState) {
+        if case .ready = connectionState { closeCode = nil }
         guard case .failed(let closeCode) = connectionState,
               let text = Self.message(for: closeCode, peerName: peerName) else { return }
+        self.closeCode = closeCode
         message = text
     }
 

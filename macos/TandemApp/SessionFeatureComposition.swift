@@ -29,6 +29,10 @@ struct SessionFeatures: Sendable {
     let activeNowPlaying: ActiveNowPlaying
     /// Drives the menu bar's Push Clipboard action and its received-clip confirmation.
     let clipboard: ActiveClipboard
+    /// The attached session, its SMS sync client and phone status, for the main window.
+    let live: LiveSessionState
+    /// The cache stores behind Messages and Calls; nil when they could not be opened.
+    let messaging: MessagingStores?
     private let sendRequestWake: SendRequestWakeObserver?
 
     static func make(
@@ -37,21 +41,23 @@ struct SessionFeatures: Sendable {
         rotationService: any SessionService
     ) -> SessionFeatures {
         let fileTransfer = ActiveFileTransferService()
-        let transferProgress = TransferProgressCenter(clock: ContinuousClock())
+        let transferProgress = TransferProgressCenter(clock: ContinuousClock(), now: { Date() })
         let photos = ActivePhotoService()
         let activeCall = ActiveCallAlert()
         let activeNowPlaying = ActiveNowPlaying()
         let clipboard = ActiveClipboard()
-        var services: [any SessionService] = []
+        let live = LiveSessionState()
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
         let notifications = NotificationsSessionService(iconCache: iconCache)
         Task { await purgeRegistry.register(notifications.coordinator) }
-        services.append(notifications)
-        services.append(contentsOf: makeMessagingServices(
+        var services: [any SessionService] = [LiveSessionService(state: live), notifications]
+        let messaging = makeMessaging(
             purgeRegistry: purgeRegistry,
             routing: notifications.routing,
-            activeCall: activeCall
-        ))
+            activeCall: activeCall,
+            live: live
+        )
+        services.append(contentsOf: messaging?.services ?? [])
         let filesService = makeFilesService(
             fileTransfer: fileTransfer,
             transferProgress: transferProgress,
@@ -80,6 +86,8 @@ struct SessionFeatures: Sendable {
             activeCall: activeCall,
             activeNowPlaying: activeNowPlaying,
             clipboard: clipboard,
+            live: live,
+            messaging: messaging?.stores,
             sendRequestWake: wake
         )
     }
@@ -109,21 +117,25 @@ struct SessionFeatures: Sendable {
         return cache
     }
 
-    private static func makeMessagingServices(
+    private static func makeMessaging(
         purgeRegistry: PeerDataPurgeRegistry,
         routing: NotificationRouting,
-        activeCall: ActiveCallAlert
-    ) -> [any SessionService] {
+        activeCall: ActiveCallAlert,
+        live: LiveSessionState
+    ) -> (stores: MessagingStores, services: [any SessionService])? {
         guard let smsStore = try? GrdbSmsStore.openDefault(),
-              let contactsStore = try? GrdbContactsStore.openDefault() else { return [] }
+              let contactsStore = try? GrdbContactsStore.openDefault() else { return nil }
         Task {
             await purgeRegistry.register(smsStore)
             await purgeRegistry.register(contactsStore)
         }
-        return [
-            MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore),
-            CallsSessionService(contacts: contactsStore, routing: routing, activeCall: activeCall)
-        ]
+        return (
+            MessagingStores(smsStore: smsStore, contactsStore: contactsStore),
+            [
+                MessagingSessionService(smsStore: smsStore, contactsStore: contactsStore, live: live),
+                CallsSessionService(contacts: contactsStore, routing: routing, activeCall: activeCall)
+            ]
+        )
     }
 
     private static func makeFilesService(
@@ -237,15 +249,19 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
 final class MessagingSessionService: SessionService, @unchecked Sendable {
     private let smsStore: any SmsStore
     private let contactsStore: any ContactsStore
+    private let live: LiveSessionState
 
-    init(smsStore: any SmsStore, contactsStore: any ContactsStore) {
+    init(smsStore: any SmsStore, contactsStore: any ContactsStore, live: LiveSessionState) {
         self.smsStore = smsStore
         self.contactsStore = contactsStore
+        self.live = live
     }
 
     func attach(peer: SpkiFingerprint, session: any TandemSession) async {
         let sms = SmsSyncClient(peer: peer, store: smsStore, session: session)
         let contacts = ContactsSyncClient(peer: peer, session: session, store: contactsStore)
+        let live = live
+        await MainActor.run { live.setSmsSync(sms) }
         _ = startSmsSyncReader(session: session, client: sms)
         _ = startContactsSyncReader(session: session, client: contacts)
         Task {

@@ -21,6 +21,9 @@ final class DeviceStatusViewModel {
     /// (``MenuBarViewModel/batteryPlaceholder``) until then.
     private(set) var batteryText: String?
 
+    /// 0-100; `nil` until the first `DeviceStatus` arrives.
+    private(set) var batteryPercent: Int?
+
     /// One of "Wi-Fi", "Cellular", or "No network" -- `nil` until the first `DeviceStatus` arrives.
     private(set) var networkText: String?
 
@@ -64,6 +67,7 @@ final class DeviceStatusViewModel {
 
     private func apply(_ status: Tandem_V1_DeviceStatus) {
         batteryText = Self.formatBattery(status)
+        batteryPercent = Int(status.batteryLevel)
         networkText = Self.formatNetwork(status.networkType)
         if status.networkType == .cellular {
             let bars = Int(status.signalLevel)

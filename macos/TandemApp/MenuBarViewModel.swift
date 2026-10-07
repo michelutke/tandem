@@ -114,6 +114,9 @@ final class MenuBarViewModel {
         pathObservationTask?.cancel()
     }
 
+    /// The paired peer's display name, or `nil` when none is paired.
+    var displayName: String? { peerName }
+
     /// The SF Symbol name for ``state``'s menu bar icon -- distinct per state (acceptance: "Each
     /// state ... maps to a distinct icon").
     var systemImageName: String {

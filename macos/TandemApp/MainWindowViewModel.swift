@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import TandemProtocol
 
 /// Persists the sidebar's selected section across launches (backlog E22-09 acceptance: "selection
 /// persists across launches"). Shaped after ``LaunchAtLoginPreferenceStore``'s own seam: a small
@@ -25,14 +26,13 @@ final class UserDefaultsMainWindowSectionStore: MainWindowSectionStore {
     }
 }
 
-/// The main window's own presentation state (E22-09, ui-spec §7.1): the five numbered sidebar
+/// The main window's own presentation state (E22-09, ui-spec §7.1, §8): the five numbered sidebar
 /// sections, the phone's connection state (online / offline with last-seen), which sections the
 /// phone has turned the underlying feature off for, and the persisted selection.
 ///
-/// No paired-session wiring exists yet for ``connectionState``/``disabledSectionIDs`` to react to
-/// (E22-02, E23) -- the same gap ``MenuBarViewModel``'s own `stateStream: nil` documents -- so both
-/// are supplied by the caller for now; a future issue will observe the real session/status stream
-/// the same way ``MenuBarViewModel`` observes ``ConnectionStateMachine``.
+/// The device name, battery and connection state follow the paired peer and the connection-state
+/// stream (``observe(_:)``), the same stream ``MenuBarViewModel`` observes; ``disabledSectionIDs``
+/// is still supplied by the caller.
 @MainActor
 @Observable
 final class MainWindowViewModel {
@@ -56,25 +56,41 @@ final class MainWindowViewModel {
         Section(id: 5, title: "Devices")
     ]
 
-    let deviceName: String
+    static let notPairedDeviceName = "Tandem"
+
+    private(set) var deviceName: String
+    private(set) var isPaired: Bool
     private(set) var connectionState: ConnectionState
+    private(set) var batteryPercent: Int?
     private(set) var disabledSectionIDs: Set<Int>
     private(set) var selectedSectionID: Int
 
     private let sectionStore: any MainWindowSectionStore
+    private let now: @Sendable () -> Date
+
+    @ObservationIgnored
+    private nonisolated(unsafe) var observationTask: Task<Void, Never>?
 
     init(
         deviceName: String,
         connectionState: ConnectionState,
         disabledSectionIDs: Set<Int> = [],
-        sectionStore: any MainWindowSectionStore
+        isPaired: Bool = true,
+        sectionStore: any MainWindowSectionStore,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.deviceName = deviceName
         self.connectionState = connectionState
         self.disabledSectionIDs = disabledSectionIDs
+        self.isPaired = isPaired
         self.sectionStore = sectionStore
+        self.now = now
         let restored = sectionStore.selectedSectionID
         selectedSectionID = Self.sections.first(where: { $0.id == restored })?.id ?? Self.sections[0].id
+    }
+
+    deinit {
+        observationTask?.cancel()
     }
 
     var isOffline: Bool {
@@ -83,13 +99,52 @@ final class MainWindowViewModel {
     }
 
     /// The sidebar's connection-state line (acceptance: "Offline · seen HH:MM"; ui-spec §7.1's own
-    /// "Connected." otherwise).
+    /// "Connected." otherwise, with the phone's battery once known).
     var connectionStateText: String {
+        guard isPaired else { return "No phone yet." }
         switch connectionState {
         case .online:
-            return "Connected."
+            return batteryPercent.map { "Connected · \($0)%" } ?? "Connected."
         case .offline(let lastSeen):
             return "Offline · seen \(Self.formattedTime(lastSeen))"
+        }
+    }
+
+    /// Follows the paired peer: its display name and, when it has never connected this launch, its
+    /// last-seen time. `nil` marks nothing paired.
+    func updatePeer(name: String?, lastSeen: Date?) {
+        isPaired = name != nil
+        deviceName = name ?? Self.notPairedDeviceName
+        if name == nil {
+            connectionState = .offline(lastSeen: now())
+            batteryPercent = nil
+        } else if case .offline = connectionState, let lastSeen {
+            connectionState = .offline(lastSeen: lastSeen)
+        }
+    }
+
+    func updateBatteryPercent(_ percent: Int?) {
+        batteryPercent = percent
+    }
+
+    /// Maps one transport state: `.ready` is online, anything else is offline, keeping the time the
+    /// phone was last seen online.
+    func apply(_ state: ConnectionStateMachine.ConnectionState) {
+        if state == .ready {
+            connectionState = .online
+        } else if case .online = connectionState {
+            connectionState = .offline(lastSeen: now())
+        }
+    }
+
+    func observe(_ stream: AsyncStream<ConnectionStateMachine.ConnectionState>?) {
+        observationTask?.cancel()
+        guard let stream else { return }
+        observationTask = Task { [weak self] in
+            for await state in stream {
+                guard !Task.isCancelled else { return }
+                self?.apply(state)
+            }
         }
     }
 
