@@ -38,6 +38,8 @@ class AppShellTest {
 
     private val peers = MutableStateFlow<List<PeerRecord>>(emptyList())
     private var batteryRestricted = false
+    private var connected = true
+    private var sendCount = 0
     private val unpaired = mutableListOf<SpkiFingerprint>()
 
     private fun setShell() {
@@ -55,7 +57,8 @@ class AppShellTest {
                     unpaired += fingerprint
                     peers.value = emptyList()
                 },
-                onSendClipboard = {},
+                onSendClipboard = { sendCount++ },
+                isConnected = { connected },
             )
         composeRule.setContent { AppShell(navigator = AppShellNavigator(peers), dependencies = dependencies) }
     }
@@ -111,6 +114,42 @@ class AppShellTest {
         val startedIntent = shadowOf(composeRule.activity).nextStartedActivity
         assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, startedIntent?.action)
         assertEquals(Uri.parse("package:${composeRule.activity.packageName}"), startedIntent?.data)
+    }
+
+    @Test
+    fun home_notificationsAndActivityTapped_showEachScreen() {
+        peers.value = listOf(PEER)
+        setShell()
+
+        composeRule.onAllNodesWithText("Notifications").onLast().performClick()
+        composeRule.onNodeWithText("Notifications.").assertExists()
+        composeRule.onNodeWithText("Activity").performClick()
+        composeRule.onNodeWithText("Activity.").assertExists()
+    }
+
+    @Test
+    fun home_sendClipboardWhileDisconnected_showsNotConnectedSnackbar() {
+        connected = false
+        peers.value = listOf(PEER)
+        setShell()
+
+        composeRule.onNodeWithText("↑").performClick()
+        composeRule.onNodeWithText("Send clipboard to Mac").performClick()
+
+        composeRule.onNodeWithText("Not connected to your Mac.").assertExists()
+        assertEquals(0, sendCount)
+    }
+
+    @Test
+    fun home_sendClipboardWhileConnected_sendsWithoutSnackbar() {
+        peers.value = listOf(PEER)
+        setShell()
+
+        composeRule.onNodeWithText("↑").performClick()
+        composeRule.onNodeWithText("Send clipboard to Mac").performClick()
+
+        composeRule.onNodeWithText("Not connected to your Mac.").assertDoesNotExist()
+        assertEquals(1, sendCount)
     }
 
     private companion object {

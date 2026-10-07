@@ -2,9 +2,11 @@ package dev.tandem.app
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppClock
@@ -21,6 +26,9 @@ import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemPermissionChecker
 import dev.tandem.app.onboarding.SystemPermissionRequester
+import dev.tandem.app.service.ServiceStarter
+import dev.tandem.app.service.TandemService
+import dev.tandem.app.service.TrustStorePairedPeerRepository
 import dev.tandem.app.settings.RotationSettingsViewModel
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
@@ -33,6 +41,8 @@ import dev.tandem.feature.clipboard.AndroidClipboardReader
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
 import dev.tandem.feature.clipboard.LiveClipboardSession
+import dev.tandem.feature.notifications.FilterOverride
+import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -63,14 +73,22 @@ class MainActivity : TandemActivity() {
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
     internal var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
 
+    internal var serviceStarterProvider: (MainActivity) -> ServiceStarter = ::liveServiceStarter
+
     internal var shellDependenciesProvider: (MainActivity) -> AppShellDependencies = ::liveShellDependencies
 
     private val requestRuntimePermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) { serviceStarterProvider(this@MainActivity).keepStarted() }
+        }
         val dependencies = shellDependenciesProvider(this)
         setContent {
             val navigator = remember { AppShellNavigator(dependencies.peers) }
@@ -82,7 +100,16 @@ class MainActivity : TandemActivity() {
         }
     }
 
+    private fun liveServiceStarter(activity: MainActivity): ServiceStarter {
+        val app = activity.application as TandemApplication
+        return ServiceStarter(
+            pairedPeerRepository = TrustStorePairedPeerRepository(app.trustStore),
+            startForegroundService = { activity.startForegroundService(Intent(activity, TandemService::class.java)) },
+        )
+    }
+
     private fun liveShellDependencies(activity: MainActivity): AppShellDependencies {
+        val app = application as TandemApplication
         val graph = EntryPointAccessors.fromApplication(applicationContext, ShellEntryPoint::class.java)
         val pairingFlow = graph.pairingFlow()
         val rotationComposition = graph.rotationComposition()
@@ -109,6 +136,17 @@ class MainActivity : TandemActivity() {
                 )
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
+            isConnected = { sessionProvider(this) != null },
+            activityEntries = app.activityStore.entries,
+            notificationRows = {
+                app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps())
+            },
+            onToggleNotificationApp = { packageName, allowed ->
+                app.notificationFilter.setOverride(
+                    packageName,
+                    if (allowed) FilterOverride.ALLOW else FilterOverride.DENY,
+                )
+            },
             onOpenPermissionSettings = ::openAppPermissionSettings,
             rotation =
                 RotationSettingsViewModel(

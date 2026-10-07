@@ -2,15 +2,28 @@
 
 package dev.tandem.app.shell
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import dev.tandem.app.activity.ActivityEntry
+import dev.tandem.app.activity.ActivityScreen
 import dev.tandem.app.connection.PairingAddressStore
+import dev.tandem.app.di.AppClock
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
@@ -24,11 +37,17 @@ import dev.tandem.app.settings.SettingsState
 import dev.tandem.app.settings.keyShortCode
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.designsystem.components.FloatingToolbarItem
+import dev.tandem.core.designsystem.components.TandemScaffold
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.storage.trust.PeerRecord
+import dev.tandem.feature.notifications.PerAppFilterRow
+import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import java.time.Clock
+import java.time.LocalDate
 import java.util.Base64
 
 /** Everything [AppShell] reads or calls; built from the Hilt graph in production, fakes in tests. */
@@ -46,7 +65,15 @@ class AppShellDependencies(
     val onSendClipboard: () -> Unit,
     val rotation: RotationSettingsViewModel? = null,
     val onOpenPermissionSettings: () -> Unit = {},
+    val isConnected: () -> Boolean = { true },
+    val activityEntries: Flow<List<ActivityEntry>> = flowOf(emptyList()),
+    val notificationRows: () -> List<PerAppFilterRow> = { emptyList() },
+    val onToggleNotificationApp: suspend (packageName: String, allowed: Boolean) -> Unit = { _, _ -> },
+    val clock: Clock = AppClock.system,
 )
+
+private const val NOT_CONNECTED_MESSAGE = "Not connected to your Mac."
+private val SNACKBAR_BOTTOM_PADDING = 96.dp
 
 /**
  * The app shell (E20-25, F-4.1): onboarding (ending in the pairing scan) until a peer is paired,
@@ -65,55 +92,135 @@ fun AppShell(
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
     val ringState by dependencies.ringState.collectAsState()
     val pairingState by dependencies.pairing.state.collectAsState()
-    val resumeCount by rememberResumeCount()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val peer = peers.firstOrNull()
 
     LaunchedEffect(route, pairingState) {
         if (route == ShellRoute.Home && pairingState == PairingState.Paired) dependencies.pairing.reset()
     }
 
-    when (route) {
-        ShellRoute.Onboarding -> {
-            OnboardingOrPairing(pairingState, dependencies, insetsModifier)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val sendClipboard: () -> Unit = {
+        if (dependencies.isConnected()) {
+            dependencies.onSendClipboard()
+        } else {
+            scope.launch { snackbarHostState.showSnackbar(NOT_CONNECTED_MESSAGE) }
         }
+    }
 
-        ShellRoute.Home -> {
-            HomeScreen(
-                statusLine = statusLine,
-                ringState = ringState,
-                selectedToolbarItem = FloatingToolbarItem.Home,
-                onToolbarItemSelected = navigator::select,
-                onSendClipboard = dependencies.onSendClipboard,
-                modifier = insetsModifier,
-            )
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (route) {
+            ShellRoute.Onboarding -> {
+                OnboardingOrPairing(pairingState, dependencies, insetsModifier)
+            }
 
-        ShellRoute.Settings -> {
-            if (peer != null) {
-                SettingsScreen(
-                    state = peer.toSettingsState(resumeCount.let { dependencies.isBatteryRestricted() }),
-                    selectedToolbarItem = FloatingToolbarItem.Settings,
+            ShellRoute.Home -> {
+                HomeScreen(
+                    statusLine = statusLine,
+                    ringState = ringState,
+                    selectedToolbarItem = FloatingToolbarItem.Home,
                     onToolbarItemSelected = navigator::select,
-                    onFixBattery = { launchBatteryExemption(context) },
-                    onOpenPermissionSettings = dependencies.onOpenPermissionSettings,
-                    onRotateKey = {},
-                    keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
-                    onUnpair = {
-                        scope.launch {
-                            dependencies.unpair(peer.fingerprint())
-                            navigator.resetToHome()
-                        }
-                    },
+                    onSendClipboard = sendClipboard,
                     modifier = insetsModifier,
                 )
             }
-        }
 
-        null -> {
-            Unit
+            ShellRoute.Settings -> {
+                if (peer != null) SettingsTab(peer, navigator, dependencies, insetsModifier)
+            }
+
+            ShellRoute.Notifications -> {
+                NotificationsTab(navigator, dependencies, insetsModifier)
+            }
+
+            ShellRoute.Activity -> {
+                ActivityTab(navigator, dependencies, insetsModifier)
+            }
+
+            null -> {
+                Unit
+            }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier =
+                Modifier
+                    .align(
+                        Alignment.BottomCenter,
+                    ).safeDrawingPadding()
+                    .padding(bottom = SNACKBAR_BOTTOM_PADDING),
+        )
+    }
+}
+
+@Composable
+private fun SettingsTab(
+    peer: PeerRecord,
+    navigator: AppShellNavigator,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    val resumeCount by rememberResumeCount()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    SettingsScreen(
+        state = peer.toSettingsState(resumeCount.let { dependencies.isBatteryRestricted() }),
+        selectedToolbarItem = FloatingToolbarItem.Settings,
+        onToolbarItemSelected = navigator::select,
+        onFixBattery = { launchBatteryExemption(context) },
+        onOpenPermissionSettings = dependencies.onOpenPermissionSettings,
+        onRotateKey = {},
+        keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
+        onUnpair = {
+            scope.launch {
+                dependencies.unpair(peer.fingerprint())
+                navigator.resetToHome()
+            }
+        },
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ActivityTab(
+    navigator: AppShellNavigator,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    val entries by dependencies.activityEntries.collectAsState(initial = emptyList())
+    ActivityScreen(
+        entries = entries,
+        today = LocalDate.now(dependencies.clock),
+        selectedToolbarItem = FloatingToolbarItem.Activity,
+        onToolbarItemSelected = navigator::select,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun NotificationsTab(
+    navigator: AppShellNavigator,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    var rows by remember { mutableStateOf(dependencies.notificationRows()) }
+    val scope = rememberCoroutineScope()
+    TandemScaffold(
+        title = "Notifications.",
+        state = "${rows.count { it.allowed }} of ${rows.size} apps.",
+        modifier = modifier,
+        toolbarItems = FloatingToolbarItem.entries,
+        selectedToolbarItem = FloatingToolbarItem.Notifications,
+        onToolbarItemSelected = navigator::select,
+    ) { padding ->
+        PerAppNotificationFilterScreen(
+            rows = rows,
+            onToggle = { packageName, allowed ->
+                rows = rows.map { if (it.packageName == packageName) it.copy(allowed = allowed) else it }
+                scope.launch { dependencies.onToggleNotificationApp(packageName, allowed) }
+            },
+            modifier = Modifier.padding(padding),
+        )
     }
 }
 

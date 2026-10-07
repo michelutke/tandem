@@ -12,8 +12,10 @@ import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
+import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
+import dev.tandem.feature.notifications.PerAppNotificationFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -51,6 +53,15 @@ class TandemApplication : Application() {
         )
     }
 
+    val notificationFilter: PerAppNotificationFilter by lazy {
+        PerAppNotificationFilter(
+            SettingsStore(
+                createSettingsDataStore(File(filesDir, NOTIFICATION_FILTER_FILE_NAME), AppDispatchers.default),
+            ),
+            CoroutineScope(SupervisorJob() + AppDispatchers.default),
+        )
+    }
+
     @Inject
     lateinit var identityBootstrap: IdentityBootstrap
 
@@ -77,5 +88,6 @@ class TandemApplication : Application() {
         const val TRUST_STORE_FILE_NAME = "trust.db"
         const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"
+        const val NOTIFICATION_FILTER_FILE_NAME = "notification-filter.preferences_pb"
     }
 }

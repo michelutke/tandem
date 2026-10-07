@@ -1,5 +1,7 @@
 package dev.tandem.app.service
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 
 /**
@@ -18,5 +20,18 @@ class ServiceStarter(
         if (pairedPeerRepository.observeHasPairedPeer().first()) {
             startForegroundService()
         }
+    }
+
+    /**
+     * Starts the service each time a paired Mac appears (pairing just committed trust) and
+     * suspends until cancelled. Collected from the foreground activity so API 33+ foreground
+     * service start rules are met.
+     */
+    suspend fun keepStarted() {
+        pairedPeerRepository
+            .observeHasPairedPeer()
+            .distinctUntilChanged()
+            .filter { it }
+            .collect { startForegroundService() }
     }
 }

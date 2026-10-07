@@ -50,12 +50,21 @@ class AppShellNavigatorTest {
         }
 
     @Test
-    fun select_unhostedToolbarItem_isIgnored() =
+    fun route_notificationsSelectedWhilePaired_isNotifications() =
         runTest {
             peers.value = listOf(PEER)
             navigator.select(FloatingToolbarItem.Notifications)
 
-            navigator.route.test { assertEquals(ShellRoute.Home, awaitItem()) }
+            navigator.route.test { assertEquals(ShellRoute.Notifications, awaitItem()) }
+        }
+
+    @Test
+    fun route_activitySelectedWhilePaired_isActivity() =
+        runTest {
+            peers.value = listOf(PEER)
+            navigator.select(FloatingToolbarItem.Activity)
+
+            navigator.route.test { assertEquals(ShellRoute.Activity, awaitItem()) }
         }
 
     @Test
