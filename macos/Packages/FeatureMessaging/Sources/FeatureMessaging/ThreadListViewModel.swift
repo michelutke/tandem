@@ -32,6 +32,27 @@ public struct ThreadRow: Sendable, Equatable, Identifiable {
     public let snippet: String
     public let unreadBadge: String?
     public let avatarThumbnail: Data?
+    public let lastMessageAtMs: Int64
+
+    public var isUnread: Bool { unreadBadge != nil }
+
+    /// "14:21" for today, "Yesterday", otherwise "7 Oct" (ui-spec §7.1 thread rows).
+    public func timeText(calendar: Calendar = .current) -> String {
+        guard lastMessageAtMs > 0 else { return "" }
+        let date = Date(timeIntervalSince1970: Double(lastMessageAtMs) / 1000)
+        if calendar.isDateInToday(date) { return Self.format(date, "HH:mm", calendar) }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        return Self.format(date, "d MMM", calendar)
+    }
+
+    private static func format(_ date: Date, _ pattern: String, _ calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = pattern
+        return formatter.string(from: date)
+    }
 }
 
 /// Drives the Messages thread list (backlog E50-07, PRD F-8.1, UC-18): threads from ``SmsStore``
@@ -42,6 +63,16 @@ public struct ThreadRow: Sendable, Equatable, Identifiable {
 public final class ThreadListViewModel {
     public private(set) var rows: [ThreadRow] = []
     public private(set) var state: ThreadListState = .loading
+    public var searchQuery = ""
+
+    /// ``rows`` narrowed by ``searchQuery`` (case-insensitive over title and snippet).
+    public var visibleRows: [ThreadRow] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return rows }
+        return rows.filter {
+            $0.title.localizedCaseInsensitiveContains(query) || $0.snippet.localizedCaseInsensitiveContains(query)
+        }
+    }
 
     public var unreadCount: Int { unreadTotal }
 
@@ -97,7 +128,8 @@ public final class ThreadListViewModel {
             title: title,
             snippet: Self.sanitize(thread.snippet),
             unreadBadge: thread.unreadCount > 0 ? String(thread.unreadCount) : nil,
-            avatarThumbnail: thumbnail
+            avatarThumbnail: thumbnail,
+            lastMessageAtMs: thread.lastMessageAtMs
         )
     }
 

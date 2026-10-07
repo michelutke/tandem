@@ -19,6 +19,7 @@ public struct GlassSidebar: View {
     private let isConnected: Bool
     private let stateText: String
     private let sections: [GlassSidebarSection]
+    private let selectedID: Int?
     private let onSelect: (GlassSidebarSection) -> Void
 
     public init(
@@ -26,12 +27,14 @@ public struct GlassSidebar: View {
         isConnected: Bool,
         stateText: String,
         sections: [GlassSidebarSection],
+        selectedID: Int? = nil,
         onSelect: @escaping (GlassSidebarSection) -> Void
     ) {
         self.deviceName = deviceName
         self.isConnected = isConnected
         self.stateText = stateText
         self.sections = sections
+        self.selectedID = selectedID
         self.onSelect = onSelect
     }
 
@@ -60,7 +63,8 @@ public struct GlassSidebar: View {
                     NumberedActionRow(
                         index: section.id,
                         title: section.title,
-                        identifier: "\(section.title.lowercased())Section"
+                        identifier: "\(section.title.lowercased())Section",
+                        isSelected: section.id == selectedID
                     ) {
                         onSelect(section)
                     }

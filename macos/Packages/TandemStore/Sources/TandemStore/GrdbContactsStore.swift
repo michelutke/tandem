@@ -138,6 +138,16 @@ public final class GrdbContactsStore: ContactsStore {
         }
     }
 
+    public func allContacts(peer: SpkiFingerprint) async throws -> [ContactRecord] {
+        try await pool.read { database in
+            let contactIds = try String.fetchAll(
+                database, sql: "SELECT contact_id FROM contact WHERE peer = ? ORDER BY contact_id",
+                arguments: [peer.hexString]
+            )
+            return try contactIds.compactMap { try Self.contact($0, peerKey: peer.hexString, in: database) }
+        }
+    }
+
     public func purgeAll(peer: SpkiFingerprint) async throws {
         try await pool.write { database in
             for table in ["contact", "contact_cursor"] {

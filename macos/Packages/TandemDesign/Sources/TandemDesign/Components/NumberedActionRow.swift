@@ -7,6 +7,7 @@ public struct NumberedActionRow: View {
     private let title: String
     private let trailingMeta: String?
     private let identifier: String?
+    private let isSelected: Bool
     private let action: () -> Void
 
     @State private var isHovering = false
@@ -16,12 +17,14 @@ public struct NumberedActionRow: View {
         title: String,
         trailingMeta: String? = nil,
         identifier: String? = nil,
+        isSelected: Bool = false,
         action: @escaping () -> Void
     ) {
         self.index = index
         self.title = title
         self.trailingMeta = trailingMeta
         self.identifier = identifier
+        self.isSelected = isSelected
         self.action = action
     }
 
@@ -43,7 +46,7 @@ public struct NumberedActionRow: View {
             }
             .padding(.vertical, TandemSpacing.rowVertical)
             .padding(.horizontal, TandemSpacing.popoverPadding)
-            .background(isHovering ? TandemColor.ink.opacity(0.05) : .clear)
+            .background(isHovering || isSelected ? TandemColor.ink.opacity(0.05) : .clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

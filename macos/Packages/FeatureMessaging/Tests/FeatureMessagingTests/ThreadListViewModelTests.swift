@@ -111,4 +111,33 @@ struct ThreadListViewModelTests {
         #expect(model.rows.first?.title == "BANK")
         #expect(model.rows.first?.snippet == "ab")
     }
+
+    @Test
+    func threadListViewModel_searchQuery_filtersByTitleAndSnippetCaseInsensitively() async throws {
+        let model = try await makeModel(threads: [
+            thread(1, address: "BANK", snippet: "Your code is 4471", at: 3),
+            thread(2, address: "SHOP", snippet: "Parcel delivered", at: 2)
+        ])
+        model.searchQuery = "parcel"
+        #expect(model.visibleRows.map(\.id) == [2])
+        model.searchQuery = "bank"
+        #expect(model.visibleRows.map(\.id) == [1])
+        model.searchQuery = "  "
+        #expect(model.visibleRows.map(\.id) == [1, 2])
+    }
+
+    @Test
+    func threadListViewModel_unreadThread_rowIsUnread() async throws {
+        let model = try await makeModel(threads: [thread(1, unread: 2), thread(2, at: 0)])
+        #expect(model.rows.first { $0.id == 1 }?.isUnread == true)
+        #expect(model.rows.first { $0.id == 2 }?.isUnread == false)
+    }
+
+    @Test
+    func threadRow_timeText_olderThanYesterday_isDayAndMonth() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let model = try await makeModel(threads: [thread(1, at: 1_000)])
+        #expect(model.rows.first?.timeText(calendar: calendar) == "1 Jan")
+    }
 }

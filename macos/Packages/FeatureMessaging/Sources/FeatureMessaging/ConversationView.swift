@@ -7,18 +7,27 @@ import TandemDesign
 public struct ConversationView: View {
     @Bindable private var viewModel: ConversationViewModel
     private let headerAccessory: (@MainActor (String) -> AnyView)?
+    private let offlineComposerText: String?
 
-    /// - Parameter headerAccessory: hosted beside the title with the thread's phone number once
-    ///   loaded (the app target's Call button, E52-10).
-    public init(viewModel: ConversationViewModel, headerAccessory: (@MainActor (String) -> AnyView)? = nil) {
+    /// - Parameters:
+    ///   - headerAccessory: hosted beside the title with the thread's phone number once loaded
+    ///     (the app target's Call button, E52-10).
+    ///   - offlineComposerText: when non-nil the phone is offline: the composer is disabled and
+    ///     shows this text ("Sends when Pixel 9 is back", ui-spec §7.1).
+    public init(
+        viewModel: ConversationViewModel,
+        headerAccessory: (@MainActor (String) -> AnyView)? = nil,
+        offlineComposerText: String? = nil
+    ) {
         self.viewModel = viewModel
         self.headerAccessory = headerAccessory
+        self.offlineComposerText = offlineComposerText
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
             HStack(alignment: .top) {
-                TitleBlock(subject: "\(viewModel.title).", state: "\(viewModel.bubbles.count) messages.", size: 26)
+                TitleBlock(subject: "\(viewModel.title).", state: headerState, size: 26)
                 Spacer()
                 if let headerAccessory, !viewModel.callAddress.isEmpty {
                     headerAccessory(viewModel.callAddress)
@@ -37,6 +46,10 @@ public struct ConversationView: View {
         .padding(TandemSpacing.windowPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { await viewModel.reload() }
+    }
+
+    private var headerState: String {
+        viewModel.callAddress.isEmpty ? "\(viewModel.bubbles.count) messages." : viewModel.callAddress
     }
 
     private func bubbleRow(_ bubble: MessageBubble) -> some View {
@@ -86,8 +99,16 @@ public struct ConversationView: View {
             .foregroundStyle(color)
     }
 
+    private var isOffline: Bool { offlineComposerText != nil }
+
     private var composer: some View {
         HStack(spacing: TandemSpacing.small) {
+            TextField(offlineComposerText ?? "Text message", text: $viewModel.draft)
+                .textFieldStyle(.plain)
+                .tandemTextStyle(TandemTypography.body())
+                .disabled(isOffline)
+                .onSubmit { Task { await viewModel.sendTapped() } }
+                .accessibilityIdentifier("composeField")
             if viewModel.showsSimPicker {
                 Picker("SIM", selection: $viewModel.selectedSubscriptionId) {
                     ForEach(viewModel.sims) { sim in
@@ -97,20 +118,27 @@ public struct ConversationView: View {
                 .labelsHidden()
                 .fixedSize()
                 .accessibilityIdentifier("simPicker")
+            } else if let sim = viewModel.sims.first {
+                Text(sim.name)
+                    .tandemTextStyle(TandemTypography.metaMono())
+                    .foregroundStyle(TandemColor.ink2)
             }
-            TextField("Message", text: $viewModel.draft)
-                .textFieldStyle(.plain)
-                .tandemTextStyle(TandemTypography.body())
-                .onSubmit { Task { await viewModel.sendTapped() } }
-                .accessibilityIdentifier("composeField")
-            PillButton("Send") { Task { await viewModel.sendTapped() } }
-                .frame(width: 88)
-                .disabled(!viewModel.canSend)
-                .accessibilityIdentifier("sendButton")
+            Button { Task { await viewModel.sendTapped() } } label: {
+                Image(systemName: "arrow.up")
+                    .foregroundStyle(TandemColor.paper)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(sendEnabled ? TandemColor.ink : TandemColor.lineUnlit))
+            }
+            .buttonStyle(.plain)
+            .disabled(!sendEnabled)
+            .accessibilityLabel("Send")
+            .accessibilityIdentifier("sendButton")
         }
-        .padding(.top, TandemSpacing.small)
-        .overlay(alignment: .top) {
-            Rectangle().fill(TandemColor.line).frame(height: 1)
-        }
+        .padding(.leading, TandemSpacing.large)
+        .padding(.trailing, TandemSpacing.small)
+        .padding(.vertical, TandemSpacing.small)
+        .overlay(Capsule().stroke(TandemColor.line, lineWidth: 1))
     }
+
+    private var sendEnabled: Bool { viewModel.canSend && !isOffline }
 }

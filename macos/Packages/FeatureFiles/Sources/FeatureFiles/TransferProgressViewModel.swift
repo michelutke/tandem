@@ -24,7 +24,7 @@ public final class TransferProgressViewModel {
     public private(set) var deliveredBytes: Int64 = 0
     public private(set) var isCancelled = false
 
-    private let totalBytes: Int64
+    public let totalBytes: Int64
     private let elapsed: () -> Duration
     private let cancelFlow: () async -> Void
     private var samples: [(at: Duration, bytes: Int64)]
@@ -47,6 +47,16 @@ public final class TransferProgressViewModel {
     }
 
     public var percentText: String { "\(progress.percent)%" }
+
+    /// "1.2 of 2.8 GB" (ui-spec §7.1 Transfers).
+    public var bytesText: String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .binary
+        formatter.allowedUnits = [.useKB, .useMB, .useGB]
+        let delivered = formatter.string(fromByteCount: deliveredBytes)
+        let total = formatter.string(fromByteCount: totalBytes)
+        return "\(delivered) of \(total)"
+    }
 
     public var speedText: String {
         "\(ByteCountFormatter.string(fromByteCount: Int64(progress.bytesPerSecond), countStyle: .binary))/s"

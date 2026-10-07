@@ -30,6 +30,8 @@ public final class PairedDevicesViewModel {
         public let id: SpkiFingerprint
         public let displayName: String
         public let lastSeenText: String
+        public let pairedAtText: String
+        public let fingerprintText: String
         public var batteryText: String?
     }
 
@@ -43,6 +45,7 @@ public final class PairedDevicesViewModel {
     private let dateProvider: DateProvider
     private let unpair: @Sendable (SpkiFingerprint) async throws -> Void
     private let relativeDateFormatter: RelativeDateTimeFormatter
+    private let pairedAtFormatter: DateFormatter
 
     /// The last battery text applied per fingerprint (E23-04) -- kept separately from ``rows`` so
     /// a subsequent ``refresh()`` (a fresh `TrustStore.list()` read) doesn't discard it.
@@ -60,6 +63,10 @@ public final class PairedDevicesViewModel {
         formatter.locale = Locale(identifier: "en_US")
         formatter.unitsStyle = .full
         self.relativeDateFormatter = formatter
+        let pairedAtFormatter = DateFormatter()
+        pairedAtFormatter.locale = Locale(identifier: "en_US_POSIX")
+        pairedAtFormatter.dateFormat = "d MMM yyyy"
+        self.pairedAtFormatter = pairedAtFormatter
         refresh()
     }
 
@@ -77,6 +84,8 @@ public final class PairedDevicesViewModel {
                     id: record.fingerprint,
                     displayName: record.displayName,
                     lastSeenText: relativeDateFormatter.localizedString(for: record.lastSeen, relativeTo: now),
+                    pairedAtText: pairedAtFormatter.string(from: record.pairedAt),
+                    fingerprintText: FingerprintDisplay.groups(of: record.fingerprint.bytes),
                     batteryText: batteryTextByFingerprint[record.fingerprint]
                 )
             }
