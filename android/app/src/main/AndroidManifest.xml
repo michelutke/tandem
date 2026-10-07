@@ -27,6 +27,11 @@
          direct-boot aware) without the user opening the app. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- E20-04, D-80: lets onboarding and Settings open the direct "Let app always run in
+         background?" dialog (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) so the live Mac
+         connection (F-4.1) survives Doze. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!--
     E00-28 platform-hardening baseline (invariants 1, 2, 4):
       - allowBackup/fullBackupContent off and dataExtractionRules excluding every domain: nothing

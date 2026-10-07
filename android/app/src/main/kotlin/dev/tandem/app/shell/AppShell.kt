@@ -9,11 +9,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
 import dev.tandem.app.onboarding.OnboardingViewModel
+import dev.tandem.app.onboarding.launchBatteryExemption
 import dev.tandem.app.onboarding.rememberResumeCount
 import dev.tandem.app.settings.RotationSettingsScreen
 import dev.tandem.app.settings.RotationSettingsViewModel
@@ -65,6 +67,7 @@ fun AppShell(
     val pairingState by dependencies.pairing.state.collectAsState()
     val resumeCount by rememberResumeCount()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val peer = peers.firstOrNull()
 
     LaunchedEffect(route, pairingState) {
@@ -93,7 +96,7 @@ fun AppShell(
                     state = peer.toSettingsState(resumeCount.let { dependencies.isBatteryRestricted() }),
                     selectedToolbarItem = FloatingToolbarItem.Settings,
                     onToolbarItemSelected = navigator::select,
-                    onFixBattery = {},
+                    onFixBattery = { launchBatteryExemption(context) },
                     onOpenPermissionSettings = dependencies.onOpenPermissionSettings,
                     onRotateKey = {},
                     keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },

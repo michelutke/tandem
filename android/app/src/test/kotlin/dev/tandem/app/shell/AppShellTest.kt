@@ -1,5 +1,7 @@
 package dev.tandem.app.shell
 
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -22,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.util.Base64
 
@@ -94,6 +97,20 @@ class AppShellTest {
         composeRule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
 
         composeRule.onNodeWithText("Unrestricted").assertExists()
+    }
+
+    @Test
+    fun settings_fixTapped_launchesDirectBatteryExemptionDialog() {
+        batteryRestricted = true
+        peers.value = listOf(PEER)
+        setShell()
+        composeRule.onNodeWithText("Settings").performClick()
+
+        composeRule.onNodeWithText("Fix").performClick()
+
+        val startedIntent = shadowOf(composeRule.activity).nextStartedActivity
+        assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, startedIntent?.action)
+        assertEquals(Uri.parse("package:${composeRule.activity.packageName}"), startedIntent?.data)
     }
 
     private companion object {

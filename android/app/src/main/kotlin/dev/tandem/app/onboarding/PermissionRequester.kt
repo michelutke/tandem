@@ -60,7 +60,7 @@ class SystemPermissionRequester(
             }
 
             OnboardingPermission.BATTERY -> {
-                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                launchBatteryExemption(context)
             }
         }
     }
