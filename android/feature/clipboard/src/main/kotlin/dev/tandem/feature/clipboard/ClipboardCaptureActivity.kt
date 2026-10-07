@@ -2,6 +2,7 @@ package dev.tandem.feature.clipboard
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
@@ -32,6 +33,10 @@ class ClipboardCaptureActivity : TandemActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         captured = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -64,7 +69,7 @@ class ClipboardCaptureActivity : TandemActivity() {
         /** The explicit-component intent [ClipboardCaptureService] starts; auto captures skip echoes of Mac clips. */
         fun autoCaptureIntent(context: Context): Intent =
             Intent(context, ClipboardCaptureActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .putExtra(EXTRA_AUTO_CAPTURE, true)
     }
 }

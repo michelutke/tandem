@@ -212,6 +212,7 @@ only after those tests and the matching audit rows above are green on the releas
 | D-79 | Android minSdk 33 (was 29); no pre-33 code paths or READ_EXTERNAL_STORAGE declaration remain... | E00-21, E14-18, E31-05, E41-02, E61-13, E62-05 | [decisions](../planning/decisions.md), [android-permissions.allowlist](../../tools/release-audit/android-permissions.allowlist) | [ ] |
 | D-80 | Android declares REQUEST_IGNORE_BATTERY_OPTIMIZATIONS for the direct battery-exemption dialog (owner approved)... | E20-04 | [decisions](../planning/decisions.md), [android-permissions.allowlist](../../tools/release-audit/android-permissions.allowlist) | [ ] |
 | D-81 | Android pins material3 1.5.0-alpha29 (pre-release) over the Compose BOM for Material 3 Expressive components (owner request) | E00-31 | [decisions](../planning/decisions.md) | [ ] |
+| D-82 | Android opt-in clipboard auto-capture via a separate minimal accessibility service (ADR-007, off by default) | E31-09 | [decisions](../planning/decisions.md), [ADR-007](../adr/ADR-007-accessibility-clipboard-auto-capture.md) | [ ] |
 
 ## Owner sign-off
 
