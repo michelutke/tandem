@@ -75,16 +75,33 @@ struct ListenerControllerPortTests {
         try harness.controller.start()
 
         #expect(harness.factory.requestedPorts == [50_123])
-        #expect(harness.store.persisted == [50_123])
+        #expect(harness.store.persisted.isEmpty)
+        #expect(harness.pauses.isEmpty)
     }
 
-    @Test func start_preferredPortTaken_fallsBackToAnyAndPersistsNewPort() throws {
-        let harness = PortHarness(preferred: 50_123, outcomes: [.failed, .ready(port: 61_000)])
+    @Test func start_preferredPortFreedOnThirdAttempt_bindsItAfterTwoPauses() throws {
+        let harness = PortHarness(
+            preferred: 50_123, outcomes: [.failed, .failed, .ready(port: 50_123)]
+        )
 
         try harness.controller.start()
 
-        #expect(harness.factory.requestedPorts == [50_123, 0])
-        #expect(harness.store.persisted == [61_000])
+        #expect(harness.factory.requestedPorts == [50_123, 50_123, 50_123])
+        #expect(harness.pauses == [.seconds(1), .seconds(1)])
+        #expect(harness.store.persisted.isEmpty)
+    }
+
+    @Test func start_preferredPortStaysTaken_fallsBackWithoutOverwritingStoredPort() throws {
+        let harness = PortHarness(
+            preferred: 50_123,
+            outcomes: [.failed, .failed, .failed, .failed, .failed, .ready(port: 61_000)]
+        )
+
+        try harness.controller.start()
+
+        #expect(harness.factory.requestedPorts == [50_123, 50_123, 50_123, 50_123, 50_123, 0])
+        #expect(harness.pauses.count == 4)
+        #expect(harness.store.persisted.isEmpty)
     }
 
     @Test func start_noPersistedPort_bindsAnyAndPersists() throws {
@@ -109,6 +126,9 @@ private final class PortHarness {
     let store: InMemoryListenerPortStore
     let controller: ListenerController
     private let keychain: TemporaryKeychain
+    private let pauseLog = PauseLog()
+
+    var pauses: [Duration] { pauseLog.values }
 
     init(preferred: UInt16?, outcomes: [ListenerBindOutcome]) {
         // swiftlint:disable:next force_try
@@ -122,11 +142,29 @@ private final class PortHarness {
             port: .any,
             verify: { _, _, complete in complete(true) },
             portStore: store,
-            binder: ScriptedBinder(outcomes: outcomes)
+            binder: ScriptedBinder(outcomes: outcomes),
+            pause: { [pauseLog] in pauseLog.append($0) }
         )
     }
 
     deinit { keychain.cleanup() }
+}
+
+private final class PauseLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [Duration] = []
+
+    var values: [Duration] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
+    }
+
+    func append(_ duration: Duration) {
+        lock.lock()
+        recorded.append(duration)
+        lock.unlock()
+    }
 }
 
 private final class InMemoryListenerPortStore: ListenerPortStore, @unchecked Sendable {
