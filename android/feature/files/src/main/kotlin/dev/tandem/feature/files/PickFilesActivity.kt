@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import dev.tandem.core.ui.TandemActivity
 
 /**
@@ -53,6 +54,6 @@ class PickFilesActivity : TandemActivity() {
         SendEntry(
             packageName,
             contentResolver,
-            starter ?: SendFeedbackToasts.liveStarter(applicationContext) { releaseReadAccess(Uri.parse(it.uri)) },
+            starter ?: SendFeedbackToasts.liveStarter(applicationContext) { releaseReadAccess(it.uri.toUri()) },
         )
 }
