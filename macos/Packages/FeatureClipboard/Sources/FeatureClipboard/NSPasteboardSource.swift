@@ -17,6 +17,10 @@ public final class NSPasteboardSource: PasteboardSource {
         NSPasteboard.general.string(forType: type)
     }
 
+    public func clearContents() {
+        NSPasteboard.general.clearContents()
+    }
+
     @discardableResult
     public func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool {
         NSPasteboard.general.setString(string, forType: type)

@@ -16,6 +16,11 @@ public protocol PasteboardSource: Sendable {
     /// The string content for a given type, if the current pasteboard item has one.
     func string(forType type: NSPasteboard.PasteboardType) -> String?
 
+    /// Takes ownership and empties the pasteboard, mirroring `NSPasteboard.clearContents()`.
+    /// `setString` is ignored by AppKit while another app owns the pasteboard, so a write must
+    /// clear first.
+    func clearContents()
+
     /// Writes `string` for `type` on the pasteboard, mirroring `NSPasteboard.setString(_:forType:)`.
     @discardableResult
     func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool

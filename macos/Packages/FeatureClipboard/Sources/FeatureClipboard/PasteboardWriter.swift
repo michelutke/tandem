@@ -64,6 +64,7 @@ public actor PasteboardWriter {
     private func handle(_ clipboardText: Tandem_V1_ClipboardText) async {
         guard clipboardText.text.utf8.count <= Self.maxTextBytes else { return }
 
+        source.clearContents()
         source.setString(clipboardText.text, forType: .string)
         if clipboardText.sensitive {
             source.setString("", forType: ConcealedTypeFilter.concealedType)
