@@ -12,6 +12,7 @@ public final class MirrorRequestViewModel {
         case idle
         case waiting
         case declined
+        case notConnected
     }
 
     public private(set) var state = State.idle
@@ -22,6 +23,7 @@ public final class MirrorRequestViewModel {
         case .idle: return nil
         case .waiting: return "Accept on phone to start."
         case .declined: return "Mirroring declined on phone"
+        case .notConnected: return "Phone not connected."
         }
     }
 
@@ -31,7 +33,7 @@ public final class MirrorRequestViewModel {
     private nonisolated(unsafe) var observationTask: Task<Void, Never>?
 
     /// - Parameter session: The paired session, or `nil` if no peer is paired -- ``request()`` is
-    ///   then a no-op.
+    ///   then shows ``State/notConnected``.
     public init(session: (any TandemSession)?) {
         self.session = session
     }
@@ -65,7 +67,11 @@ public final class MirrorRequestViewModel {
 
     /// Sends exactly one `MirrorRequest` unless one is already pending.
     public func request() {
-        guard let session, state != .waiting else { return }
+        guard state != .waiting else { return }
+        guard let session else {
+            state = .notConnected
+            return
+        }
         state = .waiting
         Task { try? await session.send(.control, payload: .mirrorRequest(Tandem_V1_MirrorRequest())) }
     }

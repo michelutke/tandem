@@ -92,4 +92,51 @@ struct FindPhoneViewModelTests {
         // No extra send in reaction to the phone's own RingStop -- only the earlier Ring is recorded.
         #expect(await session.sent.count == 1)
     }
+
+    // MARK: - findPhoneViewModel_noSession_showsPhoneNotConnected
+
+    @Test
+    func findPhoneViewModel_noSession_showsPhoneNotConnected() async throws {
+        let viewModel = await FindPhoneViewModel(session: nil)
+
+        await viewModel.select()
+
+        #expect(await viewModel.statusText == "Phone not connected.")
+        #expect(await viewModel.label == "Find Phone")
+    }
+
+    // MARK: - findPhoneViewModel_sessionAttachedLater_ringReachesSessionAndClearsFeedback
+
+    @Test
+    func findPhoneViewModel_sessionAttachedLater_ringReachesSessionAndClearsFeedback() async throws {
+        let session = FakeTandemSession()
+        let viewModel = await FindPhoneViewModel(session: nil)
+        await viewModel.select()
+
+        await viewModel.sessionChanged(session)
+        #expect(await viewModel.statusText == nil)
+        await viewModel.select()
+
+        var attempts = 0
+        while await session.sent.count < 1, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        #expect(await session.sent.first?.payload == .ring(Tandem_V1_Ring()))
+    }
+
+    // MARK: - findPhoneViewModel_sessionDetached_ringingResetsAndSelectShowsFeedback
+
+    @Test
+    func findPhoneViewModel_sessionDetached_ringingResetsAndSelectShowsFeedback() async throws {
+        let viewModel = await FindPhoneViewModel(session: FakeTandemSession())
+        await viewModel.select()
+        #expect(await viewModel.label == "Stop Ringing")
+
+        await viewModel.sessionChanged(nil)
+        #expect(await viewModel.label == "Find Phone")
+        await viewModel.select()
+
+        #expect(await viewModel.statusText == "Phone not connected.")
+    }
 }
