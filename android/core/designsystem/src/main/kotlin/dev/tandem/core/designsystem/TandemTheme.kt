@@ -6,6 +6,7 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.font.FontFamily
 
 /**
  * Tandem's M3 theme (ui-spec.md §3, §5.2): screens must read colour and type through this theme
@@ -35,7 +36,7 @@ fun TandemTheme(content: @Composable () -> Unit) {
             outlineVariant = TandemColors.lineUnlitDot,
         )
     val typography =
-        Typography(
+        Typography().withFontFamily(InterTightFontFamily).copy(
             titleLarge = TandemType.titleEmphasis,
             titleMedium = TandemType.rowTitle,
             bodyLarge = TandemType.body,
@@ -49,3 +50,22 @@ fun TandemTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+private fun Typography.withFontFamily(fontFamily: FontFamily) =
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = fontFamily),
+        displayMedium = displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = displaySmall.copy(fontFamily = fontFamily),
+        headlineLarge = headlineLarge.copy(fontFamily = fontFamily),
+        headlineMedium = headlineMedium.copy(fontFamily = fontFamily),
+        headlineSmall = headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = titleLarge.copy(fontFamily = fontFamily),
+        titleMedium = titleMedium.copy(fontFamily = fontFamily),
+        titleSmall = titleSmall.copy(fontFamily = fontFamily),
+        bodyLarge = bodyLarge.copy(fontFamily = fontFamily),
+        bodyMedium = bodyMedium.copy(fontFamily = fontFamily),
+        bodySmall = bodySmall.copy(fontFamily = fontFamily),
+        labelLarge = labelLarge.copy(fontFamily = fontFamily),
+        labelMedium = labelMedium.copy(fontFamily = fontFamily),
+        labelSmall = labelSmall.copy(fontFamily = fontFamily),
+    )

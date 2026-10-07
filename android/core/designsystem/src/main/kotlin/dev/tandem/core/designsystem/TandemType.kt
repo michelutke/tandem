@@ -1,19 +1,28 @@
 package dev.tandem.core.designsystem
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Type families (ui-spec.md §3.2): Inter Tight for UI text, JetBrains Mono for numbers that are
-// codes (pairing code, fingerprints, file sizes, row numbers).
-//
-// Deviation: no font-asset issue exists yet for E00-31 and no .ttf/.otf files are bundled in this
-// repo, so these fall back to the platform sans-serif / monospace families. Swapping in the real
-// font resources (as `FontFamily(Font(R.font....))`) is a drop-in change that does not touch any
-// call site, since every component reads type through `TandemType`.
-val InterTightFontFamily: FontFamily = FontFamily.SansSerif
-val JetBrainsMonoFontFamily: FontFamily = FontFamily.Monospace
+// Type families (ui-spec.md §3.2): Inter Tight (variable `wght`) for UI text, JetBrains Mono for
+// numbers that are codes (pairing code, fingerprints, file sizes, row numbers). Both are bundled
+// under SIL OFL 1.1 (core/designsystem/licenses).
+@OptIn(ExperimentalTextApi::class)
+val InterTightFontFamily: FontFamily =
+    FontFamily(
+        listOf(FontWeight.Normal, FontWeight.SemiBold, FontWeight.Bold).map { weight ->
+            Font(
+                resId = R.font.inter_tight,
+                weight = weight,
+                variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
+            )
+        },
+    )
+val JetBrainsMonoFontFamily: FontFamily = FontFamily(Font(R.font.jetbrains_mono_regular))
 
 /** Type scale (ui-spec.md §3.2). Screens must use these roles instead of literal `TextStyle`s. */
 object TandemType {

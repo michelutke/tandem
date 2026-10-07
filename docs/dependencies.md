@@ -107,6 +107,10 @@ texts ship next to the files as `OFL-*.txt`.
 | Inter Tight (variable `wght`) | OFL-1.1 | google/fonts `ofl/intertight` | UI text (ui-spec 3.2) |
 | JetBrains Mono Regular | OFL-1.1 | JetBrains/JetBrainsMono v2.304 | Codes, numerals, row numbers |
 
+Android bundles the same two files as `res/font` in `android/core/designsystem`
+(`inter_tight.ttf`, `jetbrains_mono_regular.ttf`); licence texts are in
+`android/core/designsystem/licenses/`. Same exemption from the SBOM and license gate.
+
 ## Update bot
 
 Dependabot (not Renovate): it's built into GitHub with no separate app install or hosted service,
