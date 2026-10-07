@@ -29,3 +29,28 @@ public extension View {
         background(WindowChromeConfigurator())
     }
 }
+
+private struct PopoverChromeConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        PopoverChromeView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class PopoverChromeView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.appearance = NSAppearance(named: .aqua)
+        }
+    }
+}
+
+public extension View {
+    /// Clears the hosting menu bar window's own backdrop so only the glass surface shows.
+    func tandemPopoverChrome() -> some View {
+        background(PopoverChromeConfigurator())
+    }
+}

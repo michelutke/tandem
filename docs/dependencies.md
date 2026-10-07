@@ -96,6 +96,17 @@ entries were needed or added for Jazzer.
 | `GRDB.swift` | MIT | SQLite persistence for the Mac SMS store and contacts cache (`TandemStore`; D-12) | E50-09 |
 | `PhoneNumberKit` | MIT | E.164 normalization for contacts-cache lookups (`TandemStore`); pinned to the maintained `PhoneNumberKit/PhoneNumberKit` repo (the `marmelroy` repo is deprecated) | E51-04 |
 
+## Bundled fonts (`macos/Packages/TandemDesign/Sources/TandemDesign/Fonts`)
+
+Font files, not code dependencies, so they are outside the allowed-license gate and the SBOM. Both
+are SIL Open Font License 1.1 (embedding and redistribution in an app is permitted); the licence
+texts ship next to the files as `OFL-*.txt`.
+
+| Font | License | Source | Use |
+|---|---|---|---|
+| Inter Tight (variable `wght`) | OFL-1.1 | google/fonts `ofl/intertight` | UI text (ui-spec 3.2) |
+| JetBrains Mono Regular | OFL-1.1 | JetBrains/JetBrainsMono v2.304 | Codes, numerals, row numbers |
+
 ## Update bot
 
 Dependabot (not Renovate): it's built into GitHub with no separate app install or hosted service,

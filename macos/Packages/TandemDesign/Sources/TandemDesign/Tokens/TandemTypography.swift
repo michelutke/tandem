@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import SwiftUI
 
 /// A font plus the letter-spacing (`tracking`) it is always paired with (ui-spec §3.2: "Letter-
@@ -24,9 +25,26 @@ public enum TandemFontFamily {
     public static let jetBrainsMono = "JetBrainsMono-Regular"
 }
 
+/// Registers the bundled Inter Tight and JetBrains Mono faces (SIL OFL, see `Fonts/OFL-*.txt`) with
+/// CoreText for this process. Idempotent; a failure leaves the system-font fallback in place.
+public enum TandemFonts {
+    private static let fileNames = ["InterTight[wght]", "JetBrainsMono-Regular"]
+
+    private static let registered: Bool = {
+        let urls = fileNames.compactMap { Bundle.module.url(forResource: $0, withExtension: "ttf") }
+        guard urls.count == fileNames.count else { return false }
+        return urls.allSatisfy { CTFontManagerRegisterFontsForURL($0 as CFURL, .process, nil) }
+    }()
+
+    /// Registers the fonts once; returns whether every face registered.
+    @discardableResult
+    public static func register() -> Bool { registered }
+}
+
 /// Resolves a family at a size, falling back to the system font at the same weight (monospaced for
 /// the code family) when the family isn't installed, so bold titles stay bold without bundled fonts.
 private func tandemFont(_ family: String, size: CGFloat, weight: Font.Weight, monospaced: Bool = false) -> Font {
+    TandemFonts.register()
     if NSFont(name: family, size: size) != nil {
         return .custom(family, size: size)
     }

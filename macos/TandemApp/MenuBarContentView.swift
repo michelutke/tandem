@@ -84,7 +84,7 @@ struct MenuBarContentView: View {
     private var notPaired: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
             explanation("Scan a code with the Tandem app on your Android phone. Stays on your local network.")
-            Divider()
+            Hairline()
             NumberedActionRow(index: 1, title: "Pair phone", identifier: "pairPhoneMenuItem", action: onPairPhone)
                 .padding(.horizontal, -TandemSpacing.popoverPadding)
         }
@@ -93,7 +93,7 @@ struct MenuBarContentView: View {
     private var connected: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
             batteryRow
-            Divider()
+            Hairline()
             connectedActions
         }
     }
@@ -142,7 +142,7 @@ struct MenuBarContentView: View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
             let seen = lastSeenText.map { "Last seen \($0). " } ?? ""
             explanation("\(seen)Tandem reconnects on its own when the phone is back on this network.")
-            Divider()
+            Hairline()
             NumberedActionRow(index: 1, title: "Retry now", identifier: "retryNowMenuItem", action: onRetry)
                 .padding(.horizontal, -TandemSpacing.popoverPadding)
         }
@@ -158,7 +158,7 @@ struct MenuBarContentView: View {
                 "\(name) presented a different key. Tandem blocked the connection. "
                     + "Pair again only if you reset the phone app."
             )
-            Divider()
+            Hairline()
             VStack(spacing: 0) {
                 NumberedActionRow(index: 1, title: "Pair again", identifier: "pairAgainMenuItem", action: onPairPhone)
                 NumberedActionRow(index: 2, title: "Unpair", identifier: "unpairMenuItem", action: onUnpair)
@@ -188,7 +188,7 @@ struct PopoverFooterView: View {
                 NSApp.activate()
             }
             .buttonStyle(.plain)
-            .tandemTextStyle(TandemTypography.rowTitle(size: 13))
+            .tandemTextStyle(TandemTypography.rowTitle(size: 12))
             .foregroundStyle(TandemColor.ink)
             .accessibilityIdentifier("openTandemMenuItem")
             .accessibilityLabel("Open Tandem")
