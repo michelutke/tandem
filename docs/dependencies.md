@@ -59,7 +59,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.robolectric:robolectric` | MIT | Android-framework unit tests on the JVM (`unit` layer, CLAUDE.md) | E00-20 |
 | `org.jetbrains.kotlin:compose-compiler-gradle-plugin` | Apache-2.0 | Jetpack Compose compiler plugin | E00-20 |
 | `androidx.compose:compose-bom` | Apache-2.0 | Compose version alignment (bill of materials) | E00-20 |
-| `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components | E00-20 |
+| `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components (1.5.0-alpha29 for the Expressive APIs, D-81) | E00-20 |
 | `androidx.compose.ui:ui-tooling-preview` | Apache-2.0 | `@Preview` annotations for design-system components | E00-31 |
 | `androidx.compose.ui:ui-tooling` | Apache-2.0 | Debug-only preview rendering for design-system components | E00-31 |
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
