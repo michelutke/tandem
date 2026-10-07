@@ -1,3 +1,4 @@
+import FeatureClipboard
 import FeatureFiles
 import FeatureFocus
 import FeatureMessaging
@@ -26,6 +27,8 @@ struct SessionFeatures: Sendable {
     let activeCall: ActiveCallAlert
     /// Drives the menu bar's now-playing section.
     let activeNowPlaying: ActiveNowPlaying
+    /// Drives the menu bar's Push Clipboard action and its received-clip confirmation.
+    let clipboard: ActiveClipboard
     private let sendRequestWake: SendRequestWakeObserver?
 
     static func make(
@@ -38,6 +41,7 @@ struct SessionFeatures: Sendable {
         let photos = ActivePhotoService()
         let activeCall = ActiveCallAlert()
         let activeNowPlaying = ActiveNowPlaying()
+        let clipboard = ActiveClipboard()
         var services: [any SessionService] = []
         let iconCache = makeIconCache(purgeRegistry: purgeRegistry)
         let notifications = NotificationsSessionService(iconCache: iconCache)
@@ -57,6 +61,11 @@ struct SessionFeatures: Sendable {
         )
         services.append(contentsOf: filesService.map { [$0] } ?? [])
         services.append(NowPlayingSessionService(active: activeNowPlaying))
+        services.append(ClipboardSessionService(
+            source: NSPasteboardSource(),
+            clock: ContinuousClock(),
+            active: clipboard
+        ))
         services.append(FocusSessionService(makeSource: { IntentsFocusStateSource() }))
         services.append(mirrorService)
         services.append(rotationService)
@@ -70,6 +79,7 @@ struct SessionFeatures: Sendable {
             photos: photos,
             activeCall: activeCall,
             activeNowPlaying: activeNowPlaying,
+            clipboard: clipboard,
             sendRequestWake: wake
         )
     }
@@ -263,6 +273,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
     private let photos: ActivePhotoService
     private let routing: NotificationRouting
     private var acceptPrompts: NotificationAcceptPromptPresenter?
+    private var acceptAlerts: AlertAcceptPromptPresenter?
     private var acceptReader: Task<Void, Never>?
     private var receivedFiles: NotificationReceivedFilePresenter?
     private var receivedActivations: Task<Void, Never>?
@@ -287,6 +298,8 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         let prompts = NotificationAcceptPromptPresenter(presenter: routing.presenter, categories: routing.categories)
         await routing.router.setSink({ prompts.handle($0) }, for: Self.routerKey)
         acceptPrompts = prompts
+        let alerts = await MainActor.run { AlertAcceptPromptPresenter() }
+        acceptAlerts = alerts
         let received = NotificationReceivedFilePresenter(presenter: routing.presenter)
         await routing.router.setSink({ received.handle($0) }, for: Self.receivedRouterKey)
         receivedFiles = received
@@ -300,7 +313,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         let acceptFlow = AcceptFlow(
             session: session,
             freeSpace: VolumeFreeSpaceProvider(),
-            presenter: prompts,
+            presenter: CompositeAcceptPromptPresenter([prompts, alerts]),
             clock: ContinuousClock(),
             settings: AcceptSettings(),
             destination: directories.destination
@@ -338,6 +351,8 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         acceptReader = nil
         acceptPrompts?.finish()
         acceptPrompts = nil
+        await acceptAlerts?.finish()
+        acceptAlerts = nil
         await routing.router.setSink(nil, for: Self.receivedRouterKey)
         receivedFiles?.finish()
         receivedFiles = nil

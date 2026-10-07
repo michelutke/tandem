@@ -106,4 +106,26 @@ struct SendEntryHandlerTests {
         #expect(result == .started(count: 1))
         #expect(transfer.started == [file])
     }
+
+    @Test func dropHandler_twoFileUrls_lastResultReportsStarted() async throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let urls = [try makeFile(in: directory, name: "a.txt")]
+        let handler = SendEntryHandler(picker: FakeFilePicker(picked: []), transfer: RecordingTransferService())
+
+        _ = await handler.handleDrop(urls: urls)
+
+        #expect(handler.lastResult == .started(count: 1))
+    }
+
+    @Test func sendFileQuickAction_notConnected_lastResultReportsNotConnected() async {
+        let handler = SendEntryHandler(
+            picker: FakeFilePicker(picked: []),
+            transfer: RecordingTransferService(isConnected: false)
+        )
+
+        _ = await handler.sendFileQuickAction()
+
+        #expect(handler.lastResult == .notConnected)
+    }
 }

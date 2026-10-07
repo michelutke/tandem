@@ -259,7 +259,7 @@ struct MenuContentView: View {
         let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         lifecycle?.mirror.bind(mirrorRequestViewModel)
-        let pushClipboardViewModel = PushClipboardViewModel(sender: nil)
+        let pushClipboardViewModel = PushClipboardViewModel(clipboard: lifecycle?.sessionFeatures.clipboard)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(
             picker: OpenPanelFilePicker(),
@@ -328,7 +328,8 @@ struct MenuContentView: View {
                     viewModel: quickActionsViewModel,
                     findPhoneViewModel: findPhoneViewModel,
                     pushClipboardViewModel: pushClipboardViewModel,
-                    mirrorRequestViewModel: mirrorRequestViewModel
+                    mirrorRequestViewModel: mirrorRequestViewModel,
+                    sendEntryHandler: sendEntryHandler
                 )
                 if let activeCall {
                     ActiveCallHangUpView(activeCall: activeCall)

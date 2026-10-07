@@ -9,17 +9,21 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../TandemTestSupport"),
-        .package(path: "../TandemProtocol")
+        .package(path: "../TandemCrypto"),
+        .package(path: "../TandemProtocol"),
+        .package(path: "../TandemTransport")
     ],
     targets: [
         .target(
             name: "FeatureClipboard",
-            dependencies: ["TandemProtocol"],
+            dependencies: ["TandemCrypto", "TandemProtocol", "TandemTransport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "FeatureClipboardTests",
-            dependencies: ["FeatureClipboard", "TandemTestSupport", "TandemProtocol"],
+            dependencies: [
+                "FeatureClipboard", "TandemTestSupport", "TandemCrypto", "TandemProtocol", "TandemTransport"
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
