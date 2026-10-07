@@ -47,6 +47,8 @@ public struct DotQR: View {
         // default) would otherwise collapse the QR to zero height.
         .frame(minWidth: 200, idealWidth: 280, minHeight: 200, idealHeight: 280)
         .aspectRatio(1, contentMode: .fit)
+        // Always dark-on-white, whatever surface hosts it (glass windows are grey): scanners need contrast.
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(TandemColor.paper))
         .accessibilityHidden(true)
     }
 }
