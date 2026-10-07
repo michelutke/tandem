@@ -43,6 +43,9 @@ public struct DotQR: View {
                 }
             }
         }
+        // A Canvas has no intrinsic size; hosts that size to the SwiftUI ideal size (NSHostingController's
+        // default) would otherwise collapse the QR to zero height.
+        .frame(minWidth: 200, idealWidth: 280, minHeight: 200, idealHeight: 280)
         .aspectRatio(1, contentMode: .fit)
         .accessibilityHidden(true)
     }
