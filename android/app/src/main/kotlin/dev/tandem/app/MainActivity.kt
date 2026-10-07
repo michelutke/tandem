@@ -3,9 +3,7 @@ package dev.tandem.app
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -32,6 +30,7 @@ import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
 import dev.tandem.app.settings.RotationSettingsViewModel
+import dev.tandem.app.settings.SystemAppPermissionGateway
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
@@ -158,7 +157,7 @@ class MainActivity : TandemActivity() {
                     if (allowed) FilterOverride.ALLOW else FilterOverride.DENY,
                 )
             },
-            onOpenPermissionSettings = ::openAppPermissionSettings,
+            permissions = permissionGateway(activity),
             rotation =
                 RotationSettingsViewModel(
                     rotator = rotationComposition.keyRotator,
@@ -169,11 +168,8 @@ class MainActivity : TandemActivity() {
         )
     }
 
-    private fun openAppPermissionSettings() {
-        startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
-        )
-    }
+    private fun permissionGateway(activity: MainActivity) =
+        SystemAppPermissionGateway(activity, requestRuntimePermissions = { requestRuntimePermissions.launch(it) })
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

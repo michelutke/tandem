@@ -1,5 +1,6 @@
 package dev.tandem.app.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,19 +34,15 @@ fun RotationSettingsScreen(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .clickable(enabled = actionEnabled, onClick = onRotate)
                     .padding(horizontal = TandemSpacing.screenPadding, vertical = TandemSpacing.rowVerticalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Key",
-                style = TandemType.rowTitle,
-                color = TandemColors.ink,
-                modifier = Modifier.weight(1f),
-            )
-            Text(text = currentFingerprint, style = TandemType.meta, color = TandemColors.ink2)
-            TextButton(onClick = onRotate, enabled = actionEnabled) {
-                Text(text = "Rotate", style = TandemType.rowTitle, color = TandemColors.ink)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "Key", style = TandemType.rowTitle, color = TandemColors.ink)
+                Text(text = currentFingerprint, style = TandemType.meta, color = TandemColors.ink2)
             }
+            Text(text = "Rotate", style = TandemType.meta, color = TandemColors.ink2)
         }
         StatusLine(state = state, disabledReason = disabledReason, onDismissResult = onDismissResult)
     }

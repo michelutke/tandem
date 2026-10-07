@@ -5,9 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +15,6 @@ import org.junit.runner.RunWith
 //   ui: homeRing_idle_showsSyncedTodayCount
 //   ui: homeRing_transferRunning_showsTransferPercent
 //   ui: homeRing_reconnecting_showsCountdownAndGreyDots
-//   ui: floatingToolbar_tapActivity_selectsActivityDestination
 @RunWith(AndroidJUnit4::class)
 class HomeScreenTest {
     @get:Rule
@@ -33,8 +30,6 @@ class HomeScreenTest {
             HomeScreen(
                 statusLine = "Linked to MacBook Pro.",
                 ringState = HomeRingState.Idle(itemsSyncedToday = 7, sevenDayAverage = 10),
-                selectedToolbarItem = FloatingToolbarItem.Home,
-                onToolbarItemSelected = {},
             )
         }
 
@@ -49,8 +44,6 @@ class HomeScreenTest {
             HomeScreen(
                 statusLine = "Linked to MacBook Pro.",
                 ringState = ringState,
-                selectedToolbarItem = FloatingToolbarItem.Home,
-                onToolbarItemSelected = {},
             )
         }
         ringNodeWithText("7").assertExists()
@@ -81,30 +74,10 @@ class HomeScreenTest {
             HomeScreen(
                 statusLine = "Reconnecting…",
                 ringState = reconnecting,
-                selectedToolbarItem = FloatingToolbarItem.Home,
-                onToolbarItemSelected = {},
             )
         }
 
         ringNodeWithText("5").assertExists()
         ringNodeWithText("next try · attempt 2").assertExists()
-    }
-
-    @Test
-    fun floatingToolbar_tapActivity_selectsActivityDestination() {
-        var selected by mutableStateOf(FloatingToolbarItem.Home)
-        composeRule.setContent {
-            HomeScreen(
-                statusLine = "Linked to MacBook Pro.",
-                ringState = HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0),
-                selectedToolbarItem = selected,
-                onToolbarItemSelected = { selected = it },
-            )
-        }
-
-        composeRule.onNodeWithText("Activity").performClick()
-        composeRule.waitForIdle()
-
-        assertEquals(FloatingToolbarItem.Activity, selected)
     }
 }

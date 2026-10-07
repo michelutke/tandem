@@ -4,7 +4,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,8 +28,6 @@ class ActivityScreenTest {
             ActivityScreen(
                 entries = entries,
                 today = LocalDate.parse("2026-01-10"),
-                selectedToolbarItem = FloatingToolbarItem.Activity,
-                onToolbarItemSelected = {},
             )
         }
 

@@ -6,12 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,15 +17,13 @@ import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
-import dev.tandem.core.designsystem.components.CookieFab
 import dev.tandem.core.designsystem.components.DotRing
-import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import dev.tandem.core.designsystem.components.M3ESwitch
 import dev.tandem.core.designsystem.components.TandemScaffold
 
 /**
  * The Home screen (E20-17; ui-spec.md §6, §7.2): TitleBlock, the ring (§6), numbered feature
- * switches, the M3E floating toolbar and the cookie share FAB. Trust failures are handled by the
+ * switches. Trust failures are handled by the
  * caller: see [HomeViewModel.isBlocked] and [BlockedScreen].
  */
 @Composable
@@ -35,45 +31,18 @@ import dev.tandem.core.designsystem.components.TandemScaffold
 fun HomeScreen(
     statusLine: String,
     ringState: HomeRingState,
-    selectedToolbarItem: FloatingToolbarItem,
-    onToolbarItemSelected: (FloatingToolbarItem) -> Unit,
     modifier: Modifier = Modifier,
-    onSendClipboard: () -> Unit = {},
-    onSendFiles: () -> Unit = {},
     featureStates: Map<SyncFeature, Boolean> = SyncFeature.entries.associateWith { true },
     onFeatureToggled: (SyncFeature, Boolean) -> Unit = { _, _ -> },
 ) {
-    var showSendSheet by remember { mutableStateOf(false) }
     val ring = ringState.toDotRingContent()
 
     TandemScaffold(
         title = "Tandem.",
         state = statusLine,
         modifier = modifier,
-        toolbarItems = FloatingToolbarItem.entries,
-        selectedToolbarItem = selectedToolbarItem,
-        onToolbarItemSelected = onToolbarItemSelected,
-        fab = {
-            CookieFab(onClick = { showSendSheet = true }) {
-                Text(text = "↑", style = TandemType.rowTitle, color = TandemColors.paper)
-            }
-        },
     ) { padding ->
         HomeContent(padding = padding, ring = ring, featureStates = featureStates, onFeatureToggled = onFeatureToggled)
-    }
-
-    if (showSendSheet) {
-        SendSheet(
-            onDismissRequest = { showSendSheet = false },
-            onSendClipboard = {
-                showSendSheet = false
-                onSendClipboard()
-            },
-            onSendFiles = {
-                showSendSheet = false
-                onSendFiles()
-            },
-        )
     }
 }
 
@@ -85,7 +54,7 @@ private fun HomeContent(
     onFeatureToggled: (SyncFeature, Boolean) -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(padding).fillMaxWidth(),
+        modifier = Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         DotRing(

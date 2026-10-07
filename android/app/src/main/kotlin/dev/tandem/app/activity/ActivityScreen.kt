@@ -14,7 +14,6 @@ import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.DotChart
-import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import dev.tandem.core.designsystem.components.HairlineRule
 import dev.tandem.core.designsystem.components.TandemScaffold
 import java.time.LocalDate
@@ -28,12 +27,9 @@ private const val SECONDS_PER_MINUTE = 60L
 
 /** The Activity tab (E20-18; ui-spec.md §7.2): 7-day dot chart and a metadata-only event list. */
 @Composable
-@Suppress("LongParameterList") // screen composes several independent, testable slots
 fun ActivityScreen(
     entries: List<ActivityEntry>,
     today: LocalDate,
-    selectedToolbarItem: FloatingToolbarItem,
-    onToolbarItemSelected: (FloatingToolbarItem) -> Unit,
     modifier: Modifier = Modifier,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
@@ -43,9 +39,6 @@ fun ActivityScreen(
         title = "Activity.",
         state = "Last 7 days.",
         modifier = modifier,
-        toolbarItems = FloatingToolbarItem.entries,
-        selectedToolbarItem = selectedToolbarItem,
-        onToolbarItemSelected = onToolbarItemSelected,
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             DotChart(

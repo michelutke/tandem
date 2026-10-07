@@ -6,8 +6,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.core.designsystem.components.FloatingToolbarItem
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -26,15 +26,15 @@ class SettingsScreenTest {
         onFixBattery: () -> Unit = {},
         onRotateKey: () -> Unit = {},
         onUnpair: () -> Unit = {},
+        onOpenPermissions: () -> Unit = {},
     ) {
         composeRule.setContent {
             SettingsScreen(
                 state = state,
-                selectedToolbarItem = FloatingToolbarItem.Settings,
-                onToolbarItemSelected = {},
                 onFixBattery = onFixBattery,
                 onRotateKey = onRotateKey,
                 onUnpair = onUnpair,
+                onOpenPermissions = onOpenPermissions,
             )
         }
     }
@@ -79,11 +79,21 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun settingsTab_permissionsTapped_invokesOpenPermissions() {
+        var opened = 0
+        setScreen(onOpenPermissions = { opened++ })
+
+        composeRule.onNodeWithText("Review").performScrollTo().performClick()
+
+        assertEquals(1, opened)
+    }
+
+    @Test
     fun settingsTab_unpairConfirmed_invokesUnpairAction() {
         var unpaired = 0
         setScreen(onUnpair = { unpaired++ })
 
-        composeRule.onNodeWithText("Unpair").performClick()
+        composeRule.onNodeWithText("Unpair").performScrollTo().performClick()
         assertEquals(0, unpaired)
         composeRule.onNodeWithText("Unpair MacBook Pro?").assertIsDisplayed()
         composeRule.onAllNodesWithText("Unpair").onLast().performClick()
@@ -97,7 +107,7 @@ class SettingsScreenTest {
         var unpaired = 0
         setScreen(onUnpair = { unpaired++ })
 
-        composeRule.onNodeWithText("Unpair").performClick()
+        composeRule.onNodeWithText("Unpair").performScrollTo().performClick()
         composeRule.onNodeWithText("Cancel").performClick()
 
         assertEquals(0, unpaired)
