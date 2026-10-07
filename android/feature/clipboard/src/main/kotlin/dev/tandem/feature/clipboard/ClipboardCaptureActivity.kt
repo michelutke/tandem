@@ -41,13 +41,16 @@ class ClipboardCaptureActivity : TandemActivity() {
 
         val clip = clipboardReaderProvider(this).currentClip()?.takeUnless { it.sensitive }
         val session = clip?.let { sessionProvider(this) }
-        val isEcho =
-            clip != null && intent.getBooleanExtra(EXTRA_AUTO_CAPTURE, false) &&
-                !loopGuard.shouldSend(clip.text.sha256())
-        if (clip == null || session == null || isEcho) {
+        val isAuto = intent.getBooleanExtra(EXTRA_AUTO_CAPTURE, false)
+        val hash = clip?.text?.sha256()
+        val isRepeat = isAuto && hash != null && hash.contentEquals(LiveClipboardAutoCapture.lastSentHash)
+        val isEcho = isAuto && hash != null && !isRepeat && !loopGuard.shouldSend(hash)
+        val skip = isEcho || isRepeat
+        if (clip == null || session == null || skip) {
             finish()
             return
         }
+        if (isAuto) LiveClipboardAutoCapture.lastSentHash = hash
 
         CoroutineScope(SupervisorJob() + dispatcher).launch {
             ClipboardSender.send(clip.text, session)

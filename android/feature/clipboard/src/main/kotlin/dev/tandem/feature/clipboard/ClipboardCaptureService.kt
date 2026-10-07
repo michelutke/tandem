@@ -23,16 +23,19 @@ class ClipboardCaptureService : AccessibilityService() {
         )
     internal var launcher: (Intent) -> Unit = ::startActivity
     internal var localizedMarkers: () -> List<String> = ::systemUiCopyStrings
+    internal var copyActionLabels: () -> List<String> = ::frameworkCopyLabels
+    internal var detector = CopyDetector(SystemElapsedRealtimeSource)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val isCopy =
-            CopyEventFilter.isCopyOverlay(
+            detector.onEvent(
                 event.packageName,
                 event.eventType,
                 event.className,
                 event.text,
                 localizedMarkers(),
+                copyActionLabels(),
             )
         if (isCopy && gate.tryAcquire()) {
             launcher(ClipboardCaptureActivity.autoCaptureIntent(this))
@@ -40,6 +43,12 @@ class ClipboardCaptureService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    private fun frameworkCopyLabels(): List<String> =
+        listOf(
+            Resources.getSystem().getString(android.R.string.copy),
+            Resources.getSystem().getString(android.R.string.cut),
+        )
 
     // Resolved per event so a locale change applies without restarting the service.
     @Suppress("DiscouragedApi") // System UI exposes no public API for these labels

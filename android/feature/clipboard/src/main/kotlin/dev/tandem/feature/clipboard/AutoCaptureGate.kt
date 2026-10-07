@@ -6,6 +6,10 @@ import dev.tandem.core.transport.time.ElapsedRealtimeSource
 object LiveClipboardAutoCapture {
     @Volatile
     var isEnabled: () -> Boolean = { false }
+
+    /** Hash of the last clip this path sent, so a spurious trigger never re-sends an unchanged clip. */
+    @Volatile
+    var lastSentHash: ByteArray? = null
 }
 
 /**
