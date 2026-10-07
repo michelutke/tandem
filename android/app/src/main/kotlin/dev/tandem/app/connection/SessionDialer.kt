@@ -4,6 +4,7 @@ import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.crypto.SpkiFingerprintException
 import dev.tandem.core.crypto.spkiFingerprint
+import dev.tandem.core.pairing.IdentityUnavailableException
 import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.core.transport.HeartbeatDependencies
@@ -48,9 +49,10 @@ fun interface SessionDialer {
  * [ByteStreamSession] -- and therefore no application byte -- exists for a peer that failed the pin
  * check. Never listens (invariant 4).
  */
-@Suppress("LongParameterList") // dial seams: keys, pins, clock, two dispatchers, heartbeat
+@Suppress("LongParameterList") // dial seams: keys, identity, pins, clock, two dispatchers, heartbeat
 class TlsSessionDialer(
     private val keyManager: X509KeyManager,
+    private val identity: IdentityBootstrap,
     private val pinnedFingerprints: suspend () -> List<SpkiFingerprint>,
     private val wasPreviouslyPinned: (SpkiFingerprint) -> Boolean,
     private val clock: Clock,
@@ -60,7 +62,7 @@ class TlsSessionDialer(
 ) : SessionDialer {
     override suspend fun dial(candidate: CandidateAddress): DialResult {
         val pins = pinnedFingerprints()
-        if (pins.isEmpty()) return DialResult.Unreachable(null)
+        if (pins.isEmpty() || !identityReady()) return DialResult.Unreachable(null)
         val factory = SslClientFactory(keyManager, PinningTrustManager { pins })
         var opened: SslSocketByteStream? = null
         return try {
@@ -94,6 +96,14 @@ class TlsSessionDialer(
             classifyDialFailure(e, pins.any(wasPreviouslyPinned))
         }
     }
+
+    private suspend fun identityReady(): Boolean =
+        try {
+            identity.ensure()
+            true
+        } catch (expectedIdentityFailure: IdentityUnavailableException) {
+            false
+        }
 }
 
 /**

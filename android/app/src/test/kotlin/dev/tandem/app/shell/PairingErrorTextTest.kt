@@ -22,6 +22,13 @@ class PairingErrorTextTest {
     }
 
     @Test
+    fun pairingErrorText_identityUnavailable_saysKeyCouldNotBeCreated() {
+        val state = PairingState.Failed(PairingFailure.IdentityUnavailable)
+
+        assertEquals("Not paired." to "This phone's key couldn't be created.", pairingErrorText(state))
+    }
+
+    @Test
     fun pairingErrorText_userCancelled_saysNotPaired() {
         val state = PairingState.Failed(PairingFailure.UserCancelled)
 

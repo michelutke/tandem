@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import dagger.hilt.android.HiltAndroidApp
 import dev.tandem.app.activity.ActivityStore
+import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
@@ -18,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+import javax.inject.Inject
 import kotlin.time.Duration.Companion.days
 
 /**
@@ -49,6 +51,9 @@ class TandemApplication : Application() {
         )
     }
 
+    @Inject
+    lateinit var identityBootstrap: IdentityBootstrap
+
     override fun onCreate() {
         super.onCreate()
 
@@ -58,6 +63,7 @@ class TandemApplication : Application() {
                 startForegroundService = { startForegroundService(Intent(this, TandemService::class.java)) },
             )
         val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+        appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }
         appScope.launch {
             while (true) {

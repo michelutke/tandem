@@ -18,6 +18,7 @@ import dev.tandem.app.clipboard.ClipboardWriter
 import dev.tandem.app.connection.ConnectionOrchestrator
 import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.connection.FeatureAttacher
+import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
@@ -127,6 +128,7 @@ object ConnectionModule {
     fun pairingFlow(
         trustStore: TrustStore,
         activeIdentityAlias: ActiveIdentityAlias,
+        identityBootstrap: IdentityBootstrap,
     ): PairingFlow {
         val clock = AppClock.system
         return PairingFlow(
@@ -138,6 +140,7 @@ object ConnectionModule {
                     clock = clock,
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
+                    identity = identityBootstrap,
                 ),
             trustCommitter = TrustStoreCommitter(trustStore::put),
             deviceInfoProvider = SystemDeviceInfoProvider,
@@ -214,6 +217,7 @@ object ConnectionModule {
         activeIdentityAlias: ActiveIdentityAlias,
         trustStore: TrustStore,
         rotation: RotationComposition,
+        identityBootstrap: IdentityBootstrap,
     ): ConnectionOrchestrator {
         val clock = AppClock.system
         val idleSource =
@@ -230,6 +234,7 @@ object ConnectionModule {
                 dialerFor = { alias ->
                     TlsSessionDialer(
                         keyManager = IdentityKeyManager(keyStore, alias),
+                        identity = identityBootstrap,
                         pinnedFingerprints = pairedFingerprints::load,
                         wasPreviouslyPinned = knownPeerStore::hasEverPinned,
                         clock = clock,

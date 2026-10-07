@@ -283,6 +283,7 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | scan.invalid | Not a Tandem code. / Or it was already used. |
 | scan.unreachable | Can't reach the Mac. / Same Wi-Fi? |
 | scan.pinMismatch | Not trusted. / This Mac's identity changed. Pair again. |
+| scan.identityUnavailable | Not paired. / This phone's key couldn't be created. |
 | mirror.request | {mac} wants to see your screen. |
 | mirror.waiting | Accept on {phone} to start. |
 | mirror.declined | Nothing was shared. |

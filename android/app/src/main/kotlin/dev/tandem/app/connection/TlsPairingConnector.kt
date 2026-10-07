@@ -32,6 +32,7 @@ class TlsPairingConnector internal constructor(
     private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val sessionDispatcher: CoroutineDispatcher,
+    private val identity: IdentityBootstrap,
     private val dialer: PairingSocketDialer,
 ) : PairingConnector {
     constructor(
@@ -39,13 +40,15 @@ class TlsPairingConnector internal constructor(
         clock: Clock,
         ioDispatcher: CoroutineDispatcher,
         sessionDispatcher: CoroutineDispatcher,
-    ) : this(keyManager, clock, ioDispatcher, sessionDispatcher, TlsPairingSocketDialer(keyManager))
+        identity: IdentityBootstrap,
+    ) : this(keyManager, clock, ioDispatcher, sessionDispatcher, identity, TlsPairingSocketDialer(keyManager))
 
     override suspend fun connect(
         address: String,
         port: Int,
         pinSource: PinSource,
     ): PairingConnection {
+        identity.ensure()
         var opened: ByteStream? = null
         val (stream, macSpkiDer) =
             try {

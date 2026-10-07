@@ -156,6 +156,19 @@ class PairingStateMachineTest {
         }
 
     @Test
+    fun pairingSm_identityUnavailable_failsImmediatelyWithoutTryingOtherAddresses() =
+        runTest {
+            val connector = FakePairingConnector(emptyMap(), identityUnavailable = true)
+            val sm = newMachine(connector)
+
+            sm.start()
+            runCurrent()
+
+            assertEquals(listOf(invite.addresses[0]), connector.attempted)
+            assertEquals(PairingState.Failed(PairingFailure.IdentityUnavailable), sm.state.value)
+        }
+
+    @Test
     fun pairingSm_confirmCodesMatch_closesPairingSessionAfterCommit() =
         runTest {
             val session = readySession()
@@ -499,6 +512,7 @@ class PairingStateMachineTest {
         private val responses: Map<String, PairingConnection>,
         private val failing: Set<String> = emptySet(),
         private val pinMismatching: Set<String> = emptySet(),
+        private val identityUnavailable: Boolean = false,
     ) : PairingConnector {
         val attempted = mutableListOf<String>()
 
@@ -508,6 +522,7 @@ class PairingStateMachineTest {
             pinSource: PinSource,
         ): PairingConnection {
             attempted += address
+            if (identityUnavailable) throw IdentityUnavailableException()
             if (address in failing) error("connection refused")
             if (address in pinMismatching) throw CertificateException("pin mismatch")
             return responses[address] ?: awaitCancellation()
