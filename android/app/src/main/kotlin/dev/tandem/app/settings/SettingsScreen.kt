@@ -37,9 +37,12 @@ fun SettingsScreen(
     onUnpair: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenPermissions: () -> Unit = {},
+    onAutoCaptureChange: (Boolean) -> Unit = {},
+    onOpenAccessibilitySettings: () -> Unit = {},
     keySection: (@Composable () -> Unit)? = null,
 ) {
     var showUnpairDialog by remember { mutableStateOf(false) }
+    var showAutoCaptureDialog by remember { mutableStateOf(false) }
 
     TandemScaffold(
         title = "Settings.",
@@ -52,8 +55,29 @@ fun SettingsScreen(
             onFixBattery = onFixBattery,
             onRotateKey = onRotateKey,
             onOpenPermissions = onOpenPermissions,
+            onAutoCaptureClick = {
+                when {
+                    !state.autoCapture -> showAutoCaptureDialog = true
+                    !state.autoCaptureServiceOn -> onOpenAccessibilitySettings()
+                    else -> onAutoCaptureChange(false)
+                }
+            },
             keySection = keySection,
             onUnpairClick = { showUnpairDialog = true },
+        )
+    }
+
+    if (showAutoCaptureDialog) {
+        TandemDialog(
+            title = "Send copies automatically?",
+            text = AUTO_CAPTURE_EXPLANATION,
+            confirmText = "Open Accessibility",
+            onConfirm = {
+                showAutoCaptureDialog = false
+                onAutoCaptureChange(true)
+                onOpenAccessibilitySettings()
+            },
+            onDismissRequest = { showAutoCaptureDialog = false },
         )
     }
 
@@ -80,6 +104,7 @@ private fun SettingsRows(
     onFixBattery: () -> Unit,
     onRotateKey: () -> Unit,
     onOpenPermissions: () -> Unit,
+    onAutoCaptureClick: () -> Unit,
     keySection: (@Composable () -> Unit)?,
     onUnpairClick: () -> Unit,
 ) {
@@ -101,6 +126,13 @@ private fun SettingsRows(
         }
         HairlineRule()
         SettingsRow(
+            label = "Clipboard",
+            subtitle = autoCaptureSubtitle(state),
+            trailing = if (state.autoCapture) "On" else "Off",
+            onAction = onAutoCaptureClick,
+        )
+        HairlineRule()
+        SettingsRow(
             label = "Permissions",
             subtitle = "What Tandem can use",
             trailing = "Review",
@@ -111,6 +143,21 @@ private fun SettingsRows(
         HairlineRule()
     }
 }
+
+internal const val AUTO_CAPTURE_LABEL = "Send copies to Mac automatically"
+internal const val AUTO_CAPTURE_EXPLANATION =
+    "Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything " +
+        "on screen, not just the clipboard. Tandem only watches the system copy notice and reads " +
+        "nothing else. Turn on Tandem clipboard in the next screen. You can switch this off any time."
+
+private fun autoCaptureSubtitle(state: SettingsState): String =
+    if (state.autoCapture &&
+        !state.autoCaptureServiceOn
+    ) {
+        "Allow Tandem in Accessibility settings."
+    } else {
+        AUTO_CAPTURE_LABEL
+    }
 
 @Composable
 @Suppress("LongParameterList") // row slots: label, subtitle, trailing text, action, error tint

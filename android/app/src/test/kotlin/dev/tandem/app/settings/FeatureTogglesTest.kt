@@ -48,6 +48,17 @@ class FeatureTogglesTest {
     }
 
     @Test
+    fun featureToggles_autoCapture_offByDefaultAndPersistsWhenSet() =
+        runTest {
+            val toggles = toggles()
+            assertEquals(false, toggles.autoCapture.value)
+
+            toggles.setAutoCapture(true)
+
+            assertEquals(true, toggles.autoCapture.value)
+        }
+
+    @Test
     fun featureToggles_freshInstall_everyFeatureOn() =
         runTest {
             val toggles = toggles()

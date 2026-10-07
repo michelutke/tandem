@@ -299,6 +299,9 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | send.clipboard.received | Received from Mac. (Android toast) / Received from phone. (Mac menu) |
 | send.clipboard.empty | Nothing on the clipboard to send. |
 | send.clipboard.tooLarge | Text too large to send (max 1 MiB). (Android) / Clipboard too large to send, use file transfer (Mac) |
+| settings.clipboard.autoCapture | Send copies to Mac automatically (Android Settings row; off by default) |
+| settings.clipboard.autoCapture.explain | Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything on screen, not just the clipboard. Tandem only watches the system copy notice and reads nothing else. Turn on Tandem clipboard in the next screen. You can switch this off any time. |
+| settings.clipboard.autoCapture.needsService | Allow Tandem in Accessibility settings. |
 | send.clipboard.protected | Not sent: protected item (Mac menu) |
 | send.file.started | Sending to Mac… (Android toast) / Sending to phone. (Mac menu) |
 | send.file.sent | Sent to Mac. (Android toast) |

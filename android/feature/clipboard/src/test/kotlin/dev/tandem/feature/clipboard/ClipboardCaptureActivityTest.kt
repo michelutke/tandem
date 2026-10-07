@@ -11,6 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import java.security.MessageDigest
 
 // E31-12 tdd:
 //   unit: clipboardCaptureActivity_windowFocusWithTextClip_sendsClipAndFinishes
@@ -65,15 +66,64 @@ class ClipboardCaptureActivityTest {
         assertTrue(session.sentFrames.isEmpty())
     }
 
+    @Test
+    fun clipboardCaptureActivity_autoCaptureSensitiveClip_sendsNothing() {
+        val session = FakeTandemSession()
+
+        val activity =
+            buildAndFocus(ClipboardReader { ClipboardClip("secret", sensitive = true) }, session, autoCaptureIntent())
+
+        assertTrue(session.sentFrames.isEmpty())
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun clipboardCaptureActivity_autoCaptureEchoOfMacClip_sendsNothing() {
+        val session = FakeTandemSession()
+        val guard = ClipboardLoopGuard()
+        guard.recordReceived("mac", MessageDigest.getInstance("SHA-256").digest("from mac".toByteArray()))
+
+        val activity =
+            buildAndFocus(
+                ClipboardReader { ClipboardClip("from mac", sensitive = false) },
+                session,
+                autoCaptureIntent(),
+                guard,
+            )
+
+        assertTrue(session.sentFrames.isEmpty())
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun clipboardCaptureActivity_autoCaptureFreshClip_sends() {
+        val session = FakeTandemSession()
+
+        buildAndFocus(ClipboardReader { ClipboardClip("fresh", sensitive = false) }, session, autoCaptureIntent())
+
+        assertEquals(
+            "fresh",
+            session.sentFrames
+                .single()
+                .clipboardText.text,
+        )
+    }
+
+    private fun autoCaptureIntent(): Intent =
+        ClipboardCaptureActivity.autoCaptureIntent(ApplicationProvider.getApplicationContext())
+
     private fun captureIntent(): Intent =
         Intent().setClass(ApplicationProvider.getApplicationContext(), ClipboardCaptureActivity::class.java)
 
     private fun buildAndFocus(
         reader: ClipboardReader,
         session: FakeTandemSession,
+        intent: Intent = captureIntent(),
+        guard: ClipboardLoopGuard = ClipboardLoopGuard(),
     ): ClipboardCaptureActivity {
-        val controller = Robolectric.buildActivity(ClipboardCaptureActivity::class.java, captureIntent())
+        val controller = Robolectric.buildActivity(ClipboardCaptureActivity::class.java, intent)
         val activity = controller.get()
+        activity.loopGuard = guard
         activity.sessionProvider = { session }
         activity.dispatcher = UnconfinedTestDispatcher()
         activity.clipboardReaderProvider = { reader }

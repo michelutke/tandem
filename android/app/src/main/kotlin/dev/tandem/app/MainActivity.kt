@@ -39,10 +39,12 @@ import dev.tandem.core.designsystem.TandemTheme
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
+import dev.tandem.feature.clipboard.ClipboardCaptureServiceState
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
 import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.files.PickFilesActivity
+import dev.tandem.feature.input.AccessibilitySettingsLauncher
 import dev.tandem.feature.notifications.FilterOverride
 import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -148,9 +150,7 @@ class MainActivity : TandemActivity() {
             featureStates = app.featureToggles.states,
             onToggleFeature = app.featureToggles::set,
             activityEntries = app.activityStore.entries,
-            notificationRows = {
-                app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps())
-            },
+            notificationRows = { app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps()) },
             onToggleNotificationApp = { packageName, allowed ->
                 app.notificationFilter.setOverride(
                     packageName,
@@ -158,6 +158,10 @@ class MainActivity : TandemActivity() {
                 )
             },
             permissions = permissionGateway(activity),
+            autoCapture = app.featureToggles.autoCapture,
+            onToggleAutoCapture = app.featureToggles::setAutoCapture,
+            isAutoCaptureServiceOn = { ClipboardCaptureServiceState(activity).isServiceEnabled() },
+            onOpenAccessibilitySettings = { AccessibilitySettingsLauncher(activity).open() },
             rotation =
                 RotationSettingsViewModel(
                     rotator = rotationComposition.keyRotator,

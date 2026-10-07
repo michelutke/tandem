@@ -37,6 +37,16 @@ class FeatureToggles(
             SyncFeature.entries.zip(values).toMap()
         }.stateIn(scope, SharingStarted.Eagerly, SyncFeature.entries.associateWith { true })
 
+    private val autoCaptureKey = SettingsKey(booleanPreferencesKey("clipboard_auto_capture_enabled"), false)
+
+    /** ADR-007 opt-in: send copies to the Mac automatically. Off until the user turns it on. */
+    val autoCapture: StateFlow<Boolean> =
+        settings.get(autoCaptureKey).stateIn(scope, SharingStarted.Eagerly, false)
+
+    suspend fun setAutoCapture(enabled: Boolean) {
+        settings.set(autoCaptureKey, enabled)
+    }
+
     fun enabled(feature: SyncFeature): Flow<Boolean> = settings.get(keys.getValue(feature))
 
     fun isEnabled(feature: SyncFeature): Boolean = states.value.getValue(feature)

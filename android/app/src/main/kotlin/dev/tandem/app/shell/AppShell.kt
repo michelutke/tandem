@@ -84,6 +84,10 @@ class AppShellDependencies(
     val onSendFiles: () -> Unit = {},
     val rotation: RotationSettingsViewModel? = null,
     val permissions: AppPermissionGateway = NoAppPermissions,
+    val autoCapture: StateFlow<Boolean> = MutableStateFlow(false),
+    val onToggleAutoCapture: suspend (Boolean) -> Unit = {},
+    val isAutoCaptureServiceOn: () -> Boolean = { false },
+    val onOpenAccessibilitySettings: () -> Unit = {},
     val isConnected: () -> Boolean = { true },
     val activityEntries: Flow<List<ActivityEntry>> = flowOf(emptyList()),
     val notificationRows: () -> List<PerAppFilterRow> = { emptyList() },
@@ -234,6 +238,7 @@ private fun SettingsTab(
     val resumeCount by rememberResumeCount()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val autoCapture by dependencies.autoCapture.collectAsState()
     var showPermissions by rememberSaveable { mutableStateOf(false) }
     if (showPermissions) {
         BackHandler { showPermissions = false }
@@ -249,9 +254,13 @@ private fun SettingsTab(
             peer.toSettingsState(
                 batteryRestricted = resumeCount.let { dependencies.isBatteryRestricted() },
                 connected = dependencies.isConnected(),
+                autoCapture = autoCapture,
+                autoCaptureServiceOn = resumeCount.let { dependencies.isAutoCaptureServiceOn() },
             ),
         onFixBattery = { launchBatteryExemption(context) },
         onOpenPermissions = { showPermissions = true },
+        onAutoCaptureChange = { enabled -> scope.launch { dependencies.onToggleAutoCapture(enabled) } },
+        onOpenAccessibilitySettings = dependencies.onOpenAccessibilitySettings,
         onRotateKey = {},
         keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
         onUnpair = {
@@ -314,11 +323,15 @@ private fun PeerRecord.fingerprint(): SpkiFingerprint =
 private fun PeerRecord.toSettingsState(
     batteryRestricted: Boolean,
     connected: Boolean,
+    autoCapture: Boolean,
+    autoCaptureServiceOn: Boolean,
 ) = SettingsState(
     macName = displayName,
     batteryRestricted = batteryRestricted,
     keyShortCode = keyShortCode(spkiSha256Base64Url),
     connected = connected,
+    autoCapture = autoCapture,
+    autoCaptureServiceOn = autoCaptureServiceOn,
 )
 
 @Composable

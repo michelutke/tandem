@@ -1,6 +1,7 @@
 package dev.tandem.feature.clipboard
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
@@ -9,6 +10,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 
 /**
  * E31-12: transparent capture activity started by [ClipboardTileService]. Android 10+ blocks
@@ -22,6 +24,8 @@ class ClipboardCaptureActivity : TandemActivity() {
     var sessionProvider: (Context) -> TandemSession? = { LiveClipboardSession.current }
     internal var dispatcher: CoroutineDispatcher = ClipboardDispatchers.default
     var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
+
+    internal var loopGuard: ClipboardLoopGuard = LiveClipboardSession.loopGuard
 
     private var captured = false
 
@@ -37,7 +41,10 @@ class ClipboardCaptureActivity : TandemActivity() {
 
         val clip = clipboardReaderProvider(this).currentClip()?.takeUnless { it.sensitive }
         val session = clip?.let { sessionProvider(this) }
-        if (clip == null || session == null) {
+        val isEcho =
+            clip != null && intent.getBooleanExtra(EXTRA_AUTO_CAPTURE, false) &&
+                !loopGuard.shouldSend(clip.text.sha256())
+        if (clip == null || session == null || isEcho) {
             finish()
             return
         }
@@ -47,4 +54,16 @@ class ClipboardCaptureActivity : TandemActivity() {
             finish()
         }
     }
+
+    companion object {
+        private const val EXTRA_AUTO_CAPTURE = "dev.tandem.feature.clipboard.AUTO_CAPTURE"
+
+        /** The explicit-component intent [ClipboardCaptureService] starts; auto captures skip echoes of Mac clips. */
+        fun autoCaptureIntent(context: Context): Intent =
+            Intent(context, ClipboardCaptureActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(EXTRA_AUTO_CAPTURE, true)
+    }
 }
+
+private fun String.sha256(): ByteArray = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))

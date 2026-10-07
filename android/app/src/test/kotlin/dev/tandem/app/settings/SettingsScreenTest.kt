@@ -21,12 +21,15 @@ class SettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    @Suppress("LongParameterList") // one callback per screen action
     private fun setScreen(
         state: SettingsState = SettingsState("MacBook Pro", batteryRestricted = false, keyShortCode = "A1B2 C3D4"),
         onFixBattery: () -> Unit = {},
         onRotateKey: () -> Unit = {},
         onUnpair: () -> Unit = {},
         onOpenPermissions: () -> Unit = {},
+        onAutoCaptureChange: (Boolean) -> Unit = {},
+        onOpenAccessibilitySettings: () -> Unit = {},
     ) {
         composeRule.setContent {
             SettingsScreen(
@@ -35,6 +38,8 @@ class SettingsScreenTest {
                 onRotateKey = onRotateKey,
                 onUnpair = onUnpair,
                 onOpenPermissions = onOpenPermissions,
+                onAutoCaptureChange = onAutoCaptureChange,
+                onOpenAccessibilitySettings = onOpenAccessibilitySettings,
             )
         }
     }
@@ -86,6 +91,68 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Review").performScrollTo().performClick()
 
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun settingsTab_autoCaptureOffByDefault_showsOff() {
+        setScreen()
+
+        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Off").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsTab_autoCaptureTapped_explainsThenEnablesAndOpensAccessibility() {
+        val changes = mutableListOf<Boolean>()
+        var accessibilityOpened = 0
+        setScreen(onAutoCaptureChange = { changes += it }, onOpenAccessibilitySettings = { accessibilityOpened++ })
+
+        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().performClick()
+        assertEquals(emptyList<Boolean>(), changes)
+        composeRule.onNodeWithText(AUTO_CAPTURE_EXPLANATION).assertIsDisplayed()
+        composeRule.onNodeWithText("Open Accessibility").performClick()
+
+        assertEquals(listOf(true), changes)
+        assertEquals(1, accessibilityOpened)
+    }
+
+    @Test
+    fun settingsTab_autoCaptureOnButServiceOff_tapOpensAccessibility() {
+        var accessibilityOpened = 0
+        setScreen(
+            state =
+                SettingsState(
+                    "MacBook Pro",
+                    batteryRestricted = false,
+                    keyShortCode = "A1B2 C3D4",
+                    autoCapture = true,
+                ),
+            onOpenAccessibilitySettings = { accessibilityOpened++ },
+        )
+
+        composeRule.onNodeWithText("Allow Tandem in Accessibility settings.").performScrollTo().performClick()
+
+        assertEquals(1, accessibilityOpened)
+    }
+
+    @Test
+    fun settingsTab_autoCaptureOn_tapTurnsOff() {
+        val changes = mutableListOf<Boolean>()
+        setScreen(
+            state =
+                SettingsState(
+                    "MacBook Pro",
+                    batteryRestricted = false,
+                    keyShortCode = "A1B2 C3D4",
+                    autoCapture = true,
+                    autoCaptureServiceOn = true,
+                ),
+            onAutoCaptureChange = { changes += it },
+        )
+
+        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().performClick()
+
+        assertEquals(listOf(false), changes)
     }
 
     @Test

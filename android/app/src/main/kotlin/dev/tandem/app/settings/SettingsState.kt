@@ -6,6 +6,8 @@ data class SettingsState(
     val batteryRestricted: Boolean,
     val keyShortCode: String,
     val connected: Boolean = true,
+    val autoCapture: Boolean = false,
+    val autoCaptureServiceOn: Boolean = false,
 ) {
     val connectionLabel: String get() = if (connected) "Connected" else "Not connected"
 }

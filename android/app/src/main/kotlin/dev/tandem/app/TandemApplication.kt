@@ -18,6 +18,7 @@ import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
+import dev.tandem.feature.clipboard.LiveClipboardAutoCapture
 import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +85,7 @@ class TandemApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        LiveClipboardAutoCapture.isEnabled = { featureToggles.autoCapture.value }
 
         val serviceStarter =
             ServiceStarter(
