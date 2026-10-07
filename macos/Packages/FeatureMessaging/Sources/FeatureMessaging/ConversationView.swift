@@ -9,6 +9,8 @@ public struct ConversationView: View {
     private let headerAccessory: (@MainActor (String) -> AnyView)?
     private let offlineComposerText: String?
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     /// - Parameters:
     ///   - headerAccessory: hosted beside the title with the thread's phone number once loaded
     ///     (the app target's Call button, E52-10).
@@ -26,15 +28,9 @@ public struct ConversationView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
-            HStack(alignment: .top) {
-                TitleBlock(subject: "\(viewModel.title).", state: headerState, size: 26)
-                Spacer()
-                if let headerAccessory, !viewModel.callAddress.isEmpty {
-                    headerAccessory(viewModel.callAddress)
-                }
-            }
+            header
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                LazyVStack(alignment: .leading, spacing: TandemSpacing.small) {
                     ForEach(viewModel.bubbles) { bubble in
                         bubbleRow(bubble)
                     }
@@ -48,14 +44,41 @@ public struct ConversationView: View {
         .task { await viewModel.reload() }
     }
 
-    private var headerState: String {
-        viewModel.callAddress.isEmpty ? "\(viewModel.bubbles.count) messages." : viewModel.callAddress
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(viewModel.title).")
+                    .tandemTextStyle(TandemTypography.sectionTitleBold())
+                    .foregroundStyle(TandemColor.ink)
+                    .lineLimit(1)
+                if let subtitle {
+                    Text(subtitle)
+                        .tandemTextStyle(TandemTypography.meta())
+                        .foregroundStyle(TandemColor.ink2)
+                }
+            }
+            Spacer()
+            if let headerAccessory, !viewModel.callAddress.isEmpty {
+                headerAccessory(viewModel.callAddress)
+            }
+        }
+        .padding(.bottom, TandemSpacing.small)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(TandemColor.line(increasedContrast: contrast == .increased)).frame(height: 1)
+        }
+    }
+
+    private var subtitle: String? {
+        let address = viewModel.callAddress
+        return address.isEmpty || address == viewModel.title ? nil : address
     }
 
     private func bubbleRow(_ bubble: MessageBubble) -> some View {
         VStack(alignment: bubble.isOutbound ? .trailing : .leading, spacing: TandemSpacing.extraSmall) {
             Text(bubble.body)
                 .tandemTextStyle(TandemTypography.body())
+                .frame(maxWidth: 380, alignment: bubble.isOutbound ? .trailing : .leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(bubble.isOutbound ? TandemColor.paper : TandemColor.ink)
                 .padding(.horizontal, TandemSpacing.medium)
                 .padding(.vertical, TandemSpacing.small)
@@ -118,16 +141,13 @@ public struct ConversationView: View {
                 .labelsHidden()
                 .fixedSize()
                 .accessibilityIdentifier("simPicker")
-            } else if let sim = viewModel.sims.first {
-                Text(sim.name)
-                    .tandemTextStyle(TandemTypography.metaMono())
-                    .foregroundStyle(TandemColor.ink2)
             }
             Button { Task { await viewModel.sendTapped() } } label: {
                 Image(systemName: "arrow.up")
                     .foregroundStyle(TandemColor.paper)
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(sendEnabled ? TandemColor.ink : TandemColor.lineUnlit))
+                    .background(Circle().fill(TandemColor.ink))
+                    .opacity(isOffline ? 0.3 : 1)
             }
             .buttonStyle(.plain)
             .disabled(!sendEnabled)

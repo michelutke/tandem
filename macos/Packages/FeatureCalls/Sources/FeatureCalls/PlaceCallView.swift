@@ -37,8 +37,20 @@ public struct PlaceCallView: View {
     }
 
     private var callButton: some View {
-        PillButton("Call") { Task { await viewModel.place(number: number) } }
-            .accessibilityIdentifier("callButton")
+        Button { Task { await viewModel.place(number: number) } } label: {
+            HStack(spacing: TandemSpacing.extraSmall) {
+                Image(systemName: "phone")
+                Text("Call")
+            }
+            .tandemTextStyle(TandemTypography.rowTitle(size: 12))
+            .foregroundStyle(TandemColor.ink)
+            .padding(.horizontal, TandemSpacing.medium)
+            .padding(.vertical, TandemSpacing.small)
+            .background(Capsule().fill(TandemColor.ink.opacity(0.05)))
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityIdentifier("callButton")
     }
 
     private func status(_ text: String, color: Color) -> some View {

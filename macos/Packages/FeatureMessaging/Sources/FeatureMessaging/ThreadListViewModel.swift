@@ -126,7 +126,7 @@ public final class ThreadListViewModel {
         return ThreadRow(
             id: thread.threadId,
             title: title,
-            snippet: Self.sanitize(thread.snippet),
+            snippet: Self.sanitize(Self.joiningLines(thread.snippet)),
             unreadBadge: thread.unreadCount > 0 ? String(thread.unreadCount) : nil,
             avatarThumbnail: thumbnail,
             lastMessageAtMs: thread.lastMessageAtMs
@@ -142,6 +142,12 @@ public final class ThreadListViewModel {
 
     private static func isAlphanumericSenderId(_ address: String) -> Bool {
         address.contains { $0.isLetter }
+    }
+
+    private static func joiningLines(_ text: String) -> String {
+        text.replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
     }
 
     private static func sanitize(_ text: String) -> String {
