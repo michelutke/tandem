@@ -1,3 +1,4 @@
+import AppKit
 import FeatureFiles
 import FeatureMirror
 import SwiftUI
@@ -175,7 +176,7 @@ final class TandemAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showMainWindow() ? false : true
+        !showMainWindow()
     }
 
     /// Brings the SwiftUI `Window("Tandem", id: "main")` forward; `false` if it doesn't exist yet,
