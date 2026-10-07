@@ -136,6 +136,32 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun settingsTab_autoCaptureOffButServiceStillOn_showsRemoveAccessHintWithLink() {
+        var accessibilityOpened = 0
+        setScreen(
+            state =
+                SettingsState(
+                    "MacBook Pro",
+                    batteryRestricted = false,
+                    keyShortCode = "A1B2 C3D4",
+                    autoCaptureServiceOn = true,
+                ),
+            onOpenAccessibilitySettings = { accessibilityOpened++ },
+        )
+
+        composeRule.onNodeWithText(AUTO_CAPTURE_REMOVE_ACCESS_HINT).performScrollTo().performClick()
+
+        assertEquals(1, accessibilityOpened)
+    }
+
+    @Test
+    fun settingsTab_autoCaptureOffServiceOff_hidesRemoveAccessHint() {
+        setScreen()
+
+        composeRule.onNodeWithText(AUTO_CAPTURE_REMOVE_ACCESS_HINT).assertDoesNotExist()
+    }
+
+    @Test
     fun settingsTab_autoCaptureOn_tapTurnsOff() {
         val changes = mutableListOf<Boolean>()
         setScreen(

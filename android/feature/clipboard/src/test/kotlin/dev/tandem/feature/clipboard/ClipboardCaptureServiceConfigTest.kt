@@ -1,6 +1,8 @@
 package dev.tandem.feature.clipboard
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -48,5 +50,42 @@ class ClipboardCaptureServiceConfigTest {
                 .single { it.getAttributeNS(androidNs, "name").endsWith("ClipboardCaptureService") }
 
         assertEquals("android.permission.BIND_ACCESSIBILITY_SERVICE", service.getAttributeNS(androidNs, "permission"))
+    }
+
+    @Test
+    fun accessibilityServices_labels_existAndDiffer() {
+        val clipboardLabel = serviceLabel("src/main/AndroidManifest.xml", "ClipboardCaptureService")
+        val inputLabel = serviceLabel("../input/src/main/AndroidManifest.xml", "TandemAccessibilityService")
+
+        assertNotEquals(clipboardLabel, inputLabel)
+        assertEquals("Tandem clipboard", stringValue("src/main/res/values/strings.xml", clipboardLabel))
+        assertEquals("Tandem remote control", stringValue("../input/src/main/res/values/strings.xml", inputLabel))
+    }
+
+    private fun serviceLabel(
+        manifestPath: String,
+        serviceName: String,
+    ): String {
+        val services = parse(manifestPath).getElementsByTagName("service")
+        val service =
+            (0 until services.length)
+                .map { services.item(it) as Element }
+                .single { it.getAttributeNS(androidNs, "name").endsWith(serviceName) }
+        return service
+            .getAttributeNS(androidNs, "label")
+            .also {
+                assertTrue(it.startsWith("@string/"))
+            }.removePrefix("@string/")
+    }
+
+    private fun stringValue(
+        path: String,
+        name: String,
+    ): String {
+        val strings = parse(path).getElementsByTagName("string")
+        return (0 until strings.length)
+            .map { strings.item(it) as Element }
+            .single { it.getAttribute("name") == name }
+            .textContent
     }
 }

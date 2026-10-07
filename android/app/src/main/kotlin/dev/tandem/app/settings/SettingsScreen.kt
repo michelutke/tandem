@@ -55,6 +55,7 @@ fun SettingsScreen(
             onFixBattery = onFixBattery,
             onRotateKey = onRotateKey,
             onOpenPermissions = onOpenPermissions,
+            onOpenAccessibilitySettings = onOpenAccessibilitySettings,
             onAutoCaptureClick = {
                 when {
                     !state.autoCapture -> showAutoCaptureDialog = true
@@ -105,6 +106,7 @@ private fun SettingsRows(
     onRotateKey: () -> Unit,
     onOpenPermissions: () -> Unit,
     onAutoCaptureClick: () -> Unit,
+    onOpenAccessibilitySettings: () -> Unit,
     keySection: (@Composable () -> Unit)?,
     onUnpairClick: () -> Unit,
 ) {
@@ -132,6 +134,15 @@ private fun SettingsRows(
             onAction = onAutoCaptureClick,
         )
         HairlineRule()
+        if (!state.autoCapture && state.autoCaptureServiceOn) {
+            SettingsRow(
+                label = "Tandem clipboard access",
+                subtitle = AUTO_CAPTURE_REMOVE_ACCESS_HINT,
+                trailing = "Open",
+                onAction = onOpenAccessibilitySettings,
+            )
+            HairlineRule()
+        }
         SettingsRow(
             label = "Permissions",
             subtitle = "What Tandem can use",
@@ -145,6 +156,8 @@ private fun SettingsRows(
 }
 
 internal const val AUTO_CAPTURE_LABEL = "Send copies to Mac automatically"
+internal const val AUTO_CAPTURE_REMOVE_ACCESS_HINT =
+    "Turn off Tandem clipboard in Accessibility settings to remove access."
 internal const val AUTO_CAPTURE_EXPLANATION =
     "Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything " +
         "on screen, not just the clipboard. Tandem only watches the system copy notice and reads " +
