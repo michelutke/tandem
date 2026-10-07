@@ -20,7 +20,9 @@ struct GlassBackground: ViewModifier {
     let cornerRadius: CGFloat
 
     func body(content: Content) -> some View {
-        content.background(background)
+        content
+            .environment(\.colorScheme, .light)
+            .background(background)
     }
 
     @ViewBuilder
@@ -37,12 +39,13 @@ struct GlassBackground: ViewModifier {
     @ViewBuilder
     private var glassShape: some View {
         if #available(macOS 26, *) {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            shape
                 .fill(.clear)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .glassEffect(.regular.tint(TandemColor.paper.opacity(0.5)), in: shape)
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.regularMaterial)
         }
     }
 }

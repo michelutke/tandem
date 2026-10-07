@@ -15,6 +15,8 @@ struct MainWindowView: View {
     /// Opens the pairing window; a no-op in scenario hosts.
     var onPairPhone: () -> Void = {}
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         HStack(spacing: 0) {
             GlassSidebar(
@@ -32,7 +34,10 @@ struct MainWindowView: View {
             )
             .frame(width: 220)
 
-            Divider()
+            Rectangle()
+                .fill(TandemColor.line(increasedContrast: contrast == .increased))
+                .frame(width: 1)
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 if let services {
@@ -42,7 +47,8 @@ struct MainWindowView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 560)
-        .background(TandemColor.paper)
+        .background(TandemColor.paper.ignoresSafeArea())
+        .preferredColorScheme(.light)
         .onChange(of: services?.pairedPeer.displayName, initial: true) { syncPeer() }
         .onChange(of: services?.live.deviceStatus?.batteryPercent, initial: true) {
             viewModel.updateBatteryPercent(services?.live.deviceStatus?.batteryPercent)

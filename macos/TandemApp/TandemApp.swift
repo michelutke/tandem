@@ -108,6 +108,7 @@ struct TandemMenuBarApp: App {
                 onPairPhone: { Self.openPairingWindow() }
             )
         }
+        .windowStyle(.hiddenTitleBar)
 
         Settings {
             SettingsView(rotationViewModel: Self.settingsRotationViewModel)

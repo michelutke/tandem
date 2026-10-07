@@ -4,6 +4,7 @@ import Network
 import Security
 import SwiftUI
 import TandemCrypto
+import TandemDesign
 import TandemPairing
 import TandemProtocol
 import TandemStore
@@ -117,9 +118,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
             Task { await pending.ownerDidDismiss() }
         }
         guard let coordinator = try? composition.host.open() else {
-            let alert = NSAlert()
-            alert.messageText = "Pairing unavailable."
-            alert.runModal()
+            _ = GlassDialog.runModal(title: "Pairing unavailable.", actions: [GlassDialogAction("OK", kind: .primary)])
             return
         }
         let controller = PairingWindowController(viewModel: coordinator.viewModel)

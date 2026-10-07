@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Content background for a glass window (ui-spec §5.1): used for pairing and Settings. Traffic
-/// lights are the host `NSWindow`'s own titlebar chrome, not drawn here.
+/// Content background for a glass window (ui-spec §5.1): used for pairing and Settings. Fills the
+/// whole window under a transparent title bar; traffic lights are the host `NSWindow`'s own.
 public struct GlassWindow<Content: View>: View {
     private let content: Content
 
@@ -12,7 +12,10 @@ public struct GlassWindow<Content: View>: View {
     public var body: some View {
         content
             .padding(TandemSpacing.windowPadding)
-            .glassSurface(cornerRadius: TandemRadius.popoverWindow)
+            .padding(.top, TandemSpacing.large)
+            .glassSurface(cornerRadius: 0)
+            .ignoresSafeArea()
+            .tandemWindowChrome()
     }
 }
 
