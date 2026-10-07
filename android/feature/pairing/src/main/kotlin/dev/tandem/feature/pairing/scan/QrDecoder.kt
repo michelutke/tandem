@@ -12,7 +12,7 @@ import zxingcpp.BarcodeReader
  * `qrScanner_realCameraMacDisplay_decodesWithin3s` gate covers the live-camera timing).
  */
 class QrDecoder {
-    private val reader = BarcodeReader(BarcodeReader.Options(formats = setOf(BarcodeReader.Format.QR_CODE)))
+    private val reader = BarcodeReader(BarcodeReader.Options(formats = setOf(BarcodeReader.Format.QR_CODE), tryHarder = true))
 
     /** Closes [image] (CameraX requires every analyzed frame to be closed exactly once). */
     fun decode(image: ImageProxy): String? = image.use { reader.read(it) }.firstOrNull()?.text
