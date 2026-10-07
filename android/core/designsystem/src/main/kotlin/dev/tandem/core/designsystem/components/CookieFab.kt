@@ -19,7 +19,6 @@ import dev.tandem.core.designsystem.tandemAnimateFloatAsState
 
 /**
  * The share/send FAB (ui-spec.md §5.2, §4 motion #04): shape-morphs cookie -> circle on press.
- * See [cookieShape] for the shape-availability deviation.
  */
 @Composable
 fun CookieFab(

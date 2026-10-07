@@ -2,66 +2,64 @@
 
 package dev.tandem.core.designsystem.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import dev.tandem.core.designsystem.TandemColors
-import dev.tandem.core.designsystem.TandemMotion
-import dev.tandem.core.designsystem.TandemShapes
-import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
-import dev.tandem.core.designsystem.tandemAnimateFloatAsState
 
 /**
- * The M3E floating toolbar (ui-spec.md §5.2, §4 motion #03): the selected item sits on a white
- * pill; hides on scroll down, returns on scroll up (left to callers via `modifier`/visibility).
- *
- * Deviation: `androidx.compose.material3.HorizontalFloatingToolbar` (M3 Expressive) is not present
- * in the pinned material3 1.4.0 build (no `FloatingToolbarKt` class in the resolved
- * `material3-android-1.4.0` aar), so this is a `Surface` + `Row` with the same selection-pill
- * visual, built on `tandemAnimateFloatAsState` so it still honours "Remove animations".
+ * The M3E floating toolbar (ui-spec.md §5.2, §4 motion #03): the platform
+ * `HorizontalFloatingToolbar`, `ink` container, the selected item on a white pill. When [fab] is
+ * given the toolbar renders it beside the pill, which is the Home layout. Motion comes from the
+ * theme's expressive motion scheme.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FloatingToolbar(
     items: List<FloatingToolbarItem>,
     selected: FloatingToolbarItem,
     onSelect: (FloatingToolbarItem) -> Unit,
     modifier: Modifier = Modifier,
+    fab: (@Composable () -> Unit)? = null,
 ) {
-    Surface(modifier = modifier, shape = TandemShapes.pill, color = TandemColors.ink) {
-        Row(modifier = Modifier.padding(TandemSpacing.xs), verticalAlignment = Alignment.CenterVertically) {
-            items.forEach { item ->
-                val isSelected = item == selected
-                val selectionAlpha by tandemAnimateFloatAsState(
-                    targetValue = if (isSelected) 1f else 0f,
-                    spec = TandemMotion.toolbarSpring,
-                )
-                Row(
-                    modifier =
-                        Modifier
-                            .padding(horizontal = TandemSpacing.xs)
-                            .background(
-                                color = TandemColors.paper.copy(alpha = selectionAlpha),
-                                shape = TandemShapes.pill,
-                            ).clickable { onSelect(item) }
-                            .padding(horizontal = TandemSpacing.md, vertical = TandemSpacing.sm),
-                ) {
-                    Text(
-                        text = item.label,
-                        style = TandemType.meta,
-                        color = if (isSelected) TandemColors.ink else TandemColors.paper,
-                    )
-                }
+    val colors =
+        FloatingToolbarDefaults.standardFloatingToolbarColors(
+            toolbarContainerColor = TandemColors.ink,
+            toolbarContentColor = TandemColors.paper,
+        )
+    val toolbarItems: @Composable () -> Unit = {
+        items.forEach { item ->
+            ToggleButton(
+                checked = item == selected,
+                onCheckedChange = { onSelect(item) },
+                colors =
+                    ToggleButtonDefaults.colors(
+                        containerColor = TandemColors.ink,
+                        contentColor = TandemColors.paper,
+                        checkedContainerColor = TandemColors.paper,
+                        checkedContentColor = TandemColors.ink,
+                    ),
+            ) {
+                Text(text = item.label, style = TandemType.meta)
             }
         }
+    }
+    if (fab == null) {
+        HorizontalFloatingToolbar(expanded = true, modifier = modifier, colors = colors) { toolbarItems() }
+    } else {
+        HorizontalFloatingToolbar(
+            expanded = true,
+            floatingActionButton = fab,
+            modifier = modifier,
+            colors = colors,
+        ) { toolbarItems() }
     }
 }
 

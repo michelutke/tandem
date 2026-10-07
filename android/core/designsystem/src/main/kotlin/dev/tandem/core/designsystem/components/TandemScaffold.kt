@@ -2,12 +2,15 @@
 
 package dev.tandem.core.designsystem.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import dev.tandem.core.designsystem.TandemColors
@@ -30,6 +33,7 @@ fun TandemScaffold(
     fab: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val hasToolbar = toolbarItems.isNotEmpty()
     Scaffold(
         modifier = modifier,
         containerColor = TandemColors.paper,
@@ -38,15 +42,17 @@ fun TandemScaffold(
                 TitleBlock(title = title, state = state, isError = isError)
             }
         },
-        floatingActionButton = { fab?.invoke() },
+        floatingActionButton = { if (!hasToolbar) fab?.invoke() },
         bottomBar = {
-            if (toolbarItems.isNotEmpty() && selectedToolbarItem != null) {
-                FloatingToolbar(
-                    items = toolbarItems,
-                    selected = selectedToolbarItem,
-                    onSelect = onToolbarItemSelected,
-                    modifier = Modifier.padding(TandemSpacing.lg),
-                )
+            if (selectedToolbarItem != null && hasToolbar) {
+                Box(modifier = Modifier.fillMaxWidth().padding(TandemSpacing.lg), contentAlignment = Alignment.Center) {
+                    FloatingToolbar(
+                        items = toolbarItems,
+                        selected = selectedToolbarItem,
+                        onSelect = onToolbarItemSelected,
+                        fab = fab,
+                    )
+                }
             }
         },
         content = content,

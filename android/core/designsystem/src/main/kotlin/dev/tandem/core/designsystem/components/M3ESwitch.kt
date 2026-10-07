@@ -20,10 +20,8 @@ const val M3E_SWITCH_CHECK_ICON_TEST_TAG = "M3ESwitchCheckIcon"
  * Material 3 Expressive switch (ui-spec.md §5.2, §4 motion #02): `ink` track, `signal` thumb that
  * shows a check when on.
  *
- * Deviation: the thumb's 16 -> 24 dp morph and its "fast Material spatial spring" are the platform
- * `Switch`'s own internal animation, which cannot be swapped for `tandemAnimateFloatAsState`; it
- * does not currently snap when "Remove animations" is on (only components built directly on
- * `tandemAnimateFloatAsState` / `tandemAnimateDpAsState` do, e.g. [DotRing], [FloatingToolbar]).
+ * The platform expressive `Switch` (material3 1.5, D-81) with the `ink` / `signal` colours; its thumb morph
+ * and spring are the component's own, so they do not snap under "Remove animations".
  */
 @Composable
 fun M3ESwitch(
