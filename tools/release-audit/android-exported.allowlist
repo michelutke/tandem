@@ -40,3 +40,7 @@ dev.tandem.feature.input.TandemAccessibilityService android.permission.BIND_ACCE
 # Opt-in copy detector for clipboard auto-capture (ADR-007, D-82); exported so the system can bind it,
 # guarded by BIND_ACCESSIBILITY_SERVICE so no other app can. Separate from the remote-input service.
 dev.tandem.feature.clipboard.ClipboardCaptureService android.permission.BIND_ACCESSIBILITY_SERVICE
+
+# Call-screening service that only reads the caller number (E52-02, D-83); exported so the system can bind
+# it, guarded by BIND_SCREENING_SERVICE so no other app can. It always responds with allow.
+dev.tandem.feature.calls.TandemCallScreeningService android.permission.BIND_SCREENING_SERVICE
