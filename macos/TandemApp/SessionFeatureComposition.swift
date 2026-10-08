@@ -200,7 +200,7 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
 
     static let hidesContentWhenLockedKey = "hideNotificationContentWhenLocked"
 
-    private let presenter: UNNotificationPresenter
+    private let presenter: any NotificationPresenter
     let coordinator: NotificationPresentationCoordinator
     let routing: NotificationRouting
     private let iconCache: IconCache?
@@ -208,8 +208,15 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
     private let screenLock = DistributedScreenLockState(notificationCenter: DistributedNotificationCenter.default())
 
     init(iconCache: IconCache?) {
-        let presenter = UNNotificationPresenter()
+        let authorization = UNNotificationAuthorization()
+        let banners = MainActor.assumeIsolated { NotificationBannerPanelController() }
+        let presenter = FallbackNotificationPresenter(
+            system: UNNotificationPresenter(),
+            authorization: authorization,
+            banners: banners
+        )
         self.presenter = presenter
+        Task { _ = await authorization.isAuthorized() }
         self.iconCache = iconCache
         coordinator = NotificationPresentationCoordinator(
             presenter: presenter,
