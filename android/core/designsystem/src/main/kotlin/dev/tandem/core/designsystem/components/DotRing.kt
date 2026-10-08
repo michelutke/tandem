@@ -2,6 +2,7 @@
 
 package dev.tandem.core.designsystem.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.drawRingDots
+import dev.tandem.core.designsystem.rememberCrossfadeTransition
 import dev.tandem.core.designsystem.tandemAnimateFloatAsState
 import kotlin.math.roundToInt
 
@@ -54,7 +56,10 @@ fun DotRing(
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = value.toString(), style = TandemType.displayNumeral, color = TandemColors.ink)
-            Text(text = unit, style = TandemType.meta, color = TandemColors.ink2)
+            val crossfade = rememberCrossfadeTransition()
+            AnimatedContent(targetState = unit, transitionSpec = { crossfade }, label = "DotRingUnit") { label ->
+                Text(text = label, style = TandemType.meta, color = TandemColors.ink2)
+            }
         }
     }
 }

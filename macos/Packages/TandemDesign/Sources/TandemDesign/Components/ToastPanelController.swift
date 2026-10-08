@@ -23,7 +23,7 @@ public final class ToastPanelController {
             return
         }
         generation += 1
-        let panel = self.panel ?? makePanel()
+        let panel = self.panel ?? Self.makePanel()
         let hosting = self.hosting ?? NSHostingView(rootView: ToastPill(text))
         hosting.rootView = ToastPill(text)
         panel.contentView = hosting
@@ -65,7 +65,7 @@ public final class ToastPanelController {
         })
     }
 
-    private func makePanel() -> NSPanel {
+    static func makePanel() -> NSPanel {
         let panel = NSPanel(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -82,6 +82,7 @@ public final class ToastPanelController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         // Ink on paper in every system appearance (ui-spec: the toast does not follow Dark Mode).
         panel.appearance = NSAppearance(named: .aqua)
+        panel.excludeFromScreenSharing()
         return panel
     }
 

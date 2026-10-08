@@ -20,12 +20,21 @@ object NotificationFilter {
     fun shouldForward(
         sbn: StatusBarNotification,
         ownPackageName: String,
-    ): Boolean =
-        sbn.packageName != ownPackageName &&
-            sbn.packageName !in SYSTEM_NOISE_PACKAGES &&
-            sbn.notification.flags and Notification.FLAG_FOREGROUND_SERVICE == 0 &&
-            sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY == 0 &&
-            !isMediaStyle(sbn.notification)
+    ): Boolean = rejectionReason(sbn, ownPackageName) == null
+
+    /** Why the static rules drop [sbn] (a log-safe reason code, never content), or null if they keep it. */
+    fun rejectionReason(
+        sbn: StatusBarNotification,
+        ownPackageName: String,
+    ): String? =
+        when {
+            sbn.packageName == ownPackageName -> "own_app"
+            sbn.packageName in SYSTEM_NOISE_PACKAGES -> "system_noise"
+            sbn.notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0 -> "foreground_service"
+            sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 -> "group_summary"
+            isMediaStyle(sbn.notification) -> "media_style"
+            else -> null
+        }
 
     private fun isMediaStyle(notification: Notification): Boolean =
         notification.extras.getString(Notification.EXTRA_TEMPLATE) == Notification.MediaStyle::class.java.name

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_tap_to_call_channel">Calls from your Mac</string>
+    <string name="calls_tap_to_call_title">Call from your Mac</string>
+    <string name="calls_tap_to_call_text">Tap to call %1$s</string>
+    <string name="calls_tap_to_call_failed">Couldn\'t place the call.</string>
+    <string name="calls_tap_to_call_public_text">Tap to place the call</string>
+</resources>

@@ -22,6 +22,8 @@ class SystemAppPermissionGatewayTest {
     private val application = ApplicationProvider.getApplicationContext<Application>()
     private val launched = mutableListOf<Array<String>>()
     private var accessibilityOn = false
+    private var callScreeningRoleHeld = false
+    private var roleRequests = 0
     private val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
     private val gateway =
         SystemAppPermissionGateway(
@@ -31,6 +33,8 @@ class SystemAppPermissionGatewayTest {
                 object : AccessibilityStateSource {
                     override fun isServiceEnabled(): Boolean = accessibilityOn
                 },
+            isCallScreeningRoleHeld = { callScreeningRoleHeld },
+            requestCallScreeningRole = { roleRequests++ },
         )
 
     @Test
@@ -50,6 +54,42 @@ class SystemAppPermissionGatewayTest {
         shadowOf(application).grantPermissions(Manifest.permission.SEND_SMS)
 
         assertTrue(gateway.isGranted(AppPermission.SMS))
+    }
+
+    @Test
+    fun isGranted_phoneNeedsStateAnswerAndCallPermissions() {
+        shadowOf(application).grantPermissions(Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE)
+        assertFalse(gateway.isGranted(AppPermission.PHONE))
+
+        shadowOf(application).grantPermissions(Manifest.permission.ANSWER_PHONE_CALLS)
+
+        assertTrue(gateway.isGranted(AppPermission.PHONE))
+    }
+
+    @Test
+    fun isGranted_callerIdFollowsCallScreeningRole() {
+        assertFalse(gateway.isGranted(AppPermission.CALLER_ID))
+
+        callScreeningRoleHeld = true
+
+        assertTrue(gateway.isGranted(AppPermission.CALLER_ID))
+    }
+
+    @Test
+    fun request_callerIdRoleNotHeld_requestsRole() {
+        gateway.request(AppPermission.CALLER_ID)
+
+        assertEquals(1, roleRequests)
+    }
+
+    @Test
+    fun request_callerIdRoleHeld_opensDefaultAppsSettings() {
+        callScreeningRoleHeld = true
+
+        gateway.request(AppPermission.CALLER_ID)
+
+        assertEquals(0, roleRequests)
+        assertEquals(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS, nextStartedAction())
     }
 
     @Test

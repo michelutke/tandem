@@ -26,8 +26,15 @@ public final class UNNotificationPresenter: NSObject, NotificationPresenter, @un
         center.delegate = self
     }
 
-    public func add(_ request: UNNotificationRequest) async {
-        try? await center.add(request)
+    @discardableResult
+    public func add(_ request: UNNotificationRequest) async -> Bool {
+        do {
+            try await center.add(request)
+            return true
+        } catch {
+            NotificationsLog.event("system add failed")
+            return false
+        }
     }
 
     public func removeDelivered(identifiers: [String]) async {
@@ -40,6 +47,14 @@ public final class UNNotificationPresenter: NSObject, NotificationPresenter, @un
 }
 
 extension UNNotificationPresenter: UNUserNotificationCenterDelegate {
+    public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list])
+    }
+
     public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,

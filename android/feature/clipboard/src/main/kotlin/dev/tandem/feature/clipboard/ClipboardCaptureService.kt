@@ -1,17 +1,20 @@
 package dev.tandem.feature.clipboard
 
 import android.accessibilityservice.AccessibilityService
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.view.accessibility.AccessibilityEvent
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
+import dev.tandem.feature.clipboard.di.ClipboardDispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Opt-in copy detector (ADR-007, D-82). Deliberately separate from the remote-input service: its
  * config requests no gestures, no window content and only window-state events from System UI, so it
- * cannot inject input and never reads other apps' screens. On a detected copy overlay it starts the
- * transparent [ClipboardCaptureActivity], which reads the clip once it has focus. It does nothing
+ * cannot inject input and never reads other apps' screens. On a detected copy overlay it adds a 1x1
+ * focusable accessibility overlay window ([OverlayCapture]), which reads the clip once it has focus
+ * and is removed straight after; no activity starts, so no task animation shows. It does nothing
  * unless the Settings toggle is on and a Mac session is live.
  */
 class ClipboardCaptureService : AccessibilityService() {
@@ -21,7 +24,7 @@ class ClipboardCaptureService : AccessibilityService() {
             hasSession = { LiveClipboardSession.current != null },
             clock = SystemElapsedRealtimeSource,
         )
-    internal var launcher: (Intent) -> Unit = ::startActivity
+    internal var startCapture: () -> Unit = ::captureWithOverlay
     internal var localizedMarkers: () -> List<String> = ::systemUiCopyStrings
     internal var copyActionLabels: () -> List<String> = ::frameworkCopyLabels
 
@@ -37,11 +40,23 @@ class ClipboardCaptureService : AccessibilityService() {
                 copyActionLabels(),
             )
         if (isCopy && gate.tryAcquire()) {
-            launcher(ClipboardCaptureActivity.autoCaptureIntent(this))
+            startCapture()
         }
     }
 
     override fun onInterrupt() = Unit
+
+    private val overlayCapture by lazy {
+        OverlayCapture(
+            overlay = AccessibilityCaptureOverlay(this),
+            reader = AndroidClipboardReader(this),
+            session = { LiveClipboardSession.current },
+            decision = ClipboardCaptureDecision(LiveClipboardSession.loopGuard),
+            scope = CoroutineScope(SupervisorJob() + ClipboardDispatchers.default),
+        )
+    }
+
+    private fun captureWithOverlay() = overlayCapture.start()
 
     private fun frameworkCopyLabels(): List<String> =
         listOf(

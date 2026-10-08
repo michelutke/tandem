@@ -66,6 +66,7 @@ exit does not wait for them.
 | E00-30 | [ci] Release-artifact test-code scan (dex, Mach-O symbols, bundle contents) *(lands Phase 1)* | task | P0 | M | E00-02, E00-07, E00-11 |
 | E00-31 | [android] Swiss/M3 Expressive design system: tokens, type, core components *(lands Phase 1)* | task | P0 | L | E00-04, E00-20 |
 | E00-32 | [macos] Swiss/Liquid Glass design system: tokens, type, core components *(lands Phase 1)* | task | P0 | L | E00-08, E00-26 |
+| E00-33 | [ci] Run feature-module instrumented tests in android-instrumented.yml *(lands Phase 3)* | task | P0 | S | E00-21, E00-22 |
 
 ### E01 — Wire protocol: SPEC.md, .proto schema, test vectors
 
@@ -193,6 +194,7 @@ closed.
 | E15-09 | [tools] mitm-lab: pairing-abuse scenarios (replay, expiry, 4th attempt, wrong key) | test | P0 | M | E15-08, E15-15, E14-07, E14-09, E01-18, E01-21, E14-15, E14-02 |
 | E15-10 | [tools] mitm-lab: certificate-abuse scenarios (unknown, wrong, swapped cert) | test | P0 | M | E15-08, E15-15, E12-02, E12-05, E14-13 |
 | E15-11 | [tools] mitm-lab: downgrade, resumption, 0-RTT and protocol-version scenarios | test | P0 | M | E15-08, E12-01, E12-03, E12-07, E12-10, E15-15 |
+| E15-16 | [tools] mitm-lab: menu-bar version-mismatch accessibility check | test | P1 | S | E15-11 |
 | E15-12 | [tools] nmap phone-listener check script | task | P0 | S | E12-08, E00-21, E00-23 |
 | E15-13 | [android] Fuzz scaffolding: Jazzer target for the frame/envelope parser + CI smoke run | task | P0 | M | E11-02, E01-19 |
 | E15-14 | [macos] Fuzz scaffolding: libFuzzer target for the frame/envelope parser + CI smoke run | task | P0 | M | E11-04, E01-19 |
@@ -202,7 +204,7 @@ closed.
 | E15-19 | [ci] Security audit CI subset: required check on core/* PRs | task | P0 | S | E15-18, E15-15, E00-11 |
 | E15-20 | [tools] mitm-lab: pre-auth DoS and timeout scenarios (slowloris, floods, idle candidates) | test | P0 | M | E15-08, E15-15, E12-18, E12-07, E14-02 |
 | E15-21 | [android] JVM harness client: core/* modules on the JVM + jvmIntegrationTest convention | task | P0 | M | E12-04, E12-05, E12-06, E10-15, E00-19 |
-| E15-22 | [macos] Harness Mac app driver: launch/restart, CI keychain, trust seeding, pairing hook | task | P0 | M | E13-06, E00-30, E00-24 |
+| E15-22 | [macos] Harness Mac app driver: launch/restart, CI keychain, trust seeding, pairing hook | task | P0 | M | E13-06, E00-30, E00-24, E10-07 |
 | E15-23 | [tools] Phase 1 security audit gate: every Phase 1 step green in one report | test | P0 | S | E15-18, E15-03, E15-05, E15-06, E15-07, E15-09, E15-10, E15-11, E15-12, E15-13, E15-14, E15-17, E15-20 |
 
 ### E10 — Device identity (keys, self-signed certs, SPKI fingerprints)
@@ -275,6 +277,7 @@ design, with conformance and starvation regression tests on each side.
 | E11-10 | [macos] Starvation regression test: FILES transfer must not delay NOTIFY | test | P0 | M | E11-08, E00-24, E00-25 |
 | E11-11 | [android] Conformance: codec against protocol/vectors frame fixtures | test | P0 | S | E11-02, E01-19 |
 | E11-12 | [macos] Conformance: codec against protocol/vectors frame fixtures | test | P0 | S | E11-04, E01-19 |
+| E11-15 | [android] Fix ChannelMultiplexer.Writer crash on close during an in-flight write | test | P0 | S | E11-07 |
 
 ### E12 — Secure transport (mTLS 1.3 client/server, pinning)
 
@@ -396,6 +399,10 @@ both apps.
 | E14-19 | [android] Revoke message handling: receiver drops session and trust | task | P0 | S | E14-12, E12-11, E12-08 |
 | E14-20 | [cross] Integration: revoke over the JVM harness (connected and offline) | test | P0 | S | E15-15, E14-12, E14-13, E14-15, E14-19, E12-16 |
 | E14-16 | [cross] End-to-end: QR pair then reconnect after restarting both apps | test | P0 | L | E15-15, E14-05, E14-06, E14-08 |
+| E14-24 | [macos] PairingWindow: whole-window-expiry race can leave a candidate socket open | test | P2 | S | E14-16 |
+| E14-25 | [macos] PairingCandidateFlow deadline watcher: atomic tri-state check + .paired exclusion | test | P2 | S | E14-24 |
+| E14-26 | [macos] Wire RevokeHandler + UnpairAction into the production composition root | task | P1 | M | E14-13, E14-15, E14-14 |
+| E14-27 | [macos] Retire HarnessRevokeAwareSessionRegistry, consolidate onto E14-26's real path | task | P2 | S | E14-26, E14-20 |
 | E14-17 | [android] Pairing failure messages: expired/used QR, declined, Mac unreachable | story | P0 | S | E14-05, E12-16, E00-20, E00-31 |
 | E14-18 | [android] Keystore client-auth device matrix test (StrongBox, TEE-only, API 33, OEM) | test | P0 | M | E10-01, E10-15, E12-04, E12-06, E14-10, E00-21, E00-23, E14-05, E14-06, E14-08, E14-11 |
 | E14-21 | [android] DisplayStringSanitizer (vector-tested) | task | P0 | S | E01-24, E00-04 |
@@ -442,6 +449,12 @@ connection state.
 | E20-18 | [android] Activity tab: metadata-only feed with 7-day retention *(lands Phase 3)* | story | P1 | M | E20-17, E13-04 |
 | E20-19 | [android] Settings tab: paired Mac, battery, key, unpair | story | P1 | S | E20-17, E14-12, E20-04 |
 | E20-20 | [tools] mitm-lab: authenticated heartbeat/CONTROL flood | test | P1 | S | E20-15, E20-05, E15-08 |
+| E20-21 | [android] Wire RevokeHandler into TandemService and implement the dialing-side REVOKED mapping | task | P1 | M | E14-12, E14-19, E20-19, E12-16 |
+| E20-22 | [android] Per-channel inbound dispatcher (CONTROL: Revoke/pairing/rotation; FILES: AcceptFlow/FileSender) | task | P1 | S | E20-21 |
+| E20-23 | [android] Production connection orchestrator and feature composition in TandemService | task | P0 | L | E20-02, E20-06, E20-07, E21-04 |
+| E20-24 | [android] Attach remaining features in FeatureAttacher (contacts, SMS, status/Ring, focus/media, rotation, notification actions/icons) | task | P0 | M | E20-23 |
+| E20-25 | [android] Host the app shell in MainActivity (onboarding, pairing, Home, Settings) | task | P0 | M | E20-17, E20-24 |
+| E20-26 | [android] Production pairing flow: connector, trust commit and code-confirm UI | task | P0 | M | E20-25 |
 
 ### E21 — Bonjour discovery with rotating ID
 
@@ -485,10 +498,15 @@ version mismatch) are surfaced to the user.
 | E22-02 | [macos] Quick actions menu | task | P0 | S | E22-01, E00-26 |
 | E22-03 | [macos] Launch at login via SMAppService | task | P0 | S | E22-01, E00-08, E00-23 |
 | E22-04 | [macos] App Sandbox entitlements for network client/server | task | P0 | S | E12-01, E00-23 |
-| E22-05 | [macos] Settings window shell | task | P1 | S | E22-01, E14-14, E00-26 |
+| E22-05 | [macos] Settings window shell | task | P1 | S | E22-01, E14-14, E14-26, E00-26 |
 | E22-07 | [macos] Visible error surfacing for fail-closed events | story | P0 | M | E22-01, E12-10, E12-12, E00-24, E00-26 |
 | E22-08 | [macos] Bind menu bar state to sleep/wake and network restarts | task | P1 | S | E22-01, E20-10, E20-11, E00-24 |
+| E22-10 | [macos] Count pre-pin verify-callback rejections in an aggregate counter only (D-59/AC-13) | task | P1 | S | E22-07 |
 | E22-09 | [macos] Main window shell: glass sidebar, sections, offline/empty states | story | P1 | M | E00-32, E22-01, E22-07 |
+| E22-11 | [macos] Wire real per-connection state into MenuBarViewModel/ErrorBannerViewModel | task | P0 | S | E22-01, E12-08 |
+| E22-12 | [macos] Compose feature services onto registered sessions in AppComposition | task | P0 | L | E22-11 |
+| E22-13 | [macos] Finish feature composition (accept prompt, received notifier, calls, media, rotation, photo grid, focus) | task | P0 | M | E22-12 |
+| E22-14 | [macos] Production pairing window: open, invite QR, code confirm, trust commit | task | P0 | M | E22-13 |
 
 ### E23 — Device status and find my phone
 
@@ -511,6 +529,7 @@ DND) to help find it, with dismiss/stop from either side.
 | E23-06 | [android] Ring dismiss/stop from phone and Mac | task | P0 | S | E23-05, E12-11, E00-21 |
 | E23-07 | [macos] Find my phone quick action wired to Ring/RingStop | story | P0 | S | E23-01, E22-02, E12-12, E00-26 |
 | E23-08 | [cross] Status throttle and ring round-trip tests | test | P0 | S | E23-03, E23-04, E23-06, E23-07, E15-15, E00-23 |
+| E23-09 | [tools] Fix e23-08.sh ring round-trip/flood scenarios hanging inside the full script | test | P1 | S | E23-08 |
 
 ## Phase 3 — Notifications and clipboard
 
@@ -623,6 +642,7 @@ Services on the Mac; share target and SAF picker on Android) and a progress UI.
 | E40-22 | [macos] Share extension target "Send to phone" | story | P1 | M | E40-04 |
 | E40-23 | [macos] Transfer progress UI | story | P1 | M | E40-04, E40-06, E40-20, E00-24, E00-26 |
 | E40-24 | [macos] Received-file notification | task | P1 | S | E40-06 |
+| E40-25 | [macos] Feed transfer progress from FileSender/FileReceiver and wire Cancel | task | P1 | S | E40-23, E22-13 |
 
 ### E41 — Photo browser
 
@@ -742,6 +762,7 @@ control do not require becoming the default dialer or a call-screening app.
 | E52-07 | [macos] Place call UI | story | P0 | S | E52-01, E51-04, E50-08, E12-12, E00-08 |
 | E52-08 | [cross] Device-level test: call control latency and correctness | test | P0 | M | E52-03, E52-04, E52-05, E52-06, E52-07, E00-23 |
 | E52-09 | [tools] Security test: call metadata never logged | test | P0 | S | E52-03, E52-04, E52-05, E52-06, E15-15, E15-17 |
+| E52-10 | [macos] Host PlaceCallView in contacts/thread UI | task | P1 | S | E52-07, E22-13 |
 
 ## Phase 6 — Mirroring and remote input
 
@@ -767,9 +788,9 @@ originating control session so an unauthenticated party cannot open or hijack it
 | E60-02 | [android] Media ticket request + second mTLS connection dial | task | P0 | M | E60-01, E60-03, E12-08, E12-11, E00-19, E15-15 |
 | E60-03 | [macos] Media connection acceptor on the single listener | task | P0 | M | E60-01, E60-08, E12-01, E12-02, E12-12, E00-25, E00-24, E01-22 |
 | E60-04 | [macos] Media connection lifecycle tied to control session | task | P0 | M | E60-03, E12-09, E12-12, E00-24 |
-| E60-05 | [tools] Security test: media ticket binding scenarios | test | P0 | M | E60-03, E60-04, E15-08 |
-| E60-06 | [tools] pcap-audit coverage for the media connection | test | P0 | S | E60-04, E60-09, E15-04, E15-05 |
-| E60-07 | [cross] Media connection isolation from control-channel congestion | test | P0 | M | E60-04, E60-09, E11-07, E11-08, E15-15, E00-23 |
+| E60-05 | [tools] Security test: media ticket binding scenarios | test | P0 | M | E60-03, E60-04, E15-08, E62-12 |
+| E60-06 | [tools] pcap-audit coverage for the media connection | test | P0 | S | E60-04, E60-09, E15-04, E15-05, E62-11, E62-12 |
+| E60-07 | [cross] Media connection isolation from control-channel congestion | test | P0 | M | E60-04, E60-09, E11-07, E11-08, E15-15, E00-23, E62-11, E62-12 |
 | E60-08 | [macos] MediaTicket issuer + validator (30 s expiry, single use, session binding) | task | P0 | M | E60-01, E10-11, E00-24 |
 | E60-09 | [android] Media connection lifecycle tied to control session | task | P0 | S | E60-02, E12-08, E12-11, E00-18, E15-15 |
 
@@ -800,7 +821,7 @@ here using this phase's real measurements, gating E62's optional scrcpy alternat
 | E61-05 | [android] Rotation and resolution change handling | task | P0 | M | E61-03, E00-21 |
 | E61-06 | [macos] VTDecompressionSession decode pipeline | task | P0 | M | E61-01, E61-14, E60-03, E00-08 |
 | E61-07 | [macos] Resizable mirror window + rotation handling | task | P0 | M | E61-06, E00-08 |
-| E61-08 | [cross] Mirroring performance harness: fps + end-to-end latency | test | P0 | L | E61-03, E61-06, E61-07, E00-23 |
+| E61-08 | [cross] Mirroring performance harness: fps + end-to-end latency | test | P0 | L | E61-03, E61-06, E61-07, E00-23, E62-11, E62-12 |
 | E61-09 | [tools] pcap-audit with on-screen canary during mirroring | test | P0 | S | E61-08, E15-06, E15-07 |
 | E61-10 | [docs] Finalize ADR-006: mirroring path decision | adr | P0 | S | E02-07, E61-08 |
 | E61-11 | [android] Encoder/session teardown and resource cleanup on mirror stop | task | P0 | S | E61-02, E61-03, E60-09, E00-21 |
@@ -836,9 +857,11 @@ ADR-006-gated scrcpy alternative input path.
 | E62-05 | [android] performGlobalAction + ACTION_SET_TEXT | task | P0 | M | E62-02, E00-20, E00-21 |
 | E62-06 | [android] Input authorization gate + persistent on-phone indicator | task | P0 | M | E62-04, E62-05, E60-09, E61-02, E12-11, E00-20, E00-21 |
 | E62-07 | [macos] Mouse/keyboard/scroll capture in mirror window | task | P0 | M | E62-01, E61-07, E00-08 |
-| E62-08 | [tools] Security test: input authorization (AC-06) | test | P0 | M | E62-06, E15-08, E15-15, E15-17 |
+| E62-08 | [tools] Security test: input authorization (AC-06) | test | P0 | M | E62-06, E15-08, E15-15, E15-17, E62-11 |
 | E62-09 | [cross] End-to-end remote input device test | test | P0 | M | E62-04, E62-05, E62-06, E62-07, E00-23 |
 | E62-10 | [android] Alternative input path via scrcpy (P2, gated on ADR-006) | task | P2 | L | E61-10, E15-08, E00-23 |
+| E62-11 | [android] Compose mirror, media and remote input into the app | task | P0 | M | E20-24, E60-09, E61-05, E61-11, E61-16, E62-06 |
+| E62-12 | [macos] Compose mirror window, decode and input capture into the app | task | P0 | M | E22-13, E60-04, E61-07, E61-12, E62-07 |
 
 ## Phase 7 — Extras and hardening
 
@@ -876,11 +899,14 @@ scenarios (unauthenticated channel, cross-session replay, duplicate key).
 | E70-06 | [android] User-initiated rotation UI | story | P0 | S | E70-02, E00-20 |
 | E70-07 | [android] Scheduled rotation | task | P0 | M | E70-02, E00-18 |
 | E70-08 | [android] Rotation failure and rollback handling | task | P0 | M | E70-02, E00-18, E12-11 |
-| E70-09 | [tools] mitm-lab: rotation over unauthenticated channel rejected | test | P0 | S | E70-04, E70-05, E15-08 |
-| E70-10 | [cross] End-to-end rotation: JVM client and real Mac server (E15-15) | test | P0 | M | E15-15, E70-02, E70-03, E70-04, E70-05, E70-08, E70-13 |
+| E70-09 | [tools] mitm-lab: rotation over unauthenticated channel rejected | test | P0 | S | E70-04, E70-05, E15-08, E70-16 |
+| E70-10 | [cross] End-to-end rotation: JVM client and real Mac server (E15-15) | test | P0 | M | E15-15, E70-02, E70-03, E70-04, E70-05, E70-08, E70-13, E70-15, E70-16 |
 | E70-11 | [macos] User-initiated rotation UI | story | P0 | S | E70-03, E00-26 |
 | E70-12 | [macos] Scheduled rotation | task | P0 | M | E70-03, E00-24 |
 | E70-13 | [macos] Rotation failure and rollback handling | task | P0 | M | E70-03, E00-24, E12-12 |
+| E70-14 | [android] Expose grace/pending pins to TLS pin check; schedule expired-pin purge | task | P1 | S | E70-04, E20-22 |
+| E70-15 | [android] Compose rotation initiator, scheduler and settings screen | task | P0 | S | E20-24, E70-06, E70-07, E70-08 |
+| E70-16 | [macos] Compose rotation initiator, scheduler and Key settings tab | task | P0 | S | E22-13, E70-11, E70-12, E70-13 |
 
 ### E71 — Hardening: fuzz campaigns, external SPEC review, release audit
 
@@ -966,4 +992,4 @@ Implementation issues are P2 and do not start before the ADR is accepted.
 
 ---
 
-**Totals:** 28 epics, 393 issues (P0: 342, P1: 35, P2: 16)
+**Totals:** 28 epics, 419 issues (P0: 356, P1: 44, P2: 19)

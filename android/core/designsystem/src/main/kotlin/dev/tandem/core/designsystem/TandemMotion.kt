@@ -91,6 +91,17 @@ fun tandemAnimateDpAsState(
     return animateDpAsState(targetValue = targetValue, animationSpec = effectiveSpec, label = label)
 }
 
+/** Crossfade for a label that changes in place (e.g. the Home ring caption). Instant when [reduceMotion] is on. */
+@Composable
+fun rememberCrossfadeTransition(reduceMotion: Boolean = rememberReduceMotion()): ContentTransform =
+    remember(reduceMotion) {
+        if (reduceMotion) {
+            EnterTransition.None togetherWith ExitTransition.None
+        } else {
+            fadeIn(TandemMotion.screenFadeSpring) togetherWith fadeOut(TandemMotion.screenFadeSpring)
+        }
+    }
+
 /**
  * Fade-through between top-level screens: the outgoing screen fades out, the incoming one fades in
  * and scales up slightly. Instant when [reduceMotion] (defaults to [rememberReduceMotion]) is on.

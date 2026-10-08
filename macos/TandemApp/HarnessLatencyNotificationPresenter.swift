@@ -24,10 +24,12 @@ actor HarnessLatencyNotificationPresenter: @preconcurrency NotificationPresenter
     /// Logs `harness-notification-latency: <sequence> <epochMillis>` -- the driver script
     /// correlates `<sequence>` against the JVM client's own `EVENT SENT <sequence> <epochMillis>`
     /// line to compute this frame's receive-to-presenter latency.
-    func add(_ request: UNNotificationRequest) async {
+    @discardableResult
+    func add(_ request: UNNotificationRequest) async -> Bool {
         let epochMillis = Int64((Date().timeIntervalSince1970 * 1000).rounded())
         print("harness-notification-latency: \(request.identifier) \(epochMillis)")
         fflush(stdout)
+        return true
     }
 
     func removeDelivered(identifiers: [String]) async {}

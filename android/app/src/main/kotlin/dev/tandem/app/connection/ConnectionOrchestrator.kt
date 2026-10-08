@@ -4,6 +4,7 @@ import dev.tandem.app.service.RegisteredSession
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.ConnectResult
 import dev.tandem.core.transport.reconnect.Connector
@@ -12,12 +13,14 @@ import dev.tandem.core.transport.reconnect.NetworkReconnectTrigger
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
 import dev.tandem.core.transport.reconnect.PairingAddressSource
 import dev.tandem.core.transport.reconnect.ReconnectStrategy
+import dev.tandem.core.transport.reconnect.WakeReconnectTrigger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,8 +34,8 @@ import java.time.Clock
  * [dialer] opens a pinned mTLS session, and the first one to reach Ready is recorded in
  * [knownPeerStore], registered in [registry] and handed to [featureAttacher]. When it closes,
  * every consumer detaches (the attacher returns only after that) and the loop starts again, so a
- * reconnect re-attaches exactly once. A network-available event kicks the loop
- * ([NetworkReconnectTrigger]).
+ * reconnect re-attaches exactly once. A network-available event ([NetworkReconnectTrigger]) or a
+ * wake, Doze exit or app foregrounding ([WakeReconnectTrigger]) kicks the loop.
  *
  * [failure] carries only sanitized categories (`PIN_MISMATCH`, `REVOKED`, `HANDSHAKE_FAILED`,
  * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session.
@@ -46,6 +49,8 @@ class ConnectionOrchestrator(
     private val bonjourSource: PairedMacBonjourSource,
     pairingAddressSource: PairingAddressSource,
     networkMonitor: NetworkMonitor,
+    deviceIdleSource: DeviceIdleSource,
+    foreground: Flow<Unit>,
     clock: Clock,
     dispatcher: CoroutineDispatcher,
     private val warn: (String) -> Unit = {},
@@ -64,6 +69,7 @@ class ConnectionOrchestrator(
             dispatcher = dispatcher,
         )
     private val networkTrigger = NetworkReconnectTrigger(networkMonitor, strategy, clock, dispatcher)
+    private val wakeTrigger = WakeReconnectTrigger(deviceIdleSource, strategy, clock, dispatcher, foreground)
 
     private val mutableFailure = MutableStateFlow<ConnectionFailure?>(null)
     val failure: StateFlow<ConnectionFailure?> = mutableFailure.asStateFlow()
@@ -73,6 +79,7 @@ class ConnectionOrchestrator(
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }
         bonjourSource.start()
         networkTrigger.start()
+        wakeTrigger.start()
         synchronized(lock) { strategy.start() }
     }
 
@@ -83,6 +90,7 @@ class ConnectionOrchestrator(
             sessionJob = null
         }
         networkTrigger.stop()
+        wakeTrigger.stop()
         strategy.stop()
         registry.current.value?.let { current ->
             registry.clear(current.session)
@@ -94,6 +102,7 @@ class ConnectionOrchestrator(
         stop()
         bonjourSource.close()
         networkTrigger.close()
+        wakeTrigger.close()
         strategy.close()
         scope.cancel()
     }

@@ -107,6 +107,8 @@
 		B1BB3BFE6AF2B3109E5CC66D /* MacPairingComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA8818BAA44F895C356A1C2 /* MacPairingComposition.swift */; };
 		E71B1A14376E189459382BAA /* PushClipboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */; };
 		A1E7C0DE00000000000000A1 /* AlertAcceptPromptPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E7C0DE00000000000000A2 /* AlertAcceptPromptPresenter.swift */; };
+		A1E7C0DE00000000000000C1 /* NotificationDeniedHintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E7C0DE00000000000000C2 /* NotificationDeniedHintView.swift */; };
+		A1E7C0DE00000000000000B1 /* NotificationBannerPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E7C0DE00000000000000B2 /* NotificationBannerPanelController.swift */; };
 		EABFA9CEAD6AF0FAF17F0706 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E30F71572BF267AF52CCFE /* UITestScenario.swift */; };
 		ECB976068D53A2C8A426A721 /* MainWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928A0A048645C8946F50E0EF /* MainWindowUITests.swift */; };
 		E41050600000000000000000 /* PhotoGridUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41050700000000000000000 /* PhotoGridUITests.swift */; };
@@ -196,6 +198,8 @@
 		47C6E5F69C66780495EEA2D5 /* MainWindowComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowComposition.swift; sourceTree = "<group>"; };
 		4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModel.swift; sourceTree = "<group>"; };
 		A1E7C0DE00000000000000A2 /* AlertAcceptPromptPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlertAcceptPromptPresenter.swift; sourceTree = "<group>"; };
+		A1E7C0DE00000000000000C2 /* NotificationDeniedHintView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationDeniedHintView.swift; sourceTree = "<group>"; };
+		A1E7C0DE00000000000000B2 /* NotificationBannerPanelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationBannerPanelController.swift; sourceTree = "<group>"; };
 		51740BEE97BBBB4FA138B987 /* QuickActionsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsViewModelTests.swift; sourceTree = "<group>"; };
 		5319BE92DEC9F94E1C83D1EC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		54F11629C6DB3645B3227E0C /* HarnessStatusRingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessStatusRingCommands.swift; sourceTree = "<group>"; };
@@ -496,6 +500,8 @@
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
 				4FA90D5D246758202FBAD3CA /* PushClipboardViewModel.swift */,
 				A1E7C0DE00000000000000A2 /* AlertAcceptPromptPresenter.swift */,
+				A1E7C0DE00000000000000C2 /* NotificationDeniedHintView.swift */,
+				A1E7C0DE00000000000000B2 /* NotificationBannerPanelController.swift */,
 				D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */,
 			);
 			path = TandemApp;
@@ -795,6 +801,8 @@
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,
 				E71B1A14376E189459382BAA /* PushClipboardViewModel.swift in Sources */,
 				A1E7C0DE00000000000000A1 /* AlertAcceptPromptPresenter.swift in Sources */,
+				A1E7C0DE00000000000000C1 /* NotificationDeniedHintView.swift in Sources */,
+				A1E7C0DE00000000000000B1 /* NotificationBannerPanelController.swift in Sources */,
 				B3760AE1F08525B8B5D46CFD /* ConnectionStateRelay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

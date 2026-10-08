@@ -10,6 +10,7 @@ import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.NetworkMonitor
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
@@ -17,9 +18,13 @@ import dev.tandem.core.transport.reconnect.PairingAddressSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -76,6 +81,7 @@ class ConnectionOrchestratorTest {
         knownPeersFile: File = File(directory, "known-peers"),
     ) {
         val registry = SessionRegistry()
+        val screenOn = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val knownPeers = KnownPeerStore(knownPeersFile)
         val orchestrator =
             ConnectionOrchestrator(
@@ -97,6 +103,12 @@ class ConnectionOrchestratorTest {
                     object : NetworkMonitor {
                         override val available: Flow<Unit> = emptyFlow()
                     },
+                deviceIdleSource =
+                    object : DeviceIdleSource {
+                        override val isIdle: StateFlow<Boolean> = MutableStateFlow(false)
+                        override val screenOn: Flow<Unit> = this@Harness.screenOn
+                    },
+                foreground = emptyFlow(),
                 clock = TestClock(scope.testScheduler),
                 dispatcher = StandardTestDispatcher(scope.testScheduler),
             )
@@ -313,6 +325,27 @@ class ConnectionOrchestratorTest {
 
         assertEquals(dialsBefore, dialer.dials)
         assertNull(harness.registry.current.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_screenOnAfterDeadPeer_dialsAtZeroVirtualTime(
+        @TempDir directory: File,
+    ) = runTest {
+        val dialer =
+            ScriptedDialer(mutableListOf(DialResult.Unreachable(null), DialResult.Connected(readySession(), peer)))
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory)
+        harness.orchestrator.start()
+        runCurrent()
+        assertEquals(1, dialer.dials)
+
+        advanceTimeBy(200)
+        val wokeAt = testScheduler.currentTime
+        harness.screenOn.tryEmit(Unit)
+        runCurrent()
+
+        assertEquals(2, dialer.dials)
+        assertEquals(wokeAt, testScheduler.currentTime)
         harness.orchestrator.close()
     }
 }

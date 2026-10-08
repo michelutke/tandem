@@ -9,6 +9,7 @@ import dev.tandem.core.discovery.ServiceDiscovery
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.core.transport.ByteStreamSession
+import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.NetworkMonitor
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
@@ -20,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -68,6 +71,12 @@ class ConnectionLoopbackTest {
                     object : NetworkMonitor {
                         override val available: Flow<Unit> = emptyFlow()
                     },
+                deviceIdleSource =
+                    object : DeviceIdleSource {
+                        override val isIdle: StateFlow<Boolean> = MutableStateFlow(false)
+                        override val screenOn: Flow<Unit> = emptyFlow()
+                    },
+                foreground = emptyFlow(),
                 clock = Clock.systemUTC(),
                 dispatcher = Dispatchers.IO,
             )

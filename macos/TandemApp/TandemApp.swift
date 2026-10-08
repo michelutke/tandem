@@ -1,5 +1,6 @@
 import AppKit
 import FeatureFiles
+import FeatureNotifications
 import FeatureMirror
 import SwiftUI
 import TandemCrypto
@@ -357,6 +358,7 @@ struct MenuContentView: View {
                             onOpenMessages: { openMainWindow(section: MainWindowViewModel.sections.first) }
                         ))
                     )
+                    NotificationDeniedHintView(viewModel: NotificationPermissionViewModel.shared)
                     if let transferProgress {
                         TransferProgressListView(center: transferProgress)
                     }
