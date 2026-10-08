@@ -18,9 +18,16 @@ struct IdentityBootstrapperTests {
     @Test
     func bootstrapIdentity_afterReset_requiresRePairTrueUntilPairingSucceeds() {
         let store = InMemoryKeychainStore()
+        // This Mac generated an identity before (lineage marker present) and its key item is now
+        // missing -- errSecItemNotFound -- so this is a genuine reset, not a first generation.
+        try? store.addGenericPassword(
+            service: "com.tandem.identity.lineage",
+            account: "generated",
+            data: Data([1]),
+            accessibility: .afterFirstUnlockThisDeviceOnly
+        )
         let bootstrapper = IdentityBootstrapper(keychainStore: store)
 
-        // An empty store has no key item -- errSecItemNotFound -- so this always resets.
         _ = bootstrapper.bootstrapIdentity()
 
         #expect(bootstrapper.requiresRePair)
