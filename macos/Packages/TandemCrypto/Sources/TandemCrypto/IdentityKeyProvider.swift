@@ -23,10 +23,17 @@ private let smokeTestAlgorithm: SecKeyAlgorithm = .ecdsaSignatureMessageX962SHA2
 /// `swift test`).
 public struct IdentityKeyProvider: Sendable {
 
-    private let keychainStore: any KeychainStore
+    /// Proves a key can sign and verify; `false` means the key calls succeeded but is unusable, a
+    /// thrown ``KeychainError`` means it is inaccessible.
+    public typealias SmokeTest = @Sendable (SecKey) throws -> Bool
 
-    public init(keychainStore: any KeychainStore) {
+    private let keychainStore: any KeychainStore
+    private let smokeTest: SmokeTest
+
+    /// - Parameter smokeTest: replaces the real sign+verify probe in tests.
+    public init(keychainStore: any KeychainStore, smokeTest: SmokeTest? = nil) {
         self.keychainStore = keychainStore
+        self.smokeTest = smokeTest ?? { try Self.smokeTest($0) }
     }
 
     /// Returns the existing identity key under the fixed application tag, or generates and
@@ -47,11 +54,13 @@ public struct IdentityKeyProvider: Sendable {
     /// Whether the existing identity key is present and usable, proven with a real sign+verify
     /// smoke test rather than just presence of the item -- the Keychain can retain an item whose
     /// key material is no longer usable (E10-09, mirrors Android's `IdentityBootstrapper`'s
-    /// `KeyPermanentlyInvalidatedException` handling, E10-04). Returns `false` (never throws) for
-    /// both "no key item exists yet" (`KeychainError.itemNotFound`) and "the item exists but fails
-    /// the smoke test" -- `IdentityBootstrapper` treats both the same way (regenerate). Any other
-    /// `KeychainError` (e.g. `.authFailed`, `.locked`) is rethrown so the caller can distinguish
-    /// "missing/unusable" from "inaccessible" and never treat the latter as a reason to regenerate.
+    /// `KeyPermanentlyInvalidatedException` handling, E10-04). Returns `false` only for "no key
+    /// item exists" (`KeychainError.itemNotFound`) and "the key signed but the signature did not
+    /// verify" -- `IdentityBootstrapper` regenerates for both. Any lookup `KeychainError` and any
+    /// authorization or interaction failure while signing (`errSecAuthFailed`,
+    /// `errSecInteractionNotAllowed`, user canceled, missing entitlement, no access for item) is
+    /// thrown, so the caller can tell "missing/unusable" from "inaccessible" and never regenerates
+    /// (changing the pinned SPKI) because access was denied.
     ///
     /// This is the only place outside `getOrCreateIdentityKey()`'s own callers that touches the raw
     /// `SecKey` -- kept in `TandemCrypto` because the `key_material_only_in_crypto` lint rule
@@ -63,17 +72,33 @@ public struct IdentityKeyProvider: Sendable {
         } catch KeychainError.itemNotFound {
             return false
         }
-        return Self.smokeTest(key)
+        return try smokeTest(key)
     }
 
-    private static func smokeTest(_ key: SecKey) -> Bool {
-        guard let publicKey = SecKeyCopyPublicKey(key) else { return false }
+    /// Maps a failure to obtain the public key or sign to a thrown error: authorization and
+    /// interaction failures to their own cases, every other status (any code, any CFError domain)
+    /// to `.unhandled`. A failure to sign never means "unusable key": regenerating would change the
+    /// pinned SPKI, so only an absent item or a signature that fails verification regenerates.
+    static func signingFailure(forStatus status: Int) -> KeychainError {
+        let code = OSStatus(truncatingIfNeeded: status)
+        switch code {
+        case errSecAuthFailed: return .authFailed
+        case errSecInteractionNotAllowed: return .locked
+        default: return .unhandled(status: code)
+        }
+    }
+
+    private static func smokeTest(_ key: SecKey) throws -> Bool {
+        guard let publicKey = SecKeyCopyPublicKey(key) else {
+            throw KeychainError.unhandled(status: errSecInternalError)
+        }
 
         var signError: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(
             key, smokeTestAlgorithm, smokeTestPayload as CFData, &signError
         ) else {
-            return false
+            let code = signError.map { CFErrorGetCode($0.takeRetainedValue()) } ?? Int(errSecInternalError)
+            throw signingFailure(forStatus: code)
         }
 
         var verifyError: Unmanaged<CFError>?

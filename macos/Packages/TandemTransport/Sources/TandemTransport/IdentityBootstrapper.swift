@@ -34,14 +34,18 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
 
     private let keychainStore: any KeychainStore
     private let onIdentityReset: @Sendable () -> Void
+    private let smokeTest: IdentityKeyProvider.SmokeTest?
     private let state = Mutex(State())
 
+    /// - Parameter smokeTest: replaces the real sign+verify probe in tests.
     public init(
         keychainStore: any KeychainStore,
-        onIdentityReset: @escaping @Sendable () -> Void = {}
+        onIdentityReset: @escaping @Sendable () -> Void = {},
+        smokeTest: IdentityKeyProvider.SmokeTest? = nil
     ) {
         self.keychainStore = keychainStore
         self.onIdentityReset = onIdentityReset
+        self.smokeTest = smokeTest
     }
 
     /// The most recently computed identity state -- `.missing` until `bootstrapIdentity()` is
@@ -73,7 +77,8 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
 
     private func computeIdentityState() -> IdentityState {
         do {
-            let usable = try IdentityKeyProvider(keychainStore: keychainStore).hasUsableIdentityKey()
+            let usable = try IdentityKeyProvider(keychainStore: keychainStore, smokeTest: smokeTest)
+                .hasUsableIdentityKey()
             let adoptingPendingKey = usable
                 && RotationCoordinator.isAdoptingUnackedPendingKey(keychainStore: keychainStore)
             return usable && !adoptingPendingKey ? try readyState() : resetIdentity()
@@ -85,9 +90,11 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
     }
 
     /// Deletes the existing key and certificate (best-effort -- either may already be absent) and
-    /// regenerates both, then surfaces `requiresRePair` and `onIdentityReset` regardless of whether
-    /// regeneration itself succeeds.
+    /// regenerates both. When a key or certificate existed, surfaces `requiresRePair` and
+    /// `onIdentityReset` regardless of whether regeneration itself succeeds; a first-ever
+    /// generation surfaces neither.
     private func resetIdentity() -> IdentityState {
+        let hadIdentity = identityMaterialExists()
         try? keychainStore.deleteCertificate(label: identityCertLabel)
         try? keychainStore.deleteGenericPassword(
             service: RotationCoordinator.attemptService, account: RotationCoordinator.attemptAccount
@@ -95,8 +102,10 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
         for tag in [identityKeyApplicationTag, IdentityKeySlots.secondaryTag] {
             try? keychainStore.deleteKey(tag: tag)
         }
-        state.withLock { $0.requiresRePair = true }
-        onIdentityReset()
+        if hadIdentity {
+            state.withLock { $0.requiresRePair = true }
+            onIdentityReset()
+        }
         do {
             return try readyState()
         } catch {
@@ -104,7 +113,35 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
         }
     }
 
+    /// Whether a key or certificate already existed: only then does regenerating change the SPKI a
+    /// phone pinned. A first-ever generation is not a reset.
+    private func identityMaterialExists() -> Bool {
+        let keyExists = [identityKeyApplicationTag, IdentityKeySlots.secondaryTag].contains {
+            (try? keychainStore.copyKey(tag: $0)) != nil
+        }
+        return keyExists
+            || (try? keychainStore.copyCertificate(label: identityCertLabel)) != nil
+            || (try? keychainStore.copyGenericPassword(service: Self.lineageService, account: Self.lineageAccount))
+                != nil
+    }
+
+    /// Remembers that this Mac once had an identity, so losing the key item later still counts as
+    /// a reset (a phone pinned the old SPKI) rather than a first generation.
+    private func recordIdentityLineage() {
+        try? keychainStore.addGenericPassword(
+            service: Self.lineageService,
+            account: Self.lineageAccount,
+            data: Data([1]),
+            accessibility: .afterFirstUnlockThisDeviceOnly
+        )
+    }
+
+    private static let lineageService = "com.tandem.identity.lineage"
+    private static let lineageAccount = "generated"
+
     private func readyState() throws -> IdentityState {
-        .ready(try SecIdentityProvider(keychainStore: keychainStore).getOrCreateSecIdentity())
+        let identity = try SecIdentityProvider(keychainStore: keychainStore).getOrCreateSecIdentity()
+        recordIdentityLineage()
+        return .ready(identity)
     }
 }
