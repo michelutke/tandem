@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import TandemStore
 import TandemProtocol
 import TandemTestSupport
 @testable import FeatureFiles
@@ -112,7 +113,13 @@ private final class RecordingProgress: TransferProgressReporting, @unchecked Sen
 
     var events: [String] { lock.withLock { recorded } }
 
-    func began(id: String, name: String, totalBytes: Int64, cancel: @escaping @Sendable () async -> Void) async {
+    func began(
+        id: String,
+        name: String,
+        totalBytes: Int64,
+        direction: TransferDirection,
+        cancel: @escaping @Sendable () async -> Void
+    ) async {
         lock.withLock { recorded.append("began \(id) \(totalBytes)") }
     }
 
@@ -120,7 +127,7 @@ private final class RecordingProgress: TransferProgressReporting, @unchecked Sen
         lock.withLock { recorded.append("delivered \(id) \(bytes)") }
     }
 
-    func ended(id: String) async {
+    func ended(id: String, outcome: TransferOutcome, savedFile: URL?) async {
         lock.withLock { recorded.append("ended \(id)") }
     }
 }
