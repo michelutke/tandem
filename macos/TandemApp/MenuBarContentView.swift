@@ -21,6 +21,10 @@ struct MenuBarContentView: View {
     /// Opens the pairing window (E22-14); a no-op in scenario/preview hosts.
     var onPairPhone: () -> Void = {}
 
+    /// Opens the manual-mode pairing window for a phone without a usable camera (E73-04); a no-op
+    /// in scenario/preview hosts.
+    var onPairWithoutCamera: () -> Void = {}
+
     /// "14:02", for the offline explanation.
     var lastSeenText: String?
 
@@ -85,8 +89,14 @@ struct MenuBarContentView: View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
             explanation("Scan a code with the Tandem app on your Android phone. Stays on your local network.")
             Hairline()
-            NumberedActionRow(index: 1, title: "Pair phone", identifier: "pairPhoneMenuItem", action: onPairPhone)
-                .padding(.horizontal, -TandemSpacing.popoverPadding)
+            VStack(spacing: 0) {
+                NumberedActionRow(index: 1, title: "Pair phone", identifier: "pairPhoneMenuItem", action: onPairPhone)
+                NumberedActionRow(
+                    index: 2, title: "Pair without camera", identifier: "pairWithoutCameraMenuItem",
+                    action: onPairWithoutCamera
+                )
+            }
+            .padding(.horizontal, -TandemSpacing.popoverPadding)
         }
     }
 

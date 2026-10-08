@@ -89,6 +89,32 @@ across scenario processes, matching the existing per-script convention in
 minutes) — this is deliberately not yet wired into CI as a required check, matching E15-08's own
 `tools/conformance/run.sh` precedent above.
 
+## E73-05: manual pairing brute-force and downgrade scenarios
+
+`tools/mitm-lab/e73-05-manual-pairing/` -- five scenarios against the real Mac app launched with the
+DEBUG-only `-HarnessOpenManualPairingWindow YES` hook (a manual-mode window: no QR, no secret, the
+same 120 s / 3-attempt window as QR, ADR-008), driven through the JVM harness client's
+`RAWOPENUNPINNED` (an unpinned dial, since manual pairing has no QR fingerprint) and `RAWMANUAL
+COMMIT` / `RAWMANUAL REVEAL [NONCE=<hex>|PREFIX]` commands (a real `Commitment`, or a `Reveal` the real
+state machine would never send). Each scenario launches its own Mac process (the window is single-use).
+
+- `mitmLab_manualPairingBruteForce_fourthAttempt_rejected` -- three attempts that finish the commit
+  phase and then reveal a wrong nonce burn the window; the 4th connection is rejected in the handshake.
+- `mitmLab_manualPairing_commitPhaseSkipped_rejectedNoPin` -- `Reveal` without a prior `Commitment`
+  is rejected, no pin.
+- `mitmLab_manualPairing_fingerprintPrefixOnly_rejectedNoPin` -- a fingerprint prefix offered in
+  place of the committed nonce is rejected, no pin.
+- `mitmLab_manualPairing_messageInQrPairingSession_connectionClosed` -- a `Commitment` injected into a
+  QR window (opened with the E15-09 `-HarnessOpenPairingWindow YES` hook) closes the connection.
+
+- `mitmLab_manualPairing_pairRequestOnManualWindow_rejectedAttemptBurned` -- the reverse downgrade: three
+  QR `PairRequest`s on a manual window each burn one attempt, the 4th connection is rejected.
+
+```sh
+ruby tools/mitm-lab/runner.rb tools/mitm-lab/e73-05-manual-pairing/scenarios --timeout 300
+ruby tools/mitm-lab/test/e73_05_scenarios_test.rb
+```
+
 ## E60-05: media ticket binding scenarios
 
 `tools/mitm-lab/e60-05-media-ticket/` -- six scenarios against the real Mac app launched with the

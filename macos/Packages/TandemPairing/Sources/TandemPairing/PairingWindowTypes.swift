@@ -61,6 +61,17 @@ extension PairingWindow {
         }
     }
 
+    /// The live secret box while open, `nil` once closed -- invariant 6. Not part of the public
+    /// seam surface; exposed for this package's own tests (`@testable import`) to hold the exact
+    /// same reference the window scrubs in place, so a test can verify the bytes are actually
+    /// zeroed rather than merely unreachable.
+    var secretBoxForTesting: SecretBox? {
+        lock.lock()
+        defer { lock.unlock() }
+        if case .open(let state) = phase { return state.secretBox }
+        return nil
+    }
+
     // Internal (not private) state types, only because they now live in a separate file -- nothing
     // outside `TandemPairing` sees them, since `PairingWindow`'s own public surface never exposes
     // them.
@@ -73,6 +84,9 @@ extension PairingWindow {
         /// Hellos completed; ``PairingWindow`` sent `PairChallenge` and is waiting up to 10 s for
         /// `PairRequest`.
         case awaitingRequest(PairingCandidateToken, helloCompletedAt: Date, challenge: Data)
+        /// Manual window: the phone's `Commitment` arrived and the Mac's was sent; waiting on the
+        /// phone's `Reveal`. No 10 s deadline from here, only the window's own expiry.
+        case manualInProgress(PairingCandidateToken, challenge: Data)
         /// A valid proof was received; waiting on the owner's confirmation dialog.
         case confirmationPending(PairingCandidateToken, challenge: Data)
 
@@ -83,7 +97,8 @@ extension PairingWindow {
         var token: PairingCandidateToken? {
             switch self {
             case .unclaimed: return nil
-            case .admitted(let tok), .awaitingRequest(let tok, _, _), .confirmationPending(let tok, _): return tok
+            case .admitted(let tok), .awaitingRequest(let tok, _, _), .manualInProgress(let tok, _),
+                 .confirmationPending(let tok, _): return tok
             }
         }
     }

@@ -58,11 +58,11 @@ class PairingStateMachine(
     private val trustCommitter: TrustCommitter,
     private val invite: PairingInvite,
     private val deviceInfoProvider: DeviceInfoProvider,
-) {
+) : PairingAttempt {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Idle)
-    val state: StateFlow<PairingState> = mutableState.asStateFlow()
+    override val state: StateFlow<PairingState> = mutableState.asStateFlow()
 
     /** Guards [confirmContext]/[confirmDeadline] so exactly one of confirm/cancel/deadline/close wins. */
     private val confirmMutex = Mutex()
@@ -76,7 +76,7 @@ class PairingStateMachine(
     )
 
     /** Idle -> Connecting; no-op if already started. */
-    fun start() {
+    override fun start() {
         if (mutableState.value != PairingState.Idle) return
         mutableState.value = PairingState.Connecting
         scope.launch { runPairing() }
@@ -86,7 +86,7 @@ class PairingStateMachine(
      * The owner tapped "Codes match" in [PairingState.AwaitingUserConfirm]: commits the Mac's
      * fingerprint via [trustCommitter] and moves to [PairingState.Paired]. No-op outside that state.
      */
-    suspend fun confirmCodesMatch() {
+    override suspend fun confirmCodesMatch() {
         val context = claimConfirmContext() ?: return
         trustCommitter.commit(context.macFingerprint, context.macName, clock.instant())
         mutableState.value = PairingState.Paired
@@ -98,7 +98,7 @@ class PairingStateMachine(
      * session, and moves to [PairingState.Failed]`(`[PairingFailure.UserCancelled]`)`. No-op outside
      * that state.
      */
-    fun cancelConfirm() {
+    override fun cancelConfirm() {
         scope.launch {
             val context = claimConfirmContext() ?: return@launch
             declineConfirm(context.session, PairingFailure.UserCancelled)
@@ -111,7 +111,7 @@ class PairingStateMachine(
      * machine's scope down (SPEC.md §2 "Mutual confirmation": the phone abandoning the dialog MUST
      * NOT leave the Mac's window open indefinitely).
      */
-    fun close() {
+    override fun close() {
         scope
             .launch {
                 val context = claimConfirmContext() ?: return@launch

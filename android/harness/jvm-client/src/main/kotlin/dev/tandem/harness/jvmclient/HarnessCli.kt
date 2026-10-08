@@ -7,6 +7,7 @@ import dev.tandem.core.crypto.PairingProof
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.PinningTrustManager
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.crypto.UnpinnedPeerTrustManager
 import dev.tandem.core.crypto.spkiFingerprint
 import dev.tandem.core.pairing.DeviceInfoProvider
 import dev.tandem.core.pairing.PairingState
@@ -28,6 +29,7 @@ import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.NetworkType
 import dev.tandem.protocol.v1.RotationRejectReason
+import dev.tandem.protocol.v1.commitment
 import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.deviceInfo
 import dev.tandem.protocol.v1.deviceStatus
@@ -35,6 +37,7 @@ import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.notificationPosted
 import dev.tandem.protocol.v1.pairRequest
 import dev.tandem.protocol.v1.requestMediaTicket
+import dev.tandem.protocol.v1.reveal
 import dev.tandem.protocol.v1.rotationAck
 import dev.tandem.protocol.v1.rotationChallenge
 import dev.tandem.protocol.v1.revoke
@@ -185,6 +188,7 @@ private class HarnessCli(
     private var rawPhoneSpkiDer: ByteArray? = null
     private var rawChallenge: ByteArray? = null
     private var rawRotationChallenge: ByteArray? = null
+    private val rawManualPairing = RawManualPairing()
 
     /**
      * Peers this process currently considers *not* paired any more (E14-20): either a live
@@ -222,6 +226,8 @@ private class HarnessCli(
             "SENDNOTIFICATIONS" -> sendNotifications(rest)
             "FLOOD" -> flood(rest)
             "RAWOPEN" -> rawOpen(rest)
+            "RAWOPENUNPINNED" -> rawOpen(rest, pinned = false)
+            "RAWMANUAL" -> rawManual(rest)
             "RAWSEND" -> rawSend(rest)
             "RAWSENDPROOF" -> rawSendProof(rest)
             "RAWREVOKE" -> rawRevoke()
@@ -678,15 +684,19 @@ private class HarnessCli(
      * an already-trusted one -- E15-09 scenarios 1/6/7 deliberately reconnect with an
      * already-trusted identity and inject a `PairRequest` anyway).
      */
-    private fun rawOpen(argsLine: String) {
+    private fun rawOpen(
+        argsLine: String,
+        pinned: Boolean = true,
+    ) {
         val args = argsLine.split(" ").filter { it.isNotEmpty() }
-        if (args.size != CONNECT_ARG_COUNT) {
-            println("ERROR usage: RAWOPEN <host> <port> <spkiFingerprintBase64Url>")
+        if (args.size != if (pinned) CONNECT_ARG_COUNT else CONNECT_ARG_COUNT - 1) {
+            println("ERROR usage: RAWOPEN <host> <port> <spkiFingerprintBase64Url> | RAWOPENUNPINNED <host> <port>")
             return
         }
-        val (host, portArg, fingerprintArg) = args
-        val port = portArg.toIntOrNull()
-        val fingerprintBytes = runCatching { Base64.getUrlDecoder().decode(fingerprintArg) }.getOrNull()
+        val host = args[0]
+        val port = args[1].toIntOrNull()
+        val fingerprintBytes =
+            if (pinned) runCatching { Base64.getUrlDecoder().decode(args[2]) }.getOrNull() else ByteArray(0)
         if (port == null || fingerprintBytes == null) {
             println("ERROR invalid RAWOPEN arguments")
             return
@@ -697,15 +707,16 @@ private class HarnessCli(
         rawPhoneSpkiDer = null
         rawChallenge = null
         rawRotationChallenge = null
+        rawManualPairing.reset()
 
-        val fingerprint = SpkiFingerprint(fingerprintBytes)
+        val trustManager =
+            if (pinned) {
+                PinningTrustManager(PinSource { listOf(SpkiFingerprint(fingerprintBytes)) })
+            } else {
+                UnpinnedPeerTrustManager()
+            }
         runCatching {
-            val factory =
-                SslClientFactory(
-                    keyManager,
-                    PinningTrustManager(PinSource { listOf(fingerprint) }),
-                    JvmConscryptSessionTicketDisabler(),
-                )
+            val factory = SslClientFactory(keyManager, trustManager, JvmConscryptSessionTicketDisabler())
             val socket = factory.createSocket()
             runBlocking(dispatcher) {
                 val stream = withContext(dispatcher) { factory.connect(socket, InetAddress.getByName(host), port) }
@@ -817,6 +828,73 @@ private class HarnessCli(
             activeSession.send(Channel.CHANNEL_CONTROL) { pairRequest = request }
         }
         printRawPairOutcome(activeSession)
+    }
+
+    /**
+     * `RAWMANUAL COMMIT` / `RAWMANUAL REVEAL [NONCE=<hex>|PREFIX]` (E73-05): sends a manual-pairing
+     * `Commitment` (a real one over this session's SPKIs and `cb`) or `Reveal` on the raw session,
+     * bypassing the real state machine so a scenario can reveal out of order, reveal a wrong nonce,
+     * or reveal a Mac fingerprint prefix. `COMMIT` prints `OK SENT_COMMIT` then `EVENT MAC_COMMITMENT`
+     * (or the terminal event if the Mac closed instead); `REVEAL` prints `OK SENT_REVEAL` then the
+     * terminal event (a `ManualPairResult` counts as `PAIR_ACCEPTED`, which no scenario here expects).
+     */
+    private fun rawManual(argsLine: String) {
+        val activeSession = rawSession
+        val macSpkiDer = rawMacSpkiDer
+        val phoneSpkiDer = rawPhoneSpkiDer
+        val challenge = rawChallenge
+        if (activeSession == null || macSpkiDer == null || phoneSpkiDer == null) {
+            println("ERROR no raw session open (RAWOPENUNPINNED first)")
+            return
+        }
+        val kind = argsLine.substringBefore(" ").uppercase()
+        val spec = argsLine.substringAfter(" ", "").trim()
+        when {
+            kind == "COMMIT" && challenge != null -> {
+                val hash = rawManualPairing.commitment(macSpkiDer, phoneSpkiDer, challenge)
+                runBlocking(dispatcher) {
+                    activeSession.send(Channel.CHANNEL_CONTROL) { commitment = commitment { this.hash = ByteString.copyFrom(hash) } }
+                }
+                println("OK SENT_COMMIT")
+                printRawMacCommitment(activeSession)
+            }
+            kind == "REVEAL" -> {
+                val nonce = rawManualPairing.revealNonce(spec, macSpkiDer)
+                if (nonce == null) {
+                    println("ERROR usage: RAWMANUAL REVEAL [NONCE=<32 hex>|PREFIX]")
+                    return
+                }
+                runBlocking(dispatcher) {
+                    activeSession.send(Channel.CHANNEL_CONTROL) { reveal = reveal { this.nonce = ByteString.copyFrom(nonce) } }
+                }
+                println("OK SENT_REVEAL")
+                printRawPairOutcome(activeSession)
+            }
+            else -> println("ERROR usage: RAWMANUAL COMMIT | RAWMANUAL REVEAL [NONCE=<32 hex>|PREFIX] (after RAWOPEN with a challenge)")
+        }
+    }
+
+    private fun printRawMacCommitment(activeSession: TandemSession) {
+        val outcome =
+            runBlocking(dispatcher) {
+                withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
+                    waitForControlEnvelope(activeSession) {
+                        it.payloadCase == Envelope.PayloadCase.COMMITMENT || it.payloadCase == Envelope.PayloadCase.PAIR_REJECTED
+                    }
+                }
+            }
+        when (outcome) {
+            null, RawWaitOutcome.TimedOut -> println("EVENT PAIR_TIMEOUT")
+            RawWaitOutcome.ConnectionLost -> println("EVENT PAIR_CLOSED")
+            is RawWaitOutcome.Success -> {
+                val envelope = outcome.envelope
+                if (envelope.payloadCase == Envelope.PayloadCase.COMMITMENT) {
+                    println("EVENT MAC_COMMITMENT")
+                } else {
+                    println("EVENT PAIR_REJECTED ${envelope.pairRejected.reason}")
+                }
+            }
+        }
     }
 
     /**
@@ -1081,6 +1159,8 @@ private class HarnessCli(
                 withTimeoutOrNull(RAW_OUTCOME_TIMEOUT_MS) {
                     waitForControlEnvelope(activeSession) {
                         it.payloadCase == Envelope.PayloadCase.PAIR_ACCEPTED ||
+                            it.payloadCase == Envelope.PayloadCase.MANUAL_PAIR_RESULT ||
+                            it.payloadCase == Envelope.PayloadCase.COMMITMENT ||
                             it.payloadCase == Envelope.PayloadCase.PAIR_REJECTED
                     }
                 }
@@ -1090,7 +1170,9 @@ private class HarnessCli(
             RawWaitOutcome.ConnectionLost -> println("EVENT PAIR_CLOSED")
             is RawWaitOutcome.Success -> {
                 val envelope = outcome.envelope
-                if (envelope.payloadCase == Envelope.PayloadCase.PAIR_ACCEPTED) {
+                if (envelope.payloadCase == Envelope.PayloadCase.COMMITMENT) {
+                    println("EVENT MAC_COMMITMENT")
+                } else if (envelope.payloadCase != Envelope.PayloadCase.PAIR_REJECTED) {
                     println("EVENT PAIR_ACCEPTED")
                 } else {
                     println("EVENT PAIR_REJECTED ${envelope.pairRejected.reason}")

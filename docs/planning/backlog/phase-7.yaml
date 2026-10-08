@@ -1472,7 +1472,7 @@ epics:
             success (UC-03).
         tdd:
           - "unit: manualPairing_userConfirmsMatchingSas_pinsExactlyOnePeerRecord"
-          - "unit: manualPairing_userReportsMismatch_abortsAndBurnsOneAttempt"
+          - "unit: manualPairing_userReportsMismatch_abortsWithoutPinningAndClosesWindow"
           - "unit: manualPairing_revealBeforePeerCommitment_abortsWithoutPinning"
           - "unit: manualPairing_revealMismatchesCommitment_abortsWithoutPinning"
           - "unit: manualPairingVerifier_fingerprintPrefixMatchOnly_rejected"

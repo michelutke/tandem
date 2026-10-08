@@ -28,7 +28,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     public let window: PairingWindow
     public let viewModel: PairingViewModel
 
-    private let macSpkiDerProvider: @Sendable () -> Data
+    let macSpkiDerProvider: @Sendable () -> Data
     private let trustStore: TrustStore
     private let dateProvider: DateProvider
     private let clock: any Clock<Duration>
@@ -36,6 +36,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     private let onConfirmationPending: ConfirmationPendingHandler?
     private let onPeerPaired: (@Sendable () -> Void)?
     private let candidateSpkiDer: CandidateSpkiHolder
+    let manualNonceSource: any ManualNonceSource
 
     /// - Parameters:
     ///   - fingerprint: The Mac's own identity fingerprint, encoded into every QR this opens.
@@ -58,6 +59,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         clock: any Clock<Duration> = ContinuousClock(),
         sessionRegistry: any ControlSessionRegistering,
         regeneratesOnExpiry: Bool = true,
+        mode: PairingMode = .qrCode,
+        manualNonceSource: any ManualNonceSource = SystemManualNonceSource(),
         onConfirmationPending: ConfirmationPendingHandler? = nil,
         onPeerPaired: (@Sendable () -> Void)? = nil
     ) {
@@ -87,6 +90,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         self.onConfirmationPending = onConfirmationPending
         self.onPeerPaired = onPeerPaired
         self.candidateSpkiDer = candidateSpkiDer
+        self.manualNonceSource = manualNonceSource
+        if mode == .manual { window.openManual() }
     }
 
     public func drive(session: any TandemSession, handshakeSpkiDer: Data, token: PairingCandidateToken) async {
@@ -129,6 +134,9 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         }
         defer { deadlineTask.cancel() }
 
+        let handshake = makeHandshake(
+            session: session, flow: flow, token: token, spkiDer: handshakeSpkiDer, challenge: challenge
+        )
         let context = PairRequestContext(
             challenge: challenge,
             handshakeSpkiDer: handshakeSpkiDer,
@@ -140,7 +148,9 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         )
 
         let frames = await session.receive(.control)
-        pendingConfirmation = await runFrameLoop(frames, flow: flow, deadlineTask: deadlineTask, context: context)
+        pendingConfirmation = await runFrameLoop(
+            frames, flow: flow, handshake: handshake, deadlineTask: deadlineTask, context: context
+        )
     }
 
     public func candidateAbandoned(token: PairingCandidateToken) async {
@@ -153,6 +163,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     private func runFrameLoop(
         _ frames: InboundFrameStream,
         flow: PairingCandidateFlow,
+        handshake: ManualPairingHandshake?,
         deadlineTask: Task<Void, Never>,
         context: PairRequestContext
     ) async -> PairConfirmationViewModel? {
@@ -160,11 +171,14 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         var confirmationBuilt = false
         for await frame in frames {
             if context.resolution.isResolved { continue }
+            let manualActive = handshake != nil && !confirmationBuilt
+            let qrActive = handshake == nil && !confirmationBuilt
 
             switch frame.payload {
-            case .pairRequest(let request)? where !confirmationBuilt:
+            case .commitment? where manualActive, .reveal? where manualActive, .pairRequest? where qrActive:
                 deadlineTask.cancel()
-                switch await handlePairRequest(request, flow: flow, context: context) {
+                switch await advance(frame.payload, flow: flow, handshake: handshake, context: context) {
+                case .inProgress: break
                 case .abort: return pendingConfirmation
                 case .confirmationPending(let confirmationViewModel):
                     confirmationBuilt = true
@@ -180,7 +194,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
                 // connection that is succeeding, not failing.
                 if let reason = window.closedReason, reason != .paired { return pendingConfirmation }
             default:
-                await flow.wrongPayloadReceived()
+                await rejectUnexpected(frame.payload, flow: flow, manual: handshake != nil, context: context)
                 return pendingConfirmation
             }
         }
@@ -189,7 +203,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
 
     /// Everything a `PairRequest` frame's handling needs beyond the request itself, bundled to
     /// keep `handlePairRequest`/`makeConfirmationViewModel`'s own parameter counts down.
-    private struct PairRequestContext {
+    struct PairRequestContext {
         let challenge: Data
         let handshakeSpkiDer: Data
         let sink: any PairingCandidateSink
@@ -199,19 +213,14 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         let registeredFingerprint: FingerprintBox
     }
 
-    private enum PairRequestOutcome {
-        case abort
-        case confirmationPending(PairConfirmationViewModel)
-    }
-
     /// The `.pairRequest` branch of `drive()`'s frame loop, extracted to keep that function's own
     /// length/complexity down. `.abort` means the caller must `return` from `drive()` without
     /// setting `pendingConfirmation`, matching the two `guard ... else { return }`s this replaces.
-    private func handlePairRequest(
+    func handlePairRequest(
         _ request: Tandem_V1_PairRequest,
         flow: PairingCandidateFlow,
         context: PairRequestContext
-    ) async -> PairRequestOutcome {
+    ) async -> CandidateStep {
         await flow.pairRequestReceived(proof: request.proof)
         guard window.isConfirmationPending else { return .abort }
         guard let confirmationViewModel = makeConfirmationViewModel(request: request, context: context) else {
@@ -233,10 +242,25 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         ) else {
             return nil
         }
-
-        let confirmationViewModel = PairConfirmationViewModel(
+        return buildConfirmationViewModel(
+            code: code,
             displayNameBytes: Data(request.deviceInfo.displayName.utf8),
             modelBytes: Data(request.deviceInfo.model.utf8),
+            acceptance: .qrCode,
+            context: context
+        )
+    }
+
+    func buildConfirmationViewModel(
+        code: String,
+        displayNameBytes: Data,
+        modelBytes: Data,
+        acceptance: PairAcceptance,
+        context: PairRequestContext
+    ) -> PairConfirmationViewModel {
+        let confirmationViewModel = PairConfirmationViewModel(
+            displayNameBytes: displayNameBytes,
+            modelBytes: modelBytes,
             confirmationCode: code,
             handshakeSpkiDer: context.handshakeSpkiDer,
             window: window,
@@ -253,7 +277,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
                 // control-channel replay window here or held frames would accumulate for its lifetime.
                 await context.session.sealSetup()
                 onPeerPaired?()
-            }
+            },
+            acceptance: acceptance
         )
         onConfirmationPending?(code, confirmationViewModel)
         return confirmationViewModel
@@ -261,7 +286,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
 }
 
 /// The real ``PairingCandidateSink``: sends/closes over a live, already-`.ready` ``TandemSession``.
-private struct TandemSessionPairingCandidateSink: PairingCandidateSink {
+struct TandemSessionPairingCandidateSink: PairingCandidateSink {
     let session: any TandemSession
 
     func sendPairChallenge(_ challenge: Data) async throws {
@@ -283,6 +308,24 @@ private struct TandemSessionPairingCandidateSink: PairingCandidateSink {
     func sendPairAccepted() async throws {
         try await session.send(.control, payload: .pairAccepted(Tandem_V1_PairAccepted()))
     }
+
+    func sendCommitment(_ hash: Data) async throws {
+        var message = Tandem_V1_Commitment()
+        message.hash = hash
+        try await session.send(.control, payload: .commitment(message))
+    }
+
+    func sendReveal(_ nonce: Data) async throws {
+        var message = Tandem_V1_Reveal()
+        message.nonce = nonce
+        try await session.send(.control, payload: .reveal(message))
+    }
+
+    func sendManualPairResult() async throws {
+        var message = Tandem_V1_ManualPairResult()
+        message.accepted = true
+        try await session.send(.control, payload: .manualPairResult(message))
+    }
 }
 
 private extension PairRejectedWireReason {
@@ -291,83 +334,5 @@ private extension PairRejectedWireReason {
         case .rejectedByOwner: return .rejectedByOwner
         case .pairingUnavailable: return .pairingUnavailable
         }
-    }
-}
-
-/// Holds the current pairing candidate's observed phone SPKI DER, read lazily by
-/// ``PairProofVerifier`` (`nil` whenever no candidate is in flight) -- set/cleared by
-/// ``PairingCoordinator/drive(session:handshakeSpkiDer:token:)`` around that one candidate's own
-/// lifetime. Scoped by ``PairingCandidateToken`` (E14-16 finding #2): a stale candidate's own
-/// (possibly delayed) `clear(_:)` call can only ever erase *its own* entry, never a fresher
-/// candidate's DER that has since been `set(_:_:)` here -- without this, a slow teardown racing a
-/// newly-admitted candidate could wipe the new candidate's DER out from under it, failing its
-/// otherwise-valid proof with `BAD_PROOF`.
-private final class CandidateSpkiHolder: @unchecked Sendable {
-    private let lock = NSLock()
-    private var current: (token: PairingCandidateToken, spkiDer: Data)?
-
-    func set(_ token: PairingCandidateToken, _ spkiDer: Data) {
-        lock.lock()
-        current = (token, spkiDer)
-        lock.unlock()
-    }
-
-    func get() -> Data? {
-        lock.lock()
-        defer { lock.unlock() }
-        return current?.spkiDer
-    }
-
-    func clear(_ token: PairingCandidateToken) {
-        lock.lock()
-        if current?.token == token { current = nil }
-        lock.unlock()
-    }
-}
-
-/// Write-once, lock-protected box for the ``TandemCrypto/SpkiFingerprint`` a candidate's own
-/// ``PairConfirmationViewModel/pair()`` registers into ``TandemTransport/ControlSessionRegistering``
-/// (E14-16 finding #6) -- read back by ``PairingCoordinator/drive(session:handshakeSpkiDer:token:)``'s
-/// own `defer` to de-register the same session once this candidate connection ends. `onPaired`
-/// (whichever task the owner's `pair()` click runs on) and that `defer` (this candidate's own
-/// `drive()` task) can genuinely race, hence the lock -- unlike ``CandidateSpkiHolder``, this box
-/// is never reused across candidates (a fresh one is made per ``drive(session:handshakeSpkiDer:token:)``
-/// call), so it needs no token scoping of its own.
-private final class FingerprintBox: @unchecked Sendable {
-    private let lock = NSLock()
-    private var stored: SpkiFingerprint?
-
-    var value: SpkiFingerprint? {
-        lock.lock()
-        defer { lock.unlock() }
-        return stored
-    }
-
-    func set(_ fingerprint: SpkiFingerprint) {
-        lock.lock()
-        stored = fingerprint
-        lock.unlock()
-    }
-}
-
-/// Atomic test-and-set flag a candidate's ``PairConfirmationViewModel`` resolution flips exactly
-/// once, from whatever task the owner (or a DEBUG auto-confirm hook) resolves it on -- read by
-/// ``PairingCoordinator/drive(session:handshakeSpkiDer:token:)``'s own frame loop, on its own task,
-/// so that loop stops driving ``PairingCandidateFlow`` once this candidate's outcome is no longer its
-/// concern (mirrors ``PairingCandidateFlow/claimFailure()``'s own idiom).
-private final class ResolutionFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var resolved = false
-
-    var isResolved: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return resolved
-    }
-
-    func resolve() {
-        lock.lock()
-        resolved = true
-        lock.unlock()
     }
 }

@@ -1,9 +1,14 @@
 package dev.tandem.app.shell
 
 import dev.tandem.core.pairing.DeviceInfoProvider
+import dev.tandem.core.pairing.ManualPairingAddress
+import dev.tandem.core.pairing.ManualPairingConnector
+import dev.tandem.core.pairing.ManualPairingStateMachine
+import dev.tandem.core.pairing.PairingAttempt
 import dev.tandem.core.pairing.PairingConnector
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.pairing.PairingStateMachine
+import dev.tandem.core.pairing.SecureRandomManualNonceSource
 import dev.tandem.core.pairing.TrustCommitter
 import dev.tandem.core.pairing.qr.PairingInvite
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,6 +25,9 @@ import java.time.Clock
 interface PairingFlowControls {
     val state: StateFlow<PairingState>
 
+    /** Starts manual pairing (E73-03, ADR-008) for the Mac address the owner typed; no QR is involved. */
+    fun startManual(address: ManualPairingAddress)
+
     /** The owner tapped "Codes match". */
     fun confirmCodesMatch()
 
@@ -33,6 +41,8 @@ interface PairingFlowControls {
 /** Not hosting a pairing flow: always [PairingState.Idle]. */
 object NoPairingFlowControls : PairingFlowControls {
     override val state: StateFlow<PairingState> = MutableStateFlow(PairingState.Idle)
+
+    override fun startManual(address: ManualPairingAddress) = Unit
 
     override fun confirmCodesMatch() = Unit
 
@@ -53,19 +63,30 @@ class PairingFlow(
     private val connector: PairingConnector,
     private val trustCommitter: TrustCommitter,
     private val deviceInfoProvider: DeviceInfoProvider,
+    private val manualConnector: ManualPairingConnector? = null,
 ) : PairingStarter,
     PairingFlowControls {
     private val machineDispatcher = dispatcher
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Idle)
-    private var machine: PairingStateMachine? = null
+    private var machine: PairingAttempt? = null
     private var forwarding: Job? = null
 
     override val state: StateFlow<PairingState> = mutableState.asStateFlow()
 
     override fun start(invite: PairingInvite) {
+        run(PairingStateMachine(clock, machineDispatcher, connector, trustCommitter, invite, deviceInfoProvider))
+    }
+
+    /** No-op without a [manualConnector]; the manual machine commits trust only after the SAS is confirmed. */
+    override fun startManual(address: ManualPairingAddress) {
+        val manual = manualConnector ?: return
+        val nonceSource = SecureRandomManualNonceSource()
+        run(ManualPairingStateMachine(clock, machineDispatcher, manual, trustCommitter, address, nonceSource))
+    }
+
+    private fun run(next: PairingAttempt) {
         discardMachine()
-        val next = PairingStateMachine(clock, machineDispatcher, connector, trustCommitter, invite, deviceInfoProvider)
         machine = next
         forwarding = scope.launch { next.state.collect { mutableState.value = it } }
         next.start()

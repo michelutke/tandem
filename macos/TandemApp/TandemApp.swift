@@ -345,6 +345,7 @@ struct MenuContentView: View {
                         viewModel: menuBarViewModel,
                         deviceStatusViewModel: live?.deviceStatus,
                         onPairPhone: { pairingPresenter?.openPairingWindow() },
+                        onPairWithoutCamera: { pairingPresenter?.openManualPairingWindow() },
                         lastSeenText: lastSeenText,
                         closeCode: errorBannerViewModel.closeCode,
                         onRetry: retryNow,

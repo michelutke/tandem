@@ -57,6 +57,7 @@ import dev.tandem.core.pairing.PairingState
 import dev.tandem.core.storage.trust.PeerRecord
 import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
+import dev.tandem.feature.pairing.manual.ManualPairingEntryScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -340,12 +341,23 @@ private fun OnboardingOrPairing(
     dependencies: AppShellDependencies,
     modifier: Modifier,
 ) {
-    if (pairingState == PairingState.Idle) {
+    var manualEntry by remember { mutableStateOf(false) }
+    if (pairingState == PairingState.Idle && manualEntry) {
+        ManualPairingEntryScreen(
+            onSubmit = {
+                manualEntry = false
+                dependencies.pairing.startManual(it)
+            },
+            onCancel = { manualEntry = false },
+            modifier = modifier,
+        )
+    } else if (pairingState == PairingState.Idle) {
         OnboardingScreen(
             viewModel = dependencies.onboarding,
             onScanAccepted = { onScanAccepted(it, dependencies.addressStore, dependencies.pairingStarter) },
             onCancelScan = {},
             modifier = modifier,
+            onPairWithoutCamera = { manualEntry = true },
         )
     } else {
         PairingScreen(

@@ -26,7 +26,7 @@ extension PairingCoordinatorTests {
         /// `onConfirmationPending` callback.
         let confirmationBox: ConfirmationBox
 
-        static func make() throws -> Fixture {
+        static func make(mode: PairingMode = .qrCode) throws -> Fixture {
             let clock = ManualTestClock()
             let macSpkiDer = Self.makeValidSpkiDer()
             let phoneSpkiDer = Self.makeValidSpkiDer()
@@ -44,6 +44,7 @@ extension PairingCoordinatorTests {
                 dateProvider: FixedDateProvider(clock: clock).provider,
                 clock: clock,
                 sessionRegistry: sessionRegistry,
+                mode: mode,
                 onConfirmationPending: { _, viewModel in
                     confirmationBox.set(viewModel)
                 }

@@ -33,4 +33,14 @@ public protocol PairingCandidateSink: Sendable {
     /// owner explicitly clicks Pair. Never followed by a close: the connection becomes an
     /// ordinary `CONTROL`/`DATA` session from this point on (E14-08's concern).
     func sendPairAccepted() async throws
+
+    /// Sends the Mac's `Commitment { hash }` (`docs/protocol/SPEC.md` § Manual pairing).
+    func sendCommitment(_ hash: Data) async throws
+
+    /// Sends the Mac's `Reveal { nonce }`, only after the phone's `Reveal` verified.
+    func sendReveal(_ nonce: Data) async throws
+
+    /// Sends `ManualPairResult { accepted: true }`, only after the owner explicitly clicks Pair.
+    /// Like ``sendPairAccepted()`` it is never followed by a close.
+    func sendManualPairResult() async throws
 }

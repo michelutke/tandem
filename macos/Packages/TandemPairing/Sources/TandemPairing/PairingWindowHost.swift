@@ -32,6 +32,15 @@ public final class PairingWindowHost: PairingWindowState, PairingCandidateDriver
         return coordinator
     }
 
+    /// Like ``open()`` but in manual mode (ADR-008): the window accepts only the manual sequence and
+    /// shows this Mac's address instead of a QR. Mode is fixed at open; there is no switch afterwards.
+    @discardableResult
+    public func openManual() throws -> PairingCoordinator {
+        let coordinator = try open()
+        coordinator.window.openManual()
+        return coordinator
+    }
+
     /// Owner cancel: closes the current window, if any.
     public func cancel() {
         coordinator?.window.cancel()

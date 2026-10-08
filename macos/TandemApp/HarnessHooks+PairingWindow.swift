@@ -20,7 +20,8 @@ extension HarnessHooks {
         rawPort: UInt16,
         sessionRegistry: any ControlSessionRegistering
     ) -> (window: any PairingWindowState, driver: (any PairingCandidateDriver)?) {
-        guard UserDefaults.standard.bool(forKey: "HarnessOpenPairingWindow") else {
+        let manual = UserDefaults.standard.bool(forKey: "HarnessOpenManualPairingWindow")
+        guard manual || UserDefaults.standard.bool(forKey: "HarnessOpenPairingWindow") else {
             return (NeverOpenPairingWindow(), nil)
         }
         let coordinator = makePairingCoordinator(
@@ -28,9 +29,14 @@ extension HarnessHooks {
             keychainStore: keychainStore,
             port: Int(rawPort),
             autoConfirm: UserDefaults.standard.bool(forKey: "HarnessAutoConfirmPairing"),
-            sessionRegistry: sessionRegistry
+            sessionRegistry: sessionRegistry,
+            mode: manual ? .manual : .qrCode
         )
-        print("harness-pairing-qr-uri: \(coordinator.viewModel.currentPayload.uri)")
+        if manual {
+            print("harness-pairing-manual-window: open")
+        } else {
+            print("harness-pairing-qr-uri: \(coordinator.viewModel.currentPayload.uri)")
+        }
         fflush(stdout)
         retainedPairingCoordinator = coordinator
         return (coordinator.window, coordinator)
@@ -44,7 +50,8 @@ extension HarnessHooks {
         keychainStore: any KeychainStore,
         port: Int,
         autoConfirm: Bool,
-        sessionRegistry: any ControlSessionRegistering
+        sessionRegistry: any ControlSessionRegistering,
+        mode: PairingMode = .qrCode
     ) -> PairingCoordinator {
         guard let macSpkiDer = spkiDer(for: identity),
               let fingerprint = try? SpkiFingerprint.of(spkiDer: macSpkiDer) else {
@@ -58,6 +65,7 @@ extension HarnessHooks {
             trustStore: TrustStore(keychainStore: keychainStore),
             dateProvider: { Date() },
             sessionRegistry: sessionRegistry,
+            mode: mode,
             onConfirmationPending: { code, viewModel in
                 print("harness-pairing-confirmation-code: \(code)")
                 fflush(stdout)

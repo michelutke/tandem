@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_manualPairing_fingerprintPrefixOnly_rejectedNoPin
+# mitm-scenario-role: client
+# mitm-scenario-expect: noPairAccepted
+# mitm-scenario-timeout: 240
+#
+# E73-05 (3/4): a peer offering only a matching fingerprint prefix (the LinkMyMac weakness ADR-008
+# exists to avoid).
+#
+# The peer completes the commit phase honestly, then "reveals" the first 16 bytes of the Mac's own
+# SPKI fingerprint instead of the nonce it committed to. Trust is never derived from a fingerprint or
+# prefix: the Reveal does not match the Commitment, so the Mac rejects it (PAIRING_FAILED), sends no
+# `Reveal` or `ManualPairResult`, and leaves no trust record.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e73-05-common.sh
+source "$here/../lib/e73-05-common.sh"
+trap e15_09_teardown EXIT
+e73_05_setup_manual
+
+FAILED=0
+e15_09_start_client
+
+open_response="$(e73_05_open)"
+case "$open_response" in
+  "OK OPENED "*) ;;
+  *)
+    e73_05_log "FAIL: not admitted as a pairing candidate: $open_response"
+    FAILED=1
+    ;;
+esac
+
+if [ "$FAILED" -eq 0 ]; then
+  e73_05_manual COMMIT
+  if [ "$LAST_PAIR_EVENT" != "EVENT MAC_COMMITMENT" ]; then
+    e73_05_log "FAIL: no Mac commitment after the phone's: $LAST_PAIR_EVENT"
+    FAILED=1
+  fi
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  e73_05_manual "REVEAL PREFIX"
+  e73_05_log "fingerprint-prefix Reveal outcome: $LAST_PAIR_EVENT"
+  if e73_05_event_is_rejection "$LAST_PAIR_EVENT"; then
+    e73_05_log "OK: prefix reveal rejected"
+  else
+    e73_05_log "FAIL: expected a rejection, got: $LAST_PAIR_EVENT"
+    FAILED=1
+  fi
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e73_05_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: noPairAccepted"
+else
+  echo "OUTCOME: FAILED"
+fi

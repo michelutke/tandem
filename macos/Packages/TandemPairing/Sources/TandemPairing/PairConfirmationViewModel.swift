@@ -12,6 +12,13 @@ public enum PairConfirmationAction: Sendable, Equatable {
     case dontPair
 }
 
+/// Which message tells the phone the owner clicked Pair: `PairAccepted` for a QR window,
+/// `ManualPairResult { accepted: true }` for a manual one (`docs/protocol/SPEC.md` § Manual pairing).
+public enum PairAcceptance: Sendable, Equatable {
+    case qrCode
+    case manual
+}
+
 /// The Mac's mutual-confirmation dialog (E14-08, `docs/protocol/SPEC.md` § Pairing, "Mutual
 /// confirmation"): shown once a candidate's `PairRequest` proof has verified (``PairingWindow``
 /// is `.confirmationPending`), asking the owner to compare the confirmation code shown here
@@ -48,6 +55,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private let dateProvider: DateProvider
     private let onResolved: (@Sendable () -> Void)?
     private let onPaired: (@Sendable () async -> Void)?
+    private let acceptance: PairAcceptance
 
     private let lock = NSLock()
     private var hasResolved = false
@@ -90,7 +98,8 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         dateProvider: @escaping DateProvider,
         capabilities: [String] = [],
         onResolved: (@Sendable () -> Void)? = nil,
-        onPaired: (@Sendable () async -> Void)? = nil
+        onPaired: (@Sendable () async -> Void)? = nil,
+        acceptance: PairAcceptance = .qrCode
     ) {
         let sanitizedDisplayName = DisplayStringSanitizer.sanitize(displayNameBytes, kind: .name)
         let sanitizedModel = DisplayStringSanitizer.sanitize(modelBytes, kind: .name)
@@ -106,6 +115,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         self.dateProvider = dateProvider
         self.onResolved = onResolved
         self.onPaired = onPaired
+        self.acceptance = acceptance
     }
 
     /// `true` once this dialog has resolved by any path (accept, deny, dismiss, or the connection
@@ -152,7 +162,10 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
             return
         }
         await onPaired?()
-        try? await sink.sendPairAccepted()
+        switch acceptance {
+        case .qrCode: try? await sink.sendPairAccepted()
+        case .manual: try? await sink.sendManualPairResult()
+        }
         onResolved?()
     }
 

@@ -46,9 +46,23 @@ sealed class PairingState {
     data class AwaitingUserConfirm(
         val code: String,
         val macName: String,
+        /** True for manual pairing (E73-03), where [code] is the SAS and the screen says so. */
+        val manual: Boolean = false,
     ) : PairingState() {
         /** Redacted (invariant 7): [code] is derived from the pairing secret. */
         override fun toString(): String = "AwaitingUserConfirm(code=<redacted>, macName=$macName)"
+    }
+
+    /**
+     * Manual pairing only (E73-03): the commit-then-reveal exchange finished and [code] (the SAS) is
+     * on screen, but the Mac's owner has not yet clicked Pair. The owner may already report a
+     * mismatch; "Codes match" is not offered until [AwaitingUserConfirm].
+     */
+    data class ComparingCodes(
+        val code: String,
+    ) : PairingState() {
+        /** Redacted (invariant 7): [code] is the SAS. */
+        override fun toString(): String = "ComparingCodes(code=<redacted>)"
     }
 
     /** The owner confirmed the code; the Mac's fingerprint is committed to this phone's trust store. */

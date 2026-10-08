@@ -26,6 +26,13 @@ public enum PairingWindowClosedReason: Sendable, Equatable {
     case declined
 }
 
+/// Which pairing sequence a window accepts, fixed when it opens (ADR-008 "Downgrade resistance"): a
+/// QR window accepts only the QR sequence and a manual window only the manual sequence.
+public enum PairingMode: Sendable, Equatable {
+    case qrCode
+    case manual
+}
+
 /// Outcome of ``PairingWindow/submitPairRequest(_:proof:)``.
 public enum PairRequestOutcome: Sendable, Equatable {
     /// The proof was valid; the candidate now waits on the owner's confirmation dialog
@@ -75,6 +82,9 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     /// dropped by a regenerate" (must still close) -- `internal`, same reasoning as
     /// `deadlineBurnedToken`.
     var pairedToken: PairingCandidateToken?
+    /// Mode of the most recent ``open(secret:)``/``openManual()``; internal only because the manual
+    /// members live in `PairingWindow+Manual.swift`. Read it through ``mode``.
+    var currentMode: PairingMode = .qrCode
 
     public init(
         dateProvider: @escaping DateProvider,
@@ -102,6 +112,12 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
     public func open(secret: Data) {
         lock.lock()
         defer { lock.unlock() }
+        openLocked(secret: secret, mode: .qrCode)
+    }
+
+    /// Assumes `lock` is held. `internal` so ``openManual()`` can share it.
+    func openLocked(secret: Data, mode: PairingMode) {
+        currentMode = mode
         if case .open(let previous) = phase {
             previous.secretBox.zero()
         }
@@ -218,7 +234,9 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
             return .rejected
         }
 
-        guard proofVerifier.verify(proof: proof, secret: state.secretBox.data, challenge: challenge) else {
+        guard currentMode == .qrCode,
+              proofVerifier.verify(proof: proof, secret: state.secretBox.data, challenge: challenge)
+        else {
             state.candidate = .unclaimed
             burnAttempt(&state)
             return .rejected
@@ -324,17 +342,6 @@ public final class PairingWindow: PairingWindowState, @unchecked Sendable {
         defer { lock.unlock() }
         settleLocked()
         if case .open(let state) = phase { return state.expiresAt }
-        return nil
-    }
-
-    /// The live secret box while open, `nil` once closed -- invariant 6. Not part of the public
-    /// seam surface; exposed for this package's own tests (`@testable import`) to hold the exact
-    /// same reference the window scrubs in place, so a test can verify the bytes are actually
-    /// zeroed rather than merely unreachable.
-    var secretBoxForTesting: SecretBox? {
-        lock.lock()
-        defer { lock.unlock() }
-        if case .open(let state) = phase { return state.secretBox }
         return nil
     }
 

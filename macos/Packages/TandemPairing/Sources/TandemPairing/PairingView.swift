@@ -29,6 +29,8 @@ public struct PairingView: View {
     private var content: some View {
         if viewModel.attemptsExhausted {
             attemptsExhaustedContent
+        } else if viewModel.isManual {
+            manualContent
         } else {
             qrContent
         }
@@ -47,6 +49,31 @@ public struct PairingView: View {
                         .tandemTextStyle(TandemTypography.meta())
                         .foregroundStyle(TandemColor.ink2)
                 }
+                Spacer()
+                VStack(alignment: .trailing, spacing: TandemSpacing.extraSmall) {
+                    DotProgress(value: Double(viewModel.attemptsRemaining) / 3, dotCount: 3)
+                    Text("\(viewModel.attemptsRemaining) tries")
+                        .tandemTextStyle(TandemTypography.meta())
+                        .foregroundStyle(TandemColor.ink2)
+                }
+            }
+        }
+        .frame(width: 360)
+    }
+
+    private var manualContent: some View {
+        VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+            TitleBlock(subject: "Pair.", state: "Enter this Mac on your phone.")
+            Text(viewModel.manualAddressText ?? "No network address")
+                .tandemTextStyle(TandemTypography.displayNumeral(size: 28))
+                .foregroundStyle(TandemColor.ink)
+            Text("On your phone choose Pair without camera, then enter this address.")
+                .tandemTextStyle(TandemTypography.body())
+                .foregroundStyle(TandemColor.ink2)
+            HStack {
+                Text(Self.countdownText(seconds: viewModel.remainingSeconds))
+                    .tandemTextStyle(TandemTypography.displayNumeral(size: 28))
+                    .foregroundStyle(TandemColor.ink)
                 Spacer()
                 VStack(alignment: .trailing, spacing: TandemSpacing.extraSmall) {
                     DotProgress(value: Double(viewModel.attemptsRemaining) / 3, dotCount: 3)

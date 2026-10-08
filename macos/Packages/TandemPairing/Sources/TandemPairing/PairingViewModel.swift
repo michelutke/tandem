@@ -72,10 +72,26 @@ public final class PairingViewModel: @unchecked Sendable {
         return payload
     }
 
+    /// `true` while the window was opened in manual mode: the screen shows this Mac's address for the
+    /// phone to enter instead of a QR code, and no QR payload is ever rendered (ADR-008).
+    public var isManual: Bool {
+        window.mode == .manual
+    }
+
+    /// `address:port` of this Mac's first routable address for the owner to type on the phone (IPv6
+    /// bracketed); `nil` if no routable address exists. Never a trust anchor, only a place to dial.
+    public var manualAddressText: String? {
+        guard let address = QrPayloadEncoder.routableAddresses(from: addressSource.currentAddresses()).first else {
+            return nil
+        }
+        return address.contains(":") ? "[\(address)]:\(port)" : "\(address):\(port)"
+    }
+
     /// `CIQRCodeGenerator` output for ``currentPayload``'s URI (E14-11 acceptance: decodes via
     /// `CIDetector` to exactly this payload). `nil` only if Core Image itself fails.
     public var qrImage: CIImage? {
-        QrCodeImage.generate(message: currentPayload.uri)
+        guard !isManual else { return nil }
+        return QrCodeImage.generate(message: currentPayload.uri)
     }
 
     /// ``qrImage``'s module grid, ready for ``DotQR``. Empty if ``qrImage`` is `nil`.
@@ -106,7 +122,7 @@ public final class PairingViewModel: @unchecked Sendable {
     /// attempts are exhausted (``regenerate()`` is manual there) or while still open. Call once
     /// per UI-visible countdown tick.
     public func tick() {
-        guard regeneratesOnExpiry, window.closedReason == .expired else { return }
+        guard regeneratesOnExpiry, !isManual, window.closedReason == .expired else { return }
         regenerate()
     }
 
@@ -114,6 +130,10 @@ public final class PairingViewModel: @unchecked Sendable {
     /// called automatically by ``tick()`` on plain expiry, and by the owner's "Regenerate" action
     /// once attempts are exhausted.
     public func regenerate() {
+        guard !isManual else {
+            window.openManual()
+            return
+        }
         let newPayload = QrPayloadEncoder.generate(
             fingerprint: fingerprint,
             secretSource: secretSource,

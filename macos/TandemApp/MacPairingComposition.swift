@@ -114,10 +114,19 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
     }
 
     func openPairingWindow() {
+        openWindow(manual: false)
+    }
+
+    /// "Pair without camera": opens a manual-mode window (ADR-008) the phone enters by address.
+    func openManualPairingWindow() {
+        openWindow(manual: true)
+    }
+
+    private func openWindow(manual: Bool) {
         if let pending = pendingConfirmation, !pending.isResolved {
             Task { await pending.ownerDidDismiss() }
         }
-        guard let coordinator = try? composition.host.open() else {
+        guard let coordinator = try? (manual ? composition.host.openManual() : composition.host.open()) else {
             _ = GlassDialog.runModal(title: "Pairing unavailable.", actions: [GlassDialogAction("OK", kind: .primary)])
             return
         }

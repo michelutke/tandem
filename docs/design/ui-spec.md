@@ -4,7 +4,8 @@ Normative description of the Tandem user interface for macOS and Android. The vi
 truth is `ui-design.pen` (Pen app) at the repo root; PNG exports of every frame are in
 [`screens/`](screens/). Where this spec and the Pen file disagree, fix one of them in the same PR.
 
-- Scope: v1 (Phases 0–6). Extras (F-10.x) and manual pairing (F-2.2) are out of scope.
+- Scope: v1 (Phases 0–6). Extras (F-10.x) are out of scope. Manual pairing (F-2.2, ADR-008) has the
+  screens marked "manual" below and no PNG export yet.
 - Traceability: every screen lists the GitHub issues that implement it (§7). Design-system work is
   [#414](https://github.com/michelutke/tandem/issues/414) (Android) and
   [#415](https://github.com/michelutke/tandem/issues/415) (macOS).
@@ -163,7 +164,7 @@ Each row: screen, PNG, states covered, implementing issues.
 | Ringing | [png](screens/mac-popover-ringing.png) | "Ringing."; 01 Stop ringing | #236 |
 | Trust error | [png](screens/mac-popover-trust-error.png) | "Key changed." (red); explanation; 01 Pair again, 02 Unpair | #159 #228 |
 | Update needed | [png](screens/mac-popover-update-needed.png) | "Update needed." (red); protocol versions; 01 Check for update | #159 #228 |
-| Not paired | [png](screens/mac-popover-not-paired.png) | "Tandem." / "No phone yet."; 01 Pair phone | #223 #188 |
+| Not paired | [png](screens/mac-popover-not-paired.png) | "Tandem." / "No phone yet."; 01 Pair phone, 02 Pair without camera (manual) | #223 #188 #412 |
 
 **Pairing window**
 
@@ -171,6 +172,8 @@ Each row: screen, PNG, states covered, implementing issues.
 |---|---|---|---|
 | QR | [png](screens/mac-pairing-qr.png) | "Pair." / "Scan with your phone."; dot QR; `1:42` left; 3 tries dots; hidden from screen capture | #188 #179 |
 | Confirm | [png](screens/mac-pairing-confirm.png) | "Pixel 9." / "Same code on both?"; `482 913`; 01 Don't pair (**default**), 02 Pair | #185 |
+| Manual (no png yet) | none | "Pair." / "Enter this Mac on your phone."; this Mac's `address:port` as a large numeral; `1:42` left; 3 tries dots; no QR; hidden from screen capture; same Expired / No tries left screens as QR | #412 |
+| Confirm · manual (no png yet) | none | "Phone." / "Same code on both?"; SAS `482 913`; 01 Don't pair (**default**), 02 Pair; no device name or fingerprint is shown or offered | #412 |
 | Expired | [png](screens/mac-pairing-expired.png) | "Code expired."; `0:00`; 01 New code, 02 Cancel | #179 #188 |
 | No tries left | [png](screens/mac-pairing-no-tries-left.png) | "Too many tries." (red); `0/3`; New code, Cancel | #186 #188 |
 | Paired | [png](screens/mac-pairing-paired.png) | "Paired." / "Pixel 9 is ready."; signal dot; Done | #185 |
@@ -211,6 +214,9 @@ Each row: screen, PNG, states covered, implementing issues.
 | Scan · Invalid code | [png](screens/android-scan-invalid-code.png) | Red viewfinder; "Not a Tandem code." / "Or it was already used." | #196 |
 | Scan · Mac unreachable | [png](screens/android-scan-mac-unreachable.png) | "Can't reach the Mac." / "Same Wi-Fi?"; client-isolation hint | #196 |
 | Confirm | [png](screens/android-pairing-confirm.png) | "MacBook Pro." / "Same code on both?"; `482` `913`; Codes match / They don't match | #182 |
+| Scan · Pair without camera (manual, no png yet) | none | Secondary text button under the viewfinder: "Pair without camera"; opens Manual entry | #411 |
+| Manual entry (no png yet) | none | "Pair without camera." / "Enter the address your Mac shows."; one `address:port` field; Continue; Cancel; mode label "Manual pairing" visible | #411 |
+| Confirm · manual (no png yet) | none | "Your Mac." / "Same code on both?"; visible "Manual pairing" mode label above the SAS; SAS `482` `913`; Codes match (disabled until the code is visible) / Codes differ; copy states a mismatch means possible interception and pairing must restart | #411 |
 | Pairing · Declined | [png](screens/android-pairing-declined.png) | "Declined." / "The Mac said no." (red); Scan again | #196 |
 | Pairing · Paired | [png](screens/android-pairing-paired.png) | "Paired."; dot mark; Done | #182 |
 | Home | [png](screens/android-home.png) | "Tandem." / "Linked to MacBook Pro."; ring (§6); 01–04 feature switches; toolbar + FAB | #416 #209 |
@@ -281,6 +287,11 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | pair.tooManyTries | Too many tries. |
 | pair.declined | The Mac said no. |
 | pair.paired | {device} is ready. |
+| pair.manual | Pair without camera. |
+| pair.manualEnter | Enter this Mac on your phone. (Mac) / Enter the address your Mac shows. (phone) |
+| pair.manualLabel | Manual pairing |
+| pair.incompatibleKey | Not paired. / This Mac's key isn't supported. |
+| pair.manualMismatch | Codes differ. Someone may be intercepting. Start pairing again on both devices. |
 | scan.invalid | Not a Tandem code. / Or it was already used. |
 | scan.unreachable | Can't reach the Mac. / Same Wi-Fi? |
 | scan.pinMismatch | Not trusted. / This Mac's identity changed. Pair again. |
