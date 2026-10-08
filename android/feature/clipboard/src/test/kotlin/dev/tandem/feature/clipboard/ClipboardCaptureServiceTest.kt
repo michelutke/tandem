@@ -1,23 +1,20 @@
 package dev.tandem.feature.clipboard
 
-import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.core.transport.TandemSession
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 
 @RunWith(AndroidJUnit4::class)
 class ClipboardCaptureServiceTest {
-    private val launched = mutableListOf<Intent>()
+    private var captures = 0
     private var enabled = true
     private var hasSession = true
     private val service =
         Robolectric.buildService(ClipboardCaptureService::class.java).get().also {
-            it.launcher = { intent -> launched += intent }
+            it.startCapture = { captures++ }
             it.gate = AutoCaptureGate({ enabled }, { hasSession }, { 0L })
         }
 
@@ -28,11 +25,10 @@ class ClipboardCaptureServiceTest {
         }
 
     @Test
-    fun onAccessibilityEvent_copyOverlayWithSettingOn_launchesAutoCapture() {
+    fun onAccessibilityEvent_copyOverlayWithSettingOn_startsOverlayCapture() {
         service.onAccessibilityEvent(copyOverlayEvent())
 
-        val intent = launched.single()
-        assertEquals(ClipboardCaptureActivity::class.java.name, intent.component?.className)
+        assertEquals(1, captures)
     }
 
     @Test
@@ -41,7 +37,7 @@ class ClipboardCaptureServiceTest {
 
         service.onAccessibilityEvent(copyOverlayEvent())
 
-        assertTrue(launched.isEmpty())
+        assertEquals(0, captures)
     }
 
     @Test
@@ -51,7 +47,7 @@ class ClipboardCaptureServiceTest {
 
         service.onAccessibilityEvent(copyOverlayEvent())
 
-        assertTrue(launched.isEmpty())
+        assertEquals(0, captures)
     }
 
     @Test
@@ -64,6 +60,6 @@ class ClipboardCaptureServiceTest {
 
         service.onAccessibilityEvent(event)
 
-        assertTrue(launched.isEmpty())
+        assertEquals(0, captures)
     }
 }
