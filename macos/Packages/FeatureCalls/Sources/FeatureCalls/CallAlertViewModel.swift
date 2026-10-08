@@ -16,11 +16,19 @@ public struct ActiveCallInfo: Equatable, Sendable {
     public let callId: String
     public let title: String
     public let startedAt: Date?
+    /// An outgoing call the phone has not reported connected yet; shown without a timer.
+    public let isDialing: Bool
 
-    public init(callId: String, title: String, startedAt: Date?) {
+    public init(callId: String, title: String, startedAt: Date?, isDialing: Bool = false) {
         self.callId = callId
         self.title = title
         self.startedAt = startedAt
+        self.isDialing = isDialing
+    }
+
+    /// "Calling Ada." style line while dialing (ui-spec call.dialingNamed), else the caller title.
+    public var displayTitle: String {
+        isDialing ? "Calling \(title)\u{2026}" : title
     }
 
     /// "04:12" (or "1:04:12" past an hour); "00:00" when no clock was injected.
@@ -116,6 +124,10 @@ public final class CallAlertViewModel {
                 activeCallId = event.callID
             }
             activeCall = ActiveCallInfo(callId: event.callID, title: await title(for: event), startedAt: now?())
+        case .dialing where !isIncoming:
+            activeCall = ActiveCallInfo(
+                callId: event.callID, title: await title(for: event), startedAt: nil, isDialing: true
+            )
         case .ended:
             if isIncoming { await presenter.remove(callId: event.callID) }
             if activeCallId == event.callID { activeCallId = nil }

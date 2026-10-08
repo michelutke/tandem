@@ -34,7 +34,7 @@ class HomeScreenTest {
         }
 
         ringNodeWithText("7").assertExists()
-        ringNodeWithText("synced today").assertExists()
+        ringNodeWithText("things synced today").assertExists()
     }
 
     @Test
@@ -48,17 +48,18 @@ class HomeScreenTest {
         }
         ringNodeWithText("7").assertExists()
 
-        ringState = HomeRingState.Transfer(percent = 43, fileName = "photo.png", toMac = true)
+        ringState = HomeRingState.Transfer(percent = 43, toMac = true)
         composeRule.waitForIdle()
 
         ringNodeWithText("43").assertExists()
-        ringNodeWithText("photo.png → Mac").assertExists()
+        ringNodeWithText("Sending to Mac").assertExists()
+        ringNodeWithText("things synced today").assertDoesNotExist()
 
         ringState = HomeRingState.Idle(itemsSyncedToday = 8, sevenDayAverage = 10)
         composeRule.waitForIdle()
 
         ringNodeWithText("8").assertExists()
-        ringNodeWithText("synced today").assertExists()
+        ringNodeWithText("things synced today").assertExists()
     }
 
     @Test

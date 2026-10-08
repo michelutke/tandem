@@ -1,5 +1,6 @@
 package dev.tandem.app.di
 
+import android.app.Application
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.ConnectivityManager
@@ -15,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.clipboard.ClipboardWriter
+import dev.tandem.app.connection.ActivityForegroundSource
 import dev.tandem.app.connection.ConnectionOrchestrator
 import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.connection.FeatureAttacher
@@ -231,11 +233,7 @@ object ConnectionModule {
         identityBootstrap: IdentityBootstrap,
     ): ConnectionOrchestrator {
         val clock = AppClock.system
-        val idleSource =
-            PowerManagerDeviceIdleSource(
-                context,
-                context.getSystemService(PowerManager::class.java),
-            ).also { it.start() }
+        val idleSource = startedIdleSource(context)
         val keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias)
         val keyStore = AndroidKeyStoreIdentityKeyStore(clock)
         val heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, idleSource)
@@ -282,6 +280,8 @@ object ConnectionModule {
             pairingAddressSource = pairingAddressStore,
             networkMonitor =
                 ConnectivityManagerNetworkMonitor(context.getSystemService(ConnectivityManager::class.java)),
+            deviceIdleSource = idleSource,
+            foreground = ActivityForegroundSource(context.applicationContext as Application).foregrounded,
             clock = clock,
             dispatcher = AppDispatchers.default,
             warn = { Log.w(TAG, it) },
@@ -291,6 +291,9 @@ object ConnectionModule {
     private const val TAG = "ConnectionModule"
     private const val PAIRING_ADDRESSES_FILE_NAME = "pairing-addresses"
 }
+
+private fun startedIdleSource(context: Context) =
+    PowerManagerDeviceIdleSource(context, context.getSystemService(PowerManager::class.java)).also { it.start() }
 
 private fun startRotationScheduler(
     context: Context,

@@ -177,6 +177,48 @@ import Testing
         #expect(!harness.viewModel.showsHangUp)
     }
 
+    @Test func callAlertViewModel_outgoingDialingEvent_showsDialingBarWithHangUp() async {
+        let harness = Harness()
+        await harness.seedContact(name: "Ada Lovelace", number: "079 123 45 67")
+        var dialing = Self.event(.dialing)
+        dialing.direction = .outgoing
+
+        await harness.viewModel.handle(dialing)
+
+        #expect(harness.viewModel.activeCall?.isDialing == true)
+        #expect(harness.viewModel.activeCall?.displayTitle == "Calling Ada Lovelace\u{2026}")
+        #expect(harness.viewModel.showsHangUp)
+        await harness.viewModel.hangUp()
+        #expect(await harness.sentActions().map(\.action) == [.hangup])
+    }
+
+    @Test func callAlertViewModel_dialingThenEnded_hidesBar() async {
+        let harness = Harness()
+        var dialing = Self.event(.dialing)
+        dialing.direction = .outgoing
+        var ended = Self.event(.ended)
+        ended.direction = .outgoing
+
+        await harness.viewModel.handle(dialing)
+        await harness.viewModel.handle(ended)
+
+        #expect(harness.viewModel.activeCall == nil)
+        #expect(!harness.viewModel.showsHangUp)
+    }
+
+    @Test func callAlertViewModel_dialingThenActive_replacesDialingBar() async {
+        let harness = Harness()
+        var dialing = Self.event(.dialing)
+        dialing.direction = .outgoing
+        var active = Self.event(.active)
+        active.direction = .outgoing
+
+        await harness.viewModel.handle(dialing)
+        await harness.viewModel.handle(active)
+
+        #expect(harness.viewModel.activeCall?.isDialing == false)
+    }
+
     @Test func activeCallInfo_elapsedText_formatsMinutesSecondsAndHours() async {
         let start = Date(timeIntervalSince1970: 1_000)
         let harness = Harness()

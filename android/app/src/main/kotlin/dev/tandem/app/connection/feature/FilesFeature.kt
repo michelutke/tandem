@@ -12,6 +12,7 @@ import dev.tandem.feature.files.FileSender
 import dev.tandem.feature.files.FilesScheduler
 import dev.tandem.feature.files.FreeSpaceProvider
 import dev.tandem.feature.files.LiveFileSession
+import dev.tandem.feature.files.LiveTransferActivity
 import dev.tandem.feature.files.MediaPermissionChecker
 import dev.tandem.feature.files.MediaStoreSource
 import dev.tandem.feature.files.OriginalOutcome
@@ -25,6 +26,8 @@ import dev.tandem.feature.files.ThumbOutcome
 import dev.tandem.feature.files.ThumbnailLoader
 import dev.tandem.feature.files.ThumbnailResponder
 import dev.tandem.feature.files.TransferActionDispatcher
+import dev.tandem.feature.files.TransferActivity
+import dev.tandem.feature.files.TransferBatchAggregator
 import dev.tandem.feature.files.TransferPrompter
 import dev.tandem.feature.files.TransferStore
 import dev.tandem.protocol.v1.Channel
@@ -34,6 +37,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
@@ -85,8 +89,16 @@ class FilesFeature(
         TransferActionDispatcher.acceptFlow = acceptFlow
         LiveFileSession.attach(sender, liveScope)
         try {
-            routePhotoRequests(session, OriginalResponder(mediaSource, sender))
+            coroutineScope {
+                launch {
+                    val batch = TransferBatchAggregator()
+                    combine(sender.progress, fileReceiver.progress, batch::update)
+                        .collect(LiveTransferActivity::publish)
+                }
+                routePhotoRequests(session, OriginalResponder(mediaSource, sender))
+            }
         } finally {
+            LiveTransferActivity.publish(TransferActivity())
             receiver = null
             LiveFileSession.detach(sender)
             liveScope.cancel()

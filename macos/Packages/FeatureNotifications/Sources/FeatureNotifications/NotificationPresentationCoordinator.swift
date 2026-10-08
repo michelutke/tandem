@@ -37,6 +37,7 @@ public actor NotificationPresentationCoordinator: PeerDataPurging {
     /// Builds and presents `posted`, then records its request identifier (``Tandem_V1_NotificationPosted/key``)
     /// against `peer` for later ``purgeAll(peer:)``.
     public func present(_ posted: Tandem_V1_NotificationPosted, from peer: SpkiFingerprint) async {
+        NotificationsLog.event("notify received")
         let hideContent = (screenLockState?.isLocked ?? false) && hidesContentWhenLocked()
         let request = NotificationRequestBuilder.build(
             posted,

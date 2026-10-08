@@ -141,8 +141,8 @@ Decision (D-55): **idle shows items synced today; while a task runs the ring sho
 
 | Ring state | Numeral | Label | Dots |
 |---|---|---|---|
-| Idle | count of items synced today (notifications, clips, files) | "synced today" | lit = today vs. 7-day average, capped at full |
-| Live task: transfer | percent | file name → Mac / from Mac | lit = progress |
+| Idle | count of items synced today (notifications, clips, files) | "things synced today" | lit = today vs. 7-day average, capped at full |
+| Live task: transfer | percent of all bytes in flight, either direction | "Sending to Mac" / "Receiving from Mac", never a file name | lit = progress, signal dot leads; "Sent." / "Received." for 1.5 s after the last one finishes |
 | Live task: mirroring | mm:ss | "mirroring" | full, signal dot moves once per second |
 | Live task: ringing | — | "ringing" | pulse (motion 06) |
 | Reconnecting | seconds to next attempt | "next try · attempt N" | all unlit |
@@ -302,9 +302,16 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | control.pill | Mac is controlling |
 | call.place | Call |
 | call.dialing | Calling. |
-| call.needsPhoneTap | Tap the notification on your phone. |
+| call.dialingNamed | Calling {name}… (in-call bar while the phone reports DIALING; no timer, Hang up works) |
+| call.needsPhoneTap | Tap the notification on your phone to start the call. |
 | call.failed | Couldn't call. |
-| home.ring.idle | synced today |
+| call.emergency | Can't call that from your Mac. Call emergency numbers from your phone. (phone rejected the number, `INVALID_NUMBER`) |
+| notif.systemOff | Notifications are off in System Settings. (button: Open Notifications settings; menu bar popover and Settings Notifications tab) |
+| home.ring.idle | things synced today |
+| home.ring.sending | Sending to Mac |
+| home.ring.receiving | Receiving from Mac |
+| home.ring.sent | Sent. |
+| home.ring.received | Received. |
 | notif.accessOff | Access off. |
 | battery.restricted | Battery restricted. / Android may cut the link overnight. |
 | send.clipboard.sent | Sent to Mac. (Android toast) / Sent to phone. (Mac menu) |

@@ -13,6 +13,8 @@ sealed interface PermissionAccess {
     data object BatteryExemption : PermissionAccess
 
     data object Accessibility : PermissionAccess
+
+    data object CallScreeningRole : PermissionAccess
 }
 
 /** Every permission and special access the app uses, in the order Settings lists them. */
@@ -43,8 +45,20 @@ enum class AppPermission(
     ),
     PHONE(
         label = "Phone",
-        reason = "Show who is calling.",
-        access = PermissionAccess.Runtime(listOf(Manifest.permission.READ_PHONE_STATE)),
+        reason = "Show calls on your Mac, and answer or place them from there.",
+        access =
+            PermissionAccess.Runtime(
+                listOf(
+                    Manifest.permission.READ_PHONE_STATE,
+                    Manifest.permission.ANSWER_PHONE_CALLS,
+                    Manifest.permission.CALL_PHONE,
+                ),
+            ),
+    ),
+    CALLER_ID(
+        label = "Caller ID",
+        reason = "Show who is calling on your Mac. Tandem never blocks or changes calls.",
+        access = PermissionAccess.CallScreeningRole,
     ),
     CAMERA(
         label = "Camera",

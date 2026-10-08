@@ -9,6 +9,7 @@ enum class ActivityEventType(
     ClipboardFromMac("Clipboard from Mac"),
     Mirroring("Mirroring"),
     FindPhone("Find phone"),
+    PhoneCall("Phone call"),
 }
 
 /**

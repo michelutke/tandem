@@ -95,6 +95,8 @@ dependencies {
     implementation(project(":feature:contacts"))
     implementation(project(":feature:messaging"))
     implementation(project(":feature:status"))
+    // E52-03..05: CallsFeature attaches the call detector and the call/place-call handlers.
+    implementation(project(":feature:calls"))
     // E31-06: ShareTargetActivity/ProcessTextActivity, declared below in this module's manifest.
     implementation(project(":feature:clipboard"))
     // E40-11: ShareFilesActivity, declared below in this module's manifest.

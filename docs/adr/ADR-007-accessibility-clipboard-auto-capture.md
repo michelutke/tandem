@@ -105,3 +105,16 @@ Reopen this ADR if either becomes true:
   and "Accessibility service is a high-privilege surface"
 - Invariants: invariant 7 (no secrets/clipboard content in release logs), invariant 8 (remote input
   scope — related permission, different feature, not touched by this ADR)
+
+## Update: overlay instead of activity
+
+Starting the transparent capture activity showed a task open/close animation on every copy. The
+service now adds a 1x1 transparent `TYPE_ACCESSIBILITY_OVERLAY` window instead (allowed for
+accessibility services, no extra permission, no `canRetrieveWindowContent`). It is focusable so the
+app counts as focused for clipboard reads, passes touches through (`FLAG_NOT_TOUCH_MODAL`) and sets
+`FLAG_ALT_FOCUSABLE_IM` so it never becomes the input-method target and the keyboard stays up. It has
+no animation and no insets, reads the clip on window focus, and is removed immediately or after
+500 ms if focus never arrives. The skip rules (sensitive, repeat, echo of a Mac clip) are shared with
+`ClipboardCaptureActivity`, which remains for the tile and manual entry points. Not yet verified on
+Android 16 hardware: that an overlay with focus satisfies the clipboard focus check (documentation
+search found only anecdotal reports of the same technique).

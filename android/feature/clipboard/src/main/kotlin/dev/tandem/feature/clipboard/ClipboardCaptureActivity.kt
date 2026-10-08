@@ -11,7 +11,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.security.MessageDigest
 
 /**
  * E31-12: transparent capture activity started by [ClipboardTileService]. Android 10+ blocks
@@ -44,21 +43,18 @@ class ClipboardCaptureActivity : TandemActivity() {
         if (!hasFocus || captured) return
         captured = true
 
-        val clip = clipboardReaderProvider(this).currentClip()?.takeUnless { it.sensitive }
-        val session = clip?.let { sessionProvider(this) }
+        val clip = clipboardReaderProvider(this).currentClip()
+        val session = sessionProvider(this)
         val isAuto = intent.getBooleanExtra(EXTRA_AUTO_CAPTURE, false)
-        val hash = clip?.text?.sha256()
-        val isRepeat = isAuto && hash != null && hash.contentEquals(LiveClipboardAutoCapture.lastSentHash)
-        val isEcho = isAuto && hash != null && !isRepeat && !loopGuard.shouldSend(hash)
-        val skip = isEcho || isRepeat
-        if (clip == null || session == null || skip) {
+        if (session == null ||
+            !ClipboardCaptureDecision(loopGuard).shouldSend(clip, hasSession = true, isAuto = isAuto)
+        ) {
             finish()
             return
         }
-        if (isAuto) LiveClipboardAutoCapture.lastSentHash = hash
 
         CoroutineScope(SupervisorJob() + dispatcher).launch {
-            ClipboardSender.send(clip.text, session)
+            ClipboardSender.send(clip!!.text, session)
             finish()
         }
     }
@@ -73,5 +69,3 @@ class ClipboardCaptureActivity : TandemActivity() {
                 .putExtra(EXTRA_AUTO_CAPTURE, true)
     }
 }
-
-private fun String.sha256(): ByteArray = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))

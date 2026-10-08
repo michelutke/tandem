@@ -35,6 +35,17 @@ public final class PlaceCallViewModel {
 
     public private(set) var state: State = .idle
 
+    /// The line to show for the dialing, tap-on-phone and failed states; `nil` otherwise.
+    public var statusMessage: String? {
+        switch state {
+        case .idle, .choosingSim: nil
+        case .dialing: "Calling."
+        case .needsPhoneTap: "Tap the notification on your phone to start the call."
+        case .failed(.invalidNumber): "Can't call that from your Mac. Call emergency numbers from your phone."
+        case .failed: "Couldn't call."
+        }
+    }
+
     @ObservationIgnored private let session: any TandemSession
     @ObservationIgnored private let simSource: any PlaceCallSimSource
     @ObservationIgnored private let makeRequestId: @Sendable () -> String

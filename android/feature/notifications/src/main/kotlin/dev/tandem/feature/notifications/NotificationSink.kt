@@ -72,6 +72,7 @@ class NotificationSink(
                 sendPosted(notification)
                 return@launch
             }
+            NotifyLog.event("notify buffered", "session_not_ready")
             bufferLock.withLock {
                 evictExpiredLocked()
                 buffer.addLast(BufferedPost(notification, elapsedRealtimeSource.elapsedRealtimeMillis()))
@@ -125,6 +126,7 @@ class NotificationSink(
     }
 
     private suspend fun sendPosted(notification: NotificationPosted) {
+        NotifyLog.event("notify sent")
         session.send(Channel.CHANNEL_NOTIFY) { notificationPosted = notification }
     }
 

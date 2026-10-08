@@ -408,6 +408,7 @@ epics:
           - "manual: reconnectWifiSwitch_twentyTrials_p95Under5s"
           - "manual: reconnectMacWake_twentyTrials_p95Under5s"
           - "manual: overnightDoze8h_fgsUnrestrictedBattery_reconnectWithin5sOfWake"
+          - "manual: wakeReconnect_screenOnAfterSleep_connectedWithin5s"
           - "manual: adbForceIdle10min_unforceAndScreenOn_connectedWithin5s"
       - id: E20-13
         title: "[docs] ADR: Mac-initiated reconnect hint (PRD Appendix C.3)"
