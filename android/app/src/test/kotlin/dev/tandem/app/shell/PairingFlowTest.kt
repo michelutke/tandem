@@ -4,6 +4,8 @@ import com.google.protobuf.ByteString
 import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.DeviceInfoProvider
+import dev.tandem.core.pairing.ManualPairingAddress
+import dev.tandem.core.pairing.ManualPairingConnector
 import dev.tandem.core.pairing.PairingConnection
 import dev.tandem.core.pairing.PairingConnector
 import dev.tandem.core.pairing.PairingFailure
@@ -175,6 +177,43 @@ class PairingFlowTest {
             runCurrent()
 
             assertEquals(PairingState.Idle, rig.flow.state.value)
+        }
+
+    @Test
+    fun manualPairingStarter_withoutManualConnector_startsNothing() =
+        runTest {
+            val rig = Rig(this)
+
+            rig.flow.startManual(checkNotNull(ManualPairingAddress.parse("192.168.1.1:8443")))
+            runCurrent()
+
+            assertEquals(PairingState.Idle, rig.flow.state.value)
+        }
+
+    @Test
+    fun manualPairingStarter_unreachableMac_failsClosedWithoutCommit() =
+        runTest {
+            val commits = mutableListOf<SpkiFingerprint>()
+            val flow =
+                PairingFlow(
+                    clock = TestClock(testScheduler),
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    connector = PairingConnector { _, _, _ -> error("unused") },
+                    trustCommitter = { fp, _, _ -> commits += fp },
+                    deviceInfoProvider =
+                        object : DeviceInfoProvider {
+                            override fun displayName() = "Pixel"
+
+                            override fun model() = "Pixel 9"
+                        },
+                    manualConnector = ManualPairingConnector { _, _ -> error("refused") },
+                )
+
+            flow.startManual(checkNotNull(ManualPairingAddress.parse("192.168.1.1:8443")))
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.AllAddressesUnreachable), flow.state.value)
+            assertTrue(commits.isEmpty())
         }
 
     private inner class Rig(

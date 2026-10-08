@@ -18,6 +18,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ fun ScannerScreen(
     onScanAccepted: (PairingInvite) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    onPairWithoutCamera: (() -> Unit)? = null,
     frameSource: @Composable ((onResult: (ScanResult) -> Unit) -> Unit) =
         { onResult -> CameraXFrameSource(onResult = onResult) },
 ) {
@@ -76,6 +78,7 @@ fun ScannerScreen(
                 ScanningContent(
                     frameSource = frameSource,
                     onCancel = onCancel,
+                    onPairWithoutCamera = onPairWithoutCamera,
                     onFrame = { result -> onFrame(result, scanResultFilter, onScanAccepted) },
                 )
             }
@@ -83,6 +86,7 @@ fun ScannerScreen(
             ScannerUiState.CameraPermissionRequired -> {
                 CameraPermissionRequiredContent(
                     onGrantCameraPermission = { requestCameraPermission.launch(Manifest.permission.CAMERA) },
+                    onPairWithoutCamera = onPairWithoutCamera,
                 )
             }
         }
@@ -107,6 +111,7 @@ private fun onFrame(
 @Composable
 private fun CameraPermissionRequiredContent(
     onGrantCameraPermission: () -> Unit,
+    onPairWithoutCamera: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -130,6 +135,7 @@ private fun CameraPermissionRequiredContent(
         ) {
             Text(text = "Grant", style = TandemType.rowTitle)
         }
+        PairWithoutCameraButton(onPairWithoutCamera)
     }
 }
 
@@ -137,6 +143,7 @@ private fun CameraPermissionRequiredContent(
 private fun ScanningContent(
     frameSource: @Composable ((onResult: (ScanResult) -> Unit) -> Unit),
     onCancel: () -> Unit,
+    onPairWithoutCamera: (() -> Unit)?,
     onFrame: (ScanResult) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -179,5 +186,19 @@ private fun ScanningContent(
         ) {
             Text(text = "Cancel", style = TandemType.rowTitle)
         }
+        PairWithoutCameraButton(onPairWithoutCamera)
+    }
+}
+
+/** Secondary entry to manual pairing (E73-03, ADR-008); never replaces or weakens QR pairing. */
+@Composable
+private fun PairWithoutCameraButton(onPairWithoutCamera: (() -> Unit)?) {
+    if (onPairWithoutCamera == null) return
+    TextButton(
+        onClick = onPairWithoutCamera,
+        modifier = Modifier.fillMaxWidth().padding(top = TandemSpacing.sm),
+        colors = ButtonDefaults.textButtonColors(contentColor = TandemColors.inkOnDark),
+    ) {
+        Text(text = "Pair without camera", style = TandemType.rowTitle)
     }
 }

@@ -35,4 +35,10 @@ sealed class PairingFailure {
 
     /** This phone's identity key could not be created or used, so no TLS dial was attempted (invariant 5). */
     data object IdentityUnavailable : PairingFailure()
+
+    /**
+     * The Mac sent a manual-pairing message that is missing, repeated, out of order or malformed,
+     * or a `Reveal` that does not match its `Commitment` (ADR-008). Nothing was pinned.
+     */
+    data object ProtocolViolation : PairingFailure()
 }

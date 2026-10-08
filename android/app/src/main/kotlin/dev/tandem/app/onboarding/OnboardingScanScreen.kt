@@ -21,12 +21,14 @@ fun OnboardingScanScreen(
     onScanAccepted: (PairingInvite) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    onPairWithoutCamera: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         Text(text = ONBOARDING_SCAN_TITLE)
         ScannerScreen(
             onScanAccepted = onScanAccepted,
             onCancel = onCancel,
+            onPairWithoutCamera = onPairWithoutCamera,
         )
     }
 }

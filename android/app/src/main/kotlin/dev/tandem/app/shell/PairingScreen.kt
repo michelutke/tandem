@@ -20,6 +20,9 @@ import dev.tandem.core.pairing.PairingFailure
 import dev.tandem.core.pairing.PairingState
 
 private const val CODE_GROUP = 3
+private const val MANUAL_MAC_TITLE = "Your Mac."
+private const val MANUAL_MISMATCH_COPY =
+    "If the codes differ, someone may be intercepting. Start pairing again on both devices."
 
 /**
  * The pairing screens after a scan (E20-26, ui-spec §7.2 Confirm / Declined): progress while
@@ -36,7 +39,11 @@ fun PairingScreen(
 ) {
     when (state) {
         is PairingState.AwaitingUserConfirm -> {
-            ConfirmContent(state, onCodesMatch, onCodesDontMatch, modifier)
+            ConfirmContent(state.code, state.macName, state.manual, true, onCodesMatch, onCodesDontMatch, modifier)
+        }
+
+        is PairingState.ComparingCodes -> {
+            ConfirmContent(state.code, MANUAL_MAC_TITLE, true, false, onCodesMatch, onCodesDontMatch, modifier)
         }
 
         PairingState.Paired -> {
@@ -65,24 +72,36 @@ fun PairingScreen(
 }
 
 @Composable
+@Suppress("LongParameterList") // one slot per piece of the confirm screen
 private fun ConfirmContent(
-    state: PairingState.AwaitingUserConfirm,
+    code: String,
+    macName: String,
+    manual: Boolean,
+    matchEnabled: Boolean,
     onCodesMatch: () -> Unit,
     onCodesDontMatch: () -> Unit,
     modifier: Modifier,
 ) {
-    TandemScaffold(title = "${state.macName}.", state = "Same code on both?", modifier = modifier) { padding ->
+    val title = if (manual) MANUAL_MAC_TITLE else "$macName."
+    TandemScaffold(title = title, state = "Same code on both?", modifier = modifier) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = TandemSpacing.screenPadding),
             verticalArrangement = Arrangement.spacedBy(TandemSpacing.md, Alignment.CenterVertically),
         ) {
             Text(
-                text = state.code.chunked(CODE_GROUP).joinToString(" "),
+                text = code.chunked(CODE_GROUP).joinToString(" "),
                 style = TandemType.displayNumeralCode,
                 color = TandemColors.ink,
             )
-            PillButton(text = "Codes match", onClick = onCodesMatch)
-            PillButton(text = "They don't match", onClick = onCodesDontMatch, variant = PillButtonVariant.Secondary)
+            PillButton(text = "Codes match", onClick = onCodesMatch, enabled = matchEnabled)
+            PillButton(
+                text = if (manual) "Codes differ" else "They don't match",
+                onClick = onCodesDontMatch,
+                variant = PillButtonVariant.Secondary,
+            )
+            if (manual) {
+                Text(text = MANUAL_MISMATCH_COPY, style = TandemType.meta, color = TandemColors.ink)
+            }
         }
     }
 }
@@ -109,4 +128,5 @@ private fun errorText(message: PairingErrorMessage): Pair<String, String> =
         PairingErrorMessage.PIN_MISMATCH -> "Not trusted." to "This Mac's identity changed. Pair again."
         PairingErrorMessage.IDENTITY_UNAVAILABLE -> "Not paired." to "This phone's key couldn't be created."
         PairingErrorMessage.QR_EXPIRED -> "Code expired." to "Scan a new one."
+        PairingErrorMessage.PROTOCOL_VIOLATION -> "Not paired." to "The Mac didn't answer as expected. Start again."
     }

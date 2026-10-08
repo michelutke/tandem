@@ -24,6 +24,7 @@ import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.connection.PendingRotationSessionDialer
 import dev.tandem.app.connection.SessionFeature
+import dev.tandem.app.connection.TlsManualPairingConnector
 import dev.tandem.app.connection.TlsPairingConnector
 import dev.tandem.app.connection.TlsSessionDialer
 import dev.tandem.app.connection.TrustStoreCommitter
@@ -146,6 +147,14 @@ object ConnectionModule {
                 ),
             trustCommitter = TrustStoreCommitter(trustStore::put),
             deviceInfoProvider = SystemDeviceInfoProvider,
+            manualConnector =
+                TlsManualPairingConnector(
+                    keyManager = IdentityKeyManager(AndroidKeyStoreIdentityKeyStore(clock), activeIdentityAlias),
+                    clock = clock,
+                    ioDispatcher = AppDispatchers.io,
+                    sessionDispatcher = AppDispatchers.io,
+                    identity = identityBootstrap,
+                ),
         )
     }
 

@@ -20,6 +20,7 @@ fun OnboardingScreen(
     onScanAccepted: (PairingInvite) -> Unit,
     onCancelScan: () -> Unit,
     modifier: Modifier = Modifier,
+    onPairWithoutCamera: (() -> Unit)? = null,
 ) {
     val screenSteps = remember { viewModel.steps().filterNot { it == OnboardingStep.IDENTITY } }
     var stepIndex by remember { mutableIntStateOf(0) }
@@ -38,6 +39,7 @@ fun OnboardingScreen(
                 onScanAccepted = onScanAccepted,
                 onCancel = onCancelScan,
                 modifier = modifier.fillMaxSize(),
+                onPairWithoutCamera = onPairWithoutCamera,
             )
         }
     }
