@@ -244,8 +244,10 @@ class ByteStreamSession(
         try {
             when (val outcome = handshake.perform()) {
                 is HandshakeOutcome.Ready -> {
-                    connection.handle(ConnectionEvent.CompatibleHelloReceived)
+                    // Marked before Ready is published, so an observer of Ready that closes at once
+                    // can never record `disconnected` ahead of `ready` (reconnect bookkeeping order).
                     markers.ready()
+                    connection.handle(ConnectionEvent.CompatibleHelloReceived)
                 }
 
                 is HandshakeOutcome.Failed -> {
