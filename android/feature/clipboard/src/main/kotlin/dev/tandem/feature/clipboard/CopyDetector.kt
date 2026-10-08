@@ -1,24 +1,20 @@
 package dev.tandem.feature.clipboard
 
 import android.view.accessibility.AccessibilityEvent
-import dev.tandem.core.transport.time.ElapsedRealtimeSource
 
 /**
- * Stateful copy detection on top of [CopyEventFilter] (ADR-007). On Pixel builds the System UI
- * text-selection toolbar reports its action labels ("Kopieren", "Ausschneiden", ...) and the copy
- * overlay itself reports no text, so a copy is: the toolbar offered Copy or Cut, then an empty
- * System UI window-state event follows within [windowMillis]. A spurious match only re-reads an
- * unchanged clip, which the capture activity skips.
+ * Copy detection on top of [CopyEventFilter] (ADR-007). On Pixel builds the System UI copy overlay
+ * arrives as a plain `FrameLayout` window-state event carrying at most one text (the clip preview,
+ * or nothing), whether the copy came from the selection toolbar or an app's own copy button. Other
+ * System UI windows differ: the volume panel has its own class, the notification shade and the
+ * selection toolbar carry several texts, and the toolbar lists the Copy/Cut labels. A spurious
+ * match only re-reads an unchanged clip, which the capture activity skips.
  */
-class CopyDetector(
-    private val clock: ElapsedRealtimeSource,
-    private val windowMillis: Long = DEFAULT_WINDOW_MILLIS,
-) {
-    private var copyOfferedAt: Long? = null
+object CopyDetector {
+    private const val FRAME_LAYOUT = "android.widget.FrameLayout"
 
-    @Suppress("LongParameterList")
-    @Synchronized
-    fun onEvent(
+    @Suppress("LongParameterList") // mirrors the AccessibilityEvent fields the filter inspects
+    fun isCopy(
         packageName: CharSequence?,
         eventType: Int,
         className: CharSequence?,
@@ -26,24 +22,11 @@ class CopyDetector(
         localizedMarkers: List<String>,
         copyActionLabels: List<String>,
     ): Boolean {
-        val isOverlay = CopyEventFilter.isCopyOverlay(packageName, eventType, className, texts, localizedMarkers)
+        if (CopyEventFilter.isCopyOverlay(packageName, eventType, className, texts, localizedMarkers)) return true
         val isSystemUiWindow =
             packageName?.toString() == CopyEventFilter.SYSTEM_UI_PACKAGE &&
                 eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-        val now = clock.elapsedRealtimeMillis()
         val offersCopy = texts.any { text -> copyActionLabels.any { text.toString().equals(it, ignoreCase = true) } }
-        val followsCopyOffer = copyOfferedAt?.let { texts.isEmpty() && now - it <= windowMillis } == true
-        val isCopy = isOverlay || (isSystemUiWindow && !offersCopy && followsCopyOffer)
-        copyOfferedAt =
-            when {
-                isCopy -> null
-                isSystemUiWindow && offersCopy -> now
-                else -> copyOfferedAt
-            }
-        return isCopy
-    }
-
-    companion object {
-        const val DEFAULT_WINDOW_MILLIS = 5_000L
+        return isSystemUiWindow && className?.toString() == FRAME_LAYOUT && texts.size <= 1 && !offersCopy
     }
 }

@@ -35,13 +35,23 @@ struct SessionFeatures: Sendable {
     let messaging: MessagingStores?
     private let sendRequestWake: SendRequestWakeObserver?
 
+    private static func makeTransferProgress() -> TransferProgressCenter {
+        let center = TransferProgressCenter(
+            clock: ContinuousClock(),
+            now: { Date() },
+            history: try? GrdbTransferHistoryStore.openDefault()
+        )
+        Task { await center.loadEarlier() }
+        return center
+    }
+
     static func make(
         purgeRegistry: PeerDataPurgeRegistry,
         mirrorService: any SessionService,
         rotationService: any SessionService
     ) -> SessionFeatures {
         let fileTransfer = ActiveFileTransferService()
-        let transferProgress = TransferProgressCenter(clock: ContinuousClock(), now: { Date() })
+        let transferProgress = makeTransferProgress()
         let photos = ActivePhotoService()
         let activeCall = ActiveCallAlert()
         let activeNowPlaying = ActiveNowPlaying()

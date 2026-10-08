@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import TandemDesign
 
@@ -7,6 +8,8 @@ public struct TransfersSectionView: View {
     private let center: TransferProgressCenter
     private let onSendFile: () -> Void
 
+    @State private var confirmingClear = false
+
     @Environment(\.colorSchemeContrast) private var contrast
 
     public init(center: TransferProgressCenter, onSendFile: @escaping () -> Void) {
@@ -15,10 +18,33 @@ public struct TransfersSectionView: View {
     }
 
     public var body: some View {
+        ZStack {
+            content
+            GlassSheet(isPresented: confirmingClear) {
+                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                    TitleBlock(subject: "Clear history?", state: "Received files stay where they were saved.")
+                    PillButton("Clear", kind: .destructive) {
+                        confirmingClear = false
+                        Task { await center.clearEarlier() }
+                    }
+                    .accessibilityIdentifier("clearHistoryConfirm")
+                    PillButton("Cancel", kind: .secondary) { confirmingClear = false }
+                }
+                .frame(width: 280)
+            }
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
             HStack(alignment: .top) {
                 TitleBlock(subject: "Transfers.", state: Self.stateText(activeCount: center.rows.count), size: 26)
                 Spacer()
+                if !center.earlier.isEmpty {
+                    PillButton("Clear", kind: .secondary) { confirmingClear = true }
+                        .fixedSize(horizontal: true, vertical: false)
+                        .accessibilityIdentifier("clearHistoryButton")
+                }
                 PillButton("Send file", kind: .secondary, action: onSendFile)
                     .fixedSize(horizontal: true, vertical: false)
                     .accessibilityIdentifier("sendFileButton")
@@ -92,12 +118,28 @@ public struct TransfersSectionView: View {
     }
 
     private func earlierRow(_ transfer: EarlierTransfer) -> some View {
-        HStack {
+        HStack(spacing: TandemSpacing.medium) {
             Text(transfer.name)
                 .tandemTextStyle(TandemTypography.body(size: 15))
                 .foregroundStyle(TandemColor.ink)
                 .lineLimit(1)
             Spacer()
+            if let url = transfer.savedFileURL {
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    .buttonStyle(.plain)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(TandemColor.ink)
+                    .accessibilityIdentifier("showInFinder-\(transfer.id)")
+            }
+            if !transfer.stateText.isEmpty {
+                Text(transfer.stateText)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(transfer.outcome == .cancelled ? TandemColor.ink2 : TandemColor.alert)
+            }
+            Text(transfer.directionText)
+                .tandemTextStyle(TandemTypography.meta())
+                .foregroundStyle(TandemColor.ink2)
+                .frame(width: 60, alignment: .leading)
             Text(transfer.sizeText)
                 .tandemTextStyle(TandemTypography.metaMono())
                 .foregroundStyle(TandemColor.ink2)
@@ -108,6 +150,8 @@ public struct TransfersSectionView: View {
         }
         .padding(.vertical, TandemSpacing.medium)
         .overlay(alignment: .bottom) { hairline }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("earlierTransfer-\(transfer.id)")
     }
 
     private var hairline: some View {

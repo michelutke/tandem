@@ -24,12 +24,11 @@ class ClipboardCaptureService : AccessibilityService() {
     internal var launcher: (Intent) -> Unit = ::startActivity
     internal var localizedMarkers: () -> List<String> = ::systemUiCopyStrings
     internal var copyActionLabels: () -> List<String> = ::frameworkCopyLabels
-    internal var detector = CopyDetector(SystemElapsedRealtimeSource)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val isCopy =
-            detector.onEvent(
+            CopyDetector.isCopy(
                 event.packageName,
                 event.eventType,
                 event.className,

@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import TandemProtocol
+import TandemStore
 
 /// Receiver side of incoming file transfers (docs/protocol/SPEC.md #files-channel "Chunking"):
 /// stages `<id>.part` outside the destination, validates every chunk against its own reassembly
@@ -71,7 +72,8 @@ public actor FileReceiver {
             try PartAttributes.write(peer: peer, offer: offer, to: partURL)
             transfers[offer.id] = Transfer(offer: offer, filename: filename, partURL: partURL, handle: handle)
             let id = offer.id
-            await progress?.began(id: id, name: filename, totalBytes: Int64(offer.size)) { [weak self] in
+            let total = Int64(offer.size)
+            await progress?.began(id: id, name: filename, totalBytes: total, direction: .phoneToMac) { [weak self] in
                 await self?.cancel(id: id)
             }
         } catch {
@@ -183,7 +185,7 @@ public actor FileReceiver {
             try transfer.handle.close()
             let saved = try moveIntoDestination(transfer)
             transfers[complete.id] = nil
-            await progress?.ended(id: complete.id)
+            await progress?.ended(id: complete.id, outcome: .completed, savedFile: saved)
             FilesLog.event("transfer complete")
             await notifier?.notifyReceived(destination: saved)
         } catch {
@@ -194,7 +196,7 @@ public actor FileReceiver {
     public func handle(cancel: Tandem_V1_FileCancel) async {
         guard let transfer = transfers.removeValue(forKey: cancel.id) else { return }
         discard(transfer)
-        await progress?.ended(id: cancel.id)
+        await progress?.ended(id: cancel.id, outcome: TransferOutcome(reason: cancel.reason))
     }
 
     /// User-initiated cancel: deletes the `.part` file, publishes nothing and sends `FileCancel{USER_CANCELLED}`.
@@ -208,7 +210,7 @@ public actor FileReceiver {
         if let transfer = transfers.removeValue(forKey: id) {
             discard(transfer)
         }
-        await progress?.ended(id: id)
+        await progress?.ended(id: id, outcome: TransferOutcome(reason: reason))
         await sendCancel(id, reason)
     }
 
