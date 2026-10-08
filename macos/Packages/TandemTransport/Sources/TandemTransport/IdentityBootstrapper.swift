@@ -34,14 +34,18 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
 
     private let keychainStore: any KeychainStore
     private let onIdentityReset: @Sendable () -> Void
+    private let smokeTest: IdentityKeyProvider.SmokeTest?
     private let state = Mutex(State())
 
+    /// - Parameter smokeTest: replaces the real sign+verify probe in tests.
     public init(
         keychainStore: any KeychainStore,
-        onIdentityReset: @escaping @Sendable () -> Void = {}
+        onIdentityReset: @escaping @Sendable () -> Void = {},
+        smokeTest: IdentityKeyProvider.SmokeTest? = nil
     ) {
         self.keychainStore = keychainStore
         self.onIdentityReset = onIdentityReset
+        self.smokeTest = smokeTest
     }
 
     /// The most recently computed identity state -- `.missing` until `bootstrapIdentity()` is
@@ -73,7 +77,8 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
 
     private func computeIdentityState() -> IdentityState {
         do {
-            let usable = try IdentityKeyProvider(keychainStore: keychainStore).hasUsableIdentityKey()
+            let usable = try IdentityKeyProvider(keychainStore: keychainStore, smokeTest: smokeTest)
+                .hasUsableIdentityKey()
             let adoptingPendingKey = usable
                 && RotationCoordinator.isAdoptingUnackedPendingKey(keychainStore: keychainStore)
             return usable && !adoptingPendingKey ? try readyState() : resetIdentity()

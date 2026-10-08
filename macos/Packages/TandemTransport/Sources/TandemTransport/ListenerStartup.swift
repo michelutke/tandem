@@ -23,8 +23,8 @@ public enum ListenerFailureReason: Equatable, Sendable {
     }
 
     private static let keychainAccessMarkers = [
-        "authFailed", "locked", "-128", "-25293", "-25308", "errSecAuthFailed", "errSecInteractionNotAllowed",
-        "errSecUserCanceled"
+        "authFailed", "locked", "-128", "-25293", "-25308", "-34018", "-25243", "-25291", "-25315",
+        "errSecAuthFailed", "errSecInteractionNotAllowed", "errSecUserCanceled"
     ]
 
     /// Classifies a keychain or identity error's description: auth failed, interaction not

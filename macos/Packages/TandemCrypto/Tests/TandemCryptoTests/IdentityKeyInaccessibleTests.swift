@@ -21,4 +21,9 @@ struct IdentityKeyInaccessibleTests {
     @Test func inaccessibleKeyError_otherStatus_isNil() {
         #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(errSecParam)) == nil)
     }
+
+    @Test(arguments: [errSecMissingEntitlement, errSecNoAccessForItem, errSecNotAvailable, errSecInteractionRequired])
+    func inaccessibleKeyError_authorizationStatuses_areUnhandledStatus(status: OSStatus) {
+        #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(status)) == .unhandled(status: status))
+    }
 }
