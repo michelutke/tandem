@@ -79,6 +79,7 @@ import Testing
         harness.viewModel.handle(harness.result(.needsPhoneTap))
 
         #expect(harness.viewModel.state == .needsPhoneTap)
+        #expect(harness.viewModel.statusMessage == "Tap the notification on your phone to start the call.")
     }
 
     @Test func placeCallViewModel_permissionDeniedResult_stateFailed() async {

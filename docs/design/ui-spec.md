@@ -291,7 +291,8 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | control.pill | Mac is controlling |
 | call.place | Call |
 | call.dialing | Calling. |
-| call.needsPhoneTap | Tap the notification on your phone. |
+| call.dialingNamed | Calling {name}… (in-call bar while the phone reports DIALING; no timer, Hang up works) |
+| call.needsPhoneTap | Tap the notification on your phone to start the call. |
 | call.failed | Couldn't call. |
 | home.ring.idle | synced today |
 | notif.accessOff | Access off. |

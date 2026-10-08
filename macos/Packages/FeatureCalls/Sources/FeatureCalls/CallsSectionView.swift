@@ -39,15 +39,17 @@ public struct CallsSectionView: View {
         VStack(alignment: .leading, spacing: TandemSpacing.small) {
             caption("In call")
             if let callAlert, let call = callAlert.activeCall {
-                Text(call.title)
+                Text(call.displayTitle)
                     .tandemTextStyle(TandemTypography.titlePairBold(size: 36))
                     .foregroundStyle(TandemColor.ink)
                     .accessibilityIdentifier("inCallName")
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(call.elapsedText(at: context.date))
-                        .tandemTextStyle(TandemTypography.displayNumeral(size: 56))
-                        .foregroundStyle(TandemColor.ink)
-                        .accessibilityIdentifier("inCallTimer")
+                if !call.isDialing {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(call.elapsedText(at: context.date))
+                            .tandemTextStyle(TandemTypography.displayNumeral(size: 56))
+                            .foregroundStyle(TandemColor.ink)
+                            .accessibilityIdentifier("inCallTimer")
+                    }
                 }
                 PillButton("Hang up", kind: .destructive) { Task { await callAlert.hangUp() } }
                     .fixedSize(horizontal: true, vertical: false)
@@ -95,11 +97,11 @@ public struct CallsSectionView: View {
                 }
             }
         case .dialing:
-            status("Calling.", color: TandemColor.ink2)
+            status(placeCall.statusMessage ?? "", color: TandemColor.ink2)
         case .needsPhoneTap:
-            status("Tap the notification on your phone.", color: TandemColor.ink)
+            status(placeCall.statusMessage ?? "", color: TandemColor.ink)
         case .failed:
-            status("Couldn't call.", color: TandemColor.alert)
+            status(placeCall.statusMessage ?? "", color: TandemColor.alert)
         }
     }
 

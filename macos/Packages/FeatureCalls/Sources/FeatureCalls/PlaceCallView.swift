@@ -24,12 +24,12 @@ public struct PlaceCallView: View {
                         .accessibilityIdentifier("callSim-\(sim.id)")
                 }
             case .dialing:
-                status("Calling.", color: TandemColor.ink2)
+                status(viewModel.statusMessage, color: TandemColor.ink2)
             case .needsPhoneTap:
-                status("Tap the notification on your phone.", color: TandemColor.ink)
+                status(viewModel.statusMessage, color: TandemColor.ink)
                 callButton
             case .failed:
-                status("Couldn't call.", color: TandemColor.alert)
+                status(viewModel.statusMessage, color: TandemColor.alert)
                 callButton
             }
         }
@@ -53,8 +53,8 @@ public struct PlaceCallView: View {
         .accessibilityIdentifier("callButton")
     }
 
-    private func status(_ text: String, color: Color) -> some View {
-        Text(text)
+    private func status(_ text: String?, color: Color) -> some View {
+        Text(text ?? "")
             .tandemTextStyle(TandemTypography.meta())
             .foregroundStyle(color)
             .accessibilityIdentifier("callStatus")
