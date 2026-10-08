@@ -26,6 +26,22 @@ extension PairingCoordinator {
         return await handlePairRequest(request, flow: flow, context: context)
     }
 
+    /// Any payload outside the active sequence ends the candidate. On a manual window a `Revoke` is
+    /// the phone reporting a code mismatch, which closes the whole window like an owner decline
+    /// (ADR-008 step 6, D-16); everything else burns one attempt.
+    func rejectUnexpected(
+        _ payload: Tandem_V1_Envelope.OneOf_Payload?,
+        flow: PairingCandidateFlow,
+        manual: Bool,
+        context: PairRequestContext
+    ) async {
+        if manual, case .revoke? = payload, window.manualMismatchReported(context.token) {
+            await context.sink.closePairingFailed()
+            return
+        }
+        await flow.wrongPayloadReceived()
+    }
+
     /// `nil` unless the window was opened in manual mode: only then does a candidate speak the
     /// commit-then-reveal sequence instead of `PairRequest`.
     func makeHandshake(

@@ -216,7 +216,7 @@ Each row: screen, PNG, states covered, implementing issues.
 | Confirm | [png](screens/android-pairing-confirm.png) | "MacBook Pro." / "Same code on both?"; `482` `913`; Codes match / They don't match | #182 |
 | Scan · Pair without camera (manual, no png yet) | none | Secondary text button under the viewfinder: "Pair without camera"; opens Manual entry | #411 |
 | Manual entry (no png yet) | none | "Pair without camera." / "Enter the address your Mac shows."; one `address:port` field; Continue; Cancel; mode label "Manual pairing" visible | #411 |
-| Confirm · manual (no png yet) | none | "Your Mac." / "Same code on both?"; SAS `482` `913`; Codes match (disabled until the code is visible) / Codes differ; copy states a mismatch means possible interception and pairing must restart | #411 |
+| Confirm · manual (no png yet) | none | "Your Mac." / "Same code on both?"; visible "Manual pairing" mode label above the SAS; SAS `482` `913`; Codes match (disabled until the code is visible) / Codes differ; copy states a mismatch means possible interception and pairing must restart | #411 |
 | Pairing · Declined | [png](screens/android-pairing-declined.png) | "Declined." / "The Mac said no." (red); Scan again | #196 |
 | Pairing · Paired | [png](screens/android-pairing-paired.png) | "Paired."; dot mark; Done | #182 |
 | Home | [png](screens/android-home.png) | "Tandem." / "Linked to MacBook Pro."; ring (§6); 01–04 feature switches; toolbar + FAB | #416 #209 |
@@ -289,6 +289,8 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | pair.paired | {device} is ready. |
 | pair.manual | Pair without camera. |
 | pair.manualEnter | Enter this Mac on your phone. (Mac) / Enter the address your Mac shows. (phone) |
+| pair.manualLabel | Manual pairing |
+| pair.incompatibleKey | Not paired. / This Mac's key isn't supported. |
 | pair.manualMismatch | Codes differ. Someone may be intercepting. Start pairing again on both devices. |
 | scan.invalid | Not a Tandem code. / Or it was already used. |
 | scan.unreachable | Can't reach the Mac. / Same Wi-Fi? |

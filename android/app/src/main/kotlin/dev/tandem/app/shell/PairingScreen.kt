@@ -88,6 +88,9 @@ private fun ConfirmContent(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = TandemSpacing.screenPadding),
             verticalArrangement = Arrangement.spacedBy(TandemSpacing.md, Alignment.CenterVertically),
         ) {
+            if (manual) {
+                Text(text = "Manual pairing", style = TandemType.meta, color = TandemColors.ink)
+            }
             Text(
                 text = code.chunked(CODE_GROUP).joinToString(" "),
                 style = TandemType.displayNumeralCode,
@@ -128,5 +131,6 @@ private fun errorText(message: PairingErrorMessage): Pair<String, String> =
         PairingErrorMessage.PIN_MISMATCH -> "Not trusted." to "This Mac's identity changed. Pair again."
         PairingErrorMessage.IDENTITY_UNAVAILABLE -> "Not paired." to "This phone's key couldn't be created."
         PairingErrorMessage.QR_EXPIRED -> "Code expired." to "Scan a new one."
+        PairingErrorMessage.INCOMPATIBLE_KEY -> "Not paired." to "This Mac's key isn't supported."
         PairingErrorMessage.PROTOCOL_VIOLATION -> "Not paired." to "The Mac didn't answer as expected. Start again."
     }

@@ -1160,6 +1160,7 @@ private class HarnessCli(
                     waitForControlEnvelope(activeSession) {
                         it.payloadCase == Envelope.PayloadCase.PAIR_ACCEPTED ||
                             it.payloadCase == Envelope.PayloadCase.MANUAL_PAIR_RESULT ||
+                            it.payloadCase == Envelope.PayloadCase.COMMITMENT ||
                             it.payloadCase == Envelope.PayloadCase.PAIR_REJECTED
                     }
                 }
@@ -1169,7 +1170,9 @@ private class HarnessCli(
             RawWaitOutcome.ConnectionLost -> println("EVENT PAIR_CLOSED")
             is RawWaitOutcome.Success -> {
                 val envelope = outcome.envelope
-                if (envelope.payloadCase != Envelope.PayloadCase.PAIR_REJECTED) {
+                if (envelope.payloadCase == Envelope.PayloadCase.COMMITMENT) {
+                    println("EVENT MAC_COMMITMENT")
+                } else if (envelope.payloadCase != Envelope.PayloadCase.PAIR_REJECTED) {
                     println("EVENT PAIR_ACCEPTED")
                 } else {
                     println("EVENT PAIR_REJECTED ${envelope.pairRejected.reason}")

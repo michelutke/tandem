@@ -38,6 +38,26 @@ extension PairingWindow {
         return true
     }
 
+    /// The phone reported a code mismatch (a `Revoke` on the candidate connection) while its handshake
+    /// was in progress or awaiting the owner. Terminal for the whole window, like an owner decline
+    /// (ADR-008 step 6, D-16): the secret slot is zeroed and no attempt is merely burned. `false` if
+    /// `token` isn't mid-handshake, in which case the caller treats the frame as a wrong payload.
+    public func manualMismatchReported(_ token: PairingCandidateToken) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        settleLocked()
+        guard case .open(let state) = phase, state.candidate.token == token else { return false }
+        switch state.candidate {
+        case .manualInProgress, .confirmationPending:
+            let attemptsRemaining = state.attemptsRemaining
+            state.secretBox.zero()
+            phase = .closed(.declined, attemptsRemaining: attemptsRemaining)
+            return true
+        default:
+            return false
+        }
+    }
+
     /// The phone's `Reveal` verified against its `Commitment`: the candidate now waits on the owner's
     /// confirmation dialog, exactly like a valid QR proof. `false` if `token` isn't mid-handshake.
     public func manualRevealVerified(_ token: PairingCandidateToken) -> Bool {

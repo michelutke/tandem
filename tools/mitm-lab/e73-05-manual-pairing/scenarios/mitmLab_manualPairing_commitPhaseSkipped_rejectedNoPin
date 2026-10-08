@@ -32,7 +32,10 @@ esac
 if [ "$FAILED" -eq 0 ]; then
   e73_05_manual "REVEAL NONCE=$(openssl rand -hex 16)"
   e73_05_log "Reveal-without-Commitment outcome: $LAST_PAIR_EVENT"
-  if e73_05_event_is_rejection "$LAST_PAIR_EVENT"; then
+  if [ "$LAST_PAIR_EVENT" = "EVENT MAC_COMMITMENT" ]; then
+    e73_05_log "FAIL: the Mac sent a Commitment in answer to a Reveal with no Commitment"
+    FAILED=1
+  elif e73_05_event_is_rejection "$LAST_PAIR_EVENT"; then
     e73_05_log "OK: connection ended without a ManualPairResult"
   else
     e73_05_log "FAIL: expected a rejection, got: $LAST_PAIR_EVENT"

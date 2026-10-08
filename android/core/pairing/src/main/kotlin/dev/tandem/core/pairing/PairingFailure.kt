@@ -37,6 +37,12 @@ sealed class PairingFailure {
     data object IdentityUnavailable : PairingFailure()
 
     /**
+     * The Mac presented a TLS leaf key that is not an uncompressed P-256 SPKI, so it can never be
+     * pinned (manual pairing, ADR-008). Failed closed; nothing was pinned.
+     */
+    data object IncompatibleMacKey : PairingFailure()
+
+    /**
      * The Mac sent a manual-pairing message that is missing, repeated, out of order or malformed,
      * or a `Reveal` that does not match its `Commitment` (ADR-008). Nothing was pinned.
      */

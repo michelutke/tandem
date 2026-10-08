@@ -122,7 +122,7 @@ public final class PairingViewModel: @unchecked Sendable {
     /// attempts are exhausted (``regenerate()`` is manual there) or while still open. Call once
     /// per UI-visible countdown tick.
     public func tick() {
-        guard regeneratesOnExpiry, window.closedReason == .expired else { return }
+        guard regeneratesOnExpiry, !isManual, window.closedReason == .expired else { return }
         regenerate()
     }
 

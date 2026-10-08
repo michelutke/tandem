@@ -23,6 +23,9 @@ enum class PairingErrorMessage {
 
     /** A manual-pairing message was missing, out of order or failed verification; nothing was pinned */
     PROTOCOL_VIOLATION,
+
+    /** The Mac's TLS key is not a supported P-256 key, so it can't be paired; nothing was pinned */
+    INCOMPATIBLE_KEY,
 }
 
 /**
@@ -41,6 +44,7 @@ object PairingErrorMapper {
             is PairingFailure.PinMismatch -> PairingErrorMessage.PIN_MISMATCH
             is PairingFailure.IdentityUnavailable -> PairingErrorMessage.IDENTITY_UNAVAILABLE
             is PairingFailure.ProtocolViolation -> PairingErrorMessage.PROTOCOL_VIOLATION
+            is PairingFailure.IncompatibleMacKey -> PairingErrorMessage.INCOMPATIBLE_KEY
         }
 
     fun mapRejectionReason(reason: PairRejectedReason): PairingErrorMessage =

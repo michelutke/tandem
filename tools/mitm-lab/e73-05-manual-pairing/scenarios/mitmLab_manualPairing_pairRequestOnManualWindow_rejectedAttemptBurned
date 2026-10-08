@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# mitm-scenario-name: mitmLab_manualPairing_pairRequestOnManualWindow_rejectedAttemptBurned
+# mitm-scenario-role: client
+# mitm-scenario-expect: handshakeRejected
+# mitm-scenario-timeout: 240
+#
+# E73-05 (reverse downgrade): a QR `PairRequest` on a manual-mode window.
+#
+# ADR-008 "Downgrade resistance": the window mode is fixed at open; a QR PairRequest on a manual
+# window is a wrong payload, rejected with PAIRING_FAILED and one burned attempt, even when its proof
+# bytes are well formed. Three such attempts must therefore exhaust the 3-attempt window exactly: the
+# 4th connection is rejected in the handshake. No trust record may exist at the end.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/e73-05-common.sh
+source "$here/../lib/e73-05-common.sh"
+trap e15_09_teardown EXIT
+e73_05_setup_manual
+
+FAILED=0
+e15_09_start_client
+
+for attempt in 1 2 3; do
+  open_response="$(e73_05_open)"
+  case "$open_response" in
+    "OK OPENED "*) ;;
+    *)
+      e73_05_log "FAIL: attempt $attempt not admitted as a pairing candidate: $open_response"
+      FAILED=1
+      break
+      ;;
+  esac
+  e15_09_rawsendproof "$(openssl rand -hex 32)"
+  e73_05_log "attempt $attempt PairRequest on manual window: $LAST_PAIR_EVENT"
+  if ! e73_05_event_is_rejection "$LAST_PAIR_EVENT"; then
+    e73_05_log "FAIL: attempt $attempt was not rejected: $LAST_PAIR_EVENT"
+    FAILED=1
+    break
+  fi
+done
+
+if [ "$FAILED" -eq 0 ]; then
+  fourth_response="$(e73_05_open)"
+  e73_05_log "4th attempt RAWOPENUNPINNED: $fourth_response"
+  case "$fourth_response" in
+    "ERROR HANDSHAKE_REJECTED"*)
+      e73_05_log "OK: each PairRequest burned exactly one attempt, 4th connection rejected"
+      e15_09_assert_mac_alive || FAILED=1
+      ;;
+    *)
+      e73_05_log "FAIL: expected the window to be exhausted after 3 burns, got: $fourth_response"
+      FAILED=1
+      ;;
+  esac
+fi
+
+e15_09_stop_client
+
+TRUST_COUNT="$(e15_09_trust_record_count)"
+if [ "$TRUST_COUNT" != "0" ]; then
+  e73_05_log "FAIL: expected 0 Mac trust records, found $TRUST_COUNT"
+  FAILED=1
+fi
+
+if [ "$FAILED" -eq 0 ]; then
+  echo "OUTCOME: handshakeRejected"
+else
+  echo "OUTCOME: FAILED"
+fi

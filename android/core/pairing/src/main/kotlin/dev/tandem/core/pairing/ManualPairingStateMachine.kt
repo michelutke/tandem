@@ -31,6 +31,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import java.security.cert.CertificateException
 import java.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.channels.Channel as KtChannel
@@ -127,7 +128,7 @@ class ManualPairingStateMachine(
             context
         }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught", "SwallowedException", "ReturnCount")
     private suspend fun runPairing() {
         val connection =
             try {
@@ -136,6 +137,9 @@ class ManualPairingStateMachine(
                 null
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (keyFailure: CertificateException) {
+                mutableState.value = PairingState.Failed(PairingFailure.IncompatibleMacKey)
+                return
             } catch (identityFailure: IdentityUnavailableException) {
                 mutableState.value = PairingState.Failed(PairingFailure.IdentityUnavailable)
                 return

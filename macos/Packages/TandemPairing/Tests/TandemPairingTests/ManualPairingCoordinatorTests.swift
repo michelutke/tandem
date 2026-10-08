@@ -189,6 +189,39 @@ struct ManualPairingCoordinatorTests {
     }
 
     @Test(.timeLimit(.minutes(1)))
+    func manualPairing_phoneRevokeAfterReveal_closesWindowTerminallyWithoutPin() async throws {
+        let run = try await Self.start()
+        let viewModel = try await Self.completeHandshake(run)
+
+        await run.session.inject(
+            InboundFrame(channel: .control, seq: 4, ack: 0, payload: .revoke(Tandem_V1_Revoke()))
+        )
+
+        await run.driveTask.value
+        #expect(run.fixture.window.closedReason == .declined)
+        #expect(run.fixture.window.attemptsRemaining == 3)
+        #expect(try run.fixture.trustStore.list().isEmpty)
+        #expect(!run.fixture.window.isConfirmationPending)
+        let resolved = await PairingCoordinatorTests.waitFor(timeout: 2) { viewModel.isResolved }
+        #expect(resolved)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func manualPairing_phoneRevokeBeforeReveal_closesWindowTerminallyWithoutPin() async throws {
+        let run = try await Self.start()
+        await run.session.inject(Self.commitmentFrame(try Self.commitmentHash(run)))
+        _ = await PairingCoordinatorTests.waitFor(timeout: 2) { await Self.macPayloads(run).count >= 2 }
+
+        await run.session.inject(
+            InboundFrame(channel: .control, seq: 3, ack: 0, payload: .revoke(Tandem_V1_Revoke()))
+        )
+
+        await run.driveTask.value
+        #expect(run.fixture.window.closedReason == .declined)
+        #expect(try run.fixture.trustStore.list().isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
     func manualPairing_secondRevealAfterSas_abortsWithoutPinning() async throws {
         let run = try await Self.start()
         _ = try await Self.completeHandshake(run)
@@ -255,5 +288,31 @@ struct ManualPairingWindowTests {
         _ = window.candidateHellosCompleted(token)
 
         #expect(!window.manualRevealVerified(token))
+    }
+}
+
+@Suite("ManualPairingViewModel")
+struct ManualPairingViewModelTests {
+    @Test
+    func pairingViewModel_manualWindowExpires_tickDoesNotReopenIt() throws {
+        let clock = ManualTestClock()
+        let coordinator = PairingCoordinator(
+            fingerprint: try SpkiFingerprint.of(spkiDer: PairingCoordinatorTests.Fixture.makeValidSpkiDer()),
+            macSpkiDerProvider: { PairingCoordinatorTests.Fixture.makeValidSpkiDer() },
+            port: 54321,
+            name: "Test Mac",
+            trustStore: TrustStore(keychainStore: InMemoryKeychainStore()),
+            dateProvider: FixedDateProvider(clock: clock).provider,
+            clock: clock,
+            sessionRegistry: SpyControlSessionRegistry(),
+            mode: .manual
+        )
+
+        clock.advance(by: .seconds(120))
+        coordinator.viewModel.tick()
+
+        #expect(coordinator.window.closedReason == .expired)
+        #expect(coordinator.window.mode == .manual)
+        #expect(!coordinator.window.isOpen)
     }
 }

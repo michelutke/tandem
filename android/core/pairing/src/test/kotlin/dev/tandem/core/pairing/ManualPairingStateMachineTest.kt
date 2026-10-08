@@ -215,6 +215,25 @@ class ManualPairingStateMachineTest {
         }
 
     @Test
+    fun manualPairing_macLeafNotP256_failsClosedAsIncompatibleKeyNotUnreachable() =
+        runTest {
+            val machine =
+                ManualPairingStateMachine(
+                    TestClock(testScheduler),
+                    StandardTestDispatcher(testScheduler),
+                    { _, _ -> throw java.security.cert.CertificateException("pinned peer mismatch") },
+                    RecordingCommitter(),
+                    address,
+                    { noncePhone },
+                )
+
+            machine.start()
+            runCurrent()
+
+            assertEquals(PairingState.Failed(PairingFailure.IncompatibleMacKey), machine.state.value)
+        }
+
+    @Test
     fun manualPairingAddress_literalIpAndPort_parsed() {
         assertEquals("192.168.1.10", ManualPairingAddress.parse("192.168.1.10:62747")?.host)
         assertEquals(62747, ManualPairingAddress.parse(" 192.168.1.10:62747 ")?.port)

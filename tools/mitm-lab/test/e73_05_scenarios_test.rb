@@ -18,10 +18,11 @@ class MitmLabE7305ScenariosTest < Minitest::Test
     'mitmLab_manualPairingBruteForce_fourthAttempt_rejected' => 'handshakeRejected',
     'mitmLab_manualPairing_commitPhaseSkipped_rejectedNoPin' => 'noPairAccepted',
     'mitmLab_manualPairing_fingerprintPrefixOnly_rejectedNoPin' => 'noPairAccepted',
-    'mitmLab_manualPairing_messageInQrPairingSession_connectionClosed' => 'noPairAccepted'
+    'mitmLab_manualPairing_messageInQrPairingSession_connectionClosed' => 'noPairAccepted',
+    'mitmLab_manualPairing_pairRequestOnManualWindow_rejectedAttemptBurned' => 'handshakeRejected'
   }.freeze
 
-  def test_mitmLabManualPairing_scenarioDirectory_containsTheFourTddScenarios
+  def test_mitmLabManualPairing_scenarioDirectory_containsTheFiveScenarios
     assert_equal EXPECTED.keys.sort, Dir.children(SCENARIOS).sort
   end
 

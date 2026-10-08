@@ -91,7 +91,7 @@ minutes) — this is deliberately not yet wired into CI as a required check, mat
 
 ## E73-05: manual pairing brute-force and downgrade scenarios
 
-`tools/mitm-lab/e73-05-manual-pairing/` -- four scenarios against the real Mac app launched with the
+`tools/mitm-lab/e73-05-manual-pairing/` -- five scenarios against the real Mac app launched with the
 DEBUG-only `-HarnessOpenManualPairingWindow YES` hook (a manual-mode window: no QR, no secret, the
 same 120 s / 3-attempt window as QR, ADR-008), driven through the JVM harness client's
 `RAWOPENUNPINNED` (an unpinned dial, since manual pairing has no QR fingerprint) and `RAWMANUAL
@@ -106,6 +106,9 @@ state machine would never send). Each scenario launches its own Mac process (the
   place of the committed nonce is rejected, no pin.
 - `mitmLab_manualPairing_messageInQrPairingSession_connectionClosed` -- a `Commitment` injected into a
   QR window (opened with the E15-09 `-HarnessOpenPairingWindow YES` hook) closes the connection.
+
+- `mitmLab_manualPairing_pairRequestOnManualWindow_rejectedAttemptBurned` -- the reverse downgrade: three
+  QR `PairRequest`s on a manual window each burn one attempt, the 4th connection is rejected.
 
 ```sh
 ruby tools/mitm-lab/runner.rb tools/mitm-lab/e73-05-manual-pairing/scenarios --timeout 300

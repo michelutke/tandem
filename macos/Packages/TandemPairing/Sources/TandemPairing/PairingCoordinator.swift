@@ -194,7 +194,7 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
                 // connection that is succeeding, not failing.
                 if let reason = window.closedReason, reason != .paired { return pendingConfirmation }
             default:
-                await flow.wrongPayloadReceived()
+                await rejectUnexpected(frame.payload, flow: flow, manual: handshake != nil, context: context)
                 return pendingConfirmation
             }
         }

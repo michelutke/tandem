@@ -1,5 +1,7 @@
 package dev.tandem.app.shell
 
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -39,6 +41,40 @@ class PairingScreenTest {
         composeRule.onNodeWithText("They don't match").performClick()
         assertEquals(1, matched)
         assertEquals(1, rejected)
+    }
+
+    @Test
+    fun pairingScreen_manualComparing_showsModeLabelCodeAndDisabledMatch() {
+        show(PairingState.ComparingCodes("482913"))
+
+        composeRule.onNodeWithText("Manual pairing").assertExists()
+        composeRule.onNodeWithText("482 913").assertExists()
+        composeRule.onNodeWithText("Codes match").assertIsNotEnabled()
+        composeRule.onNodeWithText("Codes differ").performClick()
+        assertEquals(1, rejected)
+    }
+
+    @Test
+    fun pairingScreen_manualAwaitingUserConfirm_showsModeLabel() {
+        show(PairingState.AwaitingUserConfirm("482913", "Mac", manual = true))
+
+        composeRule.onNodeWithText("Manual pairing").assertExists()
+        composeRule.onNodeWithText("Codes match").assertIsEnabled()
+    }
+
+    @Test
+    fun pairingScreen_qrConfirm_hasNoManualModeLabel() {
+        show(PairingState.AwaitingUserConfirm("482913", "MacBook Pro"))
+
+        composeRule.onNodeWithText("Manual pairing").assertDoesNotExist()
+    }
+
+    @Test
+    fun pairingScreen_incompatibleMacKey_showsKeyErrorNotNetworkError() {
+        show(PairingState.Failed(PairingFailure.IncompatibleMacKey))
+
+        composeRule.onNodeWithText("This Mac's key isn't supported.").assertExists()
+        composeRule.onNodeWithText("Can't reach the Mac.").assertDoesNotExist()
     }
 
     @Test
