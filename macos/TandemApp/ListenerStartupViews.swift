@@ -66,7 +66,7 @@ struct ListenerFailureWindowContent: View {
     var body: some View {
         ListenerFailureView(reason: reason, onRetry: onRetry)
             .padding(TandemSpacing.windowPadding)
-            .frame(minWidth: 420, minHeight: 240, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(minWidth: 420, maxWidth: .infinity, minHeight: 240, maxHeight: .infinity, alignment: .topLeading)
             .glassSurface(cornerRadius: 0)
             .ignoresSafeArea()
             .tandemWindowChrome()
@@ -79,7 +79,7 @@ struct ListenerFailureWindowContent: View {
 @Observable
 final class IdentityResetNotice {
     static let shared = IdentityResetNotice()
-    private static let defaultsKey = "identityResetRequiresRePair"
+    nonisolated private static let defaultsKey = "identityResetRequiresRePair"
 
     private(set) var isVisible = UserDefaults.standard.bool(forKey: defaultsKey)
 
