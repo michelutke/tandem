@@ -53,6 +53,17 @@ POLL_INTERVAL_SECONDS=0.1
 
 # shellcheck source=../mac-driver.sh
 source "$E23_08_ROOT/tools/harness/mac-driver.sh"
+# shellcheck source=../scenario-watchdog.sh
+SCENARIO_LOG_PREFIX="e23-08"
+source "$E23_08_ROOT/tools/harness/scenario-watchdog.sh"
+
+# Hard per-scenario deadlines (E23-09): each is the scenario's own worst-case wall time (every
+# internal wait at its upper bound) plus slack, so a stuck read/write aborts the script instead of
+# hanging it.
+SCENARIO_1_DEADLINE_SECONDS=200
+SCENARIO_3_DEADLINE_SECONDS=150
+SCENARIO_2_DEADLINE_SECONDS=60
+SCENARIO_4_DEADLINE_SECONDS=90
 
 E23_08_TMP_DIR=""
 E23_08_CLASSPATH=""
@@ -307,6 +318,7 @@ fi
 
 # --- Scenario 1: statusBurst20ChangesIn5s_macServer_atMostTwoFramesIn65s -------------------------
 
+scenario_begin "1 statusBurst" "$SCENARIO_1_DEADLINE_SECONDS"
 BEFORE_BURST_STATUS_COUNT="$(grep -c '^harness-status-received: ' "$HARNESS_LOG_PATH" 2>/dev/null || true)"
 BURST_START_MS="$(now_ms)"
 for i in $(seq 1 20); do
@@ -333,6 +345,8 @@ else
   FAILED=1
 fi
 
+scenario_end
+
 # --- Scenario 3: statusChangeOutsideThrottleWindow_macViewModel_updatedWithin2s ------------------
 # The real throttle window (StatusPublisher, E23-03) is measured from the last *actual send*, not
 # from scenario 1's own burst start -- scenario 1's trailing send fires ~60s after its leading one
@@ -340,6 +354,7 @@ fi
 # that LAST OBSERVED frame's own printed epoch millis, or its own change would just coalesce into
 # a second throttled send rather than landing outside the window at all.
 
+scenario_begin "3 statusOutsideWindow" "$SCENARIO_3_DEADLINE_SECONDS"
 LAST_BURST_STATUS_EPOCH_MS="$(grep -o '^harness-status-received: [0-9]*' "$HARNESS_LOG_PATH" | tail -1 | awk '{print $2}')"
 if [ -n "$LAST_BURST_STATUS_EPOCH_MS" ]; then
   SINCE_LAST_SEND_MS=$(( $(now_ms) - LAST_BURST_STATUS_EPOCH_MS ))
@@ -370,9 +385,11 @@ else
   FAILED=1
 fi
 unset OUTSIDE_SEND_MS
+scenario_end
 
 # --- Scenario 2: ringRoundTrip_ringStopFromMac_phoneAlarmStoppedWithin1s -------------------------
 
+scenario_begin "2 ringRoundTrip" "$SCENARIO_2_DEADLINE_SECONDS"
 log "Mac (real FindPhoneViewModel) selecting Find Phone -- sends Ring"
 mac_command "FINDPHONE $CLIENT_FP_HEX"
 if result="$(wait_for_client_prefix_ms "EVENT RING_STARTED" "$RING_WAIT_MS")"; then
@@ -401,9 +418,12 @@ else
   FAILED=1
 fi
 
+scenario_end
+
 # --- Scenario 4: ringFlood_macSends20RingsIn5s_phoneAlarmStartedAtMostTwice ----------------------
 # D-62's cooldown is a rolling 10s window; wait past it first so this scenario starts from a clean
 # "not currently ringing, no recent starts" state regardless of scenario 2's own start/stop above.
+scenario_begin "4 ringFlood" "$SCENARIO_4_DEADLINE_SECONDS"
 log "waiting 11s past D-62's rolling cooldown window before the flood"
 sleep 11
 
@@ -438,6 +458,8 @@ else
   log "FAIL: ringFlood_macSends20RingsIn5s_phoneAlarmStartedAtMostTwice -- expected STARTS 1-2, got: $ringstate_response"
   FAILED=1
 fi
+
+scenario_end
 
 # --- Teardown -------------------------------------------------------------------------------------
 
