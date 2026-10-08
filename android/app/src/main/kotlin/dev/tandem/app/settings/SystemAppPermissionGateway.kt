@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import dev.tandem.app.onboarding.hasLocalNetworkAccess
 import dev.tandem.app.onboarding.launchBatteryExemption
+import dev.tandem.feature.calls.CallScreeningRole
 import dev.tandem.feature.input.AccessibilitySettingsLauncher
 import dev.tandem.feature.input.AccessibilityStateSource
 import dev.tandem.feature.input.SettingsSecureAccessibilityStateSource
@@ -23,6 +24,8 @@ class SystemAppPermissionGateway(
     private val context: Context,
     private val requestRuntimePermissions: (Array<String>) -> Unit,
     private val accessibilityState: AccessibilityStateSource = SettingsSecureAccessibilityStateSource(context),
+    private val isCallScreeningRoleHeld: () -> Boolean = { CallScreeningRole.isHeld(context) },
+    private val requestCallScreeningRole: () -> Unit = {},
 ) : AppPermissionGateway {
     private val alreadyRequested = mutableSetOf<AppPermission>()
 
@@ -46,6 +49,10 @@ class SystemAppPermissionGateway(
 
             PermissionAccess.Accessibility -> {
                 accessibilityState.isServiceEnabled()
+            }
+
+            PermissionAccess.CallScreeningRole -> {
+                isCallScreeningRoleHeld()
             }
         }
 
@@ -75,11 +82,20 @@ class SystemAppPermissionGateway(
             PermissionAccess.Accessibility -> {
                 AccessibilitySettingsLauncher(context).open()
             }
+
+            PermissionAccess.CallScreeningRole -> {
+                if (isGranted(permission)) openDefaultAppsSettings() else requestCallScreeningRole()
+            }
         }
     }
 
     private fun hasRuntime(permission: String): Boolean =
         context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+    @Suppress("ImplicitInternalIntent") // the Settings action is genuinely external.
+    private fun openDefaultAppsSettings() {
+        context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+    }
 
     private fun openAppDetails() {
         context.startActivity(

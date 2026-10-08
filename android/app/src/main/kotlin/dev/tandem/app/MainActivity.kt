@@ -38,6 +38,7 @@ import dev.tandem.app.shell.ShellEntryPoint
 import dev.tandem.core.designsystem.TandemTheme
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
+import dev.tandem.feature.calls.CallScreeningRole
 import dev.tandem.feature.clipboard.AndroidClipboardReader
 import dev.tandem.feature.clipboard.ClipboardCaptureServiceState
 import dev.tandem.feature.clipboard.ClipboardReader
@@ -83,6 +84,9 @@ class MainActivity : TandemActivity() {
 
     private val requestRuntimePermissions =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+
+    private val requestCallScreeningRole =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -173,7 +177,11 @@ class MainActivity : TandemActivity() {
     }
 
     private fun permissionGateway(activity: MainActivity) =
-        SystemAppPermissionGateway(activity, requestRuntimePermissions = { requestRuntimePermissions.launch(it) })
+        SystemAppPermissionGateway(
+            activity,
+            requestRuntimePermissions = { requestRuntimePermissions.launch(it) },
+            requestCallScreeningRole = { requestCallScreeningRole.launch(CallScreeningRole.requestIntent(activity)) },
+        )
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

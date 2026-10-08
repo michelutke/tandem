@@ -12,9 +12,11 @@ import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.activity.ActivityEventType
 import dev.tandem.app.activity.ActivityRecorder
+import dev.tandem.app.calls.TelephonyRegionSource
 import dev.tandem.app.clipboard.ClipboardWriter
 import dev.tandem.app.connection.GatedSessionFeature
 import dev.tandem.app.connection.SessionFeature
+import dev.tandem.app.connection.feature.CallsFeature
 import dev.tandem.app.connection.feature.ClipboardFeature
 import dev.tandem.app.connection.feature.ContactsFeature
 import dev.tandem.app.connection.feature.FilesFeature
@@ -40,8 +42,13 @@ import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.core.transport.media.PinnedTlsMediaStreamFactory
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
+import dev.tandem.feature.calls.ContextCallPermissions
+import dev.tandem.feature.calls.NotificationTapToCallNotifier
+import dev.tandem.feature.calls.SubscriptionManagerCallSubscriptions
+import dev.tandem.feature.calls.TelecomCallGateway
 import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.contacts.ContentResolverContactsSource
+import dev.tandem.feature.contacts.PhoneNormalizer
 import dev.tandem.feature.files.AcceptSettings
 import dev.tandem.feature.files.ContentResolverMediaStoreSource
 import dev.tandem.feature.files.ContentResolverSourceFileReader
@@ -124,6 +131,7 @@ object SessionFeatureFactory {
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
                 onRing = { recorder.record(ActivityEventType.FindPhone) },
             ),
+            callsFeature(context, clock, recorder),
             FocusFeature { SystemInterruptionFilterGateway(context) },
             NotificationInteractionsFeature(context, iconSettings, AppDispatchers.default)
                 .gatedBy(toggles, SyncFeature.Notifications),
@@ -143,6 +151,25 @@ object SessionFeatureFactory {
         toggles: FeatureToggles,
         feature: SyncFeature,
     ): SessionFeature = GatedSessionFeature(this, toggles.enabled(feature))
+
+    private fun callsFeature(
+        context: Context,
+        clock: Clock,
+        recorder: ActivityRecorder,
+    ): CallsFeature {
+        val normalizer = PhoneNormalizer(TelephonyRegionSource(context.getSystemService(TelephonyManager::class.java)))
+        return CallsFeature(
+            gateway = TelecomCallGateway(context),
+            permissions = ContextCallPermissions(context),
+            subscriptions = SubscriptionManagerCallSubscriptions(context),
+            notifier = NotificationTapToCallNotifier(context),
+            normalize = { normalizer.normalize(it).normalizedE164 },
+            clock = clock,
+            elapsedRealtimeSource = SystemElapsedRealtimeSource,
+            ioDispatcher = AppDispatchers.io,
+            onCallEnded = { seconds -> recorder.record(ActivityEventType.PhoneCall, durationSeconds = seconds) },
+        )
+    }
 
     private fun statusAggregator(context: Context) =
         StatusAggregator(
