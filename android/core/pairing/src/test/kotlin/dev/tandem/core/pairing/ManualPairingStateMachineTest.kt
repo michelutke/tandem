@@ -69,7 +69,12 @@ class ManualPairingStateMachineTest {
 
             assertEquals(PairingState.Paired, rig.machine.state.value)
             assertEquals(1, rig.committer.commits.size)
-            assertEquals(spkiFingerprint(macSpkiDer).base64Url, rig.committer.commits.single().base64Url)
+            assertEquals(
+                spkiFingerprint(macSpkiDer).base64Url,
+                rig.committer.commits
+                    .single()
+                    .base64Url,
+            )
         }
 
     @Test
@@ -259,7 +264,6 @@ class ManualPairingStateMachineTest {
             session.emitIncoming(revealEnvelope(nonceMac))
             testScope.runCurrent()
         }
-
     }
 
     private class RecordingCommitter : TrustCommitter {
@@ -277,7 +281,8 @@ class ManualPairingStateMachineTest {
     private fun challengeEnvelope(): Envelope =
         envelope {
             channel = Channel.CHANNEL_CONTROL
-            pairChallenge = pairChallenge { this.challenge = ByteString.copyFrom(this@ManualPairingStateMachineTest.challenge) }
+            val cb = ByteString.copyFrom(challenge)
+            pairChallenge = pairChallenge { this.challenge = cb }
         }
 
     private fun macCommitmentEnvelope(): Envelope {
@@ -300,5 +305,6 @@ class ManualPairingStateMachineTest {
             manualPairResult = manualPairResult { this.accepted = accepted }
         }
 
-    private fun hexToBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { hex.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+    private fun hexToBytes(hex: String): ByteArray =
+        ByteArray(hex.length / 2) { hex.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }

@@ -54,10 +54,10 @@ import dev.tandem.core.designsystem.components.TandemLoadingIndicator
 import dev.tandem.core.designsystem.components.TandemScaffold
 import dev.tandem.core.designsystem.rememberScreenTransition
 import dev.tandem.core.pairing.PairingState
-import dev.tandem.feature.pairing.manual.ManualPairingEntryScreen
 import dev.tandem.core.storage.trust.PeerRecord
 import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
+import dev.tandem.feature.pairing.manual.ManualPairingEntryScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +79,6 @@ class AppShellDependencies(
     val isBatteryRestricted: () -> Boolean,
     val addressStore: PairingAddressStore,
     val pairingStarter: PairingStarter,
-    val manualPairingStarter: ManualPairingStarter = ManualPairingStarter {},
     val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
     val onSendClipboard: () -> Unit,
@@ -347,7 +346,7 @@ private fun OnboardingOrPairing(
         ManualPairingEntryScreen(
             onSubmit = {
                 manualEntry = false
-                dependencies.manualPairingStarter.startManual(it)
+                dependencies.pairing.startManual(it)
             },
             onCancel = { manualEntry = false },
             modifier = modifier,

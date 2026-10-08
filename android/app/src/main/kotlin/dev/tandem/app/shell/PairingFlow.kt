@@ -1,7 +1,6 @@
 package dev.tandem.app.shell
 
 import dev.tandem.core.pairing.DeviceInfoProvider
-import dev.tandem.core.pairing.ManualNonceSource
 import dev.tandem.core.pairing.ManualPairingAddress
 import dev.tandem.core.pairing.ManualPairingConnector
 import dev.tandem.core.pairing.ManualPairingStateMachine
@@ -26,6 +25,9 @@ import java.time.Clock
 interface PairingFlowControls {
     val state: StateFlow<PairingState>
 
+    /** Starts manual pairing (E73-03, ADR-008) for the Mac address the owner typed; no QR is involved. */
+    fun startManual(address: ManualPairingAddress)
+
     /** The owner tapped "Codes match". */
     fun confirmCodesMatch()
 
@@ -39,6 +41,8 @@ interface PairingFlowControls {
 /** Not hosting a pairing flow: always [PairingState.Idle]. */
 object NoPairingFlowControls : PairingFlowControls {
     override val state: StateFlow<PairingState> = MutableStateFlow(PairingState.Idle)
+
+    override fun startManual(address: ManualPairingAddress) = Unit
 
     override fun confirmCodesMatch() = Unit
 
@@ -60,9 +64,7 @@ class PairingFlow(
     private val trustCommitter: TrustCommitter,
     private val deviceInfoProvider: DeviceInfoProvider,
     private val manualConnector: ManualPairingConnector? = null,
-    private val manualNonceSource: ManualNonceSource = SecureRandomManualNonceSource(),
 ) : PairingStarter,
-    ManualPairingStarter,
     PairingFlowControls {
     private val machineDispatcher = dispatcher
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -79,7 +81,8 @@ class PairingFlow(
     /** No-op without a [manualConnector]; the manual machine commits trust only after the SAS is confirmed. */
     override fun startManual(address: ManualPairingAddress) {
         val manual = manualConnector ?: return
-        run(ManualPairingStateMachine(clock, machineDispatcher, manual, trustCommitter, address, manualNonceSource))
+        val nonceSource = SecureRandomManualNonceSource()
+        run(ManualPairingStateMachine(clock, machineDispatcher, manual, trustCommitter, address, nonceSource))
     }
 
     private fun run(next: PairingAttempt) {

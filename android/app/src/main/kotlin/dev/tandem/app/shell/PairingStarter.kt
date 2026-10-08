@@ -1,7 +1,6 @@
 package dev.tandem.app.shell
 
 import dev.tandem.app.connection.PairingAddressStore
-import dev.tandem.core.pairing.ManualPairingAddress
 import dev.tandem.core.pairing.qr.PairingInvite
 
 /**
@@ -14,14 +13,6 @@ import dev.tandem.core.pairing.qr.PairingInvite
  */
 fun interface PairingStarter {
     fun start(invite: PairingInvite)
-}
-
-/**
- * Starts manual pairing (E73-03, ADR-008) for an owner who typed the Mac's address: no QR, so the
- * only authenticator is the SAS comparison that the flow runs before it commits anything.
- */
-fun interface ManualPairingStarter {
-    fun startManual(address: ManualPairingAddress)
 }
 
 /** Starts nothing, so no trust is ever created; for tests. */

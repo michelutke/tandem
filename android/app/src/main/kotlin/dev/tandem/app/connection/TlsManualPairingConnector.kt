@@ -21,12 +21,7 @@ import javax.net.ssl.X509KeyManager
  * is ever sent on the returned connection. Never listens (invariant 4).
  */
 class TlsManualPairingConnector internal constructor(
-    private val keyManager: X509KeyManager,
-    private val clock: Clock,
-    private val ioDispatcher: CoroutineDispatcher,
-    private val sessionDispatcher: CoroutineDispatcher,
-    private val identity: IdentityBootstrap,
-    private val dialer: ManualSocketDialer,
+    private val delegate: TlsPairingConnector,
 ) : ManualPairingConnector {
     constructor(
         keyManager: X509KeyManager,
@@ -34,29 +29,29 @@ class TlsManualPairingConnector internal constructor(
         ioDispatcher: CoroutineDispatcher,
         sessionDispatcher: CoroutineDispatcher,
         identity: IdentityBootstrap,
-    ) : this(keyManager, clock, ioDispatcher, sessionDispatcher, identity, TlsManualSocketDialer(keyManager))
+    ) : this(
+        TlsPairingConnector(
+            keyManager,
+            clock,
+            ioDispatcher,
+            sessionDispatcher,
+            identity,
+            PairingSocketDialer { address, port, _ -> TlsManualSocketDialer(keyManager).dial(address, port) },
+        ),
+    )
 
+    /** The unpinned dialer ignores the pin source, so an empty one is passed. */
     override suspend fun connect(
         address: String,
         port: Int,
-    ): PairingConnection =
-        openPairingConnection(keyManager, clock, ioDispatcher, sessionDispatcher, identity) {
-            dialer.dial(address, port)
-        }
+    ): PairingConnection = delegate.connect(address, port) { emptyList() }
 }
 
 /** Blocking, unpinned mTLS dial: the handshaked stream plus the peer leaf's SPKI DER. */
-internal fun interface ManualSocketDialer {
-    fun dial(
-        address: String,
-        port: Int,
-    ): Pair<ByteStream, ByteArray>
-}
-
 internal class TlsManualSocketDialer(
     private val keyManager: X509KeyManager,
-) : ManualSocketDialer {
-    override fun dial(
+) {
+    fun dial(
         address: String,
         port: Int,
     ): Pair<ByteStream, ByteArray> {

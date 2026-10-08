@@ -23,7 +23,10 @@ class ManualPairingSasTest {
             val expected = entry.getValue("expected").jsonObject
             val noncePhone = hex(input, "noncePhoneHex")
             val nonceMac = hex(input, "nonceMacHex")
-            assertEquals(expected.getValue("sas").jsonPrimitive.content, ManualPairingSas.sas(noncePhone, nonceMac, context))
+            assertEquals(
+                expected.getValue("sas").jsonPrimitive.content,
+                ManualPairingSas.sas(noncePhone, nonceMac, context),
+            )
             assertEquals(
                 expected.getValue("commitPhoneHex").jsonPrimitive.content,
                 ManualPairingSas.commitment(ManualPairingSas.Role.PHONE, noncePhone, context).toHex(),
@@ -62,10 +65,20 @@ class ManualPairingSasTest {
     fun manualPairingSas_malformedNonceOrCommitmentLength_neverVerifies() {
         val input = vectors("sas").first().input()
         assertFalse(
-            ManualPairingSas.verifyCommitment(ByteArray(32), ManualPairingSas.Role.PHONE, ByteArray(15), context(input)),
+            ManualPairingSas.verifyCommitment(
+                ByteArray(32),
+                ManualPairingSas.Role.PHONE,
+                ByteArray(15),
+                context(input),
+            ),
         )
         assertFalse(
-            ManualPairingSas.verifyCommitment(ByteArray(31), ManualPairingSas.Role.PHONE, ByteArray(16), context(input)),
+            ManualPairingSas.verifyCommitment(
+                ByteArray(31),
+                ManualPairingSas.Role.PHONE,
+                ByteArray(16),
+                context(input),
+            ),
         )
     }
 
@@ -77,7 +90,12 @@ class ManualPairingSasTest {
             .getValue("vectors")
             .jsonArray
             .map { it.jsonObject }
-            .filter { it.input().getValue("kind").jsonPrimitive.content == kind }
+            .filter {
+                it
+                    .input()
+                    .getValue("kind")
+                    .jsonPrimitive.content == kind
+            }
     }
 
     private fun JsonObject.input(): JsonObject = getValue("input").jsonObject
@@ -85,12 +103,17 @@ class ManualPairingSasTest {
     private fun hex(
         input: JsonObject,
         key: String,
-    ): ByteArray = input.getValue(key).jsonPrimitive.content.hexToByteArray()
+    ): ByteArray =
+        input
+            .getValue(key)
+            .jsonPrimitive.content
+            .hexToByteArray()
 
     private fun context(input: JsonObject) =
         ManualPairingContext(hex(input, "macSpkiDerHex"), hex(input, "phoneSpkiDerHex"), hex(input, "cbHex"))
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-    private fun String.hexToByteArray(): ByteArray = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+    private fun String.hexToByteArray(): ByteArray =
+        ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 }

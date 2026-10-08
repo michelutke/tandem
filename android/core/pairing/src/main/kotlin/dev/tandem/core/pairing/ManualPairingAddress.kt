@@ -15,20 +15,28 @@ class ManualPairingAddress private constructor(
 
         /** Parses `a.b.c.d:port` or `[ipv6]:port`; `null` for anything else (hostnames, zones, bad ports). */
         fun parse(input: String): ManualPairingAddress? {
-            val text = input.trim()
-            val (host, portText) =
-                if (text.startsWith("[")) {
-                    val close = text.indexOf("]:")
-                    if (close < 0) return null
-                    text.substring(1, close) to text.substring(close + 2)
+            val (host, portText) = splitHostAndPort(input.trim()) ?: return null
+            val port = portText.takeIf { p -> p.isNotEmpty() && p.all { it in '0'..'9' } }?.toIntOrNull()
+            return if (port != null && port in 1..MAX_PORT && LiteralAddressValidator.isAcceptableAddress(host)) {
+                ManualPairingAddress(host, port)
+            } else {
+                null
+            }
+        }
+
+        private fun splitHostAndPort(text: String): Pair<String, String>? =
+            if (text.startsWith("[")) {
+                val close = text.indexOf("]:")
+                if (close < 0) null else text.substring(1, close) to text.substring(close + 2)
+            } else {
+                val colon = text.lastIndexOf(':')
+                if (colon < 0 ||
+                    text.indexOf(':') != colon
+                ) {
+                    null
                 } else {
-                    val colon = text.lastIndexOf(':')
-                    if (colon < 0 || text.indexOf(':') != colon) return null
                     text.substring(0, colon) to text.substring(colon + 1)
                 }
-            val port = portText.takeIf { p -> p.isNotEmpty() && p.all { it in '0'..'9' } }?.toIntOrNull()
-            if (port == null || port !in 1..MAX_PORT) return null
-            return if (LiteralAddressValidator.isAcceptableAddress(host)) ManualPairingAddress(host, port) else null
-        }
+            }
     }
 }

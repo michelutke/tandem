@@ -74,7 +74,9 @@ object ManualPairingSas {
         nonceMac: ByteArray,
         context: ManualPairingContext,
     ): String {
-        require(noncePhone.size == NONCE_LENGTH && nonceMac.size == NONCE_LENGTH) { "nonces must be $NONCE_LENGTH bytes" }
+        require(noncePhone.size == NONCE_LENGTH && nonceMac.size == NONCE_LENGTH) {
+            "nonces must be $NONCE_LENGTH bytes"
+        }
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(noncePhone + nonceMac, "HmacSHA256"))
         val digest = mac.doFinal(PAIR_LABEL.toByteArray(Charsets.US_ASCII) + transcript(context))

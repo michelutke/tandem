@@ -21,7 +21,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel as KtChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +33,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.channels.Channel as KtChannel
 
 /**
  * Phone-side manual pairing state machine (E73-03; ADR-008, SPEC.md "Manual pairing"). Dials the
@@ -56,8 +56,9 @@ class ManualPairingStateMachine(
     private val trustCommitter: TrustCommitter,
     private val address: ManualPairingAddress,
     private val nonceSource: ManualNonceSource,
-    private val macName: String = DEFAULT_MAC_NAME,
 ) : PairingAttempt {
+    private val macName = DEFAULT_MAC_NAME
+
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Idle)
     override val state: StateFlow<PairingState> = mutableState.asStateFlow()
@@ -131,8 +132,10 @@ class ManualPairingStateMachine(
         val connection =
             try {
                 withTimeout(PairingStateMachine.CONNECT_TIMEOUT) { connector.connect(address.host, address.port) }
+            } catch (expectedConnectTimeout: TimeoutCancellationException) {
+                null
             } catch (cancellation: CancellationException) {
-                if (cancellation is TimeoutCancellationException) null else throw cancellation
+                throw cancellation
             } catch (identityFailure: IdentityUnavailableException) {
                 mutableState.value = PairingState.Failed(PairingFailure.IdentityUnavailable)
                 return
@@ -156,7 +159,7 @@ class ManualPairingStateMachine(
         exchange(connection, inbox)
     }
 
-    @Suppress("ReturnCount", "CyclomaticComplexMethod")
+    @Suppress("ReturnCount", "CyclomaticComplexMethod", "SwallowedException")
     private suspend fun exchange(
         connection: PairingConnection,
         inbox: KtChannel<Envelope>,
@@ -171,11 +174,17 @@ class ManualPairingStateMachine(
                             .toByteArray()
                     }
 
-                    incoming == Incoming.TimedOut -> return fail(session, PairingFailure.ChallengeTimeout)
+                    incoming == Incoming.TimedOut -> {
+                        return fail(session, PairingFailure.ChallengeTimeout)
+                    }
 
-                    incoming == Incoming.Lost -> return fail(session, PairingFailure.ConnectionLost)
+                    incoming == Incoming.Lost -> {
+                        return fail(session, PairingFailure.ConnectionLost)
+                    }
 
-                    else -> return fail(session, PairingFailure.ProtocolViolation)
+                    else -> {
+                        return fail(session, PairingFailure.ProtocolViolation)
+                    }
                 }
             }
         val context = ManualPairingContext(connection.macSpkiDer, connection.phoneSpkiDer, challenge)
@@ -186,7 +195,9 @@ class ManualPairingStateMachine(
             } catch (malformed: PairingProofException) {
                 return fail(session, PairingFailure.MalformedChallenge)
             }
-        session.send(Channel.CHANNEL_CONTROL) { commitment = commitment { hash = ByteString.copyFrom(phoneCommitment) } }
+        session.send(Channel.CHANNEL_CONTROL) {
+            commitment = commitment { hash = ByteString.copyFrom(phoneCommitment) }
+        }
 
         val macCommitment =
             when (val incoming = next(inbox, PairingStateMachine.ACCEPT_TIMEOUT)) {
@@ -251,11 +262,17 @@ class ManualPairingStateMachine(
                     PairingState.Rejected(incoming.envelope.pairRejected.reason)
                 }
 
-                incoming == Incoming.Lost -> PairingState.Failed(PairingFailure.ConnectionLost)
+                incoming == Incoming.Lost -> {
+                    PairingState.Failed(PairingFailure.ConnectionLost)
+                }
 
-                incoming == Incoming.TimedOut -> PairingState.Failed(PairingFailure.Timeout)
+                incoming == Incoming.TimedOut -> {
+                    PairingState.Failed(PairingFailure.Timeout)
+                }
 
-                else -> PairingState.Failed(PairingFailure.ProtocolViolation)
+                else -> {
+                    PairingState.Failed(PairingFailure.ProtocolViolation)
+                }
             }
     }
 
