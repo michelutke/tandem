@@ -5,7 +5,9 @@ import android.content.Context
 import android.os.Process
 import android.service.notification.StatusBarNotification
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,6 +53,22 @@ class NotificationFilterTest {
         val sbn = statusBarNotification(packageName = "com.example.chat", notification = plainNotification())
 
         assertTrue(NotificationFilter.shouldForward(sbn, ownPackageName = OWN_PACKAGE))
+    }
+
+    @Test
+    fun rejectionReason_ordinaryAppPlainPost_nullSoNothingIsFilteredByDefault() {
+        val sbn = statusBarNotification(packageName = "com.example.chat", notification = plainNotification())
+
+        assertNull(NotificationFilter.rejectionReason(sbn, ownPackageName = OWN_PACKAGE))
+    }
+
+    @Test
+    fun rejectionReason_droppedNotifications_carryLogSafeReasonCodes() {
+        val own = statusBarNotification(packageName = OWN_PACKAGE, notification = plainNotification())
+        val noise = statusBarNotification(packageName = "android", notification = plainNotification())
+
+        assertEquals("own_app", NotificationFilter.rejectionReason(own, ownPackageName = OWN_PACKAGE))
+        assertEquals("system_noise", NotificationFilter.rejectionReason(noise, ownPackageName = OWN_PACKAGE))
     }
 
     @Test

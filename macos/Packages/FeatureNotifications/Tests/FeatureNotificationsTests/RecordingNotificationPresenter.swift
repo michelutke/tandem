@@ -20,8 +20,10 @@ actor RecordingNotificationPresenter: @preconcurrency NotificationPresenter {
         responsesContinuation = continuation
     }
 
-    func add(_ request: UNNotificationRequest) async {
+    @discardableResult
+    func add(_ request: UNNotificationRequest) async -> Bool {
         addedRequests.append(request)
+        return true
     }
 
     func removeDelivered(identifiers: [String]) async {

@@ -78,7 +78,11 @@ class TandemNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (!notificationFilter(sbn, packageName)) return
+        if (!notificationFilter(sbn, packageName)) {
+            NotifyLog.event("notify filtered", NotificationFilter.rejectionReason(sbn, packageName) ?: "user_or_toggle")
+            return
+        }
+        NotifyLog.event("notify posted")
         trackedNotifications[sbn.key] = sbn
         val versionCode = appVersionCode(sbn.packageName)
         val posted = NotificationMapper.toPosted(sbn, versionCode, appLabel(sbn.packageName), showSecretContent())

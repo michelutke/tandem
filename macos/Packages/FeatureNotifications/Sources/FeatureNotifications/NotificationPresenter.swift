@@ -13,7 +13,9 @@ public protocol NotificationPresenter: Sendable {
     /// Presents `request`. A second call with the same `request.identifier` replaces the
     /// previously delivered notification for that identifier rather than stacking a new one
     /// (`UNUserNotificationCenter.add(_:)`'s own contract).
-    func add(_ request: UNNotificationRequest) async
+    /// Returns whether the system accepted it, so a wrapper can fall back to an in-app banner.
+    @discardableResult
+    func add(_ request: UNNotificationRequest) async -> Bool
 
     /// Removes already-delivered notifications matching `identifiers`.
     func removeDelivered(identifiers: [String]) async

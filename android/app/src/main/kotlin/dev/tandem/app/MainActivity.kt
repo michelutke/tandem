@@ -22,6 +22,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.ActivityHomeRingStateSource
+import dev.tandem.app.home.HomeRingState
+import dev.tandem.app.home.TransferHomeRingStateSource
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemPermissionChecker
@@ -44,6 +46,7 @@ import dev.tandem.feature.clipboard.ClipboardCaptureServiceState
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
 import dev.tandem.feature.clipboard.LiveClipboardSession
+import dev.tandem.feature.files.LiveTransferActivity
 import dev.tandem.feature.files.PickFilesActivity
 import dev.tandem.feature.input.AccessibilitySettingsLauncher
 import dev.tandem.feature.notifications.FilterOverride
@@ -51,6 +54,7 @@ import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
@@ -124,12 +128,7 @@ class MainActivity : TandemActivity() {
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
             statusLine = graph.connectionStatusViewModel().statusText,
-            ringState =
-                ActivityHomeRingStateSource(
-                    app.activityStore.entries,
-                    AppClock.system,
-                    CoroutineScope(SupervisorJob() + dispatcher),
-                ).state,
+            ringState = liveRingState(app, dispatcher),
             onboarding =
                 OnboardingViewModel(
                     SystemPermissionRequester(activity) { requestRuntimePermissions.launch(it) },
@@ -234,4 +233,13 @@ class MainActivity : TandemActivity() {
     ) {
         runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
     }
+}
+
+private fun liveRingState(
+    app: TandemApplication,
+    dispatcher: CoroutineDispatcher,
+): StateFlow<HomeRingState> {
+    val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    val idle = ActivityHomeRingStateSource(app.activityStore.entries, AppClock.system, scope)
+    return TransferHomeRingStateSource(idle, LiveTransferActivity.state, scope).state
 }

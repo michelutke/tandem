@@ -13,10 +13,14 @@ sealed interface HomeRingState {
         val sevenDayAverage: Int,
     ) : HomeRingState
 
-    /** A file transfer in progress; [fileName] is peer-provided and must already be sanitised (ui-spec §9.7). */
+    /** File transfers in progress, aggregated over all of them; never carries a file name. */
     data class Transfer(
         val percent: Int,
-        val fileName: String,
+        val toMac: Boolean,
+    ) : HomeRingState
+
+    /** Shown briefly after the last transfer in one direction finished, before the ring returns to [Idle]. */
+    data class TransferDone(
         val toMac: Boolean,
     ) : HomeRingState
 
@@ -63,7 +67,7 @@ internal fun HomeRingState.toDotRingContent(): DotRingContent =
             DotRingContent(
                 value = itemsSyncedToday,
                 maxValue = maxOf(sevenDayAverage, 1),
-                unit = "synced today",
+                unit = "things synced today",
             )
         }
 
@@ -71,8 +75,12 @@ internal fun HomeRingState.toDotRingContent(): DotRingContent =
             DotRingContent(
                 value = percent,
                 maxValue = 100,
-                unit = "$fileName ${if (toMac) "→ Mac" else "from Mac"}",
+                unit = if (toMac) "Sending to Mac" else "Receiving from Mac",
             )
+        }
+
+        is HomeRingState.TransferDone -> {
+            DotRingContent(value = 100, maxValue = 100, unit = if (toMac) "Sent." else "Received.")
         }
 
         is HomeRingState.Mirroring -> {
