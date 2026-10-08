@@ -18,14 +18,14 @@ final class ScenarioNotPairedUITests: XCTestCase {
         XCTAssertEqual(value.isEmpty ? label.label : value, "Not paired")
 
         let pairPhoneItem = window.buttons["pairPhoneMenuItem"]
-        XCTAssertTrue(pairPhoneItem.waitForExistence(timeout: 10), "Pair phone… item never appeared")
+        XCTAssertTrue(pairPhoneItem.waitForExistence(timeout: 10), "Pair phone item never appeared")
         // As above: which AX attribute actually carries the text is unreliable on headless
         // runners, so accept either the button's title or its accessibility label.
         let gotTitle = pairPhoneItem.title
         let gotLabel = pairPhoneItem.label
         XCTAssertTrue(
-            gotTitle == "Pair phone…" || gotLabel == "Pair phone…",
-            "expected title or label \"Pair phone…\", got title=\"\(gotTitle)\" label=\"\(gotLabel)\""
+            gotTitle == "Pair phone" || gotLabel == "Pair phone",
+            "expected title or label \"Pair phone\", got title=\"\(gotTitle)\" label=\"\(gotLabel)\""
         )
     }
 }

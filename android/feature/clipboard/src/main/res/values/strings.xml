@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clipboard_capture_service_label">Tandem clipboard</string>
+    <string name="clipboard_capture_service_description">Notices when you copy text so Tandem can send it to your Mac. It watches only the system copy overlay.</string>
+</resources>

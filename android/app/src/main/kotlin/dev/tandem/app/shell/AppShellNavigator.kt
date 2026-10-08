@@ -8,6 +8,15 @@ import kotlinx.coroutines.flow.combine
 
 enum class ShellRoute { Onboarding, Home, Notifications, Activity, Settings }
 
+internal fun ShellRoute.toolbarItem(): FloatingToolbarItem? =
+    when (this) {
+        ShellRoute.Onboarding -> null
+        ShellRoute.Home -> FloatingToolbarItem.Home
+        ShellRoute.Notifications -> FloatingToolbarItem.Notifications
+        ShellRoute.Activity -> FloatingToolbarItem.Activity
+        ShellRoute.Settings -> FloatingToolbarItem.Settings
+    }
+
 /**
  * State-based navigation for the app shell (E20-25): onboarding until [peers] (the trust store's
  * list) holds a paired Mac, then Home or Settings per the floating toolbar.

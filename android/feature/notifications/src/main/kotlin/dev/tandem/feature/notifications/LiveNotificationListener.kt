@@ -12,6 +12,10 @@ object LiveNotificationListener {
     @Volatile
     var iconSender: IconSender? = null
 
+    /** The composition root's filter (per-app overrides, feature toggle); null keeps the static default. */
+    @Volatile
+    var filter: ((StatusBarNotification, String) -> Boolean)? = null
+
     @Volatile
     internal var listener: TandemNotificationListenerService? = null
 

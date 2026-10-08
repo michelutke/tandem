@@ -1,6 +1,8 @@
 import AppKit
+import FeatureClipboard
 import Network
 import TandemCrypto
+import TandemDesign
 import TandemProtocol
 import TandemStore
 import TandemTransport
@@ -78,11 +80,7 @@ enum AppComposition {
         }
 
         let mirror = MirrorComposition()
-        let sessionFeatures = SessionFeatures.make(
-            purgeRegistry: core.purgeRegistry,
-            mirrorService: mirror.service,
-            rotationService: core.rotation
-        )
+        let sessionFeatures = makeSessionFeatures(core: core, mirror: mirror)
         let menuBarWiring = makeMenuBarWiring(sessionRegistry: core.sessionRegistry)
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
@@ -121,6 +119,29 @@ enum AppComposition {
                 rotation: core.rotation
             )
         )
+    }
+
+    private static func makeSessionFeatures(core: Core, mirror: MirrorComposition) -> SessionFeatures {
+        let features = SessionFeatures.make(
+            purgeRegistry: core.purgeRegistry,
+            mirrorService: mirror.service,
+            rotationService: core.rotation
+        )
+        installClipboardToast(on: features.clipboard, pairedPeer: core.pairedPeer)
+        return features
+    }
+
+    /// Shows the "Copied from <device>." toast on every clip received from the phone.
+    private static func installClipboardToast(on clipboard: ActiveClipboard, pairedPeer: PairedPeerState) {
+        let viewModel = MainActor.assumeIsolated {
+            let panel = ToastPanelController()
+            return ClipboardToastViewModel(
+                clock: ContinuousClock(),
+                deviceName: { pairedPeer.displayName },
+                present: { panel.show(text: $0) }
+            )
+        }
+        clipboard.setReceivedHandler { Task { @MainActor in viewModel.clipboardReceived() } }
     }
 
     private struct Core {

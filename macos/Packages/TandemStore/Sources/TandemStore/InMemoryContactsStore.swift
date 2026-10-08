@@ -46,6 +46,10 @@ public actor InMemoryContactsStore: ContactsStore {
         (peers[peer]?.contacts.keys.map { $0 } ?? []).sorted()
     }
 
+    public func allContacts(peer: SpkiFingerprint) -> [ContactRecord] {
+        (peers[peer]?.contacts.values.map { $0 } ?? []).sorted { $0.contactId < $1.contactId }
+    }
+
     public func purgeAll(peer: SpkiFingerprint) {
         peers[peer] = nil
     }

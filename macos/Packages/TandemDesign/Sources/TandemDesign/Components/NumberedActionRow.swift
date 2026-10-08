@@ -7,6 +7,10 @@ public struct NumberedActionRow: View {
     private let title: String
     private let trailingMeta: String?
     private let identifier: String?
+    private let isSelected: Bool
+    private let emphasizesSelection: Bool
+    private let verticalPadding: CGFloat
+    private let horizontalPadding: CGFloat
     private let action: () -> Void
 
     @State private var isHovering = false
@@ -16,14 +20,24 @@ public struct NumberedActionRow: View {
         title: String,
         trailingMeta: String? = nil,
         identifier: String? = nil,
+        isSelected: Bool = false,
+        emphasizesSelection: Bool = false,
+        verticalPadding: CGFloat = TandemSpacing.rowVertical,
+        horizontalPadding: CGFloat = TandemSpacing.popoverPadding,
         action: @escaping () -> Void
     ) {
         self.index = index
         self.title = title
         self.trailingMeta = trailingMeta
         self.identifier = identifier
+        self.isSelected = isSelected
+        self.emphasizesSelection = emphasizesSelection
+        self.verticalPadding = verticalPadding
+        self.horizontalPadding = horizontalPadding
         self.action = action
     }
+
+    private var unselectedStyle: TandemTextStyle { TandemTypography.body(size: 16) }
 
     public var body: some View {
         Button(action: action) {
@@ -32,7 +46,7 @@ public struct NumberedActionRow: View {
                     .tandemTextStyle(TandemTypography.metaMono())
                     .foregroundStyle(TandemColor.ink2)
                 Text(title)
-                    .tandemTextStyle(TandemTypography.rowTitle())
+                    .tandemTextStyle(isSelected || !emphasizesSelection ? TandemTypography.rowTitle() : unselectedStyle)
                     .foregroundStyle(TandemColor.ink)
                 Spacer()
                 if let trailingMeta {
@@ -41,13 +55,17 @@ public struct NumberedActionRow: View {
                         .foregroundStyle(TandemColor.ink2)
                 }
             }
-            .padding(.vertical, TandemSpacing.rowVertical)
-            .padding(.horizontal, TandemSpacing.popoverPadding)
-            .background(isHovering ? TandemColor.ink.opacity(0.05) : .clear)
+            .padding(.vertical, verticalPadding)
+            .padding(.horizontal, horizontalPadding)
+            .background(
+                RoundedRectangle(cornerRadius: TandemRadius.row, style: .continuous)
+                    .fill(isHovering || isSelected ? TandemColor.ink.opacity(0.05) : .clear)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .accessibilityLabel(title)
         .accessibilityIdentifier(identifier ?? title)
     }
 }

@@ -7,6 +7,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.protocol.v1.NotificationDismiss
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,6 +56,35 @@ class TandemNotificationListenerServiceTest {
         assertTrue(sink.dismissed.isEmpty())
     }
 
+    @After
+    fun clearInstalledFilter() {
+        LiveNotificationListener.filter = null
+    }
+
+    @Test
+    fun perAppFilter_installedFilterDeniesPackage_notificationNeverForwarded() {
+        val service = newService()
+        val sink = RecordingEventSink()
+        service.eventSink = sink
+        LiveNotificationListener.filter = { sbn, _ -> sbn.packageName != "com.example.chat" }
+
+        service.onNotificationPosted(statusBarNotification("denied-key"))
+
+        assertTrue(sink.posted.isEmpty())
+    }
+
+    @Test
+    fun perAppFilter_installedFilterAllowsPackage_notificationForwarded() {
+        val service = newService()
+        val sink = RecordingEventSink()
+        service.eventSink = sink
+        LiveNotificationListener.filter = { _, _ -> true }
+
+        service.onNotificationPosted(statusBarNotification("allowed-key"))
+
+        assertEquals(1, sink.posted.size)
+    }
+
     private fun newService(): TandemNotificationListenerService =
         Robolectric.buildService(TandemNotificationListenerService::class.java).create().get()
 
@@ -87,8 +117,11 @@ class TandemNotificationListenerServiceTest {
 
     private class RecordingEventSink : NotificationEventSink {
         val dismissed = mutableListOf<NotificationDismiss>()
+        val posted = mutableListOf<dev.tandem.protocol.v1.NotificationPosted>()
 
-        override fun onNotificationPosted(notification: dev.tandem.protocol.v1.NotificationPosted) = Unit
+        override fun onNotificationPosted(notification: dev.tandem.protocol.v1.NotificationPosted) {
+            posted += notification
+        }
 
         override fun onNotificationDismissed(dismiss: NotificationDismiss) {
             dismissed += dismiss

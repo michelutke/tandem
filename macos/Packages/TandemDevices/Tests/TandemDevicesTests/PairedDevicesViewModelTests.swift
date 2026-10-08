@@ -92,6 +92,32 @@ struct PairedDevicesViewModelTests {
     }
 
     @Test
+    func pairedDevicesViewModel_record_rowCarriesPairedDateAndKeyGroups() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let noonJan12 = Date(timeIntervalSince1970: 993_600)
+        try store.put(
+            Self.makeRecord(fingerprint: try Self.fingerprint(0x7F), displayName: "Pixel 9", lastSeen: noonJan12)
+        )
+
+        let viewModel = Self.makeViewModel(trustStore: store, now: noonJan12)
+
+        let row = try #require(viewModel.rows.first)
+        #expect(row.pairedAtText == "12 Jan 1970")
+        #expect(row.fingerprintText == "7F7F 7F7F 7F7F 7F7F")
+    }
+
+    @Test
+    func fingerprintDisplay_colonSeparatedKey_regroupsInFourDigitGroups() {
+        #expect(FingerprintDisplay.regroup(colonSeparated: "3c:71:a0:9e:55:f2:8b:1d") == "3C71 A09E 55F2 8B1D")
+    }
+
+    @Test
+    func devicesSection_stateText_countsPairedDevices() {
+        #expect(DevicesSectionView.stateText(pairedCount: 0) == "No phone yet.")
+        #expect(DevicesSectionView.stateText(pairedCount: 1) == "1 paired.")
+    }
+
+    @Test
     func pairedDevicesViewModel_revokeTapped_rowRemovedBeforeRevokeCompletes() async throws {
         let store = TrustStore(keychainStore: InMemoryKeychainStore())
         let now = Date(timeIntervalSince1970: 1_000_000)

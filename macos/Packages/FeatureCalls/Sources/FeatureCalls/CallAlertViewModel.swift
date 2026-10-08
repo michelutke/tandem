@@ -10,15 +10,42 @@ import TandemStore
 /// menu-bar Hang Up item (``showsHangUp``), and `ENDED` removes both. Caller names and numbers are
 /// untrusted peer input: they pass ``DisplayStringSanitizer`` before presentation and are never
 /// logged (invariant 7).
+/// The call the Calls section's in-call bar shows: sanitized caller title and, when a clock was
+/// injected, when the call became active.
+public struct ActiveCallInfo: Equatable, Sendable {
+    public let callId: String
+    public let title: String
+    public let startedAt: Date?
+
+    public init(callId: String, title: String, startedAt: Date?) {
+        self.callId = callId
+        self.title = title
+        self.startedAt = startedAt
+    }
+
+    /// "04:12" (or "1:04:12" past an hour); "00:00" when no clock was injected.
+    public func elapsedText(at date: Date) -> String {
+        guard let startedAt else { return "00:00" }
+        let seconds = max(0, Int(date.timeIntervalSince(startedAt)))
+        let (hours, minutes, rest) = (seconds / 3600, seconds % 3600 / 60, seconds % 60)
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, rest)
+            : String(format: "%02d:%02d", minutes, rest)
+    }
+}
+
 @MainActor
 @Observable
 public final class CallAlertViewModel {
     public static let alertBody = "Incoming call"
 
     /// Whether the menu bar offers Hang Up -- true while a call is `ACTIVE`.
-    public var showsHangUp: Bool { activeCallId != nil }
+    public var showsHangUp: Bool { activeCallId != nil || activeCall != nil }
 
     private(set) var activeCallId: String?
+
+    /// The `ACTIVE` call in either direction, for the in-call bar; cleared when it `ENDED`.
+    public private(set) var activeCall: ActiveCallInfo?
 
     private let presenter: any CallAlertPresenter
     private let session: any TandemSession
@@ -26,6 +53,7 @@ public final class CallAlertViewModel {
     private let peer: SpkiFingerprint
     private let makeRequestId: @Sendable () -> String
     private let numberFormatter: PhoneNumberNormalizer
+    private let now: (@Sendable () -> Date)?
 
     @ObservationIgnored
     private nonisolated(unsafe) var eventTask: Task<Void, Never>?
@@ -38,7 +66,8 @@ public final class CallAlertViewModel {
         contacts: any ContactsStore,
         peer: SpkiFingerprint,
         makeRequestId: @escaping @Sendable () -> String = { UUID().uuidString },
-        numberFormatter: PhoneNumberNormalizer = PhoneNumberNormalizer()
+        numberFormatter: PhoneNumberNormalizer = PhoneNumberNormalizer(),
+        now: (@Sendable () -> Date)? = nil
     ) {
         self.presenter = presenter
         self.session = session
@@ -46,6 +75,7 @@ public final class CallAlertViewModel {
         self.peer = peer
         self.makeRequestId = makeRequestId
         self.numberFormatter = numberFormatter
+        self.now = now
     }
 
     deinit {
@@ -76,16 +106,20 @@ public final class CallAlertViewModel {
     }
 
     public func handle(_ event: Tandem_V1_CallEvent) async {
-        guard event.direction == .incoming else { return }
+        let isIncoming = event.direction == .incoming
         switch event.state {
-        case .ringing:
+        case .ringing where isIncoming:
             await presenter.present(callId: event.callID, title: await title(for: event), body: Self.alertBody)
         case .active:
-            await presenter.remove(callId: event.callID)
-            activeCallId = event.callID
+            if isIncoming {
+                await presenter.remove(callId: event.callID)
+                activeCallId = event.callID
+            }
+            activeCall = ActiveCallInfo(callId: event.callID, title: await title(for: event), startedAt: now?())
         case .ended:
-            await presenter.remove(callId: event.callID)
+            if isIncoming { await presenter.remove(callId: event.callID) }
             if activeCallId == event.callID { activeCallId = nil }
+            if activeCall?.callId == event.callID { activeCall = nil }
         default:
             break
         }
@@ -100,8 +134,8 @@ public final class CallAlertViewModel {
     }
 
     public func hangUp() async {
-        guard let activeCallId else { return }
-        await send(.hangup, callId: activeCallId)
+        guard let callId = activeCallId ?? activeCall?.callId else { return }
+        await send(.hangup, callId: callId)
     }
 
     private func send(_ type: Tandem_V1_CallActionType, callId: String) async {

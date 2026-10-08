@@ -3,6 +3,7 @@ import FeatureFiles
 import FeatureMirror
 import SwiftUI
 import TandemCrypto
+import TandemDesign
 import TandemDevices
 import TandemStore
 import TandemTransport
@@ -103,15 +104,17 @@ struct TandemMenuBarApp: App {
         Window("Tandem", id: "main") {
             MainWindowView(
                 viewModel: Self.mainWindowViewModel,
-                photoService: Self.retainedProductionLifecycle?.sessionFeatures.photos
+                services: Self.mainWindowServices,
+                onPairPhone: { Self.openPairingWindow() }
             )
+            #if DEBUG
+            .background(ScenarioWindowCloser())
+            #endif
         }
+        .windowStyle(.hiddenTitleBar)
 
         Settings {
-            SettingsView(
-                pairedDevicesViewModel: Self.settingsPairedDevicesViewModel,
-                rotationViewModel: Self.settingsRotationViewModel
-            )
+            SettingsView(rotationViewModel: Self.settingsRotationViewModel)
         }
     }
 }
@@ -228,18 +231,19 @@ struct MenuContentView: View {
 
     private let pairingPresenter: MacPairingPresenter?
     private let pairedPeer: PairedPeerState?
+    private let lifecycle: AppComposition.RetainedLifecycle?
+    private let live: LiveSessionState?
 
-    private static var retainedPairingPresenter: MacPairingPresenter?
+    @Environment(\.openWindow) private var openWindow
 
     static func pairingPresenter(for composition: MacPairingComposition) -> MacPairingPresenter {
-        if let retainedPairingPresenter { return retainedPairingPresenter }
-        let presenter = MacPairingPresenter(composition: composition)
-        retainedPairingPresenter = presenter
-        return presenter
+        SharedPairingPresenter.presenter(for: composition)
     }
 
     init() {
         let lifecycle = TandemMenuBarApp.retainedProductionLifecycle
+        self.lifecycle = lifecycle
+        live = lifecycle?.sessionFeatures.live
         pairingPresenter = lifecycle.map { Self.pairingPresenter(for: $0.pairing) }
         transferProgress = lifecycle?.sessionFeatures.transferProgress
         activeCall = lifecycle?.sessionFeatures.activeCall
@@ -254,8 +258,9 @@ struct MenuContentView: View {
             stateStream: lifecycle?.makeMenuBarStateStream?(),
             peerName: peerName
         ))
-        let findPhoneViewModel = FindPhoneViewModel(session: nil)
+        let findPhoneViewModel = FindPhoneViewModel(session: lifecycle?.sessionFeatures.live.session)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
+        lifecycle?.sessionFeatures.live.onSessionChanged = { findPhoneViewModel.sessionChanged($0) }
         let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         lifecycle?.mirror.bind(mirrorRequestViewModel)
@@ -276,6 +281,25 @@ struct MenuContentView: View {
         )
         quickActionsViewModel.observeConnection(lifecycle?.makeMenuBarStateStream?())
         _quickActionsViewModel = State(initialValue: quickActionsViewModel)
+    }
+
+    private var lastSeenText: String? {
+        guard case .offline(let lastSeen) = TandemMenuBarApp.mainWindowViewModel.connectionState else { return nil }
+        return MainWindowViewModel.formattedTime(lastSeen)
+    }
+
+    private func retryNow() {
+        guard let control = lifecycle?.listenerControl else { return }
+        Task {
+            await control.stop()
+            try? await control.start()
+        }
+    }
+
+    private func openMainWindow(section: MainWindowViewModel.Section?) {
+        if let section { TandemMenuBarApp.mainWindowViewModel.select(section) }
+        openWindow(id: "main")
+        NSApp.activate()
     }
 
     private func syncPairedPeer() {
@@ -314,31 +338,36 @@ struct MenuContentView: View {
                 .accessibilityIdentifier("listenerUnavailableLabel")
                 .accessibilityLabel("Listener Unavailable")
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                ErrorBannerView(viewModel: errorBannerViewModel)
-                MenuBarContentView(
-                    viewModel: menuBarViewModel,
-                    deviceStatusViewModel: nil,
-                    onPairPhone: { pairingPresenter?.openPairingWindow() }
-                )
-                if let transferProgress {
-                    TransferProgressListView(center: transferProgress)
+            GlassPopover {
+                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                    MenuBarContentView(
+                        viewModel: menuBarViewModel,
+                        deviceStatusViewModel: live?.deviceStatus,
+                        onPairPhone: { pairingPresenter?.openPairingWindow() },
+                        lastSeenText: lastSeenText,
+                        closeCode: errorBannerViewModel.closeCode,
+                        onRetry: retryNow,
+                        onUnpair: { openMainWindow(section: MainWindowViewModel.sections.last) },
+                        connectedActions: AnyView(PopoverActionsView(
+                            viewModel: quickActionsViewModel,
+                            findPhoneViewModel: findPhoneViewModel,
+                            pushClipboardViewModel: pushClipboardViewModel,
+                            mirrorRequestViewModel: mirrorRequestViewModel,
+                            sendEntryHandler: sendEntryHandler,
+                            onOpenMessages: { openMainWindow(section: MainWindowViewModel.sections.first) }
+                        ))
+                    )
+                    if let transferProgress {
+                        TransferProgressListView(center: transferProgress)
+                    }
+                    if let activeCall {
+                        ActiveCallHangUpView(activeCall: activeCall)
+                    }
+                    if let activeNowPlaying {
+                        ActiveNowPlayingView(activeNowPlaying: activeNowPlaying)
+                    }
+                    PopoverFooterView()
                 }
-                QuickActionsView(
-                    viewModel: quickActionsViewModel,
-                    findPhoneViewModel: findPhoneViewModel,
-                    pushClipboardViewModel: pushClipboardViewModel,
-                    mirrorRequestViewModel: mirrorRequestViewModel,
-                    sendEntryHandler: sendEntryHandler
-                )
-                if let activeCall {
-                    ActiveCallHangUpView(activeCall: activeCall)
-                }
-                if let activeNowPlaying {
-                    ActiveNowPlayingView(activeNowPlaying: activeNowPlaying)
-                }
-                OpenTandemMenuButton()
-                SettingsMenuButton()
             }
             .acceptsFileDrops(sendEntryHandler)
             .onAppear { syncPairedPeer() }

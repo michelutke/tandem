@@ -10,7 +10,21 @@ extension ScenarioView {
     /// banner shows without a phone.
     @MainActor
     static func makePhotoGridPartialAccessView() -> some View {
-        PhotoGridView(viewModel: PhotoGridViewModel(service: SeededPartialAccessPhotoService()))
+        ScenarioPhotoGridHost { SeededPartialAccessPhotoService() }
+    }
+}
+
+/// Holds the grid's view model in `@State`: the scenario root re-evaluates its body, and a view
+/// model built inline would restart loading every time.
+private struct ScenarioPhotoGridHost<Service: PhotoService>: View {
+    @State private var viewModel: PhotoGridViewModel
+
+    init(service: () -> Service) {
+        _viewModel = State(initialValue: PhotoGridViewModel(service: service()))
+    }
+
+    var body: some View {
+        PhotoGridView(viewModel: viewModel)
     }
 }
 
@@ -18,7 +32,7 @@ extension ScenarioView {
     /// A 10 000-photo library with synthetic 256 px thumbnails (E41-09).
     @MainActor
     static func makePhotoGrid10kView() -> some View {
-        PhotoGridView(viewModel: PhotoGridViewModel(service: Seeded10kPhotoService()))
+        ScenarioPhotoGridHost { Seeded10kPhotoService() }
     }
 }
 

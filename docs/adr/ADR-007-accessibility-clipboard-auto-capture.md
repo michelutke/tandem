@@ -79,6 +79,16 @@ invariant 8's own audit).
   which of the four entry points produced the clip — this ADR doesn't introduce a second code path
   for that logic, only a second *trigger* for the same one.
 
+## Implementation notes
+
+- A separate `ClipboardCaptureService` (D-82) hosts the trigger, not the remote-input service: its
+  config has no `canPerformGestures` and no `canRetrieveWindowContent`, and it receives only
+  window-state events from System UI. Invariant 8's input gate is unaffected.
+- Detection is the Android 13+ clipboard overlay window. `TYPE_VIEW_TEXT_SELECTION_CHANGED` is not
+  used because it would require events from every app.
+- The setting is off by default and persisted in the feature-toggle store; the service does nothing
+  while it is off or no Mac session is live, and debounces bursts.
+
 ## Revisit criteria
 
 Reopen this ADR if either becomes true:

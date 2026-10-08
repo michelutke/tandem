@@ -3,9 +3,7 @@ package dev.tandem.app
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -23,7 +21,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
-import dev.tandem.app.home.StubHomeRingStateSource
+import dev.tandem.app.home.ActivityHomeRingStateSource
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemPermissionChecker
@@ -32,6 +30,7 @@ import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
 import dev.tandem.app.settings.RotationSettingsViewModel
+import dev.tandem.app.settings.SystemAppPermissionGateway
 import dev.tandem.app.shell.AppShell
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
@@ -40,10 +39,12 @@ import dev.tandem.core.designsystem.TandemTheme
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.AndroidClipboardReader
+import dev.tandem.feature.clipboard.ClipboardCaptureServiceState
 import dev.tandem.feature.clipboard.ClipboardReader
 import dev.tandem.feature.clipboard.ClipboardSender
 import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.files.PickFilesActivity
+import dev.tandem.feature.input.AccessibilitySettingsLauncher
 import dev.tandem.feature.notifications.FilterOverride
 import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
@@ -119,7 +120,12 @@ class MainActivity : TandemActivity() {
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
             statusLine = graph.connectionStatusViewModel().statusText,
-            ringState = StubHomeRingStateSource().state,
+            ringState =
+                ActivityHomeRingStateSource(
+                    app.activityStore.entries,
+                    AppClock.system,
+                    CoroutineScope(SupervisorJob() + dispatcher),
+                ).state,
             onboarding =
                 OnboardingViewModel(
                     SystemPermissionRequester(activity) { requestRuntimePermissions.launch(it) },
@@ -141,17 +147,21 @@ class MainActivity : TandemActivity() {
             onSendClipboard = ::onSendClipboardButtonTapped,
             onSendFiles = ::onSendFilesTapped,
             isConnected = { sessionProvider(this) != null },
+            featureStates = app.featureToggles.states,
+            onToggleFeature = app.featureToggles::set,
             activityEntries = app.activityStore.entries,
-            notificationRows = {
-                app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps())
-            },
+            notificationRows = { app.notificationFilter.rowsFor(SystemInstalledAppsSource(this).installedApps()) },
             onToggleNotificationApp = { packageName, allowed ->
                 app.notificationFilter.setOverride(
                     packageName,
                     if (allowed) FilterOverride.ALLOW else FilterOverride.DENY,
                 )
             },
-            onOpenPermissionSettings = ::openAppPermissionSettings,
+            permissions = permissionGateway(activity),
+            autoCapture = app.featureToggles.autoCapture,
+            onToggleAutoCapture = app.featureToggles::setAutoCapture,
+            isAutoCaptureServiceOn = { ClipboardCaptureServiceState(activity).isServiceEnabled() },
+            onOpenAccessibilitySettings = { AccessibilitySettingsLauncher(activity).open() },
             rotation =
                 RotationSettingsViewModel(
                     rotator = rotationComposition.keyRotator,
@@ -162,11 +172,8 @@ class MainActivity : TandemActivity() {
         )
     }
 
-    private fun openAppPermissionSettings() {
-        startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
-        )
-    }
+    private fun permissionGateway(activity: MainActivity) =
+        SystemAppPermissionGateway(activity, requestRuntimePermissions = { requestRuntimePermissions.launch(it) })
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

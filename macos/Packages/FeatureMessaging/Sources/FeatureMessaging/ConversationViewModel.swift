@@ -4,6 +4,10 @@ import TandemCrypto
 import TandemProtocol
 import TandemStore
 
+enum ConversationSendError: Error {
+    case notConnected
+}
+
 public enum SendFailure: Sendable, Equatable {
     case noService
     case radioOff
@@ -97,7 +101,7 @@ public final class ConversationViewModel {
     @ObservationIgnored private let peer: SpkiFingerprint
     @ObservationIgnored private let threadId: Int64
     @ObservationIgnored private let smsStore: any SmsStore
-    @ObservationIgnored private let session: any TandemSession
+    @ObservationIgnored private let session: (any TandemSession)?
     @ObservationIgnored private let syncSource: any ConversationSyncSource
     @ObservationIgnored private let now: DateProvider
     @ObservationIgnored private let makeClientMessageId: @Sendable () -> String
@@ -110,7 +114,7 @@ public final class ConversationViewModel {
         threadId: Int64,
         title: String,
         smsStore: any SmsStore,
-        session: any TandemSession,
+        session: (any TandemSession)?,
         syncSource: any ConversationSyncSource,
         now: @escaping DateProvider,
         makeClientMessageId: @escaping @Sendable () -> String = { UUID().uuidString }
@@ -179,6 +183,7 @@ public final class ConversationViewModel {
         request.body = body
         await reload()
         do {
+            guard let session else { throw ConversationSendError.notConnected }
             try await session.send(.sms, payload: .sendSmsRequest(request))
         } catch {
             try? await smsStore.updateOutbound(

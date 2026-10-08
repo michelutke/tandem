@@ -10,7 +10,10 @@ import android.util.Log
 import android.widget.Toast
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
+import dev.tandem.app.activity.ActivityEventType
+import dev.tandem.app.activity.ActivityRecorder
 import dev.tandem.app.clipboard.ClipboardWriter
+import dev.tandem.app.connection.GatedSessionFeature
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.feature.ClipboardFeature
 import dev.tandem.app.connection.feature.ContactsFeature
@@ -28,6 +31,8 @@ import dev.tandem.app.mirror.MirrorConsentActivity
 import dev.tandem.app.mirror.MirrorFeature
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
+import dev.tandem.app.settings.FeatureToggles
+import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.storage.rotation.RotationEventLog
 import dev.tandem.core.storage.settings.SettingsStore
@@ -46,6 +51,7 @@ import dev.tandem.feature.files.MediaPermissionChecker
 import dev.tandem.feature.files.MediaStoreDownloadsPublisher
 import dev.tandem.feature.files.NotificationReceivedFileNotifier
 import dev.tandem.feature.files.NotificationTransferPrompter
+import dev.tandem.feature.files.ReceivedFileNotifier
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
 import dev.tandem.feature.input.LiveRemoteInput
 import dev.tandem.feature.messaging.ContentResolverSmsSource
@@ -78,9 +84,12 @@ object SessionFeatureFactory {
         keyManager: X509KeyManager,
         rotation: RotationComposition,
     ): List<SessionFeature> {
-        val filesFeature = filesFeature(context, clock)
+        val application = context as TandemApplication
+        val recorder = application.activityRecorder
+        val toggles = application.featureToggles
+        val filesFeature = filesFeature(context, clock, recorder)
         purgeRegistry.register(filesFeature.purger)
-        purgeRegistry.register((context as TandemApplication).activityStore)
+        purgeRegistry.register(application.activityStore)
         val smsFeatures =
             SmsFeatures(
                 source = ContentResolverSmsSource(context),
@@ -90,35 +99,36 @@ object SessionFeatureFactory {
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
                 ioDispatcher = AppDispatchers.io,
             )
-        val statusAggregator =
-            StatusAggregator(
-                BatteryReceiverStatusSource(context),
-                ConnectivityManagerNetworkTypeSource(context.getSystemService(ConnectivityManager::class.java)),
-                TelephonyNetworkSignalStrengthSource(context, context.getSystemService(TelephonyManager::class.java)),
-            )
         val iconSettings =
             SettingsStore(
                 createSettingsDataStore(File(context.filesDir, ICON_SENT_STORE_FILE_NAME), AppDispatchers.default),
             )
         return listOf(
-            NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default),
+            NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default)
+                .gatedBy(toggles, SyncFeature.Notifications),
             ClipboardFeature(
                 ClipboardWriter(
                     context.getSystemService(ClipboardManager::class.java),
                     LiveClipboardSession.loopGuard,
-                ) { showReceivedToast(context) },
-            ),
+                ) {
+                    recorder.record(ActivityEventType.ClipboardFromMac)
+                    showReceivedToast(context)
+                },
+            ).gatedBy(toggles, SyncFeature.Clipboard),
             filesFeature,
             ContactsFeature(ContentResolverContactsSource(context), AppDispatchers.io, clock),
-            StatusFeature(statusAggregator, clock, AppDispatchers.default),
+            StatusFeature(statusAggregator(context), clock, AppDispatchers.default),
             RingFeature(
                 alarmPlayer = { SystemAlarmPlayer(context) },
                 policyAccess = { SystemNotificationPolicyAccess(context) },
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
+                onRing = { recorder.record(ActivityEventType.FindPhone) },
             ),
             FocusFeature { SystemInterruptionFilterGateway(context) },
-            NotificationInteractionsFeature(context, iconSettings, AppDispatchers.default),
-            mirrorFeature(context, clock, trustStore, keyManager),
+            NotificationInteractionsFeature(context, iconSettings, AppDispatchers.default)
+                .gatedBy(toggles, SyncFeature.Notifications),
+            mirrorFeature(context, clock, trustStore, keyManager, recorder)
+                .gatedBy(toggles, SyncFeature.Mirroring),
             RotationFeature(
                 pins = trustStore,
                 clock = clock,
@@ -126,8 +136,20 @@ object SessionFeatureFactory {
                 eventLog = RotationEventLog { Log.w(TAG, "rotation_rejected reason=${it.name}") },
             ),
             rotation.sessionFeature(),
-        ) + smsFeatures.all()
+        ) + smsFeatures.all().map { it.gatedBy(toggles, SyncFeature.Messages) }
     }
+
+    private fun SessionFeature.gatedBy(
+        toggles: FeatureToggles,
+        feature: SyncFeature,
+    ): SessionFeature = GatedSessionFeature(this, toggles.enabled(feature))
+
+    private fun statusAggregator(context: Context) =
+        StatusAggregator(
+            BatteryReceiverStatusSource(context),
+            ConnectivityManagerNetworkTypeSource(context.getSystemService(ConnectivityManager::class.java)),
+            TelephonyNetworkSignalStrengthSource(context, context.getSystemService(TelephonyManager::class.java)),
+        )
 
     private fun showReceivedToast(context: Context) {
         Handler(Looper.getMainLooper()).post {
@@ -140,6 +162,7 @@ object SessionFeatureFactory {
         clock: Clock,
         trustStore: TrustStore,
         keyManager: X509KeyManager,
+        recorder: ActivityRecorder,
     ): MirrorFeature {
         val application = context as TandemApplication
         return MirrorFeature(
@@ -161,18 +184,20 @@ object SessionFeatureFactory {
             clock = clock,
             ioDispatcher = AppDispatchers.io,
             random = SecureRandom(),
+            onMirrorEnded = { seconds -> recorder.record(ActivityEventType.Mirroring, durationSeconds = seconds) },
         )
     }
 
     private fun filesFeature(
         context: Context,
         clock: Clock,
+        recorder: ActivityRecorder,
     ): FilesFeature {
         val mediaPermissionChecker = MediaPermissionChecker(context)
         return FilesFeature(
             store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
-            notifier = NotificationReceivedFileNotifier(context),
+            notifier = recordingNotifier(NotificationReceivedFileNotifier(context), recorder),
             prompter = NotificationTransferPrompter(context),
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
             reader = ContentResolverSourceFileReader(context.contentResolver),
@@ -184,6 +209,14 @@ object SessionFeatureFactory {
             ioDispatcher = AppDispatchers.io,
             serialDispatcher = AppDispatchers::serial,
         )
+    }
+
+    private fun recordingNotifier(
+        delegate: ReceivedFileNotifier,
+        recorder: ActivityRecorder,
+    ) = ReceivedFileNotifier { name, mime, contentUri ->
+        recorder.record(ActivityEventType.FileReceived)
+        delegate.notifyReceived(name, mime, contentUri)
     }
 
     private const val TAG = "SessionFeatureFactory"

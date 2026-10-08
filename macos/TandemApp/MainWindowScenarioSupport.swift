@@ -1,5 +1,7 @@
 #if DEBUG
+import AppKit
 import Foundation
+import SwiftUI
 
 /// `ScenarioView`'s own `.mainWindowOffline`/`.mainWindowFeatureDisabled` factories (E22-09), split
 /// out of `TandemApp.swift` purely to keep that file under this repo's `file_length` lint budget.
@@ -35,5 +37,26 @@ extension ScenarioView {
 /// ``UserDefaultsMainWindowSectionStore``, never touches real `UserDefaults` state.
 private final class InMemoryMainWindowSectionStore: MainWindowSectionStore {
     var selectedSectionID: Int?
+}
+#endif
+
+#if DEBUG
+/// A `-UITestScenario` launch shows only the scenario window: the always-declared main `Window`
+/// scene would otherwise open on top of it and occlude it, which stops SwiftUI from rendering
+/// state changes (seeded async content) inside the scenario window.
+struct ScenarioWindowCloser: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        CloserView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class CloserView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard UITestScenario.fromLaunchArguments() != nil, let window else { return }
+            DispatchQueue.main.async { window.close() }
+        }
+    }
 }
 #endif

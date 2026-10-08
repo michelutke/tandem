@@ -14,6 +14,7 @@ public struct GlassPopover<Content: View>: View {
             .padding(TandemSpacing.popoverPadding)
             .frame(width: 340)
             .glassSurface(cornerRadius: TandemRadius.popoverWindow)
+            .tandemPopoverChrome()
     }
 }
 

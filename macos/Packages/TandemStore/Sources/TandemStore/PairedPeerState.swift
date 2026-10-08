@@ -6,20 +6,23 @@ import Observation
 @Observable
 public final class PairedPeerState {
     public private(set) var displayName: String?
+    public private(set) var record: PeerRecord?
 
     @ObservationIgnored
     private let trustStore: TrustStore
 
     public init(trustStore: TrustStore) {
         self.trustStore = trustStore
-        displayName = Self.firstPeerName(in: trustStore)
+        record = Self.firstRecord(in: trustStore)
+        displayName = record?.displayName
     }
 
     public func refresh() {
-        displayName = Self.firstPeerName(in: trustStore)
+        record = Self.firstRecord(in: trustStore)
+        displayName = record?.displayName
     }
 
-    private static func firstPeerName(in trustStore: TrustStore) -> String? {
-        (try? trustStore.list())?.first?.displayName
+    private static func firstRecord(in trustStore: TrustStore) -> PeerRecord? {
+        (try? trustStore.list())?.first
     }
 }

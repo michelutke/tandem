@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import dev.tandem.core.ui.TandemActivity
 
 /**
@@ -24,13 +25,14 @@ class PickFilesActivity : TandemActivity() {
                 registry ?: activityResultRegistry,
             ) { uris ->
                 uris.forEach(::keepReadAccess)
-                entry().offer(uris)
+                if (!entry().offer(uris)) uris.forEach(::releaseReadAccess)
                 finish()
             }
         picker.launch(arrayOf("*/*"))
     }
 
-    // The picker's grant ends with this activity, but bytes are read only after the Mac accepts.
+    // The picker's grant ends with this activity, but bytes are read only after the Mac accepts;
+    // the persisted grant is released once the transfer ends.
     private fun keepReadAccess(uri: Uri) {
         try {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -39,6 +41,19 @@ class PickFilesActivity : TandemActivity() {
         }
     }
 
+    private fun releaseReadAccess(uri: Uri) {
+        try {
+            applicationContext.contentResolver
+                .releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+            Unit
+        }
+    }
+
     private fun entry() =
-        SendEntry(packageName, contentResolver, starter ?: SendFeedbackToasts.liveStarter(applicationContext))
+        SendEntry(
+            packageName,
+            contentResolver,
+            starter ?: SendFeedbackToasts.liveStarter(applicationContext) { releaseReadAccess(it.uri.toUri()) },
+        )
 }

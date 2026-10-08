@@ -117,6 +117,7 @@ is on: state changes become instant, pulses stop.
 | `PillButton` | Primary (ink / alert fill) and secondary (ink 5 %) |
 | `DotProgress`, `DotRing`, `DotQR` | Dot visuals; DotQR renders modules as dots with rounded finder patterns and a ≥ 4-module quiet zone |
 | `GlassSheet` | Modal confirmation on a 20 % scrim |
+| `ToastPill` | Glass pill with a signal dot and one line; shown top right in a click-through, non-activating panel for 1.8 s (clipboard received) |
 
 ### 5.2 Android (`core/designsystem`, #414)
 
@@ -299,6 +300,12 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | send.clipboard.received | Received from Mac. (Android toast) / Received from phone. (Mac menu) |
 | send.clipboard.empty | Nothing on the clipboard to send. |
 | send.clipboard.tooLarge | Text too large to send (max 1 MiB). (Android) / Clipboard too large to send, use file transfer (Mac) |
+| settings.clipboard.autoCapture | Send copies to Mac automatically (Android Settings row; off by default) |
+| settings.clipboard.autoCapture.explain | Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything on screen, not just the clipboard. Tandem only watches the system copy notice and reads nothing else. Turn on Tandem clipboard in the next screen. You can switch this off any time. |
+| settings.clipboard.autoCapture.removeAccess | Turn off Tandem clipboard in Accessibility settings to remove access. |
+| accessibility.service.clipboard.label | Tandem clipboard (name in system Accessibility settings) |
+| accessibility.service.input.label | Tandem remote control (name in system Accessibility settings) |
+| settings.clipboard.autoCapture.needsService | Allow Tandem in Accessibility settings. |
 | send.clipboard.protected | Not sent: protected item (Mac menu) |
 | send.file.started | Sending to Mac… (Android toast) / Sending to phone. (Mac menu) |
 | send.file.sent | Sent to Mac. (Android toast) |
@@ -310,6 +317,7 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | files.folderFailed | Couldn't use that folder. |
 | send.notConnected | Not connected to your Mac. (Android) / Phone not connected. (Mac menu) |
 | send.file.folder | Folders can't be sent. (Mac menu) |
+| clipboard.receivedToast | Copied from {device}. (Mac toast; falls back to "your phone"; never shows the clip) |
 | file.incoming | Incoming file / {name} ({size}) with Accept and Decline: notification and, on Mac, an in-app alert |
 
 ## 11. Accessibility

@@ -15,9 +15,14 @@ extension TandemMenuBarApp {
             return scenarioPairedDevicesViewModel
         }
         #endif
+        if let existing = _settingsPairedDevicesViewModel { return existing }
         guard let lifecycle = retainedProductionLifecycle else { return nil }
-        return AppComposition.makePairedDevicesViewModel(lifecycle: lifecycle)
+        let created = AppComposition.makePairedDevicesViewModel(lifecycle: lifecycle)
+        _settingsPairedDevicesViewModel = created
+        return created
     }
+
+    nonisolated(unsafe) private static var _settingsPairedDevicesViewModel: PairedDevicesViewModel?
 
     /// The Key tab's view model over the production rotation (E70-16), built once per process;
     /// under a DEBUG `-UITestScenario` launch, a seeded fake rotator (``SettingsScenarioSupport``).

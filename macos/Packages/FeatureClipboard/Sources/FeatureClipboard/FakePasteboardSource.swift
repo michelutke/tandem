@@ -18,6 +18,7 @@ final class FakePasteboardSource: PasteboardSource, Sendable {
         var changeCount: Int
         var types: [NSPasteboard.PasteboardType]
         var strings: [NSPasteboard.PasteboardType: String] = [:]
+        var ownedByOtherApp = false
     }
 
     private let state: Mutex<State>
@@ -36,6 +37,21 @@ final class FakePasteboardSource: PasteboardSource, Sendable {
         set { state.withLock { $0.types = newValue } }
     }
 
+    /// Models another app owning the pasteboard: like AppKit, `setString` then fails until
+    /// `clearContents()` takes ownership.
+    var ownedByOtherApp: Bool {
+        get { state.withLock { $0.ownedByOtherApp } }
+        set { state.withLock { $0.ownedByOtherApp = newValue } }
+    }
+
+    func clearContents() {
+        state.withLock {
+            $0.strings = [:]
+            $0.ownedByOtherApp = false
+            $0.changeCount += 1
+        }
+    }
+
     func types() -> [NSPasteboard.PasteboardType] {
         state.withLock { $0.types }
     }
@@ -51,10 +67,11 @@ final class FakePasteboardSource: PasteboardSource, Sendable {
     @discardableResult
     func setString(_ string: String, forType type: NSPasteboard.PasteboardType) -> Bool {
         state.withLock {
+            guard !$0.ownedByOtherApp else { return false }
             $0.strings[type] = string
             $0.changeCount += 1
+            return true
         }
-        return true
     }
 }
 #endif

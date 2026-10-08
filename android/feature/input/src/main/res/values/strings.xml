@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="accessibility_service_label">Tandem remote control</string>
     <string name="accessibility_service_description">Lets your Mac tap and type on this phone during a mirror session you start.</string>
     <string name="remote_input_indicator_channel_name">Remote input</string>
     <string name="remote_input_indicator_title">Your Mac can control this phone</string>

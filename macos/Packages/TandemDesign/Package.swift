@@ -10,6 +10,7 @@ let package = Package(
     targets: [
         .target(
             name: "TandemDesign",
+            resources: [.process("Fonts")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

@@ -7,9 +7,12 @@ import android.widget.Toast
 
 /** Shows [SendFeedback] as toasts (ui-spec.md §9.4); never names the file (invariant 7). */
 internal object SendFeedbackToasts {
-    fun liveStarter(context: Context): TransferStarter {
+    fun liveStarter(
+        context: Context,
+        onFinished: (SendRequest) -> Unit = {},
+    ): TransferStarter {
         val mainHandler = Handler(Looper.getMainLooper())
-        return LiveFileSession.starter { feedback ->
+        return LiveFileSession.starter(onFinished) { feedback ->
             mainHandler.post { Toast.makeText(context, message(context, feedback), Toast.LENGTH_SHORT).show() }
         }
     }

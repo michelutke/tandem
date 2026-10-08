@@ -43,6 +43,7 @@ struct DeviceStatusViewModelTests {
         }
 
         #expect(await viewModel.batteryText == "Battery 82% · Charging")
+        #expect(await viewModel.batteryPercent == 82)
         #expect(await viewModel.networkText == "Cellular")
         #expect(await viewModel.signalBars == 3)
         #expect(await viewModel.signalAccessibilityValue == "3 of 4 bars")

@@ -1,12 +1,19 @@
 package dev.tandem.core.designsystem
 
 import android.provider.Settings
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
@@ -31,6 +38,11 @@ object TandemMotion {
         spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)
     val cookieFabSpring: FiniteAnimationSpec<Float> =
         spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+
+    /** #08 Top-level screen change: fade-through, spring effects. */
+    val screenFadeSpring: FiniteAnimationSpec<Float> =
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+    const val SCREEN_ENTER_SCALE = 0.96f
 
     /** #06 Find phone: pulse loop. */
     const val FIND_PHONE_PULSE_MILLIS = 1200
@@ -78,3 +90,23 @@ fun tandemAnimateDpAsState(
     val effectiveSpec: FiniteAnimationSpec<Dp> = if (reduceMotion) snap() else spec
     return animateDpAsState(targetValue = targetValue, animationSpec = effectiveSpec, label = label)
 }
+
+/**
+ * Fade-through between top-level screens: the outgoing screen fades out, the incoming one fades in
+ * and scales up slightly. Instant when [reduceMotion] (defaults to [rememberReduceMotion]) is on.
+ */
+@Composable
+fun rememberScreenTransition(reduceMotion: Boolean = rememberReduceMotion()): ContentTransform =
+    remember(reduceMotion) {
+        if (reduceMotion) {
+            EnterTransition.None togetherWith ExitTransition.None
+        } else {
+            (
+                fadeIn(TandemMotion.screenFadeSpring) +
+                    scaleIn(
+                        initialScale = TandemMotion.SCREEN_ENTER_SCALE,
+                        animationSpec = TandemMotion.screenFadeSpring,
+                    )
+            ) togetherWith fadeOut(TandemMotion.screenFadeSpring)
+        }
+    }

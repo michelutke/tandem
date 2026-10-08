@@ -1,3 +1,4 @@
+import Foundation
 import Network
 import Security
 
@@ -14,6 +15,9 @@ public final class ListenerController: Sendable {
     private let clock: any Clock<Duration>
     private let portStore: (any ListenerPortStore)?
     private let binder: any ListenerBinder
+    private let preferredBindAttempts: Int
+    private let preferredBindRetryDelay: Duration
+    private let pause: @Sendable (Duration) -> Void
 
     public init(
         identityStateProvider: any IdentityStateProvider,
@@ -22,7 +26,10 @@ public final class ListenerController: Sendable {
         verify: @escaping TandemVerifyBlock,
         clock: any Clock<Duration> = ContinuousClock(),
         portStore: (any ListenerPortStore)? = nil,
-        binder: any ListenerBinder = NWListenerBinder()
+        binder: any ListenerBinder = NWListenerBinder(),
+        preferredBindAttempts: Int = 5,
+        preferredBindRetryDelay: Duration = .seconds(1),
+        pause: @escaping @Sendable (Duration) -> Void = ListenerController.blockingPause
     ) {
         self.identityStateProvider = identityStateProvider
         self.listenerFactory = listenerFactory
@@ -31,6 +38,9 @@ public final class ListenerController: Sendable {
         self.clock = clock
         self.portStore = portStore
         self.binder = binder
+        self.preferredBindAttempts = preferredBindAttempts
+        self.preferredBindRetryDelay = preferredBindRetryDelay
+        self.pause = pause
     }
 
     /// A running listener paired with the ``ConnectionAdmission`` instance backing it -- the only
@@ -60,28 +70,51 @@ public final class ListenerController: Sendable {
         return try startRememberingPort(identity: identity, admission: admission, portStore: portStore)
     }
 
-    /// Binds the persisted port first and falls back to `port` (OS-assigned) only when that bind
-    /// fails, persisting whichever port actually bound so the phone's stored address stays valid.
+    /// Binds the persisted port first, retrying for a short window because a previous process may
+    /// not have released it yet. Falls back to `port` (OS-assigned) only when every attempt fails,
+    /// and then leaves the stored port alone so the next launch tries the paired port again; a port
+    /// is persisted only when none is stored yet.
     private func startRememberingPort(
         identity: SecIdentity,
         admission: ConnectionAdmission,
         portStore: any ListenerPortStore
     ) throws -> StartedListener? {
-        if let preferred = portStore.preferredPort.flatMap(NWEndpoint.Port.init(rawValue:)) {
-            let listener = try makeListener(identity: identity, port: preferred, admission: admission)
-            if case .ready(let bound) = binder.bind(listener) {
-                portStore.persist(bound)
-                return StartedListener(listener: listener, admission: admission)
-            }
-            listener.cancel()
+        let preferredPort = portStore.preferredPort.flatMap(NWEndpoint.Port.init(rawValue:))
+        if let preferredPort,
+           let started = bindPreferred(preferredPort, identity: identity, admission: admission) {
+            return started
         }
         let listener = try makeListener(identity: identity, port: port, admission: admission)
         guard case .ready(let bound) = binder.bind(listener) else {
             listener.cancel()
             throw ListenerBindError.bindFailed
         }
-        portStore.persist(bound)
+        if preferredPort == nil { portStore.persist(bound) }
         return StartedListener(listener: listener, admission: admission)
+    }
+
+    private func bindPreferred(
+        _ preferred: NWEndpoint.Port,
+        identity: SecIdentity,
+        admission: ConnectionAdmission
+    ) -> StartedListener? {
+        for attempt in 0..<max(preferredBindAttempts, 1) {
+            if attempt > 0 { pause(preferredBindRetryDelay) }
+            guard let listener = try? makeListener(identity: identity, port: preferred, admission: admission) else {
+                return nil
+            }
+            if case .ready = binder.bind(listener) {
+                return StartedListener(listener: listener, admission: admission)
+            }
+            listener.cancel()
+        }
+        return nil
+    }
+
+    /// Blocks the calling thread, like ``ListenerBinder/bind(_:)`` itself does.
+    public static func blockingPause(_ duration: Duration) {
+        let parts = duration.components
+        Thread.sleep(forTimeInterval: Double(parts.seconds) + Double(parts.attoseconds) / 1e18)
     }
 
     private func makeListener(

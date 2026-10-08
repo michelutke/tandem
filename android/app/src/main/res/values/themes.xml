@@ -3,5 +3,10 @@
     <style name="Theme.Tandem" parent="android:Theme.Material.Light.NoActionBar" />
 
     <!-- E31-12: invisible host for ClipboardCaptureActivity -->
-    <style name="Theme.Tandem.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
+    <style name="Theme.Tandem.Transparent" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowNoDisplay">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

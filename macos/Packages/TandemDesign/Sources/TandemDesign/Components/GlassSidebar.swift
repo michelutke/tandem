@@ -19,6 +19,7 @@ public struct GlassSidebar: View {
     private let isConnected: Bool
     private let stateText: String
     private let sections: [GlassSidebarSection]
+    private let selectedID: Int?
     private let onSelect: (GlassSidebarSection) -> Void
 
     public init(
@@ -26,14 +27,19 @@ public struct GlassSidebar: View {
         isConnected: Bool,
         stateText: String,
         sections: [GlassSidebarSection],
+        selectedID: Int? = nil,
         onSelect: @escaping (GlassSidebarSection) -> Void
     ) {
         self.deviceName = deviceName
         self.isConnected = isConnected
         self.stateText = stateText
         self.sections = sections
+        self.selectedID = selectedID
         self.onSelect = onSelect
     }
+
+    /// Space above the device name so it clears the traffic lights of a hidden title bar.
+    private static let trafficLightClearance: CGFloat = 52
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
@@ -44,7 +50,7 @@ public struct GlassSidebar: View {
                     .padding(.top, 6)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(deviceName)
-                        .tandemTextStyle(TandemTypography.rowTitle())
+                        .tandemTextStyle(TandemTypography.rowTitle(size: 18))
                         .foregroundStyle(TandemColor.ink)
                     Text(stateText)
                         .tandemTextStyle(TandemTypography.meta())
@@ -55,20 +61,31 @@ public struct GlassSidebar: View {
             }
             .padding(.horizontal, TandemSpacing.popoverPadding)
 
-            VStack(spacing: 0) {
+            VStack(spacing: 2) {
                 ForEach(sections) { section in
                     NumberedActionRow(
                         index: section.id,
                         title: section.title,
-                        identifier: "\(section.title.lowercased())Section"
+                        identifier: "\(section.title.lowercased())Section",
+                        isSelected: section.id == selectedID,
+                        emphasizesSelection: true,
+                        verticalPadding: TandemSpacing.small,
+                        horizontalPadding: TandemSpacing.medium
                     ) {
                         onSelect(section)
                     }
                 }
             }
+            .padding(.horizontal, TandemSpacing.small)
+
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, TandemSpacing.large)
+        .padding(.top, Self.trafficLightClearance)
+        .padding(.bottom, TandemSpacing.large)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(TandemColor.ink.opacity(0.04))
         .glassSurface(cornerRadius: 0)
+        .ignoresSafeArea()
     }
 }
 

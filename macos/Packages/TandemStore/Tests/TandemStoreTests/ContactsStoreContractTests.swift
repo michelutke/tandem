@@ -48,6 +48,20 @@ struct ContactsStoreContractTests {
     }
 
     @Test(arguments: ContactsStoreKind.allCases)
+    private func contactsCache_allContacts_returnsOnlyThatPeersContactsByIdOrder(kind: ContactsStoreKind) async throws {
+        let store = try makeStore(kind)
+        try await store.apply(
+            peer: peerA, contacts: [contact("8"), contact("6", numbers: ["+41791234567"])],
+            deletedContactIds: [], watermarkMs: nil
+        )
+        try await store.apply(peer: peerB, contacts: [contact("9")], deletedContactIds: [], watermarkMs: nil)
+
+        let all = try await store.allContacts(peer: peerA)
+        #expect(all.map(\.contactId) == ["6", "8"])
+        #expect(all.first?.phoneNumbers.map(\.number) == ["+41791234567"])
+    }
+
+    @Test(arguments: ContactsStoreKind.allCases)
     private func contactsCache_lookupDifferentlyFormattedEquivalentNumber_resolvesSameContact(
         kind: ContactsStoreKind
     ) async throws {

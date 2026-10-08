@@ -33,7 +33,10 @@ final class FindPhoneViewModel {
     private(set) var label = RingState.idle.label
 
     private var ringState = RingState.idle
-    private let session: (any TandemSession)?
+    private var session: (any TandemSession)?
+
+    /// "Phone not connected." after a selection with no session; cleared by the next one.
+    private(set) var statusText: String?
 
     @ObservationIgnored
     private nonisolated(unsafe) var observationTask: Task<Void, Never>?
@@ -55,7 +58,11 @@ final class FindPhoneViewModel {
     /// -> sends exactly one `RingStop{origin: mac}`, becomes ``RingState/idle``. No-op with no
     /// session.
     func select() {
-        guard let session else { return }
+        guard let session else {
+            statusText = "Phone not connected."
+            return
+        }
+        statusText = nil
         switch ringState {
         case .idle:
             ringState = .ringing
@@ -68,6 +75,18 @@ final class FindPhoneViewModel {
             ringStop.origin = .mac
             Task { try? await session.send(.status, payload: .ringStop(ringStop)) }
         }
+    }
+
+    /// Switches to the paired peer's current session (`nil` once it ends): the ring resets and the
+    /// phone-originated `RingStop` observation moves to the new session.
+    func sessionChanged(_ session: (any TandemSession)?) {
+        observationTask?.cancel()
+        observationTask = nil
+        self.session = session
+        ringState = .idle
+        label = RingState.idle.label
+        statusText = nil
+        if let session { observe(session) }
     }
 
     /// Observes `session`'s STATUS channel for a phone-originated `RingStop` (a `Ring` this side

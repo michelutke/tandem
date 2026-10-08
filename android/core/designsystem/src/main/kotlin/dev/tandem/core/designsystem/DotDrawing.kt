@@ -3,14 +3,19 @@
 package dev.tandem.core.designsystem
 
 import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.toPath
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.graphics.shapes.Morph
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -96,33 +101,19 @@ internal fun DrawScope.drawCheckMark(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private val cookieMorph by lazy {
+    Morph(MaterialShapes.Cookie9Sided.normalized(), MaterialShapes.Circle.normalized())
+}
+
 /**
- * A scalloped "cookie" outline that flattens toward a circle as [morph] goes from 0 to 1
- * (ui-spec §4 motion #04: "Shape-morphs cookie -> circle on press").
- *
- * Deviation: `androidx.compose.material3.MaterialShapes` (the M3 Expressive cookie shape) is not
- * present in the pinned material3 1.4.0 build (verified by inspecting the resolved
- * `material3-android-1.4.0` aar: no `MaterialShapesKt` class), so this hand-rolls the same visual
- * with a lobed polygon instead of the library's shape morphing.
+ * The M3E cookie outline flattening to a circle as [morph] goes from 0 to 1 (ui-spec §4 motion
+ * #04: "Shape-morphs cookie -> circle on press"), via the platform `MaterialShapes` morph.
  */
-internal fun cookieShape(
-    morph: Float,
-    lobes: Int = 8,
-): Shape =
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+internal fun cookieShape(morph: Float): Shape =
     GenericShape { size, _ ->
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val outerRadius = size.minDimension / 2f
-        val innerRadius = outerRadius * (1f - 0.14f * (1f - morph.coerceIn(0f, 1f)))
-        val totalPoints = lobes * 2
-        for (index in 0 until totalPoints) {
-            val angle = (2 * PI * index / totalPoints) - PI / 2
-            val radius = if (index % 2 == 0) outerRadius else innerRadius
-            val point =
-                Offset(
-                    x = center.x + radius * cos(angle).toFloat(),
-                    y = center.y + radius * sin(angle).toFloat(),
-                )
-            if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
-        }
-        close()
+        val path = cookieMorph.toPath(morph.coerceIn(0f, 1f))
+        path.transform(Matrix().apply { scale(size.width, size.height) })
+        addPath(path)
     }

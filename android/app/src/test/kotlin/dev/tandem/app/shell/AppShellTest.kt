@@ -3,11 +3,15 @@ package dev.tandem.app.shell
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.app.connection.PairingAddressStore
@@ -16,6 +20,8 @@ import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
 import dev.tandem.app.onboarding.WELCOME_STATE
+import dev.tandem.app.settings.AppPermission
+import dev.tandem.app.settings.RecordingPermissionGateway
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.storage.trust.PeerRecord
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +47,7 @@ class AppShellTest {
     private var connected = true
     private var sendCount = 0
     private val unpaired = mutableListOf<SpkiFingerprint>()
+    private val permissionGateway = RecordingPermissionGateway()
 
     private fun setShell() {
         val dependencies =
@@ -59,6 +66,7 @@ class AppShellTest {
                 },
                 onSendClipboard = { sendCount++ },
                 isConnected = { connected },
+                permissions = permissionGateway,
             )
         composeRule.setContent { AppShell(navigator = AppShellNavigator(peers), dependencies = dependencies) }
     }
@@ -68,7 +76,7 @@ class AppShellTest {
         setShell()
 
         composeRule.onNodeWithText(WELCOME_STATE).assertExists()
-        composeRule.onNodeWithText("Home").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
     }
 
     @Test
@@ -78,8 +86,8 @@ class AppShellTest {
 
         composeRule.onNodeWithText("Linked to MacBook Pro.").assertExists()
 
-        composeRule.onNodeWithText("Settings").performClick()
-        composeRule.onNodeWithText("Unpair").performClick()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Unpair").performScrollTo().performClick()
         composeRule.onAllNodesWithText("Unpair").onLast().performClick()
         composeRule.waitForIdle()
 
@@ -92,7 +100,7 @@ class AppShellTest {
         batteryRestricted = true
         peers.value = listOf(PEER)
         setShell()
-        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
         composeRule.onNodeWithText("Restricted").assertExists()
 
         batteryRestricted = false
@@ -107,7 +115,7 @@ class AppShellTest {
         batteryRestricted = true
         peers.value = listOf(PEER)
         setShell()
-        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
 
         composeRule.onNodeWithText("Fix").performClick()
 
@@ -121,9 +129,9 @@ class AppShellTest {
         peers.value = listOf(PEER)
         setShell()
 
-        composeRule.onAllNodesWithText("Notifications").onLast().performClick()
+        composeRule.onNodeWithContentDescription("Notifications").performClick()
         composeRule.onNodeWithText("Notifications.").assertExists()
-        composeRule.onNodeWithText("Activity").performClick()
+        composeRule.onNodeWithContentDescription("Activity").performClick()
         composeRule.onNodeWithText("Activity.").assertExists()
     }
 
@@ -133,7 +141,7 @@ class AppShellTest {
         peers.value = listOf(PEER)
         setShell()
 
-        composeRule.onNodeWithText("↑").performClick()
+        composeRule.onNodeWithContentDescription("Send to Mac").performClick()
         composeRule.onNodeWithText("Send clipboard to Mac").performClick()
 
         composeRule.onNodeWithText("Not connected to your Mac.").assertExists()
@@ -145,11 +153,52 @@ class AppShellTest {
         peers.value = listOf(PEER)
         setShell()
 
-        composeRule.onNodeWithText("↑").performClick()
+        composeRule.onNodeWithContentDescription("Send to Mac").performClick()
         composeRule.onNodeWithText("Send clipboard to Mac").performClick()
 
         composeRule.onNodeWithText("Not connected to your Mac.").assertDoesNotExist()
         assertEquals(1, sendCount)
+    }
+
+    @Test
+    fun floatingToolbar_everyTopLevelRoute_isAtTheSamePosition() {
+        peers.value = listOf(PEER)
+        setShell()
+        val homeBounds = composeRule.onNodeWithContentDescription("Home").getUnclippedBoundsInRoot()
+
+        listOf("Notifications", "Activity", "Settings").forEach { destination ->
+            composeRule.onNodeWithContentDescription(destination).performClick()
+            composeRule.waitForIdle()
+
+            val bounds = composeRule.onNodeWithContentDescription("Home").getUnclippedBoundsInRoot()
+            assertEquals("$destination top", homeBounds.top, bounds.top)
+            assertEquals("$destination bottom", homeBounds.bottom, bounds.bottom)
+        }
+    }
+
+    @Test
+    fun settings_permissionsTapped_listsEveryPermissionWithItsState() {
+        peers.value = listOf(PEER)
+        setShell()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        composeRule.onNodeWithText("Review").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Permissions.").assertIsDisplayed()
+        AppPermission.entries.forEach { composeRule.onNodeWithText(it.label).assertExists() }
+    }
+
+    @Test
+    fun settings_permissionRowTapped_requestsThatPermission() {
+        peers.value = listOf(PEER)
+        setShell()
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+        composeRule.onNodeWithText("Review").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("Camera").performScrollTo().performClick()
+
+        assertEquals(listOf(AppPermission.CAMERA), permissionGateway.requested)
     }
 
     private companion object {

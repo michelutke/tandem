@@ -7,25 +7,30 @@ import TandemDesign
 public struct ConversationView: View {
     @Bindable private var viewModel: ConversationViewModel
     private let headerAccessory: (@MainActor (String) -> AnyView)?
+    private let offlineComposerText: String?
 
-    /// - Parameter headerAccessory: hosted beside the title with the thread's phone number once
-    ///   loaded (the app target's Call button, E52-10).
-    public init(viewModel: ConversationViewModel, headerAccessory: (@MainActor (String) -> AnyView)? = nil) {
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    /// - Parameters:
+    ///   - headerAccessory: hosted beside the title with the thread's phone number once loaded
+    ///     (the app target's Call button, E52-10).
+    ///   - offlineComposerText: when non-nil the phone is offline: the composer is disabled and
+    ///     shows this text ("Sends when Pixel 9 is back", ui-spec §7.1).
+    public init(
+        viewModel: ConversationViewModel,
+        headerAccessory: (@MainActor (String) -> AnyView)? = nil,
+        offlineComposerText: String? = nil
+    ) {
         self.viewModel = viewModel
         self.headerAccessory = headerAccessory
+        self.offlineComposerText = offlineComposerText
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
-            HStack(alignment: .top) {
-                TitleBlock(subject: "\(viewModel.title).", state: "\(viewModel.bubbles.count) messages.", size: 26)
-                Spacer()
-                if let headerAccessory, !viewModel.callAddress.isEmpty {
-                    headerAccessory(viewModel.callAddress)
-                }
-            }
+            header
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                LazyVStack(alignment: .leading, spacing: TandemSpacing.small) {
                     ForEach(viewModel.bubbles) { bubble in
                         bubbleRow(bubble)
                     }
@@ -39,10 +44,41 @@ public struct ConversationView: View {
         .task { await viewModel.reload() }
     }
 
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(viewModel.title).")
+                    .tandemTextStyle(TandemTypography.sectionTitleBold())
+                    .foregroundStyle(TandemColor.ink)
+                    .lineLimit(1)
+                if let subtitle {
+                    Text(subtitle)
+                        .tandemTextStyle(TandemTypography.meta())
+                        .foregroundStyle(TandemColor.ink2)
+                }
+            }
+            Spacer()
+            if let headerAccessory, !viewModel.callAddress.isEmpty {
+                headerAccessory(viewModel.callAddress)
+            }
+        }
+        .padding(.bottom, TandemSpacing.small)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(TandemColor.line(increasedContrast: contrast == .increased)).frame(height: 1)
+        }
+    }
+
+    private var subtitle: String? {
+        let address = viewModel.callAddress
+        return address.isEmpty || address == viewModel.title ? nil : address
+    }
+
     private func bubbleRow(_ bubble: MessageBubble) -> some View {
         VStack(alignment: bubble.isOutbound ? .trailing : .leading, spacing: TandemSpacing.extraSmall) {
             Text(bubble.body)
                 .tandemTextStyle(TandemTypography.body())
+                .frame(maxWidth: 380, alignment: bubble.isOutbound ? .trailing : .leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(bubble.isOutbound ? TandemColor.paper : TandemColor.ink)
                 .padding(.horizontal, TandemSpacing.medium)
                 .padding(.vertical, TandemSpacing.small)
@@ -86,8 +122,16 @@ public struct ConversationView: View {
             .foregroundStyle(color)
     }
 
+    private var isOffline: Bool { offlineComposerText != nil }
+
     private var composer: some View {
         HStack(spacing: TandemSpacing.small) {
+            TextField(offlineComposerText ?? "Text message", text: $viewModel.draft)
+                .textFieldStyle(.plain)
+                .tandemTextStyle(TandemTypography.body())
+                .disabled(isOffline)
+                .onSubmit { Task { await viewModel.sendTapped() } }
+                .accessibilityIdentifier("composeField")
             if viewModel.showsSimPicker {
                 Picker("SIM", selection: $viewModel.selectedSubscriptionId) {
                     ForEach(viewModel.sims) { sim in
@@ -98,19 +142,23 @@ public struct ConversationView: View {
                 .fixedSize()
                 .accessibilityIdentifier("simPicker")
             }
-            TextField("Message", text: $viewModel.draft)
-                .textFieldStyle(.plain)
-                .tandemTextStyle(TandemTypography.body())
-                .onSubmit { Task { await viewModel.sendTapped() } }
-                .accessibilityIdentifier("composeField")
-            PillButton("Send") { Task { await viewModel.sendTapped() } }
-                .frame(width: 88)
-                .disabled(!viewModel.canSend)
-                .accessibilityIdentifier("sendButton")
+            Button { Task { await viewModel.sendTapped() } } label: {
+                Image(systemName: "arrow.up")
+                    .foregroundStyle(TandemColor.paper)
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(TandemColor.ink))
+                    .opacity(isOffline ? 0.3 : 1)
+            }
+            .buttonStyle(.plain)
+            .disabled(!sendEnabled)
+            .accessibilityLabel("Send")
+            .accessibilityIdentifier("sendButton")
         }
-        .padding(.top, TandemSpacing.small)
-        .overlay(alignment: .top) {
-            Rectangle().fill(TandemColor.line).frame(height: 1)
-        }
+        .padding(.leading, TandemSpacing.large)
+        .padding(.trailing, TandemSpacing.small)
+        .padding(.vertical, TandemSpacing.small)
+        .overlay(Capsule().stroke(TandemColor.line, lineWidth: 1))
     }
+
+    private var sendEnabled: Bool { viewModel.canSend && !isOffline }
 }

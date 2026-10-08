@@ -5,7 +5,12 @@ data class SettingsState(
     val macName: String,
     val batteryRestricted: Boolean,
     val keyShortCode: String,
-)
+    val connected: Boolean = true,
+    val autoCapture: Boolean = false,
+    val autoCaptureServiceOn: Boolean = false,
+) {
+    val connectionLabel: String get() = if (connected) "Connected" else "Not connected"
+}
 
 private const val KEY_SHORT_CODE_GROUP = 4
 

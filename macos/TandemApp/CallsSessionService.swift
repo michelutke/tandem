@@ -1,3 +1,4 @@
+import Foundation
 import FeatureCalls
 import FeatureNotifications
 import Observation
@@ -75,7 +76,8 @@ final class CallsSessionService: SessionService, @unchecked Sendable {
                 presenter: alertPresenter,
                 session: session,
                 contacts: contacts,
-                peer: peer
+                peer: peer,
+                now: { Date() }
             )
             viewModel.start()
             activeCall.set(viewModel)

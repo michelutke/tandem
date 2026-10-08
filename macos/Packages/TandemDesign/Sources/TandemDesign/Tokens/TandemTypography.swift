@@ -1,3 +1,5 @@
+import AppKit
+import CoreText
 import SwiftUI
 
 /// A font plus the letter-spacing (`tracking`) it is always paired with (ui-spec §3.2: "Letter-
@@ -23,51 +25,85 @@ public enum TandemFontFamily {
     public static let jetBrainsMono = "JetBrainsMono-Regular"
 }
 
+/// Registers the bundled Inter Tight and JetBrains Mono faces (SIL OFL, see `Fonts/OFL-*.txt`) with
+/// CoreText for this process. Idempotent; a failure leaves the system-font fallback in place.
+public enum TandemFonts {
+    private static let fileNames = ["InterTight[wght]", "JetBrainsMono-Regular"]
+
+    private static let registered: Bool = {
+        let urls = fileNames.compactMap { Bundle.module.url(forResource: $0, withExtension: "ttf") }
+        guard urls.count == fileNames.count else { return false }
+        return urls.allSatisfy { CTFontManagerRegisterFontsForURL($0 as CFURL, .process, nil) }
+    }()
+
+    /// Registers the fonts once; returns whether every face registered.
+    @discardableResult
+    public static func register() -> Bool { registered }
+}
+
+/// Resolves a family at a size, falling back to the system font at the same weight (monospaced for
+/// the code family) when the family isn't installed, so bold titles stay bold without bundled fonts.
+private func tandemFont(_ family: String, size: CGFloat, weight: Font.Weight, monospaced: Bool = false) -> Font {
+    TandemFonts.register()
+    if NSFont(name: family, size: size) != nil {
+        return .custom(family, size: size)
+    }
+    return .system(size: size, weight: weight, design: monospaced ? .monospaced : .default)
+}
+
+private func mono(_ size: CGFloat) -> Font {
+    tandemFont(TandemFontFamily.jetBrainsMono, size: size, weight: .regular, monospaced: true)
+}
+
+private func ui(_ family: String, _ size: CGFloat, _ weight: Font.Weight) -> Font {
+    tandemFont(family, size: size, weight: weight)
+}
+
 /// Type scale (ui-spec §3.2, E00-32). Every role below maps to exactly one table row.
 public enum TandemTypography {
     /// Display numeral: ring centre, pairing code, timers. 64-96 / 400 / -3 tracking.
     public static func displayNumeral(size: CGFloat = 80) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.jetBrainsMono, size: size), tracking: -3)
+        TandemTextStyle(font: mono(size), tracking: -3)
     }
 
     /// Title pair, bold subject line ("Pixel 9."). 22-28 pt macOS / 700 / -1 tracking.
     public static func titlePairBold(size: CGFloat = 24) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTightBold, size: size), tracking: -1)
+        TandemTextStyle(font: ui(TandemFontFamily.interTightBold, size, .bold), tracking: -1)
     }
 
     /// Title pair, regular state line ("Connected."). Same size as the bold line.
     public static func titlePairRegular(size: CGFloat = 24) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTight, size: size), tracking: -1)
+        TandemTextStyle(font: ui(TandemFontFamily.interTight, size, .regular), tracking: -1)
     }
 
     /// Section title (Mac main window): "Messages." / "3 unread." 26 / 700+400 / -0.8 tracking.
     public static func sectionTitleBold(size: CGFloat = 26) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTightBold, size: size), tracking: -0.8)
+        TandemTextStyle(font: ui(TandemFontFamily.interTightBold, size, .bold), tracking: -0.8)
     }
 
     /// Section title, regular weight.
     public static func sectionTitleRegular(size: CGFloat = 26) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTight, size: size), tracking: -0.8)
+        TandemTextStyle(font: ui(TandemFontFamily.interTight, size, .regular), tracking: -0.8)
     }
 
     /// Row title. 16-17 / 600 / -0.3 tracking.
     public static func rowTitle(size: CGFloat = 16) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTightSemibold, size: size), tracking: -0.3)
+        TandemTextStyle(font: ui(TandemFontFamily.interTightSemibold, size, .semibold), tracking: -0.3)
     }
 
     /// Body. 13-15 / 400, line height 1.45 (applied by the caller via `.lineSpacing`).
     public static func body(size: CGFloat = 14) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTight, size: size), tracking: 0)
+        TandemTextStyle(font: ui(TandemFontFamily.interTight, size, .regular), tracking: 0)
     }
 
     /// Meta: units, timestamps. 11-12 / 400.
     public static func meta(size: CGFloat = 12) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.interTight, size: size), tracking: 0)
+        TandemTextStyle(font: ui(TandemFontFamily.interTight, size, .regular), tracking: 0)
     }
 
     /// Row numbers ("01", "02") and other meta text that is a code: meta size, mono.
     public static func metaMono(size: CGFloat = 12) -> TandemTextStyle {
-        TandemTextStyle(font: .custom(TandemFontFamily.jetBrainsMono, size: size), tracking: 0)
+        TandemTextStyle(font: mono(size), tracking: 0)
     }
 }
 

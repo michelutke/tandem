@@ -60,6 +60,8 @@ dependencies {
     // SettingsStore (E13-04): PerAppNotificationFilter's (E30-04) and IconSender's (E30-05)
     // DataStore-backed overrides/sent-icon records.
     implementation(project(":core:storage"))
+    // M3ESwitch and tokens for PerAppNotificationFilterScreen.
+    implementation(project(":core:designsystem"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.datastore.preferences.core)
 

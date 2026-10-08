@@ -1,39 +1,50 @@
 import AppKit
 import FeatureFiles
 import SwiftUI
+import TandemDesign
 import TandemDevices
 
-/// Tabs of the Settings window (E22-05).
-enum SettingsTab: Hashable {
+/// Tabs of the Settings window (ui-spec §7.1, mac-settings.png).
+enum SettingsTab: Hashable, CaseIterable {
     case general
-    case pairedDevices
+    case notifications
     case files
-    case key
+    case privacy
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .notifications: "Notifications"
+        case .files: "Files"
+        case .privacy: "Privacy"
+        }
+    }
+
+    var identifier: String {
+        switch self {
+        case .general: "generalTab"
+        case .notifications: "notificationsTab"
+        case .files: "filesTab"
+        case .privacy: "privacyTab"
+        }
+    }
 }
 
-/// The Settings window's shell (E22-05, `docs/design/ui-spec.md` "Settings"): a General tab
-/// (launch-at-login toggle, notification-prefs placeholder) and a Paired Devices tab hosting the
-/// E14-14 list/revoke flow E14-26 already composed with a real `TandemStore.UnpairAction` --
-/// this view only ever hosts it, never reimplements it.
+/// The Settings window's shell (ui-spec §7.1): a "Settings." title, the General, Notifications,
+/// Files and Privacy tabs, and hairline rows with ink toggles. Paired devices and key rotation
+/// live in the main window's Devices section; Privacy shows this Mac's key.
 ///
-/// `selectedTab` and `launchAtLoginViewModel` live above the `TabView`, not inside either tab's
-/// own content view, so switching tabs never recreates either -- a toggle flipped on General
-/// keeps its value switching to Paired Devices and back (E22-05 acceptance).
+/// `selectedTab` and `launchAtLoginViewModel` live above the tab content, not inside any tab's
+/// own view, so switching tabs never recreates either -- a toggle flipped on General keeps its
+/// value switching away and back (E22-05 acceptance).
 struct SettingsView: View {
-    /// `nil` if no listener ever started (`AppComposition.StartFailure`, or a DEBUG
-    /// `-UITestScenario` launch that skips production wiring entirely) -- the Paired Devices tab
-    /// then shows a placeholder rather than crashing or silently showing an empty list that looks
-    /// like "no paired devices".
-    let pairedDevicesViewModel: PairedDevicesViewModel?
-
-    /// `nil` when no rotation composition exists (E70-11) -- the Key tab shows a placeholder.
+    /// `nil` when no rotation composition exists (E70-11) -- the Privacy tab shows a placeholder.
     let rotationViewModel: MacRotationSettingsViewModel?
 
     @State private var selectedTab: SettingsTab = .general
     @State private var launchAtLoginViewModel: LaunchAtLoginViewModel
 
-    init(pairedDevicesViewModel: PairedDevicesViewModel?, rotationViewModel: MacRotationSettingsViewModel? = nil) {
-        self.pairedDevicesViewModel = pairedDevicesViewModel
+    init(rotationViewModel: MacRotationSettingsViewModel? = nil) {
         self.rotationViewModel = rotationViewModel
         #if DEBUG
         if UITestScenario.fromLaunchArguments() != nil {
@@ -51,98 +62,111 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // A native `TabView`/`.tabItem` pair is the more idiomatic macOS Settings shell, but
-            // SwiftUI on macOS does not reliably propagate `.accessibilityIdentifier` set inside a
-            // `.tabItem` label closure to the resulting native tab button -- the label view only
-            // supplies the tab bar's rendered title/image, not a real node in the accessibility
-            // tree UI tests can address by identifier. Plain `Button`s driving `selectedTab`
-            // directly are ordinary SwiftUI views with a guaranteed `XCUIElementTypeButton` AX
-            // role, so `app.buttons["…Tab"]` reliably finds them (a segmented `Picker`'s AX role
-            // on macOS is not guaranteed to be `.buttons` the same way).
-            HStack(spacing: 8) {
-                tabButton("General", tab: .general, identifier: "generalTab")
-                tabButton("Paired Devices", tab: .pairedDevices, identifier: "pairedDevicesTab")
-                tabButton("Files", tab: .files, identifier: "filesTab")
-                tabButton("Key", tab: .key, identifier: "keyTab")
-                Spacer()
+        GlassWindow {
+            VStack(alignment: .leading, spacing: TandemSpacing.large) {
+                Text("Settings.")
+                    .tandemTextStyle(TandemTypography.titlePairBold(size: 28))
+                    .foregroundStyle(TandemColor.ink)
+                // A native `TabView`/`.tabItem` pair does not reliably propagate
+                // `.accessibilityIdentifier` to the native tab button, so plain `Button`s drive
+                // `selectedTab` directly: they always expose an `XCUIElementTypeButton`.
+                HStack(spacing: TandemSpacing.large) {
+                    ForEach(SettingsTab.allCases, id: \.self) { tab in
+                        tabButton(tab)
+                    }
+                }
+                tabContent
+                Spacer(minLength: 0)
             }
-            .padding([.horizontal, .top])
-
-            switch selectedTab {
-            case .general:
-                GeneralSettingsView(viewModel: launchAtLoginViewModel)
-            case .pairedDevices:
-                PairedDevicesSettingsView(viewModel: pairedDevicesViewModel)
-            case .files:
-                FilesSettingsView()
-            case .key:
-                KeySettingsView(viewModel: rotationViewModel)
-            }
+            .frame(width: 420, height: 320, alignment: .topLeading)
         }
-        .frame(width: 420, height: 320)
         .onAppear { launchAtLoginViewModel.refreshStatus() }
     }
 
-    private func tabButton(_ title: String, tab: SettingsTab, identifier: String) -> some View {
-        Button(title) { selectedTab = tab }
-            .buttonStyle(.borderless)
-            .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.primary)
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .general:
+            GeneralSettingsView(viewModel: launchAtLoginViewModel)
+        case .notifications:
+            NotificationsSettingsView()
+        case .files:
+            FilesSettingsView()
+        case .privacy:
+            PrivacySettingsView(viewModel: rotationViewModel)
+        }
+    }
+
+    private func tabButton(_ tab: SettingsTab) -> some View {
+        Button(tab.title) { selectedTab = tab }
+            .buttonStyle(.plain)
+            .tandemTextStyle(selectedTab == tab ? TandemTypography.rowTitle(size: 13) : TandemTypography.body(size: 13))
+            .foregroundStyle(selectedTab == tab ? TandemColor.ink : TandemColor.ink2)
+            .accessibilityIdentifier(tab.identifier)
+    }
+}
+
+/// A toggle row with a bottom hairline (ui-spec §2: no boxes).
+private struct SettingsToggleRow: View {
+    let title: String
+    let isOn: Binding<Bool>
+    let identifier: String
+
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        GlassToggle(title, isOn: isOn)
             .accessibilityIdentifier(identifier)
+            .padding(.vertical, TandemSpacing.small)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(TandemColor.line(increasedContrast: contrast == .increased)).frame(height: 1)
+            }
     }
 }
 
 private struct GeneralSettingsView: View {
     let viewModel: LaunchAtLoginViewModel
 
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsToggleRow(
+                title: "Launch at login",
+                isOn: Binding(get: { viewModel.isEnabled }, set: { viewModel.setEnabled($0) }),
+                identifier: "launchAtLoginToggle"
+            )
+            if let hint = viewModel.approvalHintText {
+                Text(hint)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(TandemColor.ink2)
+                    .padding(.top, TandemSpacing.small)
+            }
+        }
+    }
+}
+
+private struct NotificationsSettingsView: View {
     @AppStorage(NotificationsSessionService.hidesContentWhenLockedKey) private var hidesContentWhenLocked = true
 
     var body: some View {
-        Form {
-            Toggle("Launch at login", isOn: Binding(
-                get: { viewModel.isEnabled },
-                set: { viewModel.setEnabled($0) }
-            ))
-            .accessibilityIdentifier("launchAtLoginToggle")
-
-            if let hint = viewModel.approvalHintText {
-                Text(hint)
-                    .foregroundStyle(.secondary)
-            }
-
-            Toggle("Hide notification content while locked", isOn: $hidesContentWhenLocked)
-                .accessibilityIdentifier("hideNotificationContentWhenLockedToggle")
-        }
-        .padding()
+        SettingsToggleRow(
+            title: "Hide notification text while Mac is locked",
+            isOn: $hidesContentWhenLocked,
+            identifier: "hideNotificationContentWhenLockedToggle"
+        )
     }
 }
 
-private struct PairedDevicesSettingsView: View {
-    let viewModel: PairedDevicesViewModel?
-
-    var body: some View {
-        if let viewModel {
-            PairedDevicesView(viewModel: viewModel)
-                .padding()
-        } else {
-            Text("No paired devices")
-                .accessibilityIdentifier("pairedDevicesUnavailableLabel")
-                .padding()
-        }
-    }
-}
-
-private struct KeySettingsView: View {
+private struct PrivacySettingsView: View {
     let viewModel: MacRotationSettingsViewModel?
 
     var body: some View {
         if let viewModel {
             MacRotationSettingsView(viewModel: viewModel)
-                .padding()
         } else {
             Text("Key rotation unavailable")
+                .tandemTextStyle(TandemTypography.body())
+                .foregroundStyle(TandemColor.ink2)
                 .accessibilityIdentifier("keyRotationUnavailableLabel")
-                .padding()
         }
     }
 }
@@ -165,29 +189,27 @@ private struct FilesSettingsView: View {
     @State private var errorText: String?
 
     var body: some View {
-        Form {
-            LabeledContent("Save files to") {
-                Text(folder.path)
-                    .truncationMode(.middle)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("downloadFolderPathLabel")
-            }
-            HStack {
-                Button("Choose…") { chooseFolder() }
+        VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+            HairlineRow(key: "Save files to", value: folder.path, valueIsMono: true)
+                .accessibilityIdentifier("downloadFolderPathLabel")
+            HStack(spacing: TandemSpacing.small) {
+                PillButton("Choose…", kind: .secondary) { chooseFolder() }
+                    .fixedSize(horizontal: true, vertical: false)
                     .accessibilityIdentifier("chooseDownloadFolderButton")
-                Button("Reset") {
+                PillButton("Reset", kind: .secondary) {
                     DownloadFolderStore.standard.resetToDefault()
                     folder = DownloadFolderStore.standard.current
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .accessibilityIdentifier("resetDownloadFolderButton")
             }
             if let errorText {
                 Text(errorText)
-                    .foregroundStyle(.secondary)
+                    .tandemTextStyle(TandemTypography.meta())
+                    .foregroundStyle(TandemColor.alert)
                     .accessibilityIdentifier("downloadFolderErrorLabel")
             }
         }
-        .padding()
         .onAppear { folder = DownloadFolderStore.standard.current }
     }
 

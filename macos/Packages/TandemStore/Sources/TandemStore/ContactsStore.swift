@@ -20,4 +20,7 @@ public protocol ContactsStore: PeerDataPurging {
 
     /// Ids only -- never a name or number (invariant 7).
     func contactIds(peer: SpkiFingerprint) async throws -> [String]
+
+    /// Every cached contact of `peer`, ordered by contact id.
+    func allContacts(peer: SpkiFingerprint) async throws -> [ContactRecord]
 }

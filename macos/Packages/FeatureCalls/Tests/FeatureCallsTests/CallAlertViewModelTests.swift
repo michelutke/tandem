@@ -159,4 +159,33 @@ import Testing
         #expect(actions.first?.action == .decline)
         #expect(actions.first?.callID == "call-9")
     }
+
+    @Test func callAlertViewModel_outgoingActiveEvent_exposesActiveCallThenClearsOnEnded() async {
+        let harness = Harness()
+        await harness.seedContact(name: "Ada Lovelace", number: "079 123 45 67")
+        var active = Self.event(.active)
+        active.direction = .outgoing
+        var ended = Self.event(.ended)
+        ended.direction = .outgoing
+
+        await harness.viewModel.handle(active)
+        #expect(harness.viewModel.activeCall?.title == "Ada Lovelace")
+        #expect(harness.viewModel.showsHangUp)
+
+        await harness.viewModel.handle(ended)
+        #expect(harness.viewModel.activeCall == nil)
+        #expect(!harness.viewModel.showsHangUp)
+    }
+
+    @Test func activeCallInfo_elapsedText_formatsMinutesSecondsAndHours() async {
+        let start = Date(timeIntervalSince1970: 1_000)
+        let harness = Harness()
+        await harness.viewModel.handle(Self.event(.active))
+        let info = ActiveCallInfo(callId: "c", title: "Mum", startedAt: start)
+
+        #expect(info.elapsedText(at: start.addingTimeInterval(252)) == "04:12")
+        #expect(info.elapsedText(at: start.addingTimeInterval(3_725)) == "1:02:05")
+        #expect(info.elapsedText(at: start.addingTimeInterval(-5)) == "00:00")
+        #expect(ActiveCallInfo(callId: "c", title: "Mum", startedAt: nil).elapsedText(at: start) == "00:00")
+    }
 }

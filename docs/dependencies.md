@@ -59,7 +59,7 @@ Anything else — GPL, AGPL, LGPL, SSPL, or a license this file doesn't name —
 | `org.robolectric:robolectric` | MIT | Android-framework unit tests on the JVM (`unit` layer, CLAUDE.md) | E00-20 |
 | `org.jetbrains.kotlin:compose-compiler-gradle-plugin` | Apache-2.0 | Jetpack Compose compiler plugin | E00-20 |
 | `androidx.compose:compose-bom` | Apache-2.0 | Compose version alignment (bill of materials) | E00-20 |
-| `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components | E00-20 |
+| `androidx.compose.material3:material3` | Apache-2.0 | Compose Material 3 components (1.5.0-alpha29 for the Expressive APIs, D-81) | E00-20 |
 | `androidx.compose.ui:ui-tooling-preview` | Apache-2.0 | `@Preview` annotations for design-system components | E00-31 |
 | `androidx.compose.ui:ui-tooling` | Apache-2.0 | Debug-only preview rendering for design-system components | E00-31 |
 | `androidx.compose.ui:ui-test-junit4` | Apache-2.0 | Compose UI test rule (JUnit4-based) | E00-20 |
@@ -95,6 +95,21 @@ entries were needed or added for Jazzer.
 | `swift-certificates` | Apache-2.0 | Self-signed leaf certificate generation (`X509`) over the Keychain identity key | E10-06 |
 | `GRDB.swift` | MIT | SQLite persistence for the Mac SMS store and contacts cache (`TandemStore`; D-12) | E50-09 |
 | `PhoneNumberKit` | MIT | E.164 normalization for contacts-cache lookups (`TandemStore`); pinned to the maintained `PhoneNumberKit/PhoneNumberKit` repo (the `marmelroy` repo is deprecated) | E51-04 |
+
+## Bundled fonts (`macos/Packages/TandemDesign/Sources/TandemDesign/Fonts`)
+
+Font files, not code dependencies, so they are outside the allowed-license gate and the SBOM. Both
+are SIL Open Font License 1.1 (embedding and redistribution in an app is permitted); the licence
+texts ship next to the files as `OFL-*.txt`.
+
+| Font | License | Source | Use |
+|---|---|---|---|
+| Inter Tight (variable `wght`) | OFL-1.1 | google/fonts `ofl/intertight` | UI text (ui-spec 3.2) |
+| JetBrains Mono Regular | OFL-1.1 | JetBrains/JetBrainsMono v2.304 | Codes, numerals, row numbers |
+
+Android bundles the same two files as `res/font` in `android/core/designsystem`
+(`inter_tight.ttf`, `jetbrains_mono_regular.ttf`); licence texts are in
+`android/core/designsystem/licenses/`. Same exemption from the SBOM and license gate.
 
 ## Update bot
 

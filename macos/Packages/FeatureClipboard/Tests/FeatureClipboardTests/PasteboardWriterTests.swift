@@ -26,6 +26,23 @@ struct PasteboardWriterTests {
     }
 
     @Test
+    func pasteboardWriter_pasteboardOwnedByOtherApp_stillWritesText() async throws {
+        let source = FakePasteboardSource()
+        source.ownedByOtherApp = true
+        let session = FakeTandemSession()
+        let writer = PasteboardWriter(source: source, session: session)
+        await writer.start()
+
+        var clipboardText = Tandem_V1_ClipboardText()
+        clipboardText.originTag = "android"
+        clipboardText.text = "copied on phone"
+        await session.inject(InboundFrame(channel: .clipboard, seq: 0, ack: 0, payload: .clipboardText(clipboardText)))
+
+        let wrote = await waitUntilTrue { source.string(forType: .string) == "copied on phone" }
+        #expect(wrote)
+    }
+
+    @Test
     func pasteboardWriter_textOver1MiB_pasteboardUnchanged() async throws {
         let source = FakePasteboardSource()
         source.setString("unchanged", forType: .string)

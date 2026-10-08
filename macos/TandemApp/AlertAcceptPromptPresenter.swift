@@ -1,6 +1,7 @@
 import AppKit
 import FeatureFiles
 import Foundation
+import TandemDesign
 
 /// In-app Accept / Decline prompt for an incoming file, shown as an alert so the offer is
 /// answerable even when the system cannot deliver the notification (an unsigned debug build).
@@ -31,12 +32,12 @@ final class AlertAcceptPromptPresenter: AcceptPromptPresenter {
 
     func remove(offerId: String) async {
         queue.removeAll { $0.id == offerId }
-        if showingId == offerId { NSApp.abortModal() }
+        if showingId == offerId { GlassDialog.abort() }
     }
 
     func finish() {
         queue.removeAll()
-        if showingId != nil { NSApp.abortModal() }
+        if showingId != nil { GlassDialog.abort() }
         continuation.finish()
     }
 
@@ -55,17 +56,17 @@ final class AlertAcceptPromptPresenter: AcceptPromptPresenter {
     }
 
     private func show(_ offer: Offer) {
-        let alert = NSAlert()
-        alert.messageText = "Incoming file"
         let formattedSize = ByteCountFormatter.string(fromByteCount: Int64(clamping: offer.size), countStyle: .file)
-        alert.informativeText = "\(offer.name) (\(formattedSize))"
-        alert.addButton(withTitle: "Accept")
-        alert.addButton(withTitle: "Decline")
         NSApp.activate()
-        switch alert.runModal() {
-        case .alertFirstButtonReturn:
+        let choice = GlassDialog.runModal(
+            title: "Incoming file",
+            message: "\(offer.name) (\(formattedSize))",
+            actions: [GlassDialogAction("Accept", kind: .primary), GlassDialogAction("Decline")]
+        )
+        switch choice {
+        case 0:
             continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .accept))
-        case .alertSecondButtonReturn:
+        case 1:
             continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .decline))
         default:
             break
