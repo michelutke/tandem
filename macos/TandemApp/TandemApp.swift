@@ -1,5 +1,6 @@
 import AppKit
 import FeatureFiles
+import FeatureNotifications
 import FeatureMirror
 import SwiftUI
 import TandemCrypto
