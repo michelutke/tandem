@@ -75,32 +75,30 @@ public struct IdentityKeyProvider: Sendable {
         return try smokeTest(key)
     }
 
-    /// A signing failure caused by the key being inaccessible (keychain prompt denied, cancelled or
-    /// unanswered, or the keychain locked) is surfaced, never reported as an unusable key: the
-    /// caller would regenerate the identity and break every pairing.
-    static func inaccessibleKeyError(forStatus status: Int) -> KeychainError? {
-        switch OSStatus(truncatingIfNeeded: status) {
-        case errSecAuthFailed: .authFailed
-        case errSecInteractionNotAllowed: .locked
-        case errSecUserCanceled, errSecMissingEntitlement, errSecNoAccessForItem, errSecNotAvailable,
-             errSecInteractionRequired:
-            .unhandled(status: OSStatus(truncatingIfNeeded: status))
-        default: nil
+    /// Maps a failure to obtain the public key or sign to a thrown error: authorization and
+    /// interaction failures to their own cases, every other status (any code, any CFError domain)
+    /// to `.unhandled`. A failure to sign never means "unusable key": regenerating would change the
+    /// pinned SPKI, so only an absent item or a signature that fails verification regenerates.
+    static func signingFailure(forStatus status: Int) -> KeychainError {
+        let code = OSStatus(truncatingIfNeeded: status)
+        switch code {
+        case errSecAuthFailed: return .authFailed
+        case errSecInteractionNotAllowed: return .locked
+        default: return .unhandled(status: code)
         }
     }
 
     private static func smokeTest(_ key: SecKey) throws -> Bool {
-        guard let publicKey = SecKeyCopyPublicKey(key) else { return false }
+        guard let publicKey = SecKeyCopyPublicKey(key) else {
+            throw KeychainError.unhandled(status: errSecInternalError)
+        }
 
         var signError: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(
             key, smokeTestAlgorithm, smokeTestPayload as CFData, &signError
         ) else {
-            if let error = signError?.takeRetainedValue(),
-               let inaccessible = inaccessibleKeyError(forStatus: CFErrorGetCode(error)) {
-                throw inaccessible
-            }
-            return false
+            let code = signError.map { CFErrorGetCode($0.takeRetainedValue()) } ?? Int(errSecInternalError)
+            throw signingFailure(forStatus: code)
         }
 
         var verifyError: Unmanaged<CFError>?

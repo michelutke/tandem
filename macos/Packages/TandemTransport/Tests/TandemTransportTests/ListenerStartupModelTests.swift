@@ -91,6 +91,33 @@ struct ListenerStartupModelTests {
         #expect(calls == 1)
     }
 
+    @Test func retryOnActivation_keychainAccessFailure_doesNotRetry() {
+        let script = Script([.failure(.init(.keychainAccess)), .success(1)])
+        let model = ListenerStartupModel<Int>(start: { script.next() })
+        model.start()
+
+        model.retryOnActivation()
+
+        #expect(script.calls == 1)
+        #expect(model.phase == .failed(.keychainAccess))
+    }
+
+    @Test func retryOnActivation_portFailure_retriesOnce() {
+        let script = Script([.failure(.init(.portUnavailable)), .success(1)])
+        let model = ListenerStartupModel<Int>(start: { script.next() })
+        model.start()
+
+        model.retryOnActivation()
+
+        #expect(script.calls == 2)
+        #expect(model.phase == .started)
+    }
+
+    @Test func classify_similarLookingCode_isNotKeychainAccess() {
+        #expect(ListenerFailureReason.classify(identityError: "unhandled(status: -1280)") == .identityUnavailable)
+        #expect(ListenerFailureReason.classify(identityError: "unhandled(status: -108)") == .identityUnavailable)
+    }
+
     @Test(arguments: [
         "authFailed", "locked", "unhandled(status: -128)", "unhandled(status: -25293)", "unhandled(status: -25308)"
     ])

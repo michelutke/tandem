@@ -7,7 +7,8 @@ import TandemTransport
 /// Shows `ready` while the listener is running (or was never started, as in harness and scenario
 /// hosts) and `failed` while the start is failing. A successful retry rebuilds `ready`, so views
 /// composed from the lifecycle pick it up without a relaunch. The app becoming active while failed
-/// triggers one retry; the failed state stays visible until a start succeeds.
+/// triggers one retry for a port failure only (never a keychain failure); the failed state stays
+/// visible until a start succeeds.
 struct ListenerStartupGate<Lifecycle, Ready: View, Failed: View>: View {
     let model: ListenerStartupModel<Lifecycle>
     let retry: @MainActor () -> Void
@@ -23,7 +24,7 @@ struct ListenerStartupGate<Lifecycle, Ready: View, Failed: View>: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            retry()
+            model.retryOnActivation()
         }
     }
 }

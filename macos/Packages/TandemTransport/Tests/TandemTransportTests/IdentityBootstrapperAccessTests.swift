@@ -18,7 +18,10 @@ struct IdentityBootstrapperAccessTests {
         return store
     }
 
-    @Test(arguments: [KeychainError.authFailed, .locked, .unhandled(status: errSecUserCanceled)])
+    @Test(arguments: [
+        KeychainError.authFailed, .locked, .unhandled(status: errSecUserCanceled),
+        .unhandled(status: errSecAllocate), .unhandled(status: errSecIO), .unhandled(status: errSecDecode)
+    ])
     func bootstrapIdentity_smokeTestAccessFailure_surfacesErrorAndKeepsKey(failure: KeychainError) throws {
         let store = try Self.store(withKey: true)
         let recorder = ResetRecorder()
@@ -54,7 +57,7 @@ struct IdentityBootstrapperAccessTests {
         #expect(!bootstrapper.requiresRePair)
     }
 
-    @Test func bootstrapIdentity_missingKey_regeneratesAndRequiresRePair() throws {
+    @Test func bootstrapIdentity_freshInstall_generatesWithoutRePairNotice() throws {
         let store = try Self.store(withKey: false)
         let recorder = ResetRecorder()
         let bootstrapper = IdentityBootstrapper(keychainStore: store, onIdentityReset: { recorder.resets += 1 })
@@ -62,16 +65,22 @@ struct IdentityBootstrapperAccessTests {
         _ = bootstrapper.bootstrapIdentity()
 
         #expect((try? store.copyKey(tag: identityKeyApplicationTag)) != nil)
-        #expect(bootstrapper.requiresRePair)
-        #expect(recorder.resets == 1)
+        #expect(!bootstrapper.requiresRePair)
+        #expect(recorder.resets == 0)
     }
 
-    @Test func bootstrapIdentity_invalidSignature_regeneratesAndRequiresRePair() throws {
+    @Test func bootstrapIdentity_invalidSignatureWithPriorKey_regeneratesAndShowsNotice() throws {
         let store = try Self.store(withKey: true)
-        let bootstrapper = IdentityBootstrapper(keychainStore: store, smokeTest: { _ in false })
+        let recorder = ResetRecorder()
+        let bootstrapper = IdentityBootstrapper(
+            keychainStore: store,
+            onIdentityReset: { recorder.resets += 1 },
+            smokeTest: { _ in false }
+        )
 
         _ = bootstrapper.bootstrapIdentity()
 
         #expect(bootstrapper.requiresRePair)
+        #expect(recorder.resets == 1)
     }
 }

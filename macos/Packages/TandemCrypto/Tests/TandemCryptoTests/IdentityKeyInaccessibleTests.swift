@@ -3,27 +3,19 @@ import Testing
 @testable import TandemCrypto
 
 struct IdentityKeyInaccessibleTests {
-    @Test func inaccessibleKeyError_authFailed_isAuthFailed() {
-        #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(errSecAuthFailed)) == .authFailed)
+    @Test func signingFailure_authFailed_isAuthFailed() {
+        #expect(IdentityKeyProvider.signingFailure(forStatus: Int(errSecAuthFailed)) == .authFailed)
     }
 
-    @Test func inaccessibleKeyError_interactionNotAllowed_isLocked() {
-        #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(errSecInteractionNotAllowed)) == .locked)
+    @Test func signingFailure_interactionNotAllowed_isLocked() {
+        #expect(IdentityKeyProvider.signingFailure(forStatus: Int(errSecInteractionNotAllowed)) == .locked)
     }
 
-    @Test func inaccessibleKeyError_userCanceled_isUnhandledStatus() {
-        #expect(
-            IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(errSecUserCanceled))
-                == .unhandled(status: errSecUserCanceled)
-        )
-    }
-
-    @Test func inaccessibleKeyError_otherStatus_isNil() {
-        #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(errSecParam)) == nil)
-    }
-
-    @Test(arguments: [errSecMissingEntitlement, errSecNoAccessForItem, errSecNotAvailable, errSecInteractionRequired])
-    func inaccessibleKeyError_authorizationStatuses_areUnhandledStatus(status: OSStatus) {
-        #expect(IdentityKeyProvider.inaccessibleKeyError(forStatus: Int(status)) == .unhandled(status: status))
+    @Test(arguments: [
+        errSecUserCanceled, errSecMissingEntitlement, errSecNoAccessForItem, errSecNotAvailable,
+        errSecInteractionRequired, errSecAllocate, errSecIO, errSecDecode, errSecParam
+    ])
+    func signingFailure_anyOtherStatus_isUnhandledNeverUnusable(status: OSStatus) {
+        #expect(IdentityKeyProvider.signingFailure(forStatus: Int(status)) == .unhandled(status: status))
     }
 }

@@ -22,22 +22,39 @@ public enum ListenerFailureReason: Equatable, Sendable {
         }
     }
 
-    private static let keychainAccessMarkers = [
-        "authFailed", "locked", "-128", "-25293", "-25308", "-34018", "-25243", "-25291", "-25315",
-        "errSecAuthFailed", "errSecInteractionNotAllowed", "errSecUserCanceled"
+    /// Whole tokens that mark a keychain access failure: names of ``KeychainError`` cases and the
+    /// exact OSStatus codes (auth failed, interaction not allowed, user canceled, missing
+    /// entitlement, no access for item, not available, interaction required).
+    private static let keychainAccessTokens: Set<String> = [
+        "authFailed", "locked", "errSecAuthFailed", "errSecInteractionNotAllowed", "errSecUserCanceled",
+        "-128", "-25293", "-25308", "-34018", "-25243", "-25291", "-25315"
     ]
 
-    /// Classifies a keychain or identity error's description: auth failed, interaction not
-    /// allowed (locked) and user canceled are keychain access failures.
+    private static func isKeychainAccess(_ description: String) -> Bool {
+        description
+            .split(whereSeparator: { !($0.isLetter || $0.isNumber || $0 == "-") })
+            .contains { keychainAccessTokens.contains(String($0)) }
+    }
+
+    /// Whether the app becoming active may retry on its own. Never for a keychain failure: the
+    /// access prompt lives in another process, so denying it would reactivate Tandem and raise a
+    /// new prompt in a loop. Those retry only from the explicit Retry button.
+    public var retriesOnActivation: Bool {
+        switch self {
+        case .keychainAccess, .identityUnavailable: false
+        case .portUnavailable, .unknown: true
+        }
+    }
+
+    /// Classifies a keychain or identity error's description.
     public static func classify(identityError description: String) -> ListenerFailureReason {
-        keychainAccessMarkers.contains { description.contains($0) } ? .keychainAccess : .identityUnavailable
+        isKeychainAccess(description) ? .keychainAccess : .identityUnavailable
     }
 
     /// Classifies an error thrown while starting the listener.
     public static func classify(listenerError error: any Error) -> ListenerFailureReason {
         if error is ListenerBindError { return .portUnavailable }
-        let description = String(describing: error)
-        return keychainAccessMarkers.contains { description.contains($0) } ? .keychainAccess : .unknown
+        return isKeychainAccess(String(describing: error)) ? .keychainAccess : .unknown
     }
 }
 
@@ -120,6 +137,13 @@ public final class ListenerStartupModel<Lifecycle> {
         case .failure(let failure):
             phase = .failed(failure.reason)
         }
+    }
+
+    /// The app became active: retries once, only for a failure that is safe to retry unprompted
+    /// (see ``ListenerFailureReason/retriesOnActivation``).
+    public func retryOnActivation() {
+        guard case .failed(let reason) = phase, reason.retriesOnActivation else { return }
+        start()
     }
 
     /// Runs ``start()`` again, only while in the failed state.
