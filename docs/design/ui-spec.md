@@ -117,7 +117,7 @@ is on: state changes become instant, pulses stop.
 | `PillButton` | Primary (ink / alert fill) and secondary (ink 5 %) |
 | `DotProgress`, `DotRing`, `DotQR` | Dot visuals; DotQR renders modules as dots with rounded finder patterns and a ≥ 4-module quiet zone |
 | `GlassSheet` | Modal confirmation on a 20 % scrim |
-| `ToastPill` | Glass pill with a signal dot and one line; shown top right in a click-through, non-activating panel for 1.8 s (clipboard received) |
+| `ToastPill` | Light glass pill (ink on paper in every system appearance) with a signal dot and one line; shown bottom centre, 18% above the screen bottom, in a click-through, non-activating panel for 1.8 s (clipboard received) |
 
 ### 5.2 Android (`core/designsystem`, #414)
 

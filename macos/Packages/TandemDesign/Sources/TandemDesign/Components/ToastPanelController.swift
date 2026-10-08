@@ -8,6 +8,7 @@ import SwiftUI
 public final class ToastPanelController {
     private static let slideOffset: CGFloat = 12
     private static let fadeDuration: TimeInterval = 0.2
+    private static let bottomFraction: CGFloat = 0.18
 
     private var panel: NSPanel?
     private var hosting: NSHostingView<ToastPill>?
@@ -32,7 +33,7 @@ public final class ToastPanelController {
         let target = Self.frame(size: size)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if !panel.isVisible {
-            let start = reduceMotion ? target : target.offsetBy(dx: 0, dy: Self.slideOffset)
+            let start = reduceMotion ? target : target.offsetBy(dx: 0, dy: -Self.slideOffset)
             panel.setFrame(start, display: false)
             panel.alphaValue = 0
             panel.orderFrontRegardless()
@@ -79,6 +80,8 @@ public final class ToastPanelController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        // Ink on paper in every system appearance (ui-spec: the toast does not follow Dark Mode).
+        panel.appearance = NSAppearance(named: .aqua)
         return panel
     }
 
@@ -86,10 +89,10 @@ public final class ToastPanelController {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         let area = screen?.visibleFrame ?? .zero
-        let margin = TandemSpacing.windowPadding
+        // Centred horizontally, in the lower part of the screen like the system volume HUD.
         return CGRect(
-            x: area.maxX - size.width - margin,
-            y: area.maxY - size.height - TandemSpacing.medium,
+            x: area.midX - size.width / 2,
+            y: area.minY + area.height * Self.bottomFraction,
             width: size.width,
             height: size.height
         )

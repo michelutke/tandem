@@ -20,7 +20,12 @@ public struct ToastPill: View {
         }
         .padding(.horizontal, TandemSpacing.large)
         .padding(.vertical, TandemSpacing.medium)
+        .background(
+            RoundedRectangle(cornerRadius: TandemRadius.sheet, style: .continuous)
+                .fill(TandemColor.paper.opacity(0.85))
+        )
         .glassSurface(cornerRadius: TandemRadius.sheet)
+        .environment(\.colorScheme, .light)
         .accessibilityElement(children: .combine)
     }
 }
