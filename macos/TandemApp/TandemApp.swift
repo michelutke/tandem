@@ -71,42 +71,57 @@ struct TandemMenuBarApp: App {
     /// itself checks, so this never races the harness's own listener and a seeded scenario never
     /// touches the real network/Keychain.
     init() {
-        guard Self.retainedProductionLifecycle == nil, Self.productionListenerFailureReason == nil else { return }
+        guard Self.retainedProductionLifecycle == nil else { return }
         #if DEBUG
         guard UserDefaults.standard.string(forKey: "HarnessListenerPort") == nil,
               UserDefaults.standard.string(forKey: "HarnessSeedTrust") == nil,
               !UserDefaults.standard.bool(forKey: "HarnessClearTrust"),
               UITestScenario.fromLaunchArguments() == nil else { return }
         #endif
-        switch AppComposition.startListener() {
-        case .success(let lifecycle):
-            Self.retainedProductionLifecycle = lifecycle
-        case .failure(let reason):
-            Self.productionListenerFailureReason = reason
-        }
+        MainActor.assumeIsolated { Self.listenerStartup.start() }
     }
 
     /// Keeps ``AppComposition/startListener()``'s lifecycle controllers alive for the process
-    /// lifetime, once started -- `init()` only ever calls `startListener()` once per process (the
-    /// guard above), so a second `App.init()` can't leak a second listener.
+    /// lifetime, once started -- only ``listenerStartup`` sets it, and it never starts a second
+    /// listener while one is running.
     nonisolated(unsafe) static private(set) var retainedProductionLifecycle: AppComposition.RetainedLifecycle?
 
-    /// Set instead of `retainedProductionLifecycle` if `startListener()` didn't start anything --
-    /// surfaced by `MenuContentView` as a visible "Listener Unavailable" state (invariant 5),
-    /// never retried silently.
-    nonisolated(unsafe) fileprivate static var productionListenerFailureReason: AppComposition.StartFailure?
+    /// The one production listener start. A failed start stays visible as "Tandem can't start." with
+    /// a Retry button (invariant 5) and is retried only by the owner (button or reactivating the
+    /// app), never in a background loop. A success publishes the lifecycle and rebuilds the views
+    /// composed from it.
+    @MainActor
+    static let listenerStartup = ListenerStartupModel<AppComposition.RetainedLifecycle>(
+        start: { AppComposition.startListener() },
+        onStarted: { lifecycle in
+            retainedProductionLifecycle = lifecycle
+            resetMainWindowCaches()
+        }
+    )
 
     var body: some Scene {
         MenuBarExtra("Tandem", systemImage: "circle.fill") {
-            MenuContentView()
+            ListenerStartupGate(
+                model: Self.listenerStartup,
+                retry: { Self.listenerStartup.retry() },
+                ready: { MenuContentView() },
+                failed: { reason, retry in GlassPopover { ListenerFailureView(reason: reason, onRetry: retry) } }
+            )
         }
         .menuBarExtraStyle(.window)
 
         Window("Tandem", id: "main") {
-            MainWindowView(
-                viewModel: Self.mainWindowViewModel,
-                services: Self.mainWindowServices,
-                onPairPhone: { Self.openPairingWindow() }
+            ListenerStartupGate(
+                model: Self.listenerStartup,
+                retry: { Self.listenerStartup.retry() },
+                ready: {
+                    MainWindowView(
+                        viewModel: Self.mainWindowViewModel,
+                        services: Self.mainWindowServices,
+                        onPairPhone: { Self.openPairingWindow() }
+                    )
+                },
+                failed: { reason, retry in ListenerFailureWindowContent(reason: reason, onRetry: retry) }
             )
             #if DEBUG
             .background(ScenarioWindowCloser())
@@ -115,25 +130,15 @@ struct TandemMenuBarApp: App {
         .windowStyle(.hiddenTitleBar)
 
         Settings {
-            SettingsView(rotationViewModel: Self.settingsRotationViewModel)
+            ListenerStartupGate(
+                model: Self.listenerStartup,
+                retry: { Self.listenerStartup.retry() },
+                ready: { SettingsView(rotationViewModel: Self.settingsRotationViewModel) },
+                failed: { _, _ in SettingsView(rotationViewModel: nil) }
+            )
         }
     }
 }
-
-/// Ensures the Mac's mTLS identity (key + self-signed certificate + `SecIdentity`, E10-07) exists,
-/// over the `KeychainStoreFactory`-selected store, the first time `MenuContentView` is rendered --
-/// Swift globals are lazily and thread-safely initialized on first access. No silent fallback
-/// (D-75, invariant 5): a failure here (e.g. `-34018` on an unsigned dev build with no
-/// `keychain-access-groups` entitlement) is recorded and surfaced as a visible
-/// "Identity Unavailable" state instead of the ordinary menu content.
-private let identityBootstrapFailureReason: String? = {
-    do {
-        _ = try SecIdentityProvider(keychainStore: KeychainStoreFactory.make()).getOrCreateSecIdentity()
-        return nil
-    } catch {
-        return String(describing: error)
-    }
-}()
 
 /// Shows the main window on launch/Dock reopen (the app has a Dock icon, ui-spec), the pairing
 /// window on launch when unpaired, and in DEBUG hosts the E00-26 scenario window.
@@ -168,8 +173,8 @@ final class TandemAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         #endif
-        guard let lifecycle = TandemMenuBarApp.retainedProductionLifecycle else { return }
         showMainWindow()
+        guard let lifecycle = TandemMenuBarApp.retainedProductionLifecycle else { return }
         if lifecycle.pairedPeer.displayName == nil {
             let presenter = MenuContentView.pairingPresenter(for: lifecycle.pairing)
             Task {
@@ -328,53 +333,42 @@ struct MenuContentView: View {
         #endif
     }
 
-    @ViewBuilder
     private var defaultContent: some View {
-        if let reason = identityBootstrapFailureReason {
-            Text("Identity Unavailable")
-                .accessibilityIdentifier("identityUnavailableLabel")
-                .accessibilityLabel("Identity Unavailable: \(reason)")
-        } else if TandemMenuBarApp.productionListenerFailureReason != nil {
-            Text("Listener Unavailable")
-                .accessibilityIdentifier("listenerUnavailableLabel")
-                .accessibilityLabel("Listener Unavailable")
-        } else {
-            GlassPopover {
-                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
-                    MenuBarContentView(
-                        viewModel: menuBarViewModel,
-                        deviceStatusViewModel: live?.deviceStatus,
-                        onPairPhone: { pairingPresenter?.openPairingWindow() },
-                        onPairWithoutCamera: { pairingPresenter?.openManualPairingWindow() },
-                        lastSeenText: lastSeenText,
-                        closeCode: errorBannerViewModel.closeCode,
-                        onRetry: retryNow,
-                        onUnpair: { openMainWindow(section: MainWindowViewModel.sections.last) },
-                        connectedActions: AnyView(PopoverActionsView(
-                            viewModel: quickActionsViewModel,
-                            findPhoneViewModel: findPhoneViewModel,
-                            pushClipboardViewModel: pushClipboardViewModel,
-                            mirrorRequestViewModel: mirrorRequestViewModel,
-                            sendEntryHandler: sendEntryHandler,
-                            onOpenMessages: { openMainWindow(section: MainWindowViewModel.sections.first) }
-                        ))
-                    )
-                    NotificationDeniedHintView(viewModel: NotificationPermissionViewModel.shared)
-                    if let transferProgress {
-                        TransferProgressListView(center: transferProgress)
-                    }
-                    if let activeCall {
-                        ActiveCallHangUpView(activeCall: activeCall)
-                    }
-                    if let activeNowPlaying {
-                        ActiveNowPlayingView(activeNowPlaying: activeNowPlaying)
-                    }
-                    PopoverFooterView()
+        GlassPopover {
+            VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                MenuBarContentView(
+                    viewModel: menuBarViewModel,
+                    deviceStatusViewModel: live?.deviceStatus,
+                    onPairPhone: { pairingPresenter?.openPairingWindow() },
+                    onPairWithoutCamera: { pairingPresenter?.openManualPairingWindow() },
+                    lastSeenText: lastSeenText,
+                    closeCode: errorBannerViewModel.closeCode,
+                    onRetry: retryNow,
+                    onUnpair: { openMainWindow(section: MainWindowViewModel.sections.last) },
+                    connectedActions: AnyView(PopoverActionsView(
+                        viewModel: quickActionsViewModel,
+                        findPhoneViewModel: findPhoneViewModel,
+                        pushClipboardViewModel: pushClipboardViewModel,
+                        mirrorRequestViewModel: mirrorRequestViewModel,
+                        sendEntryHandler: sendEntryHandler,
+                        onOpenMessages: { openMainWindow(section: MainWindowViewModel.sections.first) }
+                    ))
+                )
+                NotificationDeniedHintView(viewModel: NotificationPermissionViewModel.shared)
+                if let transferProgress {
+                    TransferProgressListView(center: transferProgress)
                 }
+                if let activeCall {
+                    ActiveCallHangUpView(activeCall: activeCall)
+                }
+                if let activeNowPlaying {
+                    ActiveNowPlayingView(activeNowPlaying: activeNowPlaying)
+                }
+                PopoverFooterView()
             }
-            .acceptsFileDrops(sendEntryHandler)
-            .onAppear { syncPairedPeer() }
-            .onChange(of: pairedPeer?.displayName) { syncPairedPeer() }
         }
+        .acceptsFileDrops(sendEntryHandler)
+        .onAppear { syncPairedPeer() }
+        .onChange(of: pairedPeer?.displayName) { syncPairedPeer() }
     }
 }

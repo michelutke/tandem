@@ -50,6 +50,14 @@ extension TandemMenuBarApp {
         return created
     }
 
+    /// Drops the cached main-window view model and services so the next read rebuilds them from
+    /// the lifecycle of a start that succeeded after an earlier failure.
+    @MainActor
+    static func resetMainWindowCaches() {
+        _mainWindowViewModel = nil
+        _mainWindowServices = nil
+    }
+
     /// Opens the pairing window from the main window's "Pair phone" actions.
     @MainActor
     static func openPairingWindow() {

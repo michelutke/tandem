@@ -63,16 +63,32 @@ public struct IdentityKeyProvider: Sendable {
         } catch KeychainError.itemNotFound {
             return false
         }
-        return Self.smokeTest(key)
+        return try Self.smokeTest(key)
     }
 
-    private static func smokeTest(_ key: SecKey) -> Bool {
+    /// A signing failure caused by the key being inaccessible (keychain prompt denied, cancelled or
+    /// unanswered, or the keychain locked) is surfaced, never reported as an unusable key: the
+    /// caller would regenerate the identity and break every pairing.
+    static func inaccessibleKeyError(forStatus status: Int) -> KeychainError? {
+        switch OSStatus(truncatingIfNeeded: status) {
+        case errSecAuthFailed: .authFailed
+        case errSecInteractionNotAllowed: .locked
+        case errSecUserCanceled: .unhandled(status: errSecUserCanceled)
+        default: nil
+        }
+    }
+
+    private static func smokeTest(_ key: SecKey) throws -> Bool {
         guard let publicKey = SecKeyCopyPublicKey(key) else { return false }
 
         var signError: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(
             key, smokeTestAlgorithm, smokeTestPayload as CFData, &signError
         ) else {
+            if let error = signError?.takeRetainedValue(),
+               let inaccessible = inaccessibleKeyError(forStatus: CFErrorGetCode(error)) {
+                throw inaccessible
+            }
             return false
         }
 

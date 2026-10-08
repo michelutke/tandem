@@ -281,6 +281,11 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | state.keyChanged | Key changed. |
 | state.blocked | Blocked. |
 | state.updateNeeded | Update needed. |
+| state.cantStart | Tandem can't start. (Mac popover and main window, red, with Retry; the app also retries once when it becomes active) |
+| state.cantStart.keychain | Keychain access was not granted. |
+| state.cantStart.identity | This Mac's identity is unavailable. |
+| state.cantStart.port | The network port is unavailable. |
+| state.cantStart.unknown | Something went wrong while starting. |
 | pair.scan | Scan with your phone. |
 | pair.confirm | Same code on both? |
 | pair.expired | Code expired. |

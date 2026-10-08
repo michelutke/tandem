@@ -58,25 +58,17 @@ enum AppComposition {
         let rotation: MacKeyRotation
     }
 
-    /// Why ``startListener()`` didn't start anything -- surfaced to the menu (never retried
-    /// silently), rather than the app looking healthy with no listener and no signal (invariant 5:
-    /// closed must also be visible).
-    enum StartFailure: Error, Sendable {
-        case identityNotReady
-        case listenerBindFailed
-    }
-
     /// Bootstraps the identity and, if it's ready, starts the listener and both lifecycle
     /// controllers.
-    static func startListener() -> Result<RetainedLifecycle, StartFailure> {
+    static func startListener() -> Result<RetainedLifecycle, ListenerStartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = IdentityBootstrapper(keychainStore: keychainStore)
 
         let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
         identityBootstrapper.bootstrapIdentity()
 
-        guard case .ready = identityBootstrapper.identityState else {
-            return .failure(.identityNotReady)
+        if let failure = ListenerStartFailure(identityState: identityBootstrapper.identityState) {
+            return .failure(failure)
         }
 
         let mirror = MirrorComposition()
@@ -93,8 +85,10 @@ enum AppComposition {
                 mediaConnectionHandler: mirror.acceptor
             )
         )
-        guard let started = try? controller.start() else {
-            return .failure(.listenerBindFailed)
+        let started: ListenerController.StartedListener
+        switch controller.startResult() {
+        case .success(let listener): started = listener
+        case .failure(let failure): return .failure(failure)
         }
 
         let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: core.pairing)
