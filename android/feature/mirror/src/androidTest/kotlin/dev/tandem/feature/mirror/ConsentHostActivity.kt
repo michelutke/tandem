@@ -2,6 +2,8 @@ package dev.tandem.feature.mirror
 
 import android.app.Activity
 import android.content.Intent
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /** Test host that launches the consent intent for a result and records it (E61-02 instrumented tests). */
 @Suppress("DEPRECATION")
@@ -9,6 +11,10 @@ class ConsentHostActivity : Activity() {
     @Volatile
     var resultCode: Int? = null
         private set
+
+    private val resultDelivered = CountDownLatch(1)
+
+    fun awaitResult(timeoutMs: Long): Boolean = resultDelivered.await(timeoutMs, TimeUnit.MILLISECONDS)
 
     fun launchForResult(intent: Intent) {
         startActivityForResult(intent, CONSENT_REQUEST_CODE)
@@ -20,7 +26,10 @@ class ConsentHostActivity : Activity() {
         resultCode: Int,
         data: Intent?,
     ) {
-        if (requestCode == CONSENT_REQUEST_CODE) this.resultCode = resultCode
+        if (requestCode == CONSENT_REQUEST_CODE) {
+            this.resultCode = resultCode
+            resultDelivered.countDown()
+        }
     }
 
     private companion object {

@@ -15,6 +15,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.regex.Pattern
@@ -31,9 +32,18 @@ class ProjectionConsentInstrumentedTest {
     private val device = UiDevice.getInstance(instrumentation)
     private var host: ConsentHostActivity? = null
 
+    @Before
+    fun wakeAndGoHome() {
+        device.wakeUp()
+        device.executeShellCommand("wm dismiss-keyguard")
+        device.pressHome()
+    }
+
     @After
     fun finishHost() {
         host?.let { instrumentation.runOnMainSync { it.finish() } }
+        device.pressHome()
+        device.wait(Until.gone(By.res(NEGATIVE_BUTTON_ID)), DIALOG_TIMEOUT_MS)
     }
 
     @Test
@@ -91,6 +101,10 @@ class ProjectionConsentInstrumentedTest {
 
     // Android 14+ asks single app vs entire screen first; only entire screen is a full-screen consent.
     private fun selectEntireScreenIfOffered() {
+        assertNotNull(
+            "consent dialog not shown",
+            device.wait(Until.findObject(By.res(POSITIVE_BUTTON_ID)), DIALOG_TIMEOUT_MS),
+        )
         val spinner = device.wait(Until.findObject(By.res(SHARE_MODE_SPINNER_ID)), SPINNER_TIMEOUT_MS) ?: return
         spinner.click()
         val entireScreen = device.wait(Until.findObject(By.text(ENTIRE_SCREEN)), DIALOG_TIMEOUT_MS)
@@ -110,17 +124,15 @@ class ProjectionConsentInstrumentedTest {
     }
 
     private fun awaitResult(host: ConsentHostActivity) {
-        val deadline = System.currentTimeMillis() + DIALOG_TIMEOUT_MS
-        while (host.resultCode == null && System.currentTimeMillis() < deadline) Thread.sleep(POLL_MS)
+        assertTrue("consent result not delivered", host.awaitResult(DIALOG_TIMEOUT_MS))
     }
 
     private companion object {
         const val POSITIVE_BUTTON_ID = "android:id/button1"
         const val NEGATIVE_BUTTON_ID = "android:id/button2"
         const val SHARE_MODE_SPINNER_ID = "com.android.systemui:id/screen_share_mode_spinner"
-        const val DIALOG_TIMEOUT_MS = 10_000L
-        const val SPINNER_TIMEOUT_MS = 3_000L
-        const val POLL_MS = 100L
+        const val DIALOG_TIMEOUT_MS = 30_000L
+        const val SPINNER_TIMEOUT_MS = 5_000L
         val START_LABEL: Pattern = Pattern.compile("(?i)start( now)?|next")
         val CANCEL_LABEL: Pattern = Pattern.compile("(?i)cancel")
         val ENTIRE_SCREEN: Pattern = Pattern.compile("(?i)(share )?entire screen")
