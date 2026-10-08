@@ -12,9 +12,16 @@ class ConsentHostActivity : Activity() {
     var resultCode: Int? = null
         private set
 
-    private val resultDelivered = CountDownLatch(1)
+    @Volatile
+    private var resultDelivered = CountDownLatch(1)
 
     fun awaitResult(timeoutMs: Long): Boolean = resultDelivered.await(timeoutMs, TimeUnit.MILLISECONDS)
+
+    fun relaunchForResult(intent: Intent) {
+        resultCode = null
+        resultDelivered = CountDownLatch(1)
+        launchForResult(intent)
+    }
 
     fun launchForResult(intent: Intent) {
         startActivityForResult(intent, CONSENT_REQUEST_CODE)

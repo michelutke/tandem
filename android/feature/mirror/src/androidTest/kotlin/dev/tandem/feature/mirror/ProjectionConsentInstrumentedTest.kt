@@ -5,6 +5,7 @@ import android.app.Instrumentation
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -15,9 +16,11 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
 import java.util.regex.Pattern
 
 /**
@@ -31,6 +34,7 @@ class ProjectionConsentInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val device = UiDevice.getInstance(instrumentation)
     private var host: ConsentHostActivity? = null
+    private var consentIntent: Intent? = null
 
     @Before
     fun wakeAndGoHome() {
@@ -50,6 +54,7 @@ class ProjectionConsentInstrumentedTest {
     fun projectionConsent_uiAutomatorTapsStartNow_projectionGranted() {
         val (starter, host) = startConsent()
 
+        awaitConsentDialog(host)
         selectEntireScreenIfOffered()
         tap(By.res(POSITIVE_BUTTON_ID), By.text(START_LABEL))
         awaitResult(host)
@@ -63,6 +68,7 @@ class ProjectionConsentInstrumentedTest {
     fun projectionConsent_uiAutomatorTapsCancel_noVirtualDisplayCreated() {
         val (starter, host) = startConsent()
 
+        awaitConsentDialog(host)
         tap(By.res(NEGATIVE_BUTTON_ID), By.text(CANCEL_LABEL))
         assertTrue(
             "consent dialog still shown after cancel",
@@ -92,6 +98,7 @@ class ProjectionConsentInstrumentedTest {
         val starter =
             MirrorSessionStarter(
                 MediaProjectionConsentLauncher(manager) { intent ->
+                    consentIntent = intent
                     instrumentation.runOnMainSync { host.launchForResult(intent) }
                 },
             )
@@ -101,15 +108,36 @@ class ProjectionConsentInstrumentedTest {
 
     // Android 14+ asks single app vs entire screen first; only entire screen is a full-screen consent.
     private fun selectEntireScreenIfOffered() {
-        assertNotNull(
-            "consent dialog not shown",
-            device.wait(Until.findObject(By.res(POSITIVE_BUTTON_ID)), DIALOG_TIMEOUT_MS),
-        )
         val spinner = device.wait(Until.findObject(By.res(SHARE_MODE_SPINNER_ID)), SPINNER_TIMEOUT_MS) ?: return
         spinner.click()
         val entireScreen = device.wait(Until.findObject(By.text(ENTIRE_SCREEN)), DIALOG_TIMEOUT_MS)
         assertNotNull("entire screen option not shown", entireScreen)
         entireScreen.click()
+    }
+
+    // SystemUI can restart on a loaded emulator and drop the dialog, so ask again before failing.
+    private fun awaitConsentDialog(host: ConsentHostActivity) {
+        val intent = requireNotNull(consentIntent) { "consent intent not captured" }
+        repeat(DIALOG_ATTEMPTS) {
+            val deadline = System.currentTimeMillis() + DIALOG_ATTEMPT_MS
+            while (System.currentTimeMillis() < deadline) {
+                if (isConsentDialogShown()) return
+                device.waitForIdle(DIALOG_POLL_MS)
+            }
+            instrumentation.runOnMainSync { host.relaunchForResult(intent) }
+        }
+        if (isConsentDialogShown()) return
+        dumpHierarchy()
+        fail("consent dialog not shown after $DIALOG_ATTEMPTS attempts")
+    }
+
+    private fun isConsentDialogShown(): Boolean =
+        device.hasObject(By.res(POSITIVE_BUTTON_ID)) || device.hasObject(By.text(START_LABEL))
+
+    private fun dumpHierarchy() {
+        val dump = ByteArrayOutputStream()
+        device.dumpWindowHierarchy(dump)
+        Log.e(TAG, "window hierarchy at failure:\n$dump")
     }
 
     private fun tap(
@@ -119,12 +147,15 @@ class ProjectionConsentInstrumentedTest {
         val button =
             device.wait(Until.findObject(byId), DIALOG_TIMEOUT_MS)
                 ?: device.wait(Until.findObject(byText), DIALOG_TIMEOUT_MS)
+        if (button == null) dumpHierarchy()
         assertNotNull("consent dialog button not shown", button)
         button.click()
     }
 
     private fun awaitResult(host: ConsentHostActivity) {
-        assertTrue("consent result not delivered", host.awaitResult(DIALOG_TIMEOUT_MS))
+        val delivered = host.awaitResult(DIALOG_TIMEOUT_MS)
+        if (!delivered) dumpHierarchy()
+        assertTrue("consent result not delivered", delivered)
     }
 
     private companion object {
@@ -132,6 +163,10 @@ class ProjectionConsentInstrumentedTest {
         const val NEGATIVE_BUTTON_ID = "android:id/button2"
         const val SHARE_MODE_SPINNER_ID = "com.android.systemui:id/screen_share_mode_spinner"
         const val DIALOG_TIMEOUT_MS = 30_000L
+        const val DIALOG_ATTEMPT_MS = 15_000L
+        const val DIALOG_ATTEMPTS = 3
+        const val DIALOG_POLL_MS = 500L
+        const val TAG = "ProjectionConsentTest"
         const val SPINNER_TIMEOUT_MS = 5_000L
         val START_LABEL: Pattern = Pattern.compile("(?i)start( now)?|next")
         val CANCEL_LABEL: Pattern = Pattern.compile("(?i)cancel")
