@@ -120,6 +120,15 @@ struct TandemMenuBarApp: App {
                         services: Self.mainWindowServices,
                         onPairPhone: { Self.openPairingWindow() }
                     )
+                    .overlay(alignment: .topTrailing) {
+                        if IdentityResetNotice.shared.isVisible {
+                            RePairNoticeView(onPairPhone: { Self.openPairingWindow() })
+                                .padding(TandemSpacing.large)
+                                .frame(width: 320)
+                                .glassSurface(cornerRadius: TandemRadius.popoverWindow)
+                                .padding(TandemSpacing.large)
+                        }
+                    }
                 },
                 failed: { reason, retry in ListenerFailureWindowContent(reason: reason, onRetry: retry) }
             )
@@ -336,6 +345,10 @@ struct MenuContentView: View {
     private var defaultContent: some View {
         GlassPopover {
             VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+                if IdentityResetNotice.shared.isVisible {
+                    RePairNoticeView(onPairPhone: { pairingPresenter?.openPairingWindow() })
+                    Hairline()
+                }
                 MenuBarContentView(
                     viewModel: menuBarViewModel,
                     deviceStatusViewModel: live?.deviceStatus,

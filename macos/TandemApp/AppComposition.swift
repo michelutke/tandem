@@ -62,7 +62,7 @@ enum AppComposition {
     /// controllers.
     static func startListener() -> Result<RetainedLifecycle, ListenerStartFailure> {
         let keychainStore = KeychainStoreFactory.make()
-        let identityBootstrapper = IdentityBootstrapper(keychainStore: keychainStore)
+        let identityBootstrapper = makeIdentityBootstrapper(keychainStore)
 
         let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
         identityBootstrapper.bootstrapIdentity()
@@ -115,6 +115,10 @@ enum AppComposition {
         )
     }
 
+    private static func makeIdentityBootstrapper(_ keychainStore: any KeychainStore) -> IdentityBootstrapper {
+        IdentityBootstrapper(keychainStore: keychainStore, onIdentityReset: { IdentityResetNotice.markReset() })
+    }
+
     private static func makeSessionFeatures(core: Core, mirror: MirrorComposition) -> SessionFeatures {
         let features = SessionFeatures.make(
             purgeRegistry: core.purgeRegistry,
@@ -156,7 +160,12 @@ enum AppComposition {
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
             sessionRegistry: sessionRegistry,
-            onPeerPaired: { Task { @MainActor in pairedPeer.refresh() } }
+            onPeerPaired: {
+                Task { @MainActor in
+                    pairedPeer.refresh()
+                    IdentityResetNotice.shared.clear()
+                }
+            }
         )
         let listenerControl = ListenerControlBox()
         let rotation = MacRotationComposition.make(

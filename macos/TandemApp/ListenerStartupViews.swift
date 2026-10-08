@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import SwiftUI
 import TandemDesign
 import TandemTransport
@@ -69,5 +70,45 @@ struct ListenerFailureWindowContent: View {
             .glassSurface(cornerRadius: 0)
             .ignoresSafeArea()
             .tandemWindowChrome()
+    }
+}
+
+/// Remembers, across launches, that this Mac's identity was regenerated (so every paired phone
+/// fails its pin check) until a pairing succeeds again (invariant 5, SPEC.md).
+@MainActor
+@Observable
+final class IdentityResetNotice {
+    static let shared = IdentityResetNotice()
+    private static let defaultsKey = "identityResetRequiresRePair"
+
+    private(set) var isVisible = UserDefaults.standard.bool(forKey: defaultsKey)
+
+    /// Called from the identity bootstrap, possibly off the main thread.
+    nonisolated static func markReset() {
+        UserDefaults.standard.set(true, forKey: defaultsKey)
+        Task { @MainActor in shared.isVisible = true }
+    }
+
+    func clear() {
+        UserDefaults.standard.set(false, forKey: Self.defaultsKey)
+        isVisible = false
+    }
+}
+
+/// "This Mac's key changed. Pair your phone again." with a Pair phone button (ui-spec state.keyReset).
+struct RePairNoticeView: View {
+    let onPairPhone: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TandemSpacing.small) {
+            Text("This Mac's key changed. Pair your phone again.")
+                .tandemTextStyle(TandemTypography.rowTitle(size: 14))
+                .foregroundStyle(TandemColor.alert)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("rePairNoticeLabel")
+            PillButton("Pair phone", action: onPairPhone)
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityIdentifier("rePairNoticeButton")
+        }
     }
 }
