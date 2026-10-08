@@ -167,24 +167,22 @@ read_response() {
   return 1
 }
 
-# Reads lines from fd 4 until one starts with $1 or $2 (whichever comes first) elapses, logging
-# anything else; prints elapsed milliseconds and the matching line, space-separated, on success.
+# Reads lines from fd 4 until one starts with $1 or $2 ms elapse, logging anything else; prints
+# elapsed milliseconds and the matching line, space-separated, on success. `read -t` takes whole
+# seconds only: macOS's /bin/bash 3.2 rejects a fractional timeout ("invalid timeout
+# specification"), which made this loop spin through every iteration instantly without ever
+# reading fd 4 -- the root cause of E23-09's "ring scenarios fail only in the full script" (the
+# isolated repros ran under a newer bash). A line already waiting returns from `read` immediately,
+# so a 1s timeout costs no latency; the deadline is re-checked after every read.
 wait_for_client_prefix_ms() {
   local prefix="$1"
   local timeout_ms="$2"
   local start_ms
   start_ms="$(now_ms)"
-  # Bounds the loop by iteration count (timeout_ms / POLL_INTERVAL_SECONDS), not by re-querying
-  # wall time every iteration: this line is read up to ~80 times for an 8s timeout, and spawning a
-  # fresh `python3` subprocess on every single one of those (the original, simpler shape) is both
-  # wasteful and -- reproduced directly -- can itself perturb the fifo read enough to lose the very
-  # line this function is waiting for. `now_ms` is only called once more, on an actual match.
-  local max_iterations=$(( (timeout_ms * 10 / 1000) + 1 ))
+  local deadline_seconds=$(( SECONDS + (timeout_ms + 999) / 1000 ))
   local line
-  local iteration=0
-  while [ "$iteration" -lt "$max_iterations" ]; do
-    iteration=$((iteration + 1))
-    if IFS= read -r -t "$POLL_INTERVAL_SECONDS" line <&4; then
+  while [ "$SECONDS" -lt "$deadline_seconds" ]; do
+    if IFS= read -r -t 1 line <&4; then
       case "$line" in
         "$prefix"*)
           printf '%s %s\n' "$(( $(now_ms) - start_ms ))" "$line"
