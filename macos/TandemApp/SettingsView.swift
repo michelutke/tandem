@@ -148,11 +148,14 @@ private struct NotificationsSettingsView: View {
     @AppStorage(NotificationsSessionService.hidesContentWhenLockedKey) private var hidesContentWhenLocked = true
 
     var body: some View {
-        SettingsToggleRow(
-            title: "Hide notification text while Mac is locked",
-            isOn: $hidesContentWhenLocked,
-            identifier: "hideNotificationContentWhenLockedToggle"
-        )
+        VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+            NotificationDeniedHintView(viewModel: NotificationPermissionViewModel.shared)
+            SettingsToggleRow(
+                title: "Hide notification text while Mac is locked",
+                isOn: $hidesContentWhenLocked,
+                identifier: "hideNotificationContentWhenLockedToggle"
+            )
+        }
     }
 }
 

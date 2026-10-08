@@ -12,8 +12,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * E52-05 phone side of the Mac's `PlaceCallRequest` (PRD F-8.4, UC-21, docs/protocol/SPEC.md
- * #calls-channel "Place call"). Checks, in order: the address rule (`INVALID_NUMBER`, so MMI codes
- * like `**21*123#` never dial), CALL_PHONE (`PERMISSION_DENIED`), the SIM (`INVALID_SUBSCRIPTION`)
+ * #calls-channel "Place call"). Checks, in order: the address rule and emergency numbers
+ * (`INVALID_NUMBER`, so MMI codes like `**21*123#` and `112` never dial from a remote request),
+ * CALL_PHONE (`PERMISSION_DENIED`), the SIM (`INVALID_SUBSCRIPTION`)
  * and the one-request-per-5-s limit (`RATE_LIMITED`); only then does it place the call through
  * [gateway]. When the OS will not start the call from the background it posts the "Tap to call"
  * notification through [notifier] and answers `NEEDS_PHONE_TAP`. [log] receives the path taken,
@@ -25,6 +26,7 @@ class PlaceCallHandler(
     private val permissions: CallPermissions,
     private val subscriptions: CallSubscriptions,
     private val notifier: TapToCallNotifier,
+    private val emergencyNumbers: EmergencyNumbers,
     private val session: TandemSession,
     elapsed: ElapsedRealtimeSource,
     private val ioDispatcher: CoroutineDispatcher,
@@ -56,6 +58,10 @@ class PlaceCallHandler(
         val rejection =
             when {
                 !ADDRESS_RULE.matches(address) -> {
+                    CallActionErrorCode.CALL_ACTION_ERROR_CODE_INVALID_NUMBER
+                }
+
+                emergencyNumbers.isEmergency(address) -> {
                     CallActionErrorCode.CALL_ACTION_ERROR_CODE_INVALID_NUMBER
                 }
 

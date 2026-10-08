@@ -46,6 +46,7 @@ import dev.tandem.feature.calls.ContextCallPermissions
 import dev.tandem.feature.calls.NotificationTapToCallNotifier
 import dev.tandem.feature.calls.SubscriptionManagerCallSubscriptions
 import dev.tandem.feature.calls.TelecomCallGateway
+import dev.tandem.feature.calls.TelephonyEmergencyNumbers
 import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.contacts.ContentResolverContactsSource
 import dev.tandem.feature.contacts.PhoneNormalizer
@@ -163,6 +164,7 @@ object SessionFeatureFactory {
             permissions = ContextCallPermissions(context),
             subscriptions = SubscriptionManagerCallSubscriptions(context),
             notifier = NotificationTapToCallNotifier(context),
+            emergencyNumbers = TelephonyEmergencyNumbers(context.getSystemService(TelephonyManager::class.java)),
             normalize = { normalizer.normalize(it).normalizedE164 },
             clock = clock,
             elapsedRealtimeSource = SystemElapsedRealtimeSource,

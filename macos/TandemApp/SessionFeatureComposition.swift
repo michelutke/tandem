@@ -213,10 +213,11 @@ final class NotificationsSessionService: SessionService, @unchecked Sendable {
         let presenter = FallbackNotificationPresenter(
             system: UNNotificationPresenter(),
             authorization: authorization,
-            banners: banners
+            banners: banners,
+            onState: NotificationPermissionViewModel.report
         )
         self.presenter = presenter
-        Task { _ = await authorization.isAuthorized() }
+        Task { await NotificationPermissionViewModel.report(await authorization.state()) }
         self.iconCache = iconCache
         coordinator = NotificationPresentationCoordinator(
             presenter: presenter,

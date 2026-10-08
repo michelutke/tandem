@@ -101,4 +101,13 @@ import Testing
 
         #expect(harness.viewModel.state == .dialing)
     }
+
+    @Test func placeCallViewModel_invalidNumberResult_tellsUserToCallEmergencyNumbersFromPhone() async {
+        let harness = Harness(sims: [PlaceCallSim(id: 7, name: "Only")])
+        await harness.viewModel.place(number: "112")
+
+        harness.viewModel.handle(harness.result(.invalidNumber))
+
+        #expect(harness.viewModel.statusMessage?.contains("Call emergency numbers from your phone.") == true)
+    }
 }

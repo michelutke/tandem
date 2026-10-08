@@ -2244,7 +2244,7 @@ is one of:
 | `PERMISSION_DENIED` | The phone has not granted the permission the action needs. |
 | `INVALID_SUBSCRIPTION` | `PlaceCallRequest.subscription_id` is not an active subscription in the latest `SimList` (§14). |
 | `NEEDS_PHONE_TAP` | The phone OS refuses to perform the action without a tap on the phone. |
-| `INVALID_NUMBER` | `PlaceCallRequest.address` fails the address rule below. |
+| `INVALID_NUMBER` | `PlaceCallRequest.address` fails the address rule below, or is an emergency number (below). |
 | `RATE_LIMITED` | A second `PlaceCallRequest` arrived within 5 s of the previous one. |
 
 `call_id` in the result is empty when no call is involved.
@@ -2258,7 +2258,10 @@ selects a SIM from the latest `SimList` (§14); `0` means the phone's default.
   (`*`, `#`) and pause/wait characters (`,`, `;`) are therefore rejected with `INVALID_NUMBER`.
 - At most one `PlaceCallRequest` per 5 s is accepted; a request within 5 s of the previous one is
   rejected with `RATE_LIMITED` (§10, E01-22).
-- Both rejections are made before any call is placed.
+- The phone never dials an emergency number (as reported by the platform, e.g. `112`, `911`) on a
+  remote request: it rejects it with `INVALID_NUMBER`, and the Mac tells the user to call emergency
+  numbers from the phone.
+- All rejections are made before any call is placed.
 
 ### Conformance
 

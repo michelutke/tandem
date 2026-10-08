@@ -86,6 +86,7 @@ final class NotificationBannerPanelController: NotificationBannerPresenting {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.appearance = NSAppearance(named: .aqua)
+        panel.excludeFromScreenSharing()
         return panel
     }
 

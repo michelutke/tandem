@@ -17,7 +17,8 @@ interface CaptureOverlay {
  * Auto-capture without starting an activity (ADR-007, D-82): shows [overlay], reads the clipboard
  * the moment it gains focus (Android only allows a read by the focused app), sends it if
  * [decision] allows, and removes the overlay straight after reading. If focus never arrives the
- * overlay is removed after [timeoutMillis] and nothing is sent. [scope] must run on the main thread.
+ * overlay is removed after [timeoutMillis] and nothing is sent. If the overlay cannot be shown the
+ * capture ends at once, so the next copy starts a fresh one. [scope] must run on the main thread.
  */
 class OverlayCapture(
     private val overlay: CaptureOverlay,
@@ -33,7 +34,14 @@ class OverlayCapture(
     fun start() {
         if (active) return
         active = true
-        overlay.show(::onFocused)
+        try {
+            overlay.show(::onFocused)
+        } catch (
+            @Suppress("TooGenericExceptionCaught", "SwallowedException") e: RuntimeException,
+        ) {
+            finish()
+            return
+        }
         timeout =
             scope.launch {
                 delay(timeoutMillis)

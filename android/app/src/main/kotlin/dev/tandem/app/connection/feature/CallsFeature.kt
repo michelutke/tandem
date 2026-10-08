@@ -10,6 +10,7 @@ import dev.tandem.feature.calls.CallGateway
 import dev.tandem.feature.calls.CallPermissions
 import dev.tandem.feature.calls.CallSubscriptions
 import dev.tandem.feature.calls.CallTracker
+import dev.tandem.feature.calls.EmergencyNumbers
 import dev.tandem.feature.calls.PlaceCallHandler
 import dev.tandem.feature.calls.TapToCallNotifier
 import kotlinx.coroutines.CoroutineDispatcher
@@ -28,6 +29,7 @@ class CallsFeature(
     private val permissions: CallPermissions,
     private val subscriptions: CallSubscriptions,
     private val notifier: TapToCallNotifier,
+    private val emergencyNumbers: EmergencyNumbers,
     private val normalize: (String) -> String?,
     private val clock: Clock,
     private val elapsedRealtimeSource: ElapsedRealtimeSource,
@@ -49,6 +51,7 @@ class CallsFeature(
                 permissions,
                 subscriptions,
                 notifier,
+                emergencyNumbers,
                 session,
                 elapsedRealtimeSource,
                 ioDispatcher,

@@ -17,9 +17,14 @@ class OverlayCaptureTest {
     private class FakeOverlay : CaptureOverlay {
         var shown = 0
         var removed = 0
+        var failShow = false
         private var onFocused: (() -> Unit)? = null
 
         override fun show(onFocused: () -> Unit) {
+            if (failShow) {
+                failShow = false
+                error("cannot add window")
+            }
             shown++
             this.onFocused = onFocused
         }
@@ -136,5 +141,25 @@ class OverlayCaptureTest {
 
             assertEquals(1, overlay.shown)
             overlay.gainFocus()
+        }
+
+    @Test
+    fun overlayCapture_showThrows_nextCopyStillCaptures() =
+        runTest(StandardTestDispatcher()) {
+            overlay.failShow = true
+            val capture = capture()
+
+            capture.start()
+            capture.start()
+            overlay.gainFocus()
+            runCurrent()
+
+            assertEquals(1, overlay.shown)
+            assertEquals(
+                "hello",
+                session.sentFrames
+                    .single()
+                    .clipboardText.text,
+            )
         }
 }

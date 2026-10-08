@@ -58,6 +58,11 @@ fun interface CallSubscriptions {
     fun isActive(subscriptionId: Int): Boolean
 }
 
+/** Whether [address] is an emergency number, which this phone never dials on a remote request. */
+fun interface EmergencyNumbers {
+    fun isEmergency(address: String): Boolean
+}
+
 /** Posts the "Tap to call" fallback notification (E52-05) when the OS will not start a call from the background. */
 fun interface TapToCallNotifier {
     fun post(

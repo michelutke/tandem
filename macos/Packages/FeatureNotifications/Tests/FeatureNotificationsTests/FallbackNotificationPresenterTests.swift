@@ -6,8 +6,8 @@ import TandemCrypto
 @testable import TandemProtocol
 
 private struct StubAuthorization: NotificationAuthorizing {
-    let authorized: Bool
-    func isAuthorized() async -> Bool { authorized }
+    let state: NotificationAuthorizationState
+    func state() async -> NotificationAuthorizationState { state }
 }
 
 private final class RecordingBanners: NotificationBannerPresenting {
@@ -37,7 +37,7 @@ private func posted(key: String = "k1") -> Tandem_V1_NotificationPosted {
         let system = RecordingNotificationPresenter()
         let banners = RecordingBanners()
         let presenter = FallbackNotificationPresenter(
-            system: system, authorization: StubAuthorization(authorized: true), banners: banners
+            system: system, authorization: StubAuthorization(state: .authorized), banners: banners
         )
         let coordinator = NotificationPresentationCoordinator(presenter: presenter)
 
@@ -51,7 +51,7 @@ private func posted(key: String = "k1") -> Tandem_V1_NotificationPosted {
         let system = RecordingNotificationPresenter()
         let banners = RecordingBanners()
         let presenter = FallbackNotificationPresenter(
-            system: system, authorization: StubAuthorization(authorized: false), banners: banners
+            system: system, authorization: StubAuthorization(state: .unavailable), banners: banners
         )
         let coordinator = NotificationPresentationCoordinator(presenter: presenter)
 
@@ -68,7 +68,7 @@ private func posted(key: String = "k1") -> Tandem_V1_NotificationPosted {
         await system.setAcceptsRequests(false)
         let banners = RecordingBanners()
         let presenter = FallbackNotificationPresenter(
-            system: system, authorization: StubAuthorization(authorized: true), banners: banners
+            system: system, authorization: StubAuthorization(state: .authorized), banners: banners
         )
         let coordinator = NotificationPresentationCoordinator(presenter: presenter)
 
@@ -81,12 +81,41 @@ private func posted(key: String = "k1") -> Tandem_V1_NotificationPosted {
         let system = RecordingNotificationPresenter()
         let banners = RecordingBanners()
         let presenter = FallbackNotificationPresenter(
-            system: system, authorization: StubAuthorization(authorized: false), banners: banners
+            system: system, authorization: StubAuthorization(state: .unavailable), banners: banners
         )
 
         await presenter.removeDelivered(identifiers: ["k1"])
 
         #expect(await system.removedIdentifierBatches == [["k1"]])
         #expect(banners.removed == ["k1"])
+    }
+
+    @Test func fallbackPresenter_denied_showsNoBannerAndSkipsSystem() async {
+        let system = RecordingNotificationPresenter()
+        let banners = RecordingBanners()
+        let presenter = FallbackNotificationPresenter(
+            system: system, authorization: StubAuthorization(state: .denied), banners: banners
+        )
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+
+        await coordinator.present(posted(), from: peer)
+
+        #expect(await system.addedIdentifiers.isEmpty)
+        #expect(banners.shown.isEmpty)
+    }
+
+    @Test func fallbackPresenter_everyAdd_reportsAuthorizationState() async {
+        let reported = Mutex<[NotificationAuthorizationState]>([])
+        let presenter = FallbackNotificationPresenter(
+            system: RecordingNotificationPresenter(),
+            authorization: StubAuthorization(state: .denied),
+            banners: RecordingBanners(),
+            onState: { state in reported.withLock { $0.append(state) } }
+        )
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+
+        await coordinator.present(posted(), from: peer)
+
+        #expect(reported.withLock { $0 } == [.denied])
     }
 }

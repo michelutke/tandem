@@ -41,6 +41,7 @@ public final class PlaceCallViewModel {
         case .idle, .choosingSim: nil
         case .dialing: "Calling."
         case .needsPhoneTap: "Tap the notification on your phone to start the call."
+        case .failed(.invalidNumber): "Can't call that from your Mac. Call emergency numbers from your phone."
         case .failed: "Couldn't call."
         }
     }

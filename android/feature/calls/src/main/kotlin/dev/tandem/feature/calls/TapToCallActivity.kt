@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
+import android.widget.Toast
 import dev.tandem.core.ui.TandemActivity
 
 /**
@@ -15,18 +16,21 @@ import dev.tandem.core.ui.TandemActivity
 class TapToCallActivity : TandemActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val address = intent.getStringExtra(EXTRA_ADDRESS)
-        if (!address.isNullOrEmpty()) {
-            val call =
-                Intent(Intent.ACTION_CALL, Uri.fromParts("tel", address, null)).apply {
-                    callAccountFor(
-                        getSystemService(TelephonyManager::class.java),
-                        getSystemService(TelecomManager::class.java),
-                        intent.getIntExtra(EXTRA_SUBSCRIPTION_ID, 0),
-                    )?.let { putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
-                }
-            startActivity(call)
-        }
+        TapToCallLauncher(
+            accountFor = { id ->
+                callAccountFor(
+                    getSystemService(TelephonyManager::class.java),
+                    getSystemService(TelecomManager::class.java),
+                    id,
+                )
+            },
+            start = { address, account ->
+                val call = Intent(Intent.ACTION_CALL, Uri.fromParts("tel", address, null))
+                account?.let { call.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+                startActivity(call)
+            },
+            onFailure = { Toast.makeText(this, R.string.calls_tap_to_call_failed, Toast.LENGTH_SHORT).show() },
+        ).place(intent.getStringExtra(EXTRA_ADDRESS), intent.getIntExtra(EXTRA_SUBSCRIPTION_ID, 0))
         finish()
     }
 

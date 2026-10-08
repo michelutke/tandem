@@ -294,6 +294,8 @@ Titles are nouns or states, not questions — except confirmations ("Revoke Pixe
 | call.dialingNamed | Calling {name}… (in-call bar while the phone reports DIALING; no timer, Hang up works) |
 | call.needsPhoneTap | Tap the notification on your phone to start the call. |
 | call.failed | Couldn't call. |
+| call.emergency | Can't call that from your Mac. Call emergency numbers from your phone. (phone rejected the number, `INVALID_NUMBER`) |
+| notif.systemOff | Notifications are off in System Settings. (button: Open Notifications settings; menu bar popover and Settings Notifications tab) |
 | home.ring.idle | things synced today |
 | home.ring.sending | Sending to Mac |
 | home.ring.receiving | Receiving from Mac |

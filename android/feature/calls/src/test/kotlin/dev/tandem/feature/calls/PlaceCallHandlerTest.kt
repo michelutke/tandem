@@ -25,6 +25,7 @@ class PlaceCallHandlerTest {
     private val elapsed = ManualElapsedRealtime()
     private val logLines = mutableListOf<String>()
     private var activeSubscriptions = setOf(1, 2)
+    private val emergency = setOf("112", "911", "144")
 
     private fun TestScope.handler() =
         PlaceCallHandler(
@@ -32,6 +33,7 @@ class PlaceCallHandlerTest {
             permissions,
             { it in activeSubscriptions },
             notifier,
+            { it in emergency },
             session,
             elapsed,
             StandardTestDispatcher(testScheduler),
@@ -193,5 +195,20 @@ class PlaceCallHandlerTest {
 
             assertEquals(1, gateway.placed.size)
             assertEquals("req-9", result.requestId)
+        }
+
+    @Test
+    fun placeCallHandler_emergencyNumber_returnsInvalidNumberWithoutCall() =
+        runTest {
+            val handler = handler()
+            handler.place("112")
+            elapsed.advanceBy(6_000)
+            handler.place("144")
+
+            assertEquals(
+                List(2) { CallActionErrorCode.CALL_ACTION_ERROR_CODE_INVALID_NUMBER },
+                session.sentFrames.map { it.callActionResult.errorCode },
+            )
+            assertTrue(gateway.placed.isEmpty())
         }
 }
