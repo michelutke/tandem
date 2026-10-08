@@ -1065,6 +1065,22 @@ Reference — E51-07 acceptance criteria:
 | | | | |
 
 
+### wakeReconnect_screenOnAfterSleep_connectedWithin5s (E20-07, phase 2)
+
+[android] Fast reconnect after the phone wakes
+
+Reference: a screen-on, Doze exit or app foregrounding kicks the reconnect strategy out of its backoff wait (WakeReconnectTrigger).
+
+**Preconditions:** Physical phone paired with the Mac, session Ready, battery unrestricted; phone and Mac on the same network or Tailscale.
+**Steps:** 1. Lock the phone and wait 10 minutes until the Mac shows it disconnected. 2. Start a stopwatch and turn the screen on. 3. Stop it when the Mac shows the phone connected. 4. Repeat 3 times, once by opening the app instead of only waking the screen.
+**Pass threshold:** Connected within 5 s of screen-on in all 3 runs, with no manual reconnect.
+**Evidence required (log excerpt / screen recording / pcap path):** Screen recording of the Mac status with a visible clock and the phone screen-on moment.
+
+| Date | Build SHA | Device | Result |
+|---|---|---|---|
+| | | | |
+
+
 ### incomingCall_physicalPhoneWithSim_macAlertWithin1sP95 (E52-08, phase 5)
 
 [cross] Device-level test: call control latency and correctness
