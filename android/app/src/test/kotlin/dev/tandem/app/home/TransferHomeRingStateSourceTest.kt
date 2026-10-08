@@ -1,6 +1,7 @@
 package dev.tandem.app.home
 
 import dev.tandem.feature.files.TransferActivity
+import dev.tandem.feature.files.TransferBatchAggregator
 import dev.tandem.feature.files.TransferBytes
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +53,8 @@ class TransferHomeRingStateSourceTest {
         runTest(StandardTestDispatcher()) {
             val source = source()
 
-            activity.value = TransferActivity.of(emptyMap(), mapOf("a" to bytes(50, 100), "b" to bytes(0, 100)))
+            activity.value =
+                TransferBatchAggregator().update(emptyMap(), mapOf("a" to bytes(50, 100), "b" to bytes(0, 100)))
             runCurrent()
 
             assertEquals(HomeRingState.Transfer(percent = 25, toMac = false), source.state.value)

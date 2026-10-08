@@ -8,6 +8,7 @@ actor RecordingNotificationPresenter: @preconcurrency NotificationPresenter {
     private(set) var addedRequests: [UNNotificationRequest] = []
     private(set) var removedIdentifierBatches: [[String]] = []
     private(set) var categories: Set<UNNotificationCategory> = []
+    var acceptsRequests = true
 
     nonisolated let responses: AsyncStream<NotificationResponseEvent>
     private let responsesContinuation: AsyncStream<NotificationResponseEvent>.Continuation
@@ -23,7 +24,11 @@ actor RecordingNotificationPresenter: @preconcurrency NotificationPresenter {
     @discardableResult
     func add(_ request: UNNotificationRequest) async -> Bool {
         addedRequests.append(request)
-        return true
+        return acceptsRequests
+    }
+
+    func setAcceptsRequests(_ value: Bool) {
+        acceptsRequests = value
     }
 
     func removeDelivered(identifiers: [String]) async {

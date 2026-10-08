@@ -27,6 +27,7 @@ import dev.tandem.feature.files.ThumbnailLoader
 import dev.tandem.feature.files.ThumbnailResponder
 import dev.tandem.feature.files.TransferActionDispatcher
 import dev.tandem.feature.files.TransferActivity
+import dev.tandem.feature.files.TransferBatchAggregator
 import dev.tandem.feature.files.TransferPrompter
 import dev.tandem.feature.files.TransferStore
 import dev.tandem.protocol.v1.Channel
@@ -90,7 +91,8 @@ class FilesFeature(
         try {
             coroutineScope {
                 launch {
-                    combine(sender.progress, fileReceiver.progress, TransferActivity::of)
+                    val batch = TransferBatchAggregator()
+                    combine(sender.progress, fileReceiver.progress, batch::update)
                         .collect(LiveTransferActivity::publish)
                 }
                 routePhotoRequests(session, OriginalResponder(mediaSource, sender))
