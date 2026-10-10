@@ -4,7 +4,7 @@
 # To regenerate this file, run: ./gradlew :harness:jvm-client:dependencies --write-locks
 com.google.protobuf:protobuf-javalite:4.36.2=compileClasspath,jvmIntegrationTestCompileClasspath,jvmIntegrationTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.google.protobuf:protobuf-kotlin-lite:4.36.2=compileClasspath,jvmIntegrationTestCompileClasspath,jvmIntegrationTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-com.googlecode.libphonenumber:libphonenumber:9.0.40=jvmIntegrationTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+com.googlecode.libphonenumber:libphonenumber:9.0.41=jvmIntegrationTestRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.apiguardian:apiguardian-api:1.1.2=jvmIntegrationTestCompileClasspath,testCompileClasspath
 org.conscrypt:conscrypt-openjdk-uber:2.7.0=compileClasspath,jvmIntegrationTestCompileClasspath,jvmIntegrationTestRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.jetbrains.kotlin:kotlin-build-tools-api:2.4.0=kotlinAbiValidationCompatClasspath
