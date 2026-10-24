@@ -1,0 +1,16 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - run: ./gradlew assembleRelease
+        env:
+          TANDEM_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+  unrelated:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ secrets.GITHUB_TOKEN }}"

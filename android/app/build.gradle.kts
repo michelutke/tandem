@@ -48,8 +48,25 @@ android {
         }
     }
 
+    // E71-11: the release keystore comes only from the release workflow's environment
+    // (docs/security/release-signing.md). Without it the release APK stays unsigned and fails
+    // tools/release-audit/verify-release-signing.rb; it never falls back to the debug key.
+    val releaseKeystore = providers.environmentVariable("TANDEM_RELEASE_KEYSTORE").orNull
+    val releaseSigning = releaseKeystore?.let { path ->
+        signingConfigs.create("release") {
+            storeFile = file(path)
+            storePassword = providers.environmentVariable("TANDEM_RELEASE_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("TANDEM_RELEASE_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("TANDEM_RELEASE_KEY_PASSWORD").get()
+            enableV1Signing = false
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = releaseSigning
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
