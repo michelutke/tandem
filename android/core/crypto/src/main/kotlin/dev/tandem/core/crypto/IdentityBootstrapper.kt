@@ -40,10 +40,11 @@ class IdentityBootstrapper(
 
     /**
      * Returns the phone's current identity, generating or regenerating it as needed. Safe to call
-     * on every launch.
+     * on every launch. [hasPairedPeers] is whether a trust record exists; if so, a missing or
+     * unreadable key throws [IdentityKeyUnavailableException] instead of being replaced.
      */
-    fun bootstrapIdentity(): KeyHandle {
-        val existing = existingIdentity() ?: return resetIdentity()
+    fun bootstrapIdentity(hasPairedPeers: Boolean = false): KeyHandle {
+        val existing = existingIdentity() ?: return missingIdentity(hasPairedPeers)
 
         return try {
             verifyUsable(existing)
@@ -51,6 +52,16 @@ class IdentityBootstrapper(
         } catch (expectedKeyPermanentlyInvalidated: KeyPermanentlyInvalidatedException) {
             resetIdentity()
         }
+    }
+
+    /**
+     * A missing key while a trust record exists may be a keystore hiccup rather than a lost key;
+     * regenerating would change the SPKI every paired Mac pins, so it is reported as unavailable
+     * instead (never regenerated). Only a first launch with no pairing generates here.
+     */
+    private fun missingIdentity(hasPairedPeers: Boolean): KeyHandle {
+        if (hasPairedPeers) throw IdentityKeyUnavailableException()
+        return resetIdentity()
     }
 
     /** Call once a pairing completes successfully; clears [requiresRePair] until the next reset. */

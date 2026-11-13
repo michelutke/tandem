@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.security.interfaces.ECPrivateKey
@@ -62,6 +64,35 @@ class IdentityBootstrapperTest {
                 expectNoEvents()
             }
         }
+
+    @Test
+    fun bootstrapIdentity_keyMissingWhilePeersPaired_doesNotRegenerateAndReportsUnavailable() {
+        val store = CountingGetOrCreateIdentityKeyStore(SoftwareIdentityKeyStore(clock))
+        var resets = 0
+        val bootstrapper = IdentityBootstrapper(store, onIdentityReset = { resets++ })
+
+        assertThrows(IdentityKeyUnavailableException::class.java) {
+            bootstrapper.bootstrapIdentity(hasPairedPeers = true)
+        }
+
+        assertEquals(0, store.getOrCreateCallCount)
+        assertNull(store.get(IDENTITY_KEY_ALIAS))
+        assertEquals(0, resets)
+        assertFalse(bootstrapper.requiresRePair)
+    }
+
+    @Test
+    fun bootstrapIdentity_permanentlyInvalidatedKeyWhilePeersPaired_resetsAndRequiresRePair() {
+        val software = SoftwareIdentityKeyStore(clock)
+        software.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+        var resets = 0
+        val bootstrapper = IdentityBootstrapper(SignPoisoningIdentityKeyStore(software), onIdentityReset = { resets++ })
+
+        bootstrapper.bootstrapIdentity(hasPairedPeers = true)
+
+        assertEquals(1, resets)
+        assertTrue(bootstrapper.requiresRePair)
+    }
 
     @Test
     fun bootstrapIdentity_afterReset_requiresRePairTrueUntilPairingSucceeds() {
