@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # mitm-scenario-name: mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged
 # mitm-scenario-role: client
-# mitm-scenario-expect: closedWithCode(PROTOCOL_TIMEOUT)
+# mitm-scenario-expect: closedWithCode(MALFORMED_FRAME)
 # mitm-scenario-timeout: 240
 #
 # E70-09 (1/6): a paired phone completes real mTLS, then sends a `KeyRotation` as its first frame,
 # before any `VersionHello`. SPEC.md #key-rotation: rotation is legal only on a Ready control
-# session; `VersionHandshake` discards every pre-hello CONTROL frame, so the frame never reaches the
-# rotation receiver and the Mac closes at its 5 s hello deadline (PROTOCOL_TIMEOUT, no wire signal).
+# session; `VersionHandshake` closes MALFORMED_FRAME on the first non-hello CONTROL frame, so the
+# frame never reaches the rotation receiver and the Mac closes at once (no wire signal for the code).
 # Observed: no `RotationAck` (payload 112), the connection closed, trust store unchanged.
 set -uo pipefail
 
@@ -48,7 +48,7 @@ e15_10_assert_mac_alive "$PORT" || FAILED=1
 e70_09_assert_trust_unchanged "$TRUST_BEFORE" || FAILED=1
 
 if [ "$FAILED" -eq 0 ]; then
-  echo "OUTCOME: closedWithCode(PROTOCOL_TIMEOUT)"
+  echo "OUTCOME: closedWithCode(MALFORMED_FRAME)"
 else
   echo "OUTCOME: FAILED"
 fi

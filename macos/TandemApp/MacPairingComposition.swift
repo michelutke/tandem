@@ -194,11 +194,94 @@ extension AppComposition {
     static func makeListenerStarted(
         pairing: MacPairingComposition,
         bonjour: ListenerBonjour
-    ) -> @Sendable (ListenerController.StartedListener) -> Void {
+    ) -> @Sendable (ListenerController.StartedListener) async -> Void {
         { started in
             pairing.listenerStarted(started.listener)
-            guard let port = started.listener.port?.rawValue else { return }
-            Task { await bonjour.listenerStarted(port: port) }
+            guard let port = started.listener.port?.rawValue else {
+                await bonjour.listenerStopped()
+                return
+            }
+            await bonjour.listenerStarted(port: port)
+        }
+    }
+
+    /// Every ``RetainedLifecycle`` field that comes from the started listener itself (sleep/wake,
+    /// network-path-change) rather than from identity/trust-store setup -- split out purely to keep
+    /// ``startListener()`` under this repo's `function_body_length` lint budget.
+    struct LifecycleControllers {
+        let listenerControl: ProductionListenerControl
+        let powerEvents: WorkspacePowerEvents
+        let pathSource: NWPathMonitorSource
+        let sleepWakeController: SleepWakeController
+        let pathChangeController: PathChangeController
+    }
+
+    /// What the production listener does around every start and stop, and how a failed restart is
+    /// reported.
+    struct ListenerHooks {
+        let started: @Sendable (ListenerController.StartedListener) async -> Void
+        let stopped: @Sendable () async -> Void
+        let failed: @Sendable (ListenerFailureReason) -> Void
+    }
+
+    static func makeListenerHooks(
+        pairing: MacPairingComposition,
+        identityBootstrapper: IdentityBootstrapper,
+        onFailure: @escaping @Sendable (ListenerFailureReason) -> Void
+    ) -> ListenerHooks {
+        let bonjour = makeBonjour(identityBootstrapper)
+        return ListenerHooks(
+            started: makeListenerStarted(pairing: pairing, bonjour: bonjour),
+            stopped: { await bonjour.listenerStopped() },
+            failed: onFailure
+        )
+    }
+
+    static func makeLifecycleControllers(
+        controller: ListenerController,
+        started: ListenerController.StartedListener,
+        hooks: ListenerHooks,
+        controlBox: ListenerControlBox
+    ) -> LifecycleControllers {
+        let listenerControl = ProductionListenerControl(
+            listenerController: controller,
+            initiallyStarted: started,
+            onStarted: hooks.started,
+            onStopped: hooks.stopped
+        )
+        let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
+        let onFailure: @Sendable (any Error) -> Void = { hooks.failed(.classify(listenerError: $0)) }
+        let sleepWakeController = SleepWakeController(
+            powerEvents: powerEvents, listenerControl: listenerControl, onFailure: onFailure
+        )
+        let pathSource = NWPathMonitorSource()
+        let pathChangeController = PathChangeController(
+            pathSource: pathSource, listenerControl: listenerControl, onFailure: onFailure
+        )
+        controlBox.set(listenerControl, onFailure: onFailure)
+        Task {
+            await hooks.started(started)
+            await sleepWakeController.start()
+            await pathChangeController.start()
+        }
+
+        return LifecycleControllers(
+            listenerControl: listenerControl,
+            powerEvents: powerEvents,
+            pathSource: pathSource,
+            sleepWakeController: sleepWakeController,
+            pathChangeController: pathChangeController
+        )
+    }
+
+    /// Rebinds the running listener for the Retry button after a runtime failure; the failure
+    /// reason, or `nil` when it is running again.
+    @MainActor static func restartListener(_ lifecycle: RetainedLifecycle) async -> ListenerFailureReason? {
+        do {
+            try await lifecycle.listenerControl.restart()
+            return nil
+        } catch {
+            return ListenerFailureReason.classify(listenerError: error)
         }
     }
 }

@@ -91,13 +91,19 @@ struct TandemMenuBarApp: App {
     /// app), never in a background loop. A success publishes the lifecycle and rebuilds the views
     /// composed from it.
     @MainActor
-    static let listenerStartup = ListenerStartupModel<AppComposition.RetainedLifecycle>(
-        start: { AppComposition.startListener() },
-        onStarted: { lifecycle in
-            retainedProductionLifecycle = lifecycle
-            resetMainWindowCaches()
-        }
-    )
+    static let listenerStartup: ListenerStartupModel<AppComposition.RetainedLifecycle> =
+        ListenerStartupModel(
+            start: { AppComposition.startListener(onRuntimeFailure: Self.listenerFailed) },
+            onStarted: { lifecycle in
+                retainedProductionLifecycle = lifecycle
+                resetMainWindowCaches()
+            },
+            restart: { await AppComposition.restartListener($0) }
+        )
+
+    nonisolated private static func listenerFailed(_ reason: ListenerFailureReason) {
+        Task { @MainActor in listenerStartup.listenerFailed(reason) }
+    }
 
     var body: some Scene {
         MenuBarExtra("Tandem", systemImage: "circle.fill") {

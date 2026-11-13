@@ -60,16 +60,14 @@ enum AppComposition {
 
     /// Bootstraps the identity and, if it's ready, starts the listener and both lifecycle
     /// controllers.
-    static func startListener() -> Result<RetainedLifecycle, ListenerStartFailure> {
+    static func startListener(
+        onRuntimeFailure: @escaping @Sendable (ListenerFailureReason) -> Void
+    ) -> Result<RetainedLifecycle, ListenerStartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = makeIdentityBootstrapper(keychainStore)
 
         let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
-        identityBootstrapper.bootstrapIdentity()
-
-        if let failure = ListenerStartFailure(identityState: identityBootstrapper.identityState) {
-            return .failure(failure)
-        }
+        if let failure = bootstrapFailure(identityBootstrapper, core: core) { return .failure(failure) }
 
         let mirror = MirrorComposition()
         let sessionFeatures = makeSessionFeatures(core: core, mirror: mirror)
@@ -89,11 +87,14 @@ enum AppComposition {
         case .failure(let failure): return .failure(failure)
         }
 
-        let listenerStarted = makeListenerStarted(pairing: core.pairing, bonjour: makeBonjour(identityBootstrapper))
         let controllers = makeLifecycleControllers(
-            controller: controller, started: started, listenerStarted: listenerStarted
+            controller: controller,
+            started: started,
+            hooks: makeListenerHooks(
+                pairing: core.pairing, identityBootstrapper: identityBootstrapper, onFailure: onRuntimeFailure
+            ),
+            controlBox: core.listenerControl
         )
-        core.listenerControl.set(controllers.listenerControl)
         core.rotation.startScheduler()
         return .success(
             RetainedLifecycle(
@@ -114,6 +115,14 @@ enum AppComposition {
                 rotation: core.rotation
             )
         )
+    }
+
+    /// Bootstraps the identity and republishes the paired phone, which an identity reset may have
+    /// removed; the failure to start the listener on it, or `nil` when it is ready.
+    private static func bootstrapFailure(_ bootstrapper: IdentityBootstrapper, core: Core) -> ListenerStartFailure? {
+        bootstrapper.bootstrapIdentity()
+        Task { await core.pairedPeer.refresh() }
+        return ListenerStartFailure(identityState: bootstrapper.identityState)
     }
 
     private static func makeIdentityBootstrapper(_ keychainStore: any KeychainStore) -> IdentityBootstrapper {
@@ -158,7 +167,7 @@ enum AppComposition {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
         let pairedPeer = MainActor.assumeIsolated { PairedPeerState(trustStore: trustStore) }
-        let purgeRegistry = PeerDataPurgeRegistry()
+        let purgeRegistry = PeerDataPurgeRegistry(trustedPeers: { try trustStore.pinnedPeers() })
         let pairing = MacPairingComposition(
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
@@ -253,46 +262,6 @@ enum AppComposition {
                     await relay.attach(session)
                 }
             }
-        )
-    }
-
-    /// Every ``RetainedLifecycle`` field that comes from the started listener itself (sleep/wake,
-    /// network-path-change) rather than from identity/trust-store setup -- split out purely to keep
-    /// ``startListener()`` under this repo's `function_body_length` lint budget.
-    private struct LifecycleControllers {
-        let listenerControl: ProductionListenerControl
-        let powerEvents: WorkspacePowerEvents
-        let pathSource: NWPathMonitorSource
-        let sleepWakeController: SleepWakeController
-        let pathChangeController: PathChangeController
-    }
-
-    private static func makeLifecycleControllers(
-        controller: ListenerController,
-        started: ListenerController.StartedListener,
-        listenerStarted: @escaping @Sendable (ListenerController.StartedListener) -> Void
-    ) -> LifecycleControllers {
-        listenerStarted(started)
-        let listenerControl = ProductionListenerControl(
-            listenerController: controller,
-            initiallyStarted: started,
-            onStarted: listenerStarted
-        )
-        let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
-        let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
-        let pathSource = NWPathMonitorSource()
-        let pathChangeController = PathChangeController(pathSource: pathSource, listenerControl: listenerControl)
-        Task {
-            await sleepWakeController.start()
-            await pathChangeController.start()
-        }
-
-        return LifecycleControllers(
-            listenerControl: listenerControl,
-            powerEvents: powerEvents,
-            pathSource: pathSource,
-            sleepWakeController: sleepWakeController,
-            pathChangeController: pathChangeController
         )
     }
 
