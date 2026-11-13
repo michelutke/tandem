@@ -7,15 +7,31 @@ import TandemDesign
 /// drives paging and thumbnail requests in ``PhotoGridViewModel``.
 public struct PhotoGridView: View {
     private let viewModel: PhotoGridViewModel
+    private let deviceName: String
     @State private var visibleIndices: Set<Int> = []
 
     private static let cellSize: CGFloat = 96
 
-    public init(viewModel: PhotoGridViewModel) {
+    public init(viewModel: PhotoGridViewModel, deviceName: String = "Your phone") {
         self.viewModel = viewModel
+        self.deviceName = deviceName
     }
 
     public var body: some View {
+        Group {
+            if viewModel.showsNoAccess {
+                SectionEmptyState(
+                    kind: .noAccess(section: "Photos", deviceName: deviceName),
+                    identifier: "photoNoAccessEmptyState"
+                )
+            } else {
+                grid
+            }
+        }
+        .task { await viewModel.loadFirstPage() }
+    }
+
+    private var grid: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.large) {
             TitleBlock(subject: "Photos.", state: "\(viewModel.items.count) on phone.")
             if viewModel.showsLimitedAccessBanner {
@@ -40,7 +56,6 @@ public struct PhotoGridView: View {
         }
         .padding(TandemSpacing.windowPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task { await viewModel.loadFirstPage() }
     }
 
     private var limitedAccessBanner: some View {

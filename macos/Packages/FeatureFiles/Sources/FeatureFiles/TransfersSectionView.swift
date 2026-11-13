@@ -20,17 +20,21 @@ public struct TransfersSectionView: View {
     public var body: some View {
         ZStack {
             content
+                .disabled(confirmingClear)
+                .accessibilityHidden(confirmingClear)
             GlassSheet(isPresented: confirmingClear) {
-                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
-                    TitleBlock(subject: "Clear history?", state: "Received files stay where they were saved.")
-                    PillButton("Clear", kind: .destructive) {
+                GlassConfirmBody(
+                    title: "Clear history?",
+                    message: "Received files stay where they were saved.",
+                    confirmTitle: "Clear",
+                    confirmKind: .destructive,
+                    confirmIdentifier: "clearHistoryConfirm",
+                    onConfirm: {
                         confirmingClear = false
                         Task { await center.clearEarlier() }
-                    }
-                    .accessibilityIdentifier("clearHistoryConfirm")
-                    PillButton("Cancel", kind: .secondary) { confirmingClear = false }
-                }
-                .frame(width: 280)
+                    },
+                    onCancel: { confirmingClear = false }
+                )
             }
         }
     }

@@ -29,6 +29,9 @@ public final class PhotoGridViewModel {
 
     public var showsLimitedAccessBanner: Bool { access == .partial }
 
+    /// The phone reports it shares no photos at all (ui-spec §7.1 "Photos · No access").
+    public var showsNoAccess: Bool { access == .none }
+
     @ObservationIgnored private let service: any PhotoService
     @ObservationIgnored private let offerExpecting: (any OriginalOfferExpecting)?
     @ObservationIgnored private let makeTransferID: @Sendable () -> String

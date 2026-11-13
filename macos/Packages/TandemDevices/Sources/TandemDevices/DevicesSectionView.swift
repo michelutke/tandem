@@ -38,6 +38,8 @@ public struct DevicesSectionView: View {
                 .padding(TandemSpacing.windowPadding)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .disabled(isSheetPresented)
+            .accessibilityHidden(isSheetPresented)
             revokeSheet
             rotateSheet
         }
@@ -45,6 +47,10 @@ public struct DevicesSectionView: View {
             devices.refresh()
             rotation?.refreshPending()
         }
+    }
+
+    private var isSheetPresented: Bool {
+        devices.pendingRevoke != nil || rotation?.state == .confirming
     }
 
     /// "1 paired." / "No phone yet." (ui-spec §7.1).
@@ -83,7 +89,7 @@ public struct DevicesSectionView: View {
                         .disabled(!rotation.actionEnabled)
                         .accessibilityIdentifier("rotateKeyButton")
                 }
-                PillButton("Revoke", kind: .destructive) { devices.requestRevoke(row) }
+                PillButton("Revoke", kind: .destructiveSoft) { devices.requestRevoke(row) }
                     .fixedSize(horizontal: true, vertical: false)
                     .accessibilityIdentifier("revokeButton")
             }
@@ -137,12 +143,15 @@ public struct DevicesSectionView: View {
     private var revokeSheet: some View {
         GlassSheet(isPresented: devices.pendingRevoke != nil) {
             if let pendingRevoke = devices.pendingRevoke {
-                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
-                    TitleBlock(subject: "Revoke \(pendingRevoke.displayName)?", state: "It will need to pair again.")
-                    PillButton("Revoke", kind: .destructive) { devices.confirmRevoke() }
-                    PillButton("Cancel", kind: .secondary) { devices.cancelRevoke() }
-                }
-                .frame(width: 280)
+                GlassConfirmBody(
+                    title: "Revoke \(pendingRevoke.displayName)?",
+                    message: "Its key is deleted here now and on the phone when it next connects. "
+                        + "Pairing again needs a new code.",
+                    confirmTitle: "Revoke",
+                    confirmKind: .destructive,
+                    onConfirm: { devices.confirmRevoke() },
+                    onCancel: { devices.cancelRevoke() }
+                )
             }
         }
     }
@@ -150,12 +159,14 @@ public struct DevicesSectionView: View {
     private var rotateSheet: some View {
         GlassSheet(isPresented: rotation?.state == .confirming) {
             if let rotation {
-                VStack(alignment: .leading, spacing: TandemSpacing.medium) {
-                    TitleBlock(subject: "Rotate this Mac's key?", state: "Your phone must confirm the new key.")
-                    PillButton("Rotate", kind: .primary) { Task { await rotation.confirm() } }
-                    PillButton("Cancel", kind: .secondary) { rotation.cancel() }
-                }
-                .frame(width: 280)
+                GlassConfirmBody(
+                    title: "Rotate this Mac's key?",
+                    message: "Your phone must confirm the new key.",
+                    confirmTitle: "Rotate",
+                    confirmKind: .primary,
+                    onConfirm: { Task { await rotation.confirm() } },
+                    onCancel: { rotation.cancel() }
+                )
             }
         }
     }

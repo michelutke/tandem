@@ -9,6 +9,7 @@ public struct MessagesSplitView: View {
     private let makeConversation: @MainActor (ThreadRow) -> ConversationViewModel
     private let headerAccessory: (@MainActor (String) -> AnyView)?
     private let offlineComposerText: String?
+    private let deviceName: String
     private let refreshTick: Int
 
     @State private var selectedThreadId: Int64?
@@ -18,24 +19,30 @@ public struct MessagesSplitView: View {
 
     /// - Parameters:
     ///   - offlineComposerText: non-nil while the phone is offline ("Sends when Pixel 9 is back").
+    ///   - deviceName: the phone's name, for the "Turned off on the phone" state.
     ///   - refreshTick: changing it reloads the thread list and the open conversation.
     public init(
         viewModel: ThreadListViewModel,
         makeConversation: @escaping @MainActor (ThreadRow) -> ConversationViewModel,
         headerAccessory: (@MainActor (String) -> AnyView)? = nil,
         offlineComposerText: String? = nil,
+        deviceName: String = "your phone",
         refreshTick: Int = 0
     ) {
         self.viewModel = viewModel
         self.makeConversation = makeConversation
         self.headerAccessory = headerAccessory
         self.offlineComposerText = offlineComposerText
+        self.deviceName = deviceName
         self.refreshTick = refreshTick
     }
 
     public var body: some View {
         if viewModel.state == .permissionRequired {
-            SectionEmptyState(kind: .turnedOffOnPhone, identifier: "threadListPermissionRequired")
+            SectionEmptyState(
+                kind: .turnedOffOnPhone(section: "Messages", deviceName: deviceName),
+                identifier: "threadListPermissionRequired"
+            )
         } else {
             HStack(spacing: 0) {
                 list

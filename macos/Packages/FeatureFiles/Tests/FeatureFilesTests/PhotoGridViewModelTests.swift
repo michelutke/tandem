@@ -79,6 +79,21 @@ struct PhotoGridViewModelTests {
         #expect(await service.moreRequests == 1)
     }
 
+    @Test func photoGridVm_noAccess_showsNoAccessState() async {
+        let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<0, nextCursor: "", access: .none)])
+        let viewModel = await loadedViewModel(service: service)
+
+        #expect(viewModel.showsNoAccess)
+        #expect(!viewModel.showsLimitedAccessBanner)
+    }
+
+    @Test func photoGridVm_fullAccess_noNoAccessState() async {
+        let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<3, nextCursor: "")])
+        let viewModel = await loadedViewModel(service: service)
+
+        #expect(!viewModel.showsNoAccess)
+    }
+
     @Test func photoGridVm_fullAccess_noLimitedBanner() async {
         let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<3, nextCursor: "")])
         let viewModel = await loadedViewModel(service: service)
