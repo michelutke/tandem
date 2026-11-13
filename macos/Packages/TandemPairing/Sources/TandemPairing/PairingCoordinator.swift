@@ -35,6 +35,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     private let sessionRegistry: any ControlSessionRegistering
     private let onConfirmationPending: ConfirmationPendingHandler?
     private let onPeerPaired: (@Sendable () -> Void)?
+    private let purgeRegistry: PeerDataPurgeRegistry?
+    private let onPeerUnpaired: (@Sendable () async -> Void)?
     private let candidateSpkiDer: CandidateSpkiHolder
     let manualNonceSource: any ManualNonceSource
 
@@ -62,6 +64,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         mode: PairingMode = .qrCode,
         manualNonceSource: any ManualNonceSource = SystemManualNonceSource(),
         onConfirmationPending: ConfirmationPendingHandler? = nil,
+        purgeRegistry: PeerDataPurgeRegistry? = nil,
+        onPeerUnpaired: (@Sendable () async -> Void)? = nil,
         onPeerPaired: (@Sendable () -> Void)? = nil
     ) {
         let candidateSpkiDer = CandidateSpkiHolder()
@@ -89,6 +93,8 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         self.sessionRegistry = sessionRegistry
         self.onConfirmationPending = onConfirmationPending
         self.onPeerPaired = onPeerPaired
+        self.purgeRegistry = purgeRegistry
+        self.onPeerUnpaired = onPeerUnpaired
         self.candidateSpkiDer = candidateSpkiDer
         self.manualNonceSource = manualNonceSource
         if mode == .manual { window.openManual() }
@@ -170,7 +176,10 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         var pendingConfirmation: PairConfirmationViewModel?
         var confirmationBuilt = false
         for await frame in frames {
-            if context.resolution.isResolved { continue }
+            if context.resolution.isResolved {
+                if case .revoke? = frame.payload, await handleRevokeAfterPairing(context) { return pendingConfirmation }
+                continue
+            }
             let manualActive = handshake != nil && !confirmationBuilt
             let qrActive = handshake == nil && !confirmationBuilt
 
@@ -199,6 +208,22 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
             }
         }
         return pendingConfirmation
+    }
+
+    /// A `Revoke` on the pairing connection once the pairing completed (SPEC "Mutual confirmation":
+    /// the phone cancelled or never pinned the Mac): deletes the record just committed. `false`
+    /// when this connection never registered a peer, so there is nothing to revoke.
+    private func handleRevokeAfterPairing(_ context: PairRequestContext) async -> Bool {
+        guard let fingerprint = context.registeredFingerprint.value else { return false }
+        await RevokeHandler.handle(
+            peerSpkiFingerprint: fingerprint,
+            session: PairedSessionRevokeAdapter(session: context.session),
+            trustStore: trustStore,
+            registry: PairedSessionRegistryAdapter(registry: sessionRegistry, session: context.session),
+            purgeRegistry: purgeRegistry,
+            onUnpaired: onPeerUnpaired
+        )
+        return true
     }
 
     /// Everything a `PairRequest` frame's handling needs beyond the request itself, bundled to
@@ -334,5 +359,31 @@ private extension PairRejectedWireReason {
         case .rejectedByOwner: return .rejectedByOwner
         case .pairingUnavailable: return .pairingUnavailable
         }
+    }
+}
+
+/// ``TandemStore/RevokeHandlerSession`` for the pairing connection's session, only ever built once
+/// that session reached `PairAccepted`, so it is `.ready` by construction.
+private struct PairedSessionRevokeAdapter: RevokeHandlerSession {
+    let session: any TandemSession
+
+    var state: AsyncStream<RevokeHandlerConnectionState> {
+        AsyncStream { continuation in
+            continuation.yield(.ready)
+            continuation.finish()
+        }
+    }
+
+    func close() async {
+        await session.close()
+    }
+}
+
+private struct PairedSessionRegistryAdapter: RevokeHandlerRegistry {
+    let registry: any ControlSessionRegistering
+    let session: any TandemSession
+
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {
+        await registry.removeIfCurrent(spkiFingerprint, session: session)
     }
 }

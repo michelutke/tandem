@@ -64,6 +64,43 @@ struct PairingCoordinatorTests {
     }
 
     @Test(.timeLimit(.minutes(1)))
+    func drive_revokeAfterPairAccepted_trustRecordDeletedAndSessionClosed() async throws {
+        let fixture = try Fixture.make()
+        let session = FakeTandemSession()
+        let driveTask = Task {
+            await fixture.coordinator.drive(
+                session: session,
+                handshakeSpkiDer: fixture.phoneSpkiDer,
+                token: fixture.token
+            )
+        }
+        let challenge = try await Self.waitForChallenge(session, timeout: 2)
+        let proof = try PairingProof.compute(
+            secret: fixture.coordinator.viewModel.currentPayload.secret,
+            macSpkiDer: fixture.macSpkiDer,
+            phoneSpkiDer: fixture.phoneSpkiDer,
+            channelBinding: challenge
+        )
+        await session.inject(Self.pairRequestFrame(proof: proof))
+        let viewModel = try await Self.waitForConfirmation(fixture, timeout: 2)
+        await viewModel.pair()
+        let registered = await Self.waitFor(timeout: 2) {
+            await fixture.sessionRegistry.registeredFingerprints.count == 1
+        }
+        #expect(registered)
+
+        await session.inject(InboundFrame(channel: .control, seq: 3, ack: 0, payload: .revoke(Tandem_V1_Revoke())))
+        await driveTask.value
+
+        #expect(try fixture.trustStore.list().isEmpty)
+        let closed = await session.state.contains { state in
+            if case .disconnected = state { return true }
+            return false
+        }
+        #expect(closed)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
     func drive_badProof_pairRejectedPairingUnavailableAndAttemptBurned() async throws {
         let fixture = try Fixture.make()
         let session = FakeTandemSession()
