@@ -15,11 +15,20 @@ class DotRingTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun dotRing_value43_contentDescriptionReads43Percent() {
+    fun dotRing_value43_contentDescriptionReadsNumeralUnitAndLabelWithSeparator() {
         composeRule.setContent {
-            DotRing(value = 43, maxValue = 100, unit = "%")
+            DotRing(numeral = "43", numeralUnit = "%", label = "Sending to Mac", litFraction = 0.43f)
         }
 
-        composeRule.onNodeWithContentDescription("43%").assertExists()
+        composeRule.onNodeWithContentDescription("43%, Sending to Mac").assertExists()
+    }
+
+    @Test
+    fun dotRing_noNumeral_contentDescriptionIsTheLabelOnly() {
+        composeRule.setContent {
+            DotRing(numeral = "", label = "ringing", pulse = true)
+        }
+
+        composeRule.onNodeWithContentDescription("ringing").assertExists()
     }
 }

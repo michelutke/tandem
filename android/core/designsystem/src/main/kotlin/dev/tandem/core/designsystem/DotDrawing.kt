@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.graphics.shapes.Morph
 import kotlin.math.PI
-import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -25,12 +24,18 @@ import kotlin.math.sqrt
 // Shared drawing for the dot motif (ui-spec.md §2 "Dot motif", §5.2 DotRing/DotChart/DotHero):
 // lit = ink, unlit = ink at 12 %, current position = signal green.
 
-/** A ring of dots, clockwise from the top; `litDots` (0..dotCount) are lit, the last one signals. */
+/**
+ * A ring of dots, clockwise from the top; `litDots` (0..dotCount) are lit ink, the dot at
+ * [signalIndex] (default: the last lit one) is signal green, the rest are unlit.
+ */
+@Suppress("LongParameterList") // geometry and colour knobs of one dot ring
 internal fun DrawScope.drawRingDots(
     dotCount: Int,
     litDots: Int,
     ringRadius: Float = size.minDimension / 2f * 0.92f,
     dotRadius: Float = size.minDimension / 40f,
+    signalIndex: Int? = litDots - 1,
+    unlitColor: Color = TandemColors.lineUnlitDot,
 ) {
     val center = Offset(size.width / 2f, size.height / 2f)
     for (index in 0 until dotCount) {
@@ -42,19 +47,19 @@ internal fun DrawScope.drawRingDots(
             )
         val color =
             when {
-                litDots <= 0 -> TandemColors.lineUnlitDot
-                index == litDots - 1 -> TandemColors.signal
+                index == signalIndex -> TandemColors.signal
                 index < litDots -> TandemColors.ink
-                else -> TandemColors.lineUnlitDot
+                else -> unlitColor
             }
         drawCircle(color = color, radius = dotRadius, center = position)
     }
 }
 
-/** A single dot column, bottom-up, for [DotChart]'s per-period bars. */
+/** A single dot column, bottom-up, for [DotChart]'s per-period bars; [isCurrent] marks the top lit dot as signal. */
 internal fun DrawScope.drawColumnDots(
     maxDots: Int,
     litDots: Int,
+    isCurrent: Boolean = false,
     dotRadius: Float = size.width / 3f,
 ) {
     if (maxDots <= 0) return
@@ -62,24 +67,61 @@ internal fun DrawScope.drawColumnDots(
     for (index in 0 until maxDots) {
         val fromBottom = maxDots - 1 - index
         val center = Offset(size.width / 2f, spacing * index + spacing / 2f)
-        val color = if (fromBottom < litDots) TandemColors.ink else TandemColors.lineUnlitDot
+        val color =
+            when {
+                isCurrent && fromBottom == litDots - 1 -> TandemColors.signal
+                fromBottom < litDots -> TandemColors.ink
+                else -> TandemColors.lineUnlitDot
+            }
         drawCircle(color = color, radius = dotRadius, center = center)
     }
 }
 
-/** A decorative dot grid for the onboarding [DotHero]; purely visual, no meaning to convey. */
-internal fun DrawScope.drawHeroDots(dotCount: Int) {
-    if (dotCount <= 0) return
-    val columns = ceil(sqrt(dotCount.toFloat())).toInt().coerceAtLeast(1)
-    val rows = ceil(dotCount / columns.toFloat()).toInt().coerceAtLeast(1)
-    val cellWidth = size.width / columns
-    val cellHeight = size.height / rows
-    val dotRadius = minOf(cellWidth, cellHeight) / 4f
-    for (index in 0 until dotCount) {
-        val column = index % columns
-        val row = index / columns
-        val center = Offset(cellWidth * column + cellWidth / 2f, cellHeight * row + cellHeight / 2f)
-        drawCircle(color = TandemColors.ink, radius = dotRadius, center = center)
+private const val HERO_RADIUS_CELLS = 5.1f
+private const val HERO_CORE_RADIUS_CELLS = 2.25f
+private const val HERO_SIGNAL_OFFSET_CELLS = 3
+private const val HERO_GRID = 11
+
+/**
+ * The decorative onboarding [DotHero]: a circular dot lattice with an ink core, grey outer dots
+ * and one signal dot beside the core; purely visual, no meaning to convey.
+ */
+internal fun DrawScope.drawHeroDots() {
+    val cell = size.minDimension / HERO_GRID
+    val middle = HERO_GRID / 2
+    for (row in 0 until HERO_GRID) {
+        for (column in 0 until HERO_GRID) {
+            val dx = column - middle
+            val dy = row - middle
+            val distance = sqrt((dx * dx + dy * dy).toFloat())
+            if (distance > HERO_RADIUS_CELLS) continue
+            val color =
+                when {
+                    dy == 0 && dx == HERO_SIGNAL_OFFSET_CELLS -> TandemColors.signal
+                    distance <= HERO_CORE_RADIUS_CELLS -> TandemColors.ink
+                    else -> TandemColors.lineUnlitDot
+                }
+            drawCircle(
+                color = color,
+                radius = cell * 0.18f,
+                center = Offset(cell * column + cell / 2f, cell * row + cell / 2f),
+            )
+        }
+    }
+}
+
+/** The 3x3 ink dot mark with a signal centre shown on the Paired screen (ui-spec §7.2). */
+internal fun DrawScope.drawDotMark() {
+    val cell = size.minDimension / 3f
+    for (row in 0 until 3) {
+        for (column in 0 until 3) {
+            val isCentre = row == 1 && column == 1
+            drawCircle(
+                color = if (isCentre) TandemColors.signal else TandemColors.ink,
+                radius = cell * 0.32f,
+                center = Offset(cell * column + cell / 2f, cell * row + cell / 2f),
+            )
+        }
     }
 }
 

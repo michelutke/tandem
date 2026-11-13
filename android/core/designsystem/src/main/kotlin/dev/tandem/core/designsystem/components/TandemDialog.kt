@@ -2,19 +2,29 @@
 
 package dev.tandem.core.designsystem.components
 
-import androidx.compose.material3.AlertDialog
+import android.view.Gravity
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemShapes
+import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 
 /**
  * The M3E bottom-anchored confirmation dialog (ui-spec.md §5.2), e.g. "Unpair Pixel 9?" /
- * "Rotate key?". [confirmText] is red when [isDestructive] (ui-spec §2 "Single primary action").
+ * "Rotate key?": a 36 dp sheet pinned to the bottom with a title, grey body, a full-width
+ * primary [PillButton] (red fill when [isDestructive], ui-spec §2 "Single primary action") over an
+ * outlined secondary dismiss button.
  */
 @Composable
 @Suppress("LongParameterList") // dialog needs title/body/both actions plus destructive styling
@@ -22,34 +32,44 @@ fun TandemDialog(
     title: String,
     text: String,
     confirmText: String,
+    dismissText: String,
     onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    dismissText: String = "Cancel",
     isDestructive: Boolean = false,
 ) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismissRequest,
-        modifier = modifier,
-        shape = TandemShapes.dialog,
-        containerColor = TandemColors.paper,
-        title = { Text(text = title, style = TandemType.rowTitle, color = TandemColors.ink) },
-        text = { Text(text = text, style = TandemType.body, color = TandemColors.ink2) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        (LocalView.current.parent as? DialogWindowProvider)?.window?.setGravity(Gravity.BOTTOM)
+        Surface(
+            modifier = modifier.fillMaxWidth().padding(TandemSpacing.md),
+            shape = TandemShapes.dialog,
+            color = TandemColors.paper,
+        ) {
+            Column(modifier = Modifier.padding(TandemSpacing.xxl)) {
+                Text(text = title, style = TandemType.titleEmphasis, color = TandemColors.ink)
                 Text(
+                    text = text,
+                    style = TandemType.body,
+                    color = TandemColors.ink2,
+                    modifier = Modifier.padding(top = TandemSpacing.sm, bottom = TandemSpacing.xl),
+                )
+                PillButton(
                     text = confirmText,
-                    style = TandemType.rowTitle,
-                    color = if (isDestructive) TandemColors.alert else TandemColors.ink,
+                    onClick = onConfirm,
+                    variant = if (isDestructive) PillButtonVariant.Destructive else PillButtonVariant.Primary,
+                )
+                PillButton(
+                    text = dismissText,
+                    onClick = onDismissRequest,
+                    variant = PillButtonVariant.Secondary,
+                    modifier = Modifier.padding(top = TandemSpacing.sm),
                 )
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(text = dismissText, style = TandemType.rowTitle, color = TandemColors.ink)
-            }
-        },
-    )
+        }
+    }
 }
 
 @Preview(showBackground = true)
@@ -59,6 +79,7 @@ private fun TandemDialogPreview() {
         title = "Unpair Pixel 9?",
         text = "The Mac will no longer be able to reach this phone.",
         confirmText = "Unpair",
+        dismissText = "Cancel",
         onConfirm = {},
         onDismissRequest = {},
         isDestructive = true,

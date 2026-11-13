@@ -41,7 +41,7 @@ fun TandemScaffold(
 private fun TandemScaffoldPreview() {
     TandemScaffold(title = "Tandem.", state = "Linked to MacBook Pro.") { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            DotRing(value = 43, maxValue = 100, unit = "%")
+            DotRing(numeral = "43", numeralUnit = "%", label = "Sending to Mac", litFraction = 0.43f)
         }
     }
 }
