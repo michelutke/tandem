@@ -59,6 +59,17 @@ class RingControllerTest {
         }
 
     @Test
+    fun ringController_stopWhileNothingRinging_cancelsStaleRingNotification() =
+        runTest {
+            val notifier = FakeRingNotifier()
+            val controller = ringController(FakeAlarmPlayer(), FakeTandemSession(), notifier = notifier)
+
+            controller.dismissedByPhone()
+
+            assertEquals(1, notifier.cancelled)
+        }
+
+    @Test
     fun ringController_ringStartsAlarm_reportsStartedOnlyOnce() =
         runTest {
             val controller = ringController(FakeAlarmPlayer(), FakeTandemSession())

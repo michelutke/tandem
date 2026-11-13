@@ -75,10 +75,14 @@ class RingController(
     /**
      * Phone-side user dismissal (e.g. the ring notification's "Stop" action): stops the alarm and
      * sends a single `RingStop{origin=phone}` so the Mac can revert its menu item (E23-07). A
-     * no-op if the alarm isn't currently ringing.
+     * no-op if the alarm isn't currently ringing, except that it clears a stale ring notification
+     * (e.g. one left behind by a process death).
      */
     suspend fun dismissedByPhone() {
-        if (!isRinging) return
+        if (!isRinging) {
+            ringNotifier.cancel()
+            return
+        }
         stopRinging()
         session.sendOrDrop(Channel.CHANNEL_STATUS) { ringStop = ringStop { origin = RingStop.Origin.ORIGIN_PHONE } }
     }

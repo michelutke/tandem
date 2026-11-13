@@ -22,7 +22,7 @@ class MirrorRequestScreenTest {
 
     @Test
     fun mirrorRequestScreen_shown_namesTheMacAndListsThreeFacts() {
-        composeRule.setContent { MirrorRequestScreen("MacBook Pro", {}, {}) }
+        composeRule.setContent { MirrorRequestScreen("MacBook Pro", {}, {}, remoteInputAvailable = true) }
 
         composeRule.onNodeWithText("Mirror.").assertExists()
         composeRule.onNodeWithText("MacBook Pro wants to see your screen.").assertExists()
@@ -31,10 +31,29 @@ class MirrorRequestScreenTest {
     }
 
     @Test
+    fun mirrorRequestScreen_remoteInputAvailable_claimsTapAndType() {
+        composeRule.setContent { MirrorRequestScreen("Mac", {}, {}, remoteInputAvailable = true) }
+
+        composeRule.onNodeWithText("Mac can tap and type while this is on").assertExists()
+    }
+
+    @Test
+    fun mirrorRequestScreen_remoteInputUnavailable_doesNotClaimTapAndTypeAndShowsViewOnlyWording() {
+        composeRule.setContent { MirrorRequestScreen("Mac", {}, {}, remoteInputAvailable = false) }
+
+        composeRule.onNodeWithText("Mac can tap and type while this is on").assertDoesNotExist()
+        composeRule
+            .onNodeWithText("To let your Mac tap and type, allow Tandem in Accessibility settings.")
+            .assertExists()
+    }
+
+    @Test
     fun mirrorRequestScreen_startAndNotNow_invokeOnlyTheirOwnCallbacks() {
         var started = 0
         var declined = 0
-        composeRule.setContent { MirrorRequestScreen("Mac", { started++ }, { declined++ }) }
+        composeRule.setContent {
+            MirrorRequestScreen("Mac", { started++ }, { declined++ }, remoteInputAvailable = true)
+        }
 
         composeRule.onNodeWithText("Not now").performClick()
         assertEquals(0, started)

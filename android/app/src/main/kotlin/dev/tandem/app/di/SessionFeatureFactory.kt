@@ -33,6 +33,7 @@ import dev.tandem.app.mirror.LogInputDropLog
 import dev.tandem.app.mirror.MirrorConsentActivity
 import dev.tandem.app.mirror.MirrorFeature
 import dev.tandem.app.mirror.MirrorRequestActivity
+import dev.tandem.app.ring.SharedPreferencesRingFilterSwitchRecord
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.ring.SystemRingNotifier
@@ -140,6 +141,7 @@ object SessionFeatureFactory {
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
                 ringNotifier = SystemRingNotifier(context),
                 onRing = { recorder.record(ActivityEventType.FindPhone) },
+                filterSwitchRecord = { SharedPreferencesRingFilterSwitchRecord(context) },
             ),
             callsFeature(context, clock, recorder),
             FocusFeature({ SystemInterruptionFilterGateway(context) }, { SharedPreferencesFocusFilterRecord(context) }),

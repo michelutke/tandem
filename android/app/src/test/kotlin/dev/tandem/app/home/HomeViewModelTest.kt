@@ -20,10 +20,14 @@ class HomeViewModelTest {
     private fun viewModel(
         connectionState: MutableStateFlow<ConnectionState> = MutableStateFlow(ConnectionState.Disconnected()),
         ringStateSource: HomeRingStateSource = FakeHomeRingStateSource(),
+        failedCycles: MutableStateFlow<Int> = MutableStateFlow(0),
+        rePairNeeded: MutableStateFlow<Boolean> = MutableStateFlow(false),
     ) = HomeViewModel(
         ringStateSource = ringStateSource,
         connectionState = connectionState,
         macName = MutableStateFlow("MacBook Pro"),
+        failedCycles = failedCycles,
+        rePairNeeded = rePairNeeded,
     )
 
     private fun blockedFor(failure: ConnectionFailure): BlockedReason? =
@@ -75,11 +79,70 @@ class HomeViewModelTest {
         }
 
     @Test
-    fun homeViewModel_timeoutFailure_statusLineIsReconnecting() =
+    fun homeViewModel_timeoutFailure_statusLineShowsTimeoutError() =
         runTest {
             val connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Failed(ConnectionFailure.Timeout))
             viewModel(connectionState).statusLine.test {
+                assertEquals("Error: Connection timed out. Check your network and try again.", awaitItem())
+            }
+        }
+
+    @Test
+    fun homeViewModel_identityUnavailableFailure_statusLineShowsKeyUnavailableError() =
+        runTest {
+            val connectionState =
+                MutableStateFlow<ConnectionState>(ConnectionState.Failed(ConnectionFailure.IdentityUnavailable))
+            viewModel(connectionState).statusLine.test {
+                assertEquals(
+                    "Error: This phone's security key is unavailable. Restart the app, or unpair this Mac and " +
+                        "pair again if this persists.",
+                    awaitItem(),
+                )
+            }
+        }
+
+    @Test
+    fun homeViewModel_otherHandshakeFailure_statusLineIsReconnecting() =
+        runTest {
+            val connectionState =
+                MutableStateFlow<ConnectionState>(
+                    ConnectionState.Failed(ConnectionFailure.HandshakeError("HANDSHAKE_FAILED")),
+                )
+            viewModel(connectionState).statusLine.test {
                 assertEquals("Reconnecting…", awaitItem())
+            }
+        }
+
+    @Test
+    fun homeViewModel_rePairNeeded_statusLineShowsUnpairFirst() =
+        runTest {
+            val rePairNeeded = MutableStateFlow(true)
+            viewModel(rePairNeeded = rePairNeeded).statusLine.test {
+                assertEquals(
+                    "Error: This phone's security key was reset. Unpair MacBook Pro, then pair again.",
+                    awaitItem(),
+                )
+
+                rePairNeeded.value = false
+
+                assertEquals("Reconnecting…", awaitItem())
+            }
+        }
+
+    @Test
+    fun homeViewModel_threeFailedCyclesWhileDisconnected_statusLineShowsNetworkIsolationHint() =
+        runTest {
+            val failedCycles = MutableStateFlow(2)
+            viewModel(failedCycles = failedCycles).statusLine.test {
+                assertEquals("Reconnecting…", awaitItem())
+
+                failedCycles.value = 3
+
+                assertEquals(
+                    "Can't reach your Mac. Make sure both devices are on the same Wi-Fi. Guest networks and " +
+                        "hotspots often block devices from reaching each other.",
+                    awaitItem(),
+                )
             }
         }
 

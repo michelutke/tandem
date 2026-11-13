@@ -4,6 +4,7 @@ import dev.tandem.app.service.RegisteredSession
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.ConnectResult
@@ -43,7 +44,9 @@ import kotlin.time.Duration
  *
  * [failure] carries only sanitized categories (`PIN_MISMATCH`, `REVOKED`, `HANDSHAKE_FAILED`,
  * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session and on
- * unpair ([clearFailure]).
+ * unpair ([clearFailure]). A dial that finishes after the last paired Mac was removed
+ * ([hasPairedPeer] false) is discarded: its session is closed and it sets no failure and saves no
+ * address.
  */
 @Suppress("LongParameterList", "TooManyFunctions") // composition seams, lifecycle, failure surface
 class ConnectionOrchestrator(
@@ -60,6 +63,7 @@ class ConnectionOrchestrator(
     dispatcher: CoroutineDispatcher,
     private val warn: (String) -> Unit = {},
     private val lastWorkingStore: PairingAddressStore? = null,
+    private val hasPairedPeer: suspend () -> Boolean = { true },
 ) : ConnectionLoop {
     private val scope =
         CoroutineScope(SupervisorJob() + dispatcher)
@@ -86,6 +90,9 @@ class ConnectionOrchestrator(
     fun clearFailure() {
         mutableFailure.value = null
     }
+
+    /** Forgets the in-memory last-working address; called once the last paired Mac is gone. */
+    fun resetLastWorking() = strategy.resetLastWorking()
 
     override fun start() {
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }
@@ -127,9 +134,13 @@ class ConnectionOrchestrator(
         } catch (
             @Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception,
         ) {
-            mutableFailure.value = HANDSHAKE_FAILURE
+            setFailureWhilePaired(HANDSHAKE_FAILURE)
             ConnectResult.Unreachable
         }
+
+    private suspend fun setFailureWhilePaired(failure: ConnectionFailure) {
+        if (hasPairedPeer()) mutableFailure.value = failure
+    }
 
     private suspend fun dialAndAdopt(candidate: CandidateAddress): ConnectResult =
         when (val result = dialer.dial(candidate)) {
@@ -138,12 +149,12 @@ class ConnectionOrchestrator(
             }
 
             is DialResult.PinMismatch -> {
-                mutableFailure.value = result.failure
+                setFailureWhilePaired(result.failure)
                 ConnectResult.PinMismatch
             }
 
             is DialResult.Unreachable -> {
-                result.failure?.let { mutableFailure.value = it }
+                result.failure?.let { setFailureWhilePaired(it) }
                 ConnectResult.Unreachable
             }
         }
@@ -170,17 +181,35 @@ class ConnectionOrchestrator(
             session.state.first {
                 it is ConnectionState.Ready || it is ConnectionState.Disconnected || it is ConnectionState.Failed
             }
-        if (settled !is ConnectionState.Ready) {
-            session.close()
-            (settled as? ConnectionState.Failed)?.let {
-                mutableFailure.value =
-                    ConnectionFailureClassifier.classifySettled(it.reason, knownPeerStore.hasEverPinned(dialed.peer))
-            }
-            return ConnectResult.Unreachable
+        return when {
+            !hasPairedPeer() -> discardUnpaired(session)
+            settled !is ConnectionState.Ready -> failSettled(dialed, settled)
+            else -> registerReady(dialed)
         }
+    }
+
+    private fun discardUnpaired(session: TandemSession): ConnectResult {
+        session.close()
+        strategy.resetLastWorking()
+        return ConnectResult.Unreachable
+    }
+
+    private fun failSettled(
+        dialed: DialResult.Connected,
+        settled: ConnectionState,
+    ): ConnectResult {
+        dialed.session.close()
+        (settled as? ConnectionState.Failed)?.let {
+            mutableFailure.value =
+                ConnectionFailureClassifier.classifySettled(it.reason, knownPeerStore.hasEverPinned(dialed.peer))
+        }
+        return ConnectResult.Unreachable
+    }
+
+    private fun registerReady(dialed: DialResult.Connected): ConnectResult {
         recordKnownPeer(dialed)
         val registered = synchronized(lock) { registerIfRunning(dialed) }
-        if (!registered) session.close()
+        if (!registered) dialed.session.close()
         return if (registered) ConnectResult.Connected else ConnectResult.Unreachable
     }
 

@@ -25,6 +25,7 @@ import dev.tandem.core.designsystem.components.PillButton
 import dev.tandem.core.designsystem.components.PillButtonVariant
 import dev.tandem.core.designsystem.components.TitleBlock
 import dev.tandem.core.ui.TandemActivity
+import dev.tandem.feature.input.LiveRemoteInput
 import dev.tandem.feature.mirror.MirrorPromptActionDispatcher
 import dev.tandem.feature.mirror.NotificationMirrorPromptPresenter
 
@@ -32,7 +33,9 @@ import dev.tandem.feature.mirror.NotificationMirrorPromptPresenter
  * "Mirror." request screen (ui-spec §7.2), opened from the mirror prompt notification. Start mirroring
  * only hands over to [MirrorConsentActivity], whose tap is the user-initiated start before the system
  * MediaProjection consent (invariant 8); Not now declines through the live prompt controller. Not
- * exported; with no live prompt controller (no paired session) it closes at once.
+ * exported; with no live prompt controller (no paired session) it closes at once. The "Mac can tap and
+ * type" fact is shown only while remote input is available (the Accessibility service is connected);
+ * otherwise the view-only wording of the "View only." notice replaces it.
  */
 class MirrorRequestActivity : TandemActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,6 +60,7 @@ class MirrorRequestActivity : TandemActivity() {
                         MirrorPromptActionDispatcher.controller?.onDeclineOrDismiss()
                         finish()
                     },
+                    remoteInputAvailable = LiveRemoteInput.current != null,
                     modifier = Modifier.fillMaxSize().safeDrawingPadding(),
                 )
             }
@@ -69,6 +73,7 @@ fun MirrorRequestScreen(
     macName: String,
     onStart: () -> Unit,
     onNotNow: () -> Unit,
+    remoteInputAvailable: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(modifier = modifier, containerColor = TandemColors.paper) { padding ->
@@ -79,7 +84,9 @@ fun MirrorRequestScreen(
                 modifier = Modifier.padding(horizontal = TandemSpacing.screenPadding),
             )
             Spacer(Modifier.height(TandemSpacing.xl))
-            listOf(R.string.mirror_request_fact_1, R.string.mirror_request_fact_2, R.string.mirror_request_fact_3)
+            val inputFact =
+                if (remoteInputAvailable) R.string.mirror_request_fact_2 else R.string.mirror_view_only_text
+            listOf(R.string.mirror_request_fact_1, inputFact, R.string.mirror_request_fact_3)
                 .forEachIndexed { index, fact ->
                     HairlineRule(Modifier.padding(horizontal = TandemSpacing.screenPadding))
                     NumberedRow(index = index + 1, label = stringResource(fact))

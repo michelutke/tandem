@@ -49,6 +49,7 @@
     <string name="blocked_title">Blocked.</string>
     <string name="blocked_pin_state">The Mac\'s key changed.</string>
     <string name="blocked_pin_explanation">Tandem stopped the connection to protect your data. Pair again only if you reinstalled Tandem on the Mac.</string>
+    <string name="blocked_peer_fallback_name">The Mac</string>
     <string name="blocked_revoked_state">%1$s removed this phone.</string>
     <string name="blocked_revoked_explanation">Tandem stopped the connection. Pair again to link this phone with the Mac.</string>
     <string name="blocked_update_state">Update needed.</string>

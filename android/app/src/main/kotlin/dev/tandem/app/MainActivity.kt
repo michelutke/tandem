@@ -266,7 +266,13 @@ private fun MainActivity.liveHome(
 ): HomeViewModel {
     val connection = graph.connectionStatusViewModel()
     val ring = liveRingStateSource(app, dispatcher, connection, graph.connectionOrchestrator())
-    return HomeViewModel(ring, connection.connectionState, connection.macName)
+    return HomeViewModel(
+        ring,
+        connection.connectionState,
+        connection.macName,
+        graph.connectionOrchestrator().failedCycles,
+        graph.rePairNoticeStore().required,
+    )
 }
 
 private fun liveRingStateSource(

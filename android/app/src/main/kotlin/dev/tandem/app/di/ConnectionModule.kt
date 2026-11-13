@@ -91,6 +91,7 @@ import dev.tandem.feature.messaging.ContentResolverSmsSource
 import dev.tandem.feature.messaging.ContextSendSmsPermission
 import dev.tandem.feature.messaging.SmsManagerSender
 import dev.tandem.feature.messaging.SubscriptionManagerSource
+import dev.tandem.feature.notifications.LiveNotificationEventSink
 import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
 import dev.tandem.feature.status.BatteryReceiverStatusSource
 import dev.tandem.feature.status.ConnectivityManagerNetworkTypeSource
@@ -196,7 +197,8 @@ object ConnectionModule {
 
     @Provides
     @Singleton
-    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry = PeerDataPurgeRegistry()
+    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry =
+        PeerDataPurgeRegistry().apply { register(PeerDataPurging { LiveNotificationEventSink.clear() }) }
 
     @Provides
     @Singleton
@@ -226,18 +228,15 @@ object ConnectionModule {
         orchestrator: ConnectionOrchestrator,
         sessionRegistry: SessionRegistry,
         trustStore: TrustStore,
-        rePairNotice: RePairNoticeStore,
     ): ConnectionStatusViewModel {
         val scope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
         return ConnectionStatusViewModel(
             connectionState = orchestratorConnectionState(sessionRegistry, orchestrator.failure, scope),
-            failedCycles = orchestrator.failedCycles,
             macName =
                 trustStore
                     .observeList()
                     .map { records -> records.firstOrNull()?.displayName }
                     .stateIn(scope, SharingStarted.Eagerly, null),
-            rePairNeeded = rePairNotice.required,
         )
     }
 
@@ -311,7 +310,8 @@ object ConnectionModule {
             dispatcher = AppDispatchers.default,
             warn = { Log.w(TAG, it) },
             lastWorkingStore = lastWorkingStore(context, purgeRegistry),
-        )
+            hasPairedPeer = { pairedFingerprints.load().isNotEmpty() },
+        ).also { orchestrator -> purgeRegistry.register(PeerDataPurging { orchestrator.resetLastWorking() }) }
     }
 
     private const val TAG = "ConnectionModule"

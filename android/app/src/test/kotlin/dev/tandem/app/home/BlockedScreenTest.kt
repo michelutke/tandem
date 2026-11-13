@@ -46,6 +46,15 @@ class BlockedScreenTest {
     }
 
     @Test
+    fun blockedScreen_revokedWithoutMacName_usesFallbackFromResources() {
+        composeRule.setContent {
+            BlockedScreen(reason = BlockedReason.Revoked, macName = null, onPairAgain = {}, onUnpair = {})
+        }
+
+        composeRule.onNodeWithText("The Mac removed this phone.", substring = true).assertExists()
+    }
+
+    @Test
     fun blockedScreen_updateNeeded_offersOnlyUnpair() {
         show(BlockedReason.UpdateNeeded)
 

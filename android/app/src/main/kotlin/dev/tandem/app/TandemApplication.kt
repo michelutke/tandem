@@ -10,7 +10,11 @@ import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.ring.RingHandler
+import dev.tandem.app.ring.RingNotification
+import dev.tandem.app.ring.SharedPreferencesRingFilterSwitchRecord
 import dev.tandem.app.ring.SystemAlarmPlayer
+import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
@@ -96,6 +100,12 @@ class TandemApplication : Application() {
 
     private fun restoreInterruptedPhoneState() {
         SystemAlarmPlayer(this).restoreStaleVolume()
+        RingHandler(
+            SystemAlarmPlayer(this),
+            SystemNotificationPolicyAccess(this),
+            SharedPreferencesRingFilterSwitchRecord(this),
+        ).restoreStaleFilter()
+        RingNotification.cancel(this)
         restoreRecordedFocusFilter(SharedPreferencesFocusFilterRecord(this), SystemInterruptionFilterGateway(this))
     }
 

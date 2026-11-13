@@ -15,6 +15,7 @@ import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.NetworkMonitor
 import dev.tandem.core.transport.reconnect.PairedMacBonjourSource
 import dev.tandem.core.transport.reconnect.PairingAddressSource
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
@@ -83,6 +84,7 @@ class ConnectionOrchestratorTest {
         knownPeersFile: File = File(directory, "known-peers"),
         val lastWorkingStore: PairingAddressStore = PairingAddressStore(File(directory, "last-working")),
     ) {
+        var paired = true
         val registry = SessionRegistry()
         val screenOn = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val knownPeers = KnownPeerStore(knownPeersFile)
@@ -115,6 +117,7 @@ class ConnectionOrchestratorTest {
                 clock = TestClock(scope.testScheduler),
                 dispatcher = StandardTestDispatcher(scope.testScheduler),
                 lastWorkingStore = lastWorkingStore,
+                hasPairedPeer = { paired },
             )
     }
 
@@ -260,6 +263,67 @@ class ConnectionOrchestratorTest {
         assertEquals(failure, harness.orchestrator.failure.value)
         assertTrue(!harness.knownPeers.hasEverPinned(peer))
         harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_pinMismatchDialFinishesAfterUnpair_noFailureSet(
+        @TempDir directory: File,
+    ) = runTest {
+        val release = CompletableDeferred<Unit>()
+        val failure = ConnectionFailure.HandshakeError("PIN_MISMATCH")
+        val dialer =
+            object : SessionDialer {
+                override suspend fun dial(candidate: CandidateAddress): DialResult {
+                    release.await()
+                    return DialResult.PinMismatch(failure)
+                }
+            }
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory)
+        harness.orchestrator.start()
+        runCurrent()
+
+        harness.paired = false
+        release.complete(Unit)
+        runCurrent()
+
+        try {
+            assertNull(harness.orchestrator.failure.value)
+        } finally {
+            harness.orchestrator.close()
+        }
+    }
+
+    @Test
+    fun orchestrator_connectedDialFinishesAfterUnpair_addressNotSavedAndSessionClosed(
+        @TempDir directory: File,
+    ) = runTest {
+        val release = CompletableDeferred<Unit>()
+        val session = readySession()
+        val features = listOf(CountingFeature())
+        val dialer =
+            object : SessionDialer {
+                override suspend fun dial(candidate: CandidateAddress): DialResult {
+                    release.await()
+                    return DialResult.Connected(session, peer, address = CandidateAddress("192.0.2.9", 7001))
+                }
+            }
+        val harness = Harness(this, dialer, features, directory)
+        harness.orchestrator.start()
+        runCurrent()
+
+        harness.paired = false
+        release.complete(Unit)
+        runCurrent()
+
+        try {
+            assertTrue(harness.lastWorkingStore.addresses().isEmpty())
+            assertNull(harness.registry.current.value)
+            assertEquals(0, features[0].attached)
+            assertTrue(session.state.value is ConnectionState.Disconnected)
+            assertNull(harness.orchestrator.failure.value)
+        } finally {
+            harness.orchestrator.close()
+        }
     }
 
     @Test

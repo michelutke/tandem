@@ -30,7 +30,11 @@ class RingStopActionReceiver : BroadcastReceiver() {
     ) {
         if (intent.action != ACTION_STOP) return
 
-        val ringController = ringControllerProvider(context) ?: return
+        val ringController = ringControllerProvider(context)
+        if (ringController == null) {
+            RingNotification.cancel(context)
+            return
+        }
         CoroutineScope(SupervisorJob() + dispatcher).launch { ringController.dismissedByPhone() }
     }
 

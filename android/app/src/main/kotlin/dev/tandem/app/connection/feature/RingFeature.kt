@@ -2,9 +2,11 @@ package dev.tandem.app.connection.feature
 
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.ring.AlarmPlayer
+import dev.tandem.app.ring.InMemoryRingFilterSwitchRecord
 import dev.tandem.app.ring.LiveRingController
 import dev.tandem.app.ring.NotificationPolicyAccess
 import dev.tandem.app.ring.RingController
+import dev.tandem.app.ring.RingFilterSwitchRecord
 import dev.tandem.app.ring.RingHandler
 import dev.tandem.app.ring.RingNotifier
 import dev.tandem.core.crypto.SpkiFingerprint
@@ -20,6 +22,7 @@ class RingFeature(
     private val elapsedRealtimeSource: ElapsedRealtimeSource,
     private val ringNotifier: RingNotifier,
     private val onRing: () -> Unit = {},
+    private val filterSwitchRecord: () -> RingFilterSwitchRecord = { InMemoryRingFilterSwitchRecord() },
 ) : SessionFeature {
     override suspend fun run(
         session: TandemSession,
@@ -31,7 +34,7 @@ class RingFeature(
         coroutineScope {
             val controller =
                 RingController(
-                    RingHandler(player, policyAccess()),
+                    RingHandler(player, policyAccess(), filterSwitchRecord()),
                     session,
                     elapsedRealtimeSource,
                     ringNotifier,

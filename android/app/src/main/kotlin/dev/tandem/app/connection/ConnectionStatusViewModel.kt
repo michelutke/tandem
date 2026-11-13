@@ -1,72 +1,15 @@
 package dev.tandem.app.connection
 
 import dev.tandem.core.protocol.connection.ConnectionState
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-
-private const val UNREACHABLE_CYCLE_THRESHOLD = 3
-
-private const val NETWORK_ISOLATION_HINT =
-    "Can't reach your Mac. Make sure both devices are on the same Wi-Fi. Guest networks and " +
-        "hotspots often block devices from reaching each other."
 
 /**
- * Connection-status view model (E20-09; invariant 5, CLAUDE.md -- the pin-mismatch [ConnectionState.Failed]
- * case this combines is the phone's only visible fail-closed surface). Combines the E12-08
- * [ConnectionStateMachine][dev.tandem.core.protocol.connection.ConnectionStateMachine]'s
- * [connectionState], the E20-06 `ReconnectStrategy.failedCycles` and the paired Mac's display name
- * into one user-visible status label, updated live as any of the three change. While [rePairNeeded]
- * (the phone's identity was reset, so its paired Mac no longer recognizes it) the label is the
- * unpair-first error instead.
+ * The connection state the Home screen shows (E20-09, E20-24; invariant 5, CLAUDE.md -- the
+ * pin-mismatch [ConnectionState.Failed] case is the phone's only visible fail-closed surface) and the
+ * paired Mac's display name. The status label itself is built by
+ * [dev.tandem.app.home.HomeViewModel].
  */
 class ConnectionStatusViewModel(
     val connectionState: StateFlow<ConnectionState>,
-    val failedCycles: StateFlow<Int>,
     val macName: StateFlow<String?>,
-    rePairNeeded: StateFlow<Boolean> = MutableStateFlow(false),
-) {
-    /** The user-visible status label; see this class's kdoc for the exact strings. */
-    val statusText: Flow<String> =
-        combine(connectionState, failedCycles, macName, rePairNeeded, ::toStatusText)
-
-    private fun toStatusText(
-        state: ConnectionState,
-        unreachableCycles: Int,
-        macName: String?,
-        rePairNeeded: Boolean,
-    ): String =
-        if (rePairNeeded) {
-            "Error: ${ConnectionErrorMapper.identityResetMessage(macName)}"
-        } else {
-            toConnectionText(state, unreachableCycles, macName)
-        }
-
-    private fun toConnectionText(
-        state: ConnectionState,
-        unreachableCycles: Int,
-        macName: String?,
-    ): String =
-        when (state) {
-            is ConnectionState.Ready -> {
-                "Connected to ${macName ?: "your Mac"}"
-            }
-
-            ConnectionState.Connecting, ConnectionState.TlsHandshaking, ConnectionState.HelloExchange -> {
-                if (unreachableCycles > 0) "Reconnecting…" else "Connecting…"
-            }
-
-            is ConnectionState.Disconnected -> {
-                if (unreachableCycles >= UNREACHABLE_CYCLE_THRESHOLD) {
-                    NETWORK_ISOLATION_HINT
-                } else {
-                    "Disconnected"
-                }
-            }
-
-            is ConnectionState.Failed -> {
-                "Error: ${ConnectionErrorMapper.mapToErrorMessage(state.reason, macName)}"
-            }
-        }
-}
+)

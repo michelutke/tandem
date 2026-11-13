@@ -30,7 +30,7 @@ fun BlockedScreen(
     onUnpair: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val copy = reason.copy(macName)
+    val copy = reason.copy(macName ?: stringResource(R.string.blocked_peer_fallback_name))
     TandemScaffold(
         title = stringResource(R.string.blocked_title),
         state = copy.stateArg?.let { stringResource(copy.state, it) } ?: stringResource(copy.state),
@@ -65,7 +65,7 @@ private class BlockedCopy(
     val stateArg: String? = null,
 )
 
-private fun BlockedReason.copy(macName: String?): BlockedCopy =
+private fun BlockedReason.copy(macName: String): BlockedCopy =
     when (this) {
         BlockedReason.PinMismatch -> {
             BlockedCopy(R.string.blocked_pin_state, R.string.blocked_pin_explanation)
@@ -75,7 +75,7 @@ private fun BlockedReason.copy(macName: String?): BlockedCopy =
             BlockedCopy(
                 R.string.blocked_revoked_state,
                 R.string.blocked_revoked_explanation,
-                macName ?: "The Mac",
+                macName,
             )
         }
 
