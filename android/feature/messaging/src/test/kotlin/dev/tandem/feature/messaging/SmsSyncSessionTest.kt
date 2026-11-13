@@ -43,6 +43,20 @@ class SmsSyncSessionTest {
         }
 
     @Test
+    fun smsSyncSession_peerPageSizeAboveCap_pagesClampedToDefaultSize() =
+        runTest {
+            listOf(Int.MAX_VALUE, -1).forEach { hugePageSize ->
+                val inner = FakeTandemSession()
+
+                syncSession(FakeSmsSource(messages(450)), inner).handle(request(pageSize = hugePageSize))
+
+                val pages = inner.sentFrames.map { it.smsSyncResponse }
+                assertEquals(3, pages.size)
+                assertTrue(pages.all { it.messagesCount <= SmsSource.PAGE_SIZE })
+            }
+        }
+
+    @Test
     fun smsSyncSession_reconnectWithMacCursors_unionEqualsFixtureWithoutGaps() =
         runTest {
             val source = FakeSmsSource(messages(5000))

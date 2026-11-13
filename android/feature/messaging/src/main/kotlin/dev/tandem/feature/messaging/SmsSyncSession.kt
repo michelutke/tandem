@@ -69,7 +69,7 @@ class SmsSyncSession(
         request: SmsSyncRequest,
         token: SyncToken,
     ) {
-        val pageSize = if (request.pageSize > 0) request.pageSize else SmsSource.PAGE_SIZE
+        val pageSize = if (request.pageSize in 1..SmsSource.PAGE_SIZE) request.pageSize else SmsSource.PAGE_SIZE
         val maxId = withContext(ioDispatcher) { source.maxId() }
         val fresh = request.sinceId == 0L && request.backfillBeforeId == 0L
         log("sms sync: start fresh=$fresh maxId=$maxId pageSize=$pageSize")

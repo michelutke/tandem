@@ -1,5 +1,7 @@
 package dev.tandem.feature.contacts
 
+import com.google.protobuf.ByteString
+import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.TandemSession
@@ -58,6 +60,35 @@ class ContactsSyncSessionTest {
                 inner.sentFrames
                     .last()
                     .contactsSyncResponse.watermarkMs,
+            )
+        }
+
+    @Test
+    fun contactsSyncSession_pageOfTwoHundredMaxThumbnails_everyResponseFitsEnvelopeLimit() =
+        runTest {
+            val inner = FakeTandemSession()
+            val thumbnail = ByteString.copyFrom(ByteArray(MAX_THUMBNAIL_BYTES))
+            val heavy = contacts(ContactsSource.PAGE_SIZE).map { it.toBuilder().setPhotoThumbnail(thumbnail).build() }
+
+            syncSession(FakeContactsSource(heavy), inner).handle(request(0))
+
+            assertTrue(inner.sentFrames.size > 1)
+            assertTrue(inner.sentFrames.all { it.serializedSize <= FrameEncoder.MAX_ENVELOPE_BYTES })
+            assertEquals(
+                heavy.map { it.contactId },
+                inner.sentFrames.flatMap { frame -> frame.contactsSyncResponse.contactsList.map { it.contactId } },
+            )
+            assertEquals(
+                listOf(true),
+                inner.sentFrames
+                    .map { it.contactsSyncResponse.complete }
+                    .filter { it }
+                    .distinct(),
+            )
+            assertTrue(
+                inner.sentFrames
+                    .last()
+                    .contactsSyncResponse.complete,
             )
         }
 
@@ -193,6 +224,10 @@ class ContactsSyncSessionTest {
         StandardTestDispatcher(testScheduler),
         TestClock(testScheduler, clockEpoch),
     )
+
+    private companion object {
+        const val MAX_THUMBNAIL_BYTES = 32_768
+    }
 
     private fun request(sinceUpdatedAtMs: Long) = contactsSyncRequest { this.sinceUpdatedAtMs = sinceUpdatedAtMs }
 

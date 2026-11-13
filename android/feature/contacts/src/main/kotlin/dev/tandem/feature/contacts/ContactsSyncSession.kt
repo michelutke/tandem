@@ -2,6 +2,7 @@ package dev.tandem.feature.contacts
 
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.Contact
 import dev.tandem.protocol.v1.ContactsSyncRequest
 import dev.tandem.protocol.v1.ContactsSyncStatus
 import dev.tandem.protocol.v1.contactsSyncRequest
@@ -82,18 +83,36 @@ class ContactsSyncSession(
                     emptyList()
                 }
 
-            session.send(Channel.CHANNEL_CONTACTS) {
-                contactsSyncResponse =
-                    contactsSyncResponse {
-                        status = ContactsSyncStatus.CONTACTS_SYNC_STATUS_OK
-                        contacts += changed
-                        deletedContactIds += tombstoneIds
-                        complete = isLastPage
-                        if (isLastPage) this.watermarkMs = watermarkMs
-                    }
+            val chunks = changed.chunkedByBytes(PAGE_BYTE_BUDGET)
+            chunks.forEachIndexed { index, chunk ->
+                val isLastChunk = isLastPage && index == chunks.lastIndex
+                session.send(Channel.CHANNEL_CONTACTS) {
+                    contactsSyncResponse =
+                        contactsSyncResponse {
+                            status = ContactsSyncStatus.CONTACTS_SYNC_STATUS_OK
+                            contacts += chunk
+                            if (isLastChunk) deletedContactIds += tombstoneIds
+                            complete = isLastChunk
+                            if (isLastChunk) this.watermarkMs = watermarkMs
+                        }
+                }
             }
         }
         lastWatermarkMs = watermarkMs
+    }
+
+    private fun List<Contact>.chunkedByBytes(budget: Int): List<List<Contact>> {
+        val chunks = mutableListOf<MutableList<Contact>>()
+        var chunkBytes = 0
+        for (contact in this) {
+            if (chunks.isEmpty() || chunkBytes + contact.serializedSize > budget) {
+                chunks += mutableListOf<Contact>()
+                chunkBytes = 0
+            }
+            chunks.last() += contact
+            chunkBytes += contact.serializedSize
+        }
+        return chunks.ifEmpty { listOf(emptyList()) }
     }
 
     private fun isBeyondTombstoneRetention(sinceUpdatedAtMs: Long): Boolean =
@@ -116,5 +135,8 @@ class ContactsSyncSession(
         /** `ContactsContract.DeletedContacts.DAYS_KEPT_MILLISECONDS`: 30 days. */
         const val RETENTION_MS = 30L * 24 * 60 * 60 * 1000
         const val CHANGE_DEBOUNCE_MS = 1_000L
+
+        /** Half the 1 MiB envelope limit, so a page of thumbnail-heavy contacts always fits one frame. */
+        const val PAGE_BYTE_BUDGET = 512 * 1024
     }
 }

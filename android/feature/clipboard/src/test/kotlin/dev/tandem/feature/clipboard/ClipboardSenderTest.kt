@@ -1,5 +1,6 @@
 package dev.tandem.feature.clipboard
 
+import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.transport.FakeTandemSession
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -44,14 +45,41 @@ class ClipboardSenderTest {
         }
 
     @Test
-    fun clipboardSender_exactly1MiB_sends() =
+    fun clipboardSender_exactlyCap_sendsAndFrameFitsEnvelopeLimit() =
         runTest {
             val session = FakeTandemSession()
             val exactText = "a".repeat(ClipboardSender.MAX_TEXT_BYTES)
 
-            val sent = ClipboardSender.send(exactText, session)
+            val sent = ClipboardSender.send(exactText, session, sensitive = true)
 
             assertTrue(sent)
             assertEquals(1, session.sentFrames.size)
+            val worstCaseFrame =
+                session.sentFrames
+                    .single()
+                    .toBuilder()
+                    .setSeq(Long.MAX_VALUE)
+                    .setAck(Long.MAX_VALUE)
+                    .build()
+            val framed = FrameEncoder.encodeFrame(worstCaseFrame)
+            assertTrue(framed.size - 4 <= FrameEncoder.MAX_ENVELOPE_BYTES)
         }
+
+    @Test
+    fun clipboardSender_textAtCapPlusEnvelopeOverhead_rejectedBeforeSend() =
+        runTest {
+            val session = FakeTandemSession()
+            val nearLimitText = "a".repeat(FrameEncoder.MAX_ENVELOPE_BYTES - OVERHEAD_BELOW_LIMIT)
+            var toastShown = false
+
+            val sent = ClipboardSender.send(nearLimitText, session, onTooLarge = { toastShown = true })
+
+            assertFalse(sent)
+            assertTrue(session.sentFrames.isEmpty())
+            assertTrue(toastShown)
+        }
+
+    private companion object {
+        const val OVERHEAD_BELOW_LIMIT = 10
+    }
 }
