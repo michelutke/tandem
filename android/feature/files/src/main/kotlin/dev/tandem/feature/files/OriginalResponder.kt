@@ -6,6 +6,7 @@ import dev.tandem.protocol.v1.PhotoErrorKind
 import dev.tandem.protocol.v1.PhotoErrorReason
 import dev.tandem.protocol.v1.photoError
 import kotlinx.coroutines.flow.StateFlow
+import java.io.IOException
 
 sealed interface OriginalOutcome {
     data class Started(
@@ -38,6 +39,10 @@ class OriginalResponder(
             }
         } catch (_: SecurityException) {
             failure(request.id, PhotoErrorReason.PHOTO_ERROR_REASON_ACCESS_DENIED)
+        } catch (_: IOException) {
+            failure(request.id, PhotoErrorReason.PHOTO_ERROR_REASON_NOT_FOUND)
+        } catch (_: RuntimeException) {
+            failure(request.id, PhotoErrorReason.PHOTO_ERROR_REASON_NOT_FOUND)
         }
 
     private fun failure(

@@ -72,6 +72,9 @@ class FileReceiver(
     /** Number of accepted transfers still receiving; feeds AcceptFlow's `activeTransfers`. */
     val activeCount: Int get() = transfers.size
 
+    /** Bytes still to arrive over all accepted transfers; AcceptFlow reserves staging space for them. */
+    val remainingBytes: Long get() = transfers.values.sumOf { it.offer.size - it.received }
+
     init {
         session
             .receive(Channel.CHANNEL_FILES)
@@ -257,6 +260,8 @@ class FileReceiver(
                     store.open(id).use { publisher.publish(transfer.name, transfer.offer.mime, it) }
                 }
             } catch (_: IOException) {
+                return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
+            } catch (_: RuntimeException) {
                 return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
         discard(id)

@@ -42,6 +42,31 @@ class AcceptFlowTest {
         }
 
     @Test
+    fun acceptFlow_twoOffersEachFitAloneButNotTogether_secondRejectedInsufficientSpace() =
+        runTest {
+            settings = AcceptSettings(autoAccept = true)
+            freeSpace.bytes = 2 * MIB + RESERVE
+            newFlow(reservedBytes = { 2 * MIB * session.sentFrames.count { it.hasFileAccept() } })
+
+            offer("a", size = MIB)
+            offer("b", size = MIB)
+
+            assertEquals(listOf("a"), session.sentFrames.filter { it.hasFileAccept() }.map { it.fileAccept.id })
+            assertEquals(listOf("b" to TransferReason.TRANSFER_REASON_INSUFFICIENT_SPACE), rejects())
+        }
+
+    @Test
+    fun acceptFlow_closeWithPendingOffer_cancelsPromptNotification() =
+        runTest {
+            val flow = newFlow()
+            offer("a", size = MIB)
+
+            flow.close()
+
+            assertEquals(listOf("a"), prompter.cancelled)
+        }
+
+    @Test
     fun androidAcceptFlow_autoAcceptOn_fileAcceptSentWithoutPrompt() =
         runTest {
             settings = AcceptSettings(autoAccept = true)
@@ -199,8 +224,16 @@ class AcceptFlowTest {
             assertEquals(listOf("b" to TransferReason.TRANSFER_REASON_TOO_LARGE), rejects())
         }
 
-    private fun TestScope.newFlow(): AcceptFlow =
-        AcceptFlow(session, freeSpace, prompter, { settings }, { active }, StandardTestDispatcher(testScheduler))
+    private fun TestScope.newFlow(reservedBytes: () -> Long = { 0L }): AcceptFlow =
+        AcceptFlow(
+            session,
+            freeSpace,
+            prompter,
+            { settings },
+            { active },
+            StandardTestDispatcher(testScheduler),
+            reservedBytes,
+        )
 
     private fun TestScope.offer(
         id: String,

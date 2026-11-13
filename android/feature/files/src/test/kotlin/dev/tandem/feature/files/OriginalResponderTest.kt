@@ -32,8 +32,17 @@ class OriginalResponderTest {
                 when (id) {
                     KNOWN_ID -> MediaItem("content://media/$id", "IMG_0001.jpg", "image/jpeg")
                     DENIED_ID -> throw SecurityException()
+                    BROKEN_ID -> error("query failed")
                     else -> null
                 }
+        }
+
+    @Test
+    fun originalResponder_sourceThrowsRuntimeException_returnsFailureInsteadOfThrowing() =
+        runTest {
+            val outcome = responder().respond(request(BROKEN_ID.toString()))
+
+            assertTrue(outcome is OriginalOutcome.Failure)
         }
 
     @Test
@@ -106,6 +115,7 @@ class OriginalResponderTest {
     private companion object {
         const val KNOWN_ID = 42L
         const val DENIED_ID = 7L
+        const val BROKEN_ID = 8L
         const val TRANSFER_ID = "transfer-1"
     }
 }

@@ -1,7 +1,10 @@
 package dev.tandem.feature.files
 
 import dev.tandem.protocol.v1.PhotoAccess
+import dev.tandem.protocol.v1.PhotoErrorKind
+import dev.tandem.protocol.v1.PhotoErrorReason
 import dev.tandem.protocol.v1.PhotoPage
+import dev.tandem.protocol.v1.photoError
 import dev.tandem.protocol.v1.photoPageResult
 
 /**
@@ -17,6 +20,15 @@ class PhotoPageResponder(
         if (access == PhotoAccess.PHOTO_ACCESS_NONE) {
             return PhotoPageOutcome.Page(photoPageResult { this.access = access })
         }
-        return pager.page(request, access)
+        return try {
+            pager.page(request, access)
+        } catch (_: RuntimeException) {
+            PhotoPageOutcome.Failure(
+                photoError {
+                    kind = PhotoErrorKind.PHOTO_ERROR_KIND_PAGE
+                    reason = PhotoErrorReason.PHOTO_ERROR_REASON_NOT_FOUND
+                },
+            )
+        }
     }
 }

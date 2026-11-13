@@ -66,6 +66,11 @@ class RetainedSends {
         entries.remove(id)
     }
 
+    @Synchronized
+    fun clear() {
+        entries.clear()
+    }
+
     internal class Retained(
         val request: SendRequest,
         val size: Long,

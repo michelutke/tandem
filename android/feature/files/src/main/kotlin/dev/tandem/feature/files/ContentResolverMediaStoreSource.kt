@@ -41,8 +41,9 @@ class ContentResolverMediaStoreSource(
             } else {
                 MediaItem(
                     uri = uri.toString(),
-                    displayName = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)),
-                    mime = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)),
+                    displayName =
+                        it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)) ?: id.toString(),
+                    mime = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)) ?: DEFAULT_MIME,
                 )
             }
         }
@@ -68,6 +69,7 @@ class ContentResolverMediaStoreSource(
     }
 
     private companion object {
+        const val DEFAULT_MIME = "application/octet-stream"
         const val SORT_ORDER = "${MediaStore.Images.Media.DATE_TAKEN} DESC, ${MediaStore.Images.Media._ID} DESC"
         const val KEYSET_SELECTION =
             "${MediaStore.Images.Media.DATE_TAKEN} < ? OR " +
