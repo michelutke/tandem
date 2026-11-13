@@ -1,5 +1,6 @@
 import Foundation
 import TandemCrypto
+import os
 
 // Internal type definitions for the RevokeHandler.
 // These mirror the actual TandemProtocol types and are used to avoid a circular dependency.
@@ -30,13 +31,16 @@ public protocol RevokeHandlerRegistry: Sendable {
 /// another module adapts its real `TandemSession`/`ControlSessionRegistering` to them.
 public struct RevokeHandler {
     /// Processes a Revoke message received on `session` from a peer identified by `peerSpkiFingerprint`.
-    /// If the session is in Ready state, deletes the peer's trust record and closes the session.
-    /// If the session is not yet Ready, the revoke is ignored.
+    /// If the session is in Ready state, deletes the peer's trust record, closes the session, runs
+    /// every registered purger for each fingerprint the peer's data may be keyed by and calls
+    /// `onUnpaired`. If the session is not yet Ready, the revoke is ignored.
     public static func handle(
         peerSpkiFingerprint: SpkiFingerprint,
         session: any RevokeHandlerSession,
         trustStore: TrustStore,
-        registry: any RevokeHandlerRegistry
+        registry: any RevokeHandlerRegistry,
+        purgeRegistry: PeerDataPurgeRegistry? = nil,
+        onUnpaired: (@Sendable () async -> Void)? = nil
     ) async {
         // Only process Revoke on a Ready, trusted session
         var isReady = false
@@ -49,16 +53,16 @@ public struct RevokeHandler {
 
         guard isReady else { return }
 
-        // Delete the peer's trust record
+        let pins = (try? trustStore.pinnedFingerprints(for: peerSpkiFingerprint)) ?? [peerSpkiFingerprint]
         do {
             try trustStore.unpair(peerSpkiFingerprint)
         } catch {
-            // If deletion fails (e.g., record doesn't exist, keychain locked),
-            // still proceed to close the session
+            Logger(subsystem: "dev.tandem.store", category: "revoke").error("trust record delete failed")
         }
 
-        // Close the session and remove it from the registry
         await session.close()
         await registry.unregister(peerSpkiFingerprint)
+        await purgeRegistry?.purge(peers: pins)
+        await onUnpaired?()
     }
 }

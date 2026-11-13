@@ -28,6 +28,24 @@ struct TrustStoreTests {
     }
 
     @Test
+    func trustStore_oneCorruptRecord_otherPeersStillListedAndAuthenticated() throws {
+        let keychain = InMemoryKeychainStore()
+        let store = TrustStore(keychainStore: keychain)
+        let good = Self.makeRecord(fingerprint: try Self.fingerprint(0x01))
+        try store.put(good)
+        try keychain.addGenericPassword(
+            service: TrustStore.peerRecordService,
+            account: try Self.fingerprint(0x02).hexString,
+            data: Data("not json".utf8),
+            accessibility: .afterFirstUnlockThisDeviceOnly
+        )
+
+        #expect(try store.list() == [good])
+        #expect(try store.get(good.fingerprint) == good)
+        #expect(try store.holdsPin(good.fingerprint))
+    }
+
+    @Test
     func trustStore_putThenGetByFingerprint_returnsEqualRecord() throws {
         let store = TrustStore(keychainStore: InMemoryKeychainStore())
         let record = Self.makeRecord(fingerprint: try Self.fingerprint(0x01))

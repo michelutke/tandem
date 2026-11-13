@@ -58,6 +58,13 @@ public actor PeerDataPurgeRegistry {
         }
     }
 
+    /// Purges every fingerprint in `peers`: the keys one unpaired phone's data may sit under.
+    public func purge(peers: [SpkiFingerprint]) async {
+        for peer in peers {
+            await purgeAllAndRecordFailures(peer: peer)
+        }
+    }
+
     /// Returns true if this peer had any purge failures on previous launches.
     func hasPriorFailures(for peer: SpkiFingerprint) -> Bool {
         failedPeers.contains(peer)

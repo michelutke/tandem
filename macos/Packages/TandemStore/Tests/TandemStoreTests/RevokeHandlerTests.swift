@@ -47,6 +47,11 @@ struct FakeControlSessionRegistryAdapter: RevokeHandlerRegistry {
     }
 }
 
+actor RefreshCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
+}
+
 @Suite("RevokeHandler")
 struct RevokeHandlerTests {
 
@@ -96,6 +101,38 @@ struct RevokeHandlerTests {
 
         // Verify: record is deleted
         #expect(try trustStore.get(spkiFingerprint) == nil)
+    }
+
+    @Test("revokeHandler_revokeOnReadySession_purgersInvokedAndPairedPeerRefreshed")
+    func revokeOnReadySessionPurgersInvokedAndPairedPeerRefreshed() async throws {
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let registry = ControlSessionRegistry()
+        let oldFingerprint = try Self.fingerprint(0x07)
+        let newFingerprint = try Self.fingerprint(0x08)
+        let record = Self.makeRecord(fingerprint: oldFingerprint)
+        try trustStore.put(record)
+        try trustStore.rotatePrimary(of: record, to: newFingerprint, now: Date(timeIntervalSince1970: 1))
+        let session = FakeTandemSession()
+        await registry.register(oldFingerprint, session: session)
+        await session.emit(.ready)
+        let purger = MutableFakePurger()
+        let purgeRegistry = PeerDataPurgeRegistry()
+        await purgeRegistry.register(purger)
+        let refreshed = RefreshCounter()
+
+        await RevokeHandler.handle(
+            peerSpkiFingerprint: oldFingerprint,
+            session: session.asHandlerSession(),
+            trustStore: trustStore,
+            registry: FakeControlSessionRegistryAdapter(registry: registry),
+            purgeRegistry: purgeRegistry,
+            onUnpaired: { await refreshed.increment() }
+        )
+
+        let purged = await purger.getPurgedPeers().map(\.hexString)
+        #expect(Set(purged) == [oldFingerprint.hexString, newFingerprint.hexString])
+        #expect(await refreshed.count == 1)
+        #expect(try trustStore.list().isEmpty)
     }
 
     @Test("revokeHandler_revokeOnPairingCandidateConnection_ignoredRecordsUnchanged")
