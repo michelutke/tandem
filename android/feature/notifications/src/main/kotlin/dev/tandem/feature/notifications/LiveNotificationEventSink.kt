@@ -1,5 +1,6 @@
 package dev.tandem.feature.notifications
 
+import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
 import dev.tandem.protocol.v1.IconData
 import dev.tandem.protocol.v1.NotificationDismiss
 import dev.tandem.protocol.v1.NotificationPosted
@@ -7,16 +8,19 @@ import dev.tandem.protocol.v1.NotificationPosted
 /**
  * The [NotificationEventSink] [TandemNotificationListenerService] forwards to by default (E20-23).
  * The system constructs the listener, so the connection orchestrator's notifications feature
- * points [target] at the session-backed sink while a session is attached and back at
- * [NotificationEventSink.NoOp] when it closes.
+ * [attach]es the session-backed sink while a session is attached and [detach]es it when it closes;
+ * in between, posts wait in a process-lifetime [DisconnectedNotificationBuffer] (E30-16).
  */
 object LiveNotificationEventSink : NotificationEventSink {
-    @Volatile
-    var target: NotificationEventSink = NotificationEventSink.NoOp
+    private val buffer = DisconnectedNotificationBuffer(SystemElapsedRealtimeSource)
 
-    override fun onNotificationPosted(notification: NotificationPosted) = target.onNotificationPosted(notification)
+    fun attach(sink: NotificationEventSink) = buffer.attach(sink)
 
-    override fun onNotificationDismissed(dismiss: NotificationDismiss) = target.onNotificationDismissed(dismiss)
+    fun detach() = buffer.detach()
 
-    override fun onIconData(icon: IconData) = target.onIconData(icon)
+    override fun onNotificationPosted(notification: NotificationPosted) = buffer.onNotificationPosted(notification)
+
+    override fun onNotificationDismissed(dismiss: NotificationDismiss) = buffer.onNotificationDismissed(dismiss)
+
+    override fun onIconData(icon: IconData) = buffer.onIconData(icon)
 }

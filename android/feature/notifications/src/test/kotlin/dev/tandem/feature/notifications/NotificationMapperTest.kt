@@ -63,6 +63,39 @@ class NotificationMapperTest {
     }
 
     @Test
+    fun notificationMapper_titleAndTextAboveSpecLimits_cappedTo256And4096() {
+        val notification =
+            Notification
+                .Builder(context, CHANNEL_ID)
+                .build()
+        notification.extras.putCharSequence(Notification.EXTRA_TITLE, "t".repeat(300))
+        notification.extras.putCharSequence(Notification.EXTRA_TEXT, "x".repeat(5000))
+        val sbn = statusBarNotification(packageName = "com.example.chat", notification = notification)
+
+        val posted = NotificationMapper.toPosted(sbn, appVersionCode = 1L)
+
+        assertEquals(256, posted.title.length)
+        assertEquals(4096, posted.text.length)
+    }
+
+    @Test
+    fun notificationMapper_thirtyLongSenders_cappedTo25EntriesOf64CharsAligned() {
+        val style = Notification.MessagingStyle(Person.Builder().setName("Me").build())
+        repeat(30) { index ->
+            style.addMessage("m$index", index.toLong(), Person.Builder().setName("s".repeat(100)).build())
+        }
+        val notification = Notification.Builder(context, CHANNEL_ID).setStyle(style).build()
+        val sbn = statusBarNotification(packageName = "com.example.chat", notification = notification)
+
+        val posted = NotificationMapper.toPosted(sbn, appVersionCode = 1L)
+
+        assertEquals(25, posted.messagingStyleSendersList.size)
+        assertEquals(true, posted.messagingStyleSendersList.all { it.length == 64 })
+        assertEquals(25, posted.text.lines().size)
+        assertEquals("m5", posted.text.lines().first())
+    }
+
+    @Test
     fun notificationMapper_removedCallback_emitsDismissWithOriginAndroid() {
         val notification = Notification.Builder(context, CHANNEL_ID).build()
         val sbn = statusBarNotification(packageName = "com.example.chat", notification = notification)

@@ -1,6 +1,7 @@
 package dev.tandem.feature.notifications
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,6 @@ fun startNotificationActionReader(
         session.receive(Channel.CHANNEL_NOTIFY).collect { frame ->
             if (frame.payloadCase != Envelope.PayloadCase.NOTIFICATION_ACTION) return@collect
             val result = executor.execute(frame.notificationAction)
-            session.send(Channel.CHANNEL_NOTIFY) { notificationActionResult = result }
+            session.sendOrDrop(Channel.CHANNEL_NOTIFY) { notificationActionResult = result }
         }
     }

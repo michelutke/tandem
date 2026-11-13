@@ -42,7 +42,7 @@ class IconSenderTest {
             val sender = newSender(dataStoreFile())
             val sent = mutableListOf<IconData>()
 
-            sender.onNotificationPosted("com.example.chat", 1L, icon()) { sent += it }
+            sender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
             runCurrent()
 
             assertEquals(1, sent.size)
@@ -57,11 +57,42 @@ class IconSenderTest {
             val sent = mutableListOf<IconData>()
 
             repeat(5) {
-                sender.onNotificationPosted("com.example.chat", 1L, icon()) { sent += it }
+                sender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
                 runCurrent()
             }
 
             assertEquals(1, sent.size)
+        }
+
+    @Test
+    fun notificationListener_secondNotificationSamePackage_doesNotReloadIcon() =
+        runTest {
+            val sender = newSender(dataStoreFile())
+            var loads = 0
+
+            repeat(3) {
+                sender.onNotificationPosted("com.example.chat", 1L, { loads++.let { icon() } }) { }
+                runCurrent()
+            }
+
+            assertEquals(1, loads)
+        }
+
+    @Test
+    fun iconSender_afterClearSentRecords_resendsIcon() =
+        runTest {
+            val storeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+            val store = SettingsStore(PreferenceDataStoreFactory.create(scope = storeScope) { dataStoreFile() })
+            val sender = IconSender(store, UnconfinedTestDispatcher(testScheduler))
+            val sent = mutableListOf<IconData>()
+            sender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
+            runCurrent()
+
+            IconSender.clearSentRecords(store)
+            sender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
+            runCurrent()
+
+            assertEquals(2, sent.size)
         }
 
     @Test
@@ -70,9 +101,9 @@ class IconSenderTest {
             val sender = newSender(dataStoreFile())
             val sent = mutableListOf<IconData>()
 
-            sender.onNotificationPosted("com.example.chat", 1L, icon()) { sent += it }
+            sender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
             runCurrent()
-            sender.onNotificationPosted("com.example.chat", 2L, icon()) { sent += it }
+            sender.onNotificationPosted("com.example.chat", 2L, ::icon) { sent += it }
             runCurrent()
 
             assertEquals(2, sent.size)
@@ -89,7 +120,7 @@ class IconSenderTest {
                     SettingsStore(PreferenceDataStoreFactory.create(scope = firstScope) { file }),
                     UnconfinedTestDispatcher(testScheduler),
                 )
-            firstSender.onNotificationPosted("com.example.chat", 1L, icon()) {}
+            firstSender.onNotificationPosted("com.example.chat", 1L, ::icon) {}
             runCurrent()
             firstSender.close()
             firstScope.cancel()
@@ -101,7 +132,7 @@ class IconSenderTest {
                     UnconfinedTestDispatcher(testScheduler),
                 )
             val sent = mutableListOf<IconData>()
-            secondSender.onNotificationPosted("com.example.chat", 1L, icon()) { sent += it }
+            secondSender.onNotificationPosted("com.example.chat", 1L, ::icon) { sent += it }
             runCurrent()
 
             assertTrue(sent.isEmpty())

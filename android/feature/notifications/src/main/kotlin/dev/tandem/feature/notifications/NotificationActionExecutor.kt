@@ -47,6 +47,7 @@ class NotificationActionExecutor(
         val sourceAction = notificationLookup(action.key)?.notification?.actions?.getOrNull(action.actionIndex)
         return when {
             sourceAction == null -> NotificationActionResult.Status.STATUS_GONE
+            sourceAction.actionIntent == null -> NotificationActionResult.Status.STATUS_FAILED
             action.replyText.length > MAX_REPLY_TEXT_LENGTH -> NotificationActionResult.Status.STATUS_FAILED
             else -> send(sourceAction, action.replyText)
         }
