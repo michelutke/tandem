@@ -8,8 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import dev.tandem.app.onboarding.PERMISSION_ALLOW_LABEL
-import dev.tandem.app.onboarding.PERMISSION_ON_LABEL
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
@@ -18,6 +16,8 @@ import dev.tandem.core.designsystem.components.NumberedRow
 import dev.tandem.core.designsystem.components.TandemScaffold
 
 internal const val PERMISSIONS_SETTINGS_TITLE = "Permissions."
+private const val PERMISSION_ON_LABEL = "On"
+private const val PERMISSION_ALLOW_LABEL = "Allow"
 
 /**
  * Settings › Permissions (ui-spec.md §2 "Numbered rows"): every permission the app uses with its
@@ -45,7 +45,7 @@ fun PermissionsSettingsScreen(
                 Text(
                     text = status.permission.reason,
                     style = TandemType.meta,
-                    color = TandemColors.ink2,
+                    color = TandemColors.ink,
                     modifier = Modifier.padding(horizontal = TandemSpacing.screenPadding),
                 )
                 HairlineRule()

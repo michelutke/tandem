@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -16,13 +18,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.tandem.app.R
 import dev.tandem.core.designsystem.DarkSystemBars
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemShapes
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
+import dev.tandem.core.designsystem.components.DotMark
 import dev.tandem.core.designsystem.components.PillButton
 import dev.tandem.core.designsystem.components.PillButtonVariant
 import dev.tandem.core.designsystem.components.TandemScaffold
@@ -32,9 +38,7 @@ import dev.tandem.core.pairing.PairingFailure
 import dev.tandem.core.pairing.PairingState
 
 private const val CODE_GROUP = 3
-private const val MANUAL_MAC_TITLE = "Your Mac."
-private const val MANUAL_MISMATCH_COPY =
-    "If the codes differ, someone may be intercepting. Start pairing again on both devices."
+private val CODE_MIN_SIZE = 32.sp
 
 /**
  * The pairing screens after a scan (E20-26, ui-spec §7.2 Confirm / Declined): progress while
@@ -42,12 +46,15 @@ private const val MANUAL_MISMATCH_COPY =
  * The code is shown only once the Mac has accepted ([PairingState.AwaitingUserConfirm]).
  */
 @Composable
+@Suppress("LongParameterList") // one slot per pairing action plus the paired Mac's name
 fun PairingScreen(
     state: PairingState,
     onCodesMatch: () -> Unit,
     onCodesDontMatch: () -> Unit,
     onScanAgain: () -> Unit,
     modifier: Modifier = Modifier,
+    pairedMacName: String? = null,
+    onDone: () -> Unit = {},
 ) {
     val insetModifier = modifier.safeDrawingPadding()
     when (state) {
@@ -56,11 +63,11 @@ fun PairingScreen(
         }
 
         is PairingState.ComparingCodes -> {
-            ConfirmContent(state.code, MANUAL_MAC_TITLE, true, false, onCodesMatch, onCodesDontMatch, insetModifier)
+            ConfirmContent(state.code, "", true, false, onCodesMatch, onCodesDontMatch, insetModifier)
         }
 
         PairingState.Paired -> {
-            TandemScaffold(title = "Paired.", state = "Opening Home…", modifier = insetModifier) {}
+            PairedContent(pairedMacName, onDone, insetModifier)
         }
 
         PairingState.Idle,
@@ -68,7 +75,11 @@ fun PairingScreen(
         PairingState.AwaitingProofSent,
         is PairingState.AwaitingAccept,
         -> {
-            TandemScaffold(title = "Pairing.", state = "Connecting…", modifier = insetModifier) {}
+            TandemScaffold(
+                title = stringResource(R.string.pair_progress_title),
+                state = stringResource(R.string.pair_progress_state),
+                modifier = insetModifier,
+            ) {}
         }
 
         is PairingState.Rejected,
@@ -81,9 +92,32 @@ fun PairingScreen(
             }
             TandemScaffold(title = title, state = detail, isError = true, modifier = insetModifier) { padding ->
                 Column(modifier = Modifier.padding(padding).padding(horizontal = TandemSpacing.screenPadding)) {
-                    PillButton(text = "Scan again", onClick = onScanAgain)
+                    PillButton(text = stringResource(R.string.pair_scan_again), onClick = onScanAgain)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PairedContent(
+    macName: String?,
+    onDone: () -> Unit,
+    modifier: Modifier,
+) {
+    TandemScaffold(
+        title = stringResource(R.string.pair_paired_title),
+        state =
+            stringResource(
+                R.string.pair_paired_state,
+                macName ?: stringResource(R.string.pair_paired_unknown_name),
+            ),
+        modifier = modifier,
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(TandemSpacing.screenPadding)) {
+            DotMark()
+            Spacer(Modifier.weight(1f))
+            PillButton(text = stringResource(R.string.pair_done), onClick = onDone)
         }
     }
 }
@@ -99,32 +133,62 @@ private fun ConfirmContent(
     onCodesDontMatch: () -> Unit,
     modifier: Modifier,
 ) {
-    val title = if (manual) MANUAL_MAC_TITLE else "$macName."
-    TandemScaffold(title = title, state = "Same code on both?", modifier = modifier) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = TandemSpacing.screenPadding),
-            verticalArrangement = Arrangement.spacedBy(TandemSpacing.md, Alignment.CenterVertically),
-        ) {
+    val title = if (manual) stringResource(R.string.pair_manual_mac_title) else "$macName."
+    TandemScaffold(title = title, state = stringResource(R.string.pair_confirm_state), modifier = modifier) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = TandemSpacing.screenPadding)) {
             if (manual) {
-                Text(text = "Manual pairing", style = TandemType.meta, color = TandemColors.ink)
+                Text(
+                    text = stringResource(R.string.pair_manual_label),
+                    style = TandemType.meta,
+                    color = TandemColors.ink,
+                    modifier = Modifier.padding(bottom = TandemSpacing.md),
+                )
             }
-            Text(
-                text = code.chunked(CODE_GROUP).joinToString(" "),
-                style = TandemType.displayNumeralCode,
-                color = TandemColors.ink,
-            )
-            PillButton(text = "Codes match", onClick = onCodesMatch, enabled = matchEnabled)
+            Column(
+                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = code.spokenDigits() },
+            ) {
+                code.chunked(CODE_GROUP).forEach { group -> CodeGroup(group) }
+            }
+            Spacer(Modifier.weight(1f))
+            if (manual) {
+                Text(
+                    text = stringResource(R.string.pair_manual_mismatch),
+                    style = TandemType.meta,
+                    color = TandemColors.ink,
+                    modifier = Modifier.padding(bottom = TandemSpacing.md),
+                )
+            }
             PillButton(
-                text = if (manual) "Codes differ" else "They don't match",
+                text = stringResource(R.string.pair_codes_match),
+                onClick = onCodesMatch,
+                enabled = matchEnabled,
+            )
+            PillButton(
+                text = stringResource(if (manual) R.string.pair_codes_differ else R.string.pair_codes_dont_match),
                 onClick = onCodesDontMatch,
                 variant = PillButtonVariant.Secondary,
+                modifier = Modifier.padding(top = TandemSpacing.sm, bottom = TandemSpacing.screenPadding),
             )
-            if (manual) {
-                Text(text = MANUAL_MISMATCH_COPY, style = TandemType.meta, color = TandemColors.ink)
-            }
         }
     }
 }
+
+@Composable
+private fun CodeGroup(group: String) {
+    BasicText(
+        text = group,
+        style = TandemType.displayNumeralCode,
+        color = { TandemColors.ink },
+        maxLines = 1,
+        autoSize =
+            TextAutoSize.StepBased(
+                minFontSize = CODE_MIN_SIZE,
+                maxFontSize = TandemType.displayNumeralCode.fontSize,
+            ),
+    )
+}
+
+private fun String.spokenDigits(): String = chunked(CODE_GROUP).joinToString(", ") { it.toList().joinToString(" ") }
 
 private fun pairingErrorMessage(state: PairingState): PairingErrorMessage? =
     when (state) {

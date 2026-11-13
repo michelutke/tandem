@@ -1,5 +1,8 @@
 package dev.tandem.app.home
 
+import androidx.annotation.StringRes
+import dev.tandem.app.R
+
 /**
  * What the Home ring (ui-spec.md §6, decision D-55) currently shows. Idle is the default: items
  * synced today. A running task (transfer, mirroring, ringing) takes over the ring the moment it
@@ -24,21 +27,12 @@ sealed interface HomeRingState {
         val toMac: Boolean,
     ) : HomeRingState
 
-    /**
-     * Screen mirroring in progress. ui-spec §6 wants the numeral formatted `mm:ss`; [DotRing][dev.tandem.core.designsystem.components.DotRing]
-     * only renders an `Int` numeral, so this is rendered as raw elapsed seconds until a future
-     * issue extends `DotRing` with a formatted-numeral slot (documented gap, [toDotRingContent]).
-     */
+    /** Screen mirroring in progress; the ring numeral shows [elapsedSeconds] as `mm:ss`. */
     data class Mirroring(
         val elapsedSeconds: Int,
     ) : HomeRingState
 
-    /**
-     * The phone is ringing (find-phone). ui-spec §6 wants no numeral and a pulsing dot ring;
-     * [DotRing][dev.tandem.core.designsystem.components.DotRing] has neither a numeral-less mode
-     * nor a pulse animation, so this renders as an unlit ring with a `0` placeholder numeral until
-     * a future issue extends it (documented gap, [toDotRingContent]).
-     */
+    /** The phone is ringing (find-phone): no numeral, a pulsing ring. */
     data object Ringing : HomeRingState
 
     /** Reconnecting: seconds to the next attempt, and which attempt this is. */
@@ -48,54 +42,72 @@ sealed interface HomeRingState {
     ) : HomeRingState
 }
 
+private const val SECONDS_PER_MINUTE = 60
+
 /** The [dev.tandem.core.designsystem.components.DotRing] params for a [HomeRingState] (ui-spec §6's table). */
 internal data class DotRingContent(
-    val value: Int,
-    val maxValue: Int,
-    val unit: String,
+    val numeral: String,
+    @StringRes val labelRes: Int,
+    val litFraction: Float,
+    val numeralUnit: String? = null,
+    val labelArg: Int? = null,
+    val signalFraction: Float? = null,
+    val pulse: Boolean = false,
 )
 
-/**
- * Maps [HomeRingState] to [DotRing][dev.tandem.core.designsystem.components.DotRing] params per
- * ui-spec §6's table. `maxValue = 0` forces `DotRing`'s internal fraction to `0`, which lights no
- * dots -- i.e. all-grey -- matching the "Reconnecting: all unlit" / "Mirroring, Ringing: no known
- * progress" rows without needing a separate "force grey" knob on `DotRing` itself.
- */
+/** Maps [HomeRingState] to [DotRingContent] per ui-spec §6's table. */
 internal fun HomeRingState.toDotRingContent(): DotRingContent =
     when (this) {
         is HomeRingState.Idle -> {
             DotRingContent(
-                value = itemsSyncedToday,
-                maxValue = maxOf(sevenDayAverage, 1),
-                unit = "things synced today",
+                numeral = itemsSyncedToday.toString(),
+                labelRes = R.string.home_ring_idle,
+                litFraction = (itemsSyncedToday.toFloat() / maxOf(sevenDayAverage, 1)).coerceIn(0f, 1f),
             )
         }
 
         is HomeRingState.Transfer -> {
             DotRingContent(
-                value = percent,
-                maxValue = 100,
-                unit = if (toMac) "Sending to Mac" else "Receiving from Mac",
+                numeral = percent.toString(),
+                numeralUnit = PERCENT_UNIT,
+                labelRes = if (toMac) R.string.home_ring_sending else R.string.home_ring_receiving,
+                litFraction = percent / PERCENT_MAX,
             )
         }
 
         is HomeRingState.TransferDone -> {
-            DotRingContent(value = 100, maxValue = 100, unit = if (toMac) "Sent." else "Received.")
+            DotRingContent(
+                numeral = PERCENT_MAX.toInt().toString(),
+                numeralUnit = PERCENT_UNIT,
+                labelRes = if (toMac) R.string.home_ring_sent else R.string.home_ring_received,
+                litFraction = 1f,
+            )
         }
 
         is HomeRingState.Mirroring -> {
-            DotRingContent(value = elapsedSeconds, maxValue = 0, unit = "mirroring")
+            DotRingContent(
+                numeral = "%02d:%02d".format(elapsedSeconds / SECONDS_PER_MINUTE, elapsedSeconds % SECONDS_PER_MINUTE),
+                labelRes = R.string.home_ring_mirroring,
+                litFraction = 1f,
+                signalFraction = (elapsedSeconds % SECONDS_PER_MINUTE) / SECONDS_PER_MINUTE.toFloat(),
+            )
         }
 
         HomeRingState.Ringing -> {
-            DotRingContent(value = 0, maxValue = 0, unit = "ringing")
+            DotRingContent(numeral = "", labelRes = R.string.home_ring_ringing, litFraction = 0f, pulse = true)
         }
 
         is HomeRingState.Reconnecting -> {
             DotRingContent(
-                value = secondsToNextAttempt,
-                maxValue = 0,
-                unit = "next try · attempt $attemptNumber",
+                numeral = secondsToNextAttempt.toString(),
+                numeralUnit = SECONDS_UNIT,
+                labelRes = R.string.home_ring_reconnecting,
+                labelArg = attemptNumber,
+                litFraction = 0f,
             )
         }
     }
+
+private const val PERCENT_UNIT = "%"
+private const val SECONDS_UNIT = "s"
+private const val PERCENT_MAX = 100f

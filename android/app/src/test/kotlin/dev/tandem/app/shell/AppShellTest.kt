@@ -14,12 +14,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.R
+import dev.tandem.app.appString
 import dev.tandem.app.home.BlockedReason
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
-import dev.tandem.app.onboarding.WELCOME_STATE
 import dev.tandem.app.settings.AppPermission
 import dev.tandem.app.settings.RecordingPermissionGateway
 import dev.tandem.core.crypto.SpkiFingerprint
@@ -76,7 +77,7 @@ class AppShellTest {
     fun mainActivity_freshInstall_showsOnboarding() {
         setShell()
 
-        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
         composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
     }
 
@@ -101,7 +102,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         assertEquals(1, unpaired.size)
-        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
     }
 
     @Test
@@ -128,7 +129,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         assertEquals(1, unpaired.size)
-        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
     }
 
     @Test

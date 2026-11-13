@@ -10,6 +10,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.tandem.app.R
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
@@ -39,19 +41,28 @@ fun RotationSettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Key", style = TandemType.rowTitle, color = TandemColors.ink)
-                Text(text = currentFingerprint, style = TandemType.metaMono, color = TandemColors.ink2)
+                Text(
+                    text = stringResource(R.string.settings_key),
+                    style = TandemType.rowTitle,
+                    color = TandemColors.ink,
+                )
+                Text(text = currentFingerprint, style = TandemType.metaMono, color = TandemColors.ink)
             }
-            Text(text = "Rotate", style = TandemType.meta, color = TandemColors.ink2)
+            Text(
+                text = stringResource(R.string.settings_key_rotate),
+                style = TandemType.meta,
+                color = TandemColors.ink2,
+            )
         }
         StatusLine(state = state, disabledReason = disabledReason, onDismissResult = onDismissResult)
     }
 
     if (state == RotationState.Confirming) {
         TandemDialog(
-            title = "Rotate key?",
-            text = "This phone gets a new key and the Mac is told to trust it.",
-            confirmText = "Rotate",
+            title = stringResource(R.string.settings_rotate_title),
+            text = stringResource(R.string.settings_rotate_text),
+            confirmText = stringResource(R.string.settings_key_rotate),
+            dismissText = stringResource(R.string.dialog_cancel),
             onConfirm = onConfirm,
             onDismissRequest = onCancel,
         )
@@ -66,10 +77,22 @@ private fun StatusLine(
 ) {
     val (text, color) =
         when (state) {
-            RotationState.InProgress -> "Rotating key…" to TandemColors.ink2
-            is RotationState.Success -> "New key ${state.newFingerprint}." to TandemColors.ink2
-            is RotationState.Failed -> "${state.reason} Still using the current key." to TandemColors.alert
-            RotationState.Idle, RotationState.Confirming -> (disabledReason ?: "") to TandemColors.ink2
+            RotationState.InProgress -> {
+                stringResource(R.string.settings_rotate_in_progress) to TandemColors.ink
+            }
+
+            is RotationState.Success -> {
+                stringResource(R.string.settings_rotate_success, state.newFingerprint) to TandemColors.ink
+            }
+
+            is RotationState.Failed -> {
+                stringResource(R.string.settings_rotate_failed, state.reason) to
+                    TandemColors.alert
+            }
+
+            RotationState.Idle, RotationState.Confirming -> {
+                (disabledReason ?: "") to TandemColors.ink
+            }
         }
     if (text.isEmpty()) return
     Row(
@@ -79,7 +102,11 @@ private fun StatusLine(
         Text(text = text, style = TandemType.meta, color = color, modifier = Modifier.weight(1f))
         if (state is RotationState.Success || state is RotationState.Failed) {
             TextButton(onClick = onDismissResult) {
-                Text(text = "OK", style = TandemType.rowTitle, color = TandemColors.ink)
+                Text(
+                    text = stringResource(R.string.settings_rotate_ok),
+                    style = TandemType.rowTitle,
+                    color = TandemColors.ink,
+                )
             }
         }
     }

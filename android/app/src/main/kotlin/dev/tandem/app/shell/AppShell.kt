@@ -13,7 +13,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -125,20 +124,28 @@ fun AppShell(
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
 
-    LaunchedEffect(route, pairingState) {
-        if (route == ShellRoute.Home && pairingState == PairingState.Paired) dependencies.pairing.reset()
-    }
-
     val snackbarHostState = remember { SnackbarHostState() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         val currentRoute = route
-        when (currentRoute) {
-            ShellRoute.Onboarding -> {
+        when {
+            pairingState == PairingState.Paired -> {
+                PairingScreen(
+                    state = pairingState,
+                    onCodesMatch = {},
+                    onCodesDontMatch = {},
+                    onScanAgain = {},
+                    modifier = insetsModifier,
+                    pairedMacName = peer?.displayName,
+                    onDone = dependencies.pairing::reset,
+                )
+            }
+
+            currentRoute == ShellRoute.Onboarding -> {
                 OnboardingOrPairing(pairingState, dependencies, insetsModifier)
             }
 
-            null -> {
+            currentRoute == null -> {
                 LoadingScreen(insetsModifier)
             }
 
@@ -148,7 +155,7 @@ fun AppShell(
                     BlockedRoute(reason, peer, navigator, dependencies, insetsModifier)
                 } else {
                     TopLevelShell(
-                        route = currentRoute,
+                        route = checkNotNull(currentRoute),
                         navigator = navigator,
                         dependencies = dependencies,
                         statusLine = statusLine,

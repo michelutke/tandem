@@ -84,7 +84,12 @@ private fun NotificationAppsList(
     val loaded = rows.orEmpty()
     TandemScaffold(
         title = stringResource(R.string.notifications_title),
-        state = if (rows == null) "Loading apps." else "${loaded.count { it.allowed }} of ${loaded.size} apps.",
+        state =
+            if (rows == null) {
+                stringResource(R.string.notifications_loading)
+            } else {
+                stringResource(R.string.notifications_apps_count, loaded.count { it.allowed }, loaded.size)
+            },
         modifier = modifier,
     ) { padding ->
         if (rows == null) {

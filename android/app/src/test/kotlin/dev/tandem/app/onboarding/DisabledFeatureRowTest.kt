@@ -6,6 +6,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.R
+import dev.tandem.app.appString
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -22,12 +24,12 @@ class DisabledFeatureRowTest {
     fun deniedFeatureRow_tapped_launchesMatchingSettingsIntent() {
         composeRule.setContent {
             DisabledFeatureRow(
-                featureName = PermissionRow.NOTIFICATIONS.label,
+                featureName = appString(PermissionRow.NOTIFICATIONS.labelRes),
                 settingsIntentAction = Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS,
             )
         }
 
-        composeRule.onNodeWithText(PermissionRow.NOTIFICATIONS.label).assertExists()
+        composeRule.onNodeWithText(appString(PermissionRow.NOTIFICATIONS.labelRes)).assertExists()
         composeRule.onNodeWithText(DISABLED_FEATURE_ROW_LABEL).assertExists()
 
         composeRule.onNodeWithText(DISABLED_FEATURE_ROW_LABEL).performClick()

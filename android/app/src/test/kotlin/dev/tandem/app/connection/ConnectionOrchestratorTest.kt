@@ -263,6 +263,23 @@ class ConnectionOrchestratorTest {
     }
 
     @Test
+    fun orchestrator_clearFailure_failureNoLongerVisible(
+        @TempDir directory: File,
+    ) = runTest {
+        val failure = ConnectionFailure.HandshakeError("PIN_MISMATCH")
+        val dialer = ScriptedDialer(mutableListOf(DialResult.PinMismatch(failure)))
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory)
+        harness.orchestrator.start()
+        runCurrent()
+        assertEquals(failure, harness.orchestrator.failure.value)
+
+        harness.orchestrator.clearFailure()
+
+        assertNull(harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
     fun orchestrator_peerRejectedCertificateForPreviouslyPinnedPeer_failureIsRevoked(
         @TempDir directory: File,
     ) = runTest {

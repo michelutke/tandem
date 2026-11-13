@@ -68,9 +68,9 @@ class HomeScreenTest {
         val reconnecting = HomeRingState.Reconnecting(secondsToNextAttempt = 5, attemptNumber = 2)
 
         // "Grey dots" is DotRing's all-unlit rendering, which it only draws when the ring's
-        // fraction is 0 (drawRingDots's `litDots <= 0` branch) -- asserted here directly against
+        // fraction is 0 -- asserted here directly against
         // the mapping this state feeds it, since Canvas-drawn dots have no semantics tree to query.
-        assertEquals(0, reconnecting.toDotRingContent().maxValue)
+        assertEquals(0f, reconnecting.toDotRingContent().litFraction)
 
         composeRule.setContent {
             HomeScreen(

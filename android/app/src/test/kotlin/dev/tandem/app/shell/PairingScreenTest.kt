@@ -21,22 +21,41 @@ class PairingScreenTest {
     private var matched = 0
     private var rejected = 0
 
-    private fun show(state: PairingState) {
+    private var done = 0
+
+    private fun show(
+        state: PairingState,
+        pairedMacName: String? = null,
+    ) {
         composeRule.setContent {
             PairingScreen(
                 state = state,
                 onCodesMatch = { matched++ },
                 onCodesDontMatch = { rejected++ },
                 onScanAgain = {},
+                pairedMacName = pairedMacName,
+                onDone = { done++ },
             )
         }
+    }
+
+    @Test
+    fun pairingScreen_paired_showsMacReadyAndDoneAction() {
+        show(PairingState.Paired, pairedMacName = "MacBook Pro")
+
+        composeRule.onNodeWithText("Paired.").assertExists()
+        composeRule.onNodeWithText("MacBook Pro is ready.").assertExists()
+        composeRule.onNodeWithText("Done").performClick()
+        assertEquals(1, done)
     }
 
     @Test
     fun pairingScreen_awaitingUserConfirm_showsGroupedCodeAndBothActions() {
         show(PairingState.AwaitingUserConfirm("482913", "MacBook Pro"))
 
-        composeRule.onNodeWithText("482 913").assertExists()
+        composeRule.onNodeWithText("482").assertExists()
+        composeRule.onNodeWithText("913").assertExists()
+        composeRule.onNodeWithText("482 913").assertDoesNotExist()
         composeRule.onNodeWithText("Codes match").performClick()
         composeRule.onNodeWithText("They don't match").performClick()
         assertEquals(1, matched)
@@ -48,7 +67,8 @@ class PairingScreenTest {
         show(PairingState.ComparingCodes("482913"))
 
         composeRule.onNodeWithText("Manual pairing").assertExists()
-        composeRule.onNodeWithText("482 913").assertExists()
+        composeRule.onNodeWithText("482").assertExists()
+        composeRule.onNodeWithText("913").assertExists()
         composeRule.onNodeWithText("Codes match").assertIsNotEnabled()
         composeRule.onNodeWithText("Codes differ").performClick()
         assertEquals(1, rejected)

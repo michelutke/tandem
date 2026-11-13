@@ -81,17 +81,32 @@ private fun ActivityRow(
             Text(
                 text = TIME_FORMAT.format(entry.timestamp.atZone(zone)),
                 style = TandemType.metaMono,
-                color = TandemColors.ink2,
+                color = TandemColors.ink,
             )
         }
-        formatDetail(entry)?.let { Text(text = it, style = TandemType.metaMono, color = TandemColors.ink2) }
+        formatDetail(entry)?.let { Text(text = it, style = TandemType.metaMono, color = TandemColors.ink) }
     }
 }
+
+internal fun formatSize(bytes: Long): String =
+    when {
+        bytes >= BYTES_PER_KB * BYTES_PER_KB * BYTES_PER_KB -> {
+            "%.1f GB".format(Locale.ENGLISH, bytes.toDouble() / (BYTES_PER_KB * BYTES_PER_KB * BYTES_PER_KB))
+        }
+
+        bytes >= BYTES_PER_KB * BYTES_PER_KB -> {
+            "%.1f MB".format(Locale.ENGLISH, bytes.toDouble() / (BYTES_PER_KB * BYTES_PER_KB))
+        }
+
+        else -> {
+            "${(bytes + BYTES_PER_KB - 1) / BYTES_PER_KB} KB"
+        }
+    }
 
 private fun formatDetail(entry: ActivityEntry): String? =
     when {
         entry.sizeBytes != null -> {
-            "${(entry.sizeBytes + BYTES_PER_KB - 1) / BYTES_PER_KB} KB"
+            formatSize(entry.sizeBytes)
         }
 
         entry.durationSeconds != null -> {

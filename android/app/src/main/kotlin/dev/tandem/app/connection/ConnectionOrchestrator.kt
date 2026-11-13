@@ -42,9 +42,10 @@ import kotlin.time.Duration
  * [ReconnectStrategy] after a process restart; it is a dial hint only, never trust.
  *
  * [failure] carries only sanitized categories (`PIN_MISMATCH`, `REVOKED`, `HANDSHAKE_FAILED`,
- * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session.
+ * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session and on
+ * unpair ([clearFailure]).
  */
-@Suppress("LongParameterList") // composition seams: dialer, stores, sources, features, clock, dispatcher
+@Suppress("LongParameterList", "TooManyFunctions") // composition seams, lifecycle, failure surface
 class ConnectionOrchestrator(
     private val dialer: SessionDialer,
     private val registry: SessionRegistry,
@@ -81,6 +82,10 @@ class ConnectionOrchestrator(
     val failure: StateFlow<ConnectionFailure?> = mutableFailure.asStateFlow()
     val failedCycles: StateFlow<Int> = strategy.failedCycles
     val backoffWait: StateFlow<Duration?> = strategy.backoffWait
+
+    fun clearFailure() {
+        mutableFailure.value = null
+    }
 
     override fun start() {
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }

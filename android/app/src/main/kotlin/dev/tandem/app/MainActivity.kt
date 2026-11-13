@@ -156,6 +156,7 @@ class MainActivity : TandemActivity() {
                         .current.value
                         ?.session,
                 )
+                graph.connectionOrchestrator().clearFailure()
             },
             onSendClipboard = ::onSendClipboardButtonTapped,
             onSendFiles = ::onSendFilesTapped,
