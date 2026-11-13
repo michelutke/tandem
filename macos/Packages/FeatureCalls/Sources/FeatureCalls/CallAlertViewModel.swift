@@ -56,6 +56,7 @@ public final class CallAlertViewModel {
     public private(set) var activeCall: ActiveCallInfo?
 
     private let presenter: any CallAlertPresenter
+    private let fallbackPresenter: (any CallAlertPresenter)?
     private let session: any TandemSession
     private let contacts: any ContactsStore
     private let peer: SpkiFingerprint
@@ -66,10 +67,12 @@ public final class CallAlertViewModel {
     @ObservationIgnored
     private nonisolated(unsafe) var eventTask: Task<Void, Never>?
     @ObservationIgnored
-    private nonisolated(unsafe) var responseTask: Task<Void, Never>?
+    private nonisolated(unsafe) var responseTasks: [Task<Void, Never>] = []
 
+    /// `fallbackPresenter` shows the alert in-app when `presenter` could not deliver it.
     public init(
         presenter: any CallAlertPresenter,
+        fallbackPresenter: (any CallAlertPresenter)? = nil,
         session: any TandemSession,
         contacts: any ContactsStore,
         peer: SpkiFingerprint,
@@ -78,6 +81,7 @@ public final class CallAlertViewModel {
         now: (@Sendable () -> Date)? = nil
     ) {
         self.presenter = presenter
+        self.fallbackPresenter = fallbackPresenter
         self.session = session
         self.contacts = contacts
         self.peer = peer
@@ -88,22 +92,25 @@ public final class CallAlertViewModel {
 
     deinit {
         eventTask?.cancel()
-        responseTask?.cancel()
+        responseTasks.forEach { $0.cancel() }
     }
 
     /// Starts observing the CALLS channel and the presenter's Answer/Decline responses.
     public func start() {
         eventTask?.cancel()
-        responseTask?.cancel()
+        responseTasks.forEach { $0.cancel() }
         let session = session
-        let presenter = presenter
         eventTask = Task { [weak self] in
             for await frame in await session.receive(.calls) {
                 guard case .callEvent(let event)? = frame.payload else { continue }
                 await self?.handle(event)
             }
         }
-        responseTask = Task { [weak self] in
+        responseTasks = ([presenter] + [fallbackPresenter].compactMap { $0 }).map(observeResponses)
+    }
+
+    private func observeResponses(of presenter: any CallAlertPresenter) -> Task<Void, Never> {
+        Task { [weak self] in
             for await response in presenter.responses {
                 switch response.action {
                 case .answer: await self?.answer(callId: response.callId)
@@ -117,10 +124,13 @@ public final class CallAlertViewModel {
         let isIncoming = event.direction == .incoming
         switch event.state {
         case .ringing where isIncoming:
-            await presenter.present(callId: event.callID, title: await title(for: event), body: Self.alertBody)
+            let callTitle = await title(for: event)
+            if await !presenter.present(callId: event.callID, title: callTitle, body: Self.alertBody) {
+                _ = await fallbackPresenter?.present(callId: event.callID, title: callTitle, body: Self.alertBody)
+            }
         case .active:
             if isIncoming {
-                await presenter.remove(callId: event.callID)
+                await removeAlert(callId: event.callID)
                 activeCallId = event.callID
             }
             activeCall = ActiveCallInfo(callId: event.callID, title: await title(for: event), startedAt: now?())
@@ -129,7 +139,7 @@ public final class CallAlertViewModel {
                 callId: event.callID, title: await title(for: event), startedAt: nil, isDialing: true
             )
         case .ended:
-            if isIncoming { await presenter.remove(callId: event.callID) }
+            if isIncoming { await removeAlert(callId: event.callID) }
             if activeCallId == event.callID { activeCallId = nil }
             if activeCall?.callId == event.callID { activeCall = nil }
         default:
@@ -148,6 +158,11 @@ public final class CallAlertViewModel {
     public func hangUp() async {
         guard let callId = activeCallId ?? activeCall?.callId else { return }
         await send(.hangup, callId: callId)
+    }
+
+    private func removeAlert(callId: String) async {
+        await presenter.remove(callId: callId)
+        await fallbackPresenter?.remove(callId: callId)
     }
 
     private func send(_ type: Tandem_V1_CallActionType, callId: String) async {
