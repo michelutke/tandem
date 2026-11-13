@@ -58,6 +58,12 @@ public actor NotificationPresentationCoordinator: PeerDataPurging {
         return try? UNNotificationAttachment(identifier: "icon-\(posted.key)", url: url)
     }
 
+    /// Drops `identifier` from `peer`'s purge index once its notification is gone.
+    public func forget(identifier: String, from peer: SpkiFingerprint) {
+        identifiersByPeer[peer]?.remove(identifier)
+        if identifiersByPeer[peer]?.isEmpty == true { identifiersByPeer[peer] = nil }
+    }
+
     /// ``PeerDataPurging`` conformance: removes every notification recorded as posted by `peer`.
     /// A no-op if `peer` posted nothing (or already had everything purged).
     public func purgeAll(peer: SpkiFingerprint) async throws {
@@ -107,6 +113,7 @@ public func startNotificationPresentationReader(
             case .iconData(let icon):
                 await iconCache?.store(icon, from: peer)
             case .notificationDismiss(let dismiss):
+                await coordinator.forget(identifier: dismiss.key, from: peer)
                 await dismissSync?.handle(dismiss)
             case .notificationActionResult(let result):
                 await actionHandler?.handle(result)

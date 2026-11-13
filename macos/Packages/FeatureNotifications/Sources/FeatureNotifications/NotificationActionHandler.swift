@@ -26,7 +26,8 @@ public actor NotificationActionHandler {
     /// Sends `NotificationAction{key, actionIndex, replyText}` for `event`; `replyText` is
     /// `event.userText` unchanged, or empty for a plain action tap.
     public func handle(_ event: NotificationResponseEvent) async {
-        guard let actionIndex = Self.actionIndex(from: event.actionIdentifier) else { return }
+        guard event.mirrorsPhoneNotification,
+              let actionIndex = Self.actionIndex(from: event.actionIdentifier) else { return }
         var action = Tandem_V1_NotificationAction()
         action.key = event.requestIdentifier
         action.actionIndex = actionIndex

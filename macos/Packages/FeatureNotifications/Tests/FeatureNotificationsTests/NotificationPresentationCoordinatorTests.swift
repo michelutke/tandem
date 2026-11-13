@@ -99,4 +99,20 @@ import TandemCrypto
         let attachmentCounts = await presenter.addedAttachmentCounts
         #expect(attachmentCounts == [1])
     }
+
+    @Test func coordinator_dismissedNotification_identifierRemovedFromPeerIndex() async throws {
+        let presenter = RecordingNotificationPresenter()
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+        let peer = try Self.fingerprint(0x04)
+        var posted = Tandem_V1_NotificationPosted()
+        posted.key = "k-1"
+        posted.title = "T"
+        posted.text = "body"
+        await coordinator.present(posted, from: peer)
+
+        await coordinator.forget(identifier: "k-1", from: peer)
+        try await coordinator.purgeAll(peer: peer)
+
+        #expect(await presenter.removedIdentifierBatches.isEmpty)
+    }
 }

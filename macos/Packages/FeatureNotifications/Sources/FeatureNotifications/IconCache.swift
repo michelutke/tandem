@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 import ImageIO
 import TandemCrypto
@@ -78,7 +79,8 @@ public actor IconCache: PeerDataPurging {
     }
 
     private func fileURL(for key: String) -> URL {
-        directory.appendingPathComponent("\(key).png")
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        return directory.appendingPathComponent("\(digest).png")
     }
 
     private static func key(packageName: String, versionCode: Int64) -> String {

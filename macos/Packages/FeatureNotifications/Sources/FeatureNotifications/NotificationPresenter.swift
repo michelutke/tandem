@@ -46,4 +46,10 @@ public struct NotificationResponseEvent: Sendable, Equatable {
         self.actionIdentifier = actionIdentifier
         self.userText = userText
     }
+
+    /// Whether this response is for a notification mirrored from the phone. Notifications the Mac
+    /// raises itself (calls, file prompts, received files) use `tandem.*` identifiers and stay local.
+    public var mirrorsPhoneNotification: Bool {
+        !requestIdentifier.hasPrefix("tandem.")
+    }
 }

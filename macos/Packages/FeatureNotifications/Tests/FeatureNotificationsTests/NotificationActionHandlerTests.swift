@@ -89,4 +89,19 @@ import Testing
         #expect(await presenter.removedIdentifierBatches.isEmpty)
         #expect(await presenter.addedBodies.isEmpty)
     }
+
+    @Test func notificationsRouting_callAlertAnswer_noNotificationActionSentToPhone() async {
+        let session = FakeTandemSession()
+        let handler = NotificationActionHandler(presenter: RecordingNotificationPresenter(), session: session)
+
+        await handler.handle(
+            NotificationResponseEvent(
+                requestIdentifier: "tandem.call.c-1",
+                actionIdentifier: "tandem.category.abc.action-1",
+                userText: nil
+            )
+        )
+
+        #expect(await Self.sentActions(session).isEmpty)
+    }
 }
