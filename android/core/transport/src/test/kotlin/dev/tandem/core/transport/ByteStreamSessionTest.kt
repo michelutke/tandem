@@ -1,6 +1,8 @@
 package dev.tandem.core.transport
 
 import app.cash.turbine.test
+import dev.tandem.core.protocol.FrameEncoder
+import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.InMemoryDuplexPipe
@@ -8,7 +10,9 @@ import dev.tandem.core.testing.ManualElapsedRealtime
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
+import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.heartbeat
+import dev.tandem.protocol.v1.versionHello
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +36,8 @@ import java.time.Clock
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
+private const val DIFFERENT_MAJOR = 2
 
 /**
  * [ByteStreamSession] tests (E12-11; `docs/planning/backlog/phase-1.yaml` E12-11's `tdd:` list).
@@ -119,6 +125,44 @@ class ByteStreamSessionTest {
             }
 
             client.close()
+        }
+
+    @Test
+    fun byteStreamSession_peerMajorDiffers_stateFailedWithTypedVersionMismatch() =
+        sessionTest {
+            val pipe = InMemoryDuplexPipe()
+            val client = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+            val peerHello =
+                FrameEncoder.encodeFrame(
+                    envelope {
+                        channel = Channel.CHANNEL_CONTROL
+                        seq = 1
+                        versionHello = versionHello { major = DIFFERENT_MAJOR }
+                    },
+                )
+
+            pipe.endpointB.output.write(peerHello)
+            pipe.endpointB.output.flush()
+
+            val failed = withTimeout(5.seconds) { client.state.first { it is ConnectionState.Failed } }
+            assertEquals(ConnectionFailure.VersionMismatch, (failed as ConnectionState.Failed).reason)
+            client.close()
+        }
+
+    @Test
+    fun byteStreamSession_peerEofWithoutHeartbeatDeps_stateBecomesDisconnected() =
+        sessionTest {
+            val pipe = InMemoryDuplexPipe()
+            val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+            val b = ByteStreamSession(pipe.endpointB, Clock.systemUTC(), Dispatchers.IO)
+
+            a.state.first { it is ConnectionState.Ready }
+            b.state.first { it is ConnectionState.Ready }
+
+            b.close()
+
+            withTimeout(5.seconds) { a.state.first { it is ConnectionState.Disconnected } }
+            a.close()
         }
 
     @Test

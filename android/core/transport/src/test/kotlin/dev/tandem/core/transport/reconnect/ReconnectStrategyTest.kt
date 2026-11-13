@@ -75,6 +75,34 @@ class ReconnectStrategyTest {
         }
 
     @Test
+    fun reconnectStrategy_candidateSourceThrows_loopContinuesWithBackoff() =
+        runTest {
+            val candidate = CandidateAddress("10.0.0.7", 7443)
+            var addressReads = 0
+            val connector = FakeConnector { ConnectResult.Unreachable }
+            val strategy =
+                newStrategy(
+                    connector = connector,
+                    bonjour = { emptyList() },
+                    pairing = {
+                        addressReads++
+                        if (addressReads == 1) throw java.io.IOException("address store unreadable")
+                        listOf(candidate)
+                    },
+                )
+
+            strategy.start()
+            runCurrent()
+            assertEquals(emptyList<CandidateAddress>(), connector.calls)
+
+            advanceTimeBy(1.seconds)
+            runCurrent()
+
+            assertEquals(listOf(candidate), connector.calls)
+            strategy.close()
+        }
+
+    @Test
     fun reconnectStrategy_success_resetsBackoffTo1sAndRecordsAddress() =
         runTest {
             val working = CandidateAddress("10.0.0.6", 7443)

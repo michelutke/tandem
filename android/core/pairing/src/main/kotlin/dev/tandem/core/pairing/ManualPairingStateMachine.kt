@@ -68,6 +68,7 @@ class ManualPairingStateMachine(
     private val confirmMutex = Mutex()
     private var confirmContext: ConfirmContext? = null
     private var confirmDeadline: Job? = null
+    private var activeSession: TandemSession? = null
 
     private class ConfirmContext(
         val session: TandemSession,
@@ -90,7 +91,7 @@ class ManualPairingStateMachine(
     override fun start() {
         if (mutableState.value != PairingState.Idle) return
         mutableState.value = PairingState.Connecting
-        scope.launch { runPairing() }
+        scope.launch { runPairingGuarded() }
     }
 
     /** Commits the Mac's fingerprint only once `ManualPairResult` arrived (see [ConfirmContext.macAccepted]). */
@@ -113,7 +114,7 @@ class ManualPairingStateMachine(
         scope
             .launch {
                 val context = claimConfirmContext(requireMacAccepted = false) ?: return@launch
-                runCatching { context.session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+                runCatching { context.session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
                 context.session.close()
             }.invokeOnCompletion { scope.cancel() }
     }
@@ -127,6 +128,18 @@ class ManualPairingStateMachine(
             confirmDeadline = null
             context
         }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun runPairingGuarded() {
+        try {
+            runPairing()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            activeSession?.close()
+            mutableState.value = PairingState.Failed(PairingFailure.ConnectionLost)
+        }
+    }
 
     @Suppress("TooGenericExceptionCaught", "SwallowedException", "ReturnCount")
     private suspend fun runPairing() {
@@ -151,9 +164,11 @@ class ManualPairingStateMachine(
             return
         }
         val session = connection.session
+        activeSession = session
         val inbox = KtChannel<Envelope>(KtChannel.UNLIMITED)
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             session.receive(Channel.CHANNEL_CONTROL).collect { inbox.trySend(it) }
+            inbox.close()
         }
         scope.launch {
             session.state.first { it is ConnectionState.Disconnected }
@@ -313,7 +328,7 @@ class ManualPairingStateMachine(
         session: TandemSession,
         reason: PairingFailure,
     ) {
-        runCatching { session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+        runCatching { session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
         session.close()
         mutableState.value = PairingState.Failed(reason)
     }

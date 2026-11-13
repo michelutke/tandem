@@ -33,7 +33,7 @@ class UnpairAction(
         if (session != null && session.state.value is ConnectionState.Ready) {
             withTimeoutOrNull(2.seconds) {
                 runCatching {
-                    session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} }
+                    session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} }
                 }
             }
             session.close()

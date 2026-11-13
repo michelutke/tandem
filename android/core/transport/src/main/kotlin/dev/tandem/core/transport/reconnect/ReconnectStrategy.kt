@@ -1,5 +1,6 @@
 package dev.tandem.core.transport.reconnect
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -106,7 +107,7 @@ class ReconnectStrategy(
 
     private suspend fun loop() {
         while (true) {
-            for (candidate in buildCycle()) {
+            for (candidate in buildCycleOrEmpty()) {
                 when (connector.connect(candidate)) {
                     ConnectResult.Connected -> {
                         mutableFailedCycles.value = 0
@@ -133,6 +134,16 @@ class ReconnectStrategy(
             if (!kicked) mutableFailedCycles.value++
         }
     }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // a failing source must not kill the loop
+    private fun buildCycleOrEmpty(): List<CandidateAddress> =
+        try {
+            buildCycle()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            emptyList()
+        }
 
     /**
      * This cycle's dial order: last-working, then Bonjour-resolved, then pairing-time addresses,

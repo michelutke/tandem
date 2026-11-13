@@ -4,6 +4,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -41,6 +42,15 @@ class ChannelDispatcher(
 ) {
     private val lanes = ConcurrentHashMap<Channel, Lane>()
 
+    /**
+     * Suspends until every lane started so far has completed, i.e. its [source] ended and every frame
+     * already taken from it reached a subscriber. A lane holding a frame nobody subscribes for never
+     * completes, so callers bound the wait.
+     */
+    suspend fun awaitLanesCompleted() {
+        lanes.values.mapNotNull { it.job }.forEach { it.join() }
+    }
+
     /** Frames on [channel] delivered while the returned flow is being collected. */
     fun subscribe(channel: Channel): Flow<Envelope> =
         flow {
@@ -62,6 +72,10 @@ class ChannelDispatcher(
         private var completed = false
         private var started = false
 
+        @Volatile
+        var job: Job? = null
+            private set
+
         fun register(): KtChannel<Envelope>? =
             synchronized(lock) {
                 if (completed) return null
@@ -78,7 +92,7 @@ class ChannelDispatcher(
                 if (started) return
                 started = true
             }
-            scope.launch { run() }.invokeOnCompletion { complete() }
+            scope.launch { run() }.also { job = it }.invokeOnCompletion { complete() }
         }
 
         @Suppress("TooGenericExceptionCaught") // a failed source ends the lane like a closed one

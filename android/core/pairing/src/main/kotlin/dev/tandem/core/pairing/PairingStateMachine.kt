@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
@@ -51,6 +52,7 @@ import kotlin.time.Duration.Companion.seconds
  * dispatcher a test supplies; [clock] itself stamps the `pairedAt` this machine hands
  * [trustCommitter] on [PairingState.Paired].
  */
+@Suppress("TooManyFunctions") // one dial/confirm/close state machine, see above
 class PairingStateMachine(
     private val clock: Clock,
     dispatcher: CoroutineDispatcher,
@@ -68,6 +70,7 @@ class PairingStateMachine(
     private val confirmMutex = Mutex()
     private var confirmContext: ConfirmContext? = null
     private var confirmDeadline: Job? = null
+    private var activeSession: TandemSession? = null
 
     private class ConfirmContext(
         val session: TandemSession,
@@ -79,7 +82,7 @@ class PairingStateMachine(
     override fun start() {
         if (mutableState.value != PairingState.Idle) return
         mutableState.value = PairingState.Connecting
-        scope.launch { runPairing() }
+        scope.launch { runPairingGuarded() }
     }
 
     /**
@@ -115,7 +118,7 @@ class PairingStateMachine(
         scope
             .launch {
                 val context = claimConfirmContext() ?: return@launch
-                runCatching { context.session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+                runCatching { context.session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
                 context.session.close()
             }.invokeOnCompletion { scope.cancel() }
     }
@@ -134,9 +137,28 @@ class PairingStateMachine(
             context
         }
 
+    /**
+     * A session that dies mid-pairing (peer close, reset, a failed `send`) surfaces as an unchecked
+     * exception from the awaiting/sending calls below; mapping it here keeps it out of this
+     * machine's `SupervisorJob` (which would crash the process) and reports
+     * [PairingFailure.ConnectionLost] instead.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun runPairingGuarded() {
+        try {
+            runPairing()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            activeSession?.close()
+            mutableState.value = PairingState.Failed(PairingFailure.ConnectionLost)
+        }
+    }
+
     private suspend fun runPairing() {
         val connection = dialAddresses() ?: return
         val session = connection.session
+        activeSession = session
         mutableState.value = PairingState.AwaitingProofSent
 
         val challenge =
@@ -279,7 +301,7 @@ class PairingStateMachine(
         session: TandemSession,
         reason: PairingFailure,
     ) {
-        runCatching { session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+        runCatching { session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
         session.close()
         mutableState.value = PairingState.Failed(reason)
     }
@@ -306,11 +328,16 @@ class PairingStateMachine(
     ): WaitOutcome =
         coroutineScope {
             val received =
-                async(start = CoroutineStart.UNDISPATCHED) { session.receive(Channel.CHANNEL_CONTROL).first(predicate) }
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    session.receive(Channel.CHANNEL_CONTROL).firstOrNull(predicate)
+                }
             val disconnected = async { session.state.first { it is ConnectionState.Disconnected } }
             try {
                 select {
-                    received.onAwait { WaitOutcome.Success(it) }
+                    received.onAwait { envelope ->
+                        envelope?.let { WaitOutcome.Success(it) }
+                            ?: WaitOutcome.ConnectionLost
+                    }
                     disconnected.onAwait { WaitOutcome.ConnectionLost }
                 }
             } finally {

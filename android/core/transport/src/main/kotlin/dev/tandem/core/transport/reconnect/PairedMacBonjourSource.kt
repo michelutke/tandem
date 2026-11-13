@@ -9,7 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -27,7 +29,7 @@ class PairedMacBonjourSource(
     dispatcher: CoroutineDispatcher,
 ) : BonjourCandidateSource {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
-    private val matched = linkedMapOf<String, CandidateAddress>()
+    private val matched = MutableStateFlow<Map<String, CandidateAddress>>(emptyMap())
     private var job: Job? = null
 
     /** Starts collecting [ServiceDiscovery.browse]. Idempotent: cancels and replaces any collection already running. */
@@ -40,15 +42,15 @@ class PairedMacBonjourSource(
                         is DiscoveryEvent.Resolved -> {
                             val match = matcher.match(event.candidate, pairedFingerprints())
                             if (match != null) {
-                                matched[event.candidate.serviceName] =
-                                    CandidateAddress(event.candidate.host, event.candidate.port)
+                                val address = CandidateAddress(event.candidate.host, event.candidate.port)
+                                matched.update { it + (event.candidate.serviceName to address) }
                             } else {
-                                matched.remove(event.candidate.serviceName)
+                                matched.update { it - event.candidate.serviceName }
                             }
                         }
 
                         is DiscoveryEvent.Lost -> {
-                            matched.remove(event.serviceName)
+                            matched.update { it - event.serviceName }
                         }
 
                         is DiscoveryEvent.Found -> {
@@ -67,5 +69,5 @@ class PairedMacBonjourSource(
         scope.cancel()
     }
 
-    override fun snapshot(): List<CandidateAddress> = matched.values.toList()
+    override fun snapshot(): List<CandidateAddress> = matched.value.values.toList()
 }
