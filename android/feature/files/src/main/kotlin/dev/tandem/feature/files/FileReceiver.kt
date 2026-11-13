@@ -4,8 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.protocol.FilenameSanitizer
-import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.EnvelopeKt
 import dev.tandem.protocol.v1.FileChunk
@@ -300,11 +300,7 @@ class FileReceiver(
     }
 
     private suspend fun send(payload: EnvelopeKt.Dsl.() -> Unit) {
-        try {
-            session.send(Channel.CHANNEL_FILES, payload)
-        } catch (_: MultiplexerClosedException) {
-            return
-        }
+        session.sendOrDrop(Channel.CHANNEL_FILES, payload)
     }
 
     private class Transfer(

@@ -1,5 +1,6 @@
 package dev.tandem.feature.files
 
+import dev.tandem.core.protocol.FrameTooLargeException
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
@@ -78,6 +79,8 @@ class FilesScheduler(
                 response.done.complete(Unit)
             } catch (closed: MultiplexerClosedException) {
                 response.done.completeExceptionally(closed)
+            } catch (tooLarge: FrameTooLargeException) {
+                response.done.completeExceptionally(tooLarge)
             }
         }
     }
@@ -87,6 +90,9 @@ class FilesScheduler(
             active.stream.sendNext().also { more -> if (!more) active.done.complete(Unit) }
         } catch (closed: MultiplexerClosedException) {
             active.done.completeExceptionally(closed)
+            false
+        } catch (tooLarge: FrameTooLargeException) {
+            active.done.completeExceptionally(tooLarge)
             false
         }
 

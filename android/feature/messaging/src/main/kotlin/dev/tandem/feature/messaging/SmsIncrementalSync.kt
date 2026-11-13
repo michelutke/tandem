@@ -2,7 +2,9 @@ package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsSyncStatus
+import dev.tandem.protocol.v1.SmsThread
 import dev.tandem.protocol.v1.smsSyncResponse
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
@@ -51,20 +53,32 @@ class SmsIncrementalSync(
     private suspend fun push(lastSentId: Long): Long {
         var cursor = lastSentId
         while (true) {
-            val rows = withContext(ioDispatcher) { source.newerThan(cursor, SmsSource.PAGE_SIZE) }
+            val rows =
+                withContext(ioDispatcher) { source.newerThan(cursor, SmsSource.PAGE_SIZE) }
+                    .takeWithinBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
             if (rows.isEmpty()) return cursor
-            cursor = rows.last().id
             val threads = withContext(ioDispatcher) { source.threads() }
-            session.send(Channel.CHANNEL_SMS) {
-                smsSyncResponse =
-                    smsSyncResponse {
-                        status = SmsSyncStatus.SMS_SYNC_STATUS_OK
-                        this.threads += threads
-                        messages += rows
-                        highWatermarkId = cursor
-                    }
-            }
+            val threadChunks = threads.chunkedByBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
+            threadChunks.dropLast(1).forEach { sendResponse(it, emptyList(), cursor) }
+            cursor = rows.last().id
+            sendResponse(threadChunks.last(), rows, cursor)
             log("sms incremental: pushed messages=${rows.size} high=$cursor")
+        }
+    }
+
+    private suspend fun sendResponse(
+        threads: List<SmsThread>,
+        rows: List<SmsMessage>,
+        highWatermark: Long,
+    ) {
+        session.send(Channel.CHANNEL_SMS) {
+            smsSyncResponse =
+                smsSyncResponse {
+                    status = SmsSyncStatus.SMS_SYNC_STATUS_OK
+                    this.threads += threads
+                    messages += rows
+                    highWatermarkId = highWatermark
+                }
         }
     }
 

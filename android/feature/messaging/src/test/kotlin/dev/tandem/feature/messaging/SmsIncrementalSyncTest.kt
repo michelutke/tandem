@@ -3,6 +3,7 @@ package dev.tandem.feature.messaging
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.smsMessage
+import dev.tandem.protocol.v1.smsThread
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -11,7 +12,12 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+
+private const val LONG_TEXT_BYTES = 9_000
+private val LONG_TEXT = "x".repeat(LONG_TEXT_BYTES)
+private const val FRAME_BYTE_LIMIT = 1_048_576 - 64
 
 /** SmsIncrementalSync tests (E50-03; `docs/planning/backlog/phase-5.yaml` E50-03's `tdd:` list). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -32,6 +38,33 @@ class SmsIncrementalSyncTest {
             assertEquals(1, pushed.size)
             assertEquals(listOf(6L), pushed.single().messagesList.map { it.id })
             assertEquals(6L, pushed.single().highWatermarkId)
+            job.cancel()
+        }
+
+    @Test
+    fun incrementalSync_longBodiesAndSnippets_everyFrameWithinByteBudgetAndNothingLost() =
+        runTest {
+            val threads =
+                (1..SmsSource.PAGE_SIZE).map {
+                    smsThread {
+                        threadId = it.toLong()
+                        snippet = LONG_TEXT
+                    }
+                }
+            val source = FakeSmsSource(messages(5), threads)
+            val session = FakeTandemSession()
+            val job = start(source, session) { 5 }
+
+            source.messages += (6..205).map { row(it.toLong()).toBuilder().setBody(LONG_TEXT).build() }
+            source.emitChange()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+
+            val pushed = session.sentFrames.map { it.smsSyncResponse }
+            assertTrue(pushed.all { it.serializedSize <= FRAME_BYTE_LIMIT })
+            assertEquals((6L..205L).toList(), pushed.flatMap { p -> p.messagesList.map { it.id } })
+            assertEquals(threads.size, pushed.sumOf { it.threadsCount } / pushed.count { it.messagesCount > 0 })
+            assertEquals(205L, pushed.last().highWatermarkId)
             job.cancel()
         }
 

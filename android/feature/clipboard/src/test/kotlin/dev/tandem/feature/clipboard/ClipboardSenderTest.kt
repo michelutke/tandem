@@ -1,6 +1,9 @@
 package dev.tandem.feature.clipboard
 
 import dev.tandem.core.protocol.FrameEncoder
+import dev.tandem.core.protocol.FrameTooLargeException
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.FakeTandemSession
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -28,6 +31,24 @@ class ClipboardSenderTest {
             assertEquals("hello mac", frame.text)
             val expectedHash = MessageDigest.getInstance("SHA-256").digest("hello mac".toByteArray(Charsets.UTF_8))
             assertEquals(expectedHash.toList(), frame.contentHash.toByteArray().toList())
+        }
+
+    @Test
+    fun clipboardSender_sessionClosedDuringSend_returnsFalseWithoutThrowing() =
+        runTest {
+            val session = FakeTandemSession()
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+
+            assertFalse(ClipboardSender.send("hello mac", session))
+        }
+
+    @Test
+    fun clipboardSender_frameTooLargeDuringSend_returnsFalseWithoutThrowing() =
+        runTest {
+            val session = FakeTandemSession()
+            session.failNextSend(FrameTooLargeException(FrameEncoder.MAX_ENVELOPE_BYTES + 1))
+
+            assertFalse(ClipboardSender.send("hello mac", session))
         }
 
     @Test

@@ -4,6 +4,7 @@ import dev.tandem.core.protocol.DisplayStringKind
 import dev.tandem.core.protocol.DisplayStringSanitizer
 import dev.tandem.core.protocol.FilenameSanitizer
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileOffer
 import dev.tandem.protocol.v1.TransferReason
@@ -97,7 +98,7 @@ class AcceptFlow(
     private suspend fun acceptOffer(offer: FileOffer) {
         FilesLog.event("accept sent")
         onAccepted(offer)
-        session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
+        session.sendOrDrop(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
     }
 
     private fun rejectionFor(offer: FileOffer): TransferReason? {
@@ -159,7 +160,7 @@ class AcceptFlow(
         why: TransferReason,
     ) {
         FilesLog.event("reject sent", why)
-        session.send(Channel.CHANNEL_FILES) {
+        session.sendOrDrop(Channel.CHANNEL_FILES) {
             fileReject =
                 fileReject {
                     id = offerId

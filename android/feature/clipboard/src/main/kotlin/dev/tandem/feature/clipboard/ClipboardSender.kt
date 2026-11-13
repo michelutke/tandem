@@ -2,6 +2,7 @@ package dev.tandem.feature.clipboard
 
 import com.google.protobuf.ByteString
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.clipboardText
 import java.security.MessageDigest
@@ -35,7 +36,8 @@ object ClipboardSender {
     /**
      * Sends [text] as a `ClipboardText` (originTag = "android") on [session]'s CLIPBOARD channel
      * if [text]'s UTF-8 byte length is at most [MAX_TEXT_BYTES]; returns `true`. Otherwise sends
-     * nothing, calls [onTooLarge], and returns `false`.
+     * nothing, calls [onTooLarge], and returns `false`. Also returns `false` if [session] closed
+     * before the frame could be sent.
      *
      * [onTooLarge] is a callback rather than a direct `Toast` call so this object stays
      * unit-testable (under Robolectric or plain JUnit) without a real UI `Context` -- a caller that
@@ -59,7 +61,7 @@ object ClipboardSender {
         }
 
         val contentHash = MessageDigest.getInstance("SHA-256").digest(utf8Bytes)
-        session.send(Channel.CHANNEL_CLIPBOARD) {
+        return session.sendOrDrop(Channel.CHANNEL_CLIPBOARD) {
             clipboardText =
                 clipboardText {
                     originTag = ORIGIN_TAG
@@ -68,6 +70,5 @@ object ClipboardSender {
                     this.sensitive = sensitive
                 }
         }
-        return true
     }
 }

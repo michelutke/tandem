@@ -1,5 +1,7 @@
 package dev.tandem.feature.files
 
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
@@ -170,6 +172,31 @@ class AcceptFlowTest {
             offer("a", size = MIB, name = "../../etc/passwd")
 
             assertEquals("passwd", prompter.posted.single().name)
+        }
+
+    @Test
+    fun acceptFlow_offerDeliveredAfterMultiplexerClosed_noUncaughtException() =
+        runTest {
+            settings = AcceptSettings(autoAccept = true)
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            newFlow()
+
+            offer("a", size = MIB)
+            offer("b", size = MIB)
+
+            assertEquals(listOf("b"), session.sentFrames.map { it.fileAccept.id })
+        }
+
+    @Test
+    fun acceptFlow_rejectAfterMultiplexerClosed_noUncaughtException() =
+        runTest {
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            newFlow()
+
+            offer("a", size = (1L shl 36) + 1)
+            offer("b", size = (1L shl 36) + 1)
+
+            assertEquals(listOf("b" to TransferReason.TRANSFER_REASON_TOO_LARGE), rejects())
         }
 
     private fun TestScope.newFlow(): AcceptFlow =

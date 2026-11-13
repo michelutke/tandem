@@ -1,10 +1,13 @@
 package dev.tandem.feature.notifications
 
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.FakeElapsedRealtime
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.NotificationPosted
+import dev.tandem.protocol.v1.iconData
 import dev.tandem.protocol.v1.notificationDismiss
 import dev.tandem.protocol.v1.notificationPosted
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -131,6 +134,29 @@ class NotificationSinkTest {
             runCurrent()
 
             assertTrue(session.sentFrames.none { it.channel == Channel.CHANNEL_NOTIFY })
+        }
+
+    @Test
+    fun notificationSink_sendsAfterMultiplexerClosed_noUncaughtExceptionAndNextSendWorks() =
+        runTest {
+            val session = FakeTandemSession()
+            val sink = newSink(session)
+            session.emitState(ready())
+            runCurrent()
+
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            sink.onNotificationPosted(posted("lost"))
+            runCurrent()
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            sink.onNotificationDismissed(notificationDismiss { key = "k" })
+            runCurrent()
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            sink.onIconData(iconData { packageName = "com.example.chat" })
+            runCurrent()
+            sink.onNotificationPosted(posted("live"))
+            runCurrent()
+
+            assertEquals(listOf("live"), session.sentFrames.map { it.notificationPosted.key })
         }
 
     private fun TestScope.newSink(session: FakeTandemSession): NotificationSink =
