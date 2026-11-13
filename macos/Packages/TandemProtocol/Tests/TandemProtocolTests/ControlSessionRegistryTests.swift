@@ -3,6 +3,27 @@ import Testing
 import TandemCrypto
 @testable import TandemProtocol
 
+private actor SlowClosingSession: TandemSession {
+    private let base = FakeTandemSession()
+    private(set) var isClosed = false
+
+    nonisolated var state: AsyncStream<ConnectionStateMachine.ConnectionState> { base.state }
+
+    func send(_ channel: Tandem_V1_Channel, payload: Tandem_V1_Envelope.OneOf_Payload) async throws {
+        try await base.send(channel, payload: payload)
+    }
+
+    func receive(_ channel: Tandem_V1_Channel) async -> InboundFrameStream {
+        await base.receive(channel)
+    }
+
+    func close() async {
+        for _ in 0..<200 { await Task.yield() }
+        isClosed = true
+        await base.close()
+    }
+}
+
 @Suite("ControlSessionRegistry")
 struct ControlSessionRegistryTests {
     @Test("sessionRegistry_firstReadyForSpki_registeredNoneClosed")
@@ -98,5 +119,25 @@ struct ControlSessionRegistryTests {
         let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
 
         #expect(await registry.shouldForwardState(of: FakeTandemSession(), for: fingerprint))
+    }
+
+    @Test("controlSessionRegistry_concurrentRegistersWithExistingSession_onlyLastRemainsOpen")
+    func concurrentRegistersWithExistingSessionOnlyLastRemainsOpen() async throws {
+        let registry = ControlSessionRegistry()
+        let fingerprint = try SpkiFingerprint(bytes: Data(repeating: 0x01, count: 32))
+        let first = SlowClosingSession()
+        let second = SlowClosingSession()
+        let third = SlowClosingSession()
+        await registry.register(fingerprint, session: first)
+
+        async let secondRegistered: Void = registry.register(fingerprint, session: second)
+        for _ in 0..<20 { await Task.yield() }
+        async let thirdRegistered: Void = registry.register(fingerprint, session: third)
+        _ = await (secondRegistered, thirdRegistered)
+
+        #expect(await first.isClosed)
+        #expect(await second.isClosed)
+        #expect(await !third.isClosed)
+        #expect(await registry.isRegistered(third, for: fingerprint))
     }
 }

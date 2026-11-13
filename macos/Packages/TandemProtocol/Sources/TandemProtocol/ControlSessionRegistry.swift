@@ -20,10 +20,8 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
     /// Registers `session` for the given `spkiFingerprint`. If a session already exists for this
     /// fingerprint, closes it with `limitExceeded` before registering the new one.
     public func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
-        if let oldSession = sessions[spkiFingerprint] {
-            await oldSession.close()
-        }
-        sessions[spkiFingerprint] = session
+        let oldSession = sessions.updateValue(session, forKey: spkiFingerprint)
+        await oldSession?.close()
     }
 
     /// Closes and removes the session for the given SPKI fingerprint, if one exists.
