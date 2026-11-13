@@ -1,5 +1,7 @@
 package dev.tandem.app.ring
 
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.FakeElapsedRealtime
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
@@ -39,6 +41,20 @@ class RingControllerTest {
                     .single()
                     .ringStop.origin,
             )
+        }
+
+    @Test
+    fun ringController_phoneDismissAfterSessionClosed_stopsPlaybackWithoutThrowing() =
+        runTest {
+            val alarmPlayer = FakeAlarmPlayer()
+            val session = FakeTandemSession()
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            val controller = ringController(alarmPlayer, session)
+
+            controller.ring()
+            controller.dismissedByPhone()
+
+            assertFalse(alarmPlayer.isPlaying)
         }
 
     @Test

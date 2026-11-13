@@ -1,7 +1,6 @@
 package dev.tandem.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
@@ -22,7 +21,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
-import java.io.File
 
 // E31-07 tdd:
 //   unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText
@@ -163,7 +161,6 @@ class MainActivityTest {
             onboarding =
                 OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
             isBatteryRestricted = { false },
-            addressStore = PairingAddressStore(File.createTempFile("addr", null)),
             pairingStarter = NoOpPairingStarter,
             unpair = {},
             onSendClipboard = {},

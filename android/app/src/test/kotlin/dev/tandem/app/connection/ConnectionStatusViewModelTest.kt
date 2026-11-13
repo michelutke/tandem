@@ -42,6 +42,30 @@ class ConnectionStatusViewModelTest {
         }
 
     @Test
+    fun connectionStatusViewModel_identityWasReset_showsUnpairFirstNoticeUntilCleared() =
+        runTest {
+            val rePairNeeded = MutableStateFlow(true)
+            val viewModel =
+                ConnectionStatusViewModel(
+                    connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected()),
+                    failedCycles = MutableStateFlow(0),
+                    macName = MutableStateFlow("Studio Mac"),
+                    rePairNeeded = rePairNeeded,
+                )
+
+            viewModel.statusText.test {
+                assertEquals(
+                    "Error: This phone's security key was reset. Unpair Studio Mac, then pair again.",
+                    awaitItem(),
+                )
+
+                rePairNeeded.value = false
+
+                assertEquals("Disconnected", awaitItem())
+            }
+        }
+
+    @Test
     fun connectionStatusViewModel_pinMismatchError_mapsToErrorWithReasonText() =
         runTest {
             val connectionState =

@@ -228,7 +228,28 @@ class ConnectionOrchestratorTest {
     }
 
     @Test
-    fun orchestrator_sessionFailsBeforeReadyForPreviouslyPinnedPeer_failureIsRevoked(
+    fun orchestrator_peerRejectedCertificateForPreviouslyPinnedPeer_failureIsRevoked(
+        @TempDir directory: File,
+    ) = runTest {
+        val failing =
+            FakeTandemSession().apply {
+                emitState(ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate))
+            }
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(failing, peer)))
+        val harness = Harness(this, dialer, features, directory)
+        harness.knownPeers.recordPinned(peer)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertNull(harness.registry.current.value)
+        assertEquals(ConnectionFailure.HandshakeError("REVOKED"), harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_connectionResetBeforeReadyForPreviouslyPinnedPeer_failureIsNotRevoked(
         @TempDir directory: File,
     ) = runTest {
         val failing =
@@ -244,7 +265,26 @@ class ConnectionOrchestratorTest {
         runCurrent()
 
         assertNull(harness.registry.current.value)
-        assertEquals(ConnectionFailure.HandshakeError("REVOKED"), harness.orchestrator.failure.value)
+        assertEquals(ConnectionFailure.HandshakeError("Connection reset"), harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_peerRejectedCertificateForNeverPinnedPeer_failureIsNotRevoked(
+        @TempDir directory: File,
+    ) = runTest {
+        val failing =
+            FakeTandemSession().apply {
+                emitState(ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate))
+            }
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(failing, peer)))
+        val harness = Harness(this, dialer, features, directory)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertEquals(ConnectionFailure.PeerRejectedCertificate, harness.orchestrator.failure.value)
         harness.orchestrator.close()
     }
 

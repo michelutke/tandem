@@ -5,6 +5,8 @@ import dev.tandem.app.settings.KeyRotationResult
 import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.crypto.IDENTITY_KEY_ALIAS
 import dev.tandem.core.crypto.IdentityKeyProvider
+import dev.tandem.core.crypto.IdentityKeyStore
+import dev.tandem.core.crypto.KeyHandle
 import dev.tandem.core.crypto.SoftwareIdentityKeyStore
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.rotation.NextRotationDueStore
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.security.KeyStoreException
 import java.time.Duration
 import java.time.Instant
 
@@ -46,6 +49,32 @@ class RotationCompositionTest {
     }
 
     private val session = FakeTandemSession()
+
+    @Test
+    fun rotationComposition_keyStoreGetThrows_constructsWithEmptyFingerprint() {
+        val throwing =
+            object : IdentityKeyStore {
+                override fun getOrCreate(
+                    alias: String,
+                    preferStrongBox: Boolean,
+                ): KeyHandle = throw KeyStoreException("keystore unavailable")
+
+                override fun get(alias: String): KeyHandle? = throw KeyStoreException("keystore unavailable")
+
+                override fun delete(alias: String) = Unit
+            }
+
+        val composition =
+            RotationComposition(
+                keys =
+                    RotationKeys(throwing, IdentityKeyProvider(throwing, logSecurityLevel = {}), ActiveIdentityAlias()),
+                rotationLock = Mutex(),
+                pairingInProgress = { false },
+            )
+
+        assertEquals("", composition.activeFingerprint.value)
+        assertEquals("", composition.refreshFingerprint())
+    }
 
     private fun composition(
         clock: TestClock,

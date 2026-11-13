@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,7 +45,14 @@ class ForegroundStartNotAllowedTest {
             }
 
         runBlocking { starter.start() }
-
         assertEquals(1, attempts)
+
+        runBlocking { withTimeoutOrNull(KEEP_STARTED_WINDOW_MS) { starter.keepStarted() } }
+
+        assertEquals(2, attempts)
+    }
+
+    private companion object {
+        const val KEEP_STARTED_WINDOW_MS = 200L
     }
 }

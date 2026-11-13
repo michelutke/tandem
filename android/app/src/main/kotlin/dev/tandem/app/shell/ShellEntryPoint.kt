@@ -4,7 +4,6 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.tandem.app.connection.ConnectionStatusViewModel
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.di.RotationComposition
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.core.crypto.ActiveIdentityAlias
@@ -18,8 +17,6 @@ interface ShellEntryPoint {
     fun trustStore(): TrustStore
 
     fun connectionStatusViewModel(): ConnectionStatusViewModel
-
-    fun pairingAddressStore(): PairingAddressStore
 
     fun unpairAction(): UnpairAction
 

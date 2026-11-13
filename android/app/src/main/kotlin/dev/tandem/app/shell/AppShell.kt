@@ -27,7 +27,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.tandem.app.activity.ActivityEntry
 import dev.tandem.app.activity.ActivityScreen
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.HomeRingState
@@ -77,7 +76,6 @@ class AppShellDependencies(
     val ringState: StateFlow<HomeRingState>,
     val onboarding: OnboardingViewModel,
     val isBatteryRestricted: () -> Boolean,
-    val addressStore: PairingAddressStore,
     val pairingStarter: PairingStarter,
     val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
@@ -354,7 +352,7 @@ private fun OnboardingOrPairing(
     } else if (pairingState == PairingState.Idle) {
         OnboardingScreen(
             viewModel = dependencies.onboarding,
-            onScanAccepted = { onScanAccepted(it, dependencies.addressStore, dependencies.pairingStarter) },
+            onScanAccepted = { onScanAccepted(it, dependencies.pairingStarter) },
             onCancelScan = {},
             modifier = modifier,
             onPairWithoutCamera = { manualEntry = true },

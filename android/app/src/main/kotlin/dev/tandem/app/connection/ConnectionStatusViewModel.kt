@@ -2,6 +2,7 @@ package dev.tandem.app.connection
 
 import dev.tandem.core.protocol.connection.ConnectionState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 
@@ -16,18 +17,33 @@ private const val NETWORK_ISOLATION_HINT =
  * case this combines is the phone's only visible fail-closed surface). Combines the E12-08
  * [ConnectionStateMachine][dev.tandem.core.protocol.connection.ConnectionStateMachine]'s
  * [connectionState], the E20-06 `ReconnectStrategy.failedCycles` and the paired Mac's display name
- * into one user-visible status label, updated live as any of the three change.
+ * into one user-visible status label, updated live as any of the three change. While [rePairNeeded]
+ * (the phone's identity was reset, so its paired Mac no longer recognizes it) the label is the
+ * unpair-first error instead.
  */
 class ConnectionStatusViewModel(
     connectionState: StateFlow<ConnectionState>,
     failedCycles: StateFlow<Int>,
     macName: StateFlow<String?>,
+    rePairNeeded: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     /** The label [ConnectionStatusScreen] renders; see this class's kdoc for the exact strings. */
     val statusText: Flow<String> =
-        combine(connectionState, failedCycles, macName, ::toStatusText)
+        combine(connectionState, failedCycles, macName, rePairNeeded, ::toStatusText)
 
     private fun toStatusText(
+        state: ConnectionState,
+        unreachableCycles: Int,
+        macName: String?,
+        rePairNeeded: Boolean,
+    ): String =
+        if (rePairNeeded) {
+            "Error: ${ConnectionErrorMapper.identityResetMessage(macName)}"
+        } else {
+            toConnectionText(state, unreachableCycles, macName)
+        }
+
+    private fun toConnectionText(
         state: ConnectionState,
         unreachableCycles: Int,
         macName: String?,

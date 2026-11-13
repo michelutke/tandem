@@ -97,4 +97,11 @@ class ConnectionErrorMapperTest {
         assertEquals(pinMismatch, ConnectionFailureClassifier.classify(pinMismatch, true))
         assertEquals(ConnectionFailure.Timeout, ConnectionFailureClassifier.classify(ConnectionFailure.Timeout, true))
     }
+
+    @Test
+    fun connectionErrorMapper_identityUnavailable_tellsUserToUnpairBeforePairingAgain() {
+        val message = ConnectionErrorMapper.mapToErrorMessage(ConnectionFailure.IdentityUnavailable)
+
+        assertTrue(message.contains("unpair this Mac and pair again"))
+    }
 }

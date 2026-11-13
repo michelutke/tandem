@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
@@ -31,7 +30,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
-import java.io.File
 import java.util.Base64
 
 // E20-25 tdd:
@@ -58,7 +56,6 @@ class AppShellTest {
                 onboarding =
                     OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
                 isBatteryRestricted = { batteryRestricted },
-                addressStore = PairingAddressStore(File.createTempFile("addr", null)),
                 pairingStarter = PairingStarter {},
                 unpair = { fingerprint ->
                     unpaired += fingerprint

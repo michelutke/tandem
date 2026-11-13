@@ -135,7 +135,6 @@ class MainActivity : TandemActivity() {
                     SystemPermissionChecker(activity),
                 ),
             isBatteryRestricted = { !SystemBatteryOptimizationSource(activity).isIgnoringBatteryOptimizations() },
-            addressStore = graph.pairingAddressStore(),
             pairingStarter = pairingFlow,
             pairing = pairingFlow,
             unpair = { fingerprint ->

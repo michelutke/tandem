@@ -1,6 +1,7 @@
 package dev.tandem.app.ring
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.RingStop
@@ -60,7 +61,7 @@ class RingController(
         if (!isRinging) return
         isRinging = false
         ringHandler.stop()
-        session.send(Channel.CHANNEL_STATUS) { ringStop = ringStop { origin = RingStop.Origin.ORIGIN_PHONE } }
+        session.sendOrDrop(Channel.CHANNEL_STATUS) { ringStop = ringStop { origin = RingStop.Origin.ORIGIN_PHONE } }
     }
 
     /**

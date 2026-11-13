@@ -1,6 +1,5 @@
 package dev.tandem.app.shell
 
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.core.pairing.qr.PairingInvite
 
 /**
@@ -21,14 +20,13 @@ object NoOpPairingStarter : PairingStarter {
 }
 
 /**
- * Saves [invite]'s addresses as reconnect candidates (a hint only, never trust) and starts the
- * pairing flow through [pairingStarter].
+ * Starts the pairing flow for [invite] through [pairingStarter]. Its addresses are saved as reconnect
+ * candidates (a hint only, never trust) by the flow once pairing succeeds, so a failed or hostile
+ * scan never replaces the paired Mac's stored addresses.
  */
 internal fun onScanAccepted(
     invite: PairingInvite,
-    addressStore: PairingAddressStore,
     pairingStarter: PairingStarter,
 ) {
-    addressStore.save(invite.addresses, invite.port)
     pairingStarter.start(invite)
 }

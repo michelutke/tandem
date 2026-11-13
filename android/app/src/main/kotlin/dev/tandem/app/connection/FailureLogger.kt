@@ -24,6 +24,10 @@ object FailureLogger {
                 "VERSION_MISMATCH"
             }
 
+            ConnectionFailure.PeerRejectedCertificate -> {
+                "PEER_REJECTED_CERTIFICATE"
+            }
+
             is ConnectionFailure.HandshakeError -> {
                 // Extract reason category without exposing message content if it contains cert bytes
                 when {

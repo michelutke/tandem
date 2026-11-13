@@ -8,10 +8,11 @@ import java.time.Instant
 /**
  * Production [TrustCommitter] (E20-26): pins the Mac by SPKI fingerprint only (invariant 3). The
  * record's `deviceId` is a display field, never a lookup key, so it carries the fingerprint too.
- * [put] is `TrustStore::put`.
+ * [put] is `TrustStore::put`; [onCommitted] runs once the record is stored.
  */
 class TrustStoreCommitter(
     private val put: suspend (PeerRecord) -> Unit,
+    private val onCommitted: () -> Unit = {},
 ) : TrustCommitter {
     override suspend fun commit(
         fingerprint: SpkiFingerprint,
@@ -28,5 +29,6 @@ class TrustStoreCommitter(
                 capabilities = emptyList(),
             ),
         )
+        onCommitted()
     }
 }

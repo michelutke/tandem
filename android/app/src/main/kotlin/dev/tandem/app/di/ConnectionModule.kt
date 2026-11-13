@@ -25,6 +25,7 @@ import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.connection.PendingRotationSessionDialer
+import dev.tandem.app.connection.RePairNoticeStore
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.TlsManualPairingConnector
 import dev.tandem.app.connection.TlsPairingConnector
@@ -128,6 +129,7 @@ object ConnectionModule {
         @ApplicationContext context: Context,
     ): TrustStore = (context as TandemApplication).trustStore
 
+    @Suppress("LongParameterList") // Hilt-injected graph nodes the pairing flow is composed from
     @Provides
     @Singleton
     fun pairingFlow(
@@ -135,6 +137,8 @@ object ConnectionModule {
         trustStore: TrustStore,
         activeIdentityAlias: ActiveIdentityAlias,
         identityBootstrap: IdentityBootstrap,
+        rePairNotice: RePairNoticeStore,
+        pairingAddressStore: PairingAddressStore,
     ): PairingFlow {
         val clock = AppClock.system
         val heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, startedIdleSource(context))
@@ -150,7 +154,8 @@ object ConnectionModule {
                     identity = identityBootstrap,
                     heartbeatDependencies = heartbeatDependencies,
                 ),
-            trustCommitter = TrustStoreCommitter(trustStore::put),
+            trustCommitter = TrustStoreCommitter(trustStore::put, rePairNotice::clear),
+            onPaired = pairingAddressStore::save,
             deviceInfoProvider = SystemDeviceInfoProvider,
             manualConnector =
                 TlsManualPairingConnector(
@@ -200,7 +205,7 @@ object ConnectionModule {
     fun unpairAction(
         trustStore: TrustStore,
         purgeRegistry: PeerDataPurgeRegistry,
-    ): UnpairAction = UnpairAction(TrustRemover { trustStore.unpair(it) }, purgeRegistry)
+    ): UnpairAction = UnpairAction(TrustRemover { trustStore.unpair(it) }, purgeRegistry, AppDispatchers.io)
 
     @Provides
     @Singleton
@@ -208,6 +213,7 @@ object ConnectionModule {
         orchestrator: ConnectionOrchestrator,
         sessionRegistry: SessionRegistry,
         trustStore: TrustStore,
+        rePairNotice: RePairNoticeStore,
     ): ConnectionStatusViewModel {
         val scope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
         return ConnectionStatusViewModel(
@@ -218,6 +224,7 @@ object ConnectionModule {
                     .observeList()
                     .map { records -> records.firstOrNull()?.displayName }
                     .stateIn(scope, SharingStarted.Eagerly, null),
+            rePairNeeded = rePairNotice.required,
         )
     }
 
