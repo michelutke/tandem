@@ -60,12 +60,13 @@ class RotationReceiver(
      * Suspends for the life of the session; returns when its CONTROL receive flow completes. The
      * CONTROL subscription is registered before the challenge goes out (the Mac answers it at once,
      * and a frame delivered while other CONTROL consumers exist is never replayed), so a
-     * `KeyRotation` arriving during the storage steps below is queued, not lost.
+     * `KeyRotation` arriving during the storage steps below waits in the subscription (rendezvous, so a flood
+     * is paced by CONTROL's lane, not buffered), not lost.
      */
     suspend fun run() {
         session.state.first { it is ConnectionState.Ready }
         coroutineScope {
-            val rotations = KtChannel<KeyRotation>(KtChannel.UNLIMITED)
+            val rotations = KtChannel<KeyRotation>()
             val subscription =
                 launch(start = CoroutineStart.UNDISPATCHED) {
                     try {

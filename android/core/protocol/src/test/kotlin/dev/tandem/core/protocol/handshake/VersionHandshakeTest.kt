@@ -11,6 +11,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.envelope
+import dev.tandem.protocol.v1.heartbeat
 import dev.tandem.protocol.v1.versionHello
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -116,6 +117,29 @@ class VersionHandshakeTest {
             val outcome = handshake.perform()
 
             assertEquals(HandshakeOutcome.Failed(HandshakeFailure.Timeout), outcome)
+        }
+
+    @Test
+    fun versionHandshake_nonHelloFirstPayload_failsUnexpectedFirstPayload() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val wire = FakeWire()
+            val multiplexer = ChannelMultiplexer(wire.source, wire.sink)
+            backgroundScope.launch(dispatcher) { multiplexer.start() }
+            wire.injectFrame(
+                envelope {
+                    this.channel = Channel.CHANNEL_CONTROL
+                    this.seq = 1
+                    this.ack = 0
+                    this.heartbeat = heartbeat {}
+                },
+            )
+            wire.injectFrame(peerHello(major = 1, minor = 0, capabilities = 0).toBuilder().setSeq(2).build())
+
+            val handshake = VersionHandshake(multiplexer, TestClock(testScheduler), dispatcher)
+            val outcome = handshake.perform()
+
+            assertEquals(HandshakeOutcome.Failed(HandshakeFailure.UnexpectedFirstPayload), outcome)
         }
 
     private companion object {

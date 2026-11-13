@@ -44,8 +44,10 @@ class ConnectionStateMachine(
 
     /**
      * Applies [event] to the current state. Returns `false`, leaving [state] unchanged, if
-     * [event] is illegal from it.
+     * [event] is illegal from it. Atomic: events from different threads (a local close racing the hello
+     * exchange) apply one after the other, so a stale transition never overwrites a later one.
      */
+    @Synchronized
     fun handle(event: ConnectionEvent): Boolean {
         val next = transition(mutableState.value, event) ?: return false
         applyDeadline(event)

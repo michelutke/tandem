@@ -12,6 +12,7 @@ import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.heartbeat
+import dev.tandem.protocol.v1.revoke
 import dev.tandem.protocol.v1.versionHello
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -48,6 +49,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private const val DIFFERENT_MAJOR = 2
 private const val STRESS_ITERATIONS = 500
+private const val CONTROL_FLOOD_FRAMES = 70
 
 /**
  * [ByteStreamSession] tests (E12-11; `docs/planning/backlog/phase-1.yaml` E12-11's `tdd:` list).
@@ -331,6 +333,26 @@ class ByteStreamSessionTest {
             } finally {
                 Thread.setDefaultUncaughtExceptionHandler(previousHandler)
             }
+        }
+
+    @Test
+    fun byteStreamSession_controlFloodOverSixtyPerSecond_closesLimitExceeded() =
+        sessionTest {
+            val pipe = InMemoryDuplexPipe()
+            val dependencies = HeartbeatDependencies(ManualElapsedRealtime(), FakeDeviceIdleSource())
+            val a = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO, dependencies)
+            val b = ByteStreamSession(pipe.endpointB, Clock.systemUTC(), Dispatchers.IO)
+            a.state.first { it is ConnectionState.Ready }
+            b.state.first { it is ConnectionState.Ready }
+
+            repeat(CONTROL_FLOOD_FRAMES) { b.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+
+            val failed = withTimeout(5.seconds) { a.state.first { it is ConnectionState.Failed } }
+            assertEquals(
+                ConnectionFailure.HandshakeError("LIMIT_EXCEEDED"),
+                (failed as ConnectionState.Failed).reason,
+            )
+            b.close()
         }
 
     @Test

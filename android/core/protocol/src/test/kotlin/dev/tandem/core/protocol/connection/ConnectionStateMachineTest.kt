@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
+
+private const val RACE_ITERATIONS = 20_000
 
 /**
  * ConnectionStateMachine tests (E12-08; `docs/planning/backlog/phase-1.yaml` E12-08's `tdd:`
@@ -192,6 +196,24 @@ class ConnectionStateMachineTest {
                 val failed = awaitItem() as ConnectionState.Failed
                 assertEquals(ConnectionFailure.Timeout, failed.reason)
                 assertEquals(CloseCode.PROTOCOL_TIMEOUT, failed.reason.closeCode)
+            }
+        }
+
+    @Test
+    fun connectionSm_socketClosedRacingCompatibleHello_neverEndsReadyAfterClose() =
+        runTest {
+            repeat(RACE_ITERATIONS) {
+                val sm = newMachine()
+                sm.handle(ConnectionEvent.Connect)
+                sm.handle(ConnectionEvent.SocketOpened)
+                sm.handle(ConnectionEvent.HandshakeCompleted)
+                val barrier = CyclicBarrier(2)
+                val hello = thread { barrier.await().also { sm.handle(ConnectionEvent.CompatibleHelloReceived) } }
+                val closed = thread { barrier.await().also { sm.handle(ConnectionEvent.SocketClosed("closed")) } }
+                hello.join()
+                closed.join()
+
+                assertTrue(sm.state.value is ConnectionState.Disconnected, "iteration $it ended ${sm.state.value}")
             }
         }
 

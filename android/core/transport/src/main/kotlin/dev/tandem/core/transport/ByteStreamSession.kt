@@ -1,5 +1,6 @@
 package dev.tandem.core.transport
 
+import dev.tandem.core.protocol.CloseCode
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
 import dev.tandem.core.protocol.connection.ConnectionEvent
@@ -11,6 +12,7 @@ import dev.tandem.core.protocol.handshake.VersionHandshake
 import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
 import dev.tandem.core.protocol.multiplex.MultiplexerClose
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
+import dev.tandem.core.transport.heartbeat.ControlFrameRateCap
 import dev.tandem.core.transport.heartbeat.DeadPeerDetector
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.heartbeat.HeartbeatResponder
@@ -110,7 +112,7 @@ class ByteStreamSession(
      * [VersionHandshake.awaitReady] first so the handshake's own CONTROL read is never raced.
      */
     private val inboundDispatcher =
-        ChannelDispatcher(scope) { channel ->
+        ChannelDispatcher(scope, replayLast = { it.hasRotationChallenge() }) { channel ->
             flow {
                 if (awaitReadyOrClosed()) emitAll(multiplexer.inbound(channel).map { it.payload })
             }
@@ -144,6 +146,7 @@ class ByteStreamSession(
     private var heartbeatResponder: HeartbeatResponder? = null
     private var unsolicitedHeartbeatTimer: UnsolicitedHeartbeatTimer? = null
     private var deadPeerDetector: DeadPeerDetector? = null
+    private var controlFrameRateCap: ControlFrameRateCap? = null
 
     /**
      * Guards [performClose] so it runs at most once, whether triggered by [close] or by
@@ -163,6 +166,7 @@ class ByteStreamSession(
         connection.handle(ConnectionEvent.Connect)
         connection.handle(ConnectionEvent.SocketOpened)
         connection.handle(ConnectionEvent.HandshakeCompleted)
+        controlFrameRateCap = heartbeatDependencies?.let(::startControlFrameRateCap)
         scope.launch { multiplexer.start() }
         handshakeJob.start()
         scope.launch {
@@ -253,6 +257,21 @@ class ByteStreamSession(
         }
     }
 
+    /** Subscribes before [multiplexer] starts reading, so no frame of a flood predates the counter. */
+    private fun startControlFrameRateCap(dependencies: HeartbeatDependencies): ControlFrameRateCap =
+        ControlFrameRateCap(
+            received = multiplexer.received,
+            elapsedRealtimeSource = dependencies.elapsedRealtimeSource,
+            onExceeded = ::closeControlFrameCapExceeded,
+            dispatcher = dispatcher,
+        ).apply { start() }
+
+    /** D-61: a `CONTROL` flood fails the session visibly with `LIMIT_EXCEEDED` (no wire signal on the phone). */
+    private fun closeControlFrameCapExceeded() {
+        performClose("control frame cap exceeded")
+        connection.handle(ConnectionEvent.HandshakeError(CloseCode.LIMIT_EXCEEDED.name))
+    }
+
     /**
      * [VersionHandshake.perform] can throw rather than return a [HandshakeOutcome.Failed] --
      * e.g. its own [ChannelMultiplexer.send] of this side's hello racing a peer-triggered
@@ -306,6 +325,7 @@ class ByteStreamSession(
         when (reason) {
             is HandshakeFailure.VersionMismatch -> ConnectionEvent.VersionMismatch
             HandshakeFailure.Timeout -> ConnectionEvent.HelloTimeout
+            HandshakeFailure.UnexpectedFirstPayload -> ConnectionEvent.HandshakeError(CloseCode.MALFORMED_FRAME.name)
         }
 
     override suspend fun send(
@@ -349,6 +369,7 @@ class ByteStreamSession(
         heartbeatResponder?.close()
         unsolicitedHeartbeatTimer?.close()
         deadPeerDetector?.close()
+        controlFrameRateCap?.close()
         try {
             closeStream(graceful)
         } finally {

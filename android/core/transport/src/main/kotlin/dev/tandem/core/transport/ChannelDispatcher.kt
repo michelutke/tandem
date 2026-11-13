@@ -30,14 +30,18 @@ import kotlinx.coroutines.channels.Channel as KtChannel
  * - Nothing is pulled from [source] until the first [subscribe] collects, and while no subscriber
  *   is registered the frame in hand is held (not dropped) until one registers. So frames sent
  *   before the first subscriber are buffered by [source] as before.
- * - Late subscribers see only frames delivered after they register (no replay) while at least one
- *   other subscriber was present. A caller that must not miss a reply sent right after subscribing
- *   registers first: collect `UNDISPATCHED` (`async(start = CoroutineStart.UNDISPATCHED)`), then send.
+ * - Late subscribers see only frames delivered after they register while at least one other
+ *   subscriber was present, except that the latest frame [replayLast] accepts is also handed to every
+ *   subscriber registering after it was delivered (a frame the Mac sends unsolicited at session start,
+ *   e.g. `RotationChallenge`, must not depend on which feature subscribed first). A caller that must
+ *   not miss a reply sent right after subscribing registers first: collect `UNDISPATCHED`
+ *   (`async(start = CoroutineStart.UNDISPATCHED)`), then send.
  * - When [source] completes or fails, every subscriber's flow completes, and later subscribers
  *   complete immediately.
  */
 class ChannelDispatcher(
     private val scope: CoroutineScope,
+    private val replayLast: (Envelope) -> Boolean = { false },
     private val source: (Channel) -> Flow<Envelope>,
 ) {
     private val lanes = ConcurrentHashMap<Channel, Lane>()
@@ -71,6 +75,7 @@ class ChannelDispatcher(
         private val subscribers = MutableStateFlow<List<KtChannel<Envelope>>>(emptyList())
         private var completed = false
         private var started = false
+        private var replay: Envelope? = null
 
         @Volatile
         var job: Job? = null
@@ -79,7 +84,10 @@ class ChannelDispatcher(
         fun register(): KtChannel<Envelope>? =
             synchronized(lock) {
                 if (completed) return null
-                KtChannel<Envelope>().also { subscription -> subscribers.update { it + subscription } }
+                KtChannel<Envelope>(if (replay == null) KtChannel.RENDEZVOUS else 1).also { subscription ->
+                    replay?.let { subscription.trySend(it) }
+                    subscribers.update { it + subscription }
+                }
             }
 
         fun unregister(subscription: KtChannel<Envelope>) {
@@ -99,12 +107,25 @@ class ChannelDispatcher(
         private suspend fun run() {
             try {
                 source(channel).collect { envelope ->
-                    subscribers.first { it.isNotEmpty() }.forEach { deliver(it, envelope) }
+                    val present = subscribers.first { it.isNotEmpty() }
+                    targetsFor(envelope, present).forEach { deliver(it, envelope) }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
                 return
+            }
+        }
+
+        /** Records a replayable [envelope] and snapshots the subscribers atomically, so each gets it exactly once. */
+        private fun targetsFor(
+            envelope: Envelope,
+            present: List<KtChannel<Envelope>>,
+        ): List<KtChannel<Envelope>> {
+            if (!replayLast(envelope)) return present
+            return synchronized(lock) {
+                replay = envelope
+                subscribers.value
             }
         }
 

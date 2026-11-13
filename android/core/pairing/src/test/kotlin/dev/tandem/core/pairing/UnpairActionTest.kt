@@ -10,6 +10,7 @@ import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -129,6 +130,23 @@ class UnpairActionTest {
             assertEquals(listOf(fingerprint), purger2.purged)
         }
 
+    @Test
+    fun unpairAction_callerCancelledAfterTrustDelete_sessionClosedAndPurged() =
+        runTest {
+            val session = readySession()
+            val purger = FakePurger()
+            val registry = PeerDataPurgeRegistry().apply { register(purger) }
+            val trustRemover = FakeTrustRemover()
+            val caller = launch { UnpairAction(trustRemover, registry).unpair(fingerprint, session) }
+            trustRemover.afterRemove = { caller.cancel() }
+
+            caller.join()
+
+            assertTrue(session.sentFrames.any { it.payloadCase == Envelope.PayloadCase.REVOKE })
+            assertTrue(session.state.value is ConnectionState.Disconnected)
+            assertEquals(listOf(fingerprint), purger.purged)
+        }
+
     private fun TestScope.readySession(): FakeTandemSession =
         FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
 
@@ -141,9 +159,11 @@ class UnpairActionTest {
 
     private class FakeTrustRemover : TrustRemover {
         val deleted = mutableListOf<SpkiFingerprint>()
+        var afterRemove: () -> Unit = {}
 
         override suspend fun remove(fingerprint: SpkiFingerprint) {
             deleted += fingerprint
+            afterRemove()
         }
     }
 

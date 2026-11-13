@@ -1,8 +1,15 @@
 package dev.tandem.core.transport.tls
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLSocket
@@ -33,6 +40,7 @@ class SslClientFactory(
     private val keyManager: X509KeyManager,
     private val trustManager: X509TrustManager,
     private val sessionTicketDisabler: SessionTicketDisabler = AndroidSessionTicketDisabler(),
+    private val deadlineScheduler: ScheduledExecutorService = SHARED_DEADLINE_SCHEDULER,
 ) {
     /**
      * Creates an unconnected [SSLSocket] configured for this protocol's TLS profile: TLS 1.3 only,
@@ -67,10 +75,11 @@ class SslClientFactory(
      * side, this method verifies the negotiated protocol itself and fails closed if it isn't
      * exactly [TANDEM_ALPN_PROTOCOL].
      *
-     * [handshakeTimeoutMillis] is applied as `socket.soTimeout` around `startHandshake()` only (SPEC.md
-     * §10 assigns the phone's 10 s TLS handshake deadline; this is the seam that deadline is enforced
-     * through, since a blocking `startHandshake()` cannot otherwise be unblocked). On any failure —
-     * connect, handshake, or ALPN mismatch — [socket] is closed before the exception propagates.
+     * [handshakeTimeoutMillis] is the total deadline from the start of this call (SPEC.md §10: the phone's
+     * 10 s TLS handshake deadline, "from connect()"): a watchdog closes [socket] when it elapses, which
+     * unblocks a peer that drips handshake bytes slower than the per-read `soTimeout` (also set to it).
+     * On any failure (connect, handshake, deadline or ALPN mismatch) [socket] is closed before the
+     * exception propagates.
      */
     fun connect(
         socket: SSLSocket,
@@ -79,6 +88,12 @@ class SslClientFactory(
         connectTimeoutMillis: Int = DEFAULT_CONNECT_TIMEOUT_MILLIS,
         handshakeTimeoutMillis: Int = DEFAULT_HANDSHAKE_TIMEOUT_MILLIS,
     ): SslSocketByteStream {
+        val watchdog =
+            deadlineScheduler.schedule(
+                { runCatching { socket.close() } },
+                handshakeTimeoutMillis.toLong(),
+                TimeUnit.MILLISECONDS,
+            )
         try {
             val noSniAddress = InetSocketAddress(InetAddress.getByAddress(address.address), port)
             socket.connect(noSniAddress, connectTimeoutMillis)
@@ -96,12 +111,39 @@ class SslClientFactory(
         } catch (e: IOException) {
             runCatching { socket.close() }
             throw e
+        } finally {
+            watchdog.cancel(false)
         }
 
         return SslSocketByteStream(socket)
     }
 
+    /**
+     * [connect] on [ioDispatcher] that a cancelled caller can leave at once: cancellation closes [socket],
+     * which unblocks the connect or handshake read, instead of waiting out the blocking call.
+     */
+    suspend fun connectCancellable(
+        socket: SSLSocket,
+        address: InetAddress,
+        port: Int,
+        ioDispatcher: CoroutineDispatcher,
+    ): SslSocketByteStream =
+        supervisorScope {
+            val connecting = async(ioDispatcher) { connect(socket, address, port) }
+            try {
+                connecting.await()
+            } catch (cancellation: CancellationException) {
+                runCatching { socket.close() }
+                throw cancellation
+            }
+        }
+
     private companion object {
+        val SHARED_DEADLINE_SCHEDULER: ScheduledExecutorService =
+            Executors.newSingleThreadScheduledExecutor { task ->
+                Thread(task, "tls-deadline").apply { isDaemon = true }
+            }
+
         /** SPEC.md §10 / E12-08: the phone's TLS handshake deadline when dialing. */
         const val DEFAULT_HANDSHAKE_TIMEOUT_MILLIS = 10_000
 

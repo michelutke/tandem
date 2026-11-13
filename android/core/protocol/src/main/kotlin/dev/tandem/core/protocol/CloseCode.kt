@@ -9,11 +9,13 @@ package dev.tandem.core.protocol
  * (E11-07) produces [CREDIT_VIOLATION] (SPEC.md #channels-and-flow-control-credits, D-64), and
  * [dev.tandem.core.protocol.connection.ConnectionStateMachine] (E12-08) produces
  * [PROTOCOL_TIMEOUT] for its 10 s TLS-handshake deadline (SPEC.md
- * #timeouts-connection-limits-and-resource-caps, E01-22). Other rows are added by whichever issue
+ * #timeouts-connection-limits-and-resource-caps, E01-22); the phone's CONTROL receive cap (D-61) is
+ * [LIMIT_EXCEEDED]. Other rows are added by whichever issue
  * first needs to produce them, never renumbered or reused once released.
  */
 enum class CloseCode {
     MALFORMED_FRAME,
     CREDIT_VIOLATION,
     PROTOCOL_TIMEOUT,
+    LIMIT_EXCEEDED,
 }

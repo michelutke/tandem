@@ -55,7 +55,8 @@ class TrustStore private constructor(
 
     suspend fun delete(fingerprint: SpkiFingerprint) = dao.deleteByFingerprint(fingerprint.base64Url)
 
-    suspend fun unpair(fingerprint: SpkiFingerprint) = delete(fingerprint)
+    /** Deletes the record [fingerprint] belongs to as primary, grace or pending pin, whatever pin the session used. */
+    suspend fun unpair(fingerprint: SpkiFingerprint) = dao.deleteByAnyPin(fingerprint.base64Url)
 
     override suspend fun resolve(
         fingerprint: SpkiFingerprint,
