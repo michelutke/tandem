@@ -244,4 +244,32 @@ private actor FailingApplyStore: SmsStore {
 
         #expect(await client.simList?.subscriptions.isEmpty == true)
     }
+
+    @Test func smsSyncClient_oversizedIds_clampedNoCrash() async throws {
+        let store = InMemorySmsStore()
+        let client = SmsSyncClient(peer: Self.peer, store: store, session: FakeTandemSession())
+        var response = Self.response(high: UInt64.max, messageIds: [UInt64.max])
+        response.messages[0].timestampMs = UInt64.max
+        response.messages[0].threadID = UInt64(1) << 63
+
+        await client.handle(response)
+
+        #expect(try await store.diagnostics(peer: Self.peer).messageIds == [Int64.max])
+        #expect(try await store.cursors(peer: Self.peer)?.highWatermarkId == Int64.max)
+    }
+
+    @Test func smsSyncClient_unreadCountOverInt32_clamped() async throws {
+        let store = InMemorySmsStore()
+        let client = SmsSyncClient(peer: Self.peer, store: store, session: FakeTandemSession())
+        var thread = Tandem_V1_SmsThread()
+        thread.threadID = 9
+        thread.unreadCount = UInt32.max
+        var response = Self.response(high: 1)
+        response.threads = [thread]
+
+        await client.handle(response)
+
+        let threads = try await store.threads(peer: Self.peer)
+        #expect(threads.map(\.unreadCount) == [Int32.max])
+    }
 }
