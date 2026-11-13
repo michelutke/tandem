@@ -164,3 +164,23 @@ private func makeMapper(isWindowKey: Bool = true) -> MirrorInputMapper {
     }
     #expect(text.unicodeScalars.count == 4096)
 }
+
+@Test(arguments: [
+    (MirrorGlobalAction.back, Tandem_V1_GlobalActionKind.back),
+    (MirrorGlobalAction.home, Tandem_V1_GlobalActionKind.home),
+    (MirrorGlobalAction.recents, Tandem_V1_GlobalActionKind.recents)
+])
+func mirrorInputMapper_globalActionInKeyWindow_emitsGlobalActionBoundToSession(
+    action: MirrorGlobalAction, kind: Tandem_V1_GlobalActionKind
+) {
+    var mapper = makeMapper()
+    let events = mapper.map(.global(action))
+    #expect(events.count == 1)
+    #expect(events[0].sessionID == sessionId)
+    #expect(events[0].globalAction.action == kind)
+}
+
+@Test func mirrorInputMapper_globalActionWhileWindowNotKey_emitsNothing() {
+    var mapper = makeMapper(isWindowKey: false)
+    #expect(mapper.map(.global(.home)).isEmpty)
+}

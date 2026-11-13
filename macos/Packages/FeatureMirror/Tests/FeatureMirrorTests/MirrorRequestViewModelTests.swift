@@ -26,6 +26,31 @@ struct MirrorRequestViewModelTests {
     }
 
     @Test
+    func mirrorQuickAction_peerNameKnown_waitingStatusNamesThePhone() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession(), peerName: "Pixel 9")
+
+        model.request()
+
+        #expect(model.statusText == "Accept on Pixel 9 to start.")
+        #expect(model.waitingDetail == "Accept on Pixel 9 to start.")
+    }
+
+    @Test
+    func mirrorQuickAction_peerNameUpdated_waitingDetailFollows() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession())
+        model.peerName = "Galaxy S24"
+
+        #expect(model.waitingDetail == "Accept on Galaxy S24 to start.")
+    }
+
+    @Test
+    func mirrorQuickAction_noPeerName_waitingDetailSaysPhone() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession())
+
+        #expect(model.waitingDetail == "Accept on phone to start.")
+    }
+
+    @Test
     func mirrorQuickAction_noSession_showsPhoneNotConnected() async {
         let model = MirrorRequestViewModel(session: nil)
 
@@ -77,7 +102,7 @@ struct MirrorRequestViewModelTests {
 
         let declined = await waitUntilTrue { model.state == .declined }
         #expect(declined)
-        #expect(model.statusText == "Mirroring declined on phone")
+        #expect(model.statusText == "Declined. Nothing was shared.")
     }
 
     @Test

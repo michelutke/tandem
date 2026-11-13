@@ -17,14 +17,22 @@ public final class MirrorRequestViewModel {
 
     public private(set) var state = State.idle
 
+    /// Display name of the paired phone, for the waiting copy; `nil` reads as "phone".
+    public var peerName: String?
+
     /// Menu status line for ``state``, or `nil` while idle.
     public var statusText: String? {
         switch state {
         case .idle: return nil
-        case .waiting: return "Accept on phone to start."
-        case .declined: return "Mirroring declined on phone"
+        case .waiting: return waitingDetail
+        case .declined: return "Declined. Nothing was shared."
         case .notConnected: return "Phone not connected."
         }
+    }
+
+    /// ui-spec mirror.waiting.
+    public var waitingDetail: String {
+        "Accept on \(peerName ?? "phone") to start."
     }
 
     private var session: (any TandemSession)?
@@ -41,10 +49,12 @@ public final class MirrorRequestViewModel {
     ///   then shows ``State/notConnected``.
     public init(
         session: (any TandemSession)?,
+        peerName: String? = nil,
         clock: any Clock<Duration> = ContinuousClock(),
         timeout: Duration = .seconds(60)
     ) {
         self.session = session
+        self.peerName = peerName
         self.clock = clock
         self.timeout = timeout
     }
