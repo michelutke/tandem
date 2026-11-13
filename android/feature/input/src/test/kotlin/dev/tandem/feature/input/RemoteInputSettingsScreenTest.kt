@@ -16,31 +16,47 @@ class RemoteInputSettingsScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    private fun show(
+        enabled: Boolean,
+        onOpen: () -> Unit = {},
+        onViewOnly: () -> Unit = {},
+    ) = composeRule.setContent {
+        RemoteInputSettingsScreen(
+            accessibilityState = FakeAccessibilityStateSource(enabled = enabled),
+            onOpenAccessibilitySettings = onOpen,
+            onViewOnly = onViewOnly,
+        )
+    }
+
     @Test
-    fun remoteInputSettings_serviceNotEnabled_showsExplanationAndOpenSettingsAction() {
+    fun remoteInputSettings_serviceNotEnabled_showsThreeFactsAndOpenSettingsAction() {
         var openSettingsTaps = 0
+        show(enabled = false, onOpen = { openSettingsTaps++ })
 
-        composeRule.setContent {
-            RemoteInputSettingsScreen(
-                accessibilityState = FakeAccessibilityStateSource(enabled = false),
-                onOpenAccessibilitySettings = { openSettingsTaps++ },
-            )
-        }
-
-        composeRule.onNodeWithText(REMOTE_INPUT_EXPLANATION).assertExists()
-        composeRule.onNodeWithText(OPEN_ACCESSIBILITY_SETTINGS_LABEL).assertExists().performClick()
+        composeRule.onNodeWithText("Control.").assertExists()
+        composeRule.onNodeWithText("Let your Mac tap and type.").assertExists()
+        composeRule.onNodeWithText("Uses Android Accessibility, only while mirroring").assertExists()
+        composeRule.onNodeWithText("A pill on screen shows when the Mac is in control").assertExists()
+        composeRule.onNodeWithText("Turn off any time in Settings").assertExists()
+        composeRule.onNodeWithText("Open Accessibility settings").assertExists().performClick()
         assertEquals(1, openSettingsTaps)
     }
 
     @Test
     fun remoteInputSettings_serviceEnabled_hidesOpenSettingsAction() {
-        composeRule.setContent {
-            RemoteInputSettingsScreen(
-                accessibilityState = FakeAccessibilityStateSource(enabled = true),
-                onOpenAccessibilitySettings = {},
-            )
-        }
+        show(enabled = true)
 
-        composeRule.onNodeWithText(OPEN_ACCESSIBILITY_SETTINGS_LABEL).assertDoesNotExist()
+        composeRule.onNodeWithText("Open Accessibility settings").assertDoesNotExist()
+        composeRule.onNodeWithText("Remote control is enabled.").assertExists()
+    }
+
+    @Test
+    fun remoteInputSettings_viewOnlyTapped_callsViewOnly() {
+        var viewOnlyTaps = 0
+        show(enabled = false, onViewOnly = { viewOnlyTaps++ })
+
+        composeRule.onNodeWithText("View only").performClick()
+
+        assertEquals(1, viewOnlyTaps)
     }
 }

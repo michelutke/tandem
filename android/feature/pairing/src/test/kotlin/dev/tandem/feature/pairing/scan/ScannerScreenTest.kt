@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.tandem.core.pairing.qr.PairingInvite
@@ -60,5 +61,62 @@ class ScannerScreenTest {
 
         assertNotNull("expected onScanAccepted to have navigated to the pairing-progress screen", acceptedInvite)
         assertEquals("Michel's MacBook Pro", acceptedInvite?.macName)
+    }
+
+    private fun showWithFrames(
+        vararg values: String,
+        onCancel: () -> Unit = {},
+    ) {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>()).grantPermissions(Manifest.permission.CAMERA)
+        composeRule.setContent {
+            ScannerScreen(
+                onScanAccepted = {},
+                onCancel = onCancel,
+                frameSource = { onResult ->
+                    LaunchedEffect(Unit) {
+                        values.forEach { onResult(ScanResult(format = ScanFormat.QR_CODE, rawValue = it)) }
+                    }
+                },
+            )
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun scannerScreen_nonTandemQr_showsNotATandemCode() {
+        showWithFrames("https://example.com")
+
+        composeRule.onNodeWithText("Not a Tandem code.").assertExists()
+        composeRule.onNodeWithText("Or it was already used.").assertExists()
+        composeRule.onNodeWithText("Show a fresh code on your Mac: Pair phone.").assertExists()
+        composeRule.onNodeWithText("Scan again").assertExists()
+    }
+
+    @Test
+    fun scannerScreen_rejectedTandemCode_showsNotATandemCode() {
+        showWithFrames("tandem://pair?v=1&bogus")
+
+        composeRule.onNodeWithText("Not a Tandem code.").assertExists()
+    }
+
+    @Test
+    fun scannerScreen_scanAgainTapped_returnsToScanning() {
+        showWithFrames("https://example.com")
+
+        composeRule.onNodeWithText("Scan again").performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Scan.").assertExists()
+        composeRule.onNodeWithText("Decoded on this phone. Nothing is uploaded.").assertExists()
+    }
+
+    @Test
+    fun scannerScreen_scanning_cancelCallsOnCancel() {
+        var cancels = 0
+        showWithFrames(onCancel = { cancels++ })
+
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        assertEquals(1, cancels)
     }
 }

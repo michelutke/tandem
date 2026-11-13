@@ -5,14 +5,15 @@ import android.graphics.PixelFormat
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.widget.TextView
 
 /**
- * Small badge drawn as a TYPE_ACCESSIBILITY_OVERLAY, which sits above every TYPE_APPLICATION_OVERLAY,
- * so another app cannot cover it. Not touchable or focusable.
+ * The [ControlPillView] drawn as a TYPE_ACCESSIBILITY_OVERLAY, which sits above every
+ * TYPE_APPLICATION_OVERLAY, so another app cannot cover it. Not focusable; only the pill itself takes
+ * touches, and its Stop calls [onStop].
  */
 class AccessibilityOverlayBadge(
     private val service: AccessibilityService,
+    private val onStop: () -> Unit,
 ) : OverlayBadge {
     private val windowManager = service.getSystemService(WindowManager::class.java)
     private var view: View? = null
@@ -33,12 +34,7 @@ class AccessibilityOverlayBadge(
 
     override fun attach(): Boolean {
         if (view != null) return true
-        val badge =
-            TextView(service).apply {
-                text = service.getString(R.string.remote_input_badge_label)
-                setBackgroundColor(BADGE_BACKGROUND)
-                setTextColor(BADGE_TEXT)
-            }
+        val badge = ControlPillView(service, onStop)
         badge.addOnAttachStateChangeListener(attachListener)
         val added =
             runCatching { windowManager.addView(badge, layoutParams()) }
@@ -62,16 +58,16 @@ class AccessibilityOverlayBadge(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT,
             ).apply {
-                gravity = Gravity.TOP or Gravity.END
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                y = (TOP_OFFSET_DP * service.resources.displayMetrics.density).toInt()
                 title = WINDOW_TITLE
             }
 
     companion object {
         const val WINDOW_TITLE = "TandemRemoteInputBadge"
-        private const val BADGE_BACKGROUND = 0xFFB00020.toInt()
-        private const val BADGE_TEXT = 0xFFFFFFFF.toInt()
+        private const val TOP_OFFSET_DP = 32
     }
 }

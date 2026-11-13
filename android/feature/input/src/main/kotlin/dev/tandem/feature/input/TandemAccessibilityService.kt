@@ -18,7 +18,11 @@ class TandemAccessibilityService : AccessibilityService() {
             RemoteInputTarget(
                 handler = InputActionHandler(actions),
                 translator = GestureTranslator(actions),
-                indicator = RemoteInputIndicator(AndroidNotificationPresenter(this), AccessibilityOverlayBadge(this)),
+                indicator =
+                    RemoteInputIndicator(
+                        AndroidNotificationPresenter(this),
+                        AccessibilityOverlayBadge(this, onStop = ::stopRemoteControl),
+                    ),
             )
         target = connected
         LiveRemoteInput.current = connected
@@ -37,6 +41,11 @@ class TandemAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
     override fun onInterrupt() = Unit
+
+    // Hiding the indicator closes the input gate at once: the next event is dropped and consent revoked.
+    private fun stopRemoteControl() {
+        target?.indicator?.hide()
+    }
 
     private fun release() {
         val released = target ?: return

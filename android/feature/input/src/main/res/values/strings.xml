@@ -5,5 +5,15 @@
     <string name="remote_input_indicator_channel_name">Remote input</string>
     <string name="remote_input_indicator_title">Your Mac can control this phone</string>
     <string name="remote_input_indicator_text">Remote input is active during this mirror session.</string>
-    <string name="remote_input_badge_label">Remote input</string>
+    <string name="control_pill_label">Mac is controlling</string>
+    <string name="control_pill_stop">Stop</string>
+    <string name="control_pill_stop_description">Stop remote control</string>
+    <string name="remote_control_title">Control.</string>
+    <string name="remote_control_state">Let your Mac tap and type.</string>
+    <string name="remote_control_fact_accessibility">Uses Android Accessibility, only while mirroring</string>
+    <string name="remote_control_fact_pill">A pill on screen shows when the Mac is in control</string>
+    <string name="remote_control_fact_off">Turn off any time in Settings</string>
+    <string name="remote_control_enabled">Remote control is enabled.</string>
+    <string name="remote_control_open_accessibility">Open Accessibility settings</string>
+    <string name="remote_control_view_only">View only</string>
 </resources>
