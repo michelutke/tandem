@@ -37,6 +37,9 @@ import java.time.Clock
  * reconnect re-attaches exactly once. A network-available event ([NetworkReconnectTrigger]) or a
  * wake, Doze exit or app foregrounding ([WakeReconnectTrigger]) kicks the loop.
  *
+ * The address of the last registered session is persisted in [lastWorkingStore] and seeds
+ * [ReconnectStrategy] after a process restart; it is a dial hint only, never trust.
+ *
  * [failure] carries only sanitized categories (`PIN_MISMATCH`, `REVOKED`, `HANDSHAKE_FAILED`,
  * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session.
  */
@@ -54,6 +57,7 @@ class ConnectionOrchestrator(
     clock: Clock,
     dispatcher: CoroutineDispatcher,
     private val warn: (String) -> Unit = {},
+    private val lastWorkingStore: PairingAddressStore? = null,
 ) : ConnectionLoop {
     private val scope =
         CoroutineScope(SupervisorJob() + dispatcher)
@@ -67,6 +71,7 @@ class ConnectionOrchestrator(
             bonjourSource = bonjourSource,
             pairingAddressSource = pairingAddressSource,
             dispatcher = dispatcher,
+            initialLastWorking = lastWorkingStore?.addresses()?.firstOrNull(),
         )
     private val networkTrigger = NetworkReconnectTrigger(networkMonitor, strategy, clock, dispatcher)
     private val wakeTrigger = WakeReconnectTrigger(deviceIdleSource, strategy, clock, dispatcher, foreground)
@@ -175,10 +180,11 @@ class ConnectionOrchestrator(
     private fun recordKnownPeer(dialed: DialResult.Connected) {
         try {
             knownPeerStore.recordPinned(dialed.peer)
+            dialed.address?.let { lastWorkingStore?.save(listOf(it.host), it.port) }
         } catch (
             @Suppress("SwallowedException") e: IOException,
         ) {
-            warn("known-peer persistence failed: ${e.javaClass.simpleName}")
+            warn("peer persistence failed: ${e.javaClass.simpleName}")
         }
     }
 

@@ -58,6 +58,7 @@ import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
 import dev.tandem.feature.pairing.manual.ManualPairingEntryScreen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -264,8 +265,10 @@ private fun SettingsTab(
         keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
         onUnpair = {
             scope.launch {
-                dependencies.unpair(peer.fingerprint())
-                navigator.resetToHome()
+                withContext(NonCancellable) {
+                    dependencies.unpair(peer.fingerprint())
+                    navigator.resetToHome()
+                }
             }
         },
         modifier = modifier,

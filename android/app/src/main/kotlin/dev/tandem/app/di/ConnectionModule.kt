@@ -112,6 +112,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 interface ConnectionEntryPoint {
     fun connectionOrchestrator(): ConnectionOrchestrator
+
+    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry
 }
 
 /**
@@ -297,12 +299,23 @@ object ConnectionModule {
             clock = clock,
             dispatcher = AppDispatchers.default,
             warn = { Log.w(TAG, it) },
+            lastWorkingStore = lastWorkingStore(context, purgeRegistry),
         )
     }
 
     private const val TAG = "ConnectionModule"
     private const val PAIRING_ADDRESSES_FILE_NAME = "pairing-addresses"
 }
+
+private const val LAST_WORKING_FILE_NAME = "last-working-address"
+
+private fun lastWorkingStore(
+    context: Context,
+    purgeRegistry: PeerDataPurgeRegistry,
+): PairingAddressStore =
+    PairingAddressStore(File(context.filesDir, LAST_WORKING_FILE_NAME)).also { store ->
+        purgeRegistry.register(PeerDataPurging { store.clear() })
+    }
 
 private fun startedIdleSource(context: Context) =
     PowerManagerDeviceIdleSource(context, context.getSystemService(PowerManager::class.java)).also { it.start() }

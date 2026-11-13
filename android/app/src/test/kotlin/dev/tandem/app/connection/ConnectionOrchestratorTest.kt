@@ -66,9 +66,11 @@ class ConnectionOrchestratorTest {
         private val results: MutableList<DialResult>,
     ) : SessionDialer {
         var dials = 0
+        val candidates = mutableListOf<CandidateAddress>()
 
         override suspend fun dial(candidate: CandidateAddress): DialResult {
             dials++
+            candidates += candidate
             return if (results.isEmpty()) DialResult.Unreachable(null) else results.removeAt(0)
         }
     }
@@ -79,6 +81,7 @@ class ConnectionOrchestratorTest {
         val features: List<CountingFeature>,
         directory: File,
         knownPeersFile: File = File(directory, "known-peers"),
+        val lastWorkingStore: PairingAddressStore = PairingAddressStore(File(directory, "last-working")),
     ) {
         val registry = SessionRegistry()
         val screenOn = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -111,6 +114,7 @@ class ConnectionOrchestratorTest {
                 foreground = emptyFlow(),
                 clock = TestClock(scope.testScheduler),
                 dispatcher = StandardTestDispatcher(scope.testScheduler),
+                lastWorkingStore = lastWorkingStore,
             )
     }
 
@@ -136,6 +140,37 @@ class ConnectionOrchestratorTest {
         assertEquals(listOf(1, 1), features.map { it.attached })
         assertTrue(harness.knownPeers.hasEverPinned(peer))
         assertNull(harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun tandemServiceComposition_connectedViaAddress_lastWorkingAddressPersisted(
+        @TempDir directory: File,
+    ) = runTest {
+        val address = CandidateAddress("192.0.2.9", 7001)
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(readySession(), peer, address = address)))
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertEquals(listOf(address), harness.lastWorkingStore.addresses())
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun tandemServiceComposition_persistedLastWorkingAddress_dialedFirstAfterRestart(
+        @TempDir directory: File,
+    ) = runTest {
+        val dialer = ScriptedDialer(mutableListOf())
+        val lastWorkingStore =
+            PairingAddressStore(File(directory, "last-working")).apply { save(listOf("192.0.2.9"), 7001) }
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory, lastWorkingStore = lastWorkingStore)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertEquals(CandidateAddress("192.0.2.9", 7001), dialer.candidates.first())
         harness.orchestrator.close()
     }
 

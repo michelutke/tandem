@@ -16,6 +16,7 @@ import dev.tandem.app.TandemApplication
 import dev.tandem.app.connection.ConnectionLoop
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.di.ConnectionEntryPoint
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.revoke.TrustRemover
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -65,6 +66,9 @@ class TandemService : Service() {
         val trustStore = (context.applicationContext as TandemApplication).trustStore
         TrustRemover { fingerprint -> trustStore.unpair(fingerprint) }
     }
+    internal var purgeRegistryFactory: (Context) -> PeerDataPurgeRegistry = { context ->
+        EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).peerDataPurgeRegistry()
+    }
     internal var connectionLoopFactory: (Context) -> ConnectionLoop = { context ->
         EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).connectionOrchestrator()
     }
@@ -103,7 +107,9 @@ class TandemService : Service() {
         }
         scope.launch {
             sessionRegistry.current.collectLatest { registered ->
-                if (registered != null) consumeControlRevokeGuarded(registered, trustRemover)
+                if (registered != null) {
+                    consumeControlRevokeGuarded(registered, trustRemover, purgeRegistryFactory(applicationContext))
+                }
             }
         }
     }
@@ -118,9 +124,10 @@ class TandemService : Service() {
     private suspend fun consumeControlRevokeGuarded(
         registered: RegisteredSession,
         trustRemover: TrustRemover,
+        purgeRegistry: PeerDataPurgeRegistry,
     ) {
         try {
-            consumeControlRevoke(registered, trustRemover)
+            consumeControlRevoke(registered, trustRemover, purgeRegistry)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {

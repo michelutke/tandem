@@ -21,6 +21,7 @@ import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.feature.clipboard.LiveClipboardAutoCapture
+import dev.tandem.feature.files.ShareStaging
 import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
 import dev.tandem.feature.notifications.SharedPreferencesFocusFilterRecord
@@ -110,6 +111,7 @@ class TandemApplication : Application() {
         LiveNotificationListener.filter = { sbn, ownPackage ->
             featureToggles.isEnabled(SyncFeature.Notifications) && notificationFilter.shouldForward(sbn, ownPackage)
         }
+        ShareStaging.inCache(cacheDir).sweep()
         appScope.launch { restoreInterruptedPhoneState() }
         appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }

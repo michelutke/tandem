@@ -1,5 +1,6 @@
 package dev.tandem.app.service
 
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.revoke.RevokeHandler
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.protocol.v1.Channel
@@ -8,7 +9,8 @@ import kotlinx.coroutines.flow.firstOrNull
 
 /**
  * Waits for the first `Revoke` on [registered]'s CONTROL channel and hands it to the real
- * [RevokeHandler] (E14-19): trust is deleted via [trustRemover], then the session is closed.
+ * [RevokeHandler] (E14-19): trust is deleted via [trustRemover], then the session is closed and the
+ * peer's data purged through [purgeRegistry].
  * A Revoke arriving before Ready is ignored by the handler and the wait continues. Returns without
  * throwing when the session closes first (its CONTROL flow completes).
  *
@@ -18,8 +20,9 @@ import kotlinx.coroutines.flow.firstOrNull
 suspend fun consumeControlRevoke(
     registered: RegisteredSession,
     trustRemover: TrustRemover,
+    purgeRegistry: PeerDataPurgeRegistry,
 ) {
-    val handler = RevokeHandler(registered.session, registered.peer, trustRemover)
+    val handler = RevokeHandler(registered.session, registered.peer, trustRemover, purgeRegistry)
     registered.session
         .receive(Channel.CHANNEL_CONTROL)
         .firstOrNull { envelope -> envelope.payloadCase == Envelope.PayloadCase.REVOKE && handler.handleRevoke() }

@@ -220,14 +220,22 @@ class MainActivity : TandemActivity() {
             return
         }
         CoroutineScope(SupervisorJob() + dispatcher).launch {
+            var tooLarge = false
             val sent =
                 ClipboardSender.send(
                     text,
                     session,
                     sensitive = sensitive,
-                    onTooLarge = { if (confirm) showToast(R.string.clipboard_too_large) },
+                    onTooLarge = {
+                        tooLarge = true
+                        if (confirm) showToast(R.string.clipboard_too_large)
+                    },
                 )
-            if (sent && confirm) showToast(R.string.clipboard_sent)
+            when {
+                !confirm -> Unit
+                sent -> showToast(R.string.clipboard_sent)
+                !tooLarge -> showToast(R.string.clipboard_not_connected)
+            }
         }
     }
 

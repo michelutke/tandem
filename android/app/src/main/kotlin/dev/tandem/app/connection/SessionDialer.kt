@@ -12,7 +12,6 @@ import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.tls.SslClientFactory
 import dev.tandem.core.transport.tls.SslSocketByteStream
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -70,38 +69,31 @@ class TlsSessionDialer(
             }
         if (notDialable != null) return notDialable
         val factory = SslClientFactory(keyManager, PinningTrustManager { pins })
-        var opened: SslSocketByteStream? = null
         return try {
-            val (stream, peerSpkiDer) =
-                withContext(ioDispatcher) {
-                    val socket = factory.createSocket()
-                    val stream = factory.connect(socket, InetAddress.getByName(candidate.host), candidate.port)
-                    opened = stream
-                    try {
-                        val der =
-                            socket.session.peerCertificates
-                                .first()
-                                .publicKey.encoded
-                        spkiFingerprint(der)
-                        stream to der
-                    } catch (e: SpkiFingerprintException) {
-                        stream.close()
-                        throw IOException("peer key is not pinnable", e)
-                    }
-                }
+            val address = withContext(ioDispatcher) { InetAddress.getByName(candidate.host) }
+            val socket = factory.createSocket()
+            val stream = factory.connectCancellable(socket, address, candidate.port, ioDispatcher)
+            val peerSpkiDer = peerSpkiDer(stream)
             DialResult.Connected(
                 ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies),
                 spkiFingerprint(peerSpkiDer),
                 peerSpkiDer,
                 candidate,
             )
-        } catch (e: CancellationException) {
-            opened?.close()
-            throw e
         } catch (e: IOException) {
             classifyDialFailure(e, pins.any(wasPreviouslyPinned))
         }
     }
+
+    private fun peerSpkiDer(stream: SslSocketByteStream): ByteArray =
+        try {
+            val der = stream.peerPublicKeyDer()
+            spkiFingerprint(der)
+            der
+        } catch (e: SpkiFingerprintException) {
+            stream.close()
+            throw IOException("peer key is not pinnable", e)
+        }
 
     private suspend fun identityReady(): Boolean =
         try {
