@@ -41,6 +41,8 @@ public actor ClipboardSender {
         /// Skipped: the current pasteboard item has no `public.utf8-plain-text` representation at
         /// all (an image, a file, ...). Nothing to show -- there is no text to have rejected.
         case notSentNoText
+        /// The frame could not be sent because the session is gone. The menu shows "Phone not connected."
+        case notSentDisconnected
     }
 
     /// docs/protocol/SPEC.md #clipboard-channel "Size limit", restated from #10
@@ -123,23 +125,27 @@ public actor ClipboardSender {
         let types = source.types()
         guard !ConcealedTypeFilter.shouldSkip(types: types) else { return .notSentProtectedItem }
         guard types.contains(.string), let text = source.string(forType: .string) else { return .notSentNoText }
-        return await sendIfWithinLimit(text: text) ? .sent : .notSentTooLarge
+        return await sendIfWithinLimit(text: text)
     }
 
     @discardableResult
-    private func sendIfWithinLimit(text: String) async -> Bool {
+    private func sendIfWithinLimit(text: String) async -> PushResult {
         let utf8Bytes = Array(text.utf8)
         guard utf8Bytes.count <= Self.maxTextBytes else {
             warnIfNeeded()
-            return false
+            return .notSentTooLarge
         }
 
         var message = Tandem_V1_ClipboardText()
         message.originTag = Self.originTag
         message.contentHash = Data(SHA256.hash(data: Data(utf8Bytes)))
         message.text = text
-        try? await session.send(.clipboard, payload: .clipboardText(message))
-        return true
+        do {
+            try await session.send(.clipboard, payload: .clipboardText(message))
+        } catch {
+            return .notSentDisconnected
+        }
+        return .sent
     }
 
     private func warnIfNeeded() {
