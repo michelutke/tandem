@@ -142,7 +142,8 @@ private struct PhotoGridHost: View {
         self.deviceName = deviceName
         _viewModel = State(initialValue: PhotoGridViewModel(
             service: service,
-            offerExpecting: service as? any OriginalOfferExpecting
+            offerExpecting: service as? any OriginalOfferExpecting,
+            events: service as? any OriginalTransferEventSource
         ))
     }
 

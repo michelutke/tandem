@@ -55,7 +55,7 @@ final class MirrorStatusWindowController: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    private func close() {
+    func close() {
         guard let window else { return }
         window.delegate = nil
         self.window = nil

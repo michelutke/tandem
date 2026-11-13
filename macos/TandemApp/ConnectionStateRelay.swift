@@ -1,4 +1,5 @@
 import Foundation
+import TandemCrypto
 import TandemProtocol
 
 /// Bridges zero or more successive ``TandemSession``s for the same paired peer into long-lived
@@ -15,7 +16,17 @@ import TandemProtocol
 /// to that peer's fingerprint.
 actor ConnectionStateRelay {
     private let subscribers = Subscribers()
+    private let isolatesFailuresByPeer: Bool
+    private var failedPeer: SpkiFingerprint?
     private var forwardTask: Task<Void, Never>?
+
+    /// - Parameter isolatesFailuresByPeer: When `true`, a `.ready` from a different peer than the one
+    ///   whose `.failed` was last forwarded is dropped, so one phone reaching Ready never clears
+    ///   another phone's fail-closed banner. The menu bar relay leaves it `false` and follows the
+    ///   latest session.
+    init(isolatesFailuresByPeer: Bool = false) {
+        self.isolatesFailuresByPeer = isolatesFailuresByPeer
+    }
 
     /// A new long-lived stream of this peer's connection state: starts with the latest state
     /// already forwarded (if any), then every later one. Never finishes on its own -- only when
@@ -26,15 +37,26 @@ actor ConnectionStateRelay {
 
     /// Starts forwarding `session`'s own ``TandemSession/state`` to every stream, replacing whatever
     /// this relay was previously forwarding from (an earlier, now-closed session for the same peer).
-    func attach(_ session: any TandemSession) {
+    func attach(_ session: any TandemSession, peer: SpkiFingerprint? = nil) {
         forwardTask?.cancel()
         let sessionState = session.state
-        let subscribers = self.subscribers
         forwardTask = Task {
             for await state in sessionState {
-                subscribers.yield(state)
+                self.forward(state, from: peer)
             }
         }
+    }
+
+    private func forward(_ state: ConnectionStateMachine.ConnectionState, from peer: SpkiFingerprint?) {
+        if isolatesFailuresByPeer {
+            if case .failed = state {
+                failedPeer = peer
+            } else if case .ready = state {
+                if let failedPeer, let peer, !failedPeer.matches(peer) { return }
+                failedPeer = nil
+            }
+        }
+        subscribers.yield(state)
     }
 }
 

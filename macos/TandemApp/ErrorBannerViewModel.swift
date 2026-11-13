@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import TandemProtocol
+import TandemStore
 
 /// A persistent, secret-free banner for a fail-closed connection (E22-07, invariant 5): each of
 /// pin mismatch, unknown peer, and version mismatch shows its own exact text naming the peer where
@@ -52,12 +53,33 @@ final class ErrorBannerViewModel {
     init(
         stateStream: AsyncStream<ConnectionStateMachine.ConnectionState>?,
         peerName: String?,
+        pairedPeer: PairedPeerState? = nil,
         clock: any Clock<Duration> = ContinuousClock()
     ) {
         self.peerName = peerName
         self.clock = clock
         if let stateStream {
             observe(stateStream)
+        }
+        if let pairedPeer {
+            clearWhenUnpaired(pairedPeer)
+        }
+    }
+
+    /// Revoking the phone that caused the banner removes its trust record: the banner and the
+    /// disabled sections go with it instead of waiting for some other session to reach Ready.
+    private func clearWhenUnpaired(_ pairedPeer: PairedPeerState) {
+        withObservationTracking {
+            _ = pairedPeer.record?.fingerprint
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                if pairedPeer.record == nil {
+                    self.closeCode = nil
+                    self.message = nil
+                }
+                self.clearWhenUnpaired(pairedPeer)
+            }
         }
     }
 

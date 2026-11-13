@@ -57,8 +57,11 @@ final class MirrorComposition {
 
     /// Puts `model` on the current control session now and on every later one.
     func bind(_ model: MirrorRequestViewModel) {
+        if requestModel !== model {
+            statusWindow?.close()
+            statusWindow = MirrorStatusWindowController(viewModel: model)
+        }
         requestModel = model
-        statusWindow = MirrorStatusWindowController(viewModel: model)
         let session = currentSession
         Task { await model.sessionChanged(session) }
     }

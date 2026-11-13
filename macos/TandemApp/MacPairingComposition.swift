@@ -171,7 +171,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
     }
 
     private func showPaired() {
-        guard !isShowingPaired, let pending = pendingConfirmation, pending.isResolved, !pending.didFailToPair else {
+        guard !isShowingPaired, let pending = pendingConfirmation, pending.didPair else {
             return
         }
         isShowingPaired = true
@@ -179,6 +179,15 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
             rootView: PairedView(stateText: pending.pairedStateText, onDone: { [weak self] in
                 self?.windowController?.close()
             })
+        )
+    }
+
+    private func leaveEndedConfirmation() {
+        guard let pending = pendingConfirmation, pending.endedWithoutPairing,
+              let viewModel = composition.host.coordinator?.viewModel else { return }
+        pendingConfirmation = nil
+        windowController?.window?.contentViewController = NSHostingController(
+            rootView: PairingView(viewModel: viewModel, onCancel: { [weak self] in self?.windowController?.close() })
         )
     }
 
@@ -197,6 +206,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
                     self.windowController?.close()
                     return
                 }
+                self.leaveEndedConfirmation()
             }
         }
     }

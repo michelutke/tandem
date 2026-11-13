@@ -344,13 +344,15 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             scheduler: FilesScheduler(session: session),
             progress: transferProgress
         )
+        let photoEvents = photos
         let acceptFlow = AcceptFlow(
             session: session,
             freeSpace: VolumeFreeSpaceProvider(),
             presenter: CompositeAcceptPromptPresenter([prompts, alerts]),
             clock: ContinuousClock(),
             settings: AcceptSettings(),
-            destination: DownloadFolderStore.standard
+            destination: DownloadFolderStore.standard,
+            originalRejected: { photoEvents.publish(.failed(transferId: $0)) }
         )
         let receiver = FileReceiver(
             session: session,
@@ -359,10 +361,12 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
             now: { Date() },
             notifier: notifier,
-            progress: transferProgress,
+            progress: EndForwardingProgress(base: transferProgress) { id, outcome in
+                photoEvents.publish(outcome == .completed ? .finished(transferId: id) : .failed(transferId: id))
+            },
             destination: DownloadFolderStore.standard
         )
-        let photoService = SessionPhotoService(session: session)
+        let photoService = SessionPhotoService(session: session) { photoEvents.publish(.photoError($0)) }
         photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer), offers: acceptFlow)
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
@@ -375,7 +379,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         activeTransfer.attach(transfers)
         let agent = agent
         Task {
-            for id in await receiver.resumeRetained() { await acceptFlow.transferResumed(id: id) }
+            await receiver.resumeRetained { await acceptFlow.transferResumed(id: $0) }
             await agent?.drain()
         }
     }

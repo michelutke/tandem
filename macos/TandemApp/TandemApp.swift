@@ -233,8 +233,9 @@ struct MenuContentView: View {
             peerName: peerName
         ))
         _errorBannerViewModel = State(initialValue: ErrorBannerViewModel(
-            stateStream: lifecycle?.makeMenuBarStateStream?(),
-            peerName: peerName
+            stateStream: lifecycle?.makeBannerStateStream?(),
+            peerName: peerName,
+            pairedPeer: lifecycle?.pairedPeer
         ))
         let findPhoneViewModel = FindPhoneViewModel(session: lifecycle?.sessionFeatures.live.session)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)

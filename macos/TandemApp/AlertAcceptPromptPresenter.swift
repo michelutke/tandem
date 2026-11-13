@@ -19,7 +19,7 @@ final class AlertAcceptPromptPresenter: AcceptPromptPresenter {
     private let continuation: AsyncStream<AcceptPromptResponse>.Continuation
     private var queue: [Offer] = []
     private var showingId: String?
-    private var draining = false
+    private var dialog: GlassDialogHandle?
 
     init() {
         (responses, continuation) = AsyncStream<AcceptPromptResponse>.makeStream(bufferingPolicy: .unbounded)
@@ -27,52 +27,54 @@ final class AlertAcceptPromptPresenter: AcceptPromptPresenter {
 
     func present(offerId: String, displayName: String, size: UInt64) async {
         queue.append(Offer(id: offerId, name: displayName, size: size))
-        drain()
+        showNext()
     }
 
     func remove(offerId: String) async {
         queue.removeAll { $0.id == offerId }
-        if showingId == offerId { GlassDialog.abort() }
+        guard showingId == offerId else { return }
+        withdraw()
+        showNext()
     }
 
     func finish() {
         queue.removeAll()
-        if showingId != nil { GlassDialog.abort() }
+        withdraw()
         continuation.finish()
     }
 
-    private func drain() {
-        guard !draining else { return }
-        draining = true
-        Task { @MainActor in
-            while !queue.isEmpty {
-                let offer = queue.removeFirst()
-                showingId = offer.id
-                show(offer)
-                showingId = nil
-            }
-            draining = false
-        }
+    private func withdraw() {
+        dialog?.close()
+        dialog = nil
+        showingId = nil
+    }
+
+    private func showNext() {
+        guard showingId == nil, !queue.isEmpty else { return }
+        let offer = queue.removeFirst()
+        showingId = offer.id
+        show(offer)
     }
 
     private func show(_ offer: Offer) {
         let formattedSize = ByteCountFormatter.string(fromByteCount: Int64(clamping: offer.size), countStyle: .file)
         NSApp.activate()
-        let choice = GlassDialog.runModal(
+        dialog = GlassDialog.present(
             title: "Incoming file",
             message: "\(offer.name) (\(formattedSize))",
             actions: [
                 GlassDialogAction("Accept", kind: .primary),
                 GlassDialogAction("Decline", isSafeDefault: true)
             ]
-        )
-        switch choice {
-        case 0:
-            continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .accept))
-        case 1:
-            continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .decline))
-        default:
-            break
+        ) { [weak self] choice in
+            self?.dialog = nil
+            self?.showingId = nil
+            switch choice {
+            case 0: self?.continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .accept))
+            case 1: self?.continuation.yield(AcceptPromptResponse(offerId: offer.id, decision: .decline))
+            default: break
+            }
+            self?.showNext()
         }
     }
 }

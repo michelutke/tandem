@@ -46,6 +46,9 @@ enum AppComposition {
         /// forwarded across reconnects (and across a first pairing made after launch) by a
         /// ``ConnectionStateRelay``.
         let makeMenuBarStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
+        /// Like ``makeMenuBarStateStream``, but a Ready from one phone never clears another phone's
+        /// fail-closed state, so the trust banner follows the peer that caused it.
+        let makeBannerStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
         /// The paired peer's display name, republished on pairing commit and unpair.
         let pairedPeer: PairedPeerState
         /// Feature services attached to every registered session (E22-12).
@@ -110,6 +113,7 @@ enum AppComposition {
                 trustStore: core.trustStore,
                 purgeRegistry: core.purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
+                makeBannerStateStream: menuBarWiring.makeBannerStream,
                 pairedPeer: core.pairedPeer,
                 sessionFeatures: sessionFeatures,
                 pairing: core.pairing,
@@ -258,17 +262,21 @@ enum AppComposition {
     /// `onSessionRegistered` fires again each time a new `TandemSession` reaches Ready.
     private struct MenuBarWiring {
         let makeStream: @Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>
+        let makeBannerStream: @Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>
         let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler
     }
 
     private static func makeMenuBarWiring(sessionRegistry: ControlSessionRegistry) -> MenuBarWiring {
         let relay = ConnectionStateRelay()
+        let bannerRelay = ConnectionStateRelay(isolatesFailuresByPeer: true)
         return MenuBarWiring(
             makeStream: { relay.makeStream() },
+            makeBannerStream: { bannerRelay.makeStream() },
             onSessionRegistered: { fingerprint, session in
                 Task {
                     guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
                     await relay.attach(session)
+                    await bannerRelay.attach(session, peer: fingerprint)
                 }
             }
         )
