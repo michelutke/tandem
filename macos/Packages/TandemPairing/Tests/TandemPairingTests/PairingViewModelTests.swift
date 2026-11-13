@@ -62,7 +62,7 @@ struct PairingViewModelTests {
     }
 
     @Test
-    func pairingViewModel_attemptsExhausted_showsAttemptsUsedUpWithRegenerate() throws {
+    func pairingViewModel_attemptsExhausted_staysExhaustedUntilNewCode() throws {
         let clock = ManualTestClock()
         let window = Self.makeWindow(clock: clock, verifierResult: false)
         let viewModel = try Self.makeViewModel(clock: clock, window: window)
@@ -74,10 +74,7 @@ struct PairingViewModelTests {
         }
 
         #expect(viewModel.attemptsExhausted)
-        #expect(
-            PairingViewModel.attemptsExhaustedMessage
-                == "Pairing attempts used up. Someone else may be trying to pair. Generate a new code."
-        )
+        #expect(viewModel.attemptsRemaining == 0)
 
         let exhaustedSecret = viewModel.currentPayload.secret
         viewModel.regenerate()
@@ -85,6 +82,40 @@ struct PairingViewModelTests {
         #expect(!viewModel.attemptsExhausted)
         #expect(viewModel.attemptsRemaining == 3)
         #expect(viewModel.currentPayload.secret != exhaustedSecret)
+    }
+
+    @Test
+    func pairingViewModel_expiryWithoutAutoRegenerate_staysExpiredUntilNewCode() throws {
+        let clock = ManualTestClock()
+        let viewModel = try Self.makeViewModel(clock: clock, regeneratesOnExpiry: false)
+        let originalSecret = viewModel.currentPayload.secret
+
+        clock.advance(by: .seconds(120))
+        viewModel.tick()
+
+        #expect(viewModel.isExpired)
+        #expect(viewModel.currentPayload.secret == originalSecret)
+
+        viewModel.regenerate()
+
+        #expect(!viewModel.isExpired)
+        #expect(viewModel.currentPayload.secret != originalSecret)
+        #expect(viewModel.remainingSeconds == 120)
+    }
+
+    @Test(arguments: [(3, "3 tries"), (2, "2 tries"), (1, "1 try"), (0, "0 tries")])
+    func pairingViewModel_attemptsRemaining_labelUsesSingularAtOne(attempts: Int, label: String) {
+        #expect(PairingViewModel.attemptsLabel(attemptsRemaining: attempts) == label)
+    }
+
+    @Test(arguments: [
+        (120, PairingCountdownTone.normal), (11, .normal), (10, .grey), (6, .grey), (5, .urgent), (0, .urgent)
+    ])
+    func pairingViewModel_remainingSeconds_toneTurnsGreyThenRedInLastTenSeconds(
+        seconds: Int,
+        tone: PairingCountdownTone
+    ) {
+        #expect(PairingCountdownTone.tone(forRemainingSeconds: seconds) == tone)
     }
 
     // MARK: - Fixtures
@@ -105,7 +136,8 @@ struct PairingViewModelTests {
 
     private static func makeViewModel(
         clock: ManualTestClock = ManualTestClock(),
-        window: PairingWindow? = nil
+        window: PairingWindow? = nil,
+        regeneratesOnExpiry: Bool = true
     ) throws -> PairingViewModel {
         PairingViewModel(
             window: window ?? Self.makeWindow(clock: clock),
@@ -114,7 +146,8 @@ struct PairingViewModelTests {
             addressSource: FakeLocalAddressSource(addresses: ["192.168.1.10"]),
             port: 54321,
             name: "Mac",
-            dateProvider: FixedDateProvider(clock: clock).provider
+            dateProvider: FixedDateProvider(clock: clock).provider,
+            regeneratesOnExpiry: regeneratesOnExpiry
         )
     }
 }

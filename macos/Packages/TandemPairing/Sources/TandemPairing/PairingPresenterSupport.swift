@@ -1,12 +1,18 @@
 import Foundation
 
-/// Which closed reasons make the presenting window disappear on its own (E22-14). `.attemptsExhausted`
-/// stays visible so the "Too many tries" screen's Regenerate (E14-11) can be used.
+/// Which closed reasons make the presenting window disappear on its own (E22-14). `.paired`,
+/// `.expired` and `.attemptsExhausted` stay visible: each has its own screen ("Paired.", "Code
+/// expired.", "Too many tries.", ui-spec §7.1), except an expiry while the confirmation dialog is
+/// showing, which has no screen of its own.
 public enum PairingWindowAutoClose {
-    public static func shouldClose(closedReason: PairingWindowClosedReason?) -> Bool {
+    public static func shouldClose(
+        closedReason: PairingWindowClosedReason?,
+        showingConfirmation: Bool = false
+    ) -> Bool {
         switch closedReason {
-        case .paired, .cancelled, .expired, .declined: return true
-        case .attemptsExhausted, nil: return false
+        case .cancelled, .declined: return true
+        case .expired: return showingConfirmation
+        case .paired, .attemptsExhausted, nil: return false
         }
     }
 }

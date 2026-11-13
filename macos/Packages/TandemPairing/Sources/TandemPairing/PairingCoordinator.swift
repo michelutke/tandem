@@ -270,7 +270,6 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
         return buildConfirmationViewModel(
             code: code,
             displayNameBytes: Data(request.deviceInfo.displayName.utf8),
-            modelBytes: Data(request.deviceInfo.model.utf8),
             acceptance: .qrCode,
             context: context
         )
@@ -279,13 +278,11 @@ public final class PairingCoordinator: PairingCandidateDriver, @unchecked Sendab
     func buildConfirmationViewModel(
         code: String,
         displayNameBytes: Data,
-        modelBytes: Data,
         acceptance: PairAcceptance,
         context: PairRequestContext
     ) -> PairConfirmationViewModel {
         let confirmationViewModel = PairConfirmationViewModel(
             displayNameBytes: displayNameBytes,
-            modelBytes: modelBytes,
             confirmationCode: code,
             handshakeSpkiDer: context.handshakeSpkiDer,
             window: window,

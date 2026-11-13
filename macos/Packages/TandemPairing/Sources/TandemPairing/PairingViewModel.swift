@@ -2,10 +2,24 @@ import CoreImage
 import Foundation
 import TandemCrypto
 
+/// How the countdown numeral is tinted (`docs/design/ui-spec.md` §4 motion 07): in the last 10 s
+/// it turns grey, in the last 5 s red. A step, never an easing.
+public enum PairingCountdownTone: Sendable, Equatable {
+    case normal
+    case grey
+    case urgent
+
+    public static func tone(forRemainingSeconds seconds: Int) -> PairingCountdownTone {
+        if seconds <= 5 { return .urgent }
+        if seconds <= 10 { return .grey }
+        return .normal
+    }
+}
+
 /// The Mac's pairing QR screen (E14-11, `docs/protocol/SPEC.md` § Pairing window): renders the
 /// current window's payload as a QR code with a visible 120 s countdown, auto-regenerating a
 /// fresh code and secret the moment a window expires outright, and surfacing an explicit
-/// "Regenerate" action once its attempt budget is exhausted (`docs/protocol/SPEC.md`
+/// "New code" action once its attempt budget is exhausted (`docs/protocol/SPEC.md`
 /// "Pairing-window DoS trade-off": "recovered by regenerating the QR").
 ///
 /// Presentation-independent -- no `SwiftUI`/`AppKit` import -- so it's unit-testable against a
@@ -15,12 +29,6 @@ import TandemCrypto
 /// called once per UI-driven countdown tick (real time in production, a `ManualTestClock` advance
 /// in tests) and is the only place this type ever mutates anything.
 public final class PairingViewModel: @unchecked Sendable {
-    /// Copy for the attempts-exhausted screen (E14-11 acceptance); the same text regardless of
-    /// which of the window's failure reasons burned the last attempt (`docs/protocol/SPEC.md` §
-    /// `PAIRING_FAILED`: "text MUST NOT distinguish which of the five local reasons occurred").
-    public static let attemptsExhaustedMessage =
-        "Pairing attempts used up. Someone else may be trying to pair. Generate a new code."
-
     private let window: PairingWindow
     private let fingerprint: SpkiFingerprint
     private let secretSource: any SecretSource
@@ -112,9 +120,20 @@ public final class PairingViewModel: @unchecked Sendable {
     }
 
     /// `true` once the window's 3-attempt budget is exhausted -- the one case ``tick()`` never
-    /// auto-regenerates; the owner must click "Regenerate".
+    /// auto-regenerates; the owner must click "New code".
     public var attemptsExhausted: Bool {
         window.closedReason == .attemptsExhausted
+    }
+
+    /// `true` once the 120 s window has timed out and, because the presenter does not auto-regenerate,
+    /// the owner must choose "New code" or "Cancel".
+    public var isExpired: Bool {
+        window.closedReason == .expired
+    }
+
+    /// "3 tries", "1 try", "0 tries".
+    public static func attemptsLabel(attemptsRemaining: Int) -> String {
+        attemptsRemaining == 1 ? "1 try" : "\(attemptsRemaining) tries"
     }
 
     /// Re-settles ``PairingWindow``'s own lazily-settled expiry and, only for a plain 120 s
@@ -127,7 +146,7 @@ public final class PairingViewModel: @unchecked Sendable {
     }
 
     /// Opens a fresh window with a new secret and payload, invalidating the previous one --
-    /// called automatically by ``tick()`` on plain expiry, and by the owner's "Regenerate" action
+    /// called automatically by ``tick()`` on plain expiry, and by the owner's "New code" action
     /// once attempts are exhausted.
     public func regenerate() {
         guard !isManual else {

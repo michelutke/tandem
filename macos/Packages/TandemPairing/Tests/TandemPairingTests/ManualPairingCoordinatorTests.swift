@@ -99,7 +99,9 @@ struct ManualPairingCoordinatorTests {
         let sas = try ManualPairingSas.sas(
             noncePhone: Self.noncePhone, nonceMac: nonceMac, context: Self.sasContext(run)
         )
-        #expect(viewModel.bodyText.contains("\(sas.prefix(3)) \(sas.suffix(3))"))
+        #expect(viewModel.groupedCode == "\(sas.prefix(3)) \(sas.suffix(3))")
+        #expect(viewModel.subject == "Phone.")
+        #expect(viewModel.pairedStateText == "Your phone is ready.")
         #expect(try run.fixture.trustStore.list().isEmpty)
 
         await viewModel.pair()

@@ -16,17 +16,23 @@ import TandemTransport
 struct PairConfirmationViewModelTests {
 
     @Test
-    func pairConfirmation_phoneNamePixel8_titleIsPairPixel8Question() throws {
+    func pairConfirmation_phoneNamePixel8_subjectIsPixel8Period() throws {
         let viewModel = try Self.makeViewModel(displayName: "Pixel 8")
-        #expect(viewModel.title == "Pair Pixel 8?")
+        #expect(viewModel.subject == "Pixel 8.")
+        #expect(viewModel.stateText == "Same code on both?")
     }
 
     @Test
-    func pairConfirmation_body_showsModelAndSixDigitCode() throws {
+    func pairConfirmation_code_isGroupedInTwoThrees() throws {
         let fixture = try Self.loadFixture()
-        let viewModel = try Self.makeViewModel(model: "Google Pixel 8", fixture: fixture)
-        let grouped = Self.grouped(fixture.confirmationCode)
-        #expect(viewModel.bodyText == "Google Pixel 8 · Make sure your phone shows \(grouped)")
+        let viewModel = try Self.makeViewModel(fixture: fixture)
+        #expect(viewModel.groupedCode == Self.grouped(fixture.confirmationCode))
+    }
+
+    @Test
+    func pairConfirmation_qrAcceptance_pairedStateNamesThePhone() throws {
+        let viewModel = try Self.makeViewModel(displayName: "Pixel 9")
+        #expect(viewModel.pairedStateText == "Pixel 9 is ready.")
     }
 
     @Test
@@ -116,8 +122,8 @@ struct PairConfirmationViewModelTests {
         let bidiName = "\u{202E}evil\u{202C}Pixel"
         let viewModel = try Self.makeViewModel(displayName: bidiName)
 
-        #expect(!viewModel.title.unicodeScalars.contains { $0.value == 0x202E })
-        #expect(!viewModel.title.unicodeScalars.contains { $0.value == 0x202C })
+        #expect(!viewModel.subject.unicodeScalars.contains { $0.value == 0x202E })
+        #expect(!viewModel.subject.unicodeScalars.contains { $0.value == 0x202C })
     }
 
     @Test
@@ -271,7 +277,6 @@ struct PairConfirmationViewModelTests {
 
     private static func makeViewModel(
         displayName: String = "Pixel 8",
-        model: String = "Google Pixel 8",
         fixture: Fixture? = nil,
         window: PairingWindow? = nil,
         token: PairingCandidateToken? = nil,
@@ -288,7 +293,6 @@ struct PairConfirmationViewModelTests {
         }
         return PairConfirmationViewModel(
             displayNameBytes: Data(displayName.utf8),
-            modelBytes: Data(model.utf8),
             confirmationCode: fixture.confirmationCode,
             handshakeSpkiDer: fixture.phoneSpkiDer,
             window: resolvedWindowAndToken.window,

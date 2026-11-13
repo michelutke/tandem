@@ -40,10 +40,15 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     public static let defaultAction: PairConfirmationAction = .dontPair
     public static let escapeAction: PairConfirmationAction = .dontPair
 
-    /// "Pair {sanitized displayName}?" -- e.g. "Pair Pixel 8?".
-    public let title: String
-    /// "{sanitized model} · Make sure your phone shows {code grouped as XXX XXX}".
-    public let bodyText: String
+    /// "{sanitized displayName}." -- e.g. "Pixel 8.", line 1 of the title pair.
+    public let subject: String
+    /// Line 2 of the title pair (`docs/design/ui-spec.md` §10 `pair.confirm`).
+    public let stateText = "Same code on both?"
+    /// The confirmation code grouped as "XXX XXX", shown as the display numeral.
+    public let groupedCode: String
+    /// Sanitized phone name; the manual flow carries no `DeviceInfo`, so there it is a fixed
+    /// placeholder that ``pairedStateText`` never shows.
+    public let peerName: String
 
     private let window: PairingWindow
     private let token: PairingCandidateToken
@@ -64,7 +69,6 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     /// - Parameters:
     ///   - displayNameBytes: The phone's raw `DeviceInfo.display_name` UTF-8 bytes, untrusted and
     ///     sanitized here (`docs/protocol/SPEC.md` "Untrusted peer strings").
-    ///   - modelBytes: The phone's raw `DeviceInfo.model` UTF-8 bytes, sanitized the same way.
     ///   - confirmationCode: The 6-digit code, already computed by the caller from
     ///     `TandemCrypto.ConfirmationCode` over this candidate's stored `PairChallenge` (D-67) --
     ///     this type only formats it for display, it never derives it.
@@ -88,7 +92,6 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     connection's now-trusted session (e.g. `ControlSessionRegistry`) promptly.
     public init(
         displayNameBytes: Data,
-        modelBytes: Data,
         confirmationCode: String,
         handshakeSpkiDer: Data,
         window: PairingWindow,
@@ -102,9 +105,9 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         acceptance: PairAcceptance = .qrCode
     ) {
         let sanitizedDisplayName = DisplayStringSanitizer.sanitize(displayNameBytes, kind: .name)
-        let sanitizedModel = DisplayStringSanitizer.sanitize(modelBytes, kind: .name)
-        self.title = "Pair \(sanitizedDisplayName)?"
-        self.bodyText = "\(sanitizedModel) · Make sure your phone shows \(Self.grouped(confirmationCode))"
+        self.subject = "\(sanitizedDisplayName)."
+        self.groupedCode = Self.grouped(confirmationCode)
+        self.peerName = sanitizedDisplayName
         self.sanitizedDisplayName = sanitizedDisplayName
         self.window = window
         self.token = token
@@ -116,6 +119,14 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         self.onResolved = onResolved
         self.onPaired = onPaired
         self.acceptance = acceptance
+    }
+
+    /// Line 2 of the "Paired." screen (`pair.paired`); a manual pairing has no phone name to show.
+    public var pairedStateText: String {
+        switch acceptance {
+        case .qrCode: "\(peerName) is ready."
+        case .manual: "Your phone is ready."
+        }
     }
 
     /// `true` once this dialog has resolved by any path (accept, deny, dismiss, or the connection
