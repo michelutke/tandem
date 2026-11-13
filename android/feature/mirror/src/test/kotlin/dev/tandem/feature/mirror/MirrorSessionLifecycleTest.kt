@@ -93,13 +93,15 @@ class MirrorSessionLifecycleTest {
         executor.shutdownNow()
     }
 
-    private fun lifecycle(stream: RecordingStream): MirrorSessionLifecycle {
+    private val scopeJob = Job()
+
+    private fun lifecycle(
+        stream: RecordingStream,
+        factory: EncoderFactory = EncoderFactory { _, _ -> encoder },
+    ): MirrorSessionLifecycle {
         val pipeline =
             EncodePipeline(
-                encoderFactory =
-                    EncoderFactory { _, _ ->
-                        encoder
-                    },
+                encoderFactory = factory,
                 capture = capture,
                 config = EncoderConfigBuilder.build(),
                 stream = stream,
@@ -113,7 +115,7 @@ class MirrorSessionLifecycleTest {
                     indicatorStops.incrementAndGet()
                     indicatorNotified.countDown()
                 },
-            scope = CoroutineScope(Dispatchers.Unconfined + Job()),
+            scope = CoroutineScope(Dispatchers.Unconfined + scopeJob),
         ).also { it.start() }
     }
 
@@ -126,6 +128,18 @@ class MirrorSessionLifecycleTest {
         assertEquals(1, capture.stops.get())
         assertEquals(1, stream.closes.get())
         assertEquals(1, indicatorStops.get())
+    }
+
+    @Test
+    fun mirrorSessionLifecycle_pipelineThrowsRuntimeException_releasesAndNotifiesIndicator() {
+        val stream = RecordingStream()
+        lifecycle(stream, EncoderFactory { _, _ -> error("codec configure failed") })
+
+        awaitStopped()
+
+        assertEquals(1, indicatorStops.get())
+        assertEquals(1, stream.closes.get())
+        assertTrue(scopeJob.isActive)
     }
 
     @Test

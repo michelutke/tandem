@@ -2,6 +2,7 @@ package dev.tandem.feature.mirror
 
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -42,6 +43,10 @@ class MirrorSessionLifecycle(
                 pipeline.run()
             } catch (_: IOException) {
                 // media connection dropped; released below
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: RuntimeException) {
+                // codec or display failure; released below, the caller rearms for the next request
             } finally {
                 stop()
             }
