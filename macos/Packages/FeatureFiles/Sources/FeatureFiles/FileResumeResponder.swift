@@ -15,6 +15,10 @@ public actor FileResumeResponder {
         senders[id] = sender
     }
 
+    func remove(id: String) {
+        senders.removeValue(forKey: id)
+    }
+
     public func handle(resume: Tandem_V1_FileResumeRequest) async {
         guard let sender = senders[resume.id], await !sender.isCancelled else {
             var reject = Tandem_V1_FileReject()

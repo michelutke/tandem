@@ -86,7 +86,6 @@ public final class PhotoGridViewModel {
     }
 
     public func download(id: String) async {
-        guard downloadStates[id] != .downloading else { return }
         let transferId = makeTransferID()
         pendingOriginals[transferId] = id
         downloadStates[id] = .downloading
@@ -108,6 +107,11 @@ public final class PhotoGridViewModel {
     public func originalTransferFinished(transferId: String) {
         guard let photoId = pendingOriginals.removeValue(forKey: transferId) else { return }
         downloadStates[photoId] = .downloaded
+    }
+
+    public func originalTransferFailed(transferId: String) async {
+        guard let photoId = pendingOriginals[transferId] else { return }
+        await failDownload(transferId: transferId, photoId: photoId)
     }
 
     private func failDownload(transferId: String, photoId: String) async {

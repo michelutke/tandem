@@ -32,7 +32,7 @@ public actor FilesChannelRouter {
         switch payload {
         case .fileOffer(let offer): await handle(offer)
         case .fileAccept(let accept): await transfers.handle(accept: accept)
-        case .fileReject(let reject): await transfers.handle(reject: reject)
+        case .fileReject(let reject): await handle(reject)
         case .fileChunk(let chunk): await handle(chunk)
         case .fileComplete(let complete): await handle(complete)
         case .fileCancel(let cancel): await handle(cancel)
@@ -53,6 +53,8 @@ public actor FilesChannelRouter {
     /// Fails outstanding photo requests; called once the FILES stream has finished.
     public func sessionEnded() async {
         await photos.cancelAll()
+        await receiver.sessionEnded()
+        await transfers.sessionEnded()
     }
 
     private func handle(_ offer: Tandem_V1_FileOffer) async {
@@ -67,9 +69,19 @@ public actor FilesChannelRouter {
     }
 
     private func handle(_ complete: Tandem_V1_FileComplete) async {
+        _ = await isReceiving(complete.id)
         await receiver.handle(complete: complete)
         await acceptFlow.transferEnded(id: complete.id)
         forget(complete.id)
+    }
+
+    private func handle(_ reject: Tandem_V1_FileReject) async {
+        var cancel = Tandem_V1_FileCancel()
+        cancel.id = reject.id
+        cancel.reason = reject.reason
+        await receiver.handle(cancel: cancel)
+        await acceptFlow.transferEnded(id: reject.id)
+        await transfers.handle(reject: reject)
     }
 
     private func handle(_ cancel: Tandem_V1_FileCancel) async {

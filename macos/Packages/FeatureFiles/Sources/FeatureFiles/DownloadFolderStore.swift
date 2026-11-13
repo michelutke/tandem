@@ -101,6 +101,11 @@ public final class DownloadFolderStore: DestinationResolving, @unchecked Sendabl
         chosenFolder() != nil
     }
 
+    /// True when a folder was chosen but its bookmark no longer resolves, so `current` is the default folder.
+    public var isFallingBackToDefault: Bool {
+        storage.load() != nil && chosenFolder() == nil
+    }
+
     /// Persists `url` as the download folder; call with the URL an open panel returned.
     public func choose(_ url: URL) throws {
         storage.save(try bookmarking.makeBookmark(for: url))

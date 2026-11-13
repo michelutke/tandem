@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 import TandemProtocol
+import TandemStore
 @testable import FeatureFiles
 
 private let chunkSize = 262_144
@@ -124,8 +125,49 @@ private func resumeAndFinish(
     return payloads.compactMap { if case .fileChunk(let chunk) = $0 { chunk } else { nil } }
 }
 
+private final class ResumeRecorder: TransferProgressReporting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [String] = []
+
+    var events: [String] { lock.withLock { recorded } }
+
+    func began(
+        id: String,
+        name: String,
+        totalBytes: Int64,
+        direction: TransferDirection,
+        cancel: @escaping @Sendable () async -> Void
+    ) async {
+        lock.withLock { recorded.append("began \(id) \(totalBytes)") }
+    }
+
+    func delivered(id: String, bytes: Int64) async {
+        lock.withLock { recorded.append("delivered \(id) \(bytes)") }
+    }
+
+    func ended(id: String, outcome: TransferOutcome, savedFile: URL?) async {
+        lock.withLock { recorded.append("ended \(id)") }
+    }
+}
+
 @Suite("Resume")
 struct FileResumeTests {
+    @Test
+    func macosReceiver_resumeRetained_reportsRowWithBoundaryProgress() async throws {
+        let rig = try Rig(size: 4 * chunkSize)
+        defer { rig.cleanUp() }
+        try await rig.severed(afterChunks: 2)
+        let recorder = ResumeRecorder()
+        let receiver = FileReceiver(
+            session: FakeTandemSession(), directories: rig.directories, sink: FileHandleSink(),
+            peer: "peer-a", now: { Date(timeIntervalSince1970: 0) }, progress: recorder
+        )
+
+        await receiver.resumeRetained()
+
+        #expect(recorder.events == ["began t1 \(4 * chunkSize)", "delivered t1 \(2 * chunkSize)"])
+    }
+
     @Test
     func macosResume_severedAt40MiB_resumeRequestFromOffset40MiB() async throws {
         let rig = try Rig(size: 64 * mebibyte)

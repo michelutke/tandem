@@ -169,4 +169,30 @@ struct PhotoGridViewModelDownloadTests {
 
         #expect(viewModel.downloadStates["photo-3"] == .downloaded)
     }
+
+    @Test func photoGrid_originalOfferRejected_stateFailedAndRetryAllowed() async {
+        let service = FakePhotoService()
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+        await viewModel.download(id: "photo-3")
+
+        await viewModel.originalTransferFailed(transferId: "xfer-1")
+        #expect(viewModel.downloadStates["photo-3"] == .failed)
+        #expect(await expecting.forgotten == ["xfer-1"])
+
+        await viewModel.download(id: "photo-3")
+        #expect(await service.originalRequests.count == 2)
+        #expect(viewModel.downloadStates["photo-3"] == .downloading)
+    }
+
+    @Test func photoGrid_download_expectsOriginalOnAcceptFlow() async {
+        let expecting = RecordingOfferExpecting()
+        let active = ActivePhotoService()
+        active.attach(FakePhotoService(), offers: expecting)
+        let viewModel = PhotoGridViewModel(service: active, offerExpecting: active, makeTransferID: { "xfer-9" })
+
+        await viewModel.download(id: "photo-1")
+
+        #expect(await expecting.expected == ["xfer-9"])
+    }
 }

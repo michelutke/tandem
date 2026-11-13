@@ -107,6 +107,11 @@ public actor AcceptFlow: OriginalOfferExpecting {
         active.contains(id)
     }
 
+    /// Counts a transfer the receiver resumed from a retained `.part` towards the active-transfer cap.
+    public func transferResumed(id: String) {
+        active.insert(id)
+    }
+
     /// Frees the active-transfer slot taken by an accepted offer once its transfer finishes.
     public func transferEnded(id: String) {
         active.remove(id)

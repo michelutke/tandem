@@ -211,4 +211,18 @@ import TandemTestSupport
 
         #expect(harness.fileURLs().isEmpty)
     }
+
+    @Test func thumbnailCache_pngDeclaring20000px_notStored() async throws {
+        let harness = try Harness()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let peer = try Self.fingerprint(0x01)
+        let header = Data([0x00, 0x00, 0x00, 0x0D]) + Data("IHDR".utf8)
+            + Data([0x00, 0x00, 0x4E, 0x20, 0x00, 0x00, 0x4E, 0x20, 0x08, 0x02, 0x00, 0x00, 0x00])
+        let bomb = Self.pngSignature + header + Data(repeating: 0x01, count: 1024) + Self.pngTrailer
+
+        await harness.cache.store(bomb, peer: peer, id: "bomb", maxPx: 256)
+
+        #expect(await harness.cache.data(peer: peer, id: "bomb", maxPx: 256) == nil)
+        #expect(harness.fileURLs().isEmpty)
+    }
 }

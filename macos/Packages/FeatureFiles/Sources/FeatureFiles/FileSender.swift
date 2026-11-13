@@ -13,6 +13,7 @@ public actor FileSender: FilesFrameStream {
         case idle
         case offered
         case sending
+        case completing
         case completed
         case rejected(Tandem_V1_TransferReason)
         case cancelled(Tandem_V1_TransferReason)
@@ -119,7 +120,7 @@ public actor FileSender: FilesFrameStream {
     }
 
     public func handle(cancel: Tandem_V1_FileCancel) async {
-        guard cancel.id == id, state == .offered || state == .sending else { return }
+        guard cancel.id == id, [.offered, .sending, .completing].contains(state) else { return }
         state = .cancelled(cancel.reason)
         reader = nil
         await progress?.ended(id: id, outcome: TransferOutcome(reason: cancel.reason))
@@ -133,13 +134,17 @@ public actor FileSender: FilesFrameStream {
     }
 
     public func nextFrame() async -> Tandem_V1_Envelope.OneOf_Payload? {
+        if state == .completing {
+            state = .completed
+            await progress?.ended(id: id, outcome: .completed)
+            return nil
+        }
         guard state == .sending else { return nil }
         let offset = nextSeq * UInt64(Self.chunkSize)
         if offset >= size {
-            state = .completed
+            state = .completing
             var complete = Tandem_V1_FileComplete()
             complete.id = id
-            await progress?.ended(id: id, outcome: .completed)
             return .fileComplete(complete)
         }
         guard let data = readChunk(at: offset) else {
@@ -155,6 +160,23 @@ public actor FileSender: FilesFrameStream {
         nextSeq += 1
         await progress?.delivered(id: id, bytes: Int64(offset) + Int64(data.count))
         return .fileChunk(chunk)
+    }
+
+    public func sendFailed() async {
+        guard state == .sending || state == .completing else { return }
+        await fail(reason: "send failed")
+    }
+
+    /// The session ended while this transfer was still in flight.
+    public func disconnected() async {
+        guard [.offered, .sending, .completing].contains(state) else { return }
+        await fail(reason: "disconnected")
+    }
+
+    private func fail(reason: String) async {
+        state = .failed
+        reader = nil
+        await progress?.ended(id: id, outcome: .failed(reason: reason))
     }
 
     private func cancelResume(_ reason: Tandem_V1_TransferReason) async {

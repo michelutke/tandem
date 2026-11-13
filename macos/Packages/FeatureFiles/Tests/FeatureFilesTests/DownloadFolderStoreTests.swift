@@ -117,4 +117,16 @@ private final class FakeBookmarking: FolderBookmarking, @unchecked Sendable {
 
         #expect(store.current == defaultFolder)
     }
+
+    @Test func downloadFolderStore_bookmarkResolveFails_reportsFallbackToDefault() throws {
+        let store = makeStore()
+        try store.choose(chosen)
+
+        #expect(store.isFallingBackToDefault)
+        #expect(store.current == defaultFolder)
+    }
+
+    @Test func downloadFolderStore_nothingChosen_notReportedAsFallback() {
+        #expect(!makeStore().isFallingBackToDefault)
+    }
 }

@@ -16,6 +16,7 @@ public actor ThumbnailCache: PeerDataPurging {
     private static let pngTrailer = Data([
         0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
     ])
+    private static let maxDimensionPx: UInt32 = 512
     private static var ownerOnlyFile: [FileAttributeKey: Any] { [.posixPermissions: 0o600] }
     private static var ownerOnlyDirectory: [FileAttributeKey: Any] { [.posixPermissions: 0o700] }
 
@@ -67,7 +68,7 @@ public actor ThumbnailCache: PeerDataPurging {
     /// the total is within the cap. Bytes that are not a complete PNG, or larger than the cap, are
     /// not stored. Best effort: a write failure just leaves the thumbnail uncached.
     public func store(_ bytes: Data, peer: SpkiFingerprint, id: String, maxPx: UInt32) {
-        guard Self.isCompletePNG(bytes), bytes.count <= capBytes else { return }
+        guard Self.isCompletePNG(bytes), Self.isWithinDimensionCap(bytes), bytes.count <= capBytes else { return }
         let url = fileURL(peer: peer, id: id, maxPx: maxPx)
         do {
             try fileManager.createDirectory(
@@ -151,6 +152,17 @@ public actor ThumbnailCache: PeerDataPurging {
 
     private static func indexKey(_ url: URL) -> String {
         url.resolvingSymlinksInPath().path
+    }
+
+    /// False when the PNG's IHDR declares a width or height of 0 or above 512 px (decode-bomb guard).
+    static func isWithinDimensionCap(_ bytes: Data) -> Bool {
+        let ihdrRange = 12..<16
+        let sizeRange = 16..<24
+        guard bytes.count >= sizeRange.upperBound, bytes[ihdrRange] == Data("IHDR".utf8) else { return true }
+        let header = Data(bytes[sizeRange])
+        let width = header.prefix(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
+        let height = header.suffix(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
+        return (1...maxDimensionPx).contains(width) && (1...maxDimensionPx).contains(height)
     }
 
     private static func isCompletePNG(_ bytes: Data) -> Bool {
