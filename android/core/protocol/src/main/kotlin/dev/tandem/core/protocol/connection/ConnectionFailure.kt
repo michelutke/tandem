@@ -14,6 +14,12 @@ sealed class ConnectionFailure {
      */
     data object Timeout : ConnectionFailure()
 
+    /** The peer's protocol `major` differs from ours (SPEC.md close code `VERSION_MISMATCH`). */
+    data object VersionMismatch : ConnectionFailure()
+
+    /** This phone's identity key is missing or unreadable while a Mac is paired; nothing can be dialed. */
+    data object IdentityUnavailable : ConnectionFailure()
+
     /**
      * Any other handshake or hello-exchange failure reported to this machine via
      * [ConnectionEvent.HandshakeError] (e.g. a TLS failure, or a [message] translated from a
@@ -35,5 +41,9 @@ val ConnectionFailure.closeCode: CloseCode?
     get() =
         when (this) {
             ConnectionFailure.Timeout -> CloseCode.PROTOCOL_TIMEOUT
-            is ConnectionFailure.HandshakeError -> null
+
+            ConnectionFailure.VersionMismatch,
+            ConnectionFailure.IdentityUnavailable,
+            is ConnectionFailure.HandshakeError,
+            -> null
         }

@@ -5,9 +5,11 @@ import dev.tandem.core.protocol.CloseCode
 import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
+import dev.tandem.core.protocol.FrameTooLargeException
 import dev.tandem.core.protocol.MalformedFrameReason
 import dev.tandem.core.protocol.flowcontrol.CreditCaps
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.ClipboardText
 import dev.tandem.protocol.v1.DeviceStatus
 import dev.tandem.protocol.v1.Envelope
 import dev.tandem.protocol.v1.EnvelopeKt
@@ -17,6 +19,7 @@ import dev.tandem.protocol.v1.envelope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -268,6 +271,169 @@ class ChannelMultiplexerFlowControlTest {
                 MultiplexerClose.Violation(CloseCode.MALFORMED_FRAME, MalformedFrameReason.UNKNOWN_CHANNEL),
                 close,
             )
+        }
+
+    @Test
+    fun flowControl_fullCapBacklogConsumedWithNoNewArrivals_noThrowAndInboundStaysOpen() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            val b = ChannelMultiplexer(pipe.sourceB, pipe.sinkB)
+            backgroundScope.launch { a.start() }
+            backgroundScope.launch { b.start() }
+
+            repeat(CreditCaps.PROTOCOL_MAX) {
+                a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            }
+            withTimeout(5.seconds) { b.received.take(CreditCaps.PROTOCOL_MAX).collect {} }
+
+            b.inbound(Channel.CHANNEL_FILES).test {
+                repeat(CreditCaps.PROTOCOL_MAX) { awaitItem() }
+                advanceUntilIdle()
+                a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun flowControl_stalledConsumerFastSender_inboundBacklogNeverExceedsCap() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val sinkA = RecordingSink(pipe.sinkA)
+            val a = ChannelMultiplexer(pipe.sourceA, sinkA)
+            val b = ChannelMultiplexer(pipe.sourceB, pipe.sinkB)
+            backgroundScope.launch { a.start() }
+            backgroundScope.launch { b.start() }
+            backgroundScope.launch {
+                repeat(CreditCaps.PROTOCOL_MAX * 3) {
+                    a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+                }
+            }
+            advanceUntilIdle()
+
+            var consumed = 0
+            repeat(3) {
+                withTimeout(5.seconds) {
+                    b.inbound(Channel.CHANNEL_FILES).take(CreditCaps.PROTOCOL_MAX / 2).collect {}
+                }
+                consumed += CreditCaps.PROTOCOL_MAX / 2
+                advanceUntilIdle()
+                val arrived = sinkA.frames.count { it.channel == Channel.CHANNEL_FILES }
+                assertTrue(
+                    arrived - consumed <= CreditCaps.PROTOCOL_MAX,
+                    "backlog ${arrived - consumed} exceeds cap after $consumed consumed",
+                )
+            }
+        }
+
+    @Test
+    fun flowControl_grantAmountNearIntMax_closesWithCreditViolation() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            backgroundScope.launch { a.start() }
+            a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+
+            pipe.injectTowardsA(
+                rawFrame(Channel.CHANNEL_CONTROL, seq = 1) {
+                    this.creditGrant =
+                        creditGrant {
+                            this.channel = Channel.CHANNEL_FILES
+                            this.amount = Int.MAX_VALUE
+                        }
+                },
+            )
+
+            val close = withTimeout(5.seconds) { a.closeReason.await() }
+            assertEquals(MultiplexerClose.CreditViolation(Channel.CHANNEL_FILES), close)
+        }
+
+    @Test
+    fun flowControl_grantAmountAboveSignedIntRange_closesWithCreditViolation() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            backgroundScope.launch { a.start() }
+            a.send(Channel.CHANNEL_FILES) { deviceStatus = DeviceStatus.getDefaultInstance() }
+
+            pipe.injectTowardsA(
+                rawFrame(Channel.CHANNEL_CONTROL, seq = 1) {
+                    this.creditGrant =
+                        creditGrant {
+                            this.channel = Channel.CHANNEL_FILES
+                            this.amount = -1
+                        }
+                },
+            )
+
+            val close = withTimeout(5.seconds) { a.closeReason.await() }
+            assertEquals(MultiplexerClose.CreditViolation(Channel.CHANNEL_FILES), close)
+        }
+
+    @Test
+    fun multiplexer_sendEnvelopeOverOneMiB_throwsToCallerAndConnectionStaysOpen() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val sinkB = RecordingSink(pipe.sinkB)
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+            val b = ChannelMultiplexer(pipe.sourceB, sinkB)
+            backgroundScope.launch { a.start() }
+            backgroundScope.launch { b.start() }
+
+            val oversized = "x".repeat(FrameEncoder.MAX_ENVELOPE_BYTES + 1)
+            val failure =
+                runCatching {
+                    a.send(Channel.CHANNEL_CLIPBOARD) {
+                        clipboardText = ClipboardText.newBuilder().setText(oversized).build()
+                    }
+                }.exceptionOrNull()
+            assertTrue(failure is FrameTooLargeException, "expected FrameTooLargeException, got: $failure")
+
+            a.send(Channel.CHANNEL_CLIPBOARD) { deviceStatus = DeviceStatus.getDefaultInstance() }
+            b.inbound(Channel.CHANNEL_CLIPBOARD).test {
+                assertEquals(1L, awaitItem().seq)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertTrue(!a.closeReason.isCompleted)
+        }
+
+    @Test
+    fun multiplexer_sendAndAwaitWritten_returnsOnlyAfterSinkWriteCompleted() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val gatedSink = GatedSink(pipe.sinkA)
+            val a = ChannelMultiplexer(pipe.sourceA, gatedSink)
+            backgroundScope.launch { a.start() }
+
+            val flushed =
+                launch { a.sendAndAwaitWritten(Channel.CHANNEL_CONTROL) { heartbeat = Heartbeat.getDefaultInstance() } }
+            withTimeout(5.seconds) { gatedSink.awaitFirstWriteStarted() }
+            advanceTimeBy(1.seconds)
+            assertTrue(flushed.isActive, "still suspended: the sink has not finished writing the frame")
+
+            gatedSink.release()
+            withTimeout(5.seconds) { flushed.join() }
+
+            assertEquals(1, gatedSink.writes.size)
+        }
+
+    @Test
+    fun multiplexer_sendAndAwaitWrittenThenClose_throwsMultiplexerClosedException() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val a = ChannelMultiplexer(pipe.sourceA, pipe.sinkA)
+
+            a.close()
+
+            val failure =
+                runCatching {
+                    a.sendAndAwaitWritten(Channel.CHANNEL_CONTROL) {
+                        heartbeat =
+                            Heartbeat.getDefaultInstance()
+                    }
+                }.exceptionOrNull()
+            assertTrue(failure is MultiplexerClosedException, "got: $failure")
         }
 
     private companion object {

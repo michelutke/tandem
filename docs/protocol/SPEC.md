@@ -772,10 +772,14 @@ independently by each side for its own outgoing direction:
   `CreditGrant` for a channel each time that channel's outstanding grant to its peer is consumed
   (per the rule above) down to half of the channel's cap or fewer — i.e. at the moment cumulative
   consumption since the last grant (or since the initial grant, if none has been sent yet) first
-  crosses the halfway point, not on every frame consumed after that. `amount` MUST restore the peer's
-  balance to exactly the channel's cap, never above it. The trigger then re-arms against this new,
-  fully-replenished balance, so it fires again the next time consumption crosses that channel's
-  halfway point.
+  crosses the halfway point, not on every frame consumed after that. `amount` MUST equal the credits
+  consumed since the previous grant (or since the initial grant), so that the peer's balance plus the
+  frames still waiting in this receiver's decoder→consumer buffer never exceeds the channel's cap
+  (`amount` is therefore always at least 1 and never above the cap; D-84). Topping the peer up to
+  the cap regardless of that backlog is not permitted, because it lets the buffer grow past
+  `cap` × 1 MiB. The trigger then re-arms against the credits consumed after this grant, so it fires
+  again the next time consumption since this grant crosses that channel's halfway point. A sender
+  reads `amount` as an unsigned 32-bit value.
 - **Grant beyond the cap.** A `CreditGrant.amount` that would take the receiving side's own balance
   for that channel above its chosen cap is a protocol violation, not a local bookkeeping adjustment:
   the credit ledger MUST report the overflow rather than silently absorbing it, and the multiplexer

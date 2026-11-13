@@ -69,7 +69,8 @@ class CreditLedger(
     }
 
     /**
-     * Applies a `CreditGrant.amount` of [amount] credits received from the peer.
+     * Applies a `CreditGrant.amount` of [amount] credits received from the peer. [amount] is a [Long]
+     * so the unsigned 32-bit wire value never wraps.
      *
      * @throws IllegalArgumentException if [amount] is not positive. SPEC.md treats a
      *   `CreditGrant.amount` of 0 as a well-formed no-op, not a violation — the caller (E11-07)
@@ -77,11 +78,11 @@ class CreditLedger(
      *   pure-accounting layer to special-case it; a negative amount never occurs on the wire
      *   (`amount` is unsigned) and indicates a caller bug.
      */
-    fun applyGrant(amount: Int): GrantResult {
+    fun applyGrant(amount: Long): GrantResult {
         require(amount > 0) { "grant amount must be positive, was $amount" }
         val newBalance = balance + amount
         if (newBalance > cap) return GrantResult.Overflow
-        balance = newBalance
+        balance = newBalance.toInt()
         return GrantResult.Ok(balance)
     }
 }

@@ -67,6 +67,14 @@ class ConnectionStateMachine(
                 ConnectionState.Failed(ConnectionFailure.HandshakeError(event.message))
             }
 
+            ConnectionEvent.VersionMismatch -> {
+                ConnectionState.Failed(ConnectionFailure.VersionMismatch)
+            }
+
+            ConnectionEvent.HelloTimeout -> {
+                ConnectionState.Failed(ConnectionFailure.Timeout)
+            }
+
             ConnectionEvent.Connect -> {
                 if (current is ConnectionState.Disconnected) ConnectionState.Connecting else null
             }
@@ -91,7 +99,13 @@ class ConnectionStateMachine(
     private fun applyDeadline(event: ConnectionEvent) {
         when (event) {
             ConnectionEvent.Connect -> armDeadline()
-            ConnectionEvent.HandshakeCompleted, is ConnectionEvent.HandshakeError -> disarmDeadline()
+
+            ConnectionEvent.HandshakeCompleted,
+            ConnectionEvent.VersionMismatch,
+            ConnectionEvent.HelloTimeout,
+            is ConnectionEvent.HandshakeError,
+            -> disarmDeadline()
+
             else -> Unit
         }
     }
