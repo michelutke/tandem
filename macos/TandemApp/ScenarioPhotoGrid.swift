@@ -14,6 +14,14 @@ extension ScenarioView {
     }
 }
 
+extension ScenarioView {
+    /// A phone that shares no photos (E41-05): the "hasn't shared photos" state shows.
+    @MainActor
+    static func makePhotosNoAccessView() -> some View {
+        ScenarioPhotoGridHost { SeededNoAccessPhotoService() }
+    }
+}
+
 /// Holds the grid's view model in `@State`: the scenario root re-evaluates its body, and a view
 /// model built inline would restart loading every time.
 private struct ScenarioPhotoGridHost<Service: PhotoService>: View {
@@ -24,7 +32,7 @@ private struct ScenarioPhotoGridHost<Service: PhotoService>: View {
     }
 
     var body: some View {
-        PhotoGridView(viewModel: viewModel)
+        PhotoGridView(viewModel: viewModel, deviceName: ScenarioView.pairedConnectedPeerName)
     }
 }
 
@@ -63,6 +71,20 @@ private struct Seeded10kPhotoService: PhotoService {
     }
 
     func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Self.thumbnail }
+
+    func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
+}
+
+private struct SeededNoAccessPhotoService: PhotoService {
+    func fetchPage(cursor: String, limit: UInt32) async throws -> Tandem_V1_PhotoPageResult {
+        var result = Tandem_V1_PhotoPageResult()
+        result.access = .none
+        return result
+    }
+
+    func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Data() }
 
     func requestMorePhotos() async throws {}
 

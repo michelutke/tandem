@@ -38,7 +38,10 @@ final class AlertCallPresenter: CallAlertPresenter {
         let choice = GlassDialog.runModal(
             title: title,
             message: body,
-            actions: [GlassDialogAction("Answer", kind: .primary), GlassDialogAction("Decline")]
+            actions: [
+                GlassDialogAction("Answer", kind: .primary),
+                GlassDialogAction("Decline", isSafeDefault: true)
+            ]
         )
         showingId = nil
         switch choice {

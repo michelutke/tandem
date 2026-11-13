@@ -18,13 +18,13 @@ final class ScenarioFailClosedErrorBannerUITests: XCTestCase {
         XCTAssertEqual(displayText, "Pixel 8 runs an incompatible Tandem version. Update both apps.")
 
         // The banner has no timer of its own (unit: errorBannerViewModel_after1hWithoutAck_bannerStillShown
-        // proves this with virtual time); here it just still needs to be present a moment later.
-        XCTAssertTrue(banner.exists, "banner should still be shown before OK is tapped")
-
-        let okButton = window.buttons["failClosedBannerOkButton"]
-        XCTAssertTrue(okButton.waitForExistence(timeout: 10))
-        okButton.click()
-
-        XCTAssertFalse(banner.waitForExistence(timeout: 5), "banner should be dismissed after OK is tapped")
+        // proves this with virtual time); it stays until the session is ready again and offers the
+        // next step instead of an OK button.
+        XCTAssertTrue(banner.exists, "banner should still be shown")
+        XCTAssertTrue(
+            window.buttons["failClosedBannerUpdateButton"].waitForExistence(timeout: 10),
+            "version mismatch banner should offer Check for update"
+        )
+        XCTAssertFalse(window.buttons["failClosedBannerOkButton"].exists, "banner must not offer OK")
     }
 }

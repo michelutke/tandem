@@ -5,9 +5,9 @@ import TandemProtocol
 /// A persistent, secret-free banner for a fail-closed connection (E22-07, invariant 5): each of
 /// pin mismatch, unknown peer, and version mismatch shows its own exact text naming the peer where
 /// known (backlog E22-07 "UI strings (exact)"). Once shown, the banner is dismissed only by
-/// ``dismiss()`` -- there is no timer or other automatic dismissal, proved by
-/// `errorBannerViewModel_after1hWithoutAck_bannerStillShown` advancing a `ManualTestClock` (E00-24)
-/// by an hour of virtual time with no effect.
+/// ``dismiss()`` or the session becoming ready again -- there is no timer or other automatic
+/// dismissal, proved by `errorBannerViewModel_after1hWithoutAck_bannerStillShown` advancing a
+/// `ManualTestClock` (E00-24) by an hour of virtual time with no effect.
 ///
 /// Structurally secret-free by construction: this type only ever observes
 /// ``ConnectionStateMachine/ConnectionState/failed(_:)``'s ``CloseCode`` (a plain, payload-free
@@ -81,8 +81,24 @@ final class ErrorBannerViewModel {
         }
     }
 
+    /// The banner's title line: "Update needed.", "Key changed." for a known peer, else "Blocked.".
+    var title: String {
+        switch closeCode {
+        case .versionMismatch: "Update needed."
+        case .pinMismatch where peerName != nil: "Key changed."
+        default: "Blocked."
+        }
+    }
+
+    /// `true` while the latest fail-closed event stands (ui-spec §8: "sections disabled"); cleared
+    /// once the session is ready again.
+    var blocksSections: Bool { closeCode != nil }
+
     private func apply(_ connectionState: ConnectionStateMachine.ConnectionState) {
-        if case .ready = connectionState { closeCode = nil }
+        if case .ready = connectionState {
+            closeCode = nil
+            message = nil
+        }
         guard case .failed(let closeCode) = connectionState,
               let text = Self.message(for: closeCode, peerName: peerName) else { return }
         self.closeCode = closeCode

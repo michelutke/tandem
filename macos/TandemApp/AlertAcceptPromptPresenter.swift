@@ -61,7 +61,10 @@ final class AlertAcceptPromptPresenter: AcceptPromptPresenter {
         let choice = GlassDialog.runModal(
             title: "Incoming file",
             message: "\(offer.name) (\(formattedSize))",
-            actions: [GlassDialogAction("Accept", kind: .primary), GlassDialogAction("Decline")]
+            actions: [
+                GlassDialogAction("Accept", kind: .primary),
+                GlassDialogAction("Decline", isSafeDefault: true)
+            ]
         )
         switch choice {
         case 0:

@@ -98,8 +98,9 @@ private final class PairingCompositionState: @unchecked Sendable {
 }
 
 /// Opens the pairing window on "Pair phone…", swaps its QR for the confirmation dialog once a
-/// candidate's proof verifies, and closes it once the host's window is paired, cancelled, expired
-/// or declined. The owner closing it declines a pending confirmation, else cancels.
+/// candidate's proof verifies, then for the "Paired." screen once trust is committed, and closes it
+/// once the host's window is cancelled or declined. Expiry and exhausted attempts keep it open on
+/// their own screens. The owner closing it declines a pending confirmation, else cancels.
 @MainActor
 final class MacPairingPresenter: NSObject, NSWindowDelegate {
     private let composition: MacPairingComposition
@@ -107,6 +108,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
     private var windowController: PairingWindowController?
     private var watchTask: Task<Void, Never>?
     private var pendingConfirmation: PairConfirmationViewModel?
+    private var isShowingPaired = false
 
     init(composition: MacPairingComposition, clock: any Clock<Duration> = ContinuousClock()) {
         self.composition = composition
@@ -131,7 +133,10 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
             Task { await pending.ownerDidDismiss() }
         }
         guard let coordinator = try? (manual ? composition.host.openManual() : composition.host.open()) else {
-            _ = GlassDialog.runModal(title: "Pairing unavailable.", actions: [GlassDialogAction("OK", kind: .primary)])
+            _ = GlassDialog.runModal(
+                title: "Pairing unavailable.",
+                actions: [GlassDialogAction("OK", kind: .primary, isSafeDefault: true)]
+            )
             return
         }
         let controller = PairingWindowController(viewModel: coordinator.viewModel)
@@ -140,6 +145,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
         windowController?.close()
         windowController = controller
         pendingConfirmation = nil
+        isShowingPaired = false
         NSApp.activate()
         controller.showWindow(nil)
         watchWindow()
@@ -158,7 +164,21 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
         guard composition.generation.isCurrent(generation) else { return }
         pendingConfirmation = viewModel
         windowController?.window?.contentViewController = NSHostingController(
-            rootView: PairConfirmationView(viewModel: viewModel)
+            rootView: PairConfirmationView(viewModel: viewModel, onPaired: { [weak self] in
+                Task { @MainActor in self?.showPaired() }
+            })
+        )
+    }
+
+    private func showPaired() {
+        guard !isShowingPaired, let pending = pendingConfirmation, pending.isResolved, !pending.didFailToPair else {
+            return
+        }
+        isShowingPaired = true
+        windowController?.window?.contentViewController = NSHostingController(
+            rootView: PairedView(stateText: pending.pairedStateText, onDone: { [weak self] in
+                self?.windowController?.close()
+            })
         )
     }
 
@@ -169,7 +189,11 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
                 try? await clock.sleep(for: .seconds(1))
                 guard let self, !Task.isCancelled else { return }
                 let closedReason = self.composition.host.coordinator?.window.closedReason
-                if PairingWindowAutoClose.shouldClose(closedReason: closedReason) {
+                if closedReason == .paired { self.showPaired() }
+                let showingConfirmation = self.pendingConfirmation != nil
+                if PairingWindowAutoClose.shouldClose(
+                    closedReason: closedReason, showingConfirmation: showingConfirmation
+                ) {
                     self.windowController?.close()
                     return
                 }

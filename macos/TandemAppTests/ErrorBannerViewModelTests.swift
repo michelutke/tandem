@@ -154,4 +154,48 @@ struct ErrorBannerViewModelTests {
         #expect(await viewModel.closeCode == .versionMismatch)
         #expect(await viewModel.message == nil)
     }
+
+    // MARK: - title, blocking and recovery
+
+    @Test(arguments: [
+        (CloseCode.pinMismatch, "Pixel 8" as String?, "Key changed."),
+        (.pinMismatch, nil, "Blocked."),
+        (.versionMismatch, "Pixel 8", "Update needed.")
+    ])
+    func errorBannerViewModel_failure_titleNamesTheState(code: CloseCode, peer: String?, title: String) async throws {
+        let session = FakeTandemSession()
+        let viewModel = await ErrorBannerViewModel(stateStream: session.state, peerName: peer)
+
+        await session.emit(.failed(code))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.title == title)
+        #expect(await viewModel.blocksSections)
+    }
+
+    @Test
+    func errorBannerViewModel_failedThenReady_bannerClearedAndSectionsUnblocked() async throws {
+        let session = FakeTandemSession()
+        let viewModel = await ErrorBannerViewModel(stateStream: session.state, peerName: "Pixel 8")
+
+        await session.emit(.failed(.pinMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        await session.emit(.ready)
+        attempts = 0
+        while await viewModel.message != nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.message == nil)
+        #expect(await viewModel.blocksSections == false)
+    }
 }

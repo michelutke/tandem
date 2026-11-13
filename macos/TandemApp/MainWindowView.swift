@@ -41,9 +41,16 @@ struct MainWindowView: View {
 
             VStack(spacing: 0) {
                 if let services {
-                    ErrorBannerView(viewModel: services.errorBanner)
+                    ErrorBannerView(
+                        viewModel: services.errorBanner,
+                        onPairAgain: onPairPhone,
+                        onUnpair: { selectSection(titled: "Devices") },
+                        onCheckForUpdate: { WorkspaceURLOpener().openReleasePage() }
+                    )
                 }
                 content
+                    .disabled(blocksContent)
+                    .opacity(blocksContent ? 0.4 : 1)
             }
         }
         .frame(minWidth: 980, minHeight: 560)
@@ -53,6 +60,15 @@ struct MainWindowView: View {
         .onChange(of: services?.live.deviceStatus?.batteryPercent, initial: true) {
             viewModel.updateBatteryPercent(services?.live.deviceStatus?.batteryPercent)
         }
+    }
+
+    private var blocksContent: Bool {
+        (services?.errorBanner.blocksSections ?? false) && selectedSection?.title != "Devices"
+    }
+
+    private func selectSection(titled title: String) {
+        guard let section = MainWindowViewModel.sections.first(where: { $0.title == title }) else { return }
+        viewModel.select(section)
     }
 
     private func syncPeer() {
@@ -66,7 +82,10 @@ struct MainWindowView: View {
     @ViewBuilder
     private var content: some View {
         if let section = selectedSection, viewModel.isDisabled(section) {
-            SectionEmptyState(kind: .turnedOffOnPhone, identifier: "turnedOffEmptyState")
+            SectionEmptyState(
+                kind: .turnedOffOnPhone(section: section.title, deviceName: viewModel.deviceName),
+                identifier: "turnedOffEmptyState"
+            )
         } else if let section = selectedSection, let services {
             liveContent(section, services: services)
         } else if case .offline(let lastSeen) = viewModel.connectionState {
@@ -103,7 +122,7 @@ struct MainWindowView: View {
     @ViewBuilder
     private func connectedContent(_ section: MainWindowViewModel.Section, services: MainWindowServices) -> some View {
         switch section.title {
-        case "Photos": PhotoGridHost(service: services.photos)
+        case "Photos": PhotoGridHost(service: services.photos, deviceName: viewModel.deviceName)
         case "Calls": CallsSectionHost(services: services)
         default: TransfersSectionHost(services: services)
         }
@@ -117,7 +136,10 @@ struct MainWindowView: View {
 private struct PhotoGridHost: View {
     @State private var viewModel: PhotoGridViewModel
 
-    init(service: any PhotoService) {
+    private let deviceName: String
+
+    init(service: any PhotoService, deviceName: String) {
+        self.deviceName = deviceName
         _viewModel = State(initialValue: PhotoGridViewModel(
             service: service,
             offerExpecting: service as? any OriginalOfferExpecting
@@ -125,6 +147,6 @@ private struct PhotoGridHost: View {
     }
 
     var body: some View {
-        PhotoGridView(viewModel: viewModel)
+        PhotoGridView(viewModel: viewModel, deviceName: deviceName)
     }
 }

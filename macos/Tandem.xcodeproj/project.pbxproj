@@ -37,6 +37,7 @@
 		5C59C085A4552AA68D1A7FA5 /* PushClipboardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */; };
 		1FCAE6C8D1932BA1519D3056 /* ConnectionStateRelaySubscribersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */; };
 		15E50C31ED6572BB5938F933 /* VersionMismatchMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */; };
+		5BD5B4EB1D0C69261FA6E505 /* PeerUnpairedNoticeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */; };
 		5DF35AD6ECA5BA6F17993B84 /* ErrorBannerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B18C5B6B167CD86E4E3118 /* ErrorBannerViewModelTests.swift */; };
 		61D27ABFF02400431B506DA8 /* SettingsScenarioSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51777D80561FB3A57A4D240 /* SettingsScenarioSupport.swift */; };
 		63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */; };
@@ -66,6 +67,7 @@
 		E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000008 /* ScenarioCallAlert.swift */; };
 		E72080000000000000000004 /* ScenarioNowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000008 /* ScenarioNowPlaying.swift */; };
 		E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000005 /* ScenarioMirrorRequest.swift */; };
+		E31CF612477C76A62CC1F114 /* ScenarioStateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06310EFBE324BEAEEBE69A08 /* ScenarioStateViews.swift */; };
 		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
 		E70160000000000000000001 /* MacRotationComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70160000000000000000002 /* MacRotationComposition.swift */; };
 		E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000004 /* MirrorWindowPresenter.swift */; };
@@ -86,6 +88,8 @@
 		9FA18BC54C2E9FA8D213803E /* TandemStore in Frameworks */ = {isa = PBXBuildFile; productRef = 84D30D39F94B2E8AE9912DBD /* TandemStore */; };
 		A2CB7E5B958B0A9AAEF1C62E /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9BBB93FC1774C3497E3FBEA /* ShareViewController.swift */; };
 		A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */; };
+		03B93204369B214073D25404 /* MenuBarStatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F3EF1935EA3DD935345D2B /* MenuBarStatusIcon.swift */; };
+		05B48868F23C0631E559861F /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13D8EC0B1E88BE1AC8E19796 /* ErrorPresenter.swift */; };
 		A830DECCBBBD9C6678CA644E /* URLOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86769ADA9F9034205A270081 /* URLOpener.swift */; };
 		AC56980B4A809ADB99F3C5FD /* HarnessRevokeAwareSessionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */; };
 		B3760AE1F08525B8B5D46CFD /* ConnectionStateRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D435B4FE1F54ED490B5FC079 /* ConnectionStateRelay.swift */; };
@@ -96,6 +100,7 @@
 		BFFEBE50064F4915AEB574DF /* LaunchAtLoginViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */; };
 		C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */; };
 		C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */; };
+		B1D9FF827C8607DA266319BD /* ScenarioDesignStatesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3F0775AAAE863189720B0F /* ScenarioDesignStatesUITests.swift */; };
 		C6E8C919188E38AC00BD1581 /* TandemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F317BEBC5BD82C36E6AE36C4 /* TandemApp.swift */; };
 		C9550D15B505736B5A463BB2 /* FeatureNotifications in Frameworks */ = {isa = PBXBuildFile; productRef = A3BE2B086DAB311AFA67E1C3 /* FeatureNotifications */; };
 		CA9576057FCC23494B150ED5 /* TandemProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = BE8F0E46D0DF41D3590CE07D /* TandemProtocol */; };
@@ -168,10 +173,13 @@
 
 /* Begin PBXFileReference section */
 		022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorBannerView.swift; sourceTree = "<group>"; };
+		D4F3EF1935EA3DD935345D2B /* MenuBarStatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarStatusIcon.swift; sourceTree = "<group>"; };
+		13D8EC0B1E88BE1AC8E19796 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
 		029BBCBDFB11952E00CCFA08 /* SystemPowerEventsAndNetworkPathFakes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SystemPowerEventsAndNetworkPathFakes.swift; path = ../Packages/TandemTestSupport/Sources/TandemTestSupport/SystemPowerEventsAndNetworkPathFakes.swift; sourceTree = "<group>"; };
 		03AF2C8EDB2AC227D3D2C1A6 /* LaunchAtLoginViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginViewModelTests.swift; sourceTree = "<group>"; };
 		041CF567C3AFCE26290A0483 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioNotPairedUITests.swift; sourceTree = "<group>"; };
+		CE3F0775AAAE863189720B0F /* ScenarioDesignStatesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioDesignStatesUITests.swift; sourceTree = "<group>"; };
 		07266D9E12377E5002B73F90 /* MainWindowViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowViewModel.swift; sourceTree = "<group>"; };
 		9A4E6B2D1C8F3075A2B6D1E3 /* ListenerStartupViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ListenerStartupViews.swift; sourceTree = "<group>"; };
 		03F7539CD2E1463914B038F5 /* MainWindowSections.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainWindowSections.swift; sourceTree = "<group>"; };
@@ -229,6 +237,7 @@
 		E52060000000000000000008 /* ScenarioCallAlert.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioCallAlert.swift; sourceTree = "<group>"; };
 		E72080000000000000000008 /* ScenarioNowPlaying.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioNowPlaying.swift; sourceTree = "<group>"; };
 		E61120000000000000000005 /* ScenarioMirrorRequest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioMirrorRequest.swift; sourceTree = "<group>"; };
+		06310EFBE324BEAEEBE69A08 /* ScenarioStateViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScenarioStateViews.swift; sourceTree = "<group>"; };
 		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
 		E70160000000000000000002 /* MacRotationComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRotationComposition.swift; sourceTree = "<group>"; };
 		E62120000000000000000004 /* MirrorWindowPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowPresenter.swift; sourceTree = "<group>"; };
@@ -239,6 +248,7 @@
 		778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PushClipboardViewModelTests.swift; sourceTree = "<group>"; };
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
 		CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VersionMismatchMenuTests.swift; sourceTree = "<group>"; };
+		B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PeerUnpairedNoticeTests.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
 		7CF66E68281898309742F036 /* UnpairComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnpairComposition.swift; sourceTree = "<group>"; };
 		7CFD7E342E310F4350077F8D /* TandemDesign */ = {isa = PBXFileReference; includeInIndex = 1; name = TandemDesign; path = Packages/TandemDesign; sourceTree = SOURCE_ROOT; };
@@ -354,6 +364,7 @@
 				0DA41CFE62BC40C516122067 /* ScenarioFailClosedErrorUITests.swift */,
 				34C7140132E5BA1BA64E88FE /* ScenarioLocalNetworkDeniedUITests.swift */,
 				046AE091B763685A22808409 /* ScenarioNotPairedUITests.swift */,
+				CE3F0775AAAE863189720B0F /* ScenarioDesignStatesUITests.swift */,
 				ED50C79AF2314270FFA9A0F9 /* ScenarioPairedConnectedUITests.swift */,
 				EFE4F187257AE37E3EC7F0B2 /* ScenarioPairedDisconnectedUITests.swift */,
 				D0A6B0F2CF3EC275AEB91531 /* SettingsWindowUITests.swift */,
@@ -401,6 +412,7 @@
 				778E700159443E8CF11E964F /* PushClipboardViewModelTests.swift */,
 				039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */,
 				CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */,
+				B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */,
 			);
 			path = TandemAppTests;
 			sourceTree = "<group>";
@@ -445,6 +457,8 @@
 				082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */,
 				2D8961FE840E68467F107CF9 /* DeviceStatusViewModel.swift */,
 				022AE066A2EDCD04CF453E6E /* ErrorBannerView.swift */,
+				D4F3EF1935EA3DD935345D2B /* MenuBarStatusIcon.swift */,
+				13D8EC0B1E88BE1AC8E19796 /* ErrorPresenter.swift */,
 				7F102DE57AFD1F2418A30866 /* ErrorBannerViewModel.swift */,
 				630CC6383A12CABD2028F96B /* FindPhoneViewModel.swift */,
 				5600AA250B6FE2ECF965468B /* HarnessHooks.swift */,
@@ -497,6 +511,7 @@
 				E52060000000000000000008 /* ScenarioCallAlert.swift */,
 				E72080000000000000000008 /* ScenarioNowPlaying.swift */,
 				E61120000000000000000005 /* ScenarioMirrorRequest.swift */,
+				06310EFBE324BEAEEBE69A08 /* ScenarioStateViews.swift */,
 				E62120000000000000000002 /* MirrorComposition.swift */,
 				E70160000000000000000002 /* MacRotationComposition.swift */,
 				E62120000000000000000004 /* MirrorWindowPresenter.swift */,
@@ -706,6 +721,7 @@
 				290551DE0E84A694383AC976 /* ScenarioFailClosedErrorUITests.swift in Sources */,
 				85013880DBC8DEFC991538FB /* ScenarioLocalNetworkDeniedUITests.swift in Sources */,
 				C3BD1237656CC812DF5F5687 /* ScenarioNotPairedUITests.swift in Sources */,
+				B1D9FF827C8607DA266319BD /* ScenarioDesignStatesUITests.swift in Sources */,
 				725B0AE94A30C8D218739076 /* ScenarioPairedConnectedUITests.swift in Sources */,
 				9071F174A4AC6DBDF8575027 /* ScenarioPairedDisconnectedUITests.swift in Sources */,
 				7F259215F6C471C8D3A7933C /* SettingsWindowUITests.swift in Sources */,
@@ -741,6 +757,7 @@
 				5C59C085A4552AA68D1A7FA5 /* PushClipboardViewModelTests.swift in Sources */,
 				1FCAE6C8D1932BA1519D3056 /* ConnectionStateRelaySubscribersTests.swift in Sources */,
 				15E50C31ED6572BB5938F933 /* VersionMismatchMenuTests.swift in Sources */,
+				5BD5B4EB1D0C69261FA6E505 /* PeerUnpairedNoticeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -751,6 +768,8 @@
 				63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */,
 				F2BA917BADEB1A667CEFBFC4 /* DeviceStatusViewModel.swift in Sources */,
 				A5950E11B9386615E2299905 /* ErrorBannerView.swift in Sources */,
+				03B93204369B214073D25404 /* MenuBarStatusIcon.swift in Sources */,
+				05B48868F23C0631E559861F /* ErrorPresenter.swift in Sources */,
 				14EF338AF0A9A724A49FA149 /* ErrorBannerViewModel.swift in Sources */,
 				86245BF6C0D90244E06B665D /* FindPhoneViewModel.swift in Sources */,
 				E6266FDBF47CC04D900C56BE /* HarnessHooks.swift in Sources */,
@@ -800,6 +819,7 @@
 				E52060000000000000000004 /* ScenarioCallAlert.swift in Sources */,
 				E72080000000000000000004 /* ScenarioNowPlaying.swift in Sources */,
 				E61120000000000000000004 /* ScenarioMirrorRequest.swift in Sources */,
+				E31CF612477C76A62CC1F114 /* ScenarioStateViews.swift in Sources */,
 				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
 				E70160000000000000000001 /* MacRotationComposition.swift in Sources */,
 				E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */,

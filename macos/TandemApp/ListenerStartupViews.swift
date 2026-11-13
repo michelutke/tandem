@@ -113,3 +113,21 @@ struct RePairNoticeView: View {
         }
     }
 }
+
+/// Remembers, until a pairing succeeds again, that the phone unpaired this Mac with `Revoke`
+/// (ui-spec §8 "Revoked by peer": Not paired plus "Pixel 9 unpaired this Mac."). In memory only.
+@MainActor
+@Observable
+final class PeerUnpairedNotice {
+    static let shared = PeerUnpairedNotice()
+
+    private(set) var message: String?
+
+    func peerUnpaired(name: String?) {
+        message = "\(name ?? "Your phone") unpaired this Mac."
+    }
+
+    func clear() {
+        message = nil
+    }
+}

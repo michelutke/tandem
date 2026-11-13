@@ -35,6 +35,7 @@ final class MainWindowUITests: XCTestCase {
         let emptyState = window.staticTexts["turnedOffEmptyState"]
         XCTAssertTrue(emptyState.waitForExistence(timeout: 10), "turnedOffEmptyState never appeared")
         let value = emptyState.value as? String ?? ""
-        XCTAssertEqual(value.isEmpty ? emptyState.label : value, "Turned off on the phone.")
+        let text = value.isEmpty ? emptyState.label : value
+        XCTAssertTrue(text.contains("Turned off on the phone. Enable Messages in Tandem on Pixel 8."), text)
     }
 }

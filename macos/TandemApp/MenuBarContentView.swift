@@ -33,6 +33,14 @@ struct MenuBarContentView: View {
 
     var onRetry: () -> Void = {}
     var onUnpair: () -> Void = {}
+    var onCheckForUpdate: () -> Void = {}
+
+    /// `true` while the phone is ringing from Find phone: the popover then shows only "Stop ringing".
+    var isRinging = false
+    var onStopRinging: () -> Void = {}
+
+    /// "Pixel 9 unpaired this Mac." while not paired after the phone sent `Revoke`.
+    var unpairedNotice: String?
 
     /// The numbered quick actions, shown only while connected.
     var connectedActions: AnyView = AnyView(EmptyView())
@@ -48,7 +56,7 @@ struct MenuBarContentView: View {
             case .notPaired:
                 notPaired
             case .connected:
-                connected
+                if isRinging { ringing } else { connected }
             case .connecting, .reconnecting:
                 EmptyView()
             case .disconnected:
@@ -69,7 +77,11 @@ struct MenuBarContentView: View {
         case .notPaired:
             TitleBlock(subject: "Tandem.", state: "No phone yet.")
         case .connected:
-            TitleBlock(subject: peerTitle, state: "Connected.")
+            if isRinging {
+                TitleBlock(subject: peerTitle, state: "Ringing.", emphasizesState: true)
+            } else {
+                TitleBlock(subject: peerTitle, state: "Connected.")
+            }
         case .connecting:
             TitleBlock(subject: peerTitle, state: "Connecting…")
         case .reconnecting:
@@ -87,6 +99,12 @@ struct MenuBarContentView: View {
 
     private var notPaired: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+            if let unpairedNotice {
+                Text(unpairedNotice)
+                    .tandemTextStyle(TandemTypography.rowTitle(size: 14))
+                    .foregroundStyle(TandemColor.ink)
+                    .accessibilityIdentifier("peerUnpairedNoticeLabel")
+            }
             explanation("Scan a code with the Tandem app on your Android phone. Stays on your local network.")
             Hairline()
             VStack(spacing: 0) {
@@ -105,6 +123,15 @@ struct MenuBarContentView: View {
             batteryRow
             Hairline()
             connectedActions
+        }
+    }
+
+    private var ringing: some View {
+        VStack(alignment: .leading, spacing: TandemSpacing.medium) {
+            explanation("Playing at full volume, even in Do Not Disturb.")
+            Hairline()
+            NumberedActionRow(index: 1, title: "Stop ringing", identifier: "stopRingingMenuItem", action: onStopRinging)
+                .padding(.horizontal, -TandemSpacing.popoverPadding)
         }
     }
 
@@ -163,6 +190,11 @@ struct MenuBarContentView: View {
         let name = viewModel.displayName ?? "The phone"
         if closeCode == .versionMismatch {
             explanation(ErrorBannerViewModel.message(for: .versionMismatch, peerName: viewModel.displayName) ?? "")
+            Hairline()
+            NumberedActionRow(
+                index: 1, title: "Check for update", identifier: "checkForUpdateMenuItem", action: onCheckForUpdate
+            )
+            .padding(.horizontal, -TandemSpacing.popoverPadding)
         } else {
             explanation(
                 "\(name) presented a different key. Tandem blocked the connection. "
@@ -243,17 +275,13 @@ struct PopoverActionsView: View {
             status(sendEntryHandler?.lastResult?.statusText, id: "sendFileStatusLabel")
             row(2, "Push clipboard", id: "pushClipboardMenuItem") { viewModel.select(.pushClipboard) }
             status(pushClipboardViewModel.statusMessage, id: "pushClipboardStatusLabel")
-            row(3, findPhoneTitle, id: "findPhoneMenuItem") { viewModel.select(.findPhone) }
+            row(3, "Find phone", id: "findPhoneMenuItem") { viewModel.select(.findPhone) }
             status(findPhoneViewModel.statusText, id: "findPhoneStatusLabel")
             row(4, "Mirror screen", id: "mirrorPhoneMenuItem") { viewModel.select(.mirror) }
             status(mirrorRequestViewModel?.statusText, id: "mirrorStatusLabel")
             row(5, "Messages", id: "messagesMenuItem", action: onOpenMessages)
         }
         .padding(.horizontal, -TandemSpacing.popoverPadding)
-    }
-
-    private var findPhoneTitle: String {
-        findPhoneViewModel.label == "Stop Ringing" ? "Stop ringing" : "Find phone"
     }
 
     private func row(_ index: Int, _ title: String, id: String, action: @escaping () -> Void) -> some View {

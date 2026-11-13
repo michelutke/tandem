@@ -31,6 +31,18 @@ struct FindPhoneViewModelTests {
         #expect(sent.first?.payload == .ring(Tandem_V1_Ring()))
     }
 
+    @Test
+    func findPhoneViewModel_selectedTwice_isRingingFollowsRingState() async throws {
+        let viewModel = await FindPhoneViewModel(session: FakeTandemSession())
+        #expect(await viewModel.isRinging == false)
+
+        await viewModel.select()
+        #expect(await viewModel.isRinging == true)
+
+        await viewModel.select()
+        #expect(await viewModel.isRinging == false)
+    }
+
     // MARK: - findPhoneViewModel_stopRingingSelected_sendsRingStopAndLabelReverts
 
     @Test

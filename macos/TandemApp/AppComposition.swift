@@ -183,6 +183,7 @@ enum AppComposition {
                 Task { @MainActor in
                     pairedPeer.refresh()
                     IdentityResetNotice.shared.clear()
+                    PeerUnpairedNotice.shared.clear()
                 }
             }
         )
@@ -239,7 +240,10 @@ enum AppComposition {
                 mediaConnectionHandler: chaining.mediaConnectionHandler,
                 rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() }),
                 purgeRegistry: core.purgeRegistry,
-                onPeerUnpaired: { [pairedPeer = core.pairedPeer] in await pairedPeer.refresh() }
+                onPeerUnpaired: { [pairedPeer = core.pairedPeer] in
+                    await MainActor.run { PeerUnpairedNotice.shared.peerUnpaired(name: pairedPeer.displayName) }
+                    await pairedPeer.refresh()
+                }
             ),
             port: .any,
             verify: verify,

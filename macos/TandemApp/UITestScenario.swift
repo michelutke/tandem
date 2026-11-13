@@ -78,6 +78,24 @@ enum UITestScenario: String {
     /// that flips the row to "Cancelled" through the same cancel closure production wires to E40-20.
     case transferProgressSeeded
 
+    /// The popover while the phone rings (Find phone): "Ringing." and only "Stop ringing".
+    case popoverRinging
+
+    /// The popover after a protocol version mismatch: "Update needed." with "Check for update".
+    case popoverUpdateNeeded
+
+    /// The not-paired popover after the phone unpaired this Mac: "Pixel 8 unpaired this Mac."
+    case popoverUnpairedNotice
+
+    /// The pairing window's "Paired." screen with its Done row.
+    case pairingPaired
+
+    /// The main window's trust-error banner after a pin mismatch: "Pair again" and "Unpair".
+    case trustErrorBanner
+
+    /// Photos where the phone reports it shares no photos: "Pixel 8 hasn't shared photos."
+    case photosNoAccess
+
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),
               arguments.indices.contains(flagIndex + 1) else { return nil }

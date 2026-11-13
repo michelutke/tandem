@@ -93,6 +93,7 @@ private struct MessagesSectionContent: View {
                 ConversationCallHost.headerAccessory(session: $0, syncSource: LiveMessagingSync(live: live))
             },
             offlineComposerText: isOffline ? "Sends when \(deviceName) is back" : nil,
+            deviceName: deviceName,
             refreshTick: refreshTick
         )
         .task {
