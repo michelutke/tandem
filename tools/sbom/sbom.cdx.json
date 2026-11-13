@@ -6395,6 +6395,20 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/com.google.errorprone/error_prone_annotations@2.50.0",
+      "name": "com.google.errorprone:error_prone_annotations",
+      "version": "2.50.0",
+      "purl": "pkg:maven/com.google.errorprone/error_prone_annotations@2.50.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/com.google.errorprone/error_prone_parent@2.18.0",
       "name": "com.google.errorprone:error_prone_parent",
       "version": "2.18.0",
@@ -6493,6 +6507,20 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/com.google.errorprone/error_prone_parent@2.50.0",
+      "name": "com.google.errorprone:error_prone_parent",
+      "version": "2.50.0",
+      "purl": "pkg:maven/com.google.errorprone/error_prone_parent@2.50.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/com.google.flatbuffers/flatbuffers-java@1.12.0",
       "name": "com.google.flatbuffers:flatbuffers-java",
       "version": "1.12.0",
@@ -6577,34 +6605,6 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:maven/com.google.guava/guava@32.0.1-android",
-      "name": "com.google.guava:guava",
-      "version": "32.0.1-android",
-      "purl": "pkg:maven/com.google.guava/guava@32.0.1-android",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0"
-          }
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "bom-ref": "pkg:maven/com.google.guava/guava@33.3.1-android",
-      "name": "com.google.guava:guava",
-      "version": "33.3.1-android",
-      "purl": "pkg:maven/com.google.guava/guava@33.3.1-android",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0"
-          }
-        }
-      ]
-    },
-    {
-      "type": "library",
       "bom-ref": "pkg:maven/com.google.guava/guava@33.4.0-jre",
       "name": "com.google.guava:guava",
       "version": "33.4.0-jre",
@@ -6623,6 +6623,20 @@
       "name": "com.google.guava:guava",
       "version": "33.6.0-jre",
       "purl": "pkg:maven/com.google.guava/guava@33.6.0-jre",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/com.google.guava/guava@33.7.2-android",
+      "name": "com.google.guava:guava",
+      "version": "33.7.2-android",
+      "purl": "pkg:maven/com.google.guava/guava@33.7.2-android",
       "licenses": [
         {
           "license": {
@@ -11225,6 +11239,20 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-bom@1.7.3",
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
+      "version": "1.7.3",
+      "purl": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-bom@1.7.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/org.jetbrains.kotlinx/kotlinx-coroutines-bom@1.8.0",
       "name": "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
       "version": "1.8.0",
@@ -11929,6 +11957,20 @@
       "name": "org.jspecify:jspecify",
       "version": "1.0.0",
       "purl": "pkg:maven/org.jspecify/jspecify@1.0.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.jspecify/jspecify@1.0.1",
+      "name": "org.jspecify:jspecify",
+      "version": "1.0.1",
+      "purl": "pkg:maven/org.jspecify/jspecify@1.0.1",
       "licenses": [
         {
           "license": {
