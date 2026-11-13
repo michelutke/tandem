@@ -32,6 +32,7 @@ public actor SessionServiceHost {
     private let registry: ControlSessionRegistry?
     private let events: AsyncStream<Event>.Continuation
     private var attachments: [SpkiFingerprint: Attachment] = [:]
+    private var servicedPeer: SpkiFingerprint?
 
     /// `registry`, when given, is asked as each registration event is applied: a session that is
     /// not the one registered for its peer (a handshake that failed before registering) is never
@@ -89,14 +90,20 @@ public actor SessionServiceHost {
             await detachAll(peer: peer)
         }
         attachments[peer] = Attachment(session: session)
+        servicedPeer = peer
         for service in services {
             await service.attach(peer: peer, session: session)
         }
         await session.sealSetup()
     }
 
+    /// Every service holds one session at a time, so it is detached only while it still serves
+    /// `peer`: the end of a session that a later attach for another peer already displaced leaves
+    /// the current one running.
     private func detachAll(peer: SpkiFingerprint) async {
         attachments[peer] = nil
+        guard servicedPeer?.matches(peer) ?? true else { return }
+        servicedPeer = nil
         for service in services {
             await service.detach(peer: peer)
         }

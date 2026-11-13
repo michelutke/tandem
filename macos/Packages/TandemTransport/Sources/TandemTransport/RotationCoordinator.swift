@@ -165,16 +165,17 @@ public final class RotationCoordinator: Sendable {
 
     /// Offered after 7 days with phones still pending: unpairs the pending phones, then switches.
     public func finish() throws {
-        let (switched, unpaired) = try lock.withLock { _ -> (Bool, [SpkiFingerprint]) in
+        var unpaired: [SpkiFingerprint] = []
+        defer { if !unpaired.isEmpty { onPeersUnpaired(unpaired) } }
+        let switched = try lock.withLock { _ -> Bool in
             guard let attempt = try loadAttempt() else { throw RotationCoordinatorError.notInProgress }
-            guard !attempt.committed else { return (try switchIfComplete(attempt), []) }
+            guard !attempt.committed else { return try switchIfComplete(attempt) }
             guard dateProvider() >= attempt.startedAt.addingTimeInterval(TrustStore.gracePinLifetime) else {
                 throw RotationCoordinatorError.finishNotYetAvailable
             }
-            let unpaired = try unpair(recordIds: Set(attempt.pendingRecordIds))
-            return (try switchIfComplete(attempt), unpaired)
+            try unpair(recordIds: Set(attempt.pendingRecordIds), into: &unpaired)
+            return try switchIfComplete(attempt)
         }
-        if !unpaired.isEmpty { onPeersUnpaired(unpaired) }
         if switched { onSwitched() }
     }
 
@@ -204,13 +205,14 @@ public final class RotationCoordinator: Sendable {
         return true
     }
 
-    private func unpair(recordIds: Set<String>) throws -> [SpkiFingerprint] {
-        var unpaired: [SpkiFingerprint] = []
+    /// Reports each unpaired phone's pins through `unpaired` as soon as its record is deleted, so
+    /// a later failure still leaves the caller the list to purge.
+    private func unpair(recordIds: Set<String>, into unpaired: inout [SpkiFingerprint]) throws {
         for record in try trustStore.list() where recordIds.contains(record.recordId.hexString) {
-            unpaired.append(contentsOf: try trustStore.pinnedFingerprints(for: record.fingerprint))
+            let pins = try trustStore.pinnedFingerprints(for: record.fingerprint)
             try trustStore.unpair(record.fingerprint)
+            unpaired.append(contentsOf: pins)
         }
-        return unpaired
     }
 
     private func loadAttempt() throws -> RotationAttempt? {

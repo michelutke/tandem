@@ -76,6 +76,27 @@ struct SessionServiceHostTests {
     }
 
     @Test
+    func liveSessionService_otherPeerDetaches_currentSessionKept() async throws {
+        let service = SpyService()
+        let host = SessionServiceHost(services: [service])
+        let otherPeer = try SpkiFingerprint(bytes: Data(repeating: 0x22, count: SpkiFingerprint.byteCount))
+        let older = FakeTandemSession()
+        let current = FakeTandemSession()
+        host.sessionRegistered(peer: Self.peer, session: older)
+        host.sessionRegistered(peer: otherPeer, session: current)
+
+        host.sessionEnded(peer: Self.peer, session: older)
+        await host.waitUntilIdle()
+
+        #expect(await service.detachCount == 0)
+
+        host.sessionEnded(peer: otherPeer, session: current)
+        await host.waitUntilIdle()
+
+        #expect(await service.detachCount == 1)
+    }
+
+    @Test
     func appComposition_newSessionForSamePeer_detachesOldThenAttachesNew() async {
         let service = SpyService()
         let host = SessionServiceHost(services: [service])

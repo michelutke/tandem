@@ -11,6 +11,7 @@ public actor ListenerBonjour {
     private let dateProvider: DateProvider
     private let clock: any Clock<Duration>
     private var advertiser: BonjourAdvertiser?
+    private var generation = 0
 
     public init(
         publisher: any BonjourPublisher,
@@ -25,9 +26,10 @@ public actor ListenerBonjour {
     }
 
     public func listenerStarted(port: UInt16) async {
-        await advertiser?.stop()
-        advertiser = nil
-        guard let fingerprint = macSpkiFingerprint() else { return }
+        generation += 1
+        let mine = generation
+        await retireAdvertiser()
+        guard mine == generation, let fingerprint = macSpkiFingerprint() else { return }
         let next = BonjourAdvertiser(
             publisher: publisher,
             macSpkiFingerprint: fingerprint,
@@ -37,5 +39,18 @@ public actor ListenerBonjour {
         )
         advertiser = next
         await next.start()
+    }
+
+    /// Withdraws the advertisement: the listener it pointed at is gone. A start still suspended
+    /// when this runs publishes nothing.
+    public func listenerStopped() async {
+        generation += 1
+        await retireAdvertiser()
+    }
+
+    private func retireAdvertiser() async {
+        let old = advertiser
+        advertiser = nil
+        await old?.stop()
     }
 }

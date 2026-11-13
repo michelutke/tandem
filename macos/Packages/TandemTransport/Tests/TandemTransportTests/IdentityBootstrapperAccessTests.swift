@@ -119,4 +119,39 @@ struct IdentityBootstrapperAccessTests {
 
         #expect(try trustStore.list().count == 1)
     }
+
+    private static func beginRotation(_ store: InMemoryKeychainStore, _ trustStore: TrustStore) throws {
+        let coordinator = RotationCoordinator(
+            keychainStore: store,
+            trustStore: trustStore,
+            window: RotationInitiatorTests.StubWindow(),
+            dateProvider: { Date(timeIntervalSince1970: 0) }
+        )
+        try coordinator.begin()
+    }
+
+    @Test func identityBootstrapper_bootstrapDuringRotationInProgress_peerRecordsKept() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        try Self.beginRotation(store, trustStore)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store)
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(!bootstrapper.requiresRePair)
+        #expect(try trustStore.list().count == 1)
+    }
+
+    @Test func identityBootstrapper_adoptingUnackedPendingKey_peerRecordsDeleted() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        try Self.beginRotation(store, trustStore)
+        try store.deleteKey(tag: identityKeyApplicationTag)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store)
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(bootstrapper.requiresRePair)
+        #expect(try trustStore.list().isEmpty)
+    }
 }

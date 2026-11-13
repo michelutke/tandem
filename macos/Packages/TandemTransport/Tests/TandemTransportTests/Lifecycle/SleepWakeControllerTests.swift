@@ -73,6 +73,25 @@ struct SleepWakeControllerTests {
 
     /// Yields several times so the actor's background observation `Task` has a chance to consume
     /// events already sent on ``FakeSystemPowerEvents``, without an artificial wall-clock sleep.
+    @Test
+    func sleepWakeController_restartThrows_failureSurfaced() async {
+        let listenerControl = FakeListenerControl(startError: ListenerBindError.bindFailed)
+        let powerEvents = FakeSystemPowerEvents()
+        let failures = FailureLog()
+        let controller = SleepWakeController(
+            powerEvents: powerEvents, listenerControl: listenerControl, onFailure: { failures.record($0) }
+        )
+        await controller.start()
+
+        powerEvents.send(.willSleep)
+        await settle()
+        powerEvents.send(.didWake)
+        await settle()
+
+        #expect(failures.errors.count == 1)
+        #expect(failures.errors.first as? ListenerBindError == .bindFailed)
+    }
+
     private func settle() async {
         for _ in 0..<10 { await Task.yield() }
     }
@@ -90,11 +109,17 @@ final class FakeListenerControl: ListenerControl, Sendable {
 
     private let clock: any Clock<Duration>
     private let startDelay: Duration
+    private let startError: (any Error)?
     private let state = Mutex(State())
 
-    init(clock: any Clock<Duration> = ManualTestClock(), startDelay: Duration = .zero) {
+    init(
+        clock: any Clock<Duration> = ManualTestClock(),
+        startDelay: Duration = .zero,
+        startError: (any Error)? = nil
+    ) {
         self.clock = clock
         self.startDelay = startDelay
+        self.startError = startError
     }
 
     var startCallCount: Int {
@@ -111,6 +136,7 @@ final class FakeListenerControl: ListenerControl, Sendable {
 
     func start() async throws {
         state.withLock { $0.startCallCount += 1 }
+        if let startError { throw startError }
 
         if startDelay > .zero {
             try? await clock.sleep(for: startDelay)
@@ -125,4 +151,10 @@ final class FakeListenerControl: ListenerControl, Sendable {
             $0.isRunning = false
         }
     }
+}
+
+final class FailureLog: Sendable {
+    private let storage = Mutex<[any Error]>([])
+    var errors: [any Error] { storage.withLock { $0 } }
+    func record(_ error: any Error) { storage.withLock { $0.append(error) } }
 }

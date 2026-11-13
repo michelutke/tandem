@@ -13,12 +13,19 @@ public actor PathChangeController {
 
     private let pathSource: any NetworkPathSource
     private let listenerControl: any ListenerControl
+    private let onFailure: @Sendable (any Error) -> Void
     private var lastInterfaces: Set<String>?
     private var observationTask: Task<Void, Never>?
 
-    public init(pathSource: any NetworkPathSource, listenerControl: any ListenerControl) {
+    /// - Parameter onFailure: Called when the listener could not be rebound after a change.
+    public init(
+        pathSource: any NetworkPathSource,
+        listenerControl: any ListenerControl,
+        onFailure: @escaping @Sendable (any Error) -> Void = { _ in }
+    ) {
         self.pathSource = pathSource
         self.listenerControl = listenerControl
+        self.onFailure = onFailure
     }
 
     /// Begins observing ``NetworkPathSource/paths``. A second call replaces the prior observation
@@ -41,7 +48,10 @@ public actor PathChangeController {
     private func handle(_ snapshot: NetworkPathSnapshot) async {
         defer { lastInterfaces = snapshot.interfaces }
         guard let lastInterfaces, lastInterfaces != snapshot.interfaces else { return }
-        await listenerControl.stop()
-        try? await listenerControl.start()
+        do {
+            try await listenerControl.restart()
+        } catch {
+            onFailure(error)
+        }
     }
 }

@@ -11,12 +11,19 @@ public actor SleepWakeController {
 
     private let powerEvents: any SystemPowerEvents
     private let listenerControl: any ListenerControl
+    private let onFailure: @Sendable (any Error) -> Void
     private var isSleeping = false
     private var observationTask: Task<Void, Never>?
 
-    public init(powerEvents: any SystemPowerEvents, listenerControl: any ListenerControl) {
+    /// - Parameter onFailure: Called when the listener could not be restarted after wake.
+    public init(
+        powerEvents: any SystemPowerEvents,
+        listenerControl: any ListenerControl,
+        onFailure: @escaping @Sendable (any Error) -> Void = { _ in }
+    ) {
         self.powerEvents = powerEvents
         self.listenerControl = listenerControl
+        self.onFailure = onFailure
     }
 
     /// Begins observing ``SystemPowerEvents/events``. A second call replaces the prior observation
@@ -45,7 +52,11 @@ public actor SleepWakeController {
         case .didWake:
             guard isSleeping else { return }
             isSleeping = false
-            try? await listenerControl.start()
+            do {
+                try await listenerControl.start()
+            } catch {
+                onFailure(error)
+            }
         }
     }
 }

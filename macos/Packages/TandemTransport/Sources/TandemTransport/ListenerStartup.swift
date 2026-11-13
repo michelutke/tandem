@@ -54,6 +54,7 @@ public enum ListenerFailureReason: Equatable, Sendable {
     /// Classifies an error thrown while starting the listener.
     public static func classify(listenerError error: any Error) -> ListenerFailureReason {
         if error is ListenerBindError { return .portUnavailable }
+        if error is ProductionListenerControl.StartError { return .identityUnavailable }
         return isKeychainAccess(String(describing: error)) ? .keychainAccess : .unknown
     }
 }
@@ -110,17 +111,30 @@ public final class ListenerStartupModel<Lifecycle> {
 
     @ObservationIgnored private let startAction: @MainActor () -> Result<Lifecycle, ListenerStartFailure>
     @ObservationIgnored private let onStarted: @MainActor (Lifecycle) -> Void
+    @ObservationIgnored private let restartAction: @MainActor (Lifecycle) async -> ListenerFailureReason?
     @ObservationIgnored private var isStarting = false
+    @ObservationIgnored private var isRestarting = false
 
     /// - Parameters:
     ///   - start: composes and starts the listener; called at most once at a time.
     ///   - onStarted: runs on success, before ``phase`` becomes `.started`.
-    public init(
+    public convenience init(
         start: @escaping @MainActor () -> Result<Lifecycle, ListenerStartFailure>,
         onStarted: @escaping @MainActor (Lifecycle) -> Void = { _ in }
     ) {
+        self.init(start: start, onStarted: onStarted, restart: { _ in nil })
+    }
+
+    /// - Parameter restart: rebinds an already composed listener after a runtime failure; returns
+    ///   the failure reason, or `nil` when it is running again.
+    public init(
+        start: @escaping @MainActor () -> Result<Lifecycle, ListenerStartFailure>,
+        onStarted: @escaping @MainActor (Lifecycle) -> Void,
+        restart: @escaping @MainActor (Lifecycle) async -> ListenerFailureReason?
+    ) {
         startAction = start
         self.onStarted = onStarted
+        restartAction = restart
     }
 
     /// Starts the listener unless one is already running or a start is in flight.
@@ -143,12 +157,35 @@ public final class ListenerStartupModel<Lifecycle> {
     /// (see ``ListenerFailureReason/retriesOnActivation``).
     public func retryOnActivation() {
         guard case .failed(let reason) = phase, reason.retriesOnActivation else { return }
-        start()
+        retry()
     }
 
-    /// Runs ``start()`` again, only while in the failed state.
+    /// Runs ``start()`` again, only while in the failed state; a failure of an already composed
+    /// listener restarts it instead of composing a second one.
     public func retry() {
         guard case .failed = phase else { return }
-        start()
+        if lifecycle == nil {
+            start()
+        } else {
+            Task { await restartAfterFailure() }
+        }
+    }
+
+    /// The running listener could not be rebound (wake, network change or key rotation): shows the
+    /// failed state until a retry succeeds. Ignored before a successful start.
+    public func listenerFailed(_ reason: ListenerFailureReason) {
+        guard lifecycle != nil else { return }
+        phase = .failed(reason)
+    }
+
+    func restartAfterFailure() async {
+        guard let lifecycle, case .failed = phase, !isRestarting else { return }
+        isRestarting = true
+        defer { isRestarting = false }
+        if let reason = await restartAction(lifecycle) {
+            phase = .failed(reason)
+        } else {
+            phase = .started
+        }
     }
 }

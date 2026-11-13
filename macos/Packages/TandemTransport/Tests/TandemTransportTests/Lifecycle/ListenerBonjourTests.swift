@@ -57,4 +57,38 @@ struct ListenerBonjourTests {
 
         #expect(publisher.publishCallCount == 0)
     }
+
+    @Test
+    func appComposition_listenerStopped_bonjourUnpublished() async {
+        let publisher = FakeBonjourPublisher()
+        let bonjour = Self.make(publisher)
+        await bonjour.listenerStarted(port: 50_123)
+
+        await bonjour.listenerStopped()
+
+        #expect(publisher.unpublishCallCount == 1)
+    }
+
+    @Test
+    func appComposition_listenerStoppedThenStarted_publishesAgainWithNewPort() async throws {
+        let publisher = FakeBonjourPublisher()
+        let bonjour = Self.make(publisher)
+        await bonjour.listenerStarted(port: 50_123)
+        await bonjour.listenerStopped()
+
+        await bonjour.listenerStarted(port: 50_456)
+
+        #expect(try #require(publisher.lastPublishCall).port == 50_456)
+        #expect(publisher.publishCallCount == 2)
+    }
+
+    @Test
+    func appComposition_listenerStoppedWithoutStart_nothingUnpublished() async {
+        let publisher = FakeBonjourPublisher()
+        let bonjour = Self.make(publisher)
+
+        await bonjour.listenerStopped()
+
+        #expect(publisher.unpublishCallCount == 0)
+    }
 }
