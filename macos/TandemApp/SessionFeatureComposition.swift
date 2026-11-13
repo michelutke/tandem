@@ -363,7 +363,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             destination: DownloadFolderStore.standard
         )
         let photoService = SessionPhotoService(session: session)
-        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer))
+        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer), offers: acceptFlow)
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
             receiver: receiver,
@@ -375,7 +375,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         activeTransfer.attach(transfers)
         let agent = agent
         Task {
-            await receiver.resumeRetained()
+            for id in await receiver.resumeRetained() { await acceptFlow.transferResumed(id: id) }
             await agent?.drain()
         }
     }
@@ -384,6 +384,7 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         await routing.router.setSink(nil, for: Self.routerKey)
         acceptReader?.cancel()
         acceptReader = nil
+        await acceptPrompts?.removeAll()
         acceptPrompts?.finish()
         acceptPrompts = nil
         await acceptAlerts?.finish()

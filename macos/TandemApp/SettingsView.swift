@@ -214,7 +214,12 @@ private struct FilesSettingsView: View {
                     .accessibilityIdentifier("downloadFolderErrorLabel")
             }
         }
-        .onAppear { folder = DownloadFolderStore.standard.current }
+        .onAppear {
+            folder = DownloadFolderStore.standard.current
+            if DownloadFolderStore.standard.isFallingBackToDefault {
+                errorText = "The chosen folder is no longer accessible. Using the default folder."
+            }
+        }
     }
 
     private func chooseFolder() {

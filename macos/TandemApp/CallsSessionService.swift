@@ -56,6 +56,7 @@ final class CallsSessionService: SessionService, @unchecked Sendable {
     private let activeCall: ActiveCallAlert
     private var viewModel: CallAlertViewModel?
     private var alertPresenter: NotificationCallAlertPresenter?
+    private var inAppAlerts: AlertCallPresenter?
 
     init(contacts: any ContactsStore, routing: NotificationRouting, activeCall: ActiveCallAlert) {
         self.contacts = contacts
@@ -71,9 +72,11 @@ final class CallsSessionService: SessionService, @unchecked Sendable {
         await routing.router.setSink({ alertPresenter.handle($0) }, for: Self.routerKey)
         let contacts = contacts
         let activeCall = activeCall
+        let inAppAlerts = await MainActor.run { AlertCallPresenter() }
         viewModel = await MainActor.run {
             let viewModel = CallAlertViewModel(
                 presenter: alertPresenter,
+                fallbackPresenter: inAppAlerts,
                 session: session,
                 contacts: contacts,
                 peer: peer,
@@ -84,12 +87,16 @@ final class CallsSessionService: SessionService, @unchecked Sendable {
             return viewModel
         }
         self.alertPresenter = alertPresenter
+        self.inAppAlerts = inAppAlerts
     }
 
     func detach(peer: SpkiFingerprint) async {
         await routing.router.setSink(nil, for: Self.routerKey)
+        await alertPresenter?.removeAll()
         alertPresenter?.finish()
         alertPresenter = nil
+        if let inAppAlerts { await MainActor.run { inAppAlerts.finish() } }
+        inAppAlerts = nil
         viewModel = nil
         let activeCall = activeCall
         await MainActor.run { activeCall.set(nil) }

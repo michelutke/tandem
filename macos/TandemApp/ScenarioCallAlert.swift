@@ -18,7 +18,7 @@ extension ScenarioView {
 private actor SilentCallAlertPresenter: CallAlertPresenter {
     nonisolated let responses = AsyncStream<CallAlertResponse> { _ in }
 
-    func present(callId: String, title: String, body: String) async {}
+    func present(callId: String, title: String, body: String) async -> Bool { true }
 
     func remove(callId: String) async {}
 }

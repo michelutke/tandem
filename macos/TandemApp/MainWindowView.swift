@@ -118,7 +118,10 @@ private struct PhotoGridHost: View {
     @State private var viewModel: PhotoGridViewModel
 
     init(service: any PhotoService) {
-        _viewModel = State(initialValue: PhotoGridViewModel(service: service))
+        _viewModel = State(initialValue: PhotoGridViewModel(
+            service: service,
+            offerExpecting: service as? any OriginalOfferExpecting
+        ))
     }
 
     var body: some View {

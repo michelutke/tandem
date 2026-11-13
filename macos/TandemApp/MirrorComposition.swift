@@ -24,7 +24,8 @@ final class MirrorComposition {
         let holder = SessionChangeHolder()
         let coordinator = MirrorMediaCoordinator(
             presenter: MirrorWindowPresenter(),
-            inputSession: { holder.session(for: $0) }
+            inputSession: { holder.session(for: $0) },
+            onStreamChanged: { [weak holder] in holder?.composition?.mirrorStreamChanged() }
         )
         let registry = MediaSessionRegistry(issuer: issuer, onEnded: { id in
             Task { @MainActor in coordinator.sessionEnded(id) }
@@ -58,6 +59,10 @@ final class MirrorComposition {
         requestModel = model
         let session = currentSession
         Task { await model.sessionChanged(session) }
+    }
+
+    fileprivate func mirrorStreamChanged() {
+        requestModel?.resetRequest()
     }
 
     fileprivate func sessionChanged(_ session: (any TandemSession)?) {

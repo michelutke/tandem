@@ -16,6 +16,8 @@ final class NotificationReceivedFilePresenter: ReceivedFilePresenter, @unchecked
     private let presenter: any NotificationPresenter
     private let lock = NSLock()
     private var destinations: [String: URL] = [:]
+    private var destinationOrder: [String] = []
+    private static let maxRememberedDestinations = 50
 
     init(presenter: any NotificationPresenter) {
         self.presenter = presenter
@@ -24,7 +26,13 @@ final class NotificationReceivedFilePresenter: ReceivedFilePresenter, @unchecked
 
     func present(displayName: String, destination: URL) async {
         let identifier = Self.requestIdentifierPrefix + UUID().uuidString
-        lock.withLock { destinations[identifier] = destination }
+        lock.withLock {
+            destinations[identifier] = destination
+            destinationOrder.append(identifier)
+            while destinationOrder.count > Self.maxRememberedDestinations {
+                destinations.removeValue(forKey: destinationOrder.removeFirst())
+            }
+        }
         let content = UNMutableNotificationContent()
         content.title = displayName
         content.body = "Received"

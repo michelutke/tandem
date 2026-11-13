@@ -22,6 +22,8 @@ final class NotificationCallAlertPresenter: CallAlertPresenter, @unchecked Senda
     private let continuation: AsyncStream<CallAlertResponse>.Continuation
     private let presenter: any NotificationPresenter
     private let categories: CategoryRegistry
+    private let lock = NSLock()
+    private var outstanding: Set<String> = []
 
     init(presenter: any NotificationPresenter, categories: CategoryRegistry) {
         self.presenter = presenter
@@ -38,19 +40,30 @@ final class NotificationCallAlertPresenter: CallAlertPresenter, @unchecked Senda
         continuation.finish()
     }
 
-    func present(callId: String, title: String, body: String) async {
+    func present(callId: String, title: String, body: String) async -> Bool {
+        lock.withLock { _ = outstanding.insert(callId) }
         let categoryIdentifier = await categories.categoryIdentifier(for: Self.actions)
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.categoryIdentifier = categoryIdentifier
-        await presenter.add(
+        return await presenter.add(
             UNNotificationRequest(identifier: Self.requestIdentifierPrefix + callId, content: content, trigger: nil)
         )
     }
 
     func remove(callId: String) async {
+        _ = lock.withLock { outstanding.remove(callId) }
         await presenter.removeDelivered(identifiers: [Self.requestIdentifierPrefix + callId])
+    }
+
+    /// Removes every call alert still delivered, e.g. when the session ends while a call rings.
+    func removeAll() async {
+        let callIds = lock.withLock { () -> Set<String> in
+            defer { outstanding = [] }
+            return outstanding
+        }
+        await presenter.removeDelivered(identifiers: callIds.map { Self.requestIdentifierPrefix + $0 })
     }
 
     static func response(from event: NotificationResponseEvent) -> CallAlertResponse? {
