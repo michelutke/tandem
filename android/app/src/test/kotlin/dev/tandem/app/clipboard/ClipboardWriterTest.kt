@@ -42,6 +42,33 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class ClipboardWriterTest {
+    @Test
+    fun clipboardWriter_writeThrows_keepsCollectingNextFrame() =
+        runTest {
+            var writes = 0
+            val writer =
+                ClipboardWriter(clipboardManager()) {
+                    writes++
+                    if (writes == 1) error("binder transaction too large")
+                }
+            val session = FakeTandemSession()
+            val job = launch { writer.start(session) }
+
+            repeat(2) { index ->
+                session.emitIncoming(
+                    envelope {
+                        channel = Channel.CHANNEL_CLIPBOARD
+                        seq = index + 1L
+                        clipboardText = clipboardText { text = "frame $index" }
+                    },
+                )
+            }
+            advanceUntilIdle()
+
+            assertEquals(2, writes)
+            job.cancel()
+        }
+
     private fun clipboardManager(): ClipboardManager =
         RuntimeEnvironment.getApplication().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 

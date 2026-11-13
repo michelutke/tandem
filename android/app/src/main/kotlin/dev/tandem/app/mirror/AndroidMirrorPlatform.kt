@@ -127,12 +127,14 @@ class AndroidMirrorPlatform(
         when (failure) {
             MirrorFailure.PinMismatch -> R.string.mirror_blocked_title
             MirrorFailure.Unreachable -> R.string.mirror_unreachable_title
+            MirrorFailure.InputUnavailable -> R.string.mirror_view_only_title
         }
 
     private fun failureText(failure: MirrorFailure): Int =
         when (failure) {
             MirrorFailure.PinMismatch -> R.string.mirror_blocked_text
             MirrorFailure.Unreachable -> R.string.mirror_unreachable_text
+            MirrorFailure.InputUnavailable -> R.string.mirror_view_only_text
         }
 
     private companion object {

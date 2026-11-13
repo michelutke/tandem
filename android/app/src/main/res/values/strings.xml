@@ -36,8 +36,11 @@
     <string name="mirror_blocked_title">Blocked.</string>
     <string name="mirror_blocked_text">The Mac\'s key changed. Nothing was shared.</string>
     <string name="mirror_unreachable_title">Mirroring stopped.</string>
+    <string name="mirror_view_only_title">View only.</string>
+    <string name="mirror_view_only_text">To let your Mac tap and type, allow Tandem in Accessibility settings.</string>
     <string name="mirror_unreachable_text">Couldn\'t connect to your Mac. Nothing was shared.</string>
     <string name="clipboard_sent">Sent to Mac.</string>
+    <string name="clipboard_not_connected">Not connected to your Mac.</string>
     <string name="clipboard_empty">Nothing on the clipboard to send.</string>
     <string name="clipboard_too_large">Text too large to send (max 1 MiB).</string>
     <string name="clipboard_received">Received from Mac.</string>

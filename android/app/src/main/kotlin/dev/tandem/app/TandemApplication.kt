@@ -10,6 +10,7 @@ import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
@@ -22,6 +23,9 @@ import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.feature.clipboard.LiveClipboardAutoCapture
 import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
+import dev.tandem.feature.notifications.SharedPreferencesFocusFilterRecord
+import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
+import dev.tandem.feature.notifications.restoreRecordedFocusFilter
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -89,6 +93,11 @@ class TandemApplication : Application() {
     @Inject
     lateinit var identityBootstrap: IdentityBootstrap
 
+    private fun restoreInterruptedPhoneState() {
+        SystemAlarmPlayer(this).restoreStaleVolume()
+        restoreRecordedFocusFilter(SharedPreferencesFocusFilterRecord(this), SystemInterruptionFilterGateway(this))
+    }
+
     override fun onCreate() {
         super.onCreate()
         LiveClipboardAutoCapture.isEnabled = { featureToggles.autoCapture.value }
@@ -101,6 +110,7 @@ class TandemApplication : Application() {
         LiveNotificationListener.filter = { sbn, ownPackage ->
             featureToggles.isEnabled(SyncFeature.Notifications) && notificationFilter.shouldForward(sbn, ownPackage)
         }
+        appScope.launch { restoreInterruptedPhoneState() }
         appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }
         appScope.launch {

@@ -14,8 +14,10 @@ import dev.tandem.feature.files.MediaPermissionChecker
 import dev.tandem.feature.files.SendFeedback
 import dev.tandem.feature.files.SendRequest
 import dev.tandem.feature.files.TransferActionDispatcher
+import dev.tandem.feature.files.TransferProgressNotifier
 import dev.tandem.feature.files.TransferPrompter
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.TransferReason
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.fileAccept
 import dev.tandem.protocol.v1.fileOffer
@@ -122,6 +124,22 @@ class FilesFeatureWiringTest {
         }
 
     @Test
+    fun liveFileSession_sessionEndsMidTransfer_reportsFailedAndFinishes() =
+        runTest {
+            val job = startFeature()
+            val feedback = mutableListOf<SendFeedback>()
+            val finished = mutableListOf<SendRequest>()
+            LiveFileSession.starter(onFinished = { finished += it }) { feedback += it }.start(sendRequest())
+            runCurrent()
+
+            job.cancel()
+            runCurrent()
+
+            assertEquals(listOf(SendFeedback.STARTED, SendFeedback.FAILED), feedback)
+            assertEquals(listOf(SEND_ID), finished.map { it.id })
+        }
+
+    @Test
     fun filesFeature_notAttached_sendReportsFinishedRequestAtOnce() {
         val finished = mutableListOf<SendRequest>()
 
@@ -144,11 +162,80 @@ class FilesFeatureWiringTest {
             assertNull(TransferActionDispatcher.acceptFlow)
         }
 
-    private fun TestScope.startFeature(): Job {
+    @Test
+    fun filesFeature_cancelActionTapped_receiverSendsFileCancelUserCancelledAndDeletesPart() =
+        runTest {
+            val store = FileTransferStore(temporaryFolder.newFolder(), Clock.systemUTC())
+            val job = startFeature(store)
+            session.emitIncoming(offerFromMac())
+            runCurrent()
+            checkNotNull(TransferActionDispatcher.acceptFlow).accept(OFFER_ID)
+            runCurrent()
+            assertEquals(listOf(OFFER_ID), store.ids())
+
+            checkNotNull(TransferActionDispatcher.cancelTransfer).invoke(OFFER_ID)
+            runCurrent()
+
+            assertEquals(
+                TransferReason.TRANSFER_REASON_USER_CANCELLED,
+                session.sentFrames
+                    .single { it.hasFileCancel() }
+                    .fileCancel.reason,
+            )
+            assertTrue(store.ids().isEmpty())
+            job.cancel()
+        }
+
+    @Test
+    fun filesFeature_sessionStarts_sweepsExpiredPartFiles() =
+        runTest {
+            val store = FileTransferStore(temporaryFolder.newFolder(), Clock.systemUTC())
+            store.create("stale")
+            store.writeMeta("stale", peer.bytes + staleOffer("stale").toByteArray())
+            val staleClock = Clock.fixed(Clock.systemUTC().instant().plusSeconds(25 * 3600), java.time.ZoneOffset.UTC)
+
+            val job = startFeature(store, staleClock)
+
+            assertTrue(store.ids().isEmpty())
+            job.cancel()
+        }
+
+    @Test
+    fun filesFeature_reconnectWithRetainedPart_sendsFileResumeRequest() =
+        runTest {
+            val store = FileTransferStore(temporaryFolder.newFolder(), Clock.systemUTC())
+            store.create("part-1")
+            store.append("part-1", CONTENT.copyOf(2))
+            store.writeMeta("part-1", peer.bytes + staleOffer("part-1").toByteArray())
+
+            val job = startFeature(store)
+
+            assertEquals(
+                "part-1",
+                session.sentFrames
+                    .single { it.hasFileResumeRequest() }
+                    .fileResumeRequest.id,
+            )
+            job.cancel()
+        }
+
+    private fun staleOffer(offerId: String) =
+        fileOffer {
+            id = offerId
+            name = "from-mac.txt"
+            size = CONTENT.size.toLong()
+            mime = "text/plain"
+            sha256 = ByteString.copyFrom(MessageDigest.getInstance("SHA-256").digest(CONTENT))
+        }
+
+    private fun TestScope.startFeature(
+        store: FileTransferStore = FileTransferStore(temporaryFolder.newFolder(), Clock.systemUTC()),
+        clock: Clock = Clock.systemUTC(),
+    ): Job {
         val context: Context = RuntimeEnvironment.getApplication()
         val feature =
             FilesFeature(
-                store = FileTransferStore(temporaryFolder.newFolder(), Clock.systemUTC()),
+                store = store,
                 publisher = { _, _, _ -> "content://downloads/1" },
                 notifier = { _, _, _ -> },
                 prompter =
@@ -169,9 +256,10 @@ class FilesFeatureWiringTest {
                 thumbnailLoader = { _, _ -> error("unused") },
                 permissionChecker = MediaPermissionChecker(context),
                 acceptSettings = { AcceptSettings() },
-                clock = Clock.systemUTC(),
+                clock = clock,
                 ioDispatcher = StandardTestDispatcher(testScheduler),
                 serialDispatcher = { StandardTestDispatcher(testScheduler) },
+                progressNotifier = TransferProgressNotifier(context),
             )
         val job = launch { feature.run(session, peer, null) }
         runCurrent()

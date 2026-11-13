@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
 /**
@@ -40,46 +41,64 @@ fun CameraXFrameSource(
             val cameraProviderFuture = ProcessCameraProvider.getInstance(viewContext)
             cameraProviderFuture.addListener(
                 {
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview =
-                        Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-                    // 640x480 (CameraX's default analysis size) is too coarse for a dense, dotted pairing
-                    // QR: ask for ~1080p and decode off the main thread, delivering hits back on it.
-                    val analysis =
-                        ImageAnalysis
-                            .Builder()
-                            .setResolutionSelector(
-                                ResolutionSelector
-                                    .Builder()
-                                    .setResolutionStrategy(
-                                        ResolutionStrategy(
-                                            Size(ANALYSIS_WIDTH, ANALYSIS_HEIGHT),
-                                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
-                                        ),
-                                    ).build(),
-                            ).setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .build()
-                            .also {
-                                it.setAnalyzer(
-                                    analysisExecutor,
-                                    ZxingQrAnalyzer(
-                                        onResult = { result -> viewContext.mainExecutor.execute { onResult(result) } },
-                                    ),
-                                )
-                            }
-
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
-                        preview,
-                        analysis,
-                    )
+                    // Camera busy or no back camera: the preview stays blank and manual pairing remains.
+                    try {
+                        bindCamera(cameraProviderFuture.get(), previewView, lifecycleOwner, viewContext, onResult)
+                    } catch (_: ExecutionException) {
+                        return@addListener
+                    } catch (_: IllegalArgumentException) {
+                        return@addListener
+                    } catch (_: IllegalStateException) {
+                        return@addListener
+                    }
                 },
                 viewContext.mainExecutor,
             )
             previewView
         },
+    )
+}
+
+private fun bindCamera(
+    cameraProvider: ProcessCameraProvider,
+    previewView: PreviewView,
+    lifecycleOwner: LifecycleOwner,
+    viewContext: Context,
+    onResult: (ScanResult) -> Unit,
+) {
+    val preview =
+        Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+    // 640x480 (CameraX's default analysis size) is too coarse for a dense, dotted pairing
+    // QR: ask for ~1080p and decode off the main thread, delivering hits back on it.
+    val analysis =
+        ImageAnalysis
+            .Builder()
+            .setResolutionSelector(
+                ResolutionSelector
+                    .Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(ANALYSIS_WIDTH, ANALYSIS_HEIGHT),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                        ),
+                    ).build(),
+            ).setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also {
+                it.setAnalyzer(
+                    analysisExecutor,
+                    ZxingQrAnalyzer(
+                        onResult = { result -> viewContext.mainExecutor.execute { onResult(result) } },
+                    ),
+                )
+            }
+
+    cameraProvider.unbindAll()
+    cameraProvider.bindToLifecycle(
+        lifecycleOwner,
+        CameraSelector.DEFAULT_BACK_CAMERA,
+        preview,
+        analysis,
     )
 }
 

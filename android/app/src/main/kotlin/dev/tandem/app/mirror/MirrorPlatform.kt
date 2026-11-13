@@ -6,7 +6,7 @@ import dev.tandem.feature.mirror.DisplayChangeSource
 import dev.tandem.feature.mirror.EncoderFactory
 import dev.tandem.feature.mirror.ProjectionConsentLauncher
 
-enum class MirrorFailure { PinMismatch, Unreachable }
+enum class MirrorFailure { PinMismatch, Unreachable, InputUnavailable }
 
 /** Android-facing seams of one mirror round; the real implementation is [AndroidMirrorPlatform]. */
 interface MirrorPlatform {

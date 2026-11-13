@@ -214,7 +214,11 @@ class MainActivity : TandemActivity() {
         sensitive: Boolean,
         confirm: Boolean = false,
     ) {
-        val session = sessionProvider(this) ?: return
+        val session = sessionProvider(this)
+        if (session == null) {
+            if (confirm) showToast(R.string.clipboard_not_connected)
+            return
+        }
         CoroutineScope(SupervisorJob() + dispatcher).launch {
             val sent =
                 ClipboardSender.send(

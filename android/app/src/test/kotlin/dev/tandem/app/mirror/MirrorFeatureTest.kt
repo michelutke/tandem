@@ -137,7 +137,9 @@ class MirrorFeatureTest {
         }
     }
 
-    private class FakePlatform : MirrorPlatform {
+    private class FakePlatform(
+        private val encoderFails: Boolean = false,
+    ) : MirrorPlatform {
         val launches = AtomicInteger()
         val captureStops = AtomicInteger()
         val captureServiceStarts = AtomicInteger()
@@ -156,7 +158,7 @@ class MirrorFeatureTest {
 
         override fun displaySize() = Size(1080, 2400)
 
-        override fun encoderFactory() = EncoderFactory { _, _ -> encoder }
+        override fun encoderFactory() = EncoderFactory { _, _ -> if (encoderFails) error("codec failed") else encoder }
 
         override fun displayChanges(): DisplayChangeSource = NoDisplayChanges
 
@@ -229,9 +231,13 @@ class MirrorFeatureTest {
     private inner class Fixture(
         pinMismatch: Boolean = false,
         unreachable: Boolean = false,
+        encoderFails: Boolean = false,
     ) {
+        @Volatile
+        var targetAvailable = true
+
         val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
-        val platform = FakePlatform()
+        val platform = FakePlatform(encoderFails)
         val presenter = FakePresenter()
         val stream = RecordingStream()
         val streamFactory =
@@ -261,7 +267,7 @@ class MirrorFeatureTest {
                 elapsedRealtime = ElapsedRealtimeSource { 0L },
                 inputTarget = {
                     targetLookups.incrementAndGet()
-                    target
+                    target.takeIf { targetAvailable }
                 },
                 dropLog =
                     object : DropLog {
@@ -378,6 +384,53 @@ class MirrorFeatureTest {
             assertTrue(f.platform.captureStops.get() >= 1)
             assertNull(MirrorPromptActionDispatcher.controller)
             assertEquals(1, f.actions.globalActions.size)
+        }
+
+    @Test
+    fun mirrorFeature_accessibilityConnectedAfterRoundStart_inputRoutedAfterUserStart() =
+        runBlocking {
+            val f = Fixture()
+            f.targetAvailable = false
+            val job = launchFeature(f)
+            await { MirrorPromptActionDispatcher.controller != null }
+            f.targetAvailable = true
+
+            f.startMirror()
+            f.session.emitIncoming(f.homeAction())
+            await { f.actions.globalActions.size == 1 }
+
+            assertEquals(1, f.actions.globalActions.size)
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun mirrorFeature_indicatorShowFails_userToldInputUnavailable() =
+        runBlocking {
+            val f = Fixture()
+            f.targetAvailable = false
+            val job = launchFeature(f)
+
+            f.startMirror(expectIndicator = false)
+            await { f.platform.failures.contains(MirrorFailure.InputUnavailable) }
+
+            assertTrue(f.actions.globalActions.isEmpty())
+            job.cancelAndJoin()
+        }
+
+    @Test
+    fun mirrorFeature_encoderCreateThrows_rearmsPromptForNextRequest() =
+        runBlocking {
+            val f = Fixture(encoderFails = true)
+            val job = launchFeature(f)
+
+            f.startMirror(expectIndicator = false)
+            await { f.platform.captureStops.get() >= 1 }
+            await { MirrorPromptActionDispatcher.controller != null }
+            f.session.emitIncoming(f.mirrorRequest())
+            await { f.presenter.shown.get() == 2 }
+
+            assertEquals(2, f.presenter.shown.get())
+            job.cancelAndJoin()
         }
 
     @Test

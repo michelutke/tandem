@@ -4,6 +4,7 @@ import dev.tandem.app.connection.SessionFeature
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.feature.files.AcceptFlow
 import dev.tandem.feature.files.AcceptSettings
 import dev.tandem.feature.files.DownloadsPublisher
@@ -21,6 +22,7 @@ import dev.tandem.feature.files.PhotoPageOutcome
 import dev.tandem.feature.files.PhotoPageResponder
 import dev.tandem.feature.files.PhotoPager
 import dev.tandem.feature.files.ReceivedFileNotifier
+import dev.tandem.feature.files.RetainedSends
 import dev.tandem.feature.files.SourceFileReader
 import dev.tandem.feature.files.ThumbOutcome
 import dev.tandem.feature.files.ThumbnailLoader
@@ -28,6 +30,8 @@ import dev.tandem.feature.files.ThumbnailResponder
 import dev.tandem.feature.files.TransferActionDispatcher
 import dev.tandem.feature.files.TransferActivity
 import dev.tandem.feature.files.TransferBatchAggregator
+import dev.tandem.feature.files.TransferProgressNotifier
+import dev.tandem.feature.files.TransferProgressViewModel
 import dev.tandem.feature.files.TransferPrompter
 import dev.tandem.feature.files.TransferStore
 import dev.tandem.protocol.v1.Channel
@@ -37,7 +41,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
@@ -63,12 +69,15 @@ class FilesFeature(
     private val clock: Clock,
     private val ioDispatcher: CoroutineDispatcher,
     private val serialDispatcher: () -> CoroutineDispatcher,
+    private val progressNotifier: TransferProgressNotifier,
 ) : SessionFeature {
     @Volatile
     private var receiver: FileReceiver? = null
+    private val retainedSends = RetainedSends()
 
     val purger: PeerDataPurging =
         PeerDataPurging { peerFingerprint ->
+            retainedSends.clear()
             receiver?.purgeAll(peerFingerprint) ?: withContext(ioDispatcher) { store.deleteAll() }
         }
 
@@ -80,14 +89,28 @@ class FilesFeature(
         val fileReceiver =
             FileReceiver(session, store, publisher, notifier, peer, clock, ioDispatcher, serialDispatcher())
         val acceptFlow =
-            AcceptFlow(session, freeSpace, prompter, acceptSettings, { fileReceiver.activeCount }, serialDispatcher())
+            AcceptFlow(
+                session,
+                freeSpace,
+                prompter,
+                acceptSettings,
+                { fileReceiver.activeCount },
+                serialDispatcher(),
+                { STAGED_COPIES * fileReceiver.remainingBytes },
+            )
         acceptFlow.onAccepted = fileReceiver::expect
         val scheduler = FilesScheduler(session, serialDispatcher())
-        val sender = FileSender(session, scheduler, reader, ioDispatcher, serialDispatcher())
+        val sender = FileSender(session, scheduler, reader, ioDispatcher, serialDispatcher(), retainedSends)
         val liveScope = CoroutineScope(SupervisorJob() + serialDispatcher())
         receiver = fileReceiver
         TransferActionDispatcher.acceptFlow = acceptFlow
+        val cancelTransfer: (String) -> Unit = { id ->
+            sender.cancelTransfer(id)
+            fileReceiver.cancelTransfer(id)
+        }
+        TransferActionDispatcher.cancelTransfer = cancelTransfer
         LiveFileSession.attach(sender, liveScope)
+        fileReceiver.resumeRetained()
         try {
             coroutineScope {
                 launch {
@@ -95,6 +118,7 @@ class FilesFeature(
                     combine(sender.progress, fileReceiver.progress, batch::update)
                         .collect(LiveTransferActivity::publish)
                 }
+                launch { postProgressNotifications(sender, fileReceiver) }
                 routePhotoRequests(session, OriginalResponder(mediaSource, sender))
             }
         } finally {
@@ -103,12 +127,41 @@ class FilesFeature(
             LiveFileSession.detach(sender)
             liveScope.cancel()
             if (TransferActionDispatcher.acceptFlow === acceptFlow) TransferActionDispatcher.acceptFlow = null
+            if (TransferActionDispatcher.cancelTransfer ===
+                cancelTransfer
+            ) {
+                TransferActionDispatcher.cancelTransfer = null
+            }
             acceptFlow.close()
             sender.close()
             scheduler.close()
             fileReceiver.close()
         }
     }
+
+    private suspend fun postProgressNotifications(
+        sender: FileSender,
+        fileReceiver: FileReceiver,
+    ): Unit =
+        coroutineScope {
+            val bytes =
+                combine(sender.progress, fileReceiver.progress) { sent, received -> sent + received }
+                    .stateIn(this, SharingStarted.Eagerly, emptyMap())
+            val model = TransferProgressViewModel(bytes, clock, this)
+            val shown = mutableSetOf<String>()
+            try {
+                model.progress.collect { progress ->
+                    (shown - progress.keys).forEach(progressNotifier::cancel)
+                    shown.retainAll(progress.keys)
+                    progress.forEach { (id, value) ->
+                        progressNotifier.post(id, value)
+                        shown += id
+                    }
+                }
+            } finally {
+                shown.forEach(progressNotifier::cancel)
+            }
+        }
 
     private suspend fun routePhotoRequests(
         session: TandemSession,
@@ -143,7 +196,7 @@ class FilesFeature(
         outcome: PhotoPageOutcome,
     ) {
         when (outcome) {
-            is PhotoPageOutcome.Page -> session.send(Channel.CHANNEL_FILES) { photoPageResult = outcome.result }
+            is PhotoPageOutcome.Page -> session.sendOrDrop(Channel.CHANNEL_FILES) { photoPageResult = outcome.result }
             is PhotoPageOutcome.Failure -> sendError(session, outcome.error)
         }
     }
@@ -153,7 +206,7 @@ class FilesFeature(
         outcome: ThumbOutcome,
     ) {
         when (outcome) {
-            is ThumbOutcome.Thumb -> session.send(Channel.CHANNEL_FILES) { thumbResult = outcome.result }
+            is ThumbOutcome.Thumb -> session.sendOrDrop(Channel.CHANNEL_FILES) { thumbResult = outcome.result }
             is ThumbOutcome.Failure -> sendError(session, outcome.error)
         }
     }
@@ -169,6 +222,8 @@ class FilesFeature(
         session: TandemSession,
         error: PhotoError,
     ) {
-        session.send(Channel.CHANNEL_FILES) { photoError = error }
+        session.sendOrDrop(Channel.CHANNEL_FILES) { photoError = error }
     }
 }
+
+private const val STAGED_COPIES = 2L

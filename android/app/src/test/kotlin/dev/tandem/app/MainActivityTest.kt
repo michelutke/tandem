@@ -21,6 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
+import org.robolectric.shadows.ShadowToast
 
 // E31-07 tdd:
 //   unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText
@@ -138,8 +139,17 @@ class MainActivityTest {
         assertEquals(null, activity.actionBar)
     }
 
+    @Test
+    fun mainActivity_sendClipboardButtonNoSession_showsNotConnectedToast() {
+        val activity = buildAndCreate(null, RecordingClipboardReader(ClipboardClip("hello mac", sensitive = false)))
+
+        activity.onSendClipboardButtonTapped()
+
+        assertEquals("Not connected to your Mac.", ShadowToast.getTextOfLatestToast())
+    }
+
     private fun buildAndCreate(
-        session: FakeTandemSession,
+        session: FakeTandemSession?,
         reader: ClipboardReader,
     ): MainActivity {
         val controller = Robolectric.buildActivity(MainActivity::class.java)

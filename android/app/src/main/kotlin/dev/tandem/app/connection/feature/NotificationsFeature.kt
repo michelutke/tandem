@@ -6,7 +6,6 @@ import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.feature.notifications.CoalescingNotificationEventSink
 import dev.tandem.feature.notifications.LiveNotificationEventSink
-import dev.tandem.feature.notifications.NotificationEventSink
 import dev.tandem.feature.notifications.NotificationSink
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
@@ -25,11 +24,11 @@ class NotificationsFeature(
     ) {
         val sink = NotificationSink(session, elapsedRealtimeSource, dispatcher)
         val coalescing = CoalescingNotificationEventSink(sink, clock, dispatcher)
-        LiveNotificationEventSink.target = coalescing
+        LiveNotificationEventSink.attach(coalescing)
         try {
             awaitCancellation()
         } finally {
-            LiveNotificationEventSink.target = NotificationEventSink.NoOp
+            LiveNotificationEventSink.detach()
             coalescing.close()
             sink.close()
         }

@@ -65,3 +65,18 @@ object RingNotification {
 
     private const val STOP_REQUEST_CODE = 0
 }
+
+/** Seam over [RingNotification] so [RingController] stays plain unit-tested. */
+interface RingNotifier {
+    fun show()
+
+    fun cancel()
+}
+
+class SystemRingNotifier(
+    private val context: Context,
+) : RingNotifier {
+    override fun show() = RingNotification.show(context)
+
+    override fun cancel() = RingNotification.cancel(context)
+}

@@ -6,6 +6,11 @@ import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.RingStop
 import dev.tandem.protocol.v1.ringStop
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -19,6 +24,9 @@ import kotlin.time.Duration.Companion.seconds
  * twice per rolling 10 s window (cooldown) even across separate ring/stop cycles, so repeated
  * delivery of the same empty `Ring` message never double-starts or floods the alarm.
  *
+ * Shows the ring notification (with its Stop action) while ringing and stops the alarm by itself
+ * after [MAX_RING_DURATION], sending the same `RingStop{origin=phone}` as a user dismissal.
+ *
  * Framework-free like [RingHandler]: reads [session] and [elapsedRealtimeSource] instead of a real
  * `TandemSession`/`SystemClock`, so it stays plain unit-tested against `FakeTandemSession`
  * (E12-11) and `FakeElapsedRealtime` (E00-18).
@@ -27,8 +35,11 @@ class RingController(
     private val ringHandler: RingHandler,
     private val session: TandemSession,
     private val elapsedRealtimeSource: ElapsedRealtimeSource,
+    private val ringNotifier: RingNotifier,
+    private val scope: CoroutineScope,
 ) {
     private var isRinging = false
+    private var timeoutJob: Job? = null
     private val recentStartTimestampsMillis = ArrayDeque<Long>()
 
     /** Reacts to a received `Ring` (D-62 idempotency and cooldown); returns true if the alarm started. */
@@ -38,8 +49,16 @@ class RingController(
             recentStartTimestampsMillis.addLast(elapsedRealtimeSource.elapsedRealtimeMillis())
             isRinging = true
             ringHandler.ring()
+            ringNotifier.show()
+            timeoutJob = scope.launch { stopAfterMaxDuration() }
         }
         return started
+    }
+
+    private suspend fun stopAfterMaxDuration() {
+        delay(MAX_RING_DURATION)
+        timeoutJob = null
+        dismissedByPhone()
     }
 
     private fun withinStartBudget(): Boolean {
@@ -59,8 +78,7 @@ class RingController(
      */
     suspend fun dismissedByPhone() {
         if (!isRinging) return
-        isRinging = false
-        ringHandler.stop()
+        stopRinging()
         session.sendOrDrop(Channel.CHANNEL_STATUS) { ringStop = ringStop { origin = RingStop.Origin.ORIGIN_PHONE } }
     }
 
@@ -70,12 +88,22 @@ class RingController(
      */
     fun ringStopReceived() {
         if (!isRinging) return
-        isRinging = false
-        ringHandler.stop()
+        stopRinging()
     }
 
-    private companion object {
-        const val MAX_STARTS_PER_WINDOW = 2
-        val COOLDOWN_WINDOW_MILLIS = 10.seconds.inWholeMilliseconds
+    private fun stopRinging() {
+        isRinging = false
+        timeoutJob?.cancel()
+        timeoutJob = null
+        ringHandler.stop()
+        ringNotifier.cancel()
+    }
+
+    companion object {
+        /** No ring duration is specified in PRD or SPEC; the alarm never outlives this. */
+        val MAX_RING_DURATION = 2.minutes
+
+        private const val MAX_STARTS_PER_WINDOW = 2
+        private val COOLDOWN_WINDOW_MILLIS = 10.seconds.inWholeMilliseconds
     }
 }
