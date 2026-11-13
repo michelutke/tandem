@@ -121,6 +121,8 @@ public struct CallsSectionView: View {
                     .foregroundStyle(TandemColor.paper)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(TandemColor.ink))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Call \(row.name)")

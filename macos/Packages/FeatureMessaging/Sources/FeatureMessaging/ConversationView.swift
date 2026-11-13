@@ -148,6 +148,8 @@ public struct ConversationView: View {
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(TandemColor.ink))
                     .opacity(isOffline ? 0.3 : 1)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!sendEnabled)

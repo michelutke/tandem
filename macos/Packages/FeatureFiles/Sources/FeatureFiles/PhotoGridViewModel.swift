@@ -20,6 +20,8 @@ public final class PhotoGridViewModel {
     public private(set) var thumbnails: [String: Data] = [:]
     public private(set) var loadFailed = false
     public private(set) var downloadStates: [String: DownloadState] = [:]
+    public private(set) var selectedIds: Set<String> = []
+    public private(set) var hasMorePages = true
 
     public enum DownloadState: Sendable, Equatable {
         case downloading
@@ -29,6 +31,9 @@ public final class PhotoGridViewModel {
 
     public var showsLimitedAccessBanner: Bool { access == .partial }
 
+    /// The phone's photo count, known only once the last page is loaded (a page reports no total).
+    public var totalCount: Int? { hasMorePages ? nil : items.count }
+
     /// The phone reports it shares no photos at all (ui-spec §7.1 "Photos · No access").
     public var showsNoAccess: Bool { access == .none }
 
@@ -37,7 +42,6 @@ public final class PhotoGridViewModel {
     @ObservationIgnored private let makeTransferID: @Sendable () -> String
     @ObservationIgnored private var pendingOriginals: [String: String] = [:]
     @ObservationIgnored private var nextCursor = ""
-    @ObservationIgnored private var hasMorePages = true
     @ObservationIgnored private var pageInFlight = false
     @ObservationIgnored private var requestedThumbIDs: Set<String> = []
     @ObservationIgnored private var desiredThumbRange: ClosedRange<Int>?
@@ -82,6 +86,21 @@ public final class PhotoGridViewModel {
             requestedThumbIDs.formUnion(wanted)
             await fetchThumbnails(wanted)
         }
+    }
+
+    public func isSelected(id: String) -> Bool {
+        selectedIds.contains(id)
+    }
+
+    public func toggleSelection(id: String) {
+        if !selectedIds.insert(id).inserted { selectedIds.remove(id) }
+    }
+
+    /// Requests the original of every selected photo, in grid order, then clears the selection.
+    public func downloadSelected() async {
+        let ids = items.map(\.id).filter(selectedIds.contains)
+        selectedIds = []
+        for id in ids { await download(id: id) }
     }
 
     public func selectMoreOnPhone() async {
