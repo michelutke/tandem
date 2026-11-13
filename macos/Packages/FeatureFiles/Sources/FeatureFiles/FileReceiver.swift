@@ -84,16 +84,18 @@ public actor FileReceiver {
 
     /// Sweeps staging after a reconnect: deletes `.part` files idle for over 24 h and, for each
     /// retained one bound to this peer, truncates to a 256 KiB boundary, re-hashes the prefix and
-    /// sends `FileResumeRequest`. Returns the ids a resume was requested for.
+    /// sends `FileResumeRequest`. Returns the ids a resume was requested for. `onResumed` runs for each
+    /// id once its transfer is staged and before its request is sent, so a reject for it can only
+    /// arrive after the caller has counted it.
     @discardableResult
-    public func resumeRetained() async -> [String] {
+    public func resumeRetained(onResumed: (@Sendable (String) async -> Void)? = nil) async -> [String] {
         let names = (try? fileManager.contentsOfDirectory(atPath: directories.staging.path)) ?? []
         var resumed: [String] = []
         for name in names.sorted() where name.hasSuffix(".part") {
             let partURL = directories.staging.appendingPathComponent(name)
             if isExpired(partURL) {
                 try? fileManager.removeItem(at: partURL)
-            } else if let id = await resume(partURL: partURL) {
+            } else if let id = await resume(partURL: partURL, onResumed: onResumed) {
                 resumed.append(id)
             }
         }
@@ -106,7 +108,7 @@ public actor FileReceiver {
         return now().timeIntervalSince(modified) > Self.partRetention
     }
 
-    private func resume(partURL: URL) async -> String? {
+    private func resume(partURL: URL, onResumed: (@Sendable (String) async -> Void)?) async -> String? {
         guard let stored = PartAttributes.read(from: partURL),
               stored.peer == peer,
               Self.isSafeId(stored.offer.id),
@@ -126,6 +128,7 @@ public actor FileReceiver {
             transfer.written = boundary
             transfers[offer.id] = transfer
             let id = offer.id
+            await onResumed?(id)
             await progress?.began(
                 id: id, name: transfer.filename, totalBytes: Int64(offer.size), direction: .phoneToMac
             ) { [weak self] in

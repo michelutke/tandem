@@ -325,4 +325,30 @@ struct FileResumeTests {
         #expect(await session.sent.isEmpty)
         #expect(FileManager.default.fileExists(atPath: rig.partURL.path))
     }
+
+    @Test
+    func macosResume_onResumed_calledBeforeResumeRequestSent() async throws {
+        let rig = try Rig(size: 3 * chunkSize)
+        defer { rig.cleanUp() }
+        try await rig.severed(afterChunks: 1)
+        let session = FakeTandemSession()
+        let receiver = rig.receiver(session: session)
+        let sentWhenCalled = SentCountBox()
+
+        let resumed = await receiver.resumeRetained { id in
+            await sentWhenCalled.record(id: id, sent: await session.sent.count, staged: await receiver.hasTransfer(id: id))
+        }
+
+        #expect(resumed == ["t1"])
+        #expect(await sentWhenCalled.entries == [SentCountBox.Entry(id: "t1", sent: 0, staged: true)])
+    }
+}
+
+private actor SentCountBox {
+    struct Entry: Equatable { let id: String; let sent: Int; let staged: Bool }
+    private(set) var entries: [Entry] = []
+
+    func record(id: String, sent: Int, staged: Bool) {
+        entries.append(Entry(id: id, sent: sent, staged: staged))
+    }
 }

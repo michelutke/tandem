@@ -16,25 +16,28 @@ public final class SessionFileTransferService: FileTransferService {
     private let senders = SenderRegistry()
     private let progress: (any TransferProgressReporting)?
     private let makeTransferId: @Sendable () -> String
+    private let clock: any Clock<Duration>
 
     public init(
         session: any TandemSession,
         scheduler: FilesScheduler,
         progress: (any TransferProgressReporting)? = nil,
-        makeTransferId: @escaping @Sendable () -> String = { UUID().uuidString }
+        makeTransferId: @escaping @Sendable () -> String = { UUID().uuidString },
+        clock: any Clock<Duration> = ContinuousClock()
     ) {
         self.session = session
         self.scheduler = scheduler
         resumeResponder = FileResumeResponder(session: session)
         self.progress = progress
         self.makeTransferId = makeTransferId
+        self.clock = clock
     }
 
     public func startOffer(for url: URL) async {
-        await startOffer(for: url, onEnded: {})
+        _ = await startOffer(for: url, onEnded: {})
     }
 
-    public func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async {
+    public func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async -> Bool {
         let id = makeTransferId()
         let reporter = EndNotifyingProgress(base: progress) { [weak self] in
             onEnded()
@@ -47,15 +50,13 @@ public final class SessionFileTransferService: FileTransferService {
             source: LocalFileChunkSource(url: url),
             session: session,
             scheduler: scheduler,
-            progress: reporter
+            progress: reporter,
+            clock: clock
         )
-        await senders.register(id: id, sender: sender)
+        guard await senders.register(id: id, sender: sender) else { return false }
         await resumeResponder.register(id: id, sender: sender)
         await sender.start()
-        if await sender.state == .failed {
-            onEnded()
-            await forget(id: id)
-        }
+        return true
     }
 
     /// Ends every transfer still in flight as failed; called once the session's FILES stream has finished.
@@ -89,9 +90,12 @@ public final class SessionFileTransferService: FileTransferService {
 
 private actor SenderRegistry {
     private var senders: [String: FileSender] = [:]
+    private var closed = false
 
-    func register(id: String, sender: FileSender) {
+    func register(id: String, sender: FileSender) -> Bool {
+        guard !closed else { return false }
         senders[id] = sender
+        return true
     }
 
     func sender(id: String) -> FileSender? {
@@ -103,6 +107,7 @@ private actor SenderRegistry {
     }
 
     func removeAll() -> [FileSender] {
+        closed = true
         defer { senders = [:] }
         return Array(senders.values)
     }
@@ -158,8 +163,8 @@ public final class ActiveFileTransferService: FileTransferService, @unchecked Se
         await service?.startOffer(for: url)
     }
 
-    public func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async {
+    public func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async -> Bool {
         let service = lock.withLock { current }
-        await service?.startOffer(for: url, onEnded: onEnded)
+        return await service?.startOffer(for: url, onEnded: onEnded) ?? false
     }
 }

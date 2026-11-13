@@ -39,6 +39,7 @@ public final class PhotoGridViewModel {
 
     @ObservationIgnored private let service: any PhotoService
     @ObservationIgnored private let offerExpecting: (any OriginalOfferExpecting)?
+    @ObservationIgnored private let events: (any OriginalTransferEventSource)?
     @ObservationIgnored private let makeTransferID: @Sendable () -> String
     @ObservationIgnored private var pendingOriginals: [String: String] = [:]
     @ObservationIgnored private var nextCursor = ""
@@ -51,10 +52,12 @@ public final class PhotoGridViewModel {
     public init(
         service: any PhotoService,
         offerExpecting: (any OriginalOfferExpecting)? = nil,
+        events: (any OriginalTransferEventSource)? = nil,
         makeTransferID: @escaping @Sendable () -> String = { UUID().uuidString }
     ) {
         self.service = service
         self.offerExpecting = offerExpecting
+        self.events = events
         self.makeTransferID = makeTransferID
     }
 
@@ -116,6 +119,26 @@ public final class PhotoGridViewModel {
             try await service.requestOriginal(id: id, transferId: transferId)
         } catch {
             await failDownload(transferId: transferId, photoId: id)
+        }
+    }
+
+    /// Resolves `.downloading` for each requested original from the session's transfer events, until
+    /// cancelled or the source finishes.
+    public func observeOriginalEvents() async {
+        guard let events else { return }
+        for await event in events.originalTransferEvents() {
+            switch event {
+            case .finished(let transferId): originalTransferFinished(transferId: transferId)
+            case .failed(let transferId): await originalTransferFailed(transferId: transferId)
+            case .photoError(let error): await photoErrorReceived(error)
+            case .disconnected: await failAllPendingOriginals()
+            }
+        }
+    }
+
+    private func failAllPendingOriginals() async {
+        for (transferId, photoId) in pendingOriginals {
+            await failDownload(transferId: transferId, photoId: photoId)
         }
     }
 

@@ -72,7 +72,9 @@ private actor TenKPhotoService: PhotoService {
         init() async throws {
             directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("tandem-10k-scroll-test-\(UUID().uuidString)")
-            let png = PhotoGrid10kScrollTests.pngSignature
+            let header = Data([0x00, 0x00, 0x00, 0x0D]) + Data("IHDR".utf8)
+                + Data([0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40, 0x08, 0x02, 0x00, 0x00, 0x00])
+            let png = PhotoGrid10kScrollTests.pngSignature + header
                 + Data(repeating: 0x01, count: PhotoGrid10kScrollTests.thumbBytes)
                 + PhotoGrid10kScrollTests.pngTrailer
             service = TenKPhotoService(thumbnail: png)

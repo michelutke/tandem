@@ -8,6 +8,9 @@ import TandemStore
 /// frame by frame to the ``FilesScheduler`` so credit gating and per-stream round-robin apply.
 public actor FileSender: FilesFrameStream {
     public static let chunkSize = 262_144
+    /// How long a sent transfer stays open to a late `FileCancel` (the phone's hash or disk check
+    /// runs after `FileComplete`) before it is reported completed.
+    public static let completionGrace: Duration = .seconds(5)
 
     public enum State: Sendable, Equatable {
         case idle
@@ -33,7 +36,9 @@ public actor FileSender: FilesFrameStream {
     private let session: any TandemSession
     private let scheduler: FilesScheduler
     private let progress: (any TransferProgressReporting)?
+    private let clock: any Clock<Duration>
 
+    private var graceTask: Task<Void, Never>?
     private var size: UInt64 = 0
     private var reader: (any FileChunkReader)?
     private var nextSeq: UInt64 = 0
@@ -45,7 +50,8 @@ public actor FileSender: FilesFrameStream {
         source: any FileChunkSource,
         session: any TandemSession,
         scheduler: FilesScheduler,
-        progress: (any TransferProgressReporting)? = nil
+        progress: (any TransferProgressReporting)? = nil,
+        clock: any Clock<Duration> = ContinuousClock()
     ) {
         self.id = id
         self.name = name
@@ -54,6 +60,7 @@ public actor FileSender: FilesFrameStream {
         self.session = session
         self.scheduler = scheduler
         self.progress = progress
+        self.clock = clock
     }
 
     /// Hashes the whole source in one streaming pass, then sends the `FileOffer`.
@@ -62,6 +69,10 @@ public actor FileSender: FilesFrameStream {
         guard let digest = try? hashSource() else {
             FilesLog.event("send failed: source unreadable")
             state = .failed
+            await progress?.began(id: id, name: name, totalBytes: 0, direction: .macToPhone) { [weak self] in
+                await self?.cancel()
+            }
+            await progress?.ended(id: id, outcome: .failed(reason: "source unreadable"))
             return
         }
         var offer = Tandem_V1_FileOffer()
@@ -120,7 +131,9 @@ public actor FileSender: FilesFrameStream {
     }
 
     public func handle(cancel: Tandem_V1_FileCancel) async {
-        guard cancel.id == id, [.offered, .sending, .completing].contains(state) else { return }
+        guard cancel.id == id, [.offered, .sending, .completing, .completed].contains(state) else { return }
+        graceTask?.cancel()
+        graceTask = nil
         state = .cancelled(cancel.reason)
         reader = nil
         await progress?.ended(id: id, outcome: TransferOutcome(reason: cancel.reason))
@@ -136,7 +149,7 @@ public actor FileSender: FilesFrameStream {
     public func nextFrame() async -> Tandem_V1_Envelope.OneOf_Payload? {
         if state == .completing {
             state = .completed
-            await progress?.ended(id: id, outcome: .completed)
+            startGrace()
             return nil
         }
         guard state == .sending else { return nil }
@@ -169,8 +182,26 @@ public actor FileSender: FilesFrameStream {
 
     /// The session ended while this transfer was still in flight.
     public func disconnected() async {
+        if state == .completed {
+            await finishCompletion()
+            return
+        }
         guard [.offered, .sending, .completing].contains(state) else { return }
         await fail(reason: "disconnected")
+    }
+
+    private func startGrace() {
+        graceTask = Task { [weak self, clock] in
+            do { try await clock.sleep(for: Self.completionGrace) } catch { return }
+            await self?.finishCompletion()
+        }
+    }
+
+    private func finishCompletion() async {
+        guard let task = graceTask else { return }
+        graceTask = nil
+        task.cancel()
+        await progress?.ended(id: id, outcome: .completed)
     }
 
     private func fail(reason: String) async {

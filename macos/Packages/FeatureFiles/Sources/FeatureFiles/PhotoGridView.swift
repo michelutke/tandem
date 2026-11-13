@@ -29,6 +29,7 @@ public struct PhotoGridView: View {
             }
         }
         .task { await viewModel.loadFirstPage() }
+        .task { await viewModel.observeOriginalEvents() }
     }
 
     private var grid: some View {

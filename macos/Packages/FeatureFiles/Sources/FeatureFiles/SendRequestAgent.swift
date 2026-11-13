@@ -20,8 +20,12 @@ public final class SendRequestAgent: @unchecked Sendable {
         var started = 0
         for request in queue.dequeue() {
             for copy in request where markOffered(copy) {
-                await transfer.startOffer(for: copy) { [weak self] in self?.transferEnded(copy: copy) }
-                started += 1
+                let didStart = await transfer.startOffer(for: copy) { [weak self] in self?.transferEnded(copy: copy) }
+                if didStart {
+                    started += 1
+                } else {
+                    unmarkOffered(copy)
+                }
             }
         }
         return started
@@ -30,6 +34,10 @@ public final class SendRequestAgent: @unchecked Sendable {
     /// Call when a transfer ends (completed, rejected or cancelled).
     public func transferEnded(copy: URL) {
         queue.discard(copy: copy)
+        _ = lock.withLock { offered.remove(copy) }
+    }
+
+    private func unmarkOffered(_ copy: URL) {
         _ = lock.withLock { offered.remove(copy) }
     }
 

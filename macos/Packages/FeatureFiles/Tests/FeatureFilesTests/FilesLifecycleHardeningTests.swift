@@ -92,6 +92,11 @@ private func makeTemporaryDirectory() throws -> URL {
     return directory
 }
 
+private func advancePastGrace(_ clock: ManualTestClock) async {
+    clock.advance(by: FileSender.completionGrace)
+    for _ in 0..<50 { await Task.yield() }
+}
+
 private func accept(_ id: String) -> Tandem_V1_FileAccept {
     var message = Tandem_V1_FileAccept()
     message.id = id
@@ -103,14 +108,15 @@ struct FilesLifecycleHardeningTests {
     private func makeSender(
         directory: URL,
         session: any TandemSession,
-        progress: any TransferProgressReporting
+        progress: any TransferProgressReporting,
+        clock: any Clock<Duration> = ManualTestClock()
     ) throws -> FileSender {
         let url = directory.appendingPathComponent("empty.bin")
         try Data().write(to: url)
         return FileSender(
             id: "t1", name: "empty.bin", mime: "application/octet-stream",
             source: LocalFileChunkSource(url: url), session: session,
-            scheduler: FilesScheduler(session: session), progress: progress
+            scheduler: FilesScheduler(session: session), progress: progress, clock: clock
         )
     }
 
@@ -140,6 +146,85 @@ struct FilesLifecycleHardeningTests {
     }
 
     @Test
+    func macosSender_cancelWithinGraceAfterCompleteSent_outcomeFailedNotCompleted() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = ManualTestClock()
+        let recorder = OutcomeRecorder()
+        let sender = try makeSender(
+            directory: directory, session: ControlledSession(), progress: recorder, clock: clock
+        )
+        await sender.start()
+        await sender.handle(accept: accept("t1"))
+        await settle { await sender.state == .completed }
+        #expect(recorder.outcomes.isEmpty)
+
+        var cancel = Tandem_V1_FileCancel()
+        cancel.id = "t1"
+        cancel.reason = .hashMismatch
+        await sender.handle(cancel: cancel)
+        await advancePastGrace(clock)
+
+        #expect(recorder.outcomes == [.failed(reason: String(describing: Tandem_V1_TransferReason.hashMismatch))])
+        #expect(await sender.state == .cancelled(.hashMismatch))
+    }
+
+    @Test
+    func macosSender_graceElapsedAfterCompleteSent_outcomeCompletedOnce() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = ManualTestClock()
+        let recorder = OutcomeRecorder()
+        let sender = try makeSender(
+            directory: directory, session: ControlledSession(), progress: recorder, clock: clock
+        )
+        await sender.start()
+        await sender.handle(accept: accept("t1"))
+        await settle { await sender.state == .completed }
+        #expect(recorder.outcomes.isEmpty)
+
+        await settle(until: { await advancePastGrace(clock); return !recorder.outcomes.isEmpty })
+        await advancePastGrace(clock)
+
+        #expect(recorder.outcomes == [.completed])
+    }
+
+    @Test
+    func macosSender_disconnectedWithinGraceAfterCompleteSent_outcomeCompleted() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let recorder = OutcomeRecorder()
+        let sender = try makeSender(
+            directory: directory, session: ControlledSession(), progress: recorder, clock: ManualTestClock()
+        )
+        await sender.start()
+        await sender.handle(accept: accept("t1"))
+        await settle { await sender.state == .completed }
+
+        await sender.disconnected()
+
+        #expect(recorder.outcomes == [.completed])
+    }
+
+    @Test
+    func macosSender_sourceUnreadable_rowBeganThenEndedFailed() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let session = ControlledSession()
+        let recorder = OutcomeRecorder()
+        let sender = FileSender(
+            id: "t1", name: "gone.bin", mime: "application/octet-stream",
+            source: LocalFileChunkSource(url: directory.appendingPathComponent("gone.bin")), session: session,
+            scheduler: FilesScheduler(session: session), progress: recorder
+        )
+
+        await sender.start()
+
+        #expect(recorder.events == ["began t1", "ended t1"])
+        #expect(recorder.outcomes == [.failed(reason: "source unreadable")])
+    }
+
+    @Test
     func macosSender_completeFrameSendFails_outcomeFailed() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -161,7 +246,8 @@ struct FilesLifecycleHardeningTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let session = ControlledSession()
         let recorder = OutcomeRecorder()
-        let sender = try makeSender(directory: directory, session: session, progress: recorder)
+        let clock = ManualTestClock()
+        let sender = try makeSender(directory: directory, session: session, progress: recorder, clock: clock)
         await sender.start()
         await session.closeGate()
         await sender.handle(accept: accept("t1"))
@@ -171,6 +257,7 @@ struct FilesLifecycleHardeningTests {
 
         await session.openGate()
         await settle { await sender.state == .completed }
+        await settle { await advancePastGrace(clock); return !recorder.outcomes.isEmpty }
         #expect(recorder.outcomes == [.completed])
     }
 
@@ -231,6 +318,7 @@ struct FilesLifecycleHardeningTests {
         await harness.transfers.handle(accept: accept("out-1"))
         await settle { await harness.sentPayloads().contains(where: isComplete) }
         for _ in 0..<500 { await Task.yield() }
+        await advancePastGrace(harness.senderClock)
 
         var resume = Tandem_V1_FileResumeRequest()
         resume.id = "out-1"
@@ -277,6 +365,7 @@ private struct RouterHarness {
     let receiver: FileReceiver
     let transfers: SessionFileTransferService
     let router: FilesChannelRouter
+    let senderClock = ManualTestClock()
 
     init(autoAccept: Bool) throws {
         destination = root.appendingPathComponent("Tandem", isDirectory: true)
@@ -293,7 +382,7 @@ private struct RouterHarness {
         )
         transfers = SessionFileTransferService(
             session: session, scheduler: FilesScheduler(session: session), progress: recorder,
-            makeTransferId: { "out-1" }
+            makeTransferId: { "out-1" }, clock: senderClock
         )
         router = FilesChannelRouter(
             acceptFlow: acceptFlow, receiver: receiver, transfers: transfers,
@@ -329,16 +418,23 @@ private final class RecordingTransfer: FileTransferService, @unchecked Sendable 
     private let lock = NSLock()
     private var starts: [URL] = []
     private var handlers: [@Sendable () -> Void] = []
+    private var accepting = true
 
     var started: [URL] { lock.withLock { starts } }
 
     func startOffer(for url: URL) async {}
 
-    func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async {
+    func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async -> Bool {
         lock.withLock {
+            guard accepting else { return false }
             starts.append(url)
             handlers.append(onEnded)
+            return true
         }
+    }
+
+    func setAccepting(_ value: Bool) {
+        lock.withLock { accepting = value }
     }
 
     func endAll() {
@@ -394,5 +490,48 @@ struct SendRequestAgentLifecycleTests {
 
         #expect(!FileManager.default.fileExists(atPath: copy.path))
         #expect(queue.dequeue().isEmpty)
+    }
+
+    @Test
+    func sendRequestAgent_offerNotStarted_copyKeptAndReofferedOnNextDrain() async throws {
+        let fixture = try makeQueue()
+        let (root, queue, file) = (fixture.root, fixture.queue, fixture.file)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try queue.enqueue(files: [file])
+        let transfer = RecordingTransfer()
+        transfer.setAccepting(false)
+        let agent = SendRequestAgent(queue: queue, transfer: transfer)
+
+        let refused = await agent.drain()
+        transfer.setAccepting(true)
+        let retried = await agent.drain()
+
+        #expect(refused == 0)
+        #expect(retried == 1)
+        #expect(transfer.started.count == 1)
+    }
+
+    @Test
+    func sessionFileTransfer_offerAfterSessionEnded_notStartedNoSenderRegistered() async throws {
+        let harness = try RouterHarness(autoAccept: false)
+        defer { try? FileManager.default.removeItem(at: harness.root) }
+        let file = harness.root.appendingPathComponent("a.bin")
+        try Data("x".utf8).write(to: file)
+        await harness.transfers.sessionEnded()
+
+        let started = await harness.transfers.startOffer(for: file, onEnded: {})
+
+        #expect(!started)
+        #expect(await harness.sentPayloads().isEmpty)
+        #expect(harness.recorder.events.isEmpty)
+    }
+
+    @Test
+    func activeFileTransfer_detached_offerNotStarted() async throws {
+        let active = ActiveFileTransferService()
+
+        let started = await active.startOffer(for: URL(fileURLWithPath: "/tmp/none"), onEnded: {})
+
+        #expect(!started)
     }
 }

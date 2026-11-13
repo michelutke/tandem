@@ -20,8 +20,11 @@ public actor SessionPhotoService: PhotoService {
     private var pagePending: CheckedContinuation<Tandem_V1_PhotoPageResult, Error>?
     private var thumbPending: [String: [CheckedContinuation<Data, Error>]] = [:]
 
-    public init(session: any TandemSession) {
+    private let onOriginalError: (@Sendable (Tandem_V1_PhotoError) -> Void)?
+
+    public init(session: any TandemSession, onOriginalError: (@Sendable (Tandem_V1_PhotoError) -> Void)? = nil) {
         self.session = session
+        self.onOriginalError = onOriginalError
     }
 
     public func fetchPage(cursor: String, limit: UInt32) async throws -> Tandem_V1_PhotoPageResult {
@@ -73,6 +76,8 @@ public actor SessionPhotoService: PhotoService {
         case .thumb:
             thumbPending.removeValue(forKey: error.ref)?
                 .forEach { $0.resume(throwing: PhotoServiceError.failed(error.reason)) }
+        case .original:
+            onOriginalError?(error)
         default:
             break
         }
