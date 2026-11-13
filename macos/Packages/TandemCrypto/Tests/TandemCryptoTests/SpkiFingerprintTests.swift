@@ -85,6 +85,18 @@ import Testing
     #expect(spkiDer.count == SpkiFingerprint.expectedSpkiDerByteCount)
 }
 
+@Test func spkiFingerprint_trailingBytesInsideOuterSequence_throwsMalformedSpki() throws {
+    let manifest = try SpkiFingerprintVectorFixture.load()
+    let entry = try #require(manifest.vectors.first { $0.expected != nil })
+    var spkiDer = try SpkiFingerprintVectorFixture.spkiDer(for: entry)
+    spkiDer[1] += 1
+    spkiDer.append(0x00)
+
+    #expect(throws: SpkiFingerprint.ValidationError.malformedSpki) {
+        try SpkiFingerprint.of(spkiDer: spkiDer)
+    }
+}
+
 @Test func spkiFingerprintKey_32Bytes_initSucceeds() throws {
     let bytes = Data(repeating: 0xAB, count: SpkiFingerprint.byteCount)
     let fingerprint = try SpkiFingerprint(bytes: bytes)

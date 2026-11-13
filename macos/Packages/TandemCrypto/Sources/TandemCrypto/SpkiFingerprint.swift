@@ -112,6 +112,9 @@ public struct SpkiFingerprint: Sendable, Hashable {
         let subjectPublicKey = try spkiReader.readTLV()
         let point = try validateBitString(subjectPublicKey)
         try validatePoint(point)
+        guard spkiDer.count == expectedSpkiDerByteCount else {
+            throw ValidationError.malformedSpki
+        }
     }
 
     private static func validateAlgorithmIdentifier(_ content: Data) throws {
