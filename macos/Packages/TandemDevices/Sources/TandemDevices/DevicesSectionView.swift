@@ -164,6 +164,7 @@ public struct DevicesSectionView: View {
                     message: "Your phone must confirm the new key.",
                     confirmTitle: "Rotate",
                     confirmKind: .primary,
+                    isDestructive: true,
                     onConfirm: { Task { await rotation.confirm() } },
                     onCancel: { rotation.cancel() }
                 )

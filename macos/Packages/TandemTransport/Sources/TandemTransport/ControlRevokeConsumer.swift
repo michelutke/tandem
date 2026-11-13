@@ -48,11 +48,7 @@ func startControlRevokeReader(
                     peerSpkiFingerprint: fingerprint,
                     session: ControlRevokeHandlerSession(session: session),
                     trustStore: trustStore,
-                    registry: ControlRevokeHandlerRegistry(
-                        registry: sessionRegistry,
-                        session: session,
-                        ownFingerprint: fingerprint
-                    ),
+                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry),
                     purgeRegistry: purgeRegistry,
                     onUnpaired: onUnpaired
                 )
@@ -99,21 +95,14 @@ private struct ControlRevokeHandlerSession: RevokeHandlerSession {
 }
 
 /// Adapts ``ControlSessionRegistering`` to ``TandemStore/RevokeHandlerRegistry`` for
-/// ``startControlRevokeReader(fingerprint:session:sessionRegistry:trustStore:)`` (E14-26). The
-/// revoking session's own fingerprint goes through ``ControlSessionRegistering/removeIfCurrent(_:session:)``
-/// (identity-checked), so it never clobbers a newer session registered for that pin; every other
-/// pin of the revoked record is removed unconditionally, since a session registered under one of
-/// them belongs to the same revoked phone and must be closed too.
+/// ``startControlRevokeReader(fingerprint:session:sessionRegistry:trustStore:)`` (E14-26). Every pin
+/// of the revoked record is removed unconditionally, own pin included: the record is already
+/// deleted, so a session registered under any of them (even a newer one that reconnected under the
+/// revoking session's own pin) belongs to the revoked phone and must be closed too.
 private struct ControlRevokeHandlerRegistry: RevokeHandlerRegistry {
     let registry: any ControlSessionRegistering
-    let session: any TandemSession
-    let ownFingerprint: SpkiFingerprint
 
     func unregister(_ spkiFingerprint: SpkiFingerprint) async {
-        if spkiFingerprint.matches(ownFingerprint) {
-            await registry.removeIfCurrent(spkiFingerprint, session: session)
-        } else {
-            await registry.unregister(spkiFingerprint)
-        }
+        await registry.unregister(spkiFingerprint)
     }
 }

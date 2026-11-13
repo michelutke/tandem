@@ -47,6 +47,38 @@ struct ControlRevokeRegistryTests {
         #expect(try trustStore.list().isEmpty)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func revoke_newerSessionUnderRevokingPin_closedThroughRealRegistry() async throws {
+        let pin = try Self.fingerprint(0x03)
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        try trustStore.put(
+            PeerRecord(
+                fingerprint: pin,
+                displayName: "Test Phone",
+                pairedAt: Date(timeIntervalSince1970: 0),
+                lastSeen: Date(timeIntervalSince1970: 0),
+                capabilities: []
+            )
+        )
+        let revokingSession = try await Self.makeReadySessionPair()
+        let reconnected = try await Self.makeReadySessionPair()
+        let sessionRegistry = ControlSessionRegistry()
+        await sessionRegistry.register(pin, session: reconnected.mac)
+
+        _ = startControlRevokeReader(
+            fingerprint: pin,
+            session: revokingSession.mac,
+            sessionRegistry: sessionRegistry,
+            trustStore: trustStore
+        )
+        try await revokingSession.peer.send(.control, payload: .revoke(Tandem_V1_Revoke()))
+
+        let reconnectedStream = await reconnected.mac.receive(.control)
+        for await _ in reconnectedStream {}
+        #expect(await sessionRegistry.session(for: pin) == nil)
+        #expect(try trustStore.list().isEmpty)
+    }
+
     private struct SessionPair {
         let mac: ByteStreamSession
         let peer: ByteStreamSession

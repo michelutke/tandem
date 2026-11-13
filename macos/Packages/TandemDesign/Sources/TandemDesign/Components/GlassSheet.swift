@@ -34,6 +34,7 @@ public struct GlassConfirmBody: View {
     private let confirmTitle: String
     private let confirmKind: PillButtonKind
     private let confirmIdentifier: String?
+    private let isDestructive: Bool
     private let onConfirm: () -> Void
     private let onCancel: () -> Void
 
@@ -43,6 +44,7 @@ public struct GlassConfirmBody: View {
         confirmTitle: String,
         confirmKind: PillButtonKind,
         confirmIdentifier: String? = nil,
+        isDestructive: Bool? = nil,
         onConfirm: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
@@ -51,11 +53,10 @@ public struct GlassConfirmBody: View {
         self.confirmTitle = confirmTitle
         self.confirmKind = confirmKind
         self.confirmIdentifier = confirmIdentifier
+        self.isDestructive = isDestructive ?? (confirmKind == .destructive)
         self.onConfirm = onConfirm
         self.onCancel = onCancel
     }
-
-    private var isDestructive: Bool { confirmKind == .destructive }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: TandemSpacing.small) {

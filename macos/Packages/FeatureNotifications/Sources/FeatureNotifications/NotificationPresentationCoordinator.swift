@@ -74,6 +74,10 @@ public actor NotificationPresentationCoordinator: PeerDataPurging {
     }
 }
 
+/// Identifier prefix of the Mac's own notifications (incoming call, incoming file). A phone-supplied
+/// key with it is dropped so a peer can neither replace nor dismiss one of them.
+private let localNotificationIdentifierPrefix = "tandem."
+
 /// Reads `session`'s NOTIFY channel until it finishes (peer disconnect or app teardown),
 /// presenting every `NotificationPosted` frame it sees via `coordinator` and, when `iconCache` is
 /// given, storing every `IconData` frame it sees there (E30-06 -- `IconData` shares the NOTIFY
@@ -109,10 +113,12 @@ public func startNotificationPresentationReader(
         for await frame in frames {
             switch frame.payload {
             case .notificationPosted(let posted):
+                guard !posted.key.hasPrefix(localNotificationIdentifierPrefix) else { continue }
                 await coordinator.present(posted, from: peer)
             case .iconData(let icon):
                 await iconCache?.store(icon, from: peer)
             case .notificationDismiss(let dismiss):
+                guard !dismiss.key.hasPrefix(localNotificationIdentifierPrefix) else { continue }
                 await coordinator.forget(identifier: dismiss.key, from: peer)
                 await dismissSync?.handle(dismiss)
             case .notificationActionResult(let result):

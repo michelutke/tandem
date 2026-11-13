@@ -100,6 +100,51 @@ import TandemCrypto
         #expect(attachmentCounts == [1])
     }
 
+    @Test func notificationPresentation_readerLocalPrefixedPosted_dropped() async throws {
+        let presenter = RecordingNotificationPresenter()
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+        let session = FakeTandemSession()
+        var local = Tandem_V1_NotificationPosted()
+        local.key = ["tandem", "accept", "offer-1"].joined(separator: ".")
+        local.title = "Spoof"
+        var normal = Tandem_V1_NotificationPosted()
+        normal.key = "kept-1"
+        normal.title = "Kept"
+
+        let readerTask = startNotificationPresentationReader(
+            peer: try Self.fingerprint(0x04), session: session, coordinator: coordinator
+        )
+        await session.inject(InboundFrame(channel: .notify, seq: 1, ack: 0, payload: .notificationPosted(local)))
+        await session.inject(InboundFrame(channel: .notify, seq: 2, ack: 0, payload: .notificationPosted(normal)))
+        await session.close()
+        await readerTask.value
+
+        #expect(await presenter.addedIdentifiers == ["kept-1"])
+    }
+
+    @Test func notificationPresentation_readerLocalPrefixedDismiss_dropped() async throws {
+        let presenter = RecordingNotificationPresenter()
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+        let session = FakeTandemSession()
+        let sync = NotificationDismissSync(presenter: presenter, session: session)
+        var local = Tandem_V1_NotificationDismiss()
+        local.key = "tandem.call.call-1"
+        local.origin = .android
+        var normal = Tandem_V1_NotificationDismiss()
+        normal.key = "kept-2"
+        normal.origin = .android
+
+        let readerTask = startNotificationPresentationReader(
+            peer: try Self.fingerprint(0x04), session: session, coordinator: coordinator, dismissSync: sync
+        )
+        await session.inject(InboundFrame(channel: .notify, seq: 1, ack: 0, payload: .notificationDismiss(local)))
+        await session.inject(InboundFrame(channel: .notify, seq: 2, ack: 0, payload: .notificationDismiss(normal)))
+        await session.close()
+        await readerTask.value
+
+        #expect(await presenter.removedIdentifierBatches == [["kept-2"]])
+    }
+
     @Test func coordinator_dismissedNotification_identifierRemovedFromPeerIndex() async throws {
         let presenter = RecordingNotificationPresenter()
         let coordinator = NotificationPresentationCoordinator(presenter: presenter)

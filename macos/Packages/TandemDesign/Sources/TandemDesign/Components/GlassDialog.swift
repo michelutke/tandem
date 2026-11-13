@@ -3,6 +3,7 @@ import SwiftUI
 
 /// One button of a ``GlassDialog``. The action marked `isSafeDefault` is the dialog's cancel and
 /// default role: Escape and Return both choose it, so only a click ever takes the other action.
+/// A dialog without one has no default button: Return does nothing and Escape only dismisses it.
 public struct GlassDialogAction: Sendable {
     public let title: String
     public let kind: PillButtonKind
@@ -57,7 +58,46 @@ private extension GlassDialogView {
     }
 }
 
-/// App-modal replacement for `NSAlert` on a smooth glass surface (ui-spec §5.1 `GlassSheet`).
+private final class GlassDialogPanel: NSPanel {
+    var onCancel: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
+}
+
+/// A non-modal ``GlassDialog`` that can be withdrawn from outside. ``onChoose`` runs at most once,
+/// with the chosen action index, or `nil` when Escape dismissed a dialog that has no safe default;
+/// ``close()`` withdraws it without calling ``onChoose``.
+@MainActor
+public final class GlassDialogHandle {
+    private let panel: GlassDialogPanel
+    private var onChoose: ((Int?) -> Void)?
+
+    fileprivate init(panel: GlassDialogPanel, onChoose: @escaping (Int?) -> Void) {
+        self.panel = panel
+        self.onChoose = onChoose
+    }
+
+    func choose(_ index: Int?) {
+        guard let handler = onChoose else { return }
+        onChoose = nil
+        panel.orderOut(nil)
+        handler(index)
+    }
+
+    func show() {
+        panel.center()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    public func close() {
+        onChoose = nil
+        panel.orderOut(nil)
+    }
+}
+
+/// Replacement for `NSAlert` on a smooth glass surface (ui-spec §5.1 `GlassSheet`).
 @MainActor
 public enum GlassDialog {
     /// Runs the dialog modally; returns the chosen action index, or `nil` if ``abort()`` ended it.
@@ -74,6 +114,38 @@ public enum GlassDialog {
         _ = NSApp.runModal(for: window)
         window.orderOut(nil)
         return chosen
+    }
+
+    /// Shows the dialog without blocking the run loop; the caller keeps the handle to withdraw it.
+    public static func present(
+        title: String,
+        message: String? = nil,
+        actions: [GlassDialogAction],
+        onChoose: @escaping (Int?) -> Void
+    ) -> GlassDialogHandle {
+        let handle = makeHandle(title: title, message: message, actions: actions, onChoose: onChoose)
+        handle.show()
+        return handle
+    }
+
+    static func makeHandle(
+        title: String,
+        message: String?,
+        actions: [GlassDialogAction],
+        onChoose: @escaping (Int?) -> Void
+    ) -> GlassDialogHandle {
+        var handle: GlassDialogHandle?
+        let view = GlassDialogView(title: title, message: message, actions: actions) { index in
+            handle?.choose(index)
+        }
+        let panel = GlassDialogPanel(contentViewController: NSHostingController(rootView: view))
+        panel.styleMask = [.titled, .fullSizeContentView]
+        panel.isReleasedWhenClosed = false
+        panel.level = .floating
+        let created = GlassDialogHandle(panel: panel, onChoose: onChoose)
+        handle = created
+        panel.onCancel = { [weak created] in created?.choose(nil) }
+        return created
     }
 
     /// Ends a running dialog without a choice.
