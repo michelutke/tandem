@@ -79,11 +79,7 @@ enum AppComposition {
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
             core: core,
-            chaining: ListenerChaining(
-                features: sessionFeatures,
-                onSessionRegistered: menuBarWiring.onSessionRegistered,
-                mediaConnectionHandler: mirror.acceptor
-            )
+            chaining: makeChaining(features: sessionFeatures, menuBarWiring: menuBarWiring, mirror: mirror)
         )
         let started: ListenerController.StartedListener
         switch controller.startResult() {
@@ -312,6 +308,20 @@ enum AppComposition {
                     Task { await pinMismatchBannerGate.recordRejection() }
                 }
             }
+        )
+    }
+}
+
+extension AppComposition {
+    private static func makeChaining(
+        features: SessionFeatures,
+        menuBarWiring: MenuBarWiring,
+        mirror: MirrorComposition
+    ) -> ListenerChaining {
+        ListenerChaining(
+            features: features,
+            onSessionRegistered: menuBarWiring.onSessionRegistered,
+            mediaConnectionHandler: mirror.acceptor
         )
     }
 }

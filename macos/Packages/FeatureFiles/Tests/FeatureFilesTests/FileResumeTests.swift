@@ -336,7 +336,9 @@ struct FileResumeTests {
         let sentWhenCalled = SentCountBox()
 
         let resumed = await receiver.resumeRetained { id in
-            await sentWhenCalled.record(id: id, sent: await session.sent.count, staged: await receiver.hasTransfer(id: id))
+            let sent = await session.sent.count
+            let staged = await receiver.hasTransfer(id: id)
+            await sentWhenCalled.record(id: id, sent: sent, staged: staged)
         }
 
         #expect(resumed == ["t1"])
