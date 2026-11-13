@@ -17,6 +17,15 @@ internal object SendFeedbackToasts {
         }
     }
 
+    fun show(
+        context: Context,
+        feedback: SendFeedback,
+    ) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(context, message(context, feedback), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun message(
         context: Context,
         feedback: SendFeedback,

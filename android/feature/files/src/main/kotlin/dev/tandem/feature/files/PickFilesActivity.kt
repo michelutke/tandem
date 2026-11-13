@@ -7,6 +7,7 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.net.toUri
 import dev.tandem.core.ui.TandemActivity
+import java.util.concurrent.Executor
 
 /**
  * E40-11: in-app Storage Access Framework entry point (PRD F-7.3). Not exported; launches
@@ -15,6 +16,7 @@ import dev.tandem.core.ui.TandemActivity
  */
 class PickFilesActivity : TandemActivity() {
     var starter: TransferStarter? = null
+    internal var executor: Executor = SendEntry.BACKGROUND
     internal var registry: ActivityResultRegistry? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,7 +27,8 @@ class PickFilesActivity : TandemActivity() {
                 registry ?: activityResultRegistry,
             ) { uris ->
                 uris.forEach(::keepReadAccess)
-                if (!entry().offer(uris)) uris.forEach(::releaseReadAccess)
+                val entry = entry()
+                executor.execute { if (!entry.offer(uris)) uris.forEach(::releaseReadAccess) }
                 finish()
             }
         picker.launch(arrayOf("*/*"))
@@ -53,7 +56,7 @@ class PickFilesActivity : TandemActivity() {
     private fun entry() =
         SendEntry(
             packageName,
-            contentResolver,
+            applicationContext.contentResolver,
             starter ?: SendFeedbackToasts.liveStarter(applicationContext) { releaseReadAccess(it.uri.toUri()) },
         )
 }
