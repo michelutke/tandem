@@ -10,6 +10,7 @@ import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.core.crypto.ActiveIdentityAlias
 import dev.tandem.core.crypto.AndroidKeyStoreIdentityKeyStore
 import dev.tandem.core.crypto.IdentityBootstrapper
+import dev.tandem.core.storage.trust.TrustStore
 import java.io.File
 import javax.inject.Singleton
 
@@ -27,11 +28,14 @@ object IdentityModule {
 
     @Provides
     @Singleton
-    fun provideIdentityBootstrap(activeIdentityAlias: ActiveIdentityAlias): IdentityBootstrap =
+    fun provideIdentityBootstrap(
+        activeIdentityAlias: ActiveIdentityAlias,
+        trustStore: TrustStore,
+    ): IdentityBootstrap =
         IdentityBootstrap(
             bootstrap = {
                 IdentityBootstrapper(AndroidKeyStoreIdentityKeyStore(AppClock.system), activeIdentityAlias)
-                    .bootstrapIdentity()
+                    .bootstrapIdentity(hasPairedPeers = trustStore.list().isNotEmpty())
             },
             dispatcher = AppDispatchers.io,
         )

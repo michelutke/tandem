@@ -17,8 +17,20 @@ object ConnectionFailureClassifier {
             failure !is ConnectionFailure.HandshakeError -> failure
             !wasPreviouslyPinned -> failure
             CLIENT_KEY_REJECTED_ALERTS.none { failure.message.contains(it, ignoreCase = true) } -> failure
-            else -> ConnectionFailure.HandshakeError("REVOKED")
+            else -> REVOKED
         }
 
+    /**
+     * A session that failed before Ready against a peer this device had previously pinned: under
+     * TLS 1.3 the peer's client-certificate rejection arrives after the TLS connect, as a session
+     * failure, so only a plain handshake failure on a known peer reads as REVOKED. Version
+     * mismatch and timeout keep their own categories.
+     */
+    fun classifySettled(
+        failure: ConnectionFailure,
+        wasPreviouslyPinned: Boolean,
+    ): ConnectionFailure = if (wasPreviouslyPinned && failure is ConnectionFailure.HandshakeError) REVOKED else failure
+
+    private val REVOKED = ConnectionFailure.HandshakeError("REVOKED")
     private val CLIENT_KEY_REJECTED_ALERTS = listOf("certificate_unknown", "bad_certificate")
 }

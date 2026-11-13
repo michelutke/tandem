@@ -7,6 +7,7 @@ import dev.tandem.core.pairing.PairingConnector
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.ByteStream
 import dev.tandem.core.transport.ByteStreamSession
+import dev.tandem.core.transport.HeartbeatDependencies
 import dev.tandem.core.transport.tls.SslClientFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -25,60 +26,74 @@ import javax.net.ssl.X509KeyManager
  * a [PinningTrustManager] pinned to [PinSource] (the QR fingerprint, never the trust store), so no
  * [ByteStreamSession] -- and no application byte -- exists for a peer that fails the pin check. A
  * session that does not reach Ready (version mismatch, hello failure) is closed and fails closed.
+ * The session answers the Mac's `Heartbeat` through [heartbeatDependencies], so the Mac's 45 s
+ * dead-peer timer does not cancel a candidate while the owner confirms (SPEC.md Heartbeat, D-69).
  * Never listens (invariant 4).
  */
-class TlsPairingConnector internal constructor(
-    private val keyManager: X509KeyManager,
-    private val clock: Clock,
-    private val ioDispatcher: CoroutineDispatcher,
-    private val sessionDispatcher: CoroutineDispatcher,
-    private val identity: IdentityBootstrap,
-    private val dialer: PairingSocketDialer,
-) : PairingConnector {
-    constructor(
-        keyManager: X509KeyManager,
-        clock: Clock,
-        ioDispatcher: CoroutineDispatcher,
-        sessionDispatcher: CoroutineDispatcher,
-        identity: IdentityBootstrap,
-    ) : this(keyManager, clock, ioDispatcher, sessionDispatcher, identity, TlsPairingSocketDialer(keyManager))
+class TlsPairingConnector
+    @Suppress("LongParameterList") // dial seams: keys, clock, two dispatchers, identity, dialer, heartbeat
+    internal constructor(
+        private val keyManager: X509KeyManager,
+        private val clock: Clock,
+        private val ioDispatcher: CoroutineDispatcher,
+        private val sessionDispatcher: CoroutineDispatcher,
+        private val identity: IdentityBootstrap,
+        private val dialer: PairingSocketDialer,
+        private val heartbeatDependencies: HeartbeatDependencies?,
+    ) : PairingConnector {
+        constructor(
+            keyManager: X509KeyManager,
+            clock: Clock,
+            ioDispatcher: CoroutineDispatcher,
+            sessionDispatcher: CoroutineDispatcher,
+            identity: IdentityBootstrap,
+            heartbeatDependencies: HeartbeatDependencies?,
+        ) : this(
+            keyManager,
+            clock,
+            ioDispatcher,
+            sessionDispatcher,
+            identity,
+            TlsPairingSocketDialer(keyManager),
+            heartbeatDependencies,
+        )
 
-    override suspend fun connect(
-        address: String,
-        port: Int,
-        pinSource: PinSource,
-    ): PairingConnection {
-        identity.ensure()
-        var opened: ByteStream? = null
-        val (stream, macSpkiDer) =
-            try {
-                withContext(ioDispatcher) {
-                    dialer.dial(address, port, pinSource).also { opened = it.first }
+        override suspend fun connect(
+            address: String,
+            port: Int,
+            pinSource: PinSource,
+        ): PairingConnection {
+            identity.ensure()
+            var opened: ByteStream? = null
+            val (stream, macSpkiDer) =
+                try {
+                    withContext(ioDispatcher) {
+                        dialer.dial(address, port, pinSource).also { opened = it.first }
+                    }
+                } catch (e: CancellationException) {
+                    opened?.close()
+                    throw e
+                } catch (e: IOException) {
+                    if (generateSequence<Throwable>(e) { it.cause }.any { it is CertificateException }) {
+                        throw CertificateException("pinned peer mismatch")
+                    }
+                    throw e
                 }
+            val session = ByteStreamSession(stream, clock, sessionDispatcher, heartbeatDependencies)
+            try {
+                val outcome = session.state.first { it is ConnectionState.Ready || it is ConnectionState.Failed }
+                if (outcome is ConnectionState.Failed) throw IOException("pairing connection failed")
             } catch (e: CancellationException) {
-                opened?.close()
+                session.close()
                 throw e
             } catch (e: IOException) {
-                if (generateSequence<Throwable>(e) { it.cause }.any { it is CertificateException }) {
-                    throw CertificateException("pinned peer mismatch")
-                }
+                session.close()
                 throw e
             }
-        val session = ByteStreamSession(stream, clock, sessionDispatcher)
-        try {
-            val outcome = session.state.first { it is ConnectionState.Ready || it is ConnectionState.Failed }
-            if (outcome is ConnectionState.Failed) throw IOException("pairing connection failed")
-        } catch (e: CancellationException) {
-            session.close()
-            throw e
-        } catch (e: IOException) {
-            session.close()
-            throw e
+            val phoneCertificate = keyManager.getCertificateChain(null).first() as X509Certificate
+            return PairingConnection(session, macSpkiDer, phoneCertificate.publicKey.encoded)
         }
-        val phoneCertificate = keyManager.getCertificateChain(null).first() as X509Certificate
-        return PairingConnection(session, macSpkiDer, phoneCertificate.publicKey.encoded)
     }
-}
 
 /** Blocking mTLS dial: the handshaked stream plus the peer leaf's SPKI DER. */
 internal fun interface PairingSocketDialer {

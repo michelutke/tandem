@@ -62,7 +62,13 @@ class TlsSessionDialer(
 ) : SessionDialer {
     override suspend fun dial(candidate: CandidateAddress): DialResult {
         val pins = pinnedFingerprints()
-        if (pins.isEmpty() || !identityReady()) return DialResult.Unreachable(null)
+        val notDialable =
+            when {
+                pins.isEmpty() -> DialResult.Unreachable(null)
+                !identityReady() -> DialResult.Unreachable(ConnectionFailure.IdentityUnavailable)
+                else -> null
+            }
+        if (notDialable != null) return notDialable
         val factory = SslClientFactory(keyManager, PinningTrustManager { pins })
         var opened: SslSocketByteStream? = null
         return try {

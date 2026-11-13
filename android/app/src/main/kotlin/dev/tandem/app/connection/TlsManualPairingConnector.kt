@@ -4,6 +4,7 @@ import dev.tandem.core.crypto.UnpinnedPeerTrustManager
 import dev.tandem.core.pairing.ManualPairingConnector
 import dev.tandem.core.pairing.PairingConnection
 import dev.tandem.core.transport.ByteStream
+import dev.tandem.core.transport.HeartbeatDependencies
 import dev.tandem.core.transport.tls.SslClientFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import java.io.IOException
@@ -29,6 +30,7 @@ class TlsManualPairingConnector internal constructor(
         ioDispatcher: CoroutineDispatcher,
         sessionDispatcher: CoroutineDispatcher,
         identity: IdentityBootstrap,
+        heartbeatDependencies: HeartbeatDependencies?,
     ) : this(
         TlsPairingConnector(
             keyManager,
@@ -37,6 +39,7 @@ class TlsManualPairingConnector internal constructor(
             sessionDispatcher,
             identity,
             PairingSocketDialer { address, port, _ -> TlsManualSocketDialer(keyManager).dial(address, port) },
+            heartbeatDependencies,
         ),
     )
 

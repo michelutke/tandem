@@ -160,7 +160,10 @@ class ConnectionOrchestrator(
             }
         if (settled !is ConnectionState.Ready) {
             session.close()
-            (settled as? ConnectionState.Failed)?.let { mutableFailure.value = it.reason }
+            (settled as? ConnectionState.Failed)?.let {
+                mutableFailure.value =
+                    ConnectionFailureClassifier.classifySettled(it.reason, knownPeerStore.hasEverPinned(dialed.peer))
+            }
             return ConnectResult.Unreachable
         }
         recordKnownPeer(dialed)

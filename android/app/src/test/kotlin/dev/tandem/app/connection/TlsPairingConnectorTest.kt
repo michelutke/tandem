@@ -107,7 +107,7 @@ class TlsPairingConnectorTest {
         dispatcher: CoroutineDispatcher,
         identity: IdentityBootstrap = IdentityBootstrap({}, dispatcher),
         dialer: PairingSocketDialer,
-    ) = TlsPairingConnector(UnusedKeyManager, TestClock(testScheduler), dispatcher, dispatcher, identity, dialer)
+    ) = TlsPairingConnector(UnusedKeyManager, TestClock(testScheduler), dispatcher, dispatcher, identity, dialer, null)
 
     private class RecordingByteStream : ByteStream {
         var closed = false

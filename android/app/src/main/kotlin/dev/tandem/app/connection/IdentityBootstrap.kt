@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
  * retried on the next [ensure].
  */
 class IdentityBootstrap(
-    private val bootstrap: () -> Unit,
+    private val bootstrap: suspend () -> Unit,
     private val dispatcher: CoroutineDispatcher,
 ) {
     private val mutex = Mutex()

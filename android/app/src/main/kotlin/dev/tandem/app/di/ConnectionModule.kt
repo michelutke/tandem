@@ -131,11 +131,13 @@ object ConnectionModule {
     @Provides
     @Singleton
     fun pairingFlow(
+        @ApplicationContext context: Context,
         trustStore: TrustStore,
         activeIdentityAlias: ActiveIdentityAlias,
         identityBootstrap: IdentityBootstrap,
     ): PairingFlow {
         val clock = AppClock.system
+        val heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, startedIdleSource(context))
         return PairingFlow(
             clock = clock,
             dispatcher = AppDispatchers.default,
@@ -146,6 +148,7 @@ object ConnectionModule {
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
                     identity = identityBootstrap,
+                    heartbeatDependencies = heartbeatDependencies,
                 ),
             trustCommitter = TrustStoreCommitter(trustStore::put),
             deviceInfoProvider = SystemDeviceInfoProvider,
@@ -156,6 +159,7 @@ object ConnectionModule {
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
                     identity = identityBootstrap,
+                    heartbeatDependencies = heartbeatDependencies,
                 ),
         )
     }
@@ -253,6 +257,7 @@ object ConnectionModule {
                     )
                 },
                 onAuthenticated = { rotation.refreshFingerprint() },
+                wasPreviouslyPinned = knownPeerStore::hasEverPinned,
             )
         startRotationScheduler(context, clock, rotation)
         val bonjourSource =

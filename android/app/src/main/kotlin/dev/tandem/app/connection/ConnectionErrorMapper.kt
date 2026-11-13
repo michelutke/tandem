@@ -23,12 +23,16 @@ object ConnectionErrorMapper {
                 "Connection timed out. Check your network and try again."
             }
 
+            ConnectionFailure.IdentityUnavailable -> {
+                "This phone's security key is unavailable. Restart the app, or pair again if this persists."
+            }
+
+            ConnectionFailure.VersionMismatch -> {
+                "Version mismatch. Check for app updates."
+            }
+
             is ConnectionFailure.HandshakeError -> {
                 when {
-                    failure.message.contains("VERSION_MISMATCH") -> {
-                        "Version mismatch. Check for app updates."
-                    }
-
                     failure.message.contains("REVOKED") && macName != null -> {
                         "This device is no longer paired with $macName."
                     }

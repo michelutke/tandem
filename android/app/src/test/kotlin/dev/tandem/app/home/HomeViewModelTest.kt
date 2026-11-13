@@ -55,7 +55,7 @@ class HomeViewModelTest {
         runTest {
             val connectionState =
                 MutableStateFlow<ConnectionState>(
-                    ConnectionState.Failed(ConnectionFailure.HandshakeError("VERSION_MISMATCH")),
+                    ConnectionState.Failed(ConnectionFailure.VersionMismatch),
                 )
             viewModel(connectionState).isBlocked.test {
                 assertFalse(awaitItem())

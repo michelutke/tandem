@@ -16,9 +16,7 @@ class ConnectionErrorMapperTest {
                 ConnectionFailure.HandshakeError("PIN_MISMATCH"),
             )
         val versionMismatchResource =
-            ConnectionErrorMapper.mapToErrorMessage(
-                ConnectionFailure.HandshakeError("VERSION_MISMATCH"),
-            )
+            ConnectionErrorMapper.mapToErrorMessage(ConnectionFailure.VersionMismatch)
 
         assertTrue(timeoutResource.isNotBlank())
         assertTrue(handshakeErrorResource.isNotBlank())
@@ -90,7 +88,7 @@ class ConnectionErrorMapperTest {
 
     @Test
     fun connectionErrorMapper_previouslyPinnedPeerOtherFailure_unchanged() {
-        val versionMismatch = ConnectionFailure.HandshakeError("VERSION_MISMATCH")
+        val versionMismatch = ConnectionFailure.VersionMismatch
         val connectionReset = ConnectionFailure.HandshakeError("Connection reset")
         val pinMismatch = ConnectionFailure.HandshakeError("PIN_MISMATCH")
 

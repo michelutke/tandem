@@ -2,6 +2,7 @@ package dev.tandem.app
 
 import android.app.Application
 import android.content.Intent
+import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
 import dev.tandem.app.activity.ActivityRecorder
 import dev.tandem.app.activity.ActivityStore
@@ -21,6 +22,7 @@ import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.feature.clipboard.LiveClipboardAutoCapture
 import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -58,7 +60,11 @@ class TandemApplication : Application() {
         )
     }
 
-    private val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+    private val appScope =
+        CoroutineScope(
+            SupervisorJob() + AppDispatchers.default +
+                CoroutineExceptionHandler { _, e -> Log.e(TAG, "App task failed: ${e.javaClass.name}") },
+        )
 
     val activityRecorder: ActivityRecorder by lazy { ActivityRecorder(activityStore, appScope, AppClock.system) }
 
@@ -106,6 +112,7 @@ class TandemApplication : Application() {
     }
 
     companion object {
+        private const val TAG = "TandemApplication"
         const val TRUST_STORE_FILE_NAME = "trust.db"
         const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"

@@ -1,5 +1,6 @@
 package dev.tandem.app.service
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -68,6 +69,9 @@ class TandemService : Service() {
         EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).connectionOrchestrator()
     }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
+    internal var startInForeground: () -> Unit = {
+        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+    }
 
     private var job: Job? = null
     private var connectionLoop: ConnectionLoop? = null
@@ -75,7 +79,13 @@ class TandemService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        try {
+            startInForeground()
+        } catch (_: ForegroundServiceStartNotAllowedException) {
+            Log.w(TAG, "Foreground start not allowed; stopping until the app is opened")
+            stopSelf()
+            return
+        }
 
         val pairedPeerRepository = pairedPeerRepositoryFactory(applicationContext)
         val sessionRegistry = sessionRegistryFactory(applicationContext)

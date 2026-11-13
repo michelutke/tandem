@@ -228,6 +228,46 @@ class ConnectionOrchestratorTest {
     }
 
     @Test
+    fun orchestrator_sessionFailsBeforeReadyForPreviouslyPinnedPeer_failureIsRevoked(
+        @TempDir directory: File,
+    ) = runTest {
+        val failing =
+            FakeTandemSession().apply {
+                emitState(ConnectionState.Failed(ConnectionFailure.HandshakeError("Connection reset")))
+            }
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(failing, peer)))
+        val harness = Harness(this, dialer, features, directory)
+        harness.knownPeers.recordPinned(peer)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        assertNull(harness.registry.current.value)
+        assertEquals(ConnectionFailure.HandshakeError("REVOKED"), harness.orchestrator.failure.value)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_peerMajorDiffers_failureMapsToVersionMismatchText(
+        @TempDir directory: File,
+    ) = runTest {
+        val failing = FakeTandemSession().apply { emitState(ConnectionState.Failed(ConnectionFailure.VersionMismatch)) }
+        val features = listOf(CountingFeature())
+        val dialer = ScriptedDialer(mutableListOf(DialResult.Connected(failing, peer)))
+        val harness = Harness(this, dialer, features, directory)
+        harness.knownPeers.recordPinned(peer)
+
+        harness.orchestrator.start()
+        runCurrent()
+
+        val failure = harness.orchestrator.failure.value
+        assertEquals(ConnectionFailure.VersionMismatch, failure)
+        assertEquals("Version mismatch. Check for app updates.", ConnectionErrorMapper.mapToErrorMessage(failure!!))
+        harness.orchestrator.close()
+    }
+
+    @Test
     fun tandemServiceComposition_sessionFailsBeforeReady_notRegistered(
         @TempDir directory: File,
     ) = runTest {
