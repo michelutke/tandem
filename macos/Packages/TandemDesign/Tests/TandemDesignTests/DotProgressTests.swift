@@ -28,3 +28,21 @@ import Testing
 
     #expect(progress.litCount == 4)
 }
+
+@Test func dotProgress_value43of10Dots_lastLitDotIsCurrentPosition() {
+    let progress = DotProgress(value: 0.43, dotCount: 10)
+
+    #expect((0..<10).map(progress.dotState(at:)) == [.lit, .lit, .lit, .current] + Array(repeating: .unlit, count: 6))
+}
+
+@Test func dotProgress_value0_hasNoCurrentDot() {
+    let progress = DotProgress(value: 0, dotCount: 10)
+
+    #expect((0..<10).allSatisfy { progress.dotState(at: $0) == .unlit })
+}
+
+@Test func dotProgress_withoutSignalLead_allLitDotsAreInk() {
+    let progress = DotProgress(value: 1, dotCount: 3, leadsWithSignal: false)
+
+    #expect((0..<3).allSatisfy { progress.dotState(at: $0) == .lit })
+}

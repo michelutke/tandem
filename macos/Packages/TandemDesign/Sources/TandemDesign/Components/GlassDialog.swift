@@ -1,14 +1,17 @@
 import AppKit
 import SwiftUI
 
-/// One button of a ``GlassDialog``; the first action is the primary (filled) one.
+/// One button of a ``GlassDialog``. The action marked `isSafeDefault` is the dialog's cancel and
+/// default role: Escape and Return both choose it, so only a click ever takes the other action.
 public struct GlassDialogAction: Sendable {
     public let title: String
     public let kind: PillButtonKind
+    public let isSafeDefault: Bool
 
-    public init(_ title: String, kind: PillButtonKind = .secondary) {
+    public init(_ title: String, kind: PillButtonKind = .secondary, isSafeDefault: Bool = false) {
         self.title = title
         self.kind = kind
+        self.isSafeDefault = isSafeDefault
     }
 }
 
@@ -29,7 +32,7 @@ private struct GlassDialogView: View {
                     .foregroundStyle(TandemColor.ink2)
             }
             ForEach(Array(actions.enumerated()), id: \.offset) { index, action in
-                PillButton(action.title, kind: action.kind) { onChoose(index) }
+                button(for: action, at: index)
             }
         }
         .padding(TandemSpacing.windowPadding)
@@ -38,6 +41,19 @@ private struct GlassDialogView: View {
         .glassSurface(cornerRadius: 0)
         .ignoresSafeArea()
         .tandemWindowChrome()
+    }
+}
+
+private extension GlassDialogView {
+    @ViewBuilder
+    func button(for action: GlassDialogAction, at index: Int) -> some View {
+        if action.isSafeDefault {
+            PillButton(action.title, kind: action.kind) { onChoose(index) }
+                .keyboardShortcut(.cancelAction)
+                .keyboardShortcutButton(.defaultAction) { onChoose(index) }
+        } else {
+            PillButton(action.title, kind: action.kind) { onChoose(index) }
+        }
     }
 }
 

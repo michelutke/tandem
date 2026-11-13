@@ -1,16 +1,20 @@
 import SwiftUI
 
 /// Which fill a ``PillButton`` uses (ui-spec §2, §5.1): "at most one filled button per screen;
-/// secondary actions are outlined or plain rows... destructive = red fill."
+/// secondary actions are outlined or plain rows... destructive = red fill." `destructiveSoft` is
+/// the resting form of a destructive action on a screen that already has its one filled button
+/// (alert-tinted fill, alert text); the confirmation sheet then uses `destructive`.
 public enum PillButtonKind: Equatable, Sendable {
     case primary
     case destructive
+    case destructiveSoft
     case secondary
 
     var background: Color {
         switch self {
         case .primary: TandemColor.ink
         case .destructive: TandemColor.alert
+        case .destructiveSoft: TandemColor.alert.opacity(0.1)
         case .secondary: TandemColor.ink.opacity(0.05)
         }
     }
@@ -18,6 +22,7 @@ public enum PillButtonKind: Equatable, Sendable {
     var foreground: Color {
         switch self {
         case .primary, .destructive: TandemColor.paper
+        case .destructiveSoft: TandemColor.alert
         case .secondary: TandemColor.ink
         }
     }
