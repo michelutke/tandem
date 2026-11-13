@@ -28,18 +28,30 @@ public final class MirrorRequestViewModel {
     }
 
     private var session: (any TandemSession)?
+    private let clock: any Clock<Duration>
+    private let timeout: Duration
 
     @ObservationIgnored
     private nonisolated(unsafe) var observationTask: Task<Void, Never>?
 
+    @ObservationIgnored
+    private nonisolated(unsafe) var timeoutTask: Task<Void, Never>?
+
     /// - Parameter session: The paired session, or `nil` if no peer is paired -- ``request()`` is
     ///   then shows ``State/notConnected``.
-    public init(session: (any TandemSession)?) {
+    public init(
+        session: (any TandemSession)?,
+        clock: any Clock<Duration> = ContinuousClock(),
+        timeout: Duration = .seconds(60)
+    ) {
         self.session = session
+        self.clock = clock
+        self.timeout = timeout
     }
 
     deinit {
         observationTask?.cancel()
+        timeoutTask?.cancel()
     }
 
     /// Switches to `session` (the paired peer's next control session, or `nil` once it ends) and
@@ -48,7 +60,7 @@ public final class MirrorRequestViewModel {
         observationTask?.cancel()
         observationTask = nil
         self.session = session
-        state = .idle
+        resetRequest()
         await start()
     }
 
@@ -73,11 +85,29 @@ public final class MirrorRequestViewModel {
             return
         }
         state = .waiting
+        timeoutTask?.cancel()
+        timeoutTask = Task { [weak self, clock, timeout] in
+            try? await clock.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            self?.requestTimedOut()
+        }
         Task { try? await session.send(.control, payload: .mirrorRequest(Tandem_V1_MirrorRequest())) }
     }
 
     /// Dismisses the waiting or declined state; sends nothing.
     public func cancel() {
+        resetRequest()
+    }
+
+    /// Back to idle once the mirror window opened or closed, so the action can be used again.
+    public func resetRequest() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        state = .idle
+    }
+
+    private func requestTimedOut() {
+        guard state == .waiting else { return }
         state = .idle
     }
 

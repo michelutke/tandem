@@ -30,15 +30,20 @@ public final class MirrorMediaCoordinator {
 
     private nonisolated let presenter: any MirrorWindowPresenting
     private nonisolated let inputSession: @MainActor (MediaSessionID) -> (any TandemSession)?
+    private nonisolated let onStreamChanged: @MainActor () -> Void
     private var active: Active?
 
-    /// - Parameter inputSession: The control session of the given media session; mapped window input is sent on it.
+    /// - Parameters:
+    ///   - inputSession: The control session of the given media session; mapped window input is sent on it.
+    ///   - onStreamChanged: Called when a stream starts and again when it ends.
     public nonisolated init(
         presenter: any MirrorWindowPresenting,
-        inputSession: @escaping @MainActor (MediaSessionID) -> (any TandemSession)? = { _ in nil }
+        inputSession: @escaping @MainActor (MediaSessionID) -> (any TandemSession)? = { _ in nil },
+        onStreamChanged: @escaping @MainActor () -> Void = {}
     ) {
         self.presenter = presenter
         self.inputSession = inputSession
+        self.onStreamChanged = onStreamChanged
     }
 
     /// `mirrorSessionId` is the 16-byte id from the bound `MediaHello`; input is sent with it only
@@ -56,9 +61,11 @@ public final class MirrorMediaCoordinator {
             inputSession: inputSession(sessionID)
         )
         active = Active(id: sessionID, stream: stream)
+        onStreamChanged()
         stream.start { [weak self, weak stream] in
             guard let self, let stream, self.active?.stream === stream else { return }
             self.active = nil
+            self.onStreamChanged()
         }
     }
 
