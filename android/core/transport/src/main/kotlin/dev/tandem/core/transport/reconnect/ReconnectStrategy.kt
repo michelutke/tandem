@@ -59,6 +59,11 @@ class ReconnectStrategy(
     /** The address the most recent successful [Connector.connect] used, if any. */
     val lastWorking: StateFlow<CandidateAddress?> = mutableLastWorking.asStateFlow()
 
+    /** Forgets the last-working address, for when the pin set became empty (an unpair). */
+    fun resetLastWorking() {
+        mutableLastWorking.value = null
+    }
+
     private val mutableFailedCycles = MutableStateFlow(0)
 
     /**

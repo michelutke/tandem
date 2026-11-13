@@ -89,12 +89,18 @@ class SharedPreferencesFocusFilterRecord(
     }
 }
 
-/** Puts back the filter recorded before a Focus sync, if any, and forgets it. */
+/**
+ * Puts back the filter recorded before a Focus sync, if any, and forgets it. The filter is only
+ * restored while it is still the priority-only one Tandem applied; if the user or a schedule changed
+ * it meanwhile, that choice is kept and only the record is cleared.
+ */
 fun restoreRecordedFocusFilter(
     record: FocusFilterRecord,
     gateway: InterruptionFilterGateway,
 ) {
     val recorded = record.load() ?: return
-    if (gateway.hasPolicyAccess()) gateway.setFilter(recorded)
+    if (gateway.hasPolicyAccess() && gateway.currentFilter() == InterruptionFilter.PRIORITY) {
+        gateway.setFilter(recorded)
+    }
     record.clear()
 }

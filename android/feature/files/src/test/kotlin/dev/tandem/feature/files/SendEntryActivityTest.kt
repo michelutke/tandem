@@ -1,8 +1,12 @@
 package dev.tandem.feature.files
 
 import android.app.Activity
+import android.content.ContentProvider
+import android.content.ContentValues
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
+import android.os.Bundle
 import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.core.app.ActivityOptionsCompat
@@ -170,6 +174,56 @@ class SendEntryActivityTest {
     }
 
     @Test
+    fun shareFilesActivity_recreatedWithSavedState_doesNotStageAgain() {
+        val queued = mutableListOf<Runnable>()
+        val intent =
+            Intent(Intent.ACTION_SEND).setClass(context, ShareFilesActivity::class.java).apply {
+                putExtra(Intent.EXTRA_STREAM, contentUri(1))
+            }
+        registerContent(contentUri(1))
+        val controller = Robolectric.buildActivity(ShareFilesActivity::class.java, intent)
+        controller.get().starter = TransferStarter { started += it }
+        controller.get().executor = { queued += it }
+
+        controller.create(Bundle())
+
+        assertTrue(queued.isEmpty())
+        assertTrue(started.isEmpty())
+    }
+
+    @Test
+    fun shareFilesActivity_providerThrowsSecurityException_failureReportedNoCrash() {
+        Robolectric.buildContentProvider(SecurityThrowingProvider::class.java).create(THROWING_AUTHORITY)
+        val failures = AtomicInteger()
+
+        share(Intent.ACTION_SEND, registerStreams = false, onStagingFailed = { failures.incrementAndGet() }) {
+            putExtra(Intent.EXTRA_STREAM, "content://$THROWING_AUTHORITY/doc/1".toUri())
+        }
+
+        assertTrue(started.isEmpty())
+        assertEquals(1, failures.get())
+    }
+
+    @Test
+    fun shareFilesActivity_streamThrowsSecurityExceptionMidCopy_failureReportedAndPartialDeleted() {
+        val failures = AtomicInteger()
+        shadowOf(context.contentResolver).registerInputStream(
+            contentUri(1),
+            object : InputStream() {
+                override fun read(): Int = throw SecurityException("revoked")
+            },
+        )
+
+        share(Intent.ACTION_SEND, registerStreams = false, onStagingFailed = { failures.incrementAndGet() }) {
+            putExtra(Intent.EXTRA_STREAM, contentUri(1))
+        }
+
+        assertTrue(started.isEmpty())
+        assertEquals(1, failures.get())
+        assertTrue(File(context.cacheDir, ShareStaging.DIRECTORY_NAME).listFiles().orEmpty().isEmpty())
+    }
+
+    @Test
     fun safPicker_uriReturned_startsOneOffer() {
         pick(listOf(contentUri(7)))
 
@@ -243,4 +297,40 @@ class SendEntryActivityTest {
     }
 
     private fun contentUri(index: Int): Uri = "content://com.android.providers.media.documents/document/$index".toUri()
+
+    private companion object {
+        const val THROWING_AUTHORITY = "throwing.provider"
+    }
+}
+
+class SecurityThrowingProvider : ContentProvider() {
+    override fun onCreate(): Boolean = true
+
+    override fun getType(uri: Uri): String = throw SecurityException("not granted")
+
+    override fun query(
+        uri: Uri,
+        projection: Array<out String>?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+        sortOrder: String?,
+    ): Cursor = throw SecurityException("not granted")
+
+    override fun insert(
+        uri: Uri,
+        values: ContentValues?,
+    ): Uri? = null
+
+    override fun delete(
+        uri: Uri,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+    ): Int = 0
+
+    override fun update(
+        uri: Uri,
+        values: ContentValues?,
+        selection: String?,
+        selectionArgs: Array<out String>?,
+    ): Int = 0
 }

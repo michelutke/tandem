@@ -25,6 +25,9 @@ import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
 import kotlin.concurrent.thread
@@ -221,6 +224,50 @@ class SslClientIntegrationTest {
         assertTrue(elapsedMillis < CANCEL_RETURN_MILLIS, "cancel took $elapsedMillis ms")
         assertTrue(socket.isClosed)
         serverSocket.close()
+    }
+
+    @Test
+    fun sslClientFactory_watchdogFiresAsHandshakeCompletes_failsInsteadOfReturningClosedStream() {
+        val server =
+            TestTlsServer(TestServerKeyManager(TestIdentity("server")), AcceptAnyTrustManager(), TestTlsServerConfig())
+        val realScheduler = Executors.newSingleThreadScheduledExecutor()
+        val firingOnCancel =
+            object : ScheduledExecutorService by realScheduler {
+                override fun schedule(
+                    command: Runnable,
+                    delay: Long,
+                    unit: TimeUnit,
+                ): ScheduledFuture<*> {
+                    val pending = realScheduler.schedule(command, delay, unit)
+                    return object : ScheduledFuture<Any?> by (pending as ScheduledFuture<Any?>) {
+                        override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+                            pending.cancel(false)
+                            command.run()
+                            return false
+                        }
+                    }
+                }
+            }
+        try {
+            server.use {
+                server.acceptOnce()
+                val identity = TestIdentity("client")
+                val factory =
+                    SslClientFactory(
+                        identity.keyManager,
+                        AcceptAnyTrustManager(),
+                        ConscryptSessionTicketDisabler(),
+                        firingOnCancel,
+                    )
+                val socket = factory.createSocket()
+
+                assertThrows(IOException::class.java) { factory.connect(socket, localhost, server.port) }
+
+                assertTrue(socket.isClosed)
+            }
+        } finally {
+            realScheduler.shutdownNow()
+        }
     }
 
     private fun clientFactory(identity: TestIdentity = TestIdentity("client")): SslClientFactory =

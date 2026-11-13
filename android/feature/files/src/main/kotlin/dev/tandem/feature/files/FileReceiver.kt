@@ -110,10 +110,16 @@ class FileReceiver(
         }
     }
 
-    /** Call after (re)connecting: sweeps expired `.part` files and requests resumption of the rest. */
+    /**
+     * Call after (re)connecting: sweeps expired `.part` files and requests resumption of the rest. A part
+     * of an offer accepted in this session is never touched: its meta may not be written yet.
+     */
     fun resumeRetained() {
         scope.launch {
-            val retained = withContext(ioDispatcher) { sweepExpired().mapNotNull(::loadRetained) }
+            val retained =
+                withContext(ioDispatcher) {
+                    sweepExpired().filterNot(transfers::containsKey).mapNotNull(::loadRetained)
+                }
             retained.filter { !transfers.containsKey(it.offer.id) }.forEach { resume(it) }
         }
     }

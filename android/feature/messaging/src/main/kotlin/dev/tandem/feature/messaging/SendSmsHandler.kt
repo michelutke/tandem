@@ -184,17 +184,29 @@ class SendSmsHandler(
     ): Long {
         var waitedMs = 0L
         while (true) {
-            val id =
-                try {
-                    withContext(ioDispatcher) { source.newestOutgoingId(destination, baselineId) }
-                } catch (_: SmsPermissionMissing) {
-                    return 0L
-                }
+            val id = lookupNewestOutgoingId(destination, baselineId) ?: return 0L
             if (id != 0L || waitedMs >= PROVIDER_LOOKUP_TIMEOUT_MS) return id
             delay(PROVIDER_POLL_MS)
             waitedMs += PROVIDER_POLL_MS
         }
     }
+
+    // The message is already sent, so a failing provider lookup (null) must never report FAILED.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun lookupNewestOutgoingId(
+        destination: String,
+        baselineId: Long,
+    ): Long? =
+        try {
+            withContext(ioDispatcher) { source.newestOutgoingId(destination, baselineId) }
+        } catch (_: SmsPermissionMissing) {
+            null
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: RuntimeException) {
+            log("sms provider lookup failed: ${error.javaClass.simpleName}")
+            null
+        }
 
     private suspend fun report(
         clientMessageId: String,

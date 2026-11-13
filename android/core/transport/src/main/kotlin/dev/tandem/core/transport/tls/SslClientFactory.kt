@@ -7,8 +7,9 @@ import kotlinx.coroutines.supervisorScope
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLHandshakeException
@@ -79,7 +80,8 @@ class SslClientFactory(
      * 10 s TLS handshake deadline, "from connect()"): a watchdog closes [socket] when it elapses, which
      * unblocks a peer that drips handshake bytes slower than the per-read `soTimeout` (also set to it).
      * On any failure (connect, handshake, deadline or ALPN mismatch) [socket] is closed before the
-     * exception propagates.
+     * exception propagates; a deadline that fires as the handshake completes is a failure too, never a
+     * stream on a closed socket.
      */
     fun connect(
         socket: SSLSocket,
@@ -108,6 +110,7 @@ class SslClientFactory(
                     "Server did not select ALPN protocol \"$TANDEM_ALPN_PROTOCOL\" (negotiated: \"$negotiated\")",
                 )
             }
+            ensureDeadlineNotElapsed(watchdog)
         } catch (e: IOException) {
             runCatching { socket.close() }
             throw e
@@ -116,6 +119,10 @@ class SslClientFactory(
         }
 
         return SslSocketByteStream(socket)
+    }
+
+    private fun ensureDeadlineNotElapsed(watchdog: ScheduledFuture<*>) {
+        if (!watchdog.cancel(false)) throw IOException("TLS handshake deadline elapsed")
     }
 
     /**
@@ -140,9 +147,9 @@ class SslClientFactory(
 
     private companion object {
         val SHARED_DEADLINE_SCHEDULER: ScheduledExecutorService =
-            Executors.newSingleThreadScheduledExecutor { task ->
+            ScheduledThreadPoolExecutor(1) { task ->
                 Thread(task, "tls-deadline").apply { isDaemon = true }
-            }
+            }.apply { removeOnCancelPolicy = true }
 
         /** SPEC.md §10 / E12-08: the phone's TLS handshake deadline when dialing. */
         const val DEFAULT_HANDSHAKE_TIMEOUT_MILLIS = 10_000

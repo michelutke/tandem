@@ -27,12 +27,13 @@ class ShareStaging(
     ): File {
         directory.mkdirs()
         val target = File(directory, id)
+        var complete = false
         try {
             val input = openSource(contentResolver, uri)
             input.use { source -> target.outputStream().use { copyBounded(source, it, limit) } }
-        } catch (e: IOException) {
-            target.delete()
-            throw e
+            complete = true
+        } finally {
+            if (!complete) target.delete()
         }
         return target
     }

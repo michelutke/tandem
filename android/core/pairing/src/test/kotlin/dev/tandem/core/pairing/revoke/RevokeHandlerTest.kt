@@ -5,7 +5,10 @@ import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -68,6 +71,40 @@ class RevokeHandlerTest {
             assertTrue(removed.isEmpty())
             assertTrue(purged.isEmpty())
             assertEquals(ConnectionState.HelloExchange, session.state.value)
+        }
+
+    @Test
+    fun revokeHandler_callerCancelledAfterSessionClose_stillPurges() =
+        runTest {
+            session.emitState(ConnectionState.Ready(Instant.EPOCH))
+            val noticed = mutableListOf<SpkiFingerprint>()
+            lateinit var caller: Job
+            val registry =
+                PeerDataPurgeRegistry().apply {
+                    register(
+                        PeerDataPurging { fingerprint ->
+                            yield()
+                            purged += fingerprint
+                        },
+                    )
+                }
+            val cancellingHandler =
+                RevokeHandler(
+                    session,
+                    peer,
+                    { fingerprint ->
+                        noticed += fingerprint
+                        caller.cancel()
+                    },
+                    registry,
+                )
+
+            caller = launch { cancellingHandler.handleRevoke() }
+            caller.join()
+
+            assertEquals(listOf(peer), noticed)
+            assertEquals(listOf(peer), purged)
+            assertTrue(session.state.value is ConnectionState.Disconnected)
         }
 
     private companion object {

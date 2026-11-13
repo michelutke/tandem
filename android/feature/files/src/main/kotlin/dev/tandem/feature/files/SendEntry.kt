@@ -41,11 +41,19 @@ class SendEntry(
     private fun isAcceptableBatch(uris: List<Uri>): Boolean =
         uris.isNotEmpty() && uris.size <= MAX_STREAMS && uris.all(::isAcceptable)
 
+    @Suppress("TooGenericExceptionCaught")
     private fun stagedRequests(uris: List<Uri>): List<SendRequest>? {
-        val requests = uris.map(::request)
+        val requests =
+            try {
+                uris.map(::request)
+            } catch (_: RuntimeException) {
+                onStagingFailed()
+                return null
+            }
         return if (staging == null) requests else stage(staging, uris, requests)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun stage(
         staging: ShareStaging,
         uris: List<Uri>,
@@ -53,18 +61,27 @@ class SendEntry(
     ): List<SendRequest>? {
         val staged = mutableListOf<SendRequest>()
         var remaining = ShareStaging.MAX_STAGED_BYTES
-        try {
+        return try {
             requests.forEachIndexed { index, request ->
                 val file = staging.stage(contentResolver, uris[index], request.id, remaining)
                 remaining -= file.length()
                 staged += request.copy(uri = file.toUri().toString())
             }
+            staged
         } catch (_: IOException) {
-            staged.forEach(staging::delete)
-            onStagingFailed()
-            return null
+            abort(staging, staged)
+        } catch (_: RuntimeException) {
+            abort(staging, staged)
         }
-        return staged
+    }
+
+    private fun abort(
+        staging: ShareStaging,
+        staged: List<SendRequest>,
+    ): List<SendRequest>? {
+        staged.forEach(staging::delete)
+        onStagingFailed()
+        return null
     }
 
     private fun isAcceptable(uri: Uri): Boolean {

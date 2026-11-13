@@ -6,7 +6,9 @@ import dev.tandem.protocol.v1.NotificationDismiss
 import dev.tandem.protocol.v1.NotificationPosted
 import dev.tandem.protocol.v1.notificationDismiss
 import dev.tandem.protocol.v1.notificationPosted
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -15,7 +17,11 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DisconnectedNotificationBufferTest {
     private val scheduler = TestCoroutineScheduler()
-    private val buffer = DisconnectedNotificationBuffer(FakeElapsedRealtime(scheduler))
+    private val buffer =
+        DisconnectedNotificationBuffer(
+            FakeElapsedRealtime(scheduler),
+            CoroutineScope(StandardTestDispatcher(scheduler)),
+        )
 
     @Test
     fun notificationsFeature_notificationPostedWhileDisconnected_flushedOnNextSessionReady() {
@@ -76,6 +82,39 @@ class DisconnectedNotificationBufferTest {
 
         assertTrue(sink.posted.isEmpty())
         assertEquals(listOf("a"), next.posted)
+    }
+
+    @Test
+    fun notificationsFeature_clearWhileDisconnected_nothingFlushedToNextSession() {
+        buffer.onNotificationPosted(post("a"))
+
+        buffer.clear()
+        val sink = RecordingSink()
+        buffer.attach(sink)
+
+        assertTrue(sink.posted.isEmpty())
+    }
+
+    @Test
+    fun notificationsFeature_bufferedPostExpiresWhileDisconnected_evictedByTimerWithoutNewEvent() {
+        buffer.onNotificationPosted(post("a"))
+
+        scheduler.advanceTimeBy(60_001)
+        scheduler.runCurrent()
+
+        assertEquals(0, buffer.size)
+    }
+
+    @Test
+    fun notificationsFeature_detachAfterExpiry_evictsExpiredEntries() {
+        val idleScope = CoroutineScope(StandardTestDispatcher(TestCoroutineScheduler()))
+        val untimed = DisconnectedNotificationBuffer(FakeElapsedRealtime(scheduler), idleScope)
+        untimed.onNotificationPosted(post("a"))
+        scheduler.advanceTimeBy(60_000)
+
+        untimed.detach()
+
+        assertEquals(0, untimed.size)
     }
 
     private fun post(key: String) = notificationPosted { this.key = key }

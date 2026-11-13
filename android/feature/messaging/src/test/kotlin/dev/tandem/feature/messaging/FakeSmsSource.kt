@@ -10,6 +10,7 @@ class FakeSmsSource(
     var messages: List<SmsMessage> = emptyList(),
     var threads: List<SmsThread> = emptyList(),
     var readPermitted: Boolean = true,
+    var newestOutgoingFailure: RuntimeException? = null,
 ) : SmsSource {
     private val changeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
@@ -41,6 +42,7 @@ class FakeSmsSource(
         afterId: Long,
     ): Long {
         requirePermission()
+        newestOutgoingFailure?.let { throw it }
         return messages
             .filter { it.address == address && it.id > afterId && it.type in OUTGOING_TYPES }
             .maxOfOrNull { it.id } ?: 0

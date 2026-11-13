@@ -52,6 +52,27 @@ class ReconnectStrategyTest {
         }
 
     @Test
+    fun reconnectStrategy_resetLastWorking_noLongerDialedFirstNorExposed() =
+        runTest {
+            val lastWorking = CandidateAddress("10.0.0.1", 7443)
+            val pairing = CandidateAddress("10.0.0.4", 7443)
+            val connector = FakeConnector { ConnectResult.Unreachable }
+            val strategy =
+                newStrategy(
+                    connector = connector,
+                    bonjour = { emptyList() },
+                    pairing = { listOf(pairing) },
+                    initialLastWorking = lastWorking,
+                )
+
+            strategy.resetLastWorking()
+
+            assertNull(strategy.lastWorking.value)
+            assertEquals(listOf(pairing), strategy.buildCycle())
+            strategy.close()
+        }
+
+    @Test
     fun reconnectBackoff_consecutiveFailedCycles_waits1s2s4s8s16s30s30s() =
         runTest {
             val onlyCandidate = CandidateAddress("10.0.0.9", 7443)

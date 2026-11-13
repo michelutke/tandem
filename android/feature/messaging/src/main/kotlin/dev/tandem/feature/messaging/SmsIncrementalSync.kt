@@ -59,12 +59,14 @@ class SmsIncrementalSync(
             null
         }
 
+    // Without a baseline the change that follows the grant is usually the new message itself, so the
+    // snapshot max is not used as the baseline (it would swallow that message); the newest row is pushed.
     private suspend fun pushWhenPermitted(
         lastSentId: Long?,
         initialLastSentId: suspend () -> Long,
     ): Long? =
         try {
-            push(lastSentId ?: initialLastSentId())
+            push(lastSentId ?: (initialLastSentId() - 1).coerceAtLeast(0))
         } catch (_: SmsPermissionMissing) {
             lastSentId
         }

@@ -13,6 +13,7 @@ import dev.tandem.protocol.v1.SmsMessageType
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.sendSmsRequest
 import dev.tandem.protocol.v1.smsMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +24,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -81,6 +84,34 @@ class SendSmsHandlerTest {
             runCurrent()
             job.cancelAndJoin()
 
+            assertEquals(0L, rig.statuses().single { it.state == SendSmsState.SEND_SMS_STATE_SENT }.providerMessageId)
+        }
+
+    @Test
+    fun sendSmsHandler_providerLookupThrowsAfterSent_stillReportsSentWithoutProviderId() =
+        runTest {
+            val rig = Rig()
+            rig.source.newestOutgoingFailure = IllegalStateException("provider unavailable")
+            var thrown: RuntimeException? = null
+            val job =
+                launch {
+                    try {
+                        rig.handler(this@runTest).handle(request())
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: RuntimeException) {
+                        thrown = error
+                    }
+                }
+            runCurrent()
+
+            rig.results.emit(part(0, SendResultKind.SENT))
+            rig.results.emit(part(1, SendResultKind.SENT))
+            runCurrent()
+            job.cancelAndJoin()
+
+            assertNull(thrown)
+            assertFalse(rig.statuses().any { it.state == SendSmsState.SEND_SMS_STATE_FAILED })
             assertEquals(0L, rig.statuses().single { it.state == SendSmsState.SEND_SMS_STATE_SENT }.providerMessageId)
         }
 

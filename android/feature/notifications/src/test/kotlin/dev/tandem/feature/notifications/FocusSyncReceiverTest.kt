@@ -104,6 +104,24 @@ class FocusSyncReceiverTest {
         }
 
     @Test
+    fun focusSyncReceiver_filterChangedByUserDuringSync_sessionEndDoesNotOverwrite() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.ALL)
+            val record = FakeFocusFilterRecord()
+            val session = FakeTandemSession()
+            val job = launch { FocusSyncReceiver(session, gateway, record).run() }
+            runCurrent()
+            session.emitFocus(on = true)
+            runCurrent()
+            gateway.setFilter(InterruptionFilter.NONE)
+
+            job.cancelAndJoin()
+
+            assertEquals(InterruptionFilter.NONE, gateway.filter)
+            assertNull(record.load())
+        }
+
+    @Test
     fun focusSyncReceiver_staleRecordAtStart_restoresPersistedFilterAndClearsIt() =
         runTest {
             val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.PRIORITY)

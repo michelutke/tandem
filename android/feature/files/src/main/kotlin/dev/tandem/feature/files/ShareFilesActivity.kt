@@ -12,7 +12,9 @@ import java.util.concurrent.Executor
  * `ACTION_SEND` / `ACTION_SEND_MULTIPLE` + `*` / `*` filters. No UI of its own: hands the
  * `EXTRA_STREAM` URIs to [SendEntry] on a background [executor] (provider queries and the staging
  * copy must not block the main thread) and finishes once that is done. [starter] is a `var` seam, as
- * `ShareTargetActivity.sessionProvider` is: null falls back to [LiveFileSession].
+ * `ShareTargetActivity.sessionProvider` is: null falls back to [LiveFileSession]. A recreated
+ * instance (rotation, theme change) does nothing: the first instance's staging is still running and
+ * finishes the activity, so no file is offered twice.
  */
 class ShareFilesActivity : TandemActivity() {
     var starter: TransferStarter? = null
@@ -21,6 +23,7 @@ class ShareFilesActivity : TandemActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState != null) return
         val entry = entry()
         val uris = streams()
         // Stays alive until every stream is staged: the share-sheet read grant ends with this activity.

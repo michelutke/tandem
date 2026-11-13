@@ -42,16 +42,13 @@ class SmsIncrementalSyncTest {
         }
 
     @Test
-    fun smsIncrementalSync_permissionGrantedAfterStart_pushesNewMessages() =
+    fun smsIncrementalSync_firstMessageAfterMidSessionGrant_isPushed() =
         runTest {
             val source = FakeSmsSource(messages(5), readPermitted = false)
             val session = FakeTandemSession()
             val job = start(source, session) { source.maxId() }
 
             source.readPermitted = true
-            source.emitChange()
-            advanceTimeBy(DEBOUNCE_MS + 1)
-            runCurrent()
             source.messages += row(6)
             source.emitChange()
             advanceTimeBy(DEBOUNCE_MS + 1)
@@ -65,6 +62,30 @@ class SmsIncrementalSyncTest {
                     .map { it.id },
             )
             assertTrue(job.isActive)
+            job.cancel()
+        }
+
+    @Test
+    fun smsIncrementalSync_permissionGrantedAfterStart_laterMessagesStillPushed() =
+        runTest {
+            val source = FakeSmsSource(messages(5), readPermitted = false)
+            val session = FakeTandemSession()
+            val job = start(source, session) { source.maxId() }
+
+            source.readPermitted = true
+            source.messages += row(6)
+            source.emitChange()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+            source.messages += row(7)
+            source.emitChange()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+
+            assertEquals(
+                listOf(listOf(6L), listOf(7L)),
+                session.sentFrames.map { frame -> frame.smsSyncResponse.messagesList.map { it.id } },
+            )
             job.cancel()
         }
 
