@@ -9,8 +9,9 @@ public protocol ControlSessionRegistering: Sendable {
 }
 
 /// Tracks one Ready control session per peer SPKI (invariant 3, E12-19). When a second connection
-/// for the same peer SPKI reaches Ready, the registry closes the previously-registered session with
-/// `limitExceeded` before registering the new one. Keyed strictly by SPKI fingerprint; no lookup
+/// for the same peer SPKI reaches Ready, the registry swaps the new session in first and then
+/// closes the previously-registered one with `limitExceeded`, so the close's suspension can never
+/// let a concurrent registration leave two live sessions. Keyed strictly by SPKI fingerprint; no lookup
 /// or registration path accepts an IP address, hostname, or device ID.
 public actor ControlSessionRegistry: ControlSessionRegistering {
     private var sessions: [SpkiFingerprint: any TandemSession] = [:]
@@ -18,7 +19,7 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
     public init() {}
 
     /// Registers `session` for the given `spkiFingerprint`. If a session already exists for this
-    /// fingerprint, closes it with `limitExceeded` before registering the new one.
+    /// fingerprint, it is replaced at once and then closed with `limitExceeded`.
     public func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
         let oldSession = sessions.updateValue(session, forKey: spkiFingerprint)
         await oldSession?.close()

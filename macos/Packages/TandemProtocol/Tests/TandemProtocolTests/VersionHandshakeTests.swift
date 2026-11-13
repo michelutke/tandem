@@ -97,7 +97,7 @@ struct VersionHandshakeTests {
         #expect(session == .failed(.protocolTimeout))
     }
 
-    @Test
+    @Test(.timeLimit(.minutes(1)))
     func hello_nonHelloControlFrameFirst_closesMalformedFrame() async throws {
         let pair = InMemoryConnectionPair()
         let multiplexer = ChannelMultiplexer(source: InMemoryFrameSource(pair.endA), sink: pair.endA.send)
