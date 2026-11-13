@@ -55,6 +55,7 @@ private val MIN_NUMERAL_SIZE = 24.sp
  * from the top up to [litFraction] (motion #01), the dot at [signalFraction] (default: the lit
  * arc's leading dot) is signal green. [pulse] makes the unlit rings pulse outward (motion #06) and
  * stops under "Remove animations". The numeral shrinks to fit at large font scales (ui-spec §3.2).
+ * [onDark] draws on a dark surface; [signalInnerRing] lights the innermost ring signal green (ringing).
  * One TalkBack description carries numeral, unit and label, since the dots are decorative.
  */
 @Composable
@@ -68,9 +69,12 @@ fun DotRing(
     signalFraction: Float? = null,
     pulse: Boolean = false,
     diameter: Dp = 240.dp,
+    onDark: Boolean = false,
+    signalInnerRing: Boolean = false,
 ) {
     val animatedFraction by tandemAnimateFloatAsState(targetValue = litFraction.coerceIn(0f, 1f))
     val pulsePhase = rememberPulsePhase(pulse)
+    val litInk = if (onDark) TandemColors.inkOnDark else TandemColors.ink
     val description =
         listOf((numeral + (numeralUnit ?: "")).trim(), label).filter { it.isNotEmpty() }.joinToString(", ")
 
@@ -80,15 +84,24 @@ fun DotRing(
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             RING_DOT_COUNTS.forEachIndexed { ring, dotCount ->
-                val lit = (animatedFraction * dotCount).roundToInt()
+                val allSignal = signalInnerRing && ring == 0
+                val lit = if (allSignal) dotCount else (animatedFraction * dotCount).roundToInt()
                 val signal = signalFraction?.let { (it * dotCount).roundToInt() % dotCount } ?: (lit - 1)
                 drawRingDots(
                     dotCount = dotCount,
                     litDots = lit,
                     ringRadius = size.minDimension / 2f * RING_RADIUS_FRACTIONS[ring] * 0.98f,
                     dotRadius = size.minDimension / RING_DOT_RADIUS_DIVISOR,
-                    signalIndex = if (ring == 0 || signalFraction != null) signal else null,
-                    unlitColor = unlitColor(pulsePhase?.value, ring),
+                    signalIndex =
+                        if (allSignal) {
+                            -1
+                        } else if (ring == 0 || signalFraction != null) {
+                            signal
+                        } else {
+                            null
+                        },
+                    unlitColor = unlitColor(pulsePhase?.value, ring, onDark),
+                    litColor = if (allSignal) TandemColors.signal else litInk,
                 )
             }
         }
@@ -152,11 +165,13 @@ private fun rememberPulsePhase(pulse: Boolean): State<Float>? {
 private fun unlitColor(
     phase: Float?,
     ring: Int,
+    onDark: Boolean,
 ): Color {
-    if (phase == null) return TandemColors.lineUnlitDot
+    val base = if (onDark) TandemColors.inkOnDark else TandemColors.ink
+    if (phase == null) return if (onDark) base.copy(alpha = PULSE_BASE_ALPHA) else TandemColors.lineUnlitDot
     val rings = RING_DOT_COUNTS.size
     val intensity = 1f - ((phase - ring.toFloat() / rings + 1f) % 1f)
-    return TandemColors.ink.copy(alpha = PULSE_BASE_ALPHA + (PULSE_PEAK_ALPHA - PULSE_BASE_ALPHA) * intensity)
+    return base.copy(alpha = PULSE_BASE_ALPHA + (PULSE_PEAK_ALPHA - PULSE_BASE_ALPHA) * intensity)
 }
 
 @Preview(showBackground = true)

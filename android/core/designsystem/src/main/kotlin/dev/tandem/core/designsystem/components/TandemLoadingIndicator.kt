@@ -8,12 +8,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import dev.tandem.core.designsystem.TandemColors
+import dev.tandem.core.designsystem.rememberReduceMotion
 
-/** The M3E loading indicator in `ink`, for any wait with no known progress. */
+/**
+ * The M3E loading indicator in `ink`, for any wait with no known progress. Under "Remove animations"
+ * (ui-spec §4) it is a still frame instead of an endless morph, so nothing keeps the UI busy.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TandemLoadingIndicator(modifier: Modifier = Modifier) {
-    LoadingIndicator(modifier = modifier, color = TandemColors.ink)
+    if (rememberReduceMotion()) {
+        LoadingIndicator(progress = { 0f }, modifier = modifier, color = TandemColors.ink)
+    } else {
+        LoadingIndicator(modifier = modifier, color = TandemColors.ink)
+    }
 }
 
 @Preview(showBackground = true)

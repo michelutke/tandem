@@ -12,10 +12,13 @@ import androidx.core.app.NotificationCompat
  * [MirrorPromptPresenter] posting one heads-up notification "Mirror to <Mac>?" (E61-16) with Start
  * and Not now actions. Start opens [startActivity] directly (a notification may not start an activity
  * from a broadcast receiver on Android 12+); Not now and dismiss go through [MirrorPromptActionReceiver].
+ * With [requestActivity], tapping the notification body opens that in-app request surface (extra
+ * [EXTRA_PEER_NAME]) instead of starting directly; it never starts capture on its own.
  */
 class NotificationMirrorPromptPresenter(
     private val context: Context,
     private val startActivity: Class<out Activity>,
+    private val requestActivity: Class<out Activity>? = null,
 ) : MirrorPromptPresenter {
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
 
@@ -37,7 +40,7 @@ class NotificationMirrorPromptPresenter(
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setOnlyAlertOnce(true)
-                .setContentIntent(start)
+                .setContentIntent(requestActivity?.let { requestIntent(it, peerName) } ?: start)
                 .setDeleteIntent(actionIntent(ACTION_DECLINE))
                 .addAction(0, context.getString(R.string.mirror_prompt_start), start)
                 .addAction(0, context.getString(R.string.mirror_prompt_decline), actionIntent(ACTION_DECLINE))
@@ -57,6 +60,20 @@ class NotificationMirrorPromptPresenter(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+    private fun requestIntent(
+        activity: Class<out Activity>,
+        peerName: String,
+    ): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            REQUEST_CODE,
+            Intent()
+                .setClass(context, activity)
+                .putExtra(EXTRA_PEER_NAME, peerName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
     private fun actionIntent(action: String): PendingIntent =
         PendingIntent.getBroadcast(
             context,
@@ -65,10 +82,12 @@ class NotificationMirrorPromptPresenter(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    internal companion object {
+    companion object {
         const val CHANNEL_ID = "tandem_mirror_requests"
         const val NOTIFICATION_ID = 4061
         const val ACTION_START = "dev.tandem.feature.mirror.START_MIRROR"
         const val ACTION_DECLINE = "dev.tandem.feature.mirror.DECLINE_MIRROR"
+        const val EXTRA_PEER_NAME = "peerName"
+        private const val REQUEST_CODE = 4062
     }
 }

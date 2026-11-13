@@ -36,6 +36,7 @@ internal fun DrawScope.drawRingDots(
     dotRadius: Float = size.minDimension / 40f,
     signalIndex: Int? = litDots - 1,
     unlitColor: Color = TandemColors.lineUnlitDot,
+    litColor: Color = TandemColors.ink,
 ) {
     val center = Offset(size.width / 2f, size.height / 2f)
     for (index in 0 until dotCount) {
@@ -48,7 +49,7 @@ internal fun DrawScope.drawRingDots(
         val color =
             when {
                 index == signalIndex -> TandemColors.signal
-                index < litDots -> TandemColors.ink
+                index < litDots -> litColor
                 else -> unlitColor
             }
         drawCircle(color = color, radius = dotRadius, center = position)
