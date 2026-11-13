@@ -1,6 +1,7 @@
 import Foundation
 import Synchronization
 import TandemCrypto
+import TandemStore
 
 /// Identity lifecycle bootstrap (E10-09): mirrors Android's `IdentityBootstrapper` (E10-04). On
 /// every access, verifies the Keychain identity key is usable with a real sign+verify smoke test
@@ -14,7 +15,9 @@ import TandemCrypto
 /// SPEC.md: regenerating the identity changes the Mac's SPKI fingerprint (invariant 3), so every
 /// phone that previously paired against the old key no longer recognizes this Mac. `requiresRePair`
 /// surfaces that (invariant 5) until `notifyPairingSucceeded()` is called after the next successful
-/// pairing.
+/// pairing. Every peer record is deleted with it, since a trust-store match always authenticates as
+/// an already-paired peer and would keep a phone from ever being offered the new pairing; only a
+/// reset of an existing identity does this, never a Keychain access failure.
 ///
 /// A Keychain failure that is neither "missing" nor a smoke-test failure -- `errSecAuthFailed` or
 /// `errSecInteractionNotAllowed` (device locked) -- is surfaced as `IdentityState.error` directly:
@@ -103,6 +106,7 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
             try? keychainStore.deleteKey(tag: tag)
         }
         if hadIdentity {
+            removeAllPeerRecords()
             state.withLock { $0.requiresRePair = true }
             onIdentityReset()
         }
@@ -110,6 +114,16 @@ public final class IdentityBootstrapper: IdentityStateProvider, Sendable {
             return try readyState()
         } catch {
             return .error(String(describing: error))
+        }
+    }
+
+    /// Every pinned phone paired against the replaced identity, so none of those records can be used
+    /// again. Best-effort per record: a record that cannot be listed or deleted stays, and its phone
+    /// still has to re-pair through the open pairing window.
+    private func removeAllPeerRecords() {
+        let trustStore = TrustStore(keychainStore: keychainStore)
+        for record in (try? trustStore.list()) ?? [] {
+            try? trustStore.unpair(record.fingerprint)
         }
     }
 

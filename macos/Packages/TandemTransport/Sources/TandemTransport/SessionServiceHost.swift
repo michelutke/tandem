@@ -29,11 +29,16 @@ public actor SessionServiceHost {
     }
 
     private let services: [any SessionService]
+    private let registry: ControlSessionRegistry?
     private let events: AsyncStream<Event>.Continuation
     private var attachments: [SpkiFingerprint: Attachment] = [:]
 
-    public init(services: [any SessionService]) {
+    /// `registry`, when given, is asked as each registration event is applied: a session that is
+    /// not the one registered for its peer (a handshake that failed before registering) is never
+    /// attached.
+    public init(services: [any SessionService], registry: ControlSessionRegistry? = nil) {
         self.services = services
+        self.registry = registry
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .unbounded)
         events = continuation
         Task { [weak self] in
@@ -68,6 +73,7 @@ public actor SessionServiceHost {
     private func handle(_ event: Event) async {
         switch event {
         case .registered(let peer, let session):
+            if let registry, !(await registry.isRegistered(session, for: peer)) { return }
             await attach(peer: peer, session: session)
         case .ended(let peer, let session):
             guard let current = attachments[peer], current.session === session else { return }

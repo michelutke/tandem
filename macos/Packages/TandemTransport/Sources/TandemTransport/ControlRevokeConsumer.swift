@@ -33,7 +33,9 @@ func startControlRevokeReader(
     session: ByteStreamSession,
     sessionRegistry: any ControlSessionRegistering,
     trustStore: TrustStore?,
-    rotation: RotationReceiver? = nil
+    rotation: RotationReceiver? = nil,
+    purgeRegistry: PeerDataPurgeRegistry? = nil,
+    onUnpaired: (@Sendable () async -> Void)? = nil
 ) -> Task<Void, Never>? {
     guard let trustStore else { return nil }
     let worker = Task {
@@ -46,7 +48,9 @@ func startControlRevokeReader(
                     peerSpkiFingerprint: fingerprint,
                     session: ControlRevokeHandlerSession(session: session),
                     trustStore: trustStore,
-                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry, session: session)
+                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry, session: session),
+                    purgeRegistry: purgeRegistry,
+                    onUnpaired: onUnpaired
                 )
                 return
             case .keyRotation(let message)?:

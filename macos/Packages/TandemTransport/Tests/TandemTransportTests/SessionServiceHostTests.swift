@@ -43,6 +43,23 @@ struct SessionServiceHostTests {
     }
 
     @Test
+    func appComposition_trustedPeerHelloFails_servicesNotAttachedAndLiveSessionKept() async {
+        let service = SpyService()
+        let registry = ControlSessionRegistry()
+        let host = SessionServiceHost(services: [service], registry: registry)
+        let live = FakeTandemSession()
+        let failed = FakeTandemSession()
+        await registry.register(Self.peer, session: live)
+
+        host.sessionRegistered(peer: Self.peer, session: live)
+        host.sessionRegistered(peer: Self.peer, session: failed)
+        await host.waitUntilIdle()
+
+        #expect(await service.attachedSessions == [ObjectIdentifier(live as AnyObject)])
+        #expect(await service.detachCount == 0)
+    }
+
+    @Test
     func appComposition_sessionEnded_everyServiceDetached() async {
         let services = [SpyService(), SpyService()]
         let host = SessionServiceHost(services: services)

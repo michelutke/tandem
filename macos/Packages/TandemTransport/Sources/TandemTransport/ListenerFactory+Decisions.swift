@@ -26,6 +26,7 @@ extension VersionHandshake.HandshakeFailure {
         switch self {
         case .versionMismatch: .versionMismatch
         case .protocolTimeout: .protocolTimeout
+        case .malformedFrame: .malformedFrame
         }
     }
 }

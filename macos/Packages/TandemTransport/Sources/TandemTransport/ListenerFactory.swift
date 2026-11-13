@@ -42,6 +42,10 @@ public struct NWListenerFactory: ListenerFactory {
     /// Where a pinned peer's connection whose first frame is not a control `Envelope` is handed (E60-03).
     let mediaConnectionHandler: (any MediaConnectionHandling)?
     let rotation: RotationReceiverConfiguration?
+    /// Run for every pinned fingerprint of a peer that unpairs itself with `Revoke`, then
+    /// `onPeerUnpaired` so the app can refresh what it shows.
+    let purgeRegistry: PeerDataPurgeRegistry?
+    let onPeerUnpaired: (@Sendable () async -> Void)?
 
     private static let logger = Logger(subsystem: "dev.tandem.transport", category: "NWListenerFactory")
 
@@ -54,7 +58,9 @@ public struct NWListenerFactory: ListenerFactory {
         onSessionRegistered: SessionRegisteredHandler? = nil,
         onSessionEnded: SessionRegisteredHandler? = nil,
         mediaConnectionHandler: (any MediaConnectionHandling)? = nil,
-        rotation: RotationReceiverConfiguration? = nil
+        rotation: RotationReceiverConfiguration? = nil,
+        purgeRegistry: PeerDataPurgeRegistry? = nil,
+        onPeerUnpaired: (@Sendable () async -> Void)? = nil
     ) {
         self.sessionRegistry = sessionRegistry
         self.decisionCorrelator = decisionCorrelator
@@ -65,6 +71,8 @@ public struct NWListenerFactory: ListenerFactory {
         self.onSessionEnded = onSessionEnded
         self.mediaConnectionHandler = mediaConnectionHandler
         self.rotation = rotation
+        self.purgeRegistry = purgeRegistry
+        self.onPeerUnpaired = onPeerUnpaired
     }
 
     public func makeListener(

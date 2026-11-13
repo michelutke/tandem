@@ -58,7 +58,8 @@ public final class MacKeyRotation: SessionService, Sendable {
         dateProvider: @escaping DateProvider,
         interval: Duration,
         dueDateURL: URL,
-        onSwitched: @escaping @Sendable () -> Void
+        onSwitched: @escaping @Sendable () -> Void,
+        onPeersUnpaired: @escaping @Sendable ([SpkiFingerprint]) -> Void = { _ in }
     ) {
         self.init(
             keychainStore: keychainStore,
@@ -68,7 +69,8 @@ public final class MacKeyRotation: SessionService, Sendable {
             clock: ContinuousClock(),
             interval: interval,
             dueStore: FileNextRotationDueStore(url: dueDateURL),
-            onSwitched: onSwitched
+            onSwitched: onSwitched,
+            onPeersUnpaired: onPeersUnpaired
         )
     }
 
@@ -80,7 +82,8 @@ public final class MacKeyRotation: SessionService, Sendable {
         clock: any Clock<Duration>,
         interval: Duration,
         dueStore: any NextRotationDueStore,
-        onSwitched: @escaping @Sendable () -> Void
+        onSwitched: @escaping @Sendable () -> Void,
+        onPeersUnpaired: @escaping @Sendable ([SpkiFingerprint]) -> Void = { _ in }
     ) {
         self.keychainStore = keychainStore
         self.trustStore = trustStore
@@ -99,7 +102,8 @@ public final class MacKeyRotation: SessionService, Sendable {
             onSwitched: {
                 signal.fire()
                 onSwitched()
-            }
+            },
+            onPeersUnpaired: onPeersUnpaired
         )
         (authenticated, authenticatedChanges) = AsyncStream<Bool>.makeStream()
     }
