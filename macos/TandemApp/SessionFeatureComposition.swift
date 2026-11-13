@@ -46,7 +46,7 @@ struct SessionFeatures: Sendable {
     }
 
     static func make(
-        purgeRegistry: PeerDataPurgeRegistry,
+        purgeRegistry: PeerDataPurgeRegistry, sessionRegistry: ControlSessionRegistry,
         mirrorService: any SessionService,
         rotationService: any SessionService
     ) -> SessionFeatures {
@@ -89,7 +89,7 @@ struct SessionFeatures: Sendable {
         filesService?.agent = agent
         let wake = agent.map { agent in SendRequestWakeObserver { Task { await agent.drain() } } }
         return SessionFeatures(
-            host: SessionServiceHost(services: services),
+            host: SessionServiceHost(services: services, registry: sessionRegistry),
             fileTransfer: fileTransfer,
             transferProgress: transferProgress,
             photos: photos,

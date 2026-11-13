@@ -29,12 +29,15 @@ enum MacRotationComposition {
     static let intervalDaysKey = "keyRotationIntervalDays"
     static let defaultIntervalDays = 365
 
+    // swiftlint:disable:next function_parameter_count
     static func make(
         keychainStore: any KeychainStore,
         trustStore: TrustStore,
         window: any PairingWindowState,
         identityBootstrapper: IdentityBootstrapper,
-        listenerControl: ListenerControlBox
+        listenerControl: ListenerControlBox,
+        purgeRegistry: PeerDataPurgeRegistry,
+        pairedPeer: PairedPeerState
     ) -> MacKeyRotation {
         let storedDays = UserDefaults.standard.integer(forKey: intervalDaysKey)
         let days = storedDays > 0 ? storedDays : defaultIntervalDays
@@ -48,6 +51,12 @@ enum MacRotationComposition {
             onSwitched: {
                 identityBootstrapper.bootstrapIdentity()
                 listenerControl.restart()
+            },
+            onPeersUnpaired: { peers in
+                Task {
+                    await purgeRegistry.purge(peers: peers)
+                    await pairedPeer.refresh()
+                }
             }
         )
     }

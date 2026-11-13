@@ -86,6 +86,42 @@ struct PairedDevicesCompositionTests {
         #expect(!stillRegistered)
     }
 
+    @Test
+    func unpairAction_sessionRegisteredUnderPreRotationFingerprint_revokeSentAndSessionClosed() async throws {
+        let keychain = try TemporaryFileKeychain()
+        defer { keychain.cleanup() }
+        let trustStore = TrustStore(keychainStore: keychain.store)
+        let oldFingerprint = try Self.fingerprint(0x11)
+        let newFingerprint = try Self.fingerprint(0x22)
+        let record = PeerRecord(
+            fingerprint: oldFingerprint,
+            displayName: "Pixel 8",
+            pairedAt: Date(timeIntervalSince1970: 0),
+            lastSeen: Date(timeIntervalSince1970: 0),
+            capabilities: []
+        )
+        try trustStore.put(record)
+        try trustStore.rotatePrimary(of: record, to: newFingerprint, now: Date(timeIntervalSince1970: 1))
+        let sessionRegistry = ControlSessionRegistry()
+        let session = FakeTandemSession()
+        await sessionRegistry.register(oldFingerprint, session: session)
+
+        let unpair = AppComposition.makeUnpairAction(
+            trustStore: trustStore,
+            sessionRegistry: sessionRegistry,
+            purgeRegistry: PeerDataPurgeRegistry()
+        )
+        try await unpair(newFingerprint)
+
+        let sentRevoke = await session.sent.contains { frame in
+            if case .revoke = frame.payload { return true }
+            return false
+        }
+        #expect(sentRevoke)
+        #expect(await sessionRegistry.session(for: oldFingerprint) == nil)
+        #expect(try trustStore.list().isEmpty)
+    }
+
     /// Polls `condition` up to `maxPolls` times, `pollIntervalMs` apart, using
     /// `DispatchQueue.asyncAfter` rather than an unbounded-clock sleep or wall-clock read (banned by the
     /// `injected_clock_only` SwiftLint rule in this package; mirrors

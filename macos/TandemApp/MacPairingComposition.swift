@@ -28,6 +28,8 @@ final class MacPairingComposition: @unchecked Sendable {
         identityBootstrapper: IdentityBootstrapper,
         trustStore: TrustStore,
         sessionRegistry: any ControlSessionRegistering,
+        purgeRegistry: PeerDataPurgeRegistry? = nil,
+        onPeerUnpaired: (@Sendable () async -> Void)? = nil,
         onPeerPaired: @escaping @Sendable () -> Void = {}
     ) {
         let state = PairingCompositionState()
@@ -50,6 +52,8 @@ final class MacPairingComposition: @unchecked Sendable {
                 sessionRegistry: sessionRegistry,
                 regeneratesOnExpiry: false,
                 onConfirmationPending: { _, viewModel in state.deliverConfirmation(viewModel, generation: generation) },
+                purgeRegistry: purgeRegistry,
+                onPeerUnpaired: onPeerUnpaired,
                 onPeerPaired: onPeerPaired
             )
         }
@@ -66,7 +70,7 @@ final class MacPairingComposition: @unchecked Sendable {
         state.confirmationHandler = handler
     }
 
-    private static func macSpkiDer(_ identityBootstrapper: IdentityBootstrapper) -> Data? {
+    static func macSpkiDer(_ identityBootstrapper: IdentityBootstrapper) -> Data? {
         guard case .ready(let identity) = identityBootstrapper.identityState else { return nil }
         var certificate: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certificate) == errSecSuccess, let certificate else {
@@ -170,6 +174,31 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
                     return
                 }
             }
+        }
+    }
+}
+
+extension AppComposition {
+    static func makeBonjour(_ identityBootstrapper: IdentityBootstrapper) -> ListenerBonjour {
+        ListenerBonjour(
+            publisher: NetServiceBonjourPublisher(),
+            macSpkiFingerprint: {
+                MacPairingComposition.macSpkiDer(identityBootstrapper)
+                    .flatMap { try? SpkiFingerprint.of(spkiDer: $0) }
+                    .map { Data($0.bytes) }
+            },
+            dateProvider: { Date() }
+        )
+    }
+
+    static func makeListenerStarted(
+        pairing: MacPairingComposition,
+        bonjour: ListenerBonjour
+    ) -> @Sendable (ListenerController.StartedListener) -> Void {
+        { started in
+            pairing.listenerStarted(started.listener)
+            guard let port = started.listener.port?.rawValue else { return }
+            Task { await bonjour.listenerStarted(port: port) }
         }
     }
 }

@@ -76,9 +76,7 @@ enum AppComposition {
         let menuBarWiring = makeMenuBarWiring(sessionRegistry: core.sessionRegistry)
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
-            sessionRegistry: core.sessionRegistry,
-            trustStore: core.trustStore,
-            pairing: core.pairing,
+            core: core,
             chaining: ListenerChaining(
                 features: sessionFeatures,
                 onSessionRegistered: menuBarWiring.onSessionRegistered,
@@ -91,7 +89,10 @@ enum AppComposition {
         case .failure(let failure): return .failure(failure)
         }
 
-        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: core.pairing)
+        let listenerStarted = makeListenerStarted(pairing: core.pairing, bonjour: makeBonjour(identityBootstrapper))
+        let controllers = makeLifecycleControllers(
+            controller: controller, started: started, listenerStarted: listenerStarted
+        )
         core.listenerControl.set(controllers.listenerControl)
         core.rotation.startScheduler()
         return .success(
@@ -122,6 +123,7 @@ enum AppComposition {
     private static func makeSessionFeatures(core: Core, mirror: MirrorComposition) -> SessionFeatures {
         let features = SessionFeatures.make(
             purgeRegistry: core.purgeRegistry,
+            sessionRegistry: core.sessionRegistry,
             mirrorService: mirror.service,
             rotationService: core.rotation
         )
@@ -156,10 +158,13 @@ enum AppComposition {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
         let pairedPeer = MainActor.assumeIsolated { PairedPeerState(trustStore: trustStore) }
+        let purgeRegistry = PeerDataPurgeRegistry()
         let pairing = MacPairingComposition(
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
             sessionRegistry: sessionRegistry,
+            purgeRegistry: purgeRegistry,
+            onPeerUnpaired: { await pairedPeer.refresh() },
             onPeerPaired: {
                 Task { @MainActor in
                     pairedPeer.refresh()
@@ -173,13 +178,15 @@ enum AppComposition {
             trustStore: trustStore,
             window: pairing.host,
             identityBootstrapper: identityBootstrapper,
-            listenerControl: listenerControl
+            listenerControl: listenerControl,
+            purgeRegistry: purgeRegistry,
+            pairedPeer: pairedPeer
         )
         rotation.resume()
         return Core(
             trustStore: trustStore,
             sessionRegistry: sessionRegistry,
-            purgeRegistry: PeerDataPurgeRegistry(),
+            purgeRegistry: purgeRegistry,
             pairing: pairing,
             pairedPeer: pairedPeer,
             rotation: rotation,
@@ -195,11 +202,10 @@ enum AppComposition {
 
     private static func makeController(
         identityBootstrapper: IdentityBootstrapper,
-        sessionRegistry: ControlSessionRegistry,
-        trustStore: TrustStore,
-        pairing: MacPairingComposition,
+        core: Core,
         chaining: ListenerChaining
     ) -> ListenerController {
+        let (sessionRegistry, trustStore, pairing) = (core.sessionRegistry, core.trustStore, core.pairing)
         let decisionCorrelator = PeerDecisionCorrelator()
         let verify = verifyBlock(
             trustStore: trustStore,
@@ -217,7 +223,9 @@ enum AppComposition {
                 onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
                 onSessionEnded: chaining.features.onSessionEnded,
                 mediaConnectionHandler: chaining.mediaConnectionHandler,
-                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() })
+                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() }),
+                purgeRegistry: core.purgeRegistry,
+                onPeerUnpaired: { [pairedPeer = core.pairedPeer] in await pairedPeer.refresh() }
             ),
             port: .any,
             verify: verify,
@@ -262,13 +270,13 @@ enum AppComposition {
     private static func makeLifecycleControllers(
         controller: ListenerController,
         started: ListenerController.StartedListener,
-        pairing: MacPairingComposition
+        listenerStarted: @escaping @Sendable (ListenerController.StartedListener) -> Void
     ) -> LifecycleControllers {
-        pairing.listenerStarted(started.listener)
+        listenerStarted(started)
         let listenerControl = ProductionListenerControl(
             listenerController: controller,
             initiallyStarted: started,
-            onStarted: { pairing.listenerStarted($0.listener) }
+            onStarted: listenerStarted
         )
         let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
         let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
