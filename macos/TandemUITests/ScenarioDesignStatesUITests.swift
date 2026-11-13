@@ -60,4 +60,37 @@ final class ScenarioDesignStatesUITests: XCTestCase {
         XCTAssertTrue(state.waitForExistence(timeout: 10))
         XCTAssertTrue(text(of: state).contains("Pixel 8 hasn't shared photos. Allow access in Tandem on the phone."))
     }
+
+    func test_mirrorWaitingScreen_showsWaitingCopyAndCancel() throws {
+        let window = launch("mirrorWaitingScreen")
+
+        XCTAssertEqual(text(of: window.staticTexts["mirrorStatusTitle"]), "Waiting.")
+        XCTAssertEqual(text(of: window.staticTexts["mirrorStatusDetail"]), "Accept on Pixel 8 to start.")
+        XCTAssertTrue(window.buttons["Cancel"].exists)
+    }
+
+    func test_mirrorDeclinedScreen_showsDeclinedCopyAndClose() throws {
+        let window = launch("mirrorDeclinedScreen")
+
+        XCTAssertEqual(text(of: window.staticTexts["mirrorStatusTitle"]), "Declined.")
+        XCTAssertEqual(text(of: window.staticTexts["mirrorStatusDetail"]), "Nothing was shared.")
+        XCTAssertTrue(window.buttons["Close"].exists)
+    }
+
+    func test_mirrorToolbar_showsNavigationControlOnAndStop() throws {
+        let window = launch("mirrorToolbar")
+
+        XCTAssertTrue(window.buttons["Back"].waitForExistence(timeout: 10))
+        XCTAssertTrue(window.buttons["Home"].exists)
+        XCTAssertTrue(window.buttons["Recents"].exists)
+        XCTAssertTrue(window.staticTexts["Control on"].exists)
+        XCTAssertTrue(window.buttons["Stop"].exists)
+    }
+
+    func test_photoGridSelection_showsDownloadCountAndFooter() throws {
+        let window = launch("photoGridSelection")
+
+        XCTAssertTrue(window.buttons["Download 2"].waitForExistence(timeout: 10))
+        XCTAssertEqual(text(of: window.staticTexts["photoGridFooter"]), "Loaded 3 of 3 · thumbnails cached locally")
+    }
 }

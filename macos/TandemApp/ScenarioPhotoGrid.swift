@@ -22,13 +22,23 @@ extension ScenarioView {
     }
 }
 
+extension ScenarioView {
+    /// The three-photo library with two photos already selected (E41-05): "Download 2" and the footer show.
+    @MainActor
+    static func makePhotoGridSelectionView() -> some View {
+        ScenarioPhotoGridHost(selecting: ["seeded-0", "seeded-2"]) { SeededPartialAccessPhotoService() }
+    }
+}
+
 /// Holds the grid's view model in `@State`: the scenario root re-evaluates its body, and a view
 /// model built inline would restart loading every time.
 private struct ScenarioPhotoGridHost<Service: PhotoService>: View {
     @State private var viewModel: PhotoGridViewModel
 
-    init(service: () -> Service) {
-        _viewModel = State(initialValue: PhotoGridViewModel(service: service()))
+    init(selecting selectedIds: [String] = [], service: () -> Service) {
+        let viewModel = PhotoGridViewModel(service: service())
+        selectedIds.forEach(viewModel.toggleSelection(id:))
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {

@@ -239,7 +239,7 @@ struct MenuContentView: View {
         let findPhoneViewModel = FindPhoneViewModel(session: lifecycle?.sessionFeatures.live.session)
         _findPhoneViewModel = State(initialValue: findPhoneViewModel)
         lifecycle?.sessionFeatures.live.onSessionChanged = { findPhoneViewModel.sessionChanged($0) }
-        let mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
+        let mirrorRequestViewModel = MirrorRequestViewModel(session: nil, peerName: peerName)
         _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
         lifecycle?.mirror.bind(mirrorRequestViewModel)
         let pushClipboardViewModel = PushClipboardViewModel(clipboard: lifecycle?.sessionFeatures.clipboard)
@@ -283,6 +283,7 @@ struct MenuContentView: View {
     private func syncPairedPeer() {
         pairedPeer?.refresh()
         menuBarViewModel.updatePeerName(pairedPeer?.displayName)
+        mirrorRequestViewModel.peerName = pairedPeer?.displayName
     }
 
     private static var retainedFinderServicesProvider: FinderServicesProvider?

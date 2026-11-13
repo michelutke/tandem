@@ -79,7 +79,8 @@ struct SettingsView: View {
                 tabContent
                 Spacer(minLength: 0)
             }
-            .frame(width: 420, height: 320, alignment: .topLeading)
+            .frame(width: 420, alignment: .topLeading)
+            .frame(minHeight: 320, alignment: .top)
         }
         .onAppear { launchAtLoginViewModel.refreshStatus() }
     }

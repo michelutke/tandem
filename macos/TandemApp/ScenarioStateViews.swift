@@ -1,4 +1,5 @@
 #if DEBUG
+import FeatureMirror
 import SwiftUI
 import TandemPairing
 @testable import TandemProtocol
@@ -35,9 +36,26 @@ struct ScenarioStateViews: View {
             PairedView(stateText: "\(ScenarioView.pairedConnectedPeerName) is ready.", onDone: {})
         case .trustErrorBanner:
             ErrorBannerView(viewModel: trustErrorBanner)
+        case .mirrorWaitingScreen:
+            MirrorStatusView(
+                title: "Waiting.", detail: "Accept on \(ScenarioView.pairedConnectedPeerName) to start.",
+                actionTitle: "Cancel", onAction: {})
+        case .mirrorDeclinedScreen:
+            MirrorStatusView(title: "Declined.", detail: "Nothing was shared.", actionTitle: "Close", onAction: {})
+        case .mirrorToolbar:
+            MirrorToolbarView(model: Self.makeMirrorToolbarModel()).padding()
         default:
             EmptyView()
         }
+    }
+
+    private static func makeMirrorToolbarModel() -> MirrorToolbarModel {
+        let size = CGSize(width: 1080, height: 2400)
+        let sender = MirrorInputSender(
+            session: FakeTandemSession(), sessionId: Data(repeating: 1, count: 16),
+            model: MirrorWindowModel(streamSize: size, windowSize: size)
+        )
+        return MirrorToolbarModel(inputSender: sender, onStop: {})
     }
 
     private static func makeTrustErrorBanner() -> ErrorBannerViewModel {

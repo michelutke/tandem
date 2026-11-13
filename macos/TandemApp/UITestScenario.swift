@@ -71,7 +71,7 @@ enum UITestScenario: String {
     case nowPlayingSeeded
 
     /// A paired, connected peer that declined a Mirror request (E61-12): the status line under
-    /// "Mirror Phone" reads "Mirroring declined on phone".
+    /// "Mirror Phone" reads "Declined. Nothing was shared.".
     case mirrorDeclined
 
     /// One in-flight transfer already at 42% (E40-23): the row shows "42%" and a Cancel button
@@ -95,6 +95,19 @@ enum UITestScenario: String {
 
     /// Photos where the phone reports it shares no photos: "Pixel 8 hasn't shared photos."
     case photosNoAccess
+
+    /// The mirror window's dark "Waiting." screen with Cancel.
+    case mirrorWaitingScreen
+
+    /// The mirror window's dark "Declined." screen with Close.
+    case mirrorDeclinedScreen
+
+    /// The glass toolbar under the mirror stream with an active input sender: Back, Home, Recents,
+    /// "Control on" and Stop.
+    case mirrorToolbar
+
+    /// The photo grid with two photos selected: "Download 2" and the "Loaded" footer.
+    case photoGridSelection
 
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),

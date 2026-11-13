@@ -38,6 +38,7 @@
 		1FCAE6C8D1932BA1519D3056 /* ConnectionStateRelaySubscribersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */; };
 		15E50C31ED6572BB5938F933 /* VersionMismatchMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */; };
 		5BD5B4EB1D0C69261FA6E505 /* PeerUnpairedNoticeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */; };
+		C5EF310897312C40F1900C54 /* ReceivedFileNotificationCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AC166A4685E7028D69283C5 /* ReceivedFileNotificationCopyTests.swift */; };
 		5DF35AD6ECA5BA6F17993B84 /* ErrorBannerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B18C5B6B167CD86E4E3118 /* ErrorBannerViewModelTests.swift */; };
 		61D27ABFF02400431B506DA8 /* SettingsScenarioSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51777D80561FB3A57A4D240 /* SettingsScenarioSupport.swift */; };
 		63DB6AB98B198819FE6F8023 /* AppComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082B4DAA23BC80E3A1AAB856 /* AppComposition.swift */; };
@@ -71,6 +72,8 @@
 		E62120000000000000000001 /* MirrorComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000002 /* MirrorComposition.swift */; };
 		E70160000000000000000001 /* MacRotationComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = E70160000000000000000002 /* MacRotationComposition.swift */; };
 		E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62120000000000000000004 /* MirrorWindowPresenter.swift */; };
+		A645B2E8AEE894345B1427D5 /* MirrorWindowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8FF75DD554FF5F1D29E834 /* MirrorWindowViews.swift */; };
+		9CA2DC7E22B24807AE361C9F /* MirrorStatusWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45D1FB58DFEFD538F9C90149 /* MirrorStatusWindowController.swift */; };
 		E52060000000000000000005 /* CallAlertUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52060000000000000000009 /* CallAlertUITests.swift */; };
 		E72080000000000000000005 /* NowPlayingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E72080000000000000000009 /* NowPlayingUITests.swift */; };
 		E61120000000000000000002 /* MirrorQuickActionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61120000000000000000003 /* MirrorQuickActionUITests.swift */; };
@@ -241,6 +244,8 @@
 		E62120000000000000000002 /* MirrorComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorComposition.swift; sourceTree = "<group>"; };
 		E70160000000000000000002 /* MacRotationComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRotationComposition.swift; sourceTree = "<group>"; };
 		E62120000000000000000004 /* MirrorWindowPresenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowPresenter.swift; sourceTree = "<group>"; };
+		8D8FF75DD554FF5F1D29E834 /* MirrorWindowViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorWindowViews.swift; sourceTree = "<group>"; };
+		45D1FB58DFEFD538F9C90149 /* MirrorStatusWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorStatusWindowController.swift; sourceTree = "<group>"; };
 		E52060000000000000000009 /* CallAlertUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CallAlertUITests.swift; sourceTree = "<group>"; };
 		E72080000000000000000009 /* NowPlayingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingUITests.swift; sourceTree = "<group>"; };
 		E61120000000000000000003 /* MirrorQuickActionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MirrorQuickActionUITests.swift; sourceTree = "<group>"; };
@@ -249,6 +254,7 @@
 		039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectionStateRelaySubscribersTests.swift; sourceTree = "<group>"; };
 		CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VersionMismatchMenuTests.swift; sourceTree = "<group>"; };
 		B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PeerUnpairedNoticeTests.swift; sourceTree = "<group>"; };
+		1AC166A4685E7028D69283C5 /* ReceivedFileNotificationCopyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReceivedFileNotificationCopyTests.swift; sourceTree = "<group>"; };
 		77B9A9204BF1FB958D85F2E2 /* HarnessRevokeAwareSessionRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarnessRevokeAwareSessionRegistry.swift; sourceTree = "<group>"; };
 		7CF66E68281898309742F036 /* UnpairComposition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnpairComposition.swift; sourceTree = "<group>"; };
 		7CFD7E342E310F4350077F8D /* TandemDesign */ = {isa = PBXFileReference; includeInIndex = 1; name = TandemDesign; path = Packages/TandemDesign; sourceTree = SOURCE_ROOT; };
@@ -413,6 +419,7 @@
 				039005ADC90C784691C57BD8 /* ConnectionStateRelaySubscribersTests.swift */,
 				CEC073769902231CF2CF95C3 /* VersionMismatchMenuTests.swift */,
 				B0E14B8E7407B3D388AE7E27 /* PeerUnpairedNoticeTests.swift */,
+				1AC166A4685E7028D69283C5 /* ReceivedFileNotificationCopyTests.swift */,
 			);
 			path = TandemAppTests;
 			sourceTree = "<group>";
@@ -515,6 +522,8 @@
 				E62120000000000000000002 /* MirrorComposition.swift */,
 				E70160000000000000000002 /* MacRotationComposition.swift */,
 				E62120000000000000000004 /* MirrorWindowPresenter.swift */,
+				8D8FF75DD554FF5F1D29E834 /* MirrorWindowViews.swift */,
+				45D1FB58DFEFD538F9C90149 /* MirrorStatusWindowController.swift */,
 				9E31746CEC223BDFB9A1A5BA /* ScenarioView.swift */,
 				FBB1CB8D7ECBDC84F70D25BE /* HarnessLatencyNotificationPresenter.swift */,
 				55539ABBFBF0B3B58CAE8AFE /* HarnessNotificationLoopbackRegistry.swift */,
@@ -758,6 +767,7 @@
 				1FCAE6C8D1932BA1519D3056 /* ConnectionStateRelaySubscribersTests.swift in Sources */,
 				15E50C31ED6572BB5938F933 /* VersionMismatchMenuTests.swift in Sources */,
 				5BD5B4EB1D0C69261FA6E505 /* PeerUnpairedNoticeTests.swift in Sources */,
+				C5EF310897312C40F1900C54 /* ReceivedFileNotificationCopyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -823,6 +833,8 @@
 				E62120000000000000000001 /* MirrorComposition.swift in Sources */,
 				E70160000000000000000001 /* MacRotationComposition.swift in Sources */,
 				E62120000000000000000003 /* MirrorWindowPresenter.swift in Sources */,
+				A645B2E8AEE894345B1427D5 /* MirrorWindowViews.swift in Sources */,
+				9CA2DC7E22B24807AE361C9F /* MirrorStatusWindowController.swift in Sources */,
 				C146EF9761F74509F7037932 /* ScenarioView.swift in Sources */,
 				71DC765EBDD8D952366CA1A9 /* HarnessLatencyNotificationPresenter.swift in Sources */,
 				0D4050F8BC2C75EC9EBA1801 /* HarnessNotificationLoopbackRegistry.swift in Sources */,

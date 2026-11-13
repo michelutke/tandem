@@ -148,10 +148,7 @@ struct MenuBarContentView: View {
                         .foregroundStyle(TandemColor.ink2)
                 }
                 Spacer()
-                DotProgress(
-                    value: Double(deviceStatusViewModel?.batteryPercent ?? 0) / 100,
-                    dotCount: 12
-                )
+                DotMatrix(value: Double(deviceStatusViewModel?.batteryPercent ?? 0) / 100)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isStaticText)
@@ -251,6 +248,8 @@ struct PopoverFooterView: View {
                 .foregroundStyle(TandemColor.ink)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(TandemColor.ink.opacity(0.05)))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
