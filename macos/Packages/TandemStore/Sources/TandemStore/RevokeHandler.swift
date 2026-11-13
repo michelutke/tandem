@@ -21,7 +21,9 @@ public protocol RevokeHandlerRegistry: Sendable {
 }
 
 /// Handles incoming Revoke messages: on a Ready trusted session, deletes the peer's trust record
-/// and closes the session. Revoke on a pairing-candidate connection or before Ready is ignored.
+/// and closes the session, plus any other live session of the same phone registered under another
+/// of its pins (a key rotation changes the pin a session handshook with). Revoke on a
+/// pairing-candidate connection or before Ready is ignored.
 /// (E14-15, docs/protocol/SPEC.md #errors-and-close-codes row 7)
 ///
 /// Public (E14-26) so a real composition root (``AppComposition``/`NWListenerFactory`) can wire
@@ -61,7 +63,9 @@ public struct RevokeHandler {
         }
 
         await session.close()
-        await registry.unregister(peerSpkiFingerprint)
+        for pin in pins {
+            await registry.unregister(pin)
+        }
         await purgeRegistry?.purge(peers: pins)
         await onUnpaired?()
     }

@@ -37,6 +37,7 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
         var keys: [String: KeyEntry] = [:]
         var certificates: [String: Data] = [:]
         var pendingFailure: KeychainError?
+        var certificateDeleteFailure: KeychainError?
     }
 
     private let state = Mutex(State())
@@ -47,6 +48,11 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
     /// running, then this clears itself.
     public func failNextOperation(with error: KeychainError) {
         state.withLock { $0.pendingFailure = error }
+    }
+
+    /// Every later `deleteCertificate` throws `error` until cleared with `nil`.
+    public func failCertificateDeletes(with error: KeychainError?) {
+        state.withLock { $0.certificateDeleteFailure = error }
     }
 
     public func addGenericPassword(
@@ -139,6 +145,7 @@ public final class InMemoryKeychainStore: KeychainStore, @unchecked Sendable {
 
     public func deleteCertificate(label: String) throws {
         try consumePendingFailure()
+        if let failure = state.withLock({ $0.certificateDeleteFailure }) { throw failure }
         try state.withLock { state in
             guard state.certificates.removeValue(forKey: label) != nil else {
                 throw KeychainError.itemNotFound

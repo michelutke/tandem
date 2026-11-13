@@ -36,4 +36,21 @@ struct RetainedPartsPurgerTests {
         #expect(!FileManager.default.fileExists(atPath: mine.path))
         #expect(FileManager.default.fileExists(atPath: theirs.path))
     }
+
+    @Test
+    func retainedPartsPurger_storedPeers_listsEveryPeerWithAPart() async throws {
+        let staging = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let first = try Self.fingerprint(0x01)
+        let second = try Self.fingerprint(0x02)
+        _ = try Self.writePart(id: "a", peer: first, in: staging)
+        _ = try Self.writePart(id: "b", peer: second, in: staging)
+        _ = try Self.writePart(id: "c", peer: second, in: staging)
+
+        let peers = try await RetainedPartsPurger(staging: staging).storedPeers()
+
+        #expect(Set(peers) == [first, second])
+    }
 }

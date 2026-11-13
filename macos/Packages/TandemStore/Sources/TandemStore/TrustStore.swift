@@ -76,6 +76,17 @@ public struct TrustStore: Sendable {
         }
     }
 
+    /// Every fingerprint any record's data may be keyed by (primary, grace and record id). Unlike
+    /// ``list()`` it throws on a record that cannot be decoded, so a caller that deletes data for
+    /// peers outside this set never does so while a pairing it cannot read still exists.
+    public func pinnedPeers() throws -> Set<SpkiFingerprint> {
+        try keychainStore.listGenericPasswords(service: Self.peerRecordService).reduce(into: []) { pins, item in
+            let record = try Self.decoder.decode(PeerRecord.self, from: item.data)
+            pins.formUnion([record.fingerprint, record.recordId])
+            if let grace = record.gracePin { pins.insert(grace.fingerprint) }
+        }
+    }
+
     /// Every paired peer, for the paired-devices UI (E14-14). A record that cannot be decoded is
     /// skipped and logged: that peer stays unauthenticated (fail closed) while the others keep
     /// working.

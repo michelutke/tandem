@@ -28,6 +28,14 @@ public protocol PeerDataPurging: Sendable {
     /// Purges all data for the given peer. Failures are logged (category only) and
     /// retried on next launch; the peer's trust record remains deleted.
     func purgeAll(peer: SpkiFingerprint) async throws
+
+    /// Every peer this store currently holds data for, so the launch orphan sweep can purge data
+    /// whose trust record is gone. Stores that keep no per-peer data across launches return `[]`.
+    func storedPeers() async throws -> [SpkiFingerprint]
+}
+
+public extension PeerDataPurging {
+    func storedPeers() async throws -> [SpkiFingerprint] { [] }
 }
 
 /// Registry for per-peer data purgers. Later-phase stores register their purgers here at
@@ -35,12 +43,37 @@ public protocol PeerDataPurging: Sendable {
 public actor PeerDataPurgeRegistry {
     private var purgers: [any PeerDataPurging] = []
     private var failedPeers: Set<SpkiFingerprint> = []
+    private let trustedPeers: (@Sendable () throws -> Set<SpkiFingerprint>)?
 
-    public init() {}
+    /// - Parameter trustedPeers: every fingerprint a paired peer's data may be keyed by (primary,
+    ///   grace and record id pins), read fresh for each sweep; throws when the trust store cannot
+    ///   be read in full. Without it nothing is swept.
+    public init(trustedPeers: (@Sendable () throws -> Set<SpkiFingerprint>)? = nil) {
+        self.trustedPeers = trustedPeers
+    }
 
-    /// Registers a purger to be called on unpair operations.
-    public func register(_ purger: any PeerDataPurging) {
+    /// Registers a purger to be called on unpair operations, then purges whatever it holds for
+    /// peers that no longer have a trust record (an earlier purge that failed, or data left behind
+    /// by an identity reset). The trust store is read after the purger's stored peers, so a peer
+    /// paired meanwhile is never mistaken for an orphan; an unreadable trust store sweeps nothing.
+    public func register(_ purger: any PeerDataPurging) async {
         purgers.append(purger)
+        await sweepOrphans(of: purger)
+    }
+
+    private func sweepOrphans(of purger: any PeerDataPurging) async {
+        guard let trustedPeers else { return }
+        let log = OSLog(subsystem: "com.tandem.store", category: "orphan-sweep")
+        do {
+            let stored = try await purger.storedPeers()
+            guard !stored.isEmpty else { return }
+            let trusted = try trustedPeers()
+            for peer in stored where !trusted.contains(peer) {
+                try await purger.purgeAll(peer: peer)
+            }
+        } catch {
+            os_log("Orphan sweep failed", log: log, type: .error)
+        }
     }
 
     /// Calls each registered purger's purgeAll in order. Logs failures (category only)

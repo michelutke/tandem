@@ -225,4 +225,17 @@ import TandemTestSupport
         #expect(await harness.cache.data(peer: peer, id: "bomb", maxPx: 256) == nil)
         #expect(harness.fileURLs().isEmpty)
     }
+
+    @Test func thumbnailCache_storedPeers_listsEveryPeerWithThumbnails() async throws {
+        let harness = try Harness()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let first = try Self.fingerprint(0x01)
+        let second = try Self.fingerprint(0x02)
+        await harness.cache.store(Self.pngLike(size: 10 * Self.kib), peer: first, id: "a", maxPx: 256)
+        await harness.cache.store(Self.pngLike(size: 10 * Self.kib), peer: second, id: "a", maxPx: 256)
+
+        let peers = try await harness.cache.storedPeers()
+
+        #expect(Set(peers) == [first, second])
+    }
 }

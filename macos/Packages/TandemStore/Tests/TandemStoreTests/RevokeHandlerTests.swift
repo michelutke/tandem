@@ -216,4 +216,30 @@ struct RevokeHandlerTests {
         // Verify: record is deleted
         #expect(try trustStore.get(spkiFingerprint) == nil)
     }
+
+    @Test("revokeHandler_sessionRegisteredUnderOtherPin_alsoClosed")
+    func sessionRegisteredUnderOtherPinAlsoClosed() async throws {
+        let trustStore = TrustStore(keychainStore: InMemoryKeychainStore())
+        let registry = ControlSessionRegistry()
+        let oldFingerprint = try Self.fingerprint(0x0A)
+        let newFingerprint = try Self.fingerprint(0x0B)
+        let record = Self.makeRecord(fingerprint: oldFingerprint)
+        try trustStore.put(record)
+        try trustStore.rotatePrimary(of: record, to: newFingerprint, now: Date(timeIntervalSince1970: 1))
+        let revokingSession = FakeTandemSession()
+        let otherSession = FakeTandemSession()
+        await registry.register(oldFingerprint, session: revokingSession)
+        await registry.register(newFingerprint, session: otherSession)
+        await revokingSession.emit(.ready)
+
+        await RevokeHandler.handle(
+            peerSpkiFingerprint: oldFingerprint,
+            session: revokingSession.asHandlerSession(),
+            trustStore: trustStore,
+            registry: FakeControlSessionRegistryAdapter(registry: registry)
+        )
+
+        #expect(await registry.session(for: newFingerprint) == nil)
+        #expect(await registry.session(for: oldFingerprint) == nil)
+    }
 }

@@ -92,6 +92,12 @@ public actor ThumbnailCache: PeerDataPurging {
         evictToCap(keeping: url)
     }
 
+    /// ``PeerDataPurging`` conformance: every peer that has a thumbnail subdirectory.
+    public func storedPeers() async throws -> [SpkiFingerprint] {
+        let names = (try? fileManager.contentsOfDirectory(atPath: directory.path)) ?? []
+        return names.compactMap(SpkiFingerprint.init(hexString:))
+    }
+
     /// ``PeerDataPurging`` conformance: deletes every cached thumbnail of `peer`.
     public func purgeAll(peer: SpkiFingerprint) async throws {
         let peerDirectory = directory.appendingPathComponent(peer.hexString, isDirectory: true)
