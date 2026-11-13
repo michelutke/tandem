@@ -3,11 +3,14 @@
 package dev.tandem.core.designsystem.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +27,7 @@ fun Banner(
     actionLabel: String,
     onAction: () -> Unit,
     modifier: Modifier = Modifier,
+    detail: String? = null,
 ) {
     Row(
         modifier =
@@ -33,14 +37,17 @@ fun Banner(
                 .padding(horizontal = TandemSpacing.lg, vertical = TandemSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = message,
-            style = TandemType.rowTitle,
-            color = TandemColors.alert,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onAction) {
-            Text(text = actionLabel, style = TandemType.rowTitle, color = TandemColors.alert)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = message, style = TandemType.rowTitle, color = TandemColors.alert)
+            if (detail != null) Text(text = detail, style = TandemType.meta, color = TandemColors.ink)
+        }
+        Button(
+            onClick = onAction,
+            modifier = Modifier.defaultMinSize(minHeight = TandemSpacing.touchTarget),
+            shape = TandemShapes.pill,
+            colors = ButtonDefaults.buttonColors(containerColor = TandemColors.ink, contentColor = TandemColors.paper),
+        ) {
+            Text(text = actionLabel, style = TandemType.rowTitle)
         }
     }
 }
@@ -48,5 +55,6 @@ fun Banner(
 @Preview(showBackground = true)
 @Composable
 private fun BannerPreview() {
-    Banner(message = "Battery restricted.", actionLabel = "Fix", onAction = {})
+    Banner(message = "Battery restricted.", actionLabel = "Fix", onAction = {
+    }, detail = "Android may cut the link overnight.")
 }

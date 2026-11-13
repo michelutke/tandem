@@ -16,6 +16,7 @@ object TandemSpacing {
 
     val screenPadding = 24.dp
     val rowVerticalPadding = 16.dp
+    val touchTarget = 48.dp
 }
 
 /** Corner radii (ui-spec.md §3.3): buttons full pill at 32 dp, sheets/dialogs 32–36 dp. */

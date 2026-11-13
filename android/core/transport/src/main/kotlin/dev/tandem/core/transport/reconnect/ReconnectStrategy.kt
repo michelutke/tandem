@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlin.time.Duration
 
 /**
  * Reconnect address-selection state machine (E20-06; SPEC.md F-3.4, UC-04). Callers start this
@@ -69,6 +70,11 @@ class ReconnectStrategy(
      */
     val failedCycles: StateFlow<Int> = mutableFailedCycles.asStateFlow()
 
+    private val mutableBackoffWait = MutableStateFlow<Duration?>(null)
+
+    /** The backoff wait the loop is currently sitting in, or null while dialing or stopped (display only). */
+    val backoffWait: StateFlow<Duration?> = mutableBackoffWait.asStateFlow()
+
     // Conflated: only "has a kick arrived since the loop last checked" matters, not how many.
     private val kickChannel = Channel<Unit>(Channel.CONFLATED)
 
@@ -98,6 +104,7 @@ class ReconnectStrategy(
     fun stop() {
         job?.cancel()
         job = null
+        mutableBackoffWait.value = null
     }
 
     /** Stops the loop and cancels this instance's scope. */
@@ -124,13 +131,16 @@ class ReconnectStrategy(
             // Long-milliseconds overload is hard-deprecated in this project's kotlinx.coroutines
             // version and whose Duration overload doesn't resolve cleanly here) so a kick can
             // simply cancel it and race the two via `onJoin`/`onReceive`.
-            val wait = scope.launch { delay(ReconnectBackoff.delayFor(mutableFailedCycles.value)) }
+            val waitDuration = ReconnectBackoff.delayFor(mutableFailedCycles.value)
+            val wait = scope.launch { delay(waitDuration) }
+            mutableBackoffWait.value = waitDuration
             val kicked =
                 select {
                     wait.onJoin { false }
                     kickChannel.onReceive { true }
                 }
             wait.cancel()
+            mutableBackoffWait.value = null
             if (!kicked) mutableFailedCycles.value++
         }
     }
