@@ -65,6 +65,8 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private let lock = NSLock()
     private var hasResolved = false
     private var didFail = false
+    private var didCommit = false
+    private var connectionClosed = false
 
     /// - Parameters:
     ///   - displayNameBytes: The phone's raw `DeviceInfo.display_name` UTF-8 bytes, untrusted and
@@ -149,6 +151,23 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         return didFail
     }
 
+    /// `true` only once ``pair()`` committed trust for this candidate. The sole proof of success:
+    /// ``isResolved`` is also set by a closed connection or a decline, neither of which paired.
+    public var didPair: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didCommit
+    }
+
+    /// `true` once this dialog resolved without pairing and without a decline that closes the whole
+    /// window: the candidate connection closed first, or ``pair()`` aborted. The presenter leaves the
+    /// confirm screen then, so Pair can never be clicked on a dead candidate.
+    public var endedWithoutPairing: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didFail || connectionClosed
+    }
+
     /// The owner clicked Pair. `docs/planning/decisions.md` D-73's "commits nothing on a
     /// connection that is no longer open" is enforced here, not merely documented: the window's own
     /// ``PairingWindow/ownerAccepted(_:)`` guard -- scoped to this candidate's token (E14-16 finding
@@ -172,6 +191,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
             onResolved?()
             return
         }
+        markCommitted()
         await onPaired?()
         switch acceptance {
         case .qrCode: try? await sink.sendPairAccepted()
@@ -201,6 +221,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     /// never touches `window` again.
     public func connectionDidClose() {
         guard claimResolution() else { return }
+        markConnectionClosed()
         onResolved?()
     }
 
@@ -250,6 +271,18 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         didFail = true
+    }
+
+    private func markCommitted() {
+        lock.lock()
+        defer { lock.unlock() }
+        didCommit = true
+    }
+
+    private func markConnectionClosed() {
+        lock.lock()
+        defer { lock.unlock() }
+        connectionClosed = true
     }
 
     /// Formats a 6-digit code as two groups of three (ui-spec §9: "never truncate"); returns

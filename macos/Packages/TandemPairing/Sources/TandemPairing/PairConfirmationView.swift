@@ -33,7 +33,7 @@ public struct PairConfirmationView: View {
                     PairingAction(title: "Pair") {
                         Task {
                             await viewModel.pair()
-                            if viewModel.isResolved && !viewModel.didFailToPair { onPaired() }
+                            if viewModel.didPair { onPaired() }
                         }
                     }
                 ])

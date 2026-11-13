@@ -152,6 +152,32 @@ struct PairConfirmationViewModelTests {
         #expect(window.attemptsRemaining == 2)
     }
 
+    @Test
+    func pairConfirmation_connectionClosedThenPairClicked_didPairFalse() async throws {
+        let fixture = try Self.loadFixture()
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
+        let viewModel = try Self.makeViewModel(fixture: fixture, window: window, token: token)
+
+        window.releaseCandidate(token)
+        viewModel.connectionDidClose()
+        await viewModel.pair()
+
+        #expect(!viewModel.didPair)
+        #expect(viewModel.endedWithoutPairing)
+    }
+
+    @Test
+    func pairConfirmation_accept_didPairTrueAndNotEndedWithoutPairing() async throws {
+        let fixture = try Self.loadFixture()
+        let (window, token) = try Self.confirmationPendingWindow(secret: fixture.secret)
+        let viewModel = try Self.makeViewModel(fixture: fixture, window: window, token: token)
+
+        await viewModel.pair()
+
+        #expect(viewModel.didPair)
+        #expect(!viewModel.endedWithoutPairing)
+    }
+
     /// E14-16 finding #3 (D-73): a second candidate's `PairRequest` frees this dialog's own slot
     /// (releasing it, per D-70) *before* the coordinator has a chance to mark this dialog resolved
     /// -- so `window.ownerAccepted(_:)` must itself refuse the transition, and `pair()` must
