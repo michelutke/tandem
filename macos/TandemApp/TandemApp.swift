@@ -93,7 +93,10 @@ struct TandemMenuBarApp: App {
     @MainActor
     static let listenerStartup: ListenerStartupModel<AppComposition.RetainedLifecycle> =
         ListenerStartupModel(
-            start: { AppComposition.startListener(onRuntimeFailure: Self.listenerFailed) },
+            start: { AppComposition.startListener(
+                    onRuntimeFailure: Self.listenerFailed, onRuntimeRecovery: Self.listenerRecovered
+                )
+            },
             onStarted: { lifecycle in
                 retainedProductionLifecycle = lifecycle
                 resetMainWindowCaches()
@@ -103,6 +106,10 @@ struct TandemMenuBarApp: App {
 
     nonisolated private static func listenerFailed(_ reason: ListenerFailureReason) {
         Task { @MainActor in listenerStartup.listenerFailed(reason) }
+    }
+
+    nonisolated private static func listenerRecovered() {
+        Task { @MainActor in listenerStartup.listenerRecovered() }
     }
 
     var body: some Scene {

@@ -157,6 +157,24 @@ struct ListenerStartupModelTests {
         #expect(model.phase == .notStarted)
     }
 
+    @Test func listenerStartupModel_failedThenAutomaticRestartSucceeds_phaseStarted() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+        model.start()
+        model.listenerFailed(.portUnavailable)
+
+        model.listenerRecovered()
+
+        #expect(model.phase == .started)
+    }
+
+    @Test func listenerRecovered_beforeAnyStart_ignored() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+
+        model.listenerRecovered()
+
+        #expect(model.phase == .notStarted)
+    }
+
     @Test func restartAfterFailure_restartSucceeds_becomesStartedWithoutStartingAgain() async {
         let script = Script([.success(7)])
         var restarted: [Int] = []

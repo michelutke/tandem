@@ -209,6 +209,10 @@ public final class MacKeyRotation: SessionService, Sendable {
         publishAuthenticated()
     }
 
+    public func releasePeer(_ peer: SpkiFingerprint) async {
+        await detach(peer: peer)
+    }
+
     private func publishAuthenticated() {
         let connected = hasAuthenticatedSession
         authenticatedChanges.yield(connected)

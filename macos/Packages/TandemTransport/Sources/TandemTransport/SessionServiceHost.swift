@@ -8,6 +8,13 @@ import TandemProtocol
 public protocol SessionService: Sendable {
     func attach(peer: SpkiFingerprint, session: any TandemSession) async
     func detach(peer: SpkiFingerprint) async
+    /// A session of `peer` ended while another peer's session is being served: drops the state
+    /// kept for `peer` without touching the session now served. Defaults to nothing.
+    func releasePeer(_ peer: SpkiFingerprint) async
+}
+
+public extension SessionService {
+    func releasePeer(_ peer: SpkiFingerprint) async {}
 }
 
 /// Attaches every ``SessionService`` exactly once to a registered session and detaches them when
@@ -99,13 +106,17 @@ public actor SessionServiceHost {
 
     /// Every service holds one session at a time, so it is detached only while it still serves
     /// `peer`: the end of a session that a later attach for another peer already displaced leaves
-    /// the current one running.
+    /// the current one running and only releases the state kept for `peer`.
     private func detachAll(peer: SpkiFingerprint) async {
         attachments[peer] = nil
-        guard servicedPeer?.matches(peer) ?? true else { return }
-        servicedPeer = nil
+        let servesPeer = servicedPeer?.matches(peer) ?? true
+        if servesPeer { servicedPeer = nil }
         for service in services {
-            await service.detach(peer: peer)
+            if servesPeer {
+                await service.detach(peer: peer)
+            } else {
+                await service.releasePeer(peer)
+            }
         }
     }
 }

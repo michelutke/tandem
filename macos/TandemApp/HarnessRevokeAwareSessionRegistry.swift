@@ -69,6 +69,10 @@ final class HarnessRevokeAwareSessionRegistry: ControlSessionRegistering, Sendab
         await wrapped.removeIfCurrent(spkiFingerprint, session: session)
     }
 
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {
+        await wrapped.unregister(spkiFingerprint)
+    }
+
     /// Prints `harness-status-received: <epochMillis> battery=<n> charging=<bool>
     /// network=<name> signal=<n>`, one line per `DeviceStatus` frame, in arrival order --
     /// `RingStop{origin: phone}` and any other STATUS-channel payload are silently ignored (no

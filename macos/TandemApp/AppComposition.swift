@@ -61,7 +61,8 @@ enum AppComposition {
     /// Bootstraps the identity and, if it's ready, starts the listener and both lifecycle
     /// controllers.
     static func startListener(
-        onRuntimeFailure: @escaping @Sendable (ListenerFailureReason) -> Void
+        onRuntimeFailure: @escaping @Sendable (ListenerFailureReason) -> Void,
+        onRuntimeRecovery: @escaping @Sendable () -> Void
     ) -> Result<RetainedLifecycle, ListenerStartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = makeIdentityBootstrapper(keychainStore)
@@ -91,7 +92,8 @@ enum AppComposition {
             controller: controller,
             started: started,
             hooks: makeListenerHooks(
-                pairing: core.pairing, identityBootstrapper: identityBootstrapper, onFailure: onRuntimeFailure
+                pairing: core.pairing, identityBootstrapper: identityBootstrapper,
+                onFailure: onRuntimeFailure, onRecovery: onRuntimeRecovery
             ),
             controlBox: core.listenerControl
         )
@@ -167,7 +169,10 @@ enum AppComposition {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
         let pairedPeer = MainActor.assumeIsolated { PairedPeerState(trustStore: trustStore) }
-        let purgeRegistry = PeerDataPurgeRegistry(trustedPeers: { try trustStore.pinnedPeers() })
+        let pinnedPeers: @Sendable () throws -> Set<SpkiFingerprint> = { try trustStore.pinnedPeers() }
+        let purgeRegistry = PeerDataPurgeRegistry(
+            trustedPeers: KeychainStoreFactory.usesHarnessKeychain ? nil : pinnedPeers
+        )
         let pairing = MacPairingComposition(
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,

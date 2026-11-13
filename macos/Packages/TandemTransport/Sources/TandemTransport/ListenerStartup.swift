@@ -178,6 +178,13 @@ public final class ListenerStartupModel<Lifecycle> {
         phase = .failed(reason)
     }
 
+    /// The running listener was rebound without a retry (wake, network change or key rotation):
+    /// clears the failed state so Retry never restarts a healthy listener. Ignored unless failed.
+    public func listenerRecovered() {
+        guard lifecycle != nil, case .failed = phase else { return }
+        phase = .started
+    }
+
     func restartAfterFailure() async {
         guard let lifecycle, case .failed = phase, !isRestarting else { return }
         isRestarting = true

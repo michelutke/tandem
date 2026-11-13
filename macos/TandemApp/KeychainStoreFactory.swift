@@ -13,6 +13,15 @@ import TandemCrypto
 /// (e.g. `-34018` on an unsigned build with no `keychain-access-groups` entitlement) is left to
 /// surface as a visible error, never swallowed.
 enum KeychainStoreFactory {
+    /// Whether ``make()`` returns the throwaway harness keychain. Always `false` in Release.
+    static var usesHarnessKeychain: Bool {
+        #if DEBUG
+        UserDefaults.standard.string(forKey: "HarnessKeychainPath") != nil
+        #else
+        false
+        #endif
+    }
+
     static func make() -> any KeychainStore {
         #if DEBUG
         if let path = UserDefaults.standard.string(forKey: "HarnessKeychainPath") {

@@ -57,4 +57,8 @@ public final class MirrorSessionService<C: Clock<Duration> & Sendable>: SessionS
         await registry.unregister(current.id)
         onSessionDetached(current.id)
     }
+
+    public func releasePeer(_ peer: SpkiFingerprint) async {
+        await detach(peer: peer)
+    }
 }

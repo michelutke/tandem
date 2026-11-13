@@ -193,7 +193,8 @@ extension AppComposition {
 
     static func makeListenerStarted(
         pairing: MacPairingComposition,
-        bonjour: ListenerBonjour
+        bonjour: ListenerBonjour,
+        onBound: @escaping @Sendable () -> Void
     ) -> @Sendable (ListenerController.StartedListener) async -> Void {
         { started in
             pairing.listenerStarted(started.listener)
@@ -202,6 +203,7 @@ extension AppComposition {
                 return
             }
             await bonjour.listenerStarted(port: port)
+            onBound()
         }
     }
 
@@ -227,11 +229,12 @@ extension AppComposition {
     static func makeListenerHooks(
         pairing: MacPairingComposition,
         identityBootstrapper: IdentityBootstrapper,
-        onFailure: @escaping @Sendable (ListenerFailureReason) -> Void
+        onFailure: @escaping @Sendable (ListenerFailureReason) -> Void,
+        onRecovery: @escaping @Sendable () -> Void
     ) -> ListenerHooks {
         let bonjour = makeBonjour(identityBootstrapper)
         return ListenerHooks(
-            started: makeListenerStarted(pairing: pairing, bonjour: bonjour),
+            started: makeListenerStarted(pairing: pairing, bonjour: bonjour, onBound: onRecovery),
             stopped: { await bonjour.listenerStopped() },
             failed: onFailure
         )

@@ -7,6 +7,7 @@ import TandemCrypto
 private actor SpyService: SessionService {
     private(set) var attachedSessions: [ObjectIdentifier] = []
     private(set) var detachCount = 0
+    private(set) var releasedPeers: [SpkiFingerprint] = []
 
     func attach(peer: SpkiFingerprint, session: any TandemSession) async {
         attachedSessions.append(ObjectIdentifier(session as AnyObject))
@@ -14,6 +15,10 @@ private actor SpyService: SessionService {
 
     func detach(peer: SpkiFingerprint) async {
         detachCount += 1
+    }
+
+    func releasePeer(_ peer: SpkiFingerprint) async {
+        releasedPeers.append(peer)
     }
 }
 
@@ -94,6 +99,23 @@ struct SessionServiceHostTests {
         await host.waitUntilIdle()
 
         #expect(await service.detachCount == 1)
+    }
+
+    @Test
+    func sessionServiceHost_endedSessionOfDisplacedPeer_releasesItsStateWithoutDetaching() async throws {
+        let service = SpyService()
+        let host = SessionServiceHost(services: [service])
+        let otherPeer = try SpkiFingerprint(bytes: Data(repeating: 0x22, count: SpkiFingerprint.byteCount))
+        let older = FakeTandemSession()
+        let current = FakeTandemSession()
+        host.sessionRegistered(peer: Self.peer, session: older)
+        host.sessionRegistered(peer: otherPeer, session: current)
+
+        host.sessionEnded(peer: Self.peer, session: older)
+        await host.waitUntilIdle()
+
+        #expect(await service.detachCount == 0)
+        #expect(await service.releasedPeers == [Self.peer])
     }
 
     @Test

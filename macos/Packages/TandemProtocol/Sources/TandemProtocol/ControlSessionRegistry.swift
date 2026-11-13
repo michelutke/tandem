@@ -6,6 +6,7 @@ import TandemCrypto
 public protocol ControlSessionRegistering: Sendable {
     func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async
     func removeIfCurrent(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async
 }
 
 /// Tracks one Ready control session per peer SPKI (invariant 3, E12-19). When a second connection
@@ -36,7 +37,7 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
     /// -- `nil` otherwise. E14-26: lets a composition root (``AppComposition``'s Devices-screen
     /// unpair wiring) look up whether a peer has a live session to send `Revoke` on before
     /// deleting its trust record, without exposing this actor's private storage directly. Not part
-    /// of ``ControlSessionRegistering`` (every existing conformer/spy stays unaffected); callers
+    /// of ``ControlSessionRegistering``'s lookup surface (every existing conformer/spy stays unaffected); callers
     /// that need this hold the concrete actor, exactly like ``AppComposition`` already does for
     /// ``register(_:session:)``'s own construction site.
     public func session(for spkiFingerprint: SpkiFingerprint) -> (any TandemSession)? {
