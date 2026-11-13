@@ -27,7 +27,7 @@ class ConnectionStatusViewModel(
     val macName: StateFlow<String?>,
     rePairNeeded: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
-    /** The label [ConnectionStatusScreen] renders; see this class's kdoc for the exact strings. */
+    /** The user-visible status label; see this class's kdoc for the exact strings. */
     val statusText: Flow<String> =
         combine(connectionState, failedCycles, macName, rePairNeeded, ::toStatusText)
 

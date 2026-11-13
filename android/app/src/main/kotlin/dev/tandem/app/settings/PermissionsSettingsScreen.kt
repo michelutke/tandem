@@ -8,16 +8,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.tandem.app.R
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.HairlineRule
 import dev.tandem.core.designsystem.components.NumberedRow
 import dev.tandem.core.designsystem.components.TandemScaffold
-
-internal const val PERMISSIONS_SETTINGS_TITLE = "Permissions."
-private const val PERMISSION_ON_LABEL = "On"
-private const val PERMISSION_ALLOW_LABEL = "Allow"
 
 /**
  * Settings › Permissions (ui-spec.md §2 "Numbered rows"): every permission the app uses with its
@@ -30,20 +28,21 @@ fun PermissionsSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     TandemScaffold(
-        title = PERMISSIONS_SETTINGS_TITLE,
-        state = "${statuses.count { it.granted }} of ${statuses.size} allowed.",
+        title = stringResource(R.string.permissions_settings_title),
+        state =
+            stringResource(R.string.permissions_settings_state, statuses.count { it.granted }, statuses.size),
         modifier = modifier,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             statuses.forEachIndexed { index, status ->
                 NumberedRow(
                     index = index + 1,
-                    label = status.permission.label,
-                    trailingMeta = if (status.granted) PERMISSION_ON_LABEL else PERMISSION_ALLOW_LABEL,
+                    label = stringResource(status.permission.label),
+                    trailingMeta = stringResource(status.toggleLabel()),
                     onClick = { onSelect(status.permission) },
                 )
                 Text(
-                    text = status.permission.reason,
+                    text = stringResource(status.permission.reason),
                     style = TandemType.meta,
                     color = TandemColors.ink,
                     modifier = Modifier.padding(horizontal = TandemSpacing.screenPadding),
@@ -53,3 +52,6 @@ fun PermissionsSettingsScreen(
         }
     }
 }
+
+private fun PermissionStatus.toggleLabel(): Int =
+    if (granted) R.string.permissions_settings_on else R.string.permissions_settings_allow

@@ -14,6 +14,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.connection.ConnectionLoop
+import dev.tandem.app.connection.NoticingTrustRemover
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.di.ConnectionEntryPoint
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
@@ -64,7 +65,16 @@ class TandemService : Service() {
     }
     internal var trustRemoverFactory: (Context) -> TrustRemover = { context ->
         val trustStore = (context.applicationContext as TandemApplication).trustStore
-        TrustRemover { fingerprint -> trustStore.unpair(fingerprint) }
+        NoticingTrustRemover(
+            macName = { fingerprint ->
+                trustStore.list().firstOrNull { it.spkiSha256Base64Url == fingerprint.base64Url }?.displayName
+            },
+            notice =
+                EntryPointAccessors
+                    .fromApplication(context, ConnectionEntryPoint::class.java)
+                    .revokedNoticeStore(),
+            delegate = TrustRemover { fingerprint -> trustStore.unpair(fingerprint) },
+        )
     }
     internal var purgeRegistryFactory: (Context) -> PeerDataPurgeRegistry = { context ->
         EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).peerDataPurgeRegistry()

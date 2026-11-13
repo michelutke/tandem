@@ -96,6 +96,24 @@
             android:exported="false"
             android:excludeFromRecents="true" />
 
+        <!-- In-app surfaces opened from their notifications (ui-spec 7.2). Not exported; each closes at
+             once without a live paired session. -->
+        <activity
+            android:name=".incoming.IncomingFileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tandem.Transparent"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".mirror.MirrorRequestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".ring.FindPhoneActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

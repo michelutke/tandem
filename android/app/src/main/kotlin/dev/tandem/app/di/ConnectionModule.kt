@@ -26,6 +26,7 @@ import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.connection.PendingRotationSessionDialer
 import dev.tandem.app.connection.RePairNoticeStore
+import dev.tandem.app.connection.RevokedNoticeStore
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.TlsManualPairingConnector
 import dev.tandem.app.connection.TlsPairingConnector
@@ -114,6 +115,8 @@ interface ConnectionEntryPoint {
     fun connectionOrchestrator(): ConnectionOrchestrator
 
     fun peerDataPurgeRegistry(): PeerDataPurgeRegistry
+
+    fun revokedNoticeStore(): RevokedNoticeStore
 }
 
 /**
@@ -140,6 +143,7 @@ object ConnectionModule {
         activeIdentityAlias: ActiveIdentityAlias,
         identityBootstrap: IdentityBootstrap,
         rePairNotice: RePairNoticeStore,
+        revokedNotice: RevokedNoticeStore,
         pairingAddressStore: PairingAddressStore,
     ): PairingFlow {
         val clock = AppClock.system
@@ -156,7 +160,14 @@ object ConnectionModule {
                     identity = identityBootstrap,
                     heartbeatDependencies = heartbeatDependencies,
                 ),
-            trustCommitter = TrustStoreCommitter(trustStore::put, rePairNotice::clear),
+            trustCommitter =
+                TrustStoreCommitter(
+                    put = trustStore::put,
+                    onCommitted = {
+                        rePairNotice.clear()
+                        revokedNotice.clear()
+                    },
+                ),
             onPaired = pairingAddressStore::save,
             deviceInfoProvider = SystemDeviceInfoProvider,
             manualConnector =

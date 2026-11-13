@@ -5,6 +5,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.tandem.app.connection.ConnectionOrchestrator
 import dev.tandem.app.connection.ConnectionStatusViewModel
+import dev.tandem.app.connection.RevokedNoticeStore
 import dev.tandem.app.di.RotationComposition
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.core.crypto.ActiveIdentityAlias
@@ -30,4 +31,6 @@ interface ShellEntryPoint {
     fun pairingFlow(): PairingFlow
 
     fun rotationComposition(): RotationComposition
+
+    fun revokedNoticeStore(): RevokedNoticeStore
 }

@@ -27,10 +27,12 @@ import dev.tandem.app.connection.feature.RingFeature
 import dev.tandem.app.connection.feature.RotationFeature
 import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
+import dev.tandem.app.incoming.IncomingFileActivity
 import dev.tandem.app.mirror.AndroidMirrorPlatform
 import dev.tandem.app.mirror.LogInputDropLog
 import dev.tandem.app.mirror.MirrorConsentActivity
 import dev.tandem.app.mirror.MirrorFeature
+import dev.tandem.app.mirror.MirrorRequestActivity
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.ring.SystemRingNotifier
@@ -203,7 +205,12 @@ object SessionFeatureFactory {
         val application = context as TandemApplication
         return MirrorFeature(
             platform = AndroidMirrorPlatform(context),
-            presenter = NotificationMirrorPromptPresenter(context, MirrorConsentActivity::class.java),
+            presenter =
+                NotificationMirrorPromptPresenter(
+                    context,
+                    MirrorConsentActivity::class.java,
+                    MirrorRequestActivity::class.java,
+                ),
             peerName = { peer ->
                 trustStore.list().firstOrNull { it.spkiSha256Base64Url == peer.base64Url }?.displayName
                     ?: context.getString(R.string.mirror_peer_fallback_name)
@@ -234,7 +241,7 @@ object SessionFeatureFactory {
             store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
             notifier = recordingNotifier(NotificationReceivedFileNotifier(context), recorder),
-            prompter = NotificationTransferPrompter(context),
+            prompter = NotificationTransferPrompter(context, IncomingFileActivity::class.java),
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
             reader = ContentResolverSourceFileReader(context.contentResolver),
             mediaSource = ContentResolverMediaStoreSource(context.contentResolver),

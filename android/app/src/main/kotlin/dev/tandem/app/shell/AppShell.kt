@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.FloatingToolbarExitDirection
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -23,8 +26,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.tandem.app.R
 import dev.tandem.app.activity.ActivityEntry
 import dev.tandem.app.activity.ActivityScreen
 import dev.tandem.app.di.AppClock
@@ -68,7 +74,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
-import java.time.LocalDate
 import java.util.Base64
 
 /** Everything [AppShell] reads or calls; built from the Hilt graph in production, fakes in tests. */
@@ -98,6 +103,8 @@ class AppShellDependencies(
     val featureStates: StateFlow<Map<SyncFeature, Boolean>> = ALL_FEATURES_ON,
     val onToggleFeature: suspend (SyncFeature, Boolean) -> Unit = { _, _ -> },
     val clock: Clock = AppClock.system,
+    val revokedBy: StateFlow<String?> = MutableStateFlow(null),
+    val onDismissRevoked: () -> Unit = {},
 )
 
 private val ALL_FEATURES_ON = MutableStateFlow(SyncFeature.entries.associateWith { true })
@@ -182,6 +189,7 @@ fun AppShell(
  * Home, Notifications, Activity and Settings behind one shared [TandemBottomBar], so the bar never
  * moves between screens; switching screens fades through.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 @Suppress("LongParameterList") // shell state the top-level routes read
 private fun TopLevelShell(
@@ -196,6 +204,7 @@ private fun TopLevelShell(
     var showSendSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val transition = rememberScreenTransition()
+    val toolbarScroll = FloatingToolbarDefaults.exitAlwaysScrollBehavior(FloatingToolbarExitDirection.Bottom)
     Scaffold(
         containerColor = TandemColors.paper,
         bottomBar = {
@@ -203,13 +212,18 @@ private fun TopLevelShell(
                 selected = route.toolbarItem() ?: FloatingToolbarItem.Home,
                 onSelect = navigator::select,
                 onSend = { showSendSheet = true },
+                scrollBehavior = toolbarScroll,
             )
         },
     ) { innerPadding ->
         AnimatedContent(
             targetState = route,
             transitionSpec = { transition },
-            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
+            modifier =
+                Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+                    .nestedScroll(toolbarScroll),
             label = "TopLevelScreen",
         ) { target ->
             when {
@@ -326,7 +340,7 @@ private fun ActivityTab(
     val entries by dependencies.activityEntries.collectAsState(initial = emptyList())
     ActivityScreen(
         entries = entries,
-        today = LocalDate.now(dependencies.clock),
+        now = dependencies.clock.instant(),
         modifier = modifier,
     )
 }
@@ -354,6 +368,7 @@ private fun OnboardingOrPairing(
     dependencies: AppShellDependencies,
     modifier: Modifier,
 ) {
+    val revokedBy by dependencies.revokedBy.collectAsState()
     var manualEntry by remember { mutableStateOf(false) }
     val onboardingStep = rememberSaveable { mutableIntStateOf(0) }
     if (pairingState == PairingState.Idle && manualEntry) {
@@ -373,6 +388,8 @@ private fun OnboardingOrPairing(
             modifier = Modifier,
             onPairWithoutCamera = { manualEntry = true },
             stepState = onboardingStep,
+            revokedBy = revokedBy?.ifBlank { stringResource(R.string.revoked_fallback_name) },
+            onDismissRevoked = dependencies.onDismissRevoked,
         )
     } else {
         PairingScreen(

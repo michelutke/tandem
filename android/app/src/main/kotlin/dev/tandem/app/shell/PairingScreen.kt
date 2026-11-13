@@ -90,7 +90,12 @@ fun PairingScreen(
                 ScanUnreachableScreen(onTryAgain = onScanAgain, modifier = modifier)
                 return
             }
-            TandemScaffold(title = title, state = detail, isError = true, modifier = insetModifier) { padding ->
+            TandemScaffold(
+                title = stringResource(title),
+                state = stringResource(detail),
+                isError = true,
+                modifier = insetModifier,
+            ) { padding ->
                 Column(modifier = Modifier.padding(padding).padding(horizontal = TandemSpacing.screenPadding)) {
                     PillButton(text = stringResource(R.string.pair_scan_again), onClick = onScanAgain)
                 }
@@ -250,28 +255,28 @@ private fun ScanUnreachableScreen(
     }
 }
 
-/** Title and detail for a terminal failed or rejected [state] (ui-spec §10 copy); null otherwise. */
-internal fun pairingErrorText(state: PairingState): Pair<String, String>? =
+/** String resources of the title and detail for a failed or rejected [state] (ui-spec §10 copy); null otherwise. */
+internal fun pairingErrorText(state: PairingState): Pair<Int, Int>? =
     when (state) {
         is PairingState.Rejected -> errorText(PairingErrorMapper.mapRejectionReason(state.reason))
         is PairingState.Failed -> failureText(state.reason)
         else -> null
     }
 
-private fun failureText(reason: PairingFailure): Pair<String, String> =
+private fun failureText(reason: PairingFailure): Pair<Int, Int> =
     if (reason == PairingFailure.UserCancelled) {
-        "Not paired." to "The codes didn't match."
+        R.string.pair_error_not_paired to R.string.pair_error_codes_differ
     } else {
         errorText(PairingErrorMapper.mapFailureReason(reason))
     }
 
-private fun errorText(message: PairingErrorMessage): Pair<String, String> =
+private fun errorText(message: PairingErrorMessage): Pair<Int, Int> =
     when (message) {
-        PairingErrorMessage.DECLINED -> "Declined." to "The Mac said no."
-        PairingErrorMessage.NETWORK -> "Can't reach the Mac." to "Same Wi-Fi?"
-        PairingErrorMessage.PIN_MISMATCH -> "Not trusted." to "This Mac's identity changed. Pair again."
-        PairingErrorMessage.IDENTITY_UNAVAILABLE -> "Not paired." to "This phone's key couldn't be created."
-        PairingErrorMessage.QR_EXPIRED -> "Code expired." to "Scan a new one."
-        PairingErrorMessage.INCOMPATIBLE_KEY -> "Not paired." to "This Mac's key isn't supported."
-        PairingErrorMessage.PROTOCOL_VIOLATION -> "Not paired." to "The Mac didn't answer as expected. Start again."
+        PairingErrorMessage.DECLINED -> R.string.pair_error_declined_title to R.string.pair_error_declined_state
+        PairingErrorMessage.NETWORK -> R.string.scan_unreachable_title to R.string.scan_unreachable_state
+        PairingErrorMessage.PIN_MISMATCH -> R.string.pair_error_not_trusted to R.string.pair_error_pin_mismatch
+        PairingErrorMessage.IDENTITY_UNAVAILABLE -> R.string.pair_error_not_paired to R.string.pair_error_identity
+        PairingErrorMessage.QR_EXPIRED -> R.string.pair_error_expired_title to R.string.pair_error_expired_state
+        PairingErrorMessage.INCOMPATIBLE_KEY -> R.string.pair_error_not_paired to R.string.pair_error_incompatible_key
+        PairingErrorMessage.PROTOCOL_VIOLATION -> R.string.pair_error_not_paired to R.string.pair_error_protocol
     }

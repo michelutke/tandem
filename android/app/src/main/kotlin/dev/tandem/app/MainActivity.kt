@@ -176,6 +176,8 @@ class MainActivity : TandemActivity() {
             onToggleAutoCapture = app.featureToggles::setAutoCapture,
             isAutoCaptureServiceOn = { ClipboardCaptureServiceState(activity).isServiceEnabled() },
             onOpenAccessibilitySettings = { AccessibilitySettingsLauncher(activity).open() },
+            revokedBy = graph.revokedNoticeStore().macName,
+            onDismissRevoked = graph.revokedNoticeStore()::clear,
             rotation =
                 RotationSettingsViewModel(
                     rotator = rotationComposition.keyRotator,

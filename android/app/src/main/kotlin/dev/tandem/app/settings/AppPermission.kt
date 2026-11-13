@@ -1,6 +1,8 @@
 package dev.tandem.app.settings
 
 import android.Manifest
+import androidx.annotation.StringRes
+import dev.tandem.app.R
 
 /** How an [AppPermission] is granted: a runtime dialog or one of the special-access Settings pages. */
 sealed interface PermissionAccess {
@@ -19,33 +21,33 @@ sealed interface PermissionAccess {
 
 /** Every permission and special access the app uses, in the order Settings lists them. */
 enum class AppPermission(
-    val label: String,
-    val reason: String,
+    @StringRes val label: Int,
+    @StringRes val reason: Int,
     val access: PermissionAccess,
 ) {
     NOTIFICATIONS(
-        label = "Notifications",
-        reason = "Show Tandem's own alerts.",
+        label = R.string.app_permission_notifications_label,
+        reason = R.string.app_permission_notifications_reason,
         access = PermissionAccess.Runtime(listOf(Manifest.permission.POST_NOTIFICATIONS)),
     ),
     NOTIFICATION_ACCESS(
-        label = "Notification access",
-        reason = "Show your phone's notifications on your Mac.",
+        label = R.string.app_permission_notification_access_label,
+        reason = R.string.app_permission_notification_access_reason,
         access = PermissionAccess.NotificationListener,
     ),
     SMS(
-        label = "SMS",
-        reason = "Read and send texts from your Mac.",
+        label = R.string.app_permission_sms_label,
+        reason = R.string.app_permission_sms_reason,
         access = PermissionAccess.Runtime(listOf(Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS)),
     ),
     CONTACTS(
-        label = "Contacts",
-        reason = "Show names for texts and calls.",
+        label = R.string.app_permission_contacts_label,
+        reason = R.string.app_permission_contacts_reason,
         access = PermissionAccess.Runtime(listOf(Manifest.permission.READ_CONTACTS)),
     ),
     PHONE(
-        label = "Phone",
-        reason = "Show calls on your Mac, and answer or place them from there.",
+        label = R.string.app_permission_phone_label,
+        reason = R.string.app_permission_phone_reason,
         access =
             PermissionAccess.Runtime(
                 listOf(
@@ -56,28 +58,28 @@ enum class AppPermission(
             ),
     ),
     CALLER_ID(
-        label = "Caller ID",
-        reason = "Show who is calling on your Mac. Tandem never blocks or changes calls.",
+        label = R.string.app_permission_caller_id_label,
+        reason = R.string.app_permission_caller_id_reason,
         access = PermissionAccess.CallScreeningRole,
     ),
     CAMERA(
-        label = "Camera",
-        reason = "Scan the code on your Mac. Decoded on this phone.",
+        label = R.string.app_permission_camera_label,
+        reason = R.string.app_permission_camera_reason,
         access = PermissionAccess.Runtime(listOf(Manifest.permission.CAMERA)),
     ),
     LOCAL_NETWORK(
-        label = "Local network",
-        reason = "Find your Mac on this network.",
+        label = R.string.app_permission_local_network_label,
+        reason = R.string.app_permission_local_network_reason,
         access = PermissionAccess.Runtime(listOf(Manifest.permission.ACCESS_LOCAL_NETWORK)),
     ),
     BATTERY(
-        label = "Battery",
-        reason = "Stay connected while the app is in the background.",
+        label = R.string.app_permission_battery_label,
+        reason = R.string.app_permission_battery_reason,
         access = PermissionAccess.BatteryExemption,
     ),
     ACCESSIBILITY(
-        label = "Accessibility",
-        reason = "Let your Mac tap and type while you mirror.",
+        label = R.string.app_permission_accessibility_label,
+        reason = R.string.app_permission_accessibility_reason,
         access = PermissionAccess.Accessibility,
     ),
 }

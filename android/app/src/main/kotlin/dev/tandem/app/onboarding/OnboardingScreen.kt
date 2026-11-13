@@ -26,6 +26,8 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
     onPairWithoutCamera: (() -> Unit)? = null,
     stepState: MutableIntState = rememberSaveable { mutableIntStateOf(0) },
+    revokedBy: String? = null,
+    onDismissRevoked: () -> Unit = {},
 ) {
     val screenSteps = remember { viewModel.steps().filterNot { it == OnboardingStep.IDENTITY } }
     var stepIndex by stepState
@@ -34,6 +36,8 @@ fun OnboardingScreen(
         OnboardingStep.WELCOME -> {
             WelcomeScreen(
                 onGetStarted = { stepIndex++ },
+                revokedBy = revokedBy,
+                onDismissRevoked = onDismissRevoked,
                 modifier = modifier.safeDrawingPadding().fillMaxSize(),
             )
         }

@@ -50,8 +50,17 @@ object RingNotification {
                 PendingIntent.FLAG_IMMUTABLE,
             )
 
+        val openPendingIntent =
+            PendingIntent.getActivity(
+                context,
+                OPEN_REQUEST_CODE,
+                Intent(context, FindPhoneActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+
         return Notification
             .Builder(context, NOTIFICATION_CHANNEL_ID)
+            .setContentIntent(openPendingIntent)
             .setContentTitle(context.getString(R.string.notification_ring_title))
             .setContentText(context.getString(R.string.notification_ring_text))
             .setSmallIcon(R.drawable.ic_notification_connection)
@@ -64,6 +73,7 @@ object RingNotification {
     }
 
     private const val STOP_REQUEST_CODE = 0
+    private const val OPEN_REQUEST_CODE = 1
 }
 
 /** Seam over [RingNotification] so [RingController] stays plain unit-tested. */

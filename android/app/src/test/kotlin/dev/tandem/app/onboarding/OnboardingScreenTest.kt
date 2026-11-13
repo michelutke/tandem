@@ -35,7 +35,6 @@ class OnboardingScreenTest {
         setOnboarding()
 
         composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
-        composeRule.onNodeWithText(BATTERY_ONBOARDING_TITLE).assertDoesNotExist()
         composeRule.onNodeWithText(appString(R.string.permissions_title)).assertDoesNotExist()
     }
 

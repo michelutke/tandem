@@ -10,18 +10,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import dev.tandem.app.R
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.DotChart
 import dev.tandem.core.designsystem.components.HairlineRule
 import dev.tandem.core.designsystem.components.TandemScaffold
-import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val TIME_FORMAT = DateTimeFormatter.ofPattern("EEE HH:mm", Locale.ENGLISH)
 private const val BYTES_PER_KB = 1024L
 private const val SECONDS_PER_MINUTE = 60L
 
@@ -29,15 +29,15 @@ private const val SECONDS_PER_MINUTE = 60L
 @Composable
 fun ActivityScreen(
     entries: List<ActivityEntry>,
-    today: LocalDate,
+    now: Instant,
     modifier: Modifier = Modifier,
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
-    val chart = ActivityChartData.from(entries, today, zone)
+    val chart = ActivityChartData.from(entries, now.atZone(zone).toLocalDate(), zone)
 
     TandemScaffold(
-        title = "Activity.",
-        state = "Last 7 days.",
+        title = stringResource(R.string.activity_title),
+        state = stringResource(R.string.activity_state),
         modifier = modifier,
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
@@ -48,7 +48,7 @@ fun ActivityScreen(
             )
             if (entries.isEmpty()) {
                 Text(
-                    text = "Nothing synced yet.",
+                    text = stringResource(R.string.activity_empty),
                     style = TandemType.body,
                     color = TandemColors.ink2,
                     modifier = Modifier.padding(horizontal = TandemSpacing.screenPadding),
@@ -56,7 +56,7 @@ fun ActivityScreen(
             }
             LazyColumn {
                 items(entries.sortedByDescending { it.timestamp }) { entry ->
-                    ActivityRow(entry = entry, zone = zone)
+                    ActivityRow(entry = entry, now = now, zone = zone)
                     HairlineRule()
                 }
             }
@@ -67,6 +67,7 @@ fun ActivityScreen(
 @Composable
 private fun ActivityRow(
     entry: ActivityEntry,
+    now: Instant,
     zone: ZoneId,
 ) {
     Row(
@@ -77,16 +78,26 @@ private fun ActivityRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = entry.type.label, style = TandemType.rowTitle, color = TandemColors.ink)
-            Text(
-                text = TIME_FORMAT.format(entry.timestamp.atZone(zone)),
-                style = TandemType.metaMono,
-                color = TandemColors.ink,
-            )
+            Text(text = stringResource(entry.type.label), style = TandemType.rowTitle, color = TandemColors.ink)
+            formatDetail(entry)?.let { Text(text = it, style = TandemType.meta, color = TandemColors.ink) }
         }
-        formatDetail(entry)?.let { Text(text = it, style = TandemType.metaMono, color = TandemColors.ink) }
+        Text(
+            text = relativeTimeText(relativeTime(now, entry.timestamp, zone)),
+            style = TandemType.meta,
+            color = TandemColors.ink,
+        )
     }
 }
+
+@Composable
+private fun relativeTimeText(relative: RelativeTime): String =
+    when (relative) {
+        RelativeTime.Now -> stringResource(R.string.activity_now)
+        is RelativeTime.Minutes -> stringResource(R.string.activity_minutes_ago, relative.count)
+        is RelativeTime.Hours -> stringResource(R.string.activity_hours_ago, relative.count)
+        RelativeTime.Yesterday -> stringResource(R.string.activity_yesterday)
+        is RelativeTime.Weekday -> relative.name
+    }
 
 internal fun formatSize(bytes: Long): String =
     when {
@@ -103,6 +114,7 @@ internal fun formatSize(bytes: Long): String =
         }
     }
 
+@Composable
 private fun formatDetail(entry: ActivityEntry): String? =
     when {
         entry.sizeBytes != null -> {
@@ -110,7 +122,11 @@ private fun formatDetail(entry: ActivityEntry): String? =
         }
 
         entry.durationSeconds != null -> {
-            "${entry.durationSeconds / SECONDS_PER_MINUTE}m ${entry.durationSeconds % SECONDS_PER_MINUTE}s"
+            stringResource(
+                R.string.activity_duration,
+                entry.durationSeconds / SECONDS_PER_MINUTE,
+                entry.durationSeconds % SECONDS_PER_MINUTE,
+            )
         }
 
         else -> {

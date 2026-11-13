@@ -28,9 +28,11 @@ import dev.tandem.core.storage.trust.PeerRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import java.util.Base64
 
@@ -50,6 +52,17 @@ class AppShellTest {
     private val permissionGateway = RecordingPermissionGateway()
 
     private val blocked = MutableStateFlow<BlockedReason?>(null)
+
+    // Endless animations (loading indicator morph, ring pulse) keep Compose from ever being idle;
+    // "Remove animations" makes every Tandem animation instant or still, so the tests are deterministic.
+    @Before
+    fun removeAnimations() {
+        Settings.Global.putFloat(
+            RuntimeEnvironment.getApplication().contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            0f,
+        )
+    }
 
     private fun setShell() {
         val dependencies =
@@ -223,7 +236,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Permissions.").assertIsDisplayed()
-        AppPermission.entries.forEach { composeRule.onNodeWithText(it.label).assertExists() }
+        AppPermission.entries.forEach { composeRule.onNodeWithText(appString(it.label)).assertExists() }
     }
 
     @Test

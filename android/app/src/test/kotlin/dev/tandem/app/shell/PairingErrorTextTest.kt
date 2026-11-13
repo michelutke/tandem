@@ -1,5 +1,6 @@
 package dev.tandem.app.shell
 
+import dev.tandem.app.R
 import dev.tandem.core.pairing.PairingFailure
 import dev.tandem.core.pairing.PairingState
 import dev.tandem.protocol.v1.PairRejectedReason
@@ -11,35 +12,35 @@ class PairingErrorTextTest {
     fun pairingErrorText_declinedByOwner_saysMacSaidNo() {
         val state = PairingState.Rejected(PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER)
 
-        assertEquals("Declined." to "The Mac said no.", pairingErrorText(state))
+        assertEquals(R.string.pair_error_declined_title to R.string.pair_error_declined_state, pairingErrorText(state))
     }
 
     @Test
     fun pairingErrorText_unreachable_hintsSameWifi() {
         val state = PairingState.Failed(PairingFailure.AllAddressesUnreachable)
 
-        assertEquals("Can't reach the Mac." to "Same Wi-Fi?", pairingErrorText(state))
+        assertEquals(R.string.scan_unreachable_title to R.string.scan_unreachable_state, pairingErrorText(state))
     }
 
     @Test
     fun pairingErrorText_identityUnavailable_saysKeyCouldNotBeCreated() {
         val state = PairingState.Failed(PairingFailure.IdentityUnavailable)
 
-        assertEquals("Not paired." to "This phone's key couldn't be created.", pairingErrorText(state))
+        assertEquals(R.string.pair_error_not_paired to R.string.pair_error_identity, pairingErrorText(state))
     }
 
     @Test
     fun pairingErrorText_userCancelled_saysNotPaired() {
         val state = PairingState.Failed(PairingFailure.UserCancelled)
 
-        assertEquals("Not paired." to "The codes didn't match.", pairingErrorText(state))
+        assertEquals(R.string.pair_error_not_paired to R.string.pair_error_codes_differ, pairingErrorText(state))
     }
 
     @Test
     fun pairingErrorText_expired_saysCodeExpired() {
         val state = PairingState.Failed(PairingFailure.Timeout)
 
-        assertEquals("Code expired." to "Scan a new one.", pairingErrorText(state))
+        assertEquals(R.string.pair_error_expired_title to R.string.pair_error_expired_state, pairingErrorText(state))
     }
 
     @Test

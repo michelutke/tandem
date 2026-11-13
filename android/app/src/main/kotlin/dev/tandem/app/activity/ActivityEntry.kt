@@ -1,15 +1,17 @@
 package dev.tandem.app.activity
 
+import androidx.annotation.StringRes
+import dev.tandem.app.R
 import java.time.Instant
 
 enum class ActivityEventType(
-    val label: String,
+    @StringRes val label: Int,
 ) {
-    FileReceived("File received"),
-    ClipboardFromMac("Clipboard from Mac"),
-    Mirroring("Mirroring"),
-    FindPhone("Find phone"),
-    PhoneCall("Phone call"),
+    FileReceived(R.string.activity_event_file_received),
+    ClipboardFromMac(R.string.activity_event_clipboard_from_mac),
+    Mirroring(R.string.activity_event_mirroring),
+    FindPhone(R.string.activity_event_find_phone),
+    PhoneCall(R.string.activity_event_phone_call),
 }
 
 /**
