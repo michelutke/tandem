@@ -19,15 +19,21 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
+import dev.tandem.app.connection.ConnectionOrchestrator
+import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.home.ActivityHomeRingStateSource
-import dev.tandem.app.home.HomeRingState
+import dev.tandem.app.home.HomeRingStateSource
+import dev.tandem.app.home.HomeViewModel
+import dev.tandem.app.home.LiveTaskHomeRingStateSource
+import dev.tandem.app.home.ReconnectProgress
 import dev.tandem.app.home.TransferHomeRingStateSource
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.SystemBatteryOptimizationSource
 import dev.tandem.app.onboarding.SystemPermissionChecker
 import dev.tandem.app.onboarding.SystemPermissionRequester
+import dev.tandem.app.ring.LiveRingController
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.TandemService
 import dev.tandem.app.service.TrustStorePairedPeerRepository
@@ -38,7 +44,9 @@ import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.AppShellNavigator
 import dev.tandem.app.shell.ShellEntryPoint
 import dev.tandem.core.designsystem.TandemTheme
+import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.calls.CallScreeningRole
 import dev.tandem.feature.clipboard.AndroidClipboardReader
@@ -49,12 +57,13 @@ import dev.tandem.feature.clipboard.LiveClipboardSession
 import dev.tandem.feature.files.LiveTransferActivity
 import dev.tandem.feature.files.PickFilesActivity
 import dev.tandem.feature.input.AccessibilitySettingsLauncher
+import dev.tandem.feature.mirror.MirrorCaptureServiceState
 import dev.tandem.feature.notifications.FilterOverride
 import dev.tandem.feature.notifications.SystemInstalledAppsSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
@@ -125,10 +134,12 @@ class MainActivity : TandemActivity() {
         val graph = EntryPointAccessors.fromApplication(applicationContext, ShellEntryPoint::class.java)
         val pairingFlow = graph.pairingFlow()
         val rotationComposition = graph.rotationComposition()
+        val home = liveHome(app, graph)
         return AppShellDependencies(
             peers = graph.trustStore().observeList(),
-            statusLine = graph.connectionStatusViewModel().statusText,
-            ringState = liveRingState(app, dispatcher),
+            statusLine = home.statusLine,
+            blocked = home.blocked,
+            ringState = home.ringState,
             onboarding =
                 OnboardingViewModel(
                     SystemPermissionRequester(activity) { requestRuntimePermissions.launch(it) },
@@ -246,11 +257,37 @@ class MainActivity : TandemActivity() {
     }
 }
 
-private fun liveRingState(
+private fun MainActivity.liveHome(
+    app: TandemApplication,
+    graph: ShellEntryPoint,
+): HomeViewModel {
+    val connection = graph.connectionStatusViewModel()
+    val ring = liveRingStateSource(app, dispatcher, connection, graph.connectionOrchestrator())
+    return HomeViewModel(ring, connection.connectionState, connection.macName)
+}
+
+private fun liveRingStateSource(
     app: TandemApplication,
     dispatcher: CoroutineDispatcher,
-): StateFlow<HomeRingState> {
+    connection: ConnectionStatusViewModel,
+    orchestrator: ConnectionOrchestrator,
+): HomeRingStateSource {
     val scope = CoroutineScope(SupervisorJob() + dispatcher)
     val idle = ActivityHomeRingStateSource(app.activityStore.entries, AppClock.system, scope)
-    return TransferHomeRingStateSource(idle, LiveTransferActivity.state, scope).state
+    val reconnect =
+        combine(
+            connection.connectionState,
+            orchestrator.failedCycles,
+            orchestrator.backoffWait,
+        ) { state, failed, wait ->
+            if (state is ConnectionState.Ready) null else ReconnectProgress(failed, wait)
+        }
+    return LiveTaskHomeRingStateSource(
+        base = TransferHomeRingStateSource(idle, LiveTransferActivity.state, scope),
+        reconnect = reconnect,
+        mirroring = MirrorCaptureServiceState.foreground,
+        ringing = LiveRingController.ringing,
+        elapsedRealtime = SystemElapsedRealtimeSource,
+        scope = scope,
+    )
 }

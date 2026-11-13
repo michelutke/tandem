@@ -44,4 +44,32 @@
     <string name="clipboard_empty">Nothing on the clipboard to send.</string>
     <string name="clipboard_too_large">Text too large to send (max 1 MiB).</string>
     <string name="clipboard_received">Received from Mac.</string>
+
+    <!-- Trust error, Blocked. (ui-spec 7.2, 8) -->
+    <string name="blocked_title">Blocked.</string>
+    <string name="blocked_pin_state">The Mac\'s key changed.</string>
+    <string name="blocked_pin_explanation">Tandem stopped the connection to protect your data. Pair again only if you reinstalled Tandem on the Mac.</string>
+    <string name="blocked_revoked_state">%1$s removed this phone.</string>
+    <string name="blocked_revoked_explanation">Tandem stopped the connection. Pair again to link this phone with the Mac.</string>
+    <string name="blocked_update_state">Update needed.</string>
+    <string name="blocked_update_explanation">This phone and the Mac run versions of Tandem that cannot talk to each other. Update Tandem on both.</string>
+    <string name="blocked_pair_again">Pair again</string>
+    <string name="blocked_unpair">Unpair</string>
+
+    <!-- Home, battery restricted (ui-spec 10 battery.restricted) -->
+    <string name="battery_restricted_title">Battery restricted.</string>
+    <string name="battery_restricted_detail">Android may cut the link overnight.</string>
+    <string name="battery_restricted_fix">Fix</string>
+
+    <!-- Notifications (ui-spec 7.2 Access off, 10 notif.accessOff) -->
+    <string name="notifications_title">Notifications.</string>
+    <string name="notifications_access_off">Access off.</string>
+    <string name="notifications_access_off_explanation">Android turned off notification access for Tandem. Nothing is forwarded until you allow it again.</string>
+    <string name="notifications_allow_access">Allow access</string>
+
+    <!-- Scan, Mac unreachable (ui-spec 7.2, 10 scan.unreachable) -->
+    <string name="scan_unreachable_title">Can\'t reach the Mac.</string>
+    <string name="scan_unreachable_state">Same Wi-Fi?</string>
+    <string name="scan_unreachable_hint">Guest and office networks often block devices from seeing each other. Try your phone\'s hotspot.</string>
+    <string name="scan_try_again">Try again</string>
 </resources>

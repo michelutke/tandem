@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.time.Clock
+import kotlin.time.Duration
 
 /**
  * The production connect loop (E20-23, F-3.4): [ReconnectStrategy] walks candidate addresses,
@@ -79,6 +80,7 @@ class ConnectionOrchestrator(
     private val mutableFailure = MutableStateFlow<ConnectionFailure?>(null)
     val failure: StateFlow<ConnectionFailure?> = mutableFailure.asStateFlow()
     val failedCycles: StateFlow<Int> = strategy.failedCycles
+    val backoffWait: StateFlow<Duration?> = strategy.backoffWait
 
     override fun start() {
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }

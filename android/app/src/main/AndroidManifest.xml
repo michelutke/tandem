@@ -90,6 +90,12 @@
             android:excludeFromRecents="true"
             android:taskAffinity="" />
 
+        <!-- Remote control opt-in (ui-spec 7.2): opened from the "View only." mirror notification. -->
+        <activity
+            android:name=".mirror.RemoteControlOptInActivity"
+            android:exported="false"
+            android:excludeFromRecents="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -48,6 +48,7 @@ class RingController(
         if (started) {
             recentStartTimestampsMillis.addLast(elapsedRealtimeSource.elapsedRealtimeMillis())
             isRinging = true
+            LiveRingController.mutableRinging.value = true
             ringHandler.ring()
             ringNotifier.show()
             timeoutJob = scope.launch { stopAfterMaxDuration() }
@@ -93,6 +94,7 @@ class RingController(
 
     private fun stopRinging() {
         isRinging = false
+        LiveRingController.mutableRinging.value = false
         timeoutJob?.cancel()
         timeoutJob = null
         ringHandler.stop()

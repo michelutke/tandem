@@ -42,10 +42,10 @@ class OnboardingScreenTest {
 
         composeRule.onNodeWithText(WELCOME_GET_STARTED_LABEL).performClick()
         composeRule.onNodeWithText(PERMISSIONS_TITLE).assertExists()
-        composeRule.onNodeWithText(ONBOARDING_SCAN_TITLE).assertDoesNotExist()
+        composeRule.onNodeWithText("Camera needed.").assertDoesNotExist()
 
         composeRule.onNodeWithText(PERMISSIONS_SKIP_LABEL).performClick()
-        composeRule.onNodeWithText(ONBOARDING_SCAN_TITLE).assertExists()
+        composeRule.onNodeWithText("Camera needed.").assertExists()
     }
 
     @Test

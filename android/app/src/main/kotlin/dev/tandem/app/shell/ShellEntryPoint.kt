@@ -3,6 +3,7 @@ package dev.tandem.app.shell
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.tandem.app.connection.ConnectionOrchestrator
 import dev.tandem.app.connection.ConnectionStatusViewModel
 import dev.tandem.app.di.RotationComposition
 import dev.tandem.app.service.SessionRegistry
@@ -17,6 +18,8 @@ interface ShellEntryPoint {
     fun trustStore(): TrustStore
 
     fun connectionStatusViewModel(): ConnectionStatusViewModel
+
+    fun connectionOrchestrator(): ConnectionOrchestrator
 
     fun unpairAction(): UnpairAction
 

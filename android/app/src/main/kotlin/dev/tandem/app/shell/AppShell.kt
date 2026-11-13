@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +30,8 @@ import dev.tandem.app.activity.ActivityEntry
 import dev.tandem.app.activity.ActivityScreen
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.home.BlockedReason
+import dev.tandem.app.home.BlockedScreen
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
@@ -74,6 +77,7 @@ import java.util.Base64
 class AppShellDependencies(
     val peers: Flow<List<PeerRecord>>,
     val statusLine: Flow<String>,
+    val blocked: Flow<BlockedReason?> = flowOf(null),
     val ringState: StateFlow<HomeRingState>,
     val onboarding: OnboardingViewModel,
     val isBatteryRestricted: () -> Boolean,
@@ -116,6 +120,7 @@ fun AppShell(
     val peers by dependencies.peers.collectAsState(initial = emptyList())
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
     val ringState by dependencies.ringState.collectAsState()
+    val blocked by dependencies.blocked.collectAsState(initial = null)
     val pairingState by dependencies.pairing.state.collectAsState()
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
@@ -138,15 +143,20 @@ fun AppShell(
             }
 
             else -> {
-                TopLevelShell(
-                    route = currentRoute,
-                    navigator = navigator,
-                    dependencies = dependencies,
-                    statusLine = statusLine,
-                    ringState = ringState,
-                    snackbarHostState = snackbarHostState,
-                    peer = peer,
-                )
+                val reason = blocked
+                if (reason != null && peer != null) {
+                    BlockedRoute(reason, peer, navigator, dependencies, insetsModifier)
+                } else {
+                    TopLevelShell(
+                        route = currentRoute,
+                        navigator = navigator,
+                        dependencies = dependencies,
+                        statusLine = statusLine,
+                        ringState = ringState,
+                        snackbarHostState = snackbarHostState,
+                        peer = peer,
+                    )
+                }
             }
         }
         SnackbarHost(
@@ -224,6 +234,32 @@ private fun TopLevelShell(
 }
 
 @Composable
+private fun BlockedRoute(
+    reason: BlockedReason,
+    peer: PeerRecord,
+    navigator: AppShellNavigator,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val unpair: () -> Unit = {
+        scope.launch {
+            withContext(NonCancellable) {
+                dependencies.unpair(peer.fingerprint())
+                navigator.resetToHome()
+            }
+        }
+    }
+    BlockedScreen(
+        reason = reason,
+        macName = peer.displayName,
+        onPairAgain = unpair,
+        onUnpair = unpair,
+        modifier = modifier,
+    )
+}
+
+@Composable
 private fun LoadingScreen(modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TandemLoadingIndicator() }
 }
@@ -288,37 +324,6 @@ private fun ActivityTab(
     )
 }
 
-@Composable
-private fun NotificationsTab(
-    dependencies: AppShellDependencies,
-    modifier: Modifier,
-) {
-    var rows by remember { mutableStateOf<List<PerAppFilterRow>?>(null) }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { rows = withContext(AppDispatchers.io) { dependencies.notificationRows() } }
-    val loaded = rows.orEmpty()
-    TandemScaffold(
-        title = "Notifications.",
-        state = if (rows == null) "Loading apps." else "${loaded.count { it.allowed }} of ${loaded.size} apps.",
-        modifier = modifier,
-    ) { padding ->
-        if (rows == null) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                TandemLoadingIndicator()
-            }
-        } else {
-            PerAppNotificationFilterScreen(
-                rows = loaded,
-                onToggle = { packageName, allowed ->
-                    rows = loaded.map { if (it.packageName == packageName) it.copy(allowed = allowed) else it }
-                    scope.launch { dependencies.onToggleNotificationApp(packageName, allowed) }
-                },
-                modifier = Modifier.padding(padding),
-            )
-        }
-    }
-}
-
 private fun PeerRecord.fingerprint(): SpkiFingerprint =
     SpkiFingerprint(Base64.getUrlDecoder().decode(spkiSha256Base64Url))
 
@@ -343,6 +348,7 @@ private fun OnboardingOrPairing(
     modifier: Modifier,
 ) {
     var manualEntry by remember { mutableStateOf(false) }
+    val onboardingStep = rememberSaveable { mutableIntStateOf(0) }
     if (pairingState == PairingState.Idle && manualEntry) {
         ManualPairingEntryScreen(
             onSubmit = {
@@ -357,8 +363,9 @@ private fun OnboardingOrPairing(
             viewModel = dependencies.onboarding,
             onScanAccepted = { onScanAccepted(it, dependencies.pairingStarter) },
             onCancelScan = {},
-            modifier = modifier,
+            modifier = Modifier,
             onPairWithoutCamera = { manualEntry = true },
+            stepState = onboardingStep,
         )
     } else {
         PairingScreen(
@@ -366,7 +373,7 @@ private fun OnboardingOrPairing(
             onCodesMatch = dependencies.pairing::confirmCodesMatch,
             onCodesDontMatch = dependencies.pairing::cancel,
             onScanAgain = dependencies.pairing::reset,
-            modifier = modifier,
+            modifier = Modifier,
         )
     }
 }

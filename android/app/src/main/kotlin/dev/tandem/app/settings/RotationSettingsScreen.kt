@@ -40,7 +40,7 @@ fun RotationSettingsScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = "Key", style = TandemType.rowTitle, color = TandemColors.ink)
-                Text(text = currentFingerprint, style = TandemType.meta, color = TandemColors.ink2)
+                Text(text = currentFingerprint, style = TandemType.metaMono, color = TandemColors.ink2)
             }
             Text(text = "Rotate", style = TandemType.meta, color = TandemColors.ink2)
         }

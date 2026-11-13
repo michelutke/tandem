@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.home.BlockedReason
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
@@ -47,11 +48,14 @@ class AppShellTest {
     private val unpaired = mutableListOf<SpkiFingerprint>()
     private val permissionGateway = RecordingPermissionGateway()
 
+    private val blocked = MutableStateFlow<BlockedReason?>(null)
+
     private fun setShell() {
         val dependencies =
             AppShellDependencies(
                 peers = peers,
                 statusLine = flowOf("Linked to MacBook Pro."),
+                blocked = blocked,
                 ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
                 onboarding =
                     OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
@@ -74,6 +78,41 @@ class AppShellTest {
 
         composeRule.onNodeWithText(WELCOME_STATE).assertExists()
         composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
+    }
+
+    @Test
+    fun appShell_pinMismatchWhilePaired_showsBlockedInsteadOfHome() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.PinMismatch
+        setShell()
+
+        composeRule.onNodeWithText("The Mac's key changed.", substring = true).assertExists()
+        composeRule.onNodeWithText("Linked to MacBook Pro.").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
+    }
+
+    @Test
+    fun appShell_blockedUnpairTapped_unpairsAndReturnsToOnboarding() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.PinMismatch
+        setShell()
+
+        composeRule.onNodeWithText("Unpair").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, unpaired.size)
+        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+    }
+
+    @Test
+    fun appShell_blockedClears_showsHomeAgain() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.UpdateNeeded
+        setShell()
+        blocked.value = null
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Linked to MacBook Pro.").assertExists()
     }
 
     @Test

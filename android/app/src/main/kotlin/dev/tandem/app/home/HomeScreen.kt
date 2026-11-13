@@ -12,11 +12,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.tandem.app.R
 import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
+import dev.tandem.core.designsystem.components.Banner
 import dev.tandem.core.designsystem.components.DotRing
 import dev.tandem.core.designsystem.components.M3ESwitch
 import dev.tandem.core.designsystem.components.TandemScaffold
@@ -34,6 +37,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     featureStates: Map<SyncFeature, Boolean> = SyncFeature.entries.associateWith { true },
     onFeatureToggled: (SyncFeature, Boolean) -> Unit = { _, _ -> },
+    batteryRestricted: Boolean = false,
+    onFixBattery: () -> Unit = {},
 ) {
     val ring = ringState.toDotRingContent()
 
@@ -42,7 +47,13 @@ fun HomeScreen(
         state = statusLine,
         modifier = modifier,
     ) { padding ->
-        HomeContent(padding = padding, ring = ring, featureStates = featureStates, onFeatureToggled = onFeatureToggled)
+        HomeContent(
+            padding = padding,
+            ring = ring,
+            featureStates = featureStates,
+            onFeatureToggled = onFeatureToggled,
+            batteryBanner = if (batteryRestricted) onFixBattery else null,
+        )
     }
 }
 
@@ -52,6 +63,7 @@ private fun HomeContent(
     ring: DotRingContent,
     featureStates: Map<SyncFeature, Boolean>,
     onFeatureToggled: (SyncFeature, Boolean) -> Unit,
+    batteryBanner: (() -> Unit)?,
 ) {
     Column(
         modifier = Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -63,6 +75,19 @@ private fun HomeContent(
             unit = ring.unit,
             modifier = Modifier.padding(TandemSpacing.lg),
         )
+        if (batteryBanner != null) {
+            Banner(
+                message = stringResource(R.string.battery_restricted_title),
+                detail = stringResource(R.string.battery_restricted_detail),
+                actionLabel = stringResource(R.string.battery_restricted_fix),
+                onAction = batteryBanner,
+                modifier =
+                    Modifier
+                        .padding(
+                            horizontal = TandemSpacing.screenPadding,
+                        ).padding(bottom = TandemSpacing.lg),
+            )
+        }
         SyncFeature.entries.forEachIndexed { index, feature ->
             FeatureSwitchRow(
                 index = index + 1,

@@ -92,4 +92,17 @@ class PairingScreenTest {
         composeRule.onNodeWithText("Not trusted.").assertExists()
         composeRule.onNodeWithText("Can't reach the Mac.").assertDoesNotExist()
     }
+
+    @Test
+    fun pairingScreen_unreachable_showsStateHotspotHintAndTryAgain() {
+        show(PairingState.Failed(PairingFailure.AllAddressesUnreachable))
+
+        composeRule.onNodeWithText("Same Wi-Fi?").assertExists()
+        composeRule
+            .onNodeWithText(
+                "Guest and office networks often block devices from seeing each other. Try your phone's hotspot.",
+            ).assertExists()
+        composeRule.onNodeWithText("Try again").assertExists()
+        composeRule.onNodeWithText("Scan again").assertDoesNotExist()
+    }
 }

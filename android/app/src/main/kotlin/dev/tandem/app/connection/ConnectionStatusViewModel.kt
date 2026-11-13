@@ -22,9 +22,9 @@ private const val NETWORK_ISOLATION_HINT =
  * unpair-first error instead.
  */
 class ConnectionStatusViewModel(
-    connectionState: StateFlow<ConnectionState>,
-    failedCycles: StateFlow<Int>,
-    macName: StateFlow<String?>,
+    val connectionState: StateFlow<ConnectionState>,
+    val failedCycles: StateFlow<Int>,
+    val macName: StateFlow<String?>,
     rePairNeeded: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     /** The label [ConnectionStatusScreen] renders; see this class's kdoc for the exact strings. */

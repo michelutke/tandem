@@ -6,9 +6,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.home.SendSheet
+import dev.tandem.app.onboarding.launchBatteryExemption
+import dev.tandem.app.onboarding.rememberResumeCount
 import dev.tandem.app.settings.SyncFeature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -25,11 +28,15 @@ internal fun HomeTab(
 ) {
     val scope = rememberCoroutineScope()
     val featureStates by dependencies.featureStates.collectAsState()
+    val resumeCount by rememberResumeCount()
+    val context = LocalContext.current
     HomeScreen(
         statusLine = statusLine,
         ringState = ringState,
         featureStates = featureStates,
         onFeatureToggled = { feature, enabled -> scope.launch { dependencies.onToggleFeature(feature, enabled) } },
+        batteryRestricted = resumeCount.let { dependencies.isBatteryRestricted() },
+        onFixBattery = { launchBatteryExemption(context) },
         modifier = modifier,
     )
 }

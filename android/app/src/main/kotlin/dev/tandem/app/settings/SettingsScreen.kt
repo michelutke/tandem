@@ -124,7 +124,13 @@ private fun SettingsRows(
         if (keySection != null) {
             keySection()
         } else {
-            SettingsRow(label = "Key", subtitle = state.keyShortCode, trailing = "Rotate", onAction = onRotateKey)
+            SettingsRow(
+                label = "Key",
+                subtitle = state.keyShortCode,
+                trailing = "Rotate",
+                onAction = onRotateKey,
+                monoSubtitle = true,
+            )
         }
         HairlineRule()
         SettingsRow(
@@ -181,6 +187,7 @@ private fun SettingsRow(
     trailing: String? = null,
     onAction: (() -> Unit)? = null,
     isError: Boolean = false,
+    monoSubtitle: Boolean = false,
 ) {
     val accent = if (isError) TandemColors.alert else TandemColors.ink
     Row(
@@ -196,7 +203,7 @@ private fun SettingsRow(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = TandemType.meta,
+                    style = if (monoSubtitle) TandemType.metaMono else TandemType.meta,
                     color = if (isError) TandemColors.alert else TandemColors.ink2,
                 )
             }

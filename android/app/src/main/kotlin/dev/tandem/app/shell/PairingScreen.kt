@@ -1,14 +1,26 @@
 package dev.tandem.app.shell
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import dev.tandem.app.R
+import dev.tandem.core.designsystem.DarkSystemBars
 import dev.tandem.core.designsystem.TandemColors
+import dev.tandem.core.designsystem.TandemShapes
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.PillButton
@@ -37,17 +49,18 @@ fun PairingScreen(
     onScanAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val insetModifier = modifier.safeDrawingPadding()
     when (state) {
         is PairingState.AwaitingUserConfirm -> {
-            ConfirmContent(state.code, state.macName, state.manual, true, onCodesMatch, onCodesDontMatch, modifier)
+            ConfirmContent(state.code, state.macName, state.manual, true, onCodesMatch, onCodesDontMatch, insetModifier)
         }
 
         is PairingState.ComparingCodes -> {
-            ConfirmContent(state.code, MANUAL_MAC_TITLE, true, false, onCodesMatch, onCodesDontMatch, modifier)
+            ConfirmContent(state.code, MANUAL_MAC_TITLE, true, false, onCodesMatch, onCodesDontMatch, insetModifier)
         }
 
         PairingState.Paired -> {
-            TandemScaffold(title = "Paired.", state = "Opening Home…", modifier = modifier) {}
+            TandemScaffold(title = "Paired.", state = "Opening Home…", modifier = insetModifier) {}
         }
 
         PairingState.Idle,
@@ -55,14 +68,18 @@ fun PairingScreen(
         PairingState.AwaitingProofSent,
         is PairingState.AwaitingAccept,
         -> {
-            TandemScaffold(title = "Pairing.", state = "Connecting…", modifier = modifier) {}
+            TandemScaffold(title = "Pairing.", state = "Connecting…", modifier = insetModifier) {}
         }
 
         is PairingState.Rejected,
         is PairingState.Failed,
         -> {
             val (title, detail) = checkNotNull(pairingErrorText(state))
-            TandemScaffold(title = title, state = detail, isError = true, modifier = modifier) { padding ->
+            if (pairingErrorMessage(state) == PairingErrorMessage.NETWORK) {
+                ScanUnreachableScreen(onTryAgain = onScanAgain, modifier = modifier)
+                return
+            }
+            TandemScaffold(title = title, state = detail, isError = true, modifier = insetModifier) { padding ->
                 Column(modifier = Modifier.padding(padding).padding(horizontal = TandemSpacing.screenPadding)) {
                     PillButton(text = "Scan again", onClick = onScanAgain)
                 }
@@ -104,6 +121,66 @@ private fun ConfirmContent(
             )
             if (manual) {
                 Text(text = MANUAL_MISMATCH_COPY, style = TandemType.meta, color = TandemColors.ink)
+            }
+        }
+    }
+}
+
+private fun pairingErrorMessage(state: PairingState): PairingErrorMessage? =
+    when (state) {
+        is PairingState.Rejected -> {
+            PairingErrorMapper.mapRejectionReason(state.reason)
+        }
+
+        is PairingState.Failed -> {
+            if (state.reason ==
+                PairingFailure.UserCancelled
+            ) {
+                null
+            } else {
+                PairingErrorMapper.mapFailureReason(state.reason)
+            }
+        }
+
+        else -> {
+            null
+        }
+    }
+
+/** Dark "Can't reach the Mac." state (ui-spec §7.2 Scan · Mac unreachable): hotspot hint and Try again. */
+@Composable
+private fun ScanUnreachableScreen(
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    DarkSystemBars()
+    Surface(modifier = modifier.fillMaxSize(), color = TandemColors.paperDark) {
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(TandemSpacing.screenPadding)) {
+            Text(
+                text = stringResource(R.string.scan_unreachable_title),
+                style = TandemType.titleEmphasis,
+                color = TandemColors.inkOnDark,
+            )
+            Text(
+                text = stringResource(R.string.scan_unreachable_state),
+                style = TandemType.titleState,
+                color = TandemColors.inkOnDark.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.scan_unreachable_hint),
+                style = TandemType.meta,
+                color = TandemColors.inkOnDark.copy(alpha = 0.7f),
+                modifier = Modifier.fillMaxWidth().padding(bottom = TandemSpacing.md),
+            )
+            OutlinedButton(
+                onClick = onTryAgain,
+                modifier = Modifier.fillMaxWidth(),
+                shape = TandemShapes.button,
+                border = BorderStroke(1.dp, TandemColors.inkOnDark.copy(alpha = 0.3f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TandemColors.inkOnDark),
+            ) {
+                Text(text = stringResource(R.string.scan_try_again), style = TandemType.rowTitle)
             }
         }
     }

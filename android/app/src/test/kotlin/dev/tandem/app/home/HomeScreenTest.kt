@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -80,5 +81,35 @@ class HomeScreenTest {
 
         ringNodeWithText("5").assertExists()
         ringNodeWithText("next try · attempt 2").assertExists()
+    }
+
+    @Test
+    fun homeScreen_batteryRestricted_showsBannerWithFix() {
+        var fixTaps = 0
+        composeRule.setContent {
+            HomeScreen(
+                statusLine = "Linked to MacBook Pro.",
+                ringState = HomeRingState.Idle(itemsSyncedToday = 7, sevenDayAverage = 10),
+                batteryRestricted = true,
+                onFixBattery = { fixTaps++ },
+            )
+        }
+
+        composeRule.onNodeWithText("Battery restricted.").assertExists()
+        composeRule.onNodeWithText("Android may cut the link overnight.").assertExists()
+        composeRule.onNodeWithText("Fix").performClick()
+        assertEquals(1, fixTaps)
+    }
+
+    @Test
+    fun homeScreen_batteryNotRestricted_hidesBanner() {
+        composeRule.setContent {
+            HomeScreen(
+                statusLine = "Linked to MacBook Pro.",
+                ringState = HomeRingState.Idle(itemsSyncedToday = 7, sevenDayAverage = 10),
+            )
+        }
+
+        composeRule.onNodeWithText("Battery restricted.").assertDoesNotExist()
     }
 }
