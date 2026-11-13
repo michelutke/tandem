@@ -41,7 +41,7 @@ class IdentityBootstrapperTest {
             val bootstrapper = IdentityBootstrapper(poisoned, onIdentityReset = { events.tryEmit(Unit) })
 
             events.test {
-                val handle = bootstrapper.bootstrapIdentity()
+                val handle = bootstrapper.bootstrapIdentity(hasPairedPeers = true)
 
                 awaitItem()
                 assertNotEquals(originalPublicKey, handle.publicKey)
@@ -50,7 +50,7 @@ class IdentityBootstrapperTest {
         }
 
     @Test
-    fun bootstrapIdentity_aliasMissing_emitsIdentityResetAndRegenerates() =
+    fun bootstrapIdentity_firstGenerationWithoutPeers_isNotAnIdentityReset() =
         runTest {
             val store = SoftwareIdentityKeyStore(clock)
             val events = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -59,8 +59,28 @@ class IdentityBootstrapperTest {
             events.test {
                 val handle = bootstrapper.bootstrapIdentity()
 
-                awaitItem()
                 assertNotNull(handle.publicKey)
+                assertFalse(bootstrapper.requiresRePair)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun bootstrapIdentity_invalidatedKeyWithoutPeers_regeneratesWithoutResetEvent() =
+        runTest {
+            val software = SoftwareIdentityKeyStore(clock)
+            software.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val events = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val bootstrapper =
+                IdentityBootstrapper(
+                    SignPoisoningIdentityKeyStore(software),
+                    onIdentityReset = { events.tryEmit(Unit) },
+                )
+
+            events.test {
+                bootstrapper.bootstrapIdentity(hasPairedPeers = false)
+
+                assertFalse(bootstrapper.requiresRePair)
                 expectNoEvents()
             }
         }
@@ -96,10 +116,11 @@ class IdentityBootstrapperTest {
 
     @Test
     fun bootstrapIdentity_afterReset_requiresRePairTrueUntilPairingSucceeds() {
-        val store = SoftwareIdentityKeyStore(clock)
-        val bootstrapper = IdentityBootstrapper(store)
+        val software = SoftwareIdentityKeyStore(clock)
+        software.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+        val bootstrapper = IdentityBootstrapper(SignPoisoningIdentityKeyStore(software))
 
-        bootstrapper.bootstrapIdentity()
+        bootstrapper.bootstrapIdentity(hasPairedPeers = true)
         assertTrue(bootstrapper.requiresRePair)
 
         bootstrapper.notifyPairingSucceeded()

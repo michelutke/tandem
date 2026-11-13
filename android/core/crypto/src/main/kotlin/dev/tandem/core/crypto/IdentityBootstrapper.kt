@@ -16,9 +16,10 @@ private const val SMOKE_TEST_SIGNATURE_ALGORITHM = "SHA256withECDSA"
  * the alias, since AndroidKeyStore can retain an alias whose key is no longer usable.
  *
  * SPEC.md: regenerating the identity changes the phone's SPKI fingerprint (invariant 3), so every
- * Mac that previously paired against the old key no longer recognizes this phone. [requiresRePair]
- * surfaces that (invariant 5) until [notifyPairingSucceeded] is called after the next successful
- * pairing.
+ * Mac that previously paired against the old key no longer recognizes this phone. When that happens
+ * with a paired peer, [requiresRePair] and [onIdentityReset] surface it (invariant 5) until
+ * [notifyPairingSucceeded] is called after the next successful pairing. A first generation, or a
+ * replacement with no paired peer, resets nothing and announces nothing.
  *
  * [onIdentityReset] is a plain injected callback rather than a `Flow`/Turbine event stream: unlike
  * `core/testing`, `core/crypto`'s main source set has no `kotlinx-coroutines-core` dependency, so a
@@ -50,7 +51,7 @@ class IdentityBootstrapper(
             verifyUsable(existing)
             existing
         } catch (expectedKeyPermanentlyInvalidated: KeyPermanentlyInvalidatedException) {
-            resetIdentity()
+            replaceIdentity(announceReset = hasPairedPeers)
         }
     }
 
@@ -61,7 +62,7 @@ class IdentityBootstrapper(
      */
     private fun missingIdentity(hasPairedPeers: Boolean): KeyHandle {
         if (hasPairedPeers) throw IdentityKeyUnavailableException()
-        return resetIdentity()
+        return replaceIdentity(announceReset = false)
     }
 
     /** Call once a pairing completes successfully; clears [requiresRePair] until the next reset. */
@@ -78,13 +79,20 @@ class IdentityBootstrapper(
             activeAlias.activate(IDENTITY_KEY_ALIAS)
         }
 
-    private fun resetIdentity(): KeyHandle {
+    /**
+     * Generates a fresh identity. Only a replacement while a paired peer exists is an identity
+     * reset ([announceReset]): that peer pins the old SPKI, so it must be told apart from a first
+     * generation or a replacement nobody was paired against.
+     */
+    private fun replaceIdentity(announceReset: Boolean): KeyHandle {
         keyStore.delete(activeAlias.current)
         keyStore.delete(IDENTITY_KEY_ALIAS)
         val handle = provider.getOrCreateIdentityKey(IDENTITY_KEY_ALIAS)
         activeAlias.activate(IDENTITY_KEY_ALIAS)
-        requiresRePair = true
-        onIdentityReset()
+        if (announceReset) {
+            requiresRePair = true
+            onIdentityReset()
+        }
         return handle
     }
 

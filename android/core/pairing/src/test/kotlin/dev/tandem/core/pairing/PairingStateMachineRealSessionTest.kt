@@ -110,6 +110,21 @@ class PairingStateMachineRealSessionTest {
         assertEquals(PairingState.Rejected(PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER), terminal)
     }
 
+    @Test
+    fun pairingSm_realSessionPeerSendsRejectedThenClosesRepeated_neverReportsConnectionLost() {
+        repeat(REJECTED_STRESS_ITERATIONS) {
+            val terminal =
+                awaitingAcceptThen { mac ->
+                    mac.sendFinal(Channel.CHANNEL_CONTROL) {
+                        pairRejected =
+                            pairRejected { reason = PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER }
+                    }
+                }
+
+            assertEquals(PairingState.Rejected(PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER), terminal)
+        }
+    }
+
     private fun hexToBytes(hex: String): ByteArray =
         ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
 
@@ -117,5 +132,6 @@ class PairingStateMachineRealSessionTest {
         const val FINGERPRINT_BYTES = 32
         const val SECRET_BYTES = 16
         const val CHALLENGE_BYTES = 32
+        const val REJECTED_STRESS_ITERATIONS = 200
     }
 }

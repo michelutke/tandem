@@ -17,9 +17,12 @@ import dev.tandem.protocol.v1.Heartbeat
 import dev.tandem.protocol.v1.creditGrant
 import dev.tandem.protocol.v1.envelope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -133,6 +136,27 @@ class ChannelMultiplexerFlowControlTest {
             val grants = recordingSink.frames.filter { it.payloadCase == Envelope.PayloadCase.CREDIT_GRANT }
             assertEquals(1, grants.size, "expected exactly one CreditGrant, got: $grants")
             assertEquals(Channel.CHANNEL_FILES, grants.single().creditGrant.channel)
+        }
+
+    @Test
+    fun flowControl_backlogConsumedAfterClose_everyFrameDeliveredDespiteGrantFailing() =
+        runTest {
+            val pipe = FakeFramePipe()
+            val b = ChannelMultiplexer(pipe.sourceB, pipe.sinkB)
+            backgroundScope.launch { b.start() }
+            val backlog = CreditCaps.PROTOCOL_MAX / 2 + 8
+            val arrivals = async(start = CoroutineStart.UNDISPATCHED) { b.received.take(backlog).toList() }
+            for (seq in 1..backlog) {
+                pipe.injectTowardsB(
+                    rawFrame(Channel.CHANNEL_FILES, seq.toLong()) { deviceStatus = DeviceStatus.getDefaultInstance() },
+                )
+            }
+            withTimeout(5.seconds) { arrivals.await() }
+            b.close()
+
+            val delivered = withTimeout(5.seconds) { b.inbound(Channel.CHANNEL_FILES).toList() }
+
+            assertEquals(backlog, delivered.size)
         }
 
     @Test
@@ -433,6 +457,28 @@ class ChannelMultiplexerFlowControlTest {
                             Heartbeat.getDefaultInstance()
                     }
                 }.exceptionOrNull()
+            assertTrue(failure is MultiplexerClosedException, "got: $failure")
+        }
+
+    @Test
+    fun multiplexer_closeWhileSendAndAwaitWrittenIsWaiting_throwsMultiplexerClosedException() =
+        runTest {
+            val stalledSink = FrameSink { awaitCancellation() }
+            val neverEndingSource = FrameSource { _, _, _ -> awaitCancellation() }
+            val a = ChannelMultiplexer(neverEndingSource, stalledSink)
+            backgroundScope.launch { a.start() }
+            val waiting =
+                async {
+                    runCatching {
+                        a.sendAndAwaitWritten(Channel.CHANNEL_CONTROL) { heartbeat = Heartbeat.getDefaultInstance() }
+                    }.exceptionOrNull()
+                }
+            advanceUntilIdle()
+            assertTrue(waiting.isActive, "the stalled sink keeps the write pending")
+
+            a.close()
+
+            val failure = withTimeout(5.seconds) { waiting.await() }
             assertTrue(failure is MultiplexerClosedException, "got: $failure")
         }
 

@@ -5,7 +5,6 @@ import dev.tandem.core.crypto.PairingProofException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.qr.PairingInvite
 import dev.tandem.core.pairing.qr.QrPairingPinSource
-import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
@@ -13,21 +12,16 @@ import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -318,33 +312,20 @@ class PairingStateMachine(
     }
 
     /**
-     * Races [predicate] matching a CONTROL-channel [Envelope] against [session]'s connection
-     * dropping, cancelling whichever loses (E00-19-style seam, no real socket involved). A caller
-     * wraps this in [withTimeoutOrNull] for the phases that have their own deadline.
+     * Waits for [predicate] to match a CONTROL-channel [Envelope]. The receive flow completes when
+     * [session] closes, after every frame already received has been delivered, so a close that
+     * follows the awaited frame can never mask it. A caller wraps this in [withTimeoutOrNull] for
+     * the phases that have their own deadline.
      */
     private suspend fun waitForControlEnvelope(
         session: TandemSession,
         predicate: (Envelope) -> Boolean,
     ): WaitOutcome =
-        coroutineScope {
-            val received =
-                async(start = CoroutineStart.UNDISPATCHED) {
-                    session.receive(Channel.CHANNEL_CONTROL).firstOrNull(predicate)
-                }
-            val disconnected = async { session.state.first { it is ConnectionState.Disconnected } }
-            try {
-                select {
-                    received.onAwait { envelope ->
-                        envelope?.let { WaitOutcome.Success(it) }
-                            ?: WaitOutcome.ConnectionLost
-                    }
-                    disconnected.onAwait { WaitOutcome.ConnectionLost }
-                }
-            } finally {
-                received.cancel()
-                disconnected.cancel()
-            }
-        }
+        session
+            .receive(Channel.CHANNEL_CONTROL)
+            .firstOrNull(predicate)
+            ?.let { WaitOutcome.Success(it) }
+            ?: WaitOutcome.ConnectionLost
 
     companion object {
         /** SPEC.md §2 "Dialing the QR addresses (phone side)", D-68: 3 s per address. */

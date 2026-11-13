@@ -123,6 +123,44 @@ class ConnectionStateMachineTest {
         }
 
     @Test
+    fun connectionSm_socketClosedInHelloExchange_disconnectedAndLateHelloIgnored() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.SocketOpened)
+            sm.handle(ConnectionEvent.HandshakeCompleted)
+
+            assertTrue(sm.handle(ConnectionEvent.SocketClosed("peer closed the connection")))
+            assertEquals(ConnectionState.Disconnected("peer closed the connection"), sm.state.value)
+            assertFalse(sm.handle(ConnectionEvent.CompatibleHelloReceived))
+            assertEquals(ConnectionState.Disconnected("peer closed the connection"), sm.state.value)
+        }
+
+    @Test
+    fun connectionSm_peerRejectedCertificate_emitsFailedPeerRejectedCertificate() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.SocketOpened)
+            sm.handle(ConnectionEvent.HandshakeCompleted)
+
+            assertTrue(sm.handle(ConnectionEvent.PeerRejectedCertificate))
+
+            assertEquals(ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate), sm.state.value)
+        }
+
+    @Test
+    fun connectionSm_socketClosedWhileFailed_rejectedStateUnchanged() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.HandshakeError("tls failure"))
+
+            assertFalse(sm.handle(ConnectionEvent.SocketClosed("late close")))
+            assertTrue(sm.state.value is ConnectionState.Failed)
+        }
+
+    @Test
     fun connectionSm_handshakeStartedWhileReady_rejectedStateUnchanged() =
         runTest {
             val sm = newMachine()

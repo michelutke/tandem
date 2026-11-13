@@ -468,8 +468,19 @@ class ChannelMultiplexer(
                         0
                     }
                 }
-            if (grantAmount > 0) {
-                sendCreditGrant(channel, grantAmount)
+            if (grantAmount > 0) sendGrantUnlessClosed(channel, grantAmount)
+        }
+
+        /** A grant for a frame consumed after close has no peer left to credit; the backlog still drains. */
+        @Suppress("SwallowedException")
+        private suspend fun sendGrantUnlessClosed(
+            channel: Channel,
+            amount: Int,
+        ) {
+            try {
+                sendCreditGrant(channel, amount)
+            } catch (_: MultiplexerClosedException) {
+                return
             }
         }
 

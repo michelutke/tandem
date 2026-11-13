@@ -9,7 +9,8 @@ import java.time.Instant
  *
  * [Disconnected] -[Connect]-> [Connecting] -[SocketOpened]-> [TlsHandshaking]
  * -[HandshakeCompleted]-> [HelloExchange] -[CompatibleHelloReceived]-> [Ready]
- * -[SocketClosed]-> [Disconnected]
+ * -[SocketClosed]-> [Disconnected] ([SocketClosed] is legal from every state that is not already
+ * [Disconnected] or [Failed], so a close racing the hello exchange ends the session)
  *
  * [Failed] is reachable from any state on [ConnectionEvent.HandshakeError] or on
  * [ConnectionStateMachine.HANDSHAKE_DEADLINE] elapsing (SPEC.md E01-22). No other event is legal
@@ -17,7 +18,7 @@ import java.time.Instant
  * and reports the event as rejected instead.
  */
 sealed class ConnectionState {
-    /** Initial state, and the state reached after [ConnectionEvent.SocketClosed] on a [Ready] session. */
+    /** Initial state, and the state reached after [ConnectionEvent.SocketClosed] on a live session. */
     data class Disconnected(
         val reason: String? = null,
     ) : ConnectionState()

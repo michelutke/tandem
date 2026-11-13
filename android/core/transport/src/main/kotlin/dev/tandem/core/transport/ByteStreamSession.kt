@@ -9,6 +9,7 @@ import dev.tandem.core.protocol.handshake.HandshakeFailure
 import dev.tandem.core.protocol.handshake.HandshakeOutcome
 import dev.tandem.core.protocol.handshake.VersionHandshake
 import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.heartbeat.DeadPeerDetector
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
@@ -40,6 +41,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.seconds
@@ -74,6 +76,7 @@ class HeartbeatDependencies(
  * [ChannelMultiplexer.start] reader/writer loop and blocking [ByteStream] reads/writes
  * (via `runInterruptible`) run, mirroring `ChannelMultiplexerTest`'s own `sourceFor`/`sinkFor`.
  */
+@Suppress("TooManyFunctions") // one session lifecycle: handshake, heartbeat, close and send steps share state
 class ByteStreamSession(
     private val byteStream: ByteStream,
     clock: Clock,
@@ -96,6 +99,13 @@ class ByteStreamSession(
     private val handshake = VersionHandshake(multiplexer, clock, dispatcher)
 
     /**
+     * The hello exchange, started in `init` once [multiplexer] is running. The close watcher joins
+     * it before closing, so a peer close racing the exchange can neither cancel it mid-flight nor
+     * let a late hello complete a session that is already closed.
+     */
+    private val handshakeJob = scope.launch(start = CoroutineStart.LAZY) { performHandshake() }
+
+    /**
      * Sole collector of [multiplexer]'s inbound flows; each channel's source waits for
      * [VersionHandshake.awaitReady] first so the handshake's own CONTROL read is never raced.
      */
@@ -107,20 +117,27 @@ class ByteStreamSession(
         }
 
     /**
-     * `true` once the handshake is Ready; `false` if [multiplexer] closes first, e.g. the peer hangs
-     * up before its hello so [VersionHandshake.perform] throws and Ready never arrives.
+     * `true` once the handshake is Ready; `false` if [multiplexer] closes and the hello exchange ends
+     * without Ready, e.g. the peer hangs up before its hello so [VersionHandshake.perform] throws.
+     * A burst of hello, frames and EOF still reports Ready, because the close is only acted on once
+     * the exchange has finished.
      */
     private suspend fun awaitReadyOrClosed(): Boolean =
         coroutineScope {
             val ready = async(start = CoroutineStart.UNDISPATCHED) { handshake.awaitReady() }
-            val closedFirst = async { multiplexer.closeReason.await() }
+            val closedAfterHandshake =
+                async {
+                    multiplexer.closeReason.await()
+                    handshakeJob.join()
+                    state.value is ConnectionState.Ready
+                }
             val isReady =
                 select {
                     ready.onAwait { true }
-                    closedFirst.onAwait { false }
+                    closedAfterHandshake.onAwait { it }
                 }
             ready.cancel()
-            closedFirst.cancel()
+            closedAfterHandshake.cancel()
             isReady
         }
 
@@ -147,10 +164,11 @@ class ByteStreamSession(
         connection.handle(ConnectionEvent.SocketOpened)
         connection.handle(ConnectionEvent.HandshakeCompleted)
         scope.launch { multiplexer.start() }
-        scope.launch { performHandshake() }
+        handshakeJob.start()
         scope.launch {
             multiplexer.closeReason.await()
-            withTimeoutOrNull(PEER_CLOSE_DRAIN) { inboundDispatcher.awaitLanesCompleted() }
+            handshakeJob.join()
+            withTimeoutOrNull(PEER_CLOSE_DRAIN) { inboundDispatcher.awaitLaneCompleted(Channel.CHANNEL_CONTROL) }
             performClose("connection closed")
         }
         if (heartbeatDependencies != null) {
@@ -264,7 +282,23 @@ class ByteStreamSession(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {
-            connection.handle(ConnectionEvent.HandshakeError(e.message ?: e.toString()))
+            connection.handle(failureEventFor(e))
+        }
+    }
+
+    /**
+     * A failed hello exchange is [ConnectionEvent.PeerRejectedCertificate] only when the connection
+     * ended with a TLS alert rejecting this phone's client certificate; a reset, EOF or timeout is an
+     * ordinary [ConnectionEvent.HandshakeError].
+     */
+    private suspend fun failureEventFor(cause: Exception): ConnectionEvent {
+        val close =
+            (cause as? MultiplexerClosedException)?.close
+                ?: withTimeoutOrNull(CLOSE_REASON_WAIT) { multiplexer.closeReason.await() }
+        return if (close is MultiplexerClose.SourceFailed && ClientCertificateAlerts.isRejection(close.cause)) {
+            ConnectionEvent.PeerRejectedCertificate
+        } else {
+            ConnectionEvent.HandshakeError(cause.message ?: cause.toString())
         }
     }
 
@@ -315,16 +349,31 @@ class ByteStreamSession(
         heartbeatResponder?.close()
         unsolicitedHeartbeatTimer?.close()
         deadPeerDetector?.close()
-        if (graceful) byteStream.closeGracefully() else byteStream.closeAbruptly()
-        if (state.value is ConnectionState.Ready) markers.disconnected()
-        connection.handle(ConnectionEvent.SocketClosed(reason))
-        connection.close()
-        scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
-        scope.cancel()
+        try {
+            closeStream(graceful)
+        } finally {
+            if (state.value is ConnectionState.Ready) markers.disconnected()
+            connection.handle(ConnectionEvent.SocketClosed(reason))
+            connection.close()
+            scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
+            scope.cancel()
+        }
+    }
+
+    @Suppress("SwallowedException") // a failing close leaves nothing to release; the teardown goes on
+    private fun closeStream(graceful: Boolean) {
+        try {
+            if (graceful) byteStream.closeGracefully() else byteStream.closeAbruptly()
+        } catch (_: IOException) {
+            return
+        }
     }
 
     private companion object {
-        /** How long a peer-closed session lets already-received frames reach their subscribers. */
+        /** How long a peer-closed session lets already-received CONTROL frames (`PairRejected`) reach subscribers. */
         val PEER_CLOSE_DRAIN = 2.seconds
+
+        /** How long a failed hello exchange waits for the multiplexer to publish why the connection ended. */
+        val CLOSE_REASON_WAIT = 1.seconds
     }
 }

@@ -43,12 +43,12 @@ class ChannelDispatcher(
     private val lanes = ConcurrentHashMap<Channel, Lane>()
 
     /**
-     * Suspends until every lane started so far has completed, i.e. its [source] ended and every frame
-     * already taken from it reached a subscriber. A lane holding a frame nobody subscribes for never
-     * completes, so callers bound the wait.
+     * Suspends until the lane for [channel], if started, has completed, i.e. its [source] ended and
+     * every frame already taken from it reached a subscriber. A lane holding a frame nobody subscribes
+     * for never completes, so callers bound the wait.
      */
-    suspend fun awaitLanesCompleted() {
-        lanes.values.mapNotNull { it.job }.forEach { it.join() }
+    suspend fun awaitLaneCompleted(channel: Channel) {
+        lanes[channel]?.job?.join()
     }
 
     /** Frames on [channel] delivered while the returned flow is being collected. */

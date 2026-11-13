@@ -16,6 +16,7 @@ import dev.tandem.protocol.v1.versionHello
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -31,13 +32,22 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.SocketException
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicReference
+import javax.net.ssl.SSLException
+import javax.net.ssl.SSLHandshakeException
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 private const val DIFFERENT_MAJOR = 2
+private const val STRESS_ITERATIONS = 500
 
 /**
  * [ByteStreamSession] tests (E12-11; `docs/planning/backlog/phase-1.yaml` E12-11's `tdd:` list).
@@ -125,6 +135,117 @@ class ByteStreamSessionTest {
             }
 
             client.close()
+        }
+
+    @Test
+    fun byteStreamSession_connectionResetDuringHelloRepeated_stateAlwaysFailed() =
+        sessionTest {
+            repeat(STRESS_ITERATIONS) {
+                val pipe = InMemoryDuplexPipe()
+                val client = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+
+                pipe.endpointA.closeAbruptly()
+
+                withTimeout(5.seconds) { client.state.first { it is ConnectionState.Failed } }
+                client.close()
+            }
+        }
+
+    @Test
+    fun byteStreamSession_peerHelloThenImmediateCloseRepeated_stateAlwaysEndsDisconnectedOrFailed() =
+        sessionTest {
+            val peerHello =
+                FrameEncoder.encodeFrame(
+                    envelope {
+                        channel = Channel.CHANNEL_CONTROL
+                        seq = 1
+                        versionHello = versionHello { major = 1 }
+                    },
+                )
+            repeat(STRESS_ITERATIONS) {
+                val pipe = InMemoryDuplexPipe()
+                val client = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+
+                pipe.endpointB.output.write(peerHello)
+                pipe.endpointB.output.flush()
+                pipe.endpointB.closeGracefully()
+
+                withTimeout(5.seconds) {
+                    client.state.first { it is ConnectionState.Disconnected || it is ConnectionState.Failed }
+                }
+                client.close()
+            }
+        }
+
+    @Test
+    fun byteStreamSession_subscriberBeforeReadyThenHelloFrameAndEofBurstRepeated_frameDelivered() =
+        sessionTest {
+            val burst =
+                FrameEncoder.encodeFrame(
+                    envelope {
+                        channel = Channel.CHANNEL_CONTROL
+                        seq = 1
+                        versionHello = versionHello { major = 1 }
+                    },
+                ) +
+                    FrameEncoder.encodeFrame(
+                        envelope {
+                            channel = Channel.CHANNEL_CONTROL
+                            seq = 2
+                            heartbeat = heartbeat {}
+                        },
+                    )
+            repeat(STRESS_ITERATIONS) {
+                val pipe = InMemoryDuplexPipe()
+                val client = ByteStreamSession(pipe.endpointA, Clock.systemUTC(), Dispatchers.IO)
+                val received =
+                    async(start = CoroutineStart.UNDISPATCHED) { client.receive(Channel.CHANNEL_CONTROL).first() }
+                withTimeout(5.seconds) {
+                    while (pipe.capturedAToB().isEmpty()) delay(1)
+                }
+
+                pipe.endpointB.output.write(burst)
+                pipe.endpointB.output.flush()
+                pipe.endpointB.closeGracefully()
+
+                val envelope = withTimeout(5.seconds) { received.await() }
+                assertTrue(envelope.hasHeartbeat())
+                client.close()
+            }
+        }
+
+    @Test
+    fun byteStreamSession_clientCertificateAlertDuringHello_stateFailedPeerRejectedCertificate() =
+        sessionTest {
+            listOf("certificate_unknown", "bad_certificate", "certificate_required", "unknown_ca", "ACCESS_DENIED")
+                .forEach { alert ->
+                    val client =
+                        ByteStreamSession(
+                            FailingReadByteStream(SSLHandshakeException("Received fatal alert: $alert")),
+                            Clock.systemUTC(),
+                            Dispatchers.IO,
+                        )
+
+                    val failed = withTimeout(5.seconds) { client.state.first { it is ConnectionState.Failed } }
+
+                    assertEquals(ConnectionFailure.PeerRejectedCertificate, (failed as ConnectionState.Failed).reason)
+                    client.close()
+                }
+        }
+
+    @Test
+    fun byteStreamSession_connectionResetDuringHello_stateFailedHandshakeErrorNotPeerRejected() =
+        sessionTest {
+            listOf(SocketException("Connection reset"), SSLException("Connection closed by peer")).forEach { cause ->
+                val client =
+                    ByteStreamSession(FailingReadByteStream(cause), Clock.systemUTC(), Dispatchers.IO)
+
+                val failed = withTimeout(5.seconds) { client.state.first { it is ConnectionState.Failed } }
+
+                val reason = (failed as ConnectionState.Failed).reason
+                assertInstanceOf(ConnectionFailure.HandshakeError::class.java, reason)
+                client.close()
+            }
         }
 
     @Test
@@ -270,6 +391,26 @@ class ByteStreamSessionTest {
                 while (sessionJob.children.any { it.isActive }) delay(10)
             }
         }
+
+    private class FailingReadByteStream(
+        private val failure: IOException,
+    ) : ByteStream {
+        override val input: InputStream =
+            object : InputStream() {
+                override fun read(): Int = throw failure
+
+                override fun read(
+                    b: ByteArray,
+                    off: Int,
+                    len: Int,
+                ): Int = throw failure
+            }
+        override val output: OutputStream = ByteArrayOutputStream()
+
+        override fun closeGracefully() = Unit
+
+        override fun closeAbruptly() = Unit
+    }
 
     private class FakeDeviceIdleSource : DeviceIdleSource {
         override val isIdle: StateFlow<Boolean> = MutableStateFlow(false)

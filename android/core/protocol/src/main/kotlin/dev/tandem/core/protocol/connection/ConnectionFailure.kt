@@ -21,6 +21,13 @@ sealed class ConnectionFailure {
     data object IdentityUnavailable : ConnectionFailure()
 
     /**
+     * The peer closed the connection with a TLS alert rejecting this phone's client certificate, i.e.
+     * it no longer trusts this phone's key (e.g. it unpaired us). Only a typed alert, never a reset,
+     * EOF or timeout, produces this.
+     */
+    data object PeerRejectedCertificate : ConnectionFailure()
+
+    /**
      * Any other handshake or hello-exchange failure reported to this machine via
      * [ConnectionEvent.HandshakeError] (e.g. a TLS failure, or a [message] translated from a
      * [dev.tandem.core.protocol.handshake.HandshakeFailure] reported by the E12-15 `VersionHandshake`
@@ -44,6 +51,7 @@ val ConnectionFailure.closeCode: CloseCode?
 
             ConnectionFailure.VersionMismatch,
             ConnectionFailure.IdentityUnavailable,
+            ConnectionFailure.PeerRejectedCertificate,
             is ConnectionFailure.HandshakeError,
             -> null
         }

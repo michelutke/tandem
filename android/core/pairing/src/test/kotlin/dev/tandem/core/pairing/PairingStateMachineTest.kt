@@ -312,7 +312,7 @@ class PairingStateMachineTest {
             runCurrent()
             assertTrue(sm.state.value is PairingState.AwaitingAccept)
 
-            session.emitState(ConnectionState.Disconnected("peer closed the connection"))
+            session.close()
             runCurrent()
 
             assertEquals(PairingState.Failed(PairingFailure.ConnectionLost), sm.state.value)

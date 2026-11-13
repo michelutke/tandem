@@ -7,7 +7,9 @@ import dev.tandem.core.storage.trust.PENDING_MAX_AGE_MS
 import dev.tandem.core.storage.trust.PeerRecord
 import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.core.transport.FakeTandemSession
+import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.RotationRejectReason
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -333,6 +335,34 @@ class RotationReceiverTest {
             assertEquals(RotationRejectReason.ROTATION_REJECT_REASON_ROTATION_UNAVAILABLE, lastReject())
             assertEquals(before, store.list())
             job.cancel()
+        }
+
+    @Test
+    fun androidRotationReceiver_keyRotationArrivesBeforeStorageCompletes_stillAcked() =
+        runBlocking {
+            pinOld()
+            val storageGate = CompletableDeferred<Unit>()
+            val slowStorage =
+                object : RotationPinStore by store {
+                    override suspend fun purgeExpiredPins(nowEpochMs: Long) {
+                        storageGate.await()
+                    }
+                }
+            val otherControlConsumer =
+                kotlinx.coroutines.GlobalScope.launch(Dispatchers.Default) {
+                    session.receive(Channel.CHANNEL_CONTROL).collect { }
+                }
+            delay(100)
+            val job = startReady(receiver(oldKey, pins = slowStorage))
+
+            session.emitIncoming(keyRotationEnvelope(oldKey, newKey, challengeOf(), oldKey, newKey))
+            delay(200)
+            storageGate.complete(Unit)
+            awaitUntil { session.sentFrames.size > 1 }
+
+            assertTrue(session.sentFrames.last().hasRotationAck())
+            job.cancel()
+            otherControlConsumer.cancel()
         }
 
     @Test
