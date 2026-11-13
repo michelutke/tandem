@@ -1,6 +1,7 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsSyncStatus
@@ -42,13 +43,31 @@ class SmsIncrementalSync(
             launch(start = CoroutineStart.UNDISPATCHED) {
                 source.changes().collect { pending.trySend(Unit) }
             }
-            var lastSentId = initialLastSentId()
+            var lastSentId: Long? = baselineOrNull(initialLastSentId)
             pending
                 .receiveAsFlow()
                 .debounce(DEBOUNCE_MS)
-                .collect { lastSentId = push(lastSentId) }
+                .collect { lastSentId = pushWhenPermitted(lastSentId, initialLastSentId) }
         }
     }
+
+    // Without READ_SMS the baseline is unknown; the grant happens mid-session, so retry on the next change.
+    private suspend fun baselineOrNull(initialLastSentId: suspend () -> Long): Long? =
+        try {
+            initialLastSentId()
+        } catch (_: SmsPermissionMissing) {
+            null
+        }
+
+    private suspend fun pushWhenPermitted(
+        lastSentId: Long?,
+        initialLastSentId: suspend () -> Long,
+    ): Long? =
+        try {
+            push(lastSentId ?: initialLastSentId())
+        } catch (_: SmsPermissionMissing) {
+            lastSentId
+        }
 
     private suspend fun push(lastSentId: Long): Long {
         var cursor = lastSentId
@@ -71,7 +90,7 @@ class SmsIncrementalSync(
         rows: List<SmsMessage>,
         highWatermark: Long,
     ) {
-        session.send(Channel.CHANNEL_SMS) {
+        session.sendOrDrop(Channel.CHANNEL_SMS) {
             smsSyncResponse =
                 smsSyncResponse {
                     status = SmsSyncStatus.SMS_SYNC_STATUS_OK

@@ -1,5 +1,6 @@
 package dev.tandem.feature.calls
 
+import dev.tandem.core.testing.FakeElapsedRealtime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.advanceTimeBy
@@ -14,7 +15,7 @@ class IncomingNumberRelayTest {
     @Test
     fun incomingNumberRelay_numberPublishedBeforeAwait_returnsItImmediately() =
         runTest {
-            val relay = IncomingNumberRelay()
+            val relay = IncomingNumberRelay(FakeElapsedRealtime(testScheduler))
             relay.publish("+41791234567")
 
             assertEquals("+41791234567", relay.await(500))
@@ -23,7 +24,7 @@ class IncomingNumberRelayTest {
     @Test
     fun incomingNumberRelay_numberPublishedWhileWaiting_returnsIt() =
         runTest {
-            val relay = IncomingNumberRelay()
+            val relay = IncomingNumberRelay(FakeElapsedRealtime(testScheduler))
             val waiting = async { relay.await(500) }
             runCurrent()
             advanceTimeBy(100)
@@ -33,15 +34,27 @@ class IncomingNumberRelayTest {
         }
 
     @Test
+    fun incomingNumberRelay_numberFromEarlierCall_peekReturnsNullAfterMaxAge() =
+        runTest {
+            val relay = IncomingNumberRelay(FakeElapsedRealtime(testScheduler))
+            relay.publish("+41791234567")
+
+            advanceTimeBy(60_001)
+
+            assertNull(relay.peek())
+            assertNull(relay.await(500))
+        }
+
+    @Test
     fun incomingNumberRelay_nothingPublished_timesOutWithNull() =
         runTest {
-            assertNull(IncomingNumberRelay().await(500))
+            assertNull(IncomingNumberRelay(FakeElapsedRealtime(testScheduler)).await(500))
         }
 
     @Test
     fun incomingNumberRelay_cleared_dropsTheNumber() =
         runTest {
-            val relay = IncomingNumberRelay()
+            val relay = IncomingNumberRelay(FakeElapsedRealtime(testScheduler))
             relay.publish("+41791234567")
             relay.clear()
 

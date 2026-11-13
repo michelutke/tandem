@@ -1,10 +1,12 @@
 package dev.tandem.feature.calls
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.CallDirection
 import dev.tandem.protocol.v1.CallState
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.callEvent
+import kotlinx.coroutines.delay
 import java.time.Clock
 import java.util.UUID
 
@@ -36,7 +38,7 @@ class CallDetector(
     private var activeSinceMs: Long? = null
 
     suspend fun run() {
-        if (!permissions.readPhoneState()) return
+        while (!permissions.readPhoneState()) delay(PERMISSION_POLL_MS)
         gateway.callStates.collect { handle(it) }
     }
 
@@ -119,7 +121,7 @@ class CallDetector(
         callState: CallState,
     ) {
         log("call_event state=${callState.name} direction=${callDirection.name}")
-        session.send(Channel.CHANNEL_CALLS) {
+        session.sendOrDrop(Channel.CHANNEL_CALLS) {
             callEvent =
                 callEvent {
                     callId = id
@@ -139,5 +141,6 @@ class CallDetector(
 
     private companion object {
         const val MILLIS_PER_SECOND = 1000L
+        const val PERMISSION_POLL_MS = 5_000L
     }
 }

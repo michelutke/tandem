@@ -31,6 +31,9 @@ object ClipboardSender {
     /** UC-13: the message shown when [send] rejects text over [MAX_TEXT_BYTES]. */
     const val TOO_LARGE_TOAST = "Text too large to send (max 1 MiB)"
 
+    /** Shown when a user-initiated send finds no live session. */
+    const val NOT_CONNECTED_TOAST = "Not connected to your Mac."
+
     private const val ORIGIN_TAG = "android"
 
     /**

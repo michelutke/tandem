@@ -1,12 +1,14 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SendSmsErrorCode
 import dev.tandem.protocol.v1.SendSmsRequest
 import dev.tandem.protocol.v1.SendSmsState
 import dev.tandem.protocol.v1.sendSmsStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * E50-04 phone side of the SMS send flow (PRD F-8.2, docs/protocol/SPEC.md #sms-channel "Send"):
@@ -44,7 +47,23 @@ class SendSmsHandler(
             session
                 .receive(Channel.CHANNEL_SMS)
                 .filter { it.hasSendSmsRequest() }
-                .collect { envelope -> launch { handle(envelope.sendSmsRequest) } }
+                .collect { envelope -> launch { handleOrReportFailure(envelope.sendSmsRequest) } }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun handleOrReportFailure(request: SendSmsRequest) {
+        try {
+            handle(request)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: RuntimeException) {
+            log("sms send crashed: id=${request.clientMessageId} ${error.javaClass.simpleName}")
+            report(
+                request.clientMessageId,
+                SendSmsState.SEND_SMS_STATE_FAILED,
+                SendSmsErrorCode.SEND_SMS_ERROR_CODE_GENERIC_FAILURE,
+            )
         }
     }
 
@@ -69,16 +88,26 @@ class SendSmsHandler(
         val baselineId = baselineId()
         val aggregator = SendStatusAggregator(parts.size)
         report(request.clientMessageId, SendSmsState.SEND_SMS_STATE_SENDING)
-        results
-            .onSubscription {
-                withContext(ioDispatcher) {
-                    sender.send(OutgoingSms(request.clientMessageId, destination, subscriptionId, parts))
-                }
-            }.filter { it.clientMessageId == request.clientMessageId }
-            .transformWhile { part ->
-                aggregator.accept(part).forEach { emit(it) }
-                !aggregator.finished
-            }.collect { update -> reportUpdate(request, destination, baselineId, update) }
+        val completed =
+            withTimeoutOrNull(RESULT_TIMEOUT_MS) {
+                results
+                    .onSubscription {
+                        withContext(ioDispatcher) {
+                            sender.send(OutgoingSms(request.clientMessageId, destination, subscriptionId, parts))
+                        }
+                    }.filter { it.clientMessageId == request.clientMessageId }
+                    .transformWhile { part ->
+                        aggregator.accept(part).forEach { emit(it) }
+                        !aggregator.finished
+                    }.collect { update -> reportUpdate(request, destination, baselineId, update) }
+            }
+        if (completed == null && !aggregator.sentEmitted) {
+            report(
+                request.clientMessageId,
+                SendSmsState.SEND_SMS_STATE_FAILED,
+                SendSmsErrorCode.SEND_SMS_ERROR_CODE_GENERIC_FAILURE,
+            )
+        }
     }
 
     private fun rejection(
@@ -89,6 +118,10 @@ class SendSmsHandler(
         when {
             !permission.isGranted() -> {
                 SendSmsErrorCode.SEND_SMS_ERROR_CODE_PERMISSION_REQUIRED
+            }
+
+            request.body.isEmpty() -> {
+                SendSmsErrorCode.SEND_SMS_ERROR_CODE_GENERIC_FAILURE
             }
 
             !ADDRESS_PATTERN.matches(destination) -> {
@@ -169,7 +202,7 @@ class SendSmsHandler(
         errorCode: SendSmsErrorCode = SendSmsErrorCode.SEND_SMS_ERROR_CODE_UNSPECIFIED,
         providerMessageId: Long = 0L,
     ) {
-        session.send(Channel.CHANNEL_SMS) {
+        session.sendOrDrop(Channel.CHANNEL_SMS) {
             sendSmsStatus =
                 sendSmsStatus {
                     this.clientMessageId = clientMessageId
@@ -182,6 +215,9 @@ class SendSmsHandler(
 
     private companion object {
         const val MAX_BODY_CHARS = 1600
+
+        // A carrier that never returns a delivery report must not hold a collector for the whole session.
+        const val RESULT_TIMEOUT_MS = 600_000L
         const val PROVIDER_LOOKUP_TIMEOUT_MS = 5_000L
         const val PROVIDER_POLL_MS = 250L
         val ADDRESS_PATTERN = Regex("^\\+?[0-9]{3,20}$")

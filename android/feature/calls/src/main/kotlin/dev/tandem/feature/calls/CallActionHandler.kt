@@ -1,6 +1,7 @@
 package dev.tandem.feature.calls
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.CallAction
 import dev.tandem.protocol.v1.CallActionErrorCode
 import dev.tandem.protocol.v1.CallActionType
@@ -38,7 +39,7 @@ class CallActionHandler(
         val error = withContext(ioDispatcher) { perform(action) }
         log("call_action action=${action.action.name} error=${error.name}")
         val succeeded = error == CallActionErrorCode.CALL_ACTION_ERROR_CODE_UNSPECIFIED
-        session.send(Channel.CHANNEL_CALLS) {
+        session.sendOrDrop(Channel.CHANNEL_CALLS) {
             callActionResult =
                 callActionResult {
                     requestId = action.requestId

@@ -1,6 +1,7 @@
 package dev.tandem.feature.contacts
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Contact
 import dev.tandem.protocol.v1.ContactsSyncRequest
@@ -86,7 +87,7 @@ class ContactsSyncSession(
             val chunks = changed.chunkedByBytes(PAGE_BYTE_BUDGET)
             chunks.forEachIndexed { index, chunk ->
                 val isLastChunk = isLastPage && index == chunks.lastIndex
-                session.send(Channel.CHANNEL_CONTACTS) {
+                session.sendOrDrop(Channel.CHANNEL_CONTACTS) {
                     contactsSyncResponse =
                         contactsSyncResponse {
                             status = ContactsSyncStatus.CONTACTS_SYNC_STATUS_OK
@@ -122,7 +123,7 @@ class ContactsSyncSession(
         sendStatus(ContactsSyncStatus.CONTACTS_SYNC_STATUS_PERMISSION_REQUIRED)
 
     private suspend fun sendStatus(responseStatus: ContactsSyncStatus) {
-        session.send(Channel.CHANNEL_CONTACTS) {
+        session.sendOrDrop(Channel.CHANNEL_CONTACTS) {
             contactsSyncResponse =
                 contactsSyncResponse {
                     status = responseStatus

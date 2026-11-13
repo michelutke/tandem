@@ -1,6 +1,7 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SimListKt
 import dev.tandem.protocol.v1.simList
@@ -36,7 +37,7 @@ class SimListPublisher(
 
     private suspend fun publish() {
         val active = withContext(ioDispatcher) { subscriptions.activeSubscriptions() }
-        session.send(Channel.CHANNEL_SMS) {
+        session.sendOrDrop(Channel.CHANNEL_SMS) {
             simList =
                 simList {
                     active.forEach { sim ->

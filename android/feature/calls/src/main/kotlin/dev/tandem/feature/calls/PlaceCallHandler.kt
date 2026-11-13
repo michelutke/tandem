@@ -1,6 +1,7 @@
 package dev.tandem.feature.calls
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.CallActionErrorCode
 import dev.tandem.protocol.v1.Channel
@@ -43,7 +44,7 @@ class PlaceCallHandler(
 
     suspend fun handle(request: PlaceCallRequest) {
         val error = withContext(ioDispatcher) { place(request) }
-        session.send(Channel.CHANNEL_CALLS) {
+        session.sendOrDrop(Channel.CHANNEL_CALLS) {
             callActionResult =
                 callActionResult {
                     requestId = request.requestId

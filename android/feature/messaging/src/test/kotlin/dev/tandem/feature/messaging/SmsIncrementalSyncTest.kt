@@ -42,6 +42,33 @@ class SmsIncrementalSyncTest {
         }
 
     @Test
+    fun smsIncrementalSync_permissionGrantedAfterStart_pushesNewMessages() =
+        runTest {
+            val source = FakeSmsSource(messages(5), readPermitted = false)
+            val session = FakeTandemSession()
+            val job = start(source, session) { source.maxId() }
+
+            source.readPermitted = true
+            source.emitChange()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+            source.messages += row(6)
+            source.emitChange()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            runCurrent()
+
+            assertEquals(
+                listOf(6L),
+                session.sentFrames
+                    .single()
+                    .smsSyncResponse.messagesList
+                    .map { it.id },
+            )
+            assertTrue(job.isActive)
+            job.cancel()
+        }
+
+    @Test
     fun incrementalSync_longBodiesAndSnippets_everyFrameWithinByteBudgetAndNothingLost() =
         runTest {
             val threads =

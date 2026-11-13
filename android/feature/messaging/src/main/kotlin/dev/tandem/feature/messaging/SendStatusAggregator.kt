@@ -25,7 +25,8 @@ class SendStatusAggregator(
 ) {
     private val sentParts = mutableSetOf<Int>()
     private val deliveredParts = mutableSetOf<Int>()
-    private var sentEmitted = false
+    var sentEmitted = false
+        private set
     var finished = false
         private set
 

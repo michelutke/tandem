@@ -1,6 +1,7 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsSyncRequest
@@ -57,7 +58,7 @@ class SmsSyncSession(
             sync(request, token)
         } catch (_: SmsPermissionMissing) {
             log("sms sync: READ_SMS missing")
-            session.send(Channel.CHANNEL_SMS) {
+            session.sendOrDrop(Channel.CHANNEL_SMS) {
                 smsSyncResponse =
                     smsSyncResponse {
                         status = SmsSyncStatus.SMS_SYNC_STATUS_PERMISSION_REQUIRED
@@ -147,7 +148,7 @@ class SmsSyncSession(
             messages: List<SmsMessage>,
             at: Cursors,
         ) {
-            session.send(Channel.CHANNEL_SMS) {
+            session.sendOrDrop(Channel.CHANNEL_SMS) {
                 smsSyncResponse =
                     smsSyncResponse {
                         status = SmsSyncStatus.SMS_SYNC_STATUS_OK
