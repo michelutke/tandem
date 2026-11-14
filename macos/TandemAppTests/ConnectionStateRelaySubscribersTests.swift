@@ -36,4 +36,23 @@ struct ConnectionStateRelaySubscribersTests {
 
         #expect(await iterator.next() == .ready)
     }
+
+    @Test
+    func relay_downstreamRelay_bothSeeEveryStateOfOneSession() async throws {
+        let relay = ConnectionStateRelay()
+        let banner = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let phone = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        var menuStates = relay.makeStream().makeAsyncIterator()
+        var bannerStates = banner.makeStream().makeAsyncIterator()
+        let session = FakeTandemSession()
+        await relay.attach(session, peer: phone, downstream: banner)
+
+        await session.emit(.helloExchange)
+        await session.emit(.ready)
+
+        #expect(await menuStates.next() == .helloExchange)
+        #expect(await menuStates.next() == .ready)
+        #expect(await bannerStates.next() == .helloExchange)
+        #expect(await bannerStates.next() == .ready)
+    }
 }

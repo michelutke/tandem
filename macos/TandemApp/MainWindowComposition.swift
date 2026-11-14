@@ -1,4 +1,5 @@
 import FeatureFiles
+import FeatureMirror
 import Foundation
 
 /// Composes the main window (E22-09), split out of `TandemApp.swift` purely to keep that file
@@ -81,5 +82,33 @@ enum SharedPairingPresenter {
         let presenter = MacPairingPresenter(composition: composition)
         retained = presenter
         return presenter
+    }
+}
+
+/// The Find Phone and Mirror models every `MenuContentView` value shares. SwiftUI builds that view
+/// many times; models made per `init` left the session wiring pointing at an instance no view shows.
+@MainActor
+enum SharedSessionModels {
+    struct Models {
+        let findPhone: FindPhoneViewModel
+        let mirror: MirrorRequestViewModel
+    }
+
+    private static var retained: (owner: ObjectIdentifier, models: Models)?
+
+    static func models(for lifecycle: AppComposition.RetainedLifecycle?) -> Models {
+        guard let lifecycle else {
+            return Models(findPhone: FindPhoneViewModel(session: nil), mirror: MirrorRequestViewModel(session: nil))
+        }
+        let owner = ObjectIdentifier(lifecycle.mirror)
+        if let retained, retained.owner == owner { return retained.models }
+        let live = lifecycle.sessionFeatures.live
+        let findPhone = FindPhoneViewModel(session: live.session)
+        live.onSessionChanged = { findPhone.sessionChanged($0) }
+        let mirror = MirrorRequestViewModel(session: nil, peerName: lifecycle.pairedPeer.displayName)
+        lifecycle.mirror.bind(mirror)
+        let models = Models(findPhone: findPhone, mirror: mirror)
+        retained = (owner, models)
+        return models
     }
 }

@@ -287,8 +287,7 @@ enum AppComposition {
             onSessionRegistered: { fingerprint, session in
                 Task {
                     guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
-                    await relay.attach(session)
-                    await bannerRelay.attach(session, peer: fingerprint)
+                    await relay.attach(session, peer: fingerprint, downstream: bannerRelay)
                 }
             }
         )

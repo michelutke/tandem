@@ -47,6 +47,9 @@ public struct PillButton: View {
                 .tandemTextStyle(TandemTypography.rowTitle())
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, TandemSpacing.small + TandemSpacing.extraSmall)
+                // Keeps the label off the capsule ends when a caller sizes the pill to its content.
+                .padding(.horizontal, TandemSpacing.large)
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .foregroundStyle(kind.foreground)

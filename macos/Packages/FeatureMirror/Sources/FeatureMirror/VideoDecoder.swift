@@ -133,6 +133,20 @@ public final class VTVideoDecoder: VideoDecoder {
             sampleBufferOut: &sample
         )
         guard status == noErr, let sample else { throw .decode(status) }
+        displayImmediately(sample)
         return sample
+    }
+
+    /// The phone's timestamps are on its own clock, not the display layer's timebase: without this
+    /// the layer shows the first frame and holds every later one for a time that never comes.
+    private func displayImmediately(_ sample: CMSampleBuffer) {
+        guard let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true),
+              CFArrayGetCount(attachments) > 0 else { return }
+        let first = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+        CFDictionarySetValue(
+            first,
+            Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+            Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+        )
     }
 }
