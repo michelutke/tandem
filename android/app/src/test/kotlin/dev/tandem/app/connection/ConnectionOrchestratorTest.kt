@@ -85,6 +85,7 @@ class ConnectionOrchestratorTest {
         val lastWorkingStore: PairingAddressStore = PairingAddressStore(File(directory, "last-working")),
     ) {
         var paired = true
+        var pairedCheckFails = false
         val registry = SessionRegistry()
         val screenOn = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         val knownPeers = KnownPeerStore(knownPeersFile)
@@ -117,7 +118,7 @@ class ConnectionOrchestratorTest {
                 clock = TestClock(scope.testScheduler),
                 dispatcher = StandardTestDispatcher(scope.testScheduler),
                 lastWorkingStore = lastWorkingStore,
-                hasPairedPeer = { paired },
+                hasPairedPeer = { if (pairedCheckFails) error("trust store unreadable") else paired },
             )
     }
 
@@ -542,6 +543,32 @@ class ConnectionOrchestratorTest {
 
         assertEquals(2, dialer.dials)
         assertEquals(wokeAt, testScheduler.currentTime)
+        harness.orchestrator.close()
+    }
+
+    @Test
+    fun orchestrator_trustStoreReadFailsInsideDialFailure_loopSurvivesAndRedials(
+        @TempDir directory: File,
+    ) = runTest {
+        var dials = 0
+        val dialer =
+            object : SessionDialer {
+                override suspend fun dial(candidate: CandidateAddress): DialResult {
+                    dials++
+                    error("identity lost")
+                }
+            }
+        val harness = Harness(this, dialer, listOf(CountingFeature()), directory)
+        harness.pairedCheckFails = true
+        harness.orchestrator.start()
+        runCurrent()
+        assertEquals(1, dials)
+
+        advanceTimeBy(200)
+        harness.screenOn.tryEmit(Unit)
+        runCurrent()
+
+        assertEquals(2, dials)
         harness.orchestrator.close()
     }
 }

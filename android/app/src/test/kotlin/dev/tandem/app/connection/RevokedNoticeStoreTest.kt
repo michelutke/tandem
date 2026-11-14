@@ -67,4 +67,22 @@ class RevokedNoticeStoreTest {
 
         assertNull(store.macName.value)
     }
+
+    @Test
+    fun noticingTrustRemover_nameLookupFails_trustStillRemovedWithEmptyName(
+        @TempDir directory: File,
+    ) = runTest {
+        val store = RevokedNoticeStore(File(directory, "notice"))
+        val removed = mutableListOf<SpkiFingerprint>()
+        val peer = SpkiFingerprint(ByteArray(32) { 3 })
+
+        NoticingTrustRemover(
+            macName = { error("trust store unreadable") },
+            notice = store,
+            delegate = TrustRemover { removed += it },
+        ).remove(peer)
+
+        assertEquals(listOf(peer), removed)
+        assertEquals("", store.macName.value)
+    }
 }

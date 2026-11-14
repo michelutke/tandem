@@ -134,12 +134,23 @@ class ConnectionOrchestrator(
         } catch (
             @Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception,
         ) {
-            setFailureWhilePaired(HANDSHAKE_FAILURE)
+            setHandshakeFailureWhilePaired()
             ConnectResult.Unreachable
         }
 
     private suspend fun setFailureWhilePaired(failure: ConnectionFailure) {
         if (hasPairedPeer()) mutableFailure.value = failure
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun setHandshakeFailureWhilePaired() {
+        try {
+            setFailureWhilePaired(HANDSHAKE_FAILURE)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return
+        }
     }
 
     private suspend fun dialAndAdopt(candidate: CandidateAddress): ConnectResult =

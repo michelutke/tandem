@@ -2,6 +2,7 @@ package dev.tandem.app.connection
 
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.revoke.TrustRemover
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,8 +57,18 @@ class NoticingTrustRemover(
     private val delegate: TrustRemover,
 ) : TrustRemover {
     override suspend fun remove(fingerprint: SpkiFingerprint) {
-        val name = macName(fingerprint).orEmpty()
+        val name = lookUpName(fingerprint)
         delegate.remove(fingerprint)
         notice.mark(name)
     }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun lookUpName(fingerprint: SpkiFingerprint): String =
+        try {
+            macName(fingerprint).orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            ""
+        }
 }
