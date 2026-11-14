@@ -188,9 +188,9 @@ struct MenuContentView: View {
     /// ``pushClipboardViewModel`` (E23-07/E31-11's own `nil` below) -- until whichever issue first
     /// composes pairing together with Send File (E40-10) and Mirror (E61-12) into
     /// ``AppComposition``, ``select()`` on either instance is a no-op.
-    @State private var findPhoneViewModel = FindPhoneViewModel(session: nil)
+    private let findPhoneViewModel: FindPhoneViewModel
     @State private var pushClipboardViewModel = PushClipboardViewModel(sender: nil)
-    @State private var mirrorRequestViewModel = MirrorRequestViewModel(session: nil)
+    private let mirrorRequestViewModel: MirrorRequestViewModel
 
     /// The remaining two quick actions (E22-02) share `menuBarViewModel`'s own sessionless gap
     /// above, so this is `isConnected: false` with no-op stub closures for those two.
@@ -237,12 +237,11 @@ struct MenuContentView: View {
             peerName: peerName,
             pairedPeer: lifecycle?.pairedPeer
         ))
-        let findPhoneViewModel = FindPhoneViewModel(session: lifecycle?.sessionFeatures.live.session)
-        _findPhoneViewModel = State(initialValue: findPhoneViewModel)
-        lifecycle?.sessionFeatures.live.onSessionChanged = { findPhoneViewModel.sessionChanged($0) }
-        let mirrorRequestViewModel = MirrorRequestViewModel(session: nil, peerName: peerName)
-        _mirrorRequestViewModel = State(initialValue: mirrorRequestViewModel)
-        lifecycle?.mirror.bind(mirrorRequestViewModel)
+        let sessionModels = SharedSessionModels.models(for: lifecycle)
+        let findPhoneViewModel = sessionModels.findPhone
+        self.findPhoneViewModel = findPhoneViewModel
+        let mirrorRequestViewModel = sessionModels.mirror
+        self.mirrorRequestViewModel = mirrorRequestViewModel
         let pushClipboardViewModel = PushClipboardViewModel(clipboard: lifecycle?.sessionFeatures.clipboard)
         _pushClipboardViewModel = State(initialValue: pushClipboardViewModel)
         let sendEntryHandler = SendEntryHandler(
