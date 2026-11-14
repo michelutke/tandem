@@ -5,6 +5,7 @@ import dev.tandem.core.crypto.PinSource
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.qr.PairingInvite
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.InMemoryDuplexPipe
 import dev.tandem.core.transport.ByteStreamSession
 import dev.tandem.protocol.v1.Channel
@@ -101,11 +102,7 @@ class PairingStateMachineRealSessionTest {
     @Test
     fun pairingSm_realSessionPeerSendsRejectedThenCloses_emitsRejectedNotConnectionLost() {
         val terminal =
-            awaitingAcceptThen { mac ->
-                mac.sendFinal(Channel.CHANNEL_CONTROL) {
-                    pairRejected = pairRejected { reason = PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER }
-                }
-            }
+            awaitingAcceptThen { mac -> sendRejectedThenClose(mac) }
 
         assertEquals(PairingState.Rejected(PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER), terminal)
     }
@@ -114,14 +111,26 @@ class PairingStateMachineRealSessionTest {
     fun pairingSm_realSessionPeerSendsRejectedThenClosesRepeated_neverReportsConnectionLost() {
         repeat(REJECTED_STRESS_ITERATIONS) {
             val terminal =
-                awaitingAcceptThen { mac ->
-                    mac.sendFinal(Channel.CHANNEL_CONTROL) {
-                        pairRejected =
-                            pairRejected { reason = PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER }
-                    }
-                }
+                awaitingAcceptThen { mac -> sendRejectedThenClose(mac) }
 
             assertEquals(PairingState.Rejected(PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER), terminal)
+        }
+    }
+
+    /**
+     * `sendFinal` reports [MultiplexerClosedException] when the phone, having already read
+     * `PairRejected` off the wire, closes before the Mac's writer marks the frame written. The frame
+     * left, so that is the outcome under test, not a failure of this peer (every production
+     * `sendFinal` caller is best-effort too).
+     */
+    @Suppress("SwallowedException")
+    private suspend fun sendRejectedThenClose(mac: ByteStreamSession) {
+        try {
+            mac.sendFinal(Channel.CHANNEL_CONTROL) {
+                pairRejected = pairRejected { reason = PairRejectedReason.PAIR_REJECTED_REASON_REJECTED_BY_OWNER }
+            }
+        } catch (closedByPhoneAfterDelivery: MultiplexerClosedException) {
+            return
         }
     }
 

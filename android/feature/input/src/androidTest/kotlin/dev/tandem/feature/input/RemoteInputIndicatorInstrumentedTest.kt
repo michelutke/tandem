@@ -34,7 +34,11 @@ class RemoteInputIndicatorInstrumentedTest {
         shell("settings put secure accessibility_enabled 1")
         awaitService()
         service = checkNotNull(CapturingAccessibilityService.instance)
-        indicator = RemoteInputIndicator(AndroidNotificationPresenter(context), AccessibilityOverlayBadge(service))
+        indicator =
+            RemoteInputIndicator(
+                AndroidNotificationPresenter(context),
+                AccessibilityOverlayBadge(service, onStop = { indicator.hide() }),
+            )
         var shown = false
         instrumentation.runOnMainSync { shown = indicator.show() }
         assertTrue(shown)

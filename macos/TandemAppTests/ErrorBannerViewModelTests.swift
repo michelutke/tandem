@@ -224,8 +224,9 @@ struct ErrorBannerViewModelTests {
         for _ in 0..<500 { await Task.yield() }
 
         #expect(await viewModel.closeCode == .versionMismatch)
-        await relay.attach(failing, peer: phoneA)
-        await failing.emit(.ready)
+        let reconnected = FakeTandemSession()
+        await relay.attach(reconnected, peer: phoneA)
+        await reconnected.emit(.ready)
         attempts = 0
         while await viewModel.closeCode != nil, attempts < 10_000 {
             await Task.yield()
