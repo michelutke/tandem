@@ -214,6 +214,7 @@ only after those tests and the matching audit rows above are green on the releas
 | D-81 | Android pins material3 1.5.0-alpha29 (pre-release) over the Compose BOM for Material 3 Expressive components (owner request) | E00-31 | [decisions](../planning/decisions.md) | [ ] |
 | D-82 | Android opt-in clipboard auto-capture via a separate minimal accessibility service (ADR-007, off by default) | E31-09 | [decisions](../planning/decisions.md), [ADR-007](../adr/ADR-007-accessibility-clipboard-auto-capture.md) | [ ] |
 | D-83 | Android declares ANSWER_PHONE_CALLS and CALL_PHONE and uses the call-screening role (allow-only CallScreeningService) for the caller number; no READ_CALL_LOG (owner approved) | E52-02 | [decisions](../planning/decisions.md), [android-permissions.allowlist](../../tools/release-audit/android-permissions.allowlist), [android-exported.allowlist](../../tools/release-audit/android-exported.allowlist), [call-apis spike](../spikes/call-apis.md) | [ ] |
+| D-84 | Receive credit grants return only the credits consumed since the previous grant, so sender balance plus receiver backlog never exceeds the channel cap; over-cap grants close with CREDIT_VIOLATION (both platforms) | E20-15 | [decisions](../planning/decisions.md), [SPEC](../protocol/SPEC.md) | [ ] |
 
 ## Owner sign-off
 
