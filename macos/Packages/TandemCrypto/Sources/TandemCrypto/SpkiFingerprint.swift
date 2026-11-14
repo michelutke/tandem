@@ -46,6 +46,21 @@ public struct SpkiFingerprint: Sendable, Hashable {
         self.bytes = bytes
     }
 
+    /// The fingerprint a lowercase ``hexString`` names; `nil` for anything else.
+    public init?(hexString: String) {
+        guard hexString.utf8.count == Self.byteCount * 2 else { return nil }
+        var decoded = Data()
+        var index = hexString.startIndex
+        while index < hexString.endIndex {
+            let next = hexString.index(index, offsetBy: 2)
+            guard let byte = UInt8(hexString[index..<next], radix: 16) else { return nil }
+            decoded.append(byte)
+            index = next
+        }
+        guard let fingerprint = try? SpkiFingerprint(bytes: decoded) else { return nil }
+        self = fingerprint
+    }
+
     /// Validates `spkiDer` is an uncompressed P-256 SubjectPublicKeyInfo DER of exactly
     /// `expectedSpkiDerByteCount` bytes, then returns its fingerprint. Throws `ValidationError`
     /// before hashing anything that fails validation.
@@ -112,6 +127,9 @@ public struct SpkiFingerprint: Sendable, Hashable {
         let subjectPublicKey = try spkiReader.readTLV()
         let point = try validateBitString(subjectPublicKey)
         try validatePoint(point)
+        guard spkiDer.count == expectedSpkiDerByteCount else {
+            throw ValidationError.malformedSpki
+        }
     }
 
     private static func validateAlgorithmIdentifier(_ content: Data) throws {

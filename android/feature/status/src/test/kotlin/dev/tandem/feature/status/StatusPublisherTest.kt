@@ -1,6 +1,8 @@
 package dev.tandem.feature.status
 
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
@@ -41,6 +43,24 @@ class StatusPublisherTest {
             runCurrent()
 
             assertEquals(listOf(50), sentLevels(session))
+        }
+
+    @Test
+    fun statusPublisher_sendAfterMultiplexerClosed_noUncaughtExceptionAndLaterChangeStillSent() =
+        runTest {
+            val session = FakeTandemSession()
+            val statusFlow = newStatusFlow()
+            newPublisher(statusFlow, session)
+            runCurrent()
+
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            statusFlow.emit(status(10))
+            runCurrent()
+            advanceTimeBy(61.seconds)
+            statusFlow.emit(status(20))
+            runCurrent()
+
+            assertEquals(listOf(20), sentLevels(session))
         }
 
     @Test

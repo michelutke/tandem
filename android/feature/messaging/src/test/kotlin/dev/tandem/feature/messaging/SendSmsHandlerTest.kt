@@ -4,13 +4,16 @@ import android.app.Activity
 import android.telephony.SmsManager
 import dev.tandem.core.testing.FakeElapsedRealtime
 import dev.tandem.core.transport.FakeTandemSession
+import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SendSmsErrorCode
 import dev.tandem.protocol.v1.SendSmsState
 import dev.tandem.protocol.v1.SendSmsStatus
 import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsMessageType
+import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.sendSmsRequest
 import dev.tandem.protocol.v1.smsMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +24,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -83,6 +88,34 @@ class SendSmsHandlerTest {
         }
 
     @Test
+    fun sendSmsHandler_providerLookupThrowsAfterSent_stillReportsSentWithoutProviderId() =
+        runTest {
+            val rig = Rig()
+            rig.source.newestOutgoingFailure = IllegalStateException("provider unavailable")
+            var thrown: RuntimeException? = null
+            val job =
+                launch {
+                    try {
+                        rig.handler(this@runTest).handle(request())
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: RuntimeException) {
+                        thrown = error
+                    }
+                }
+            runCurrent()
+
+            rig.results.emit(part(0, SendResultKind.SENT))
+            rig.results.emit(part(1, SendResultKind.SENT))
+            runCurrent()
+            job.cancelAndJoin()
+
+            assertNull(thrown)
+            assertFalse(rig.statuses().any { it.state == SendSmsState.SEND_SMS_STATE_FAILED })
+            assertEquals(0L, rig.statuses().single { it.state == SendSmsState.SEND_SMS_STATE_SENT }.providerMessageId)
+        }
+
+    @Test
     fun sendFailureLogging_radioOffResult_logLinesOmitBodyAndAddress() =
         runTest {
             val rig = Rig()
@@ -119,6 +152,55 @@ class SendSmsHandlerTest {
                         it.errorCode
                 },
             )
+        }
+
+    @Test
+    fun sendSmsHandler_emptyBody_reportsFailedAndKeepsServing() =
+        runTest {
+            val rig = Rig()
+
+            rig.handler(this).handle(request(body = ""))
+
+            assertTrue(rig.sender.sent.isEmpty())
+            assertEquals(
+                listOf(failed(SendSmsErrorCode.SEND_SMS_ERROR_CODE_GENERIC_FAILURE)),
+                rig.statuses().map { it.state to it.errorCode },
+            )
+        }
+
+    @Test
+    fun sendSmsHandler_senderThrows_reportsFailedAndNextRequestStillHandled() =
+        runTest {
+            val rig = Rig()
+            rig.sender.failNextWith = IllegalArgumentException("rejected")
+            val job = launch { rig.handler(this@runTest).run() }
+            runCurrent()
+
+            rig.session.emitIncoming(requestEnvelope("client-1"))
+            rig.session.emitIncoming(requestEnvelope("client-2"))
+            runCurrent()
+            job.cancelAndJoin()
+
+            val states = rig.statuses().map { it.clientMessageId to it.state }
+            assertTrue(("client-1" to SendSmsState.SEND_SMS_STATE_FAILED) in states)
+            assertTrue(("client-2" to SendSmsState.SEND_SMS_STATE_SENDING) in states)
+            assertEquals(1, rig.sender.sent.size)
+        }
+
+    @Test
+    fun sendSmsHandler_noDeliveryReport_collectorEndsAfterTimeout() =
+        runTest {
+            val rig = Rig()
+            val job = launch { rig.handler(this@runTest).handle(request()) }
+            runCurrent()
+            rig.results.emit(part(0, SendResultKind.SENT))
+            rig.results.emit(part(1, SendResultKind.SENT))
+            runCurrent()
+
+            advanceTimeBy(600_001)
+            runCurrent()
+
+            assertTrue(job.isCompleted)
         }
 
     @Test
@@ -168,6 +250,12 @@ class SendSmsHandlerTest {
         this.address = address
         this.body = body
     }
+
+    private fun requestEnvelope(id: String) =
+        envelope {
+            channel = Channel.CHANNEL_SMS
+            sendSmsRequest = request(id)
+        }
 
     private fun part(
         index: Int,

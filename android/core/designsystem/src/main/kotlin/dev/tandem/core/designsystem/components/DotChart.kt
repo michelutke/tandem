@@ -33,6 +33,7 @@ fun DotChart(
     labels: List<String>,
     modifier: Modifier = Modifier,
     dotsPerColumn: Int = 7,
+    currentIndex: Int? = values.lastIndex,
 ) {
     val maxValue = (values.maxOrNull() ?: 0).coerceAtLeast(1)
 
@@ -49,12 +50,12 @@ fun DotChart(
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Canvas(modifier = Modifier.width(16.dp).height((dotsPerColumn * 12).dp)) {
-                    drawColumnDots(maxDots = dotsPerColumn, litDots = litDots)
+                    drawColumnDots(maxDots = dotsPerColumn, litDots = litDots, isCurrent = index == currentIndex)
                 }
                 Text(
                     text = labels.getOrElse(index) { "" },
                     style = TandemType.metaMono,
-                    color = TandemColors.ink2,
+                    color = TandemColors.ink,
                 )
             }
         }

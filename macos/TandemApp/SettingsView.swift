@@ -79,7 +79,8 @@ struct SettingsView: View {
                 tabContent
                 Spacer(minLength: 0)
             }
-            .frame(width: 420, height: 320, alignment: .topLeading)
+            .frame(width: 420, alignment: .topLeading)
+            .frame(minHeight: 320, alignment: .top)
         }
         .onAppear { launchAtLoginViewModel.refreshStatus() }
     }
@@ -214,7 +215,12 @@ private struct FilesSettingsView: View {
                     .accessibilityIdentifier("downloadFolderErrorLabel")
             }
         }
-        .onAppear { folder = DownloadFolderStore.standard.current }
+        .onAppear {
+            folder = DownloadFolderStore.standard.current
+            if DownloadFolderStore.standard.isFallingBackToDefault {
+                errorText = "The chosen folder is no longer accessible. Using the default folder."
+            }
+        }
     }
 
     private func chooseFolder() {

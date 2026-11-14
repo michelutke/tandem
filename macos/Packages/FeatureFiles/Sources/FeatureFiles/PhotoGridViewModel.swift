@@ -20,6 +20,8 @@ public final class PhotoGridViewModel {
     public private(set) var thumbnails: [String: Data] = [:]
     public private(set) var loadFailed = false
     public private(set) var downloadStates: [String: DownloadState] = [:]
+    public private(set) var selectedIds: Set<String> = []
+    public private(set) var hasMorePages = true
 
     public enum DownloadState: Sendable, Equatable {
         case downloading
@@ -29,12 +31,18 @@ public final class PhotoGridViewModel {
 
     public var showsLimitedAccessBanner: Bool { access == .partial }
 
+    /// The phone's photo count, known only once the last page is loaded (a page reports no total).
+    public var totalCount: Int? { hasMorePages ? nil : items.count }
+
+    /// The phone reports it shares no photos at all (ui-spec §7.1 "Photos · No access").
+    public var showsNoAccess: Bool { access == .none }
+
     @ObservationIgnored private let service: any PhotoService
     @ObservationIgnored private let offerExpecting: (any OriginalOfferExpecting)?
+    @ObservationIgnored private let events: (any OriginalTransferEventSource)?
     @ObservationIgnored private let makeTransferID: @Sendable () -> String
     @ObservationIgnored private var pendingOriginals: [String: String] = [:]
     @ObservationIgnored private var nextCursor = ""
-    @ObservationIgnored private var hasMorePages = true
     @ObservationIgnored private var pageInFlight = false
     @ObservationIgnored private var requestedThumbIDs: Set<String> = []
     @ObservationIgnored private var desiredThumbRange: ClosedRange<Int>?
@@ -44,10 +52,12 @@ public final class PhotoGridViewModel {
     public init(
         service: any PhotoService,
         offerExpecting: (any OriginalOfferExpecting)? = nil,
+        events: (any OriginalTransferEventSource)? = nil,
         makeTransferID: @escaping @Sendable () -> String = { UUID().uuidString }
     ) {
         self.service = service
         self.offerExpecting = offerExpecting
+        self.events = events
         self.makeTransferID = makeTransferID
     }
 
@@ -81,12 +91,26 @@ public final class PhotoGridViewModel {
         }
     }
 
+    public func isSelected(id: String) -> Bool {
+        selectedIds.contains(id)
+    }
+
+    public func toggleSelection(id: String) {
+        if !selectedIds.insert(id).inserted { selectedIds.remove(id) }
+    }
+
+    /// Requests the original of every selected photo, in grid order, then clears the selection.
+    public func downloadSelected() async {
+        let ids = items.map(\.id).filter(selectedIds.contains)
+        selectedIds = []
+        for id in ids { await download(id: id) }
+    }
+
     public func selectMoreOnPhone() async {
         try? await service.requestMorePhotos()
     }
 
     public func download(id: String) async {
-        guard downloadStates[id] != .downloading else { return }
         let transferId = makeTransferID()
         pendingOriginals[transferId] = id
         downloadStates[id] = .downloading
@@ -95,6 +119,26 @@ public final class PhotoGridViewModel {
             try await service.requestOriginal(id: id, transferId: transferId)
         } catch {
             await failDownload(transferId: transferId, photoId: id)
+        }
+    }
+
+    /// Resolves `.downloading` for each requested original from the session's transfer events, until
+    /// cancelled or the source finishes.
+    public func observeOriginalEvents() async {
+        guard let events else { return }
+        for await event in events.originalTransferEvents() {
+            switch event {
+            case .finished(let transferId): originalTransferFinished(transferId: transferId)
+            case .failed(let transferId): await originalTransferFailed(transferId: transferId)
+            case .photoError(let error): await photoErrorReceived(error)
+            case .disconnected: await failAllPendingOriginals()
+            }
+        }
+    }
+
+    private func failAllPendingOriginals() async {
+        for (transferId, photoId) in pendingOriginals {
+            await failDownload(transferId: transferId, photoId: photoId)
         }
     }
 
@@ -108,6 +152,11 @@ public final class PhotoGridViewModel {
     public func originalTransferFinished(transferId: String) {
         guard let photoId = pendingOriginals.removeValue(forKey: transferId) else { return }
         downloadStates[photoId] = .downloaded
+    }
+
+    public func originalTransferFailed(transferId: String) async {
+        guard let photoId = pendingOriginals[transferId] else { return }
+        await failDownload(transferId: transferId, photoId: photoId)
     }
 
     private func failDownload(transferId: String, photoId: String) async {

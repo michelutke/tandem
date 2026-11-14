@@ -38,7 +38,8 @@ struct TransferProgressWiringTests {
             source: source,
             session: session,
             scheduler: FilesScheduler(session: session),
-            progress: center
+            progress: center,
+            clock: clock
         )
 
         await sender.start()
@@ -49,6 +50,7 @@ struct TransferProgressWiringTests {
         accepted.id = "t1"
         await sender.handle(accept: accepted)
         await settle { await sender.state == .completed }
+        await settle { clock.advance(by: FileSender.completionGrace); return center.rows.isEmpty }
 
         #expect(center.rows.isEmpty)
     }
@@ -59,6 +61,7 @@ struct TransferProgressWiringTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let recorder = RecordingProgress()
         let session = FakeTandemSession()
+        let clock = ManualTestClock()
         let sender = FileSender(
             id: "t1",
             name: "f.bin",
@@ -66,7 +69,8 @@ struct TransferProgressWiringTests {
             source: source,
             session: session,
             scheduler: FilesScheduler(session: session),
-            progress: recorder
+            progress: recorder,
+            clock: clock
         )
 
         await sender.start()
@@ -74,6 +78,7 @@ struct TransferProgressWiringTests {
         accepted.id = "t1"
         await sender.handle(accept: accepted)
         await settle { await sender.state == .completed }
+        await settle { clock.advance(by: FileSender.completionGrace); return recorder.events.last == "ended t1" }
 
         let total = Int64(3 * chunkSize + 1)
         #expect(recorder.events.first == "began t1 \(total)")

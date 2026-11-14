@@ -50,6 +50,25 @@ class ShareTargetActivityTest {
         assertTrue(session.sentFrames.isEmpty())
     }
 
+    @Test
+    fun shareTargetActivity_noSession_showsNotConnectedToast() {
+        val toasts = mutableListOf<String>()
+        val intent =
+            explicitIntent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "hello mac")
+            }
+        val controller = Robolectric.buildActivity(ShareTargetActivity::class.java, intent)
+        val activity = controller.get()
+        activity.sessionProvider = { null }
+        activity.toast = { _, message -> toasts += message }
+
+        controller.create()
+
+        assertEquals(listOf(ClipboardSender.NOT_CONNECTED_TOAST), toasts)
+        assertTrue(activity.isFinishing)
+    }
+
     // Explicit (setClass) rather than a bare implicit Intent(action): detekt's
     // ImplicitInternalIntent rule requires an explicit target, and Robolectric.buildActivity's
     // second argument is delivered straight to the built ShareTargetActivity regardless, so

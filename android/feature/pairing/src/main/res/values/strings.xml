@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Scan (ui-spec 7.2, 10 scan.invalid) -->
+    <string name="scan_title">Scan.</string>
+    <string name="scan_state">The code on your Mac.</string>
+    <string name="scan_decoded_on_phone">Decoded on this phone. Nothing is uploaded.</string>
+    <string name="scan_cancel">Cancel</string>
+    <string name="scan_pair_without_camera">Pair without camera</string>
+    <string name="scan_camera_needed_title">Camera needed.</string>
+    <string name="scan_camera_needed_state">Scan the code on your Mac.</string>
+    <string name="scan_grant">Grant</string>
+    <string name="scan_invalid_title">Not a Tandem code.</string>
+    <string name="scan_invalid_state">Or it was already used.</string>
+    <string name="scan_invalid_hint">Show a fresh code on your Mac: Pair phone.</string>
+    <string name="scan_again">Scan again</string>
+</resources>

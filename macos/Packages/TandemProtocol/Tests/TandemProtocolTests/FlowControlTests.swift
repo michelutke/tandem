@@ -163,6 +163,55 @@ struct FlowControlTests {
         #expect(capturedBytes == expectedBytes)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func flowControl_stalledConsumerFastSender_inboundBacklogNeverExceedsCap() async throws {
+        let pair = InMemoryConnectionPair()
+        let receiver = ChannelMultiplexer(source: InMemoryFrameSource(pair.endB), sink: pair.endB.send)
+        await receiver.start()
+        let notifyStream = await receiver.inbound(.notify)
+        var notifyIterator = notifyStream.makeAsyncIterator()
+        let cap = CreditCaps.capFor(.notify)
+        for seq in UInt64(1)...UInt64(cap) {
+            var envelope = Tandem_V1_Envelope()
+            envelope.channel = .notify
+            envelope.seq = seq
+            envelope.payload = .heartbeat(Tandem_V1_Heartbeat())
+            try await pair.endA.send(try FrameEncoder.encode(envelope))
+        }
+        while await receiver.receiveLedger[.notify]?.balance != 0 { await Task.yield() }
+
+        for _ in 0..<(cap / 2) { _ = await notifyIterator.next() }
+
+        let peerWire = InMemoryFrameSource(pair.endA)
+        guard case .frame(let grantEnvelope)? = try await FrameDecoder.decode(from: peerWire),
+              case .creditGrant(let grant)? = grantEnvelope.payload else {
+            Issue.record("expected a CreditGrant frame")
+            return
+        }
+        let backlog = cap - cap / 2
+        #expect(grant.amount == cap / 2)
+        #expect(grant.amount + backlog <= cap)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func flowControl_grantAmountAboveCap_closesWithCreditViolation() async throws {
+        let pair = InMemoryConnectionPair()
+        let receiver = ChannelMultiplexer(source: InMemoryFrameSource(pair.endB), sink: pair.endB.send)
+        await receiver.start()
+
+        var grant = Tandem_V1_CreditGrant()
+        grant.channel = .notify
+        grant.amount = UInt32.max
+        var envelope = Tandem_V1_Envelope()
+        envelope.channel = .control
+        envelope.seq = 1
+        envelope.payload = .creditGrant(grant)
+        try await pair.endA.send(try FrameEncoder.encode(envelope))
+
+        let closeReason = await waitForClose(of: receiver)
+        #expect(closeReason == .creditViolation(.notify))
+    }
+
     @Test
     func flowControl_peerSendsBeyondGrant_closesWithCreditViolation() async throws {
         let pair = InMemoryConnectionPair()

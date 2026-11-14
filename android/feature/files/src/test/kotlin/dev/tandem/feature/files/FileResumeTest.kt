@@ -124,6 +124,34 @@ class FileResumeTest {
         }
 
     @Test
+    fun androidResume_partOfOfferAcceptedThisSession_notDeletedBySweepBeforeMetaIsWritten() =
+        runTest {
+            val real = store()
+            val withoutMeta =
+                object : TransferStore by real {
+                    override fun writeMeta(
+                        id: String,
+                        bytes: ByteArray,
+                    ) = Unit
+                }
+            val connection = connect(withoutMeta)
+            connection.sender.send(SendRequest(ID, source(3 * MIB).path, "file.bin", "application/octet-stream"))
+            runCurrent()
+            val offer =
+                connection.senderSession.sentFrames
+                    .single()
+                    .fileOffer
+            connection.receiver.expect(offer)
+            runCurrent()
+
+            connection.receiver.resumeRetained()
+            runCurrent()
+
+            assertEquals(listOf(ID), real.ids())
+            assertTrue(connection.receiverSession.sentFrames.none { it.hasFileResumeRequest() })
+        }
+
+    @Test
     fun androidResume_unknownTransferId_fileRejectUnknownTransfer() =
         runTest {
             val connection = connect(store())

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.ui.TandemActivity
 import dev.tandem.feature.clipboard.di.ClipboardDispatchers
@@ -23,6 +24,9 @@ import kotlinx.coroutines.launch
 class ClipboardCaptureActivity : TandemActivity() {
     var sessionProvider: (Context) -> TandemSession? = { LiveClipboardSession.current }
     internal var dispatcher: CoroutineDispatcher = ClipboardDispatchers.default
+    internal var toast: (Context, String) -> Unit = { context, message ->
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
     var clipboardReaderProvider: (Context) -> ClipboardReader = { context -> AndroidClipboardReader(context) }
 
     internal var loopGuard: ClipboardLoopGuard = LiveClipboardSession.loopGuard
@@ -46,6 +50,7 @@ class ClipboardCaptureActivity : TandemActivity() {
         val clip = clipboardReaderProvider(this).currentClip()
         val session = sessionProvider(this)
         val isAuto = intent.getBooleanExtra(EXTRA_AUTO_CAPTURE, false)
+        if (session == null && !isAuto) toast(this, ClipboardSender.NOT_CONNECTED_TOAST)
         if (session == null ||
             !ClipboardCaptureDecision(loopGuard).shouldSend(clip, hasSession = true, isAuto = isAuto)
         ) {

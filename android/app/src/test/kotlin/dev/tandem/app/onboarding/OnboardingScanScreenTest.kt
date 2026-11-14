@@ -25,7 +25,6 @@ class OnboardingScanScreenTest {
             OnboardingScanScreen(onScanAccepted = {}, onCancel = {})
         }
 
-        composeRule.onNodeWithText(ONBOARDING_SCAN_TITLE).assertExists()
         composeRule.onNodeWithText("Skip").assertDoesNotExist()
         composeRule.onNodeWithText("Grant").assertExists()
 

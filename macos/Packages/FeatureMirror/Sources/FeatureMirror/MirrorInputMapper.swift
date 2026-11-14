@@ -2,6 +2,13 @@ import CoreGraphics
 import Foundation
 import TandemProtocol
 
+/// A system navigation action the mirror toolbar can send (`GlobalActionKind`).
+public enum MirrorGlobalAction: Equatable, Sendable {
+    case back
+    case home
+    case recents
+}
+
 /// Pure value-type view events (top-left-origin view points, `NSEvent.timestamp` seconds).
 public enum MirrorInputEvent: Equatable, Sendable {
     case pressed(point: CGPoint, time: TimeInterval)
@@ -9,6 +16,7 @@ public enum MirrorInputEvent: Equatable, Sendable {
     case released(point: CGPoint, time: TimeInterval)
     case scrolled(point: CGPoint, deltaX: Double, deltaY: Double, time: TimeInterval)
     case key(characters: String?, keyCode: UInt16, hasCommandModifiers: Bool)
+    case global(MirrorGlobalAction)
 }
 
 /// Translates view events to `InputEvent`s (E62-07, SPEC § Input events). Points in letterbox bars
@@ -59,6 +67,8 @@ public struct MirrorInputMapper: Sendable {
                 characters: characters, keyCode: keyCode, hasCommandModifiers: hasCommandModifiers)
             else { return [] }
             return [makeEvent { $0.event = .textEdit(Self.textEdit(edit)) }]
+        case .global(let action):
+            return [makeEvent { $0.event = .globalAction(.with { $0.action = Self.kind(of: action) }) }]
         }
     }
 
@@ -115,6 +125,14 @@ public struct MirrorInputMapper: Sendable {
 
     private static func clampedInt32(_ value: Double) -> Int32 {
         Int32(min(max(value.rounded(), Double(Int32.min)), Double(Int32.max)))
+    }
+
+    private static func kind(of action: MirrorGlobalAction) -> Tandem_V1_GlobalActionKind {
+        switch action {
+        case .back: .back
+        case .home: .home
+        case .recents: .recents
+        }
     }
 
     private static func textEdit(_ edit: KeyMapper.Edit) -> Tandem_V1_TextEdit {

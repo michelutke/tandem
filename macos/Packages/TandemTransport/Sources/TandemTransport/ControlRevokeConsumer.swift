@@ -33,7 +33,9 @@ func startControlRevokeReader(
     session: ByteStreamSession,
     sessionRegistry: any ControlSessionRegistering,
     trustStore: TrustStore?,
-    rotation: RotationReceiver? = nil
+    rotation: RotationReceiver? = nil,
+    purgeRegistry: PeerDataPurgeRegistry? = nil,
+    onUnpaired: (@Sendable () async -> Void)? = nil
 ) -> Task<Void, Never>? {
     guard let trustStore else { return nil }
     let worker = Task {
@@ -46,7 +48,9 @@ func startControlRevokeReader(
                     peerSpkiFingerprint: fingerprint,
                     session: ControlRevokeHandlerSession(session: session),
                     trustStore: trustStore,
-                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry, session: session)
+                    registry: ControlRevokeHandlerRegistry(registry: sessionRegistry),
+                    purgeRegistry: purgeRegistry,
+                    onUnpaired: onUnpaired
                 )
                 return
             case .keyRotation(let message)?:
@@ -91,15 +95,14 @@ private struct ControlRevokeHandlerSession: RevokeHandlerSession {
 }
 
 /// Adapts ``ControlSessionRegistering`` to ``TandemStore/RevokeHandlerRegistry`` for
-/// ``startControlRevokeReader(fingerprint:session:sessionRegistry:trustStore:)`` (E14-26). Routes
-/// through ``ControlSessionRegistering/removeIfCurrent(_:session:)`` (identity-checked) rather
-/// than an unconditional removal-by-fingerprint, so a session this reader is about to revoke never
-/// clobbers a newer session already registered for the same peer.
+/// ``startControlRevokeReader(fingerprint:session:sessionRegistry:trustStore:)`` (E14-26). Every pin
+/// of the revoked record is removed unconditionally, own pin included: the record is already
+/// deleted, so a session registered under any of them (even a newer one that reconnected under the
+/// revoking session's own pin) belongs to the revoked phone and must be closed too.
 private struct ControlRevokeHandlerRegistry: RevokeHandlerRegistry {
     let registry: any ControlSessionRegistering
-    let session: any TandemSession
 
     func unregister(_ spkiFingerprint: SpkiFingerprint) async {
-        await registry.removeIfCurrent(spkiFingerprint, session: session)
+        await registry.unregister(spkiFingerprint)
     }
 }

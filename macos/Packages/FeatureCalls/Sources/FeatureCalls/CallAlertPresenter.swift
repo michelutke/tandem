@@ -19,8 +19,9 @@ public struct CallAlertResponse: Sendable, Equatable {
 /// `UNUserNotificationCenter`; the seam lives here because Feature packages may not depend on each
 /// other, so `FeatureCalls` cannot import `FeatureNotifications`.
 public protocol CallAlertPresenter: Sendable {
-    /// Presents the alert for `callId`; a second call for the same `callId` replaces it.
-    func present(callId: String, title: String, body: String) async
+    /// Presents the alert for `callId`; a second call for the same `callId` replaces it. Returns
+    /// whether it was delivered (false when the system refuses, e.g. notifications are denied).
+    func present(callId: String, title: String, body: String) async -> Bool
 
     /// Removes the alert for `callId`, if delivered.
     func remove(callId: String) async

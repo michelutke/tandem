@@ -27,15 +27,20 @@ import dev.tandem.app.connection.feature.RingFeature
 import dev.tandem.app.connection.feature.RotationFeature
 import dev.tandem.app.connection.feature.SmsFeatures
 import dev.tandem.app.connection.feature.StatusFeature
+import dev.tandem.app.incoming.IncomingFileActivity
 import dev.tandem.app.mirror.AndroidMirrorPlatform
 import dev.tandem.app.mirror.LogInputDropLog
 import dev.tandem.app.mirror.MirrorConsentActivity
 import dev.tandem.app.mirror.MirrorFeature
+import dev.tandem.app.mirror.MirrorRequestActivity
+import dev.tandem.app.ring.SharedPreferencesRingFilterSwitchRecord
 import dev.tandem.app.ring.SystemAlarmPlayer
 import dev.tandem.app.ring.SystemNotificationPolicyAccess
+import dev.tandem.app.ring.SystemRingNotifier
 import dev.tandem.app.settings.FeatureToggles
 import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.pairing.PeerDataPurgeRegistry
+import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.storage.rotation.RotationEventLog
 import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
@@ -61,12 +66,15 @@ import dev.tandem.feature.files.NotificationReceivedFileNotifier
 import dev.tandem.feature.files.NotificationTransferPrompter
 import dev.tandem.feature.files.ReceivedFileNotifier
 import dev.tandem.feature.files.StatFsFreeSpaceProvider
+import dev.tandem.feature.files.TransferProgressNotifier
 import dev.tandem.feature.input.LiveRemoteInput
 import dev.tandem.feature.messaging.ContentResolverSmsSource
 import dev.tandem.feature.messaging.ContextSendSmsPermission
 import dev.tandem.feature.messaging.SmsManagerSender
 import dev.tandem.feature.messaging.SubscriptionManagerSource
 import dev.tandem.feature.mirror.NotificationMirrorPromptPresenter
+import dev.tandem.feature.notifications.IconSender
+import dev.tandem.feature.notifications.SharedPreferencesFocusFilterRecord
 import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
 import dev.tandem.feature.status.BatteryReceiverStatusSource
 import dev.tandem.feature.status.ConnectivityManagerNetworkTypeSource
@@ -96,7 +104,12 @@ object SessionFeatureFactory {
         val recorder = application.activityRecorder
         val toggles = application.featureToggles
         val filesFeature = filesFeature(context, clock, recorder)
+        val iconSettings =
+            SettingsStore(
+                createSettingsDataStore(File(context.filesDir, ICON_SENT_STORE_FILE_NAME), AppDispatchers.default),
+            )
         purgeRegistry.register(filesFeature.purger)
+        purgeRegistry.register(PeerDataPurging { IconSender.clearSentRecords(iconSettings) })
         purgeRegistry.register(application.activityStore)
         val smsFeatures =
             SmsFeatures(
@@ -106,10 +119,6 @@ object SessionFeatureFactory {
                 subscriptions = SubscriptionManagerSource(context),
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
                 ioDispatcher = AppDispatchers.io,
-            )
-        val iconSettings =
-            SettingsStore(
-                createSettingsDataStore(File(context.filesDir, ICON_SENT_STORE_FILE_NAME), AppDispatchers.default),
             )
         return listOf(
             NotificationsFeature(SystemElapsedRealtimeSource, clock, AppDispatchers.default)
@@ -130,10 +139,12 @@ object SessionFeatureFactory {
                 alarmPlayer = { SystemAlarmPlayer(context) },
                 policyAccess = { SystemNotificationPolicyAccess(context) },
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
+                ringNotifier = SystemRingNotifier(context),
                 onRing = { recorder.record(ActivityEventType.FindPhone) },
+                filterSwitchRecord = { SharedPreferencesRingFilterSwitchRecord(context) },
             ),
             callsFeature(context, clock, recorder),
-            FocusFeature { SystemInterruptionFilterGateway(context) },
+            FocusFeature({ SystemInterruptionFilterGateway(context) }, { SharedPreferencesFocusFilterRecord(context) }),
             NotificationInteractionsFeature(context, iconSettings, AppDispatchers.default)
                 .gatedBy(toggles, SyncFeature.Notifications),
             mirrorFeature(context, clock, trustStore, keyManager, recorder)
@@ -196,7 +207,12 @@ object SessionFeatureFactory {
         val application = context as TandemApplication
         return MirrorFeature(
             platform = AndroidMirrorPlatform(context),
-            presenter = NotificationMirrorPromptPresenter(context, MirrorConsentActivity::class.java),
+            presenter =
+                NotificationMirrorPromptPresenter(
+                    context,
+                    MirrorConsentActivity::class.java,
+                    MirrorRequestActivity::class.java,
+                ),
             peerName = { peer ->
                 trustStore.list().firstOrNull { it.spkiSha256Base64Url == peer.base64Url }?.displayName
                     ?: context.getString(R.string.mirror_peer_fallback_name)
@@ -227,7 +243,7 @@ object SessionFeatureFactory {
             store = FileTransferStore(File(context.filesDir, INCOMING_TRANSFERS_DIRECTORY), clock),
             publisher = MediaStoreDownloadsPublisher(context.contentResolver),
             notifier = recordingNotifier(NotificationReceivedFileNotifier(context), recorder),
-            prompter = NotificationTransferPrompter(context),
+            prompter = NotificationTransferPrompter(context, IncomingFileActivity::class.java),
             freeSpace = StatFsFreeSpaceProvider(context.filesDir),
             reader = ContentResolverSourceFileReader(context.contentResolver),
             mediaSource = ContentResolverMediaStoreSource(context.contentResolver),
@@ -237,6 +253,7 @@ object SessionFeatureFactory {
             clock = clock,
             ioDispatcher = AppDispatchers.io,
             serialDispatcher = AppDispatchers::serial,
+            progressNotifier = TransferProgressNotifier(context),
         )
     }
 

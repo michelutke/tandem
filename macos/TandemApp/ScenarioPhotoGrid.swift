@@ -14,17 +14,35 @@ extension ScenarioView {
     }
 }
 
+extension ScenarioView {
+    /// A phone that shares no photos (E41-05): the "hasn't shared photos" state shows.
+    @MainActor
+    static func makePhotosNoAccessView() -> some View {
+        ScenarioPhotoGridHost { SeededNoAccessPhotoService() }
+    }
+}
+
+extension ScenarioView {
+    /// The three-photo library with two photos already selected (E41-05): "Download 2" and the footer show.
+    @MainActor
+    static func makePhotoGridSelectionView() -> some View {
+        ScenarioPhotoGridHost(selecting: ["seeded-0", "seeded-2"]) { SeededPartialAccessPhotoService() }
+    }
+}
+
 /// Holds the grid's view model in `@State`: the scenario root re-evaluates its body, and a view
 /// model built inline would restart loading every time.
 private struct ScenarioPhotoGridHost<Service: PhotoService>: View {
     @State private var viewModel: PhotoGridViewModel
 
-    init(service: () -> Service) {
-        _viewModel = State(initialValue: PhotoGridViewModel(service: service()))
+    init(selecting selectedIds: [String] = [], service: () -> Service) {
+        let viewModel = PhotoGridViewModel(service: service())
+        selectedIds.forEach(viewModel.toggleSelection(id:))
+        _viewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
-        PhotoGridView(viewModel: viewModel)
+        PhotoGridView(viewModel: viewModel, deviceName: ScenarioView.pairedConnectedPeerName)
     }
 }
 
@@ -63,6 +81,20 @@ private struct Seeded10kPhotoService: PhotoService {
     }
 
     func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Self.thumbnail }
+
+    func requestMorePhotos() async throws {}
+
+    func requestOriginal(id: String, transferId: String) async throws {}
+}
+
+private struct SeededNoAccessPhotoService: PhotoService {
+    func fetchPage(cursor: String, limit: UInt32) async throws -> Tandem_V1_PhotoPageResult {
+        var result = Tandem_V1_PhotoPageResult()
+        result.access = .none
+        return result
+    }
+
+    func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data { Data() }
 
     func requestMorePhotos() async throws {}
 

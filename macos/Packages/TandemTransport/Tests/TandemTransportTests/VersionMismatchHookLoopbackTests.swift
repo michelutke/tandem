@@ -177,6 +177,8 @@ private final class RecordingRegistry: ControlSessionRegistering, @unchecked Sen
     }
 
     func removeIfCurrent(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {}
+
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {}
 }
 
 /// Captures the one `(fingerprint, session)` pair `onSessionRegistered` is called with; the wait

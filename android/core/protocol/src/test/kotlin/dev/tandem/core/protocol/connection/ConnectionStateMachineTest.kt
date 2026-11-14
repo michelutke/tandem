@@ -13,6 +13,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.util.concurrent.CyclicBarrier
+import kotlin.concurrent.thread
+
+private const val RACE_ITERATIONS = 20_000
 
 /**
  * ConnectionStateMachine tests (E12-08; `docs/planning/backlog/phase-1.yaml` E12-08's `tdd:`
@@ -123,6 +127,44 @@ class ConnectionStateMachineTest {
         }
 
     @Test
+    fun connectionSm_socketClosedInHelloExchange_disconnectedAndLateHelloIgnored() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.SocketOpened)
+            sm.handle(ConnectionEvent.HandshakeCompleted)
+
+            assertTrue(sm.handle(ConnectionEvent.SocketClosed("peer closed the connection")))
+            assertEquals(ConnectionState.Disconnected("peer closed the connection"), sm.state.value)
+            assertFalse(sm.handle(ConnectionEvent.CompatibleHelloReceived))
+            assertEquals(ConnectionState.Disconnected("peer closed the connection"), sm.state.value)
+        }
+
+    @Test
+    fun connectionSm_peerRejectedCertificate_emitsFailedPeerRejectedCertificate() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.SocketOpened)
+            sm.handle(ConnectionEvent.HandshakeCompleted)
+
+            assertTrue(sm.handle(ConnectionEvent.PeerRejectedCertificate))
+
+            assertEquals(ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate), sm.state.value)
+        }
+
+    @Test
+    fun connectionSm_socketClosedWhileFailed_rejectedStateUnchanged() =
+        runTest {
+            val sm = newMachine()
+            sm.handle(ConnectionEvent.Connect)
+            sm.handle(ConnectionEvent.HandshakeError("tls failure"))
+
+            assertFalse(sm.handle(ConnectionEvent.SocketClosed("late close")))
+            assertTrue(sm.state.value is ConnectionState.Failed)
+        }
+
+    @Test
     fun connectionSm_handshakeStartedWhileReady_rejectedStateUnchanged() =
         runTest {
             val sm = newMachine()
@@ -154,6 +196,24 @@ class ConnectionStateMachineTest {
                 val failed = awaitItem() as ConnectionState.Failed
                 assertEquals(ConnectionFailure.Timeout, failed.reason)
                 assertEquals(CloseCode.PROTOCOL_TIMEOUT, failed.reason.closeCode)
+            }
+        }
+
+    @Test
+    fun connectionSm_socketClosedRacingCompatibleHello_neverEndsReadyAfterClose() =
+        runTest {
+            repeat(RACE_ITERATIONS) {
+                val sm = newMachine()
+                sm.handle(ConnectionEvent.Connect)
+                sm.handle(ConnectionEvent.SocketOpened)
+                sm.handle(ConnectionEvent.HandshakeCompleted)
+                val barrier = CyclicBarrier(2)
+                val hello = thread { barrier.await().also { sm.handle(ConnectionEvent.CompatibleHelloReceived) } }
+                val closed = thread { barrier.await().also { sm.handle(ConnectionEvent.SocketClosed("closed")) } }
+                hello.join()
+                closed.join()
+
+                assertTrue(sm.state.value is ConnectionState.Disconnected, "iteration $it ended ${sm.state.value}")
             }
         }
 

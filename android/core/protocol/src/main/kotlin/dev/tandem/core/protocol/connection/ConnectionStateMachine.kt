@@ -44,8 +44,10 @@ class ConnectionStateMachine(
 
     /**
      * Applies [event] to the current state. Returns `false`, leaving [state] unchanged, if
-     * [event] is illegal from it.
+     * [event] is illegal from it. Atomic: events from different threads (a local close racing the hello
+     * exchange) apply one after the other, so a stale transition never overwrites a later one.
      */
+    @Synchronized
     fun handle(event: ConnectionEvent): Boolean {
         val next = transition(mutableState.value, event) ?: return false
         applyDeadline(event)
@@ -61,12 +63,23 @@ class ConnectionStateMachine(
     private fun transition(
         current: ConnectionState,
         event: ConnectionEvent,
+    ): ConnectionState? = failureFor(event) ?: advance(current, event)
+
+    /** The [ConnectionState.Failed] a failure [event] always causes, from any state; `null` for any other event. */
+    private fun failureFor(event: ConnectionEvent): ConnectionState.Failed? =
+        when (event) {
+            is ConnectionEvent.HandshakeError -> ConnectionState.Failed(ConnectionFailure.HandshakeError(event.message))
+            ConnectionEvent.VersionMismatch -> ConnectionState.Failed(ConnectionFailure.VersionMismatch)
+            ConnectionEvent.HelloTimeout -> ConnectionState.Failed(ConnectionFailure.Timeout)
+            ConnectionEvent.PeerRejectedCertificate -> ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate)
+            else -> null
+        }
+
+    private fun advance(
+        current: ConnectionState,
+        event: ConnectionEvent,
     ): ConnectionState? =
         when (event) {
-            is ConnectionEvent.HandshakeError -> {
-                ConnectionState.Failed(ConnectionFailure.HandshakeError(event.message))
-            }
-
             ConnectionEvent.Connect -> {
                 if (current is ConnectionState.Disconnected) ConnectionState.Connecting else null
             }
@@ -84,14 +97,28 @@ class ConnectionStateMachine(
             }
 
             is ConnectionEvent.SocketClosed -> {
-                if (current is ConnectionState.Ready) ConnectionState.Disconnected(event.reason) else null
+                if (current.isTerminal()) null else ConnectionState.Disconnected(event.reason)
+            }
+
+            else -> {
+                null
             }
         }
+
+    private fun ConnectionState.isTerminal(): Boolean =
+        this is ConnectionState.Disconnected || this is ConnectionState.Failed
 
     private fun applyDeadline(event: ConnectionEvent) {
         when (event) {
             ConnectionEvent.Connect -> armDeadline()
-            ConnectionEvent.HandshakeCompleted, is ConnectionEvent.HandshakeError -> disarmDeadline()
+
+            ConnectionEvent.HandshakeCompleted,
+            ConnectionEvent.VersionMismatch,
+            ConnectionEvent.HelloTimeout,
+            ConnectionEvent.PeerRejectedCertificate,
+            is ConnectionEvent.HandshakeError,
+            -> disarmDeadline()
+
             else -> Unit
         }
     }

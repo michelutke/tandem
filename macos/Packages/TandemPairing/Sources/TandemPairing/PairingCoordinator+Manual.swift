@@ -87,7 +87,6 @@ extension PairingCoordinator {
             return .confirmationPending(buildConfirmationViewModel(
                 code: sas,
                 displayNameBytes: Data("Phone".utf8),
-                modelBytes: Data("New phone".utf8),
                 acceptance: .manual,
                 context: context
             ))

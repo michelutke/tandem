@@ -22,6 +22,8 @@ final class NotificationAcceptPromptPresenter: AcceptPromptPresenter, @unchecked
     private let continuation: AsyncStream<AcceptPromptResponse>.Continuation
     private let presenter: any NotificationPresenter
     private let categories: CategoryRegistry
+    private let lock = NSLock()
+    private var outstanding: Set<String> = []
 
     init(presenter: any NotificationPresenter, categories: CategoryRegistry) {
         self.presenter = presenter
@@ -30,6 +32,7 @@ final class NotificationAcceptPromptPresenter: AcceptPromptPresenter, @unchecked
     }
 
     func present(offerId: String, displayName: String, size: UInt64) async {
+        lock.withLock { _ = outstanding.insert(offerId) }
         let categoryIdentifier = await categories.categoryIdentifier(for: Self.actions)
         let content = UNMutableNotificationContent()
         content.title = "Incoming file"
@@ -42,7 +45,17 @@ final class NotificationAcceptPromptPresenter: AcceptPromptPresenter, @unchecked
     }
 
     func remove(offerId: String) async {
+        _ = lock.withLock { outstanding.remove(offerId) }
         await presenter.removeDelivered(identifiers: [Self.requestIdentifierPrefix + offerId])
+    }
+
+    /// Removes every prompt still delivered, e.g. when the session ends with offers unanswered.
+    func removeAll() async {
+        let offerIds = lock.withLock { () -> Set<String> in
+            defer { outstanding = [] }
+            return outstanding
+        }
+        await presenter.removeDelivered(identifiers: offerIds.map { Self.requestIdentifierPrefix + $0 })
     }
 
     func handle(_ event: NotificationResponseEvent) {

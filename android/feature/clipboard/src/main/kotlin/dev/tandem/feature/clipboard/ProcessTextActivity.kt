@@ -34,6 +34,7 @@ class ProcessTextActivity : TandemActivity() {
 
         val text = extractText()
         val session = text?.let { sessionProvider(this) }
+        if (text != null && session == null) toast(this, ClipboardSender.NOT_CONNECTED_TOAST)
         if (text == null || session == null) {
             finish()
             return

@@ -1,7 +1,9 @@
 package dev.tandem.feature.files
 
 import com.google.protobuf.ByteString
+import dev.tandem.core.protocol.FrameTooLargeException
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
+import dev.tandem.core.transport.SessionSendFailureHandler
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileCancel
@@ -64,6 +66,11 @@ class RetainedSends {
         entries.remove(id)
     }
 
+    @Synchronized
+    fun clear() {
+        entries.clear()
+    }
+
     internal class Retained(
         val request: SendRequest,
         val size: Long,
@@ -119,7 +126,7 @@ class FileSender(
     dispatcher: CoroutineDispatcher,
     private val retained: RetainedSends = RetainedSends(),
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher + SessionSendFailureHandler)
     private val replies = ConcurrentHashMap<String, CompletableDeferred<Reply>>()
     private val peerCancels = ConcurrentHashMap<String, TransferReason>()
     private val states = ConcurrentHashMap<String, MutableStateFlow<SenderState>>()
@@ -165,6 +172,8 @@ class FileSender(
             try {
                 run(request, state)
             } catch (_: MultiplexerClosedException) {
+                state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_IO_ERROR)
+            } catch (_: FrameTooLargeException) {
                 state.value = SenderState.Cancelled(TransferReason.TRANSFER_REASON_IO_ERROR)
             } finally {
                 replies.remove(request.id)

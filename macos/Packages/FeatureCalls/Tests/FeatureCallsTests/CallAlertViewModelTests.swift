@@ -87,6 +87,42 @@ import Testing
         #expect(presented.map(\.title) == ["+41 79 123 45 67"])
     }
 
+    @Test func callAlert_notificationsDenied_inAppAlertPresented() async {
+        let presenter = RecordingCallAlertPresenter()
+        await presenter.setDelivers(false)
+        let fallback = RecordingCallAlertPresenter()
+        let viewModel = CallAlertViewModel(
+            presenter: presenter,
+            fallbackPresenter: fallback,
+            session: FakeTandemSession(),
+            contacts: InMemoryContactsStore(normalizer: PhoneNumberNormalizer(defaultRegion: "CH")),
+            peer: Self.peer,
+            numberFormatter: PhoneNumberNormalizer(defaultRegion: "CH")
+        )
+
+        await viewModel.handle(Self.event(.ringing))
+        #expect(await fallback.presented.map(\.callId) == ["call-1"])
+
+        await viewModel.handle(Self.event(.ended))
+        #expect(await fallback.removedCallIds == ["call-1"])
+    }
+
+    @Test func callAlert_notificationsDelivered_noInAppAlert() async {
+        let fallback = RecordingCallAlertPresenter()
+        let viewModel = CallAlertViewModel(
+            presenter: RecordingCallAlertPresenter(),
+            fallbackPresenter: fallback,
+            session: FakeTandemSession(),
+            contacts: InMemoryContactsStore(normalizer: PhoneNumberNormalizer(defaultRegion: "CH")),
+            peer: Self.peer,
+            numberFormatter: PhoneNumberNormalizer(defaultRegion: "CH")
+        )
+
+        await viewModel.handle(Self.event(.ringing))
+
+        #expect(await fallback.presented.isEmpty)
+    }
+
     @Test func callAlertViewModel_answerTapped_sendsAnswerAction() async {
         let harness = Harness()
 

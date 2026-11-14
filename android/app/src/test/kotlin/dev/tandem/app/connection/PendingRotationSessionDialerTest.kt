@@ -67,6 +67,48 @@ class PendingRotationSessionDialerTest {
         }
 
     @Test
+    fun pendingRotationSessionDialer_peerRejectedCertificateForPinnedPeer_rejectionIsRevoked() =
+        runTest {
+            val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))
+            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val failing =
+                FakeTandemSession().apply {
+                    emitState(ConnectionState.Failed(ConnectionFailure.PeerRejectedCertificate))
+                }
+            val dialer =
+                PendingRotationSessionDialer(
+                    handshake = PendingRotationHandshake(keyStore, ActiveIdentityAlias(), Mutex()),
+                    dialerFor = { SessionDialer { DialResult.Connected(failing, SpkiFingerprint(ByteArray(32))) } },
+                    wasPreviouslyPinned = { true },
+                )
+
+            val result = dialer.dial(candidate)
+
+            assertEquals(DialResult.Unreachable(ConnectionFailure.HandshakeError("REVOKED")), result)
+        }
+
+    @Test
+    fun pendingRotationSessionDialer_connectionResetBeforeReadyForPinnedPeer_rejectionIsNotRevoked() =
+        runTest {
+            val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))
+            keyStore.getOrCreate(IDENTITY_KEY_ALIAS, preferStrongBox = true)
+            val failing =
+                FakeTandemSession().apply {
+                    emitState(ConnectionState.Failed(ConnectionFailure.HandshakeError("Connection reset")))
+                }
+            val dialer =
+                PendingRotationSessionDialer(
+                    handshake = PendingRotationHandshake(keyStore, ActiveIdentityAlias(), Mutex()),
+                    dialerFor = { SessionDialer { DialResult.Connected(failing, SpkiFingerprint(ByteArray(32))) } },
+                    wasPreviouslyPinned = { true },
+                )
+
+            val result = dialer.dial(candidate)
+
+            assertEquals(DialResult.Unreachable(ConnectionFailure.HandshakeError("Connection reset")), result)
+        }
+
+    @Test
     fun pendingRotationSessionDialer_noPendingKey_returnsRejectionUnchanged() =
         runTest {
             val keyStore = SoftwareIdentityKeyStore(TestClock(testScheduler))

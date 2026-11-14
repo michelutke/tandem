@@ -46,7 +46,7 @@ struct SessionFeatures: Sendable {
     }
 
     static func make(
-        purgeRegistry: PeerDataPurgeRegistry,
+        purgeRegistry: PeerDataPurgeRegistry, sessionRegistry: ControlSessionRegistry,
         mirrorService: any SessionService,
         rotationService: any SessionService
     ) -> SessionFeatures {
@@ -89,7 +89,7 @@ struct SessionFeatures: Sendable {
         filesService?.agent = agent
         let wake = agent.map { agent in SendRequestWakeObserver { Task { await agent.drain() } } }
         return SessionFeatures(
-            host: SessionServiceHost(services: services),
+            host: SessionServiceHost(services: services, registry: sessionRegistry),
             fileTransfer: fileTransfer,
             transferProgress: transferProgress,
             photos: photos,
@@ -180,88 +180,6 @@ struct SessionFeatures: Sendable {
     }
 }
 
-/// Notification presentation, icon storage, dismiss sync and action replies for the attached
-/// session. `UNNotificationPresenter.responses` is single-consumer, so one long-lived reader
-/// routes every response to the handlers of whichever session is currently attached and, through
-/// ``routing``, to the accept-prompt and call-alert presenters.
-final class NotificationsSessionService: SessionService, @unchecked Sendable {
-    private actor ActiveHandlers {
-        private var handlers: (action: NotificationActionHandler, dismiss: NotificationDismissSync)?
-
-        func set(_ handlers: (action: NotificationActionHandler, dismiss: NotificationDismissSync)?) {
-            self.handlers = handlers
-        }
-
-        func route(_ event: NotificationResponseEvent) async {
-            await handlers?.action.handle(event)
-            await handlers?.dismiss.handle(event)
-        }
-    }
-
-    static let hidesContentWhenLockedKey = "hideNotificationContentWhenLocked"
-
-    private let presenter: any NotificationPresenter
-    let coordinator: NotificationPresentationCoordinator
-    let routing: NotificationRouting
-    private let iconCache: IconCache?
-    private let active = ActiveHandlers()
-    private let screenLock = DistributedScreenLockState(notificationCenter: DistributedNotificationCenter.default())
-
-    init(iconCache: IconCache?) {
-        let authorization = UNNotificationAuthorization()
-        let banners = MainActor.assumeIsolated { NotificationBannerPanelController() }
-        let presenter = FallbackNotificationPresenter(
-            system: UNNotificationPresenter(),
-            authorization: authorization,
-            banners: banners,
-            onState: NotificationPermissionViewModel.report
-        )
-        self.presenter = presenter
-        Task { await NotificationPermissionViewModel.report(await authorization.state()) }
-        self.iconCache = iconCache
-        coordinator = NotificationPresentationCoordinator(
-            presenter: presenter,
-            iconCache: iconCache,
-            screenLockState: screenLock,
-            hidesContentWhenLocked: {
-                let key = NotificationsSessionService.hidesContentWhenLockedKey
-                return UserDefaults.standard.object(forKey: key) as? Bool ?? true
-            }
-        )
-        let router = NotificationResponseRouter()
-        routing = NotificationRouting(
-            presenter: presenter,
-            categories: CategoryRegistry(presenter: presenter),
-            router: router
-        )
-        let active = active
-        Task {
-            for await event in presenter.responses {
-                await active.route(event)
-                await router.route(event)
-            }
-        }
-    }
-
-    func attach(peer: SpkiFingerprint, session: any TandemSession) async {
-        let action = NotificationActionHandler(presenter: presenter, session: session)
-        let dismiss = NotificationDismissSync(presenter: presenter, session: session)
-        await active.set((action, dismiss))
-        _ = startNotificationPresentationReader(
-            peer: peer,
-            session: session,
-            coordinator: coordinator,
-            iconCache: iconCache,
-            actionHandler: action,
-            dismissSync: dismiss
-        )
-    }
-
-    func detach(peer: SpkiFingerprint) async {
-        await active.set(nil)
-    }
-}
-
 /// SMS and contacts sync clients over the GRDB stores. The channel readers end on their own once
 /// the session's streams finish.
 final class MessagingSessionService: SessionService, @unchecked Sendable {
@@ -344,26 +262,19 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
             scheduler: FilesScheduler(session: session),
             progress: transferProgress
         )
+        let photoEvents = photos
         let acceptFlow = AcceptFlow(
             session: session,
             freeSpace: VolumeFreeSpaceProvider(),
             presenter: CompositeAcceptPromptPresenter([prompts, alerts]),
             clock: ContinuousClock(),
             settings: AcceptSettings(),
-            destination: DownloadFolderStore.standard
+            destination: DownloadFolderStore.standard,
+            originalRejected: { photoEvents.publish(.failed(transferId: $0)) }
         )
-        let receiver = FileReceiver(
-            session: session,
-            directories: directories,
-            sink: FileHandleSink(),
-            peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
-            now: { Date() },
-            notifier: notifier,
-            progress: transferProgress,
-            destination: DownloadFolderStore.standard
-        )
-        let photoService = SessionPhotoService(session: session)
-        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer))
+        let receiver = makeReceiver(session: session, peer: peer, notifier: notifier)
+        let photoService = SessionPhotoService(session: session) { photoEvents.publish(.photoError($0)) }
+        photos.attach(CachingPhotoService(base: photoService, cache: thumbnails, peer: peer), offers: acceptFlow)
         let router = FilesChannelRouter(
             acceptFlow: acceptFlow,
             receiver: receiver,
@@ -375,15 +286,36 @@ final class FilesSessionService: SessionService, @unchecked Sendable {
         activeTransfer.attach(transfers)
         let agent = agent
         Task {
-            await receiver.resumeRetained()
+            await receiver.resumeRetained { await acceptFlow.transferResumed(id: $0) }
             await agent?.drain()
         }
+    }
+
+    private func makeReceiver(
+        session: any TandemSession,
+        peer: SpkiFingerprint,
+        notifier: ReceivedFileNotifier
+    ) -> FileReceiver {
+        let photoEvents = photos
+        return FileReceiver(
+            session: session,
+            directories: directories,
+            sink: FileHandleSink(),
+            peer: peer.bytes.map { String(format: "%02x", $0) }.joined(),
+            now: { Date() },
+            notifier: notifier,
+            progress: EndForwardingProgress(base: transferProgress) { id, outcome in
+                photoEvents.publish(outcome == .completed ? .finished(transferId: id) : .failed(transferId: id))
+            },
+            destination: DownloadFolderStore.standard
+        )
     }
 
     func detach(peer: SpkiFingerprint) async {
         await routing.router.setSink(nil, for: Self.routerKey)
         acceptReader?.cancel()
         acceptReader = nil
+        await acceptPrompts?.removeAll()
         acceptPrompts?.finish()
         acceptPrompts = nil
         await acceptAlerts?.finish()

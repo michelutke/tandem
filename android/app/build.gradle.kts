@@ -106,6 +106,12 @@ dependencies {
     // E62-11: TandemAccessibilityService, LiveRemoteInput and InputGate.
     implementation(project(":feature:input"))
 
+    constraints {
+        implementation(libs.guava.android) {
+            because("GHSA-xxph-c9ww-hj94: media3/CameraX resolve guava 33.3.1-android transitively")
+        }
+    }
+
     // FakeTandemSession (E12-11) for ClipboardWriterTest (E31-05) and RingController's tests
     // (E23-06); FakeElapsedRealtime (E00-18) for E23-06, matching how core/pairing tests a
     // TandemSession-taking handler. Test-only.

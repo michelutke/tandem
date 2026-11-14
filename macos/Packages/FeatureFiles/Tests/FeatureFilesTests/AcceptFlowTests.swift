@@ -27,22 +27,34 @@ private actor RecordingPromptPresenter: AcceptPromptPresenter {
     func remove(offerId: String) { removed.append(offerId) }
 }
 
+private final class LockedIds: @unchecked Sendable {
+    private let lock = NSLock()
+    private var ids: [String] = []
+
+    var value: [String] { lock.withLock { ids } }
+
+    func append(_ id: String) { lock.withLock { ids.append(id) } }
+}
+
 private struct Harness {
     let session = FakeTandemSession()
     let presenter = RecordingPromptPresenter()
     let space: StubFreeSpaceProvider
     let clock = ManualTestClock()
     let flow: AcceptFlow
+    let rejectedOriginals = LockedIds()
 
     init(available: UInt64 = 100 * gibibyte, autoAccept: Bool = false) {
         space = StubFreeSpaceProvider(available: available)
+        let rejected = rejectedOriginals
         flow = AcceptFlow(
             session: session,
             freeSpace: space,
             presenter: presenter,
             clock: clock,
             settings: AcceptSettings(autoAcceptEnabled: autoAccept),
-            destination: URL(fileURLWithPath: "/tmp")
+            destination: URL(fileURLWithPath: "/tmp"),
+            originalRejected: { rejected.append($0) }
         )
     }
 
@@ -197,6 +209,38 @@ private func accept(_ id: String) -> Tandem_V1_Envelope.OneOf_Payload {
         await harness.flow.expectOriginal(transferId: "t1")
         await harness.flow.handle(offer: offer(id: "t1"))
         #expect(await harness.sentPayloads() == [reject("t1", .insufficientSpace)])
+    }
+
+    @Test func originalDownload_expectedOffersWhileTwoActive_acceptedNotBusy() async {
+        let harness = Harness(autoAccept: true)
+        await harness.flow.handle(offer: offer(id: "a"))
+        await harness.flow.handle(offer: offer(id: "b"))
+        await harness.flow.expectOriginal(transferId: "c")
+
+        await harness.flow.handle(offer: offer(id: "c"))
+
+        #expect(await harness.sentPayloads() == [accept("a"), accept("b"), accept("c")])
+    }
+
+    @Test func originalDownload_unexpectedOfferWhileTwoActive_stillBusy() async {
+        let harness = Harness(autoAccept: true)
+        await harness.flow.handle(offer: offer(id: "a"))
+        await harness.flow.handle(offer: offer(id: "b"))
+
+        await harness.flow.handle(offer: offer(id: "c"))
+
+        #expect(await harness.sentPayloads().last == reject("c", .busy))
+    }
+
+    @Test func originalDownload_expectedOfferRejected_reportedAndNoLongerExpected() async {
+        let harness = Harness(available: 0)
+        await harness.flow.expectOriginal(transferId: "t1")
+
+        await harness.flow.handle(offer: offer(id: "t1"))
+
+        #expect(harness.rejectedOriginals.value == ["t1"])
+        await harness.flow.handle(offer: offer(id: "t1"))
+        #expect(harness.rejectedOriginals.value == ["t1"])
     }
 }
 

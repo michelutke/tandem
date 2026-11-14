@@ -1,6 +1,7 @@
 package dev.tandem.feature.notifications
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.CapabilityUnavailable
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
@@ -32,7 +33,7 @@ class MediaControlBridge(
     /** Bridges [gateway] and [session]'s STATUS channel until cancelled. */
     suspend fun run() {
         if (!gateway.hasListenerAccess()) {
-            session.send(Channel.CHANNEL_STATUS) {
+            session.sendOrDrop(Channel.CHANNEL_STATUS) {
                 capabilityUnavailable =
                     capabilityUnavailable { feature = CapabilityUnavailable.Feature.FEATURE_MEDIA_CONTROL }
             }
@@ -46,7 +47,7 @@ class MediaControlBridge(
 
     private suspend fun Flow<MediaSessionSnapshot?>.publishDistinct() {
         filterNotNull().distinctUntilChanged().collect { snapshot ->
-            session.send(Channel.CHANNEL_STATUS) { nowPlaying = snapshot.toNowPlaying() }
+            session.sendOrDrop(Channel.CHANNEL_STATUS) { nowPlaying = snapshot.toNowPlaying() }
         }
     }
 

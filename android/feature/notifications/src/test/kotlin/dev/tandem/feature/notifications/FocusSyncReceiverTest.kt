@@ -1,15 +1,19 @@
 package dev.tandem.feature.notifications
 
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.focusState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -82,9 +86,85 @@ class FocusSyncReceiverTest {
             }
         }
 
-    private fun TestScope.startReceiver(gateway: InterruptionFilterGateway): FakeTandemSession {
+    @Test
+    fun focusSyncReceiver_sessionEndsWhileFocusOn_restoresRecordedFilter() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.ALARMS)
+            val record = FakeFocusFilterRecord()
+            val session = FakeTandemSession()
+            val job = launch { FocusSyncReceiver(session, gateway, record).run() }
+            runCurrent()
+            session.emitFocus(on = true)
+            runCurrent()
+
+            job.cancelAndJoin()
+
+            assertEquals(InterruptionFilter.ALARMS, gateway.filter)
+            assertNull(record.load())
+        }
+
+    @Test
+    fun focusSyncReceiver_filterChangedByUserDuringSync_sessionEndDoesNotOverwrite() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.ALL)
+            val record = FakeFocusFilterRecord()
+            val session = FakeTandemSession()
+            val job = launch { FocusSyncReceiver(session, gateway, record).run() }
+            runCurrent()
+            session.emitFocus(on = true)
+            runCurrent()
+            gateway.setFilter(InterruptionFilter.NONE)
+
+            job.cancelAndJoin()
+
+            assertEquals(InterruptionFilter.NONE, gateway.filter)
+            assertNull(record.load())
+        }
+
+    @Test
+    fun focusSyncReceiver_staleRecordAtStart_restoresPersistedFilterAndClearsIt() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.PRIORITY)
+            val record = FakeFocusFilterRecord(InterruptionFilter.ALL)
+
+            startReceiver(gateway, record)
+
+            assertEquals(InterruptionFilter.ALL, gateway.filter)
+            assertNull(record.load())
+        }
+
+    @Test
+    fun focusSyncReceiver_focusOn_persistsFilterBeforeSync() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = true, initialFilter = InterruptionFilter.NONE)
+            val record = FakeFocusFilterRecord()
+            val session = startReceiver(gateway, record)
+
+            session.emitFocus(on = true)
+            runCurrent()
+
+            assertEquals(InterruptionFilter.NONE, record.load())
+        }
+
+    @Test
+    fun focusSyncReceiver_sessionClosedDuringCapabilityReply_doesNotThrow() =
+        runTest {
+            val gateway = FakeInterruptionFilterGateway(access = false, initialFilter = InterruptionFilter.ALL)
+            val session = startReceiver(gateway)
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+
+            session.emitFocus(on = true)
+            runCurrent()
+
+            assertTrue(gateway.appliedFilters.isEmpty())
+        }
+
+    private fun TestScope.startReceiver(
+        gateway: InterruptionFilterGateway,
+        record: FocusFilterRecord = FakeFocusFilterRecord(),
+    ): FakeTandemSession {
         val session = FakeTandemSession()
-        backgroundScope.launch { FocusSyncReceiver(session, gateway).run() }
+        backgroundScope.launch { FocusSyncReceiver(session, gateway, record).run() }
         runCurrent()
         return session
     }

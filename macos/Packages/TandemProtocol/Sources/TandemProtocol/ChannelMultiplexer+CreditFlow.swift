@@ -40,9 +40,10 @@ extension ChannelMultiplexer {
     /// (docs/protocol/SPEC.md "Consume": application-level consumption, not decode, is what a
     /// replenishment grant is conditioned on). Once accumulated consumption since the last grant
     /// this side sent for `channel` reaches half its cap, sends the peer exactly one `CreditGrant`
-    /// restoring this side's belief of the peer's balance to exactly the cap
-    /// (`docs/planning/decisions.md` D-64: "never above"), then resets the accumulator so the
-    /// trigger re-arms against the next half-cap crossing.
+    /// for exactly the credits consumed since the previous grant (`docs/planning/decisions.md`
+    /// D-84), so the peer's balance plus the frames still waiting in the decoder to consumer
+    /// buffer never exceeds the cap, then resets the accumulator so the trigger re-arms against the
+    /// next half-cap crossing.
     func frameConsumed(_ channel: Tandem_V1_Channel) async {
         guard channel != .control else { return }
         let cap = CreditCaps.capFor(channel)
@@ -51,16 +52,12 @@ extension ChannelMultiplexer {
         consumedSinceLastGrant[channel] = consumedCount
         guard consumedCount >= cap / 2 else { return }
 
-        let currentBalance = receiveLedger[channel]?.balance ?? cap
-        let amount = cap - currentBalance
         consumedSinceLastGrant[channel] = 0
-        guard amount > 0 else { return }
-
-        _ = receiveLedger[channel]?.applyGrant(amount)
+        _ = receiveLedger[channel]?.applyGrant(consumedCount)
 
         var grant = Tandem_V1_CreditGrant()
         grant.channel = channel
-        grant.amount = amount
+        grant.amount = consumedCount
         try? await send(.control, payload: .creditGrant(grant))
     }
 

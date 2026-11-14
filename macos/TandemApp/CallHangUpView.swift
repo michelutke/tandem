@@ -1,5 +1,6 @@
 import FeatureCalls
 import SwiftUI
+import TandemDesign
 
 /// The menu bar's Hang Up quick action (E52-06): shown only while ``CallAlertViewModel`` reports an
 /// `ACTIVE` call, and removed again once the call `ENDED`.
@@ -8,11 +9,12 @@ struct CallHangUpView: View {
 
     var body: some View {
         if viewModel.showsHangUp {
-            Button("Hang Up") {
+            PillButton("Hang up", kind: .destructive) {
                 Task { await viewModel.hangUp() }
             }
+            .fixedSize(horizontal: true, vertical: false)
             .accessibilityIdentifier("hangUpMenuItem")
-            .accessibilityLabel("Hang Up")
+            .accessibilityLabel("Hang up")
         }
     }
 }

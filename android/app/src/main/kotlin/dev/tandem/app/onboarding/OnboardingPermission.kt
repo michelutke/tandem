@@ -1,5 +1,8 @@
 package dev.tandem.app.onboarding
 
+import androidx.annotation.StringRes
+import dev.tandem.app.R
+
 /**
  * The individual permissions and special accesses onboarding can request through
  * [PermissionRequester] and read through [PermissionChecker]. A closed set by design: later
@@ -16,33 +19,33 @@ enum class OnboardingPermission {
 
 /** One numbered row of the permissions screen (ui-spec §7.2 Onboarding · Permissions). */
 enum class PermissionRow(
-    val label: String,
-    val reason: String,
+    @StringRes val labelRes: Int,
+    @StringRes val reasonRes: Int,
     val permissions: List<OnboardingPermission>,
 ) {
     NOTIFICATIONS(
-        label = "Notifications",
-        reason = "Show your phone's notifications on your Mac.",
+        labelRes = R.string.permission_notifications_label,
+        reasonRes = R.string.permission_notifications_reason,
         permissions = listOf(OnboardingPermission.POST_NOTIFICATIONS, OnboardingPermission.NOTIFICATION_LISTENER),
     ),
     BATTERY(
-        label = "Battery",
-        reason = "Stay connected while the app is in the background.",
+        labelRes = R.string.permission_battery_label,
+        reasonRes = R.string.permission_battery_reason,
         permissions = listOf(OnboardingPermission.BATTERY),
     ),
     CAMERA(
-        label = "Camera",
-        reason = "Scan the code on your Mac. Decoded on this phone.",
+        labelRes = R.string.permission_camera_label,
+        reasonRes = R.string.permission_camera_reason,
         permissions = listOf(OnboardingPermission.CAMERA),
     ),
     SMS_AND_CALLS(
-        label = "SMS & calls",
-        reason = "Read and send texts, and show who is calling.",
+        labelRes = R.string.permission_sms_label,
+        reasonRes = R.string.permission_sms_reason,
         permissions = listOf(OnboardingPermission.SMS_AND_CALLS),
     ),
     LOCAL_NETWORK(
-        label = "Local network",
-        reason = "Find your Mac on this network.",
+        labelRes = R.string.permission_local_network_label,
+        reasonRes = R.string.permission_local_network_reason,
         permissions = listOf(OnboardingPermission.LOCAL_NETWORK),
     ),
 }

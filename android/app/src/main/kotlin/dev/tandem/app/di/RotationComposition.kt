@@ -46,7 +46,7 @@ class RotationComposition(
 
     val authenticated: StateFlow<Boolean> = authenticatedState.asStateFlow()
 
-    /** Short code of the active identity key; follows every committed rotation. */
+    /** Short code of the active identity key (empty if unreadable); follows every committed rotation. */
     val activeFingerprint: StateFlow<String> = fingerprintState.asStateFlow()
 
     val keyRotator: KeyRotator =
@@ -98,9 +98,14 @@ class RotationComposition(
         authenticatedState.value = initiator != null
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // a keystore failure only blanks the display value
     private fun computeFingerprint(): String =
-        keys.keyStore
-            .get(keys.activeAlias.current)
-            ?.let { keyShortCode(spkiFingerprint(it.publicKey.encoded).base64Url) }
-            .orEmpty()
+        try {
+            keys.keyStore
+                .get(keys.activeAlias.current)
+                ?.let { keyShortCode(spkiFingerprint(it.publicKey.encoded).base64Url) }
+                .orEmpty()
+        } catch (e: Exception) {
+            ""
+        }
 }

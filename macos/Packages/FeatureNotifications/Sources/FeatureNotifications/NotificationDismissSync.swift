@@ -25,7 +25,8 @@ public struct NotificationDismissSync: Sendable {
 
     /// Forwards a user dismissal on the Mac to the phone immediately; other actions are ignored.
     public func handle(_ response: NotificationResponseEvent) async {
-        guard response.actionIdentifier == UNNotificationDismissActionIdentifier else { return }
+        guard response.mirrorsPhoneNotification,
+              response.actionIdentifier == UNNotificationDismissActionIdentifier else { return }
         var dismiss = Tandem_V1_NotificationDismiss()
         dismiss.key = response.requestIdentifier
         dismiss.origin = .macos

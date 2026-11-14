@@ -56,7 +56,7 @@ public actor SmsSyncClient {
             peer: peer,
             clientMessageId: status.clientMessageID,
             state: state,
-            providerMessageId: Int64(status.providerMessageID)
+            providerMessageId: Int64(clamping: status.providerMessageID)
         )
     }
 
@@ -93,29 +93,29 @@ public actor SmsSyncClient {
     }
 
     private static func cursor(_ value: UInt64, orKeeping previous: Int64) -> Int64 {
-        value == 0 ? previous : Int64(value)
+        value == 0 ? previous : Int64(clamping: value)
     }
 
     private static func record(_ thread: Tandem_V1_SmsThread) -> SmsThreadRecord {
         SmsThreadRecord(
-            threadId: Int64(thread.threadID),
+            threadId: Int64(clamping: thread.threadID),
             address: thread.address,
             snippet: thread.snippet,
-            lastMessageAtMs: Int64(thread.lastMessageAtMs),
-            unreadCount: Int32(thread.unreadCount)
+            lastMessageAtMs: Int64(clamping: thread.lastMessageAtMs),
+            unreadCount: Int32(clamping: thread.unreadCount)
         )
     }
 
     private static func record(_ message: Tandem_V1_SmsMessage) -> SmsMessageRecord {
         SmsMessageRecord(
-            id: Int64(message.id),
-            threadId: Int64(message.threadID),
+            id: Int64(clamping: message.id),
+            threadId: Int64(clamping: message.threadID),
             address: message.address,
             body: message.body,
-            timestampMs: Int64(message.timestampMs),
-            type: Int32(message.type.rawValue),
+            timestampMs: Int64(clamping: message.timestampMs),
+            type: Int32(clamping: message.type.rawValue),
             subscriptionId: message.subscriptionID,
-            deliveryStatus: Int32(message.deliveryStatus.rawValue)
+            deliveryStatus: Int32(clamping: message.deliveryStatus.rawValue)
         )
     }
 

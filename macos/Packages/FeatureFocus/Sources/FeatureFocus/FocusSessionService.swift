@@ -25,4 +25,8 @@ public final class FocusSessionService: SessionService, Sendable {
         let sender = senders.withLock { $0.removeValue(forKey: peer) }
         await sender?.stop()
     }
+
+    public func releasePeer(_ peer: SpkiFingerprint) async {
+        await detach(peer: peer)
+    }
 }

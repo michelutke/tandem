@@ -1,8 +1,11 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
+import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsSyncStatus
+import dev.tandem.protocol.v1.SmsThread
 import dev.tandem.protocol.v1.smsSyncResponse
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
@@ -40,31 +43,63 @@ class SmsIncrementalSync(
             launch(start = CoroutineStart.UNDISPATCHED) {
                 source.changes().collect { pending.trySend(Unit) }
             }
-            var lastSentId = initialLastSentId()
+            var lastSentId: Long? = baselineOrNull(initialLastSentId)
             pending
                 .receiveAsFlow()
                 .debounce(DEBOUNCE_MS)
-                .collect { lastSentId = push(lastSentId) }
+                .collect { lastSentId = pushWhenPermitted(lastSentId, initialLastSentId) }
         }
     }
+
+    // Without READ_SMS the baseline is unknown; the grant happens mid-session, so retry on the next change.
+    private suspend fun baselineOrNull(initialLastSentId: suspend () -> Long): Long? =
+        try {
+            initialLastSentId()
+        } catch (_: SmsPermissionMissing) {
+            null
+        }
+
+    // Without a baseline the change that follows the grant is usually the new message itself, so the
+    // snapshot max is not used as the baseline (it would swallow that message); the newest row is pushed.
+    private suspend fun pushWhenPermitted(
+        lastSentId: Long?,
+        initialLastSentId: suspend () -> Long,
+    ): Long? =
+        try {
+            push(lastSentId ?: (initialLastSentId() - 1).coerceAtLeast(0))
+        } catch (_: SmsPermissionMissing) {
+            lastSentId
+        }
 
     private suspend fun push(lastSentId: Long): Long {
         var cursor = lastSentId
         while (true) {
-            val rows = withContext(ioDispatcher) { source.newerThan(cursor, SmsSource.PAGE_SIZE) }
+            val rows =
+                withContext(ioDispatcher) { source.newerThan(cursor, SmsSource.PAGE_SIZE) }
+                    .takeWithinBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
             if (rows.isEmpty()) return cursor
-            cursor = rows.last().id
             val threads = withContext(ioDispatcher) { source.threads() }
-            session.send(Channel.CHANNEL_SMS) {
-                smsSyncResponse =
-                    smsSyncResponse {
-                        status = SmsSyncStatus.SMS_SYNC_STATUS_OK
-                        this.threads += threads
-                        messages += rows
-                        highWatermarkId = cursor
-                    }
-            }
+            val threadChunks = threads.chunkedByBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
+            threadChunks.dropLast(1).forEach { sendResponse(it, emptyList(), cursor) }
+            cursor = rows.last().id
+            sendResponse(threadChunks.last(), rows, cursor)
             log("sms incremental: pushed messages=${rows.size} high=$cursor")
+        }
+    }
+
+    private suspend fun sendResponse(
+        threads: List<SmsThread>,
+        rows: List<SmsMessage>,
+        highWatermark: Long,
+    ) {
+        session.sendOrDrop(Channel.CHANNEL_SMS) {
+            smsSyncResponse =
+                smsSyncResponse {
+                    status = SmsSyncStatus.SMS_SYNC_STATUS_OK
+                    this.threads += threads
+                    messages += rows
+                    highWatermarkId = highWatermark
+                }
         }
     }
 

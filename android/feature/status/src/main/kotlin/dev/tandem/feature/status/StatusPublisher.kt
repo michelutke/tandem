@@ -2,6 +2,7 @@ package dev.tandem.feature.status
 
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.DeviceStatus
 import kotlinx.coroutines.CoroutineDispatcher
@@ -127,7 +128,7 @@ class StatusPublisher(
     }
 
     private suspend fun send(value: DeviceStatus) {
-        session.send(Channel.CHANNEL_STATUS) { deviceStatus = value }
+        session.sendOrDrop(Channel.CHANNEL_STATUS) { deviceStatus = value }
     }
 
     private companion object {

@@ -5,7 +5,6 @@ import dev.tandem.core.crypto.PairingProofException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.qr.PairingInvite
 import dev.tandem.core.pairing.qr.QrPairingPinSource
-import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
@@ -13,20 +12,16 @@ import dev.tandem.protocol.v1.revoke
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -51,6 +46,7 @@ import kotlin.time.Duration.Companion.seconds
  * dispatcher a test supplies; [clock] itself stamps the `pairedAt` this machine hands
  * [trustCommitter] on [PairingState.Paired].
  */
+@Suppress("TooManyFunctions") // one dial/confirm/close state machine, see above
 class PairingStateMachine(
     private val clock: Clock,
     dispatcher: CoroutineDispatcher,
@@ -68,6 +64,7 @@ class PairingStateMachine(
     private val confirmMutex = Mutex()
     private var confirmContext: ConfirmContext? = null
     private var confirmDeadline: Job? = null
+    private var activeSession: TandemSession? = null
 
     private class ConfirmContext(
         val session: TandemSession,
@@ -79,7 +76,7 @@ class PairingStateMachine(
     override fun start() {
         if (mutableState.value != PairingState.Idle) return
         mutableState.value = PairingState.Connecting
-        scope.launch { runPairing() }
+        scope.launch { runPairingGuarded() }
     }
 
     /**
@@ -115,7 +112,7 @@ class PairingStateMachine(
         scope
             .launch {
                 val context = claimConfirmContext() ?: return@launch
-                runCatching { context.session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+                runCatching { context.session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
                 context.session.close()
             }.invokeOnCompletion { scope.cancel() }
     }
@@ -134,9 +131,28 @@ class PairingStateMachine(
             context
         }
 
+    /**
+     * A session that dies mid-pairing (peer close, reset, a failed `send`) surfaces as an unchecked
+     * exception from the awaiting/sending calls below; mapping it here keeps it out of this
+     * machine's `SupervisorJob` (which would crash the process) and reports
+     * [PairingFailure.ConnectionLost] instead.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun runPairingGuarded() {
+        try {
+            runPairing()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            activeSession?.close()
+            mutableState.value = PairingState.Failed(PairingFailure.ConnectionLost)
+        }
+    }
+
     private suspend fun runPairing() {
         val connection = dialAddresses() ?: return
         val session = connection.session
+        activeSession = session
         mutableState.value = PairingState.AwaitingProofSent
 
         val challenge =
@@ -279,7 +295,7 @@ class PairingStateMachine(
         session: TandemSession,
         reason: PairingFailure,
     ) {
-        runCatching { session.send(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
+        runCatching { session.sendFinal(Channel.CHANNEL_CONTROL) { revoke = revoke {} } }
         session.close()
         mutableState.value = PairingState.Failed(reason)
     }
@@ -296,28 +312,20 @@ class PairingStateMachine(
     }
 
     /**
-     * Races [predicate] matching a CONTROL-channel [Envelope] against [session]'s connection
-     * dropping, cancelling whichever loses (E00-19-style seam, no real socket involved). A caller
-     * wraps this in [withTimeoutOrNull] for the phases that have their own deadline.
+     * Waits for [predicate] to match a CONTROL-channel [Envelope]. The receive flow completes when
+     * [session] closes, after every frame already received has been delivered, so a close that
+     * follows the awaited frame can never mask it. A caller wraps this in [withTimeoutOrNull] for
+     * the phases that have their own deadline.
      */
     private suspend fun waitForControlEnvelope(
         session: TandemSession,
         predicate: (Envelope) -> Boolean,
     ): WaitOutcome =
-        coroutineScope {
-            val received =
-                async(start = CoroutineStart.UNDISPATCHED) { session.receive(Channel.CHANNEL_CONTROL).first(predicate) }
-            val disconnected = async { session.state.first { it is ConnectionState.Disconnected } }
-            try {
-                select {
-                    received.onAwait { WaitOutcome.Success(it) }
-                    disconnected.onAwait { WaitOutcome.ConnectionLost }
-                }
-            } finally {
-                received.cancel()
-                disconnected.cancel()
-            }
-        }
+        session
+            .receive(Channel.CHANNEL_CONTROL)
+            .firstOrNull(predicate)
+            ?.let { WaitOutcome.Success(it) }
+            ?: WaitOutcome.ConnectionLost
 
     companion object {
         /** SPEC.md §2 "Dialing the QR addresses (phone side)", D-68: 3 s per address. */

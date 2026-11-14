@@ -270,6 +270,30 @@ class TrustStoreTest {
         }
 
     @Test
+    fun unpair_byPendingPin_recordDeleted() =
+        runTest {
+            store.put(record(seed = 1))
+            store.setPending(fingerprint(1), fingerprint(9), sinceEpochMs = 1_000L)
+
+            store.unpair(fingerprint(9))
+
+            assertNull(store.get(fingerprint(1)))
+        }
+
+    @Test
+    fun unpair_byGracePin_recordDeleted() =
+        runTest {
+            store.put(record(seed = 1))
+            store.setPending(fingerprint(1), fingerprint(9), sinceEpochMs = 1_000L)
+            store.promotePending(fingerprint(9), graceExpiresAtEpochMs = 10_000L)
+
+            store.unpair(fingerprint(1))
+
+            assertNull(store.get(fingerprint(9)))
+            assertEquals(0, store.list().size)
+        }
+
+    @Test
     fun peerRecordUpdater_readyKnownSpki_setsLastSeenAndCapabilities() =
         runTest {
             val clock = TestClock(testScheduler)

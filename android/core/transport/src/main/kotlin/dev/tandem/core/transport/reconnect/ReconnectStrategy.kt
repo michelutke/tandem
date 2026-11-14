@@ -1,5 +1,6 @@
 package dev.tandem.core.transport.reconnect
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlin.time.Duration
 
 /**
  * Reconnect address-selection state machine (E20-06; SPEC.md F-3.4, UC-04). Callers start this
@@ -57,6 +59,11 @@ class ReconnectStrategy(
     /** The address the most recent successful [Connector.connect] used, if any. */
     val lastWorking: StateFlow<CandidateAddress?> = mutableLastWorking.asStateFlow()
 
+    /** Forgets the last-working address, for when the pin set became empty (an unpair). */
+    fun resetLastWorking() {
+        mutableLastWorking.value = null
+    }
+
     private val mutableFailedCycles = MutableStateFlow(0)
 
     /**
@@ -67,6 +74,11 @@ class ReconnectStrategy(
      * delay itself is based on.
      */
     val failedCycles: StateFlow<Int> = mutableFailedCycles.asStateFlow()
+
+    private val mutableBackoffWait = MutableStateFlow<Duration?>(null)
+
+    /** The backoff wait the loop is currently sitting in, or null while dialing or stopped (display only). */
+    val backoffWait: StateFlow<Duration?> = mutableBackoffWait.asStateFlow()
 
     // Conflated: only "has a kick arrived since the loop last checked" matters, not how many.
     private val kickChannel = Channel<Unit>(Channel.CONFLATED)
@@ -97,6 +109,7 @@ class ReconnectStrategy(
     fun stop() {
         job?.cancel()
         job = null
+        mutableBackoffWait.value = null
     }
 
     /** Stops the loop and cancels this instance's scope. */
@@ -106,7 +119,7 @@ class ReconnectStrategy(
 
     private suspend fun loop() {
         while (true) {
-            for (candidate in buildCycle()) {
+            for (candidate in buildCycleOrEmpty()) {
                 when (connector.connect(candidate)) {
                     ConnectResult.Connected -> {
                         mutableFailedCycles.value = 0
@@ -123,16 +136,29 @@ class ReconnectStrategy(
             // Long-milliseconds overload is hard-deprecated in this project's kotlinx.coroutines
             // version and whose Duration overload doesn't resolve cleanly here) so a kick can
             // simply cancel it and race the two via `onJoin`/`onReceive`.
-            val wait = scope.launch { delay(ReconnectBackoff.delayFor(mutableFailedCycles.value)) }
+            val waitDuration = ReconnectBackoff.delayFor(mutableFailedCycles.value)
+            val wait = scope.launch { delay(waitDuration) }
+            mutableBackoffWait.value = waitDuration
             val kicked =
                 select {
                     wait.onJoin { false }
                     kickChannel.onReceive { true }
                 }
             wait.cancel()
+            mutableBackoffWait.value = null
             if (!kicked) mutableFailedCycles.value++
         }
     }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // a failing source must not kill the loop
+    private fun buildCycleOrEmpty(): List<CandidateAddress> =
+        try {
+            buildCycle()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            emptyList()
+        }
 
     /**
      * This cycle's dial order: last-working, then Bonjour-resolved, then pairing-time addresses,

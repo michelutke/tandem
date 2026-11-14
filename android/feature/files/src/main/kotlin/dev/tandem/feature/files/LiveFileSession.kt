@@ -1,6 +1,8 @@
 package dev.tandem.feature.files
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -39,7 +41,11 @@ object LiveFileSession {
         if (active?.sender === sender) active = null
     }
 
-    /** [onFinished] runs once per request when its transfer ends, or at once if none could start. */
+    /**
+     * [onFinished] runs once per request when its transfer ends (a session that ends first counts as FAILED),
+     * or at once if none could start. The watcher starts atomically, so a session scope that is already
+     * cancelled still reports FAILED and runs [onFinished].
+     */
     fun starter(
         onFinished: (SendRequest) -> Unit = {},
         feedback: (SendFeedback) -> Unit,
@@ -52,8 +58,15 @@ object LiveFileSession {
             } else {
                 feedback(SendFeedback.STARTED)
                 val state = current.sender.send(request)
-                current.scope.launch {
-                    val terminal = state.first { it.isTerminal() }
+                current.scope.launch(start = CoroutineStart.ATOMIC) {
+                    val terminal =
+                        try {
+                            state.first { it.isTerminal() }
+                        } catch (cancellation: CancellationException) {
+                            feedback(SendFeedback.FAILED)
+                            onFinished(request)
+                            throw cancellation
+                        }
                     feedback(terminal.toFeedback())
                     onFinished(request)
                 }

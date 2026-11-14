@@ -15,6 +15,7 @@ final class MirrorComposition {
     nonisolated let service: MirrorSessionService<ContinuousClock>
     private let coordinator: MirrorMediaCoordinator
     private var requestModel: MirrorRequestViewModel?
+    private var statusWindow: MirrorStatusWindowController?
     fileprivate private(set) var currentSession: (any TandemSession)?
 
     nonisolated init() {
@@ -24,7 +25,8 @@ final class MirrorComposition {
         let holder = SessionChangeHolder()
         let coordinator = MirrorMediaCoordinator(
             presenter: MirrorWindowPresenter(),
-            inputSession: { holder.session(for: $0) }
+            inputSession: { holder.session(for: $0) },
+            onStreamChanged: { [weak holder] in holder?.composition?.mirrorStreamChanged() }
         )
         let registry = MediaSessionRegistry(issuer: issuer, onEnded: { id in
             Task { @MainActor in coordinator.sessionEnded(id) }
@@ -55,9 +57,17 @@ final class MirrorComposition {
 
     /// Puts `model` on the current control session now and on every later one.
     func bind(_ model: MirrorRequestViewModel) {
+        if requestModel !== model {
+            statusWindow?.close()
+            statusWindow = MirrorStatusWindowController(viewModel: model)
+        }
         requestModel = model
         let session = currentSession
         Task { await model.sessionChanged(session) }
+    }
+
+    fileprivate func mirrorStreamChanged() {
+        requestModel?.resetRequest()
     }
 
     fileprivate func sessionChanged(_ session: (any TandemSession)?) {

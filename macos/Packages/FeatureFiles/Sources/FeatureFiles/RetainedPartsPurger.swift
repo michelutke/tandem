@@ -11,6 +11,13 @@ public struct RetainedPartsPurger: PeerDataPurging {
         self.staging = staging
     }
 
+    public func storedPeers() async throws -> [SpkiFingerprint] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: staging.path)) ?? []
+        let hexes = names.filter { $0.hasSuffix(".part") }
+            .compactMap { PartAttributes.read(from: staging.appendingPathComponent($0))?.peer }
+        return Set(hexes).compactMap(SpkiFingerprint.init(hexString:))
+    }
+
     public func purgeAll(peer: SpkiFingerprint) async throws {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: staging.path)) ?? []
         for name in names where name.hasSuffix(".part") {

@@ -2,6 +2,7 @@ import Foundation
 import Security
 import Testing
 import TandemCrypto
+import TandemStore
 import TandemTestSupport
 @testable import TandemTransport
 
@@ -82,5 +83,75 @@ struct IdentityBootstrapperAccessTests {
 
         #expect(bootstrapper.requiresRePair)
         #expect(recorder.resets == 1)
+    }
+
+    private static func seedPeer(_ store: InMemoryKeychainStore) throws -> TrustStore {
+        let trustStore = TrustStore(keychainStore: store)
+        try trustStore.put(
+            PeerRecord(
+                fingerprint: try SpkiFingerprint(bytes: Data(repeating: 0x31, count: SpkiFingerprint.byteCount)),
+                displayName: "Pixel 8",
+                pairedAt: Date(timeIntervalSince1970: 0),
+                lastSeen: Date(timeIntervalSince1970: 0),
+                capabilities: []
+            )
+        )
+        return trustStore
+    }
+
+    @Test func identityBootstrapper_identityReset_trustStoreEmptied() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store, smokeTest: { _ in false })
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(bootstrapper.requiresRePair)
+        #expect(try trustStore.list().isEmpty)
+    }
+
+    @Test func identityBootstrapper_keychainAccessFailure_peerRecordsKept() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store, smokeTest: { _ in throw KeychainError.locked })
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(try trustStore.list().count == 1)
+    }
+
+    private static func beginRotation(_ store: InMemoryKeychainStore, _ trustStore: TrustStore) throws {
+        let coordinator = RotationCoordinator(
+            keychainStore: store,
+            trustStore: trustStore,
+            window: RotationInitiatorTests.StubWindow(),
+            dateProvider: { Date(timeIntervalSince1970: 0) }
+        )
+        try coordinator.begin()
+    }
+
+    @Test func identityBootstrapper_bootstrapDuringRotationInProgress_peerRecordsKept() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        try Self.beginRotation(store, trustStore)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store)
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(!bootstrapper.requiresRePair)
+        #expect(try trustStore.list().count == 1)
+    }
+
+    @Test func identityBootstrapper_adoptingUnackedPendingKey_peerRecordsDeleted() throws {
+        let store = try Self.store(withKey: true)
+        let trustStore = try Self.seedPeer(store)
+        try Self.beginRotation(store, trustStore)
+        try store.deleteKey(tag: identityKeyApplicationTag)
+        let bootstrapper = IdentityBootstrapper(keychainStore: store)
+
+        _ = bootstrapper.bootstrapIdentity()
+
+        #expect(bootstrapper.requiresRePair)
+        #expect(try trustStore.list().isEmpty)
     }
 }

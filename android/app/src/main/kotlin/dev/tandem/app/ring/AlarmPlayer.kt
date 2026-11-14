@@ -1,5 +1,6 @@
 package dev.tandem.app.ring
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -9,6 +10,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.core.content.edit
 import kotlin.math.sin
 
 /**
@@ -21,19 +23,30 @@ interface AlarmPlayer {
     fun start()
 
     fun stop()
+
+    /** Puts back an alarm volume saved by a ring that a process death cut short, if one is saved. */
+    fun restoreStaleVolume()
 }
 
 /** Production implementation backed by the real `AudioManager` and `MediaPlayer`. */
+@SuppressLint("ApplySharedPref") // the saved volume must reach disk before the alarm is turned up
 class SystemAlarmPlayer(
     private val context: Context,
 ) : AlarmPlayer {
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private var previousAlarmVolume = 0
+    private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private var mediaPlayer: MediaPlayer? = null
     private var synthesizedTone: AudioTrack? = null
 
     override fun start() {
-        previousAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        if (!preferences.contains(KEY_PREVIOUS_VOLUME)) {
+            preferences
+                .edit()
+                .putInt(
+                    KEY_PREVIOUS_VOLUME,
+                    audioManager.getStreamVolume(AudioManager.STREAM_ALARM),
+                ).commit()
+        }
         val maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
         audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0)
 
@@ -144,10 +157,18 @@ class SystemAlarmPlayer(
             release()
         }
         synthesizedTone = null
-        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, previousAlarmVolume, 0)
+        restoreStaleVolume()
+    }
+
+    override fun restoreStaleVolume() {
+        if (mediaPlayer != null || synthesizedTone != null || !preferences.contains(KEY_PREVIOUS_VOLUME)) return
+        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, preferences.getInt(KEY_PREVIOUS_VOLUME, 0), 0)
+        preferences.edit(commit = true) { remove(KEY_PREVIOUS_VOLUME) }
     }
 
     private companion object {
+        const val PREFERENCES_NAME = "alarm_player"
+        const val KEY_PREVIOUS_VOLUME = "previous_alarm_volume"
         const val SYNTHESIZED_TONE_SAMPLE_RATE_HZ = 44_100
         const val SYNTHESIZED_TONE_PERIOD_SAMPLES = 100 // 441 Hz (44_100 / 100), an audible alert tone.
         const val SYNTHESIZED_TONE_PERIODS = 10 // ~23ms buffer, looped -- an exact whole number of cycles.

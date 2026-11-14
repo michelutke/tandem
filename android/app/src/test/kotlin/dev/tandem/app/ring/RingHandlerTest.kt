@@ -62,6 +62,34 @@ class RingHandlerTest {
     }
 
     @Test
+    fun ringHandler_processDiedWhileSwitchedToAlarms_restoreStaleFilterPutsTotalSilenceBack() {
+        val notificationPolicyAccess =
+            FakeNotificationPolicyAccess(access = true, initialFilter = InterruptionFilter.NONE)
+        val record = InMemoryRingFilterSwitchRecord()
+        RingHandler(FakeAlarmPlayer(), notificationPolicyAccess, record).ring()
+        val afterRestart = RingHandler(FakeAlarmPlayer(), notificationPolicyAccess, record)
+
+        afterRestart.restoreStaleFilter()
+
+        assertEquals(InterruptionFilter.NONE, notificationPolicyAccess.filter)
+        assertFalse(record.isSet())
+    }
+
+    @Test
+    fun ringHandler_filterChangedByUserBeforeRestore_restoreStaleFilterKeepsItAndClearsRecord() {
+        val notificationPolicyAccess =
+            FakeNotificationPolicyAccess(access = true, initialFilter = InterruptionFilter.NONE)
+        val record = InMemoryRingFilterSwitchRecord()
+        RingHandler(FakeAlarmPlayer(), notificationPolicyAccess, record).ring()
+        notificationPolicyAccess.setFilter(InterruptionFilter.PRIORITY)
+
+        RingHandler(FakeAlarmPlayer(), notificationPolicyAccess, record).restoreStaleFilter()
+
+        assertEquals(InterruptionFilter.PRIORITY, notificationPolicyAccess.filter)
+        assertFalse(record.isSet())
+    }
+
+    @Test
     fun ringHandler_policyAccessMissing_showsExplanationBeforeSettings() {
         val notificationPolicyAccess =
             FakeNotificationPolicyAccess(access = false, initialFilter = InterruptionFilter.NONE)

@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 import TandemProtocol
+import TandemStore
 @testable import FeatureFiles
 
 private let chunkSize = 262_144
@@ -124,8 +125,49 @@ private func resumeAndFinish(
     return payloads.compactMap { if case .fileChunk(let chunk) = $0 { chunk } else { nil } }
 }
 
+private final class ResumeRecorder: TransferProgressReporting, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [String] = []
+
+    var events: [String] { lock.withLock { recorded } }
+
+    func began(
+        id: String,
+        name: String,
+        totalBytes: Int64,
+        direction: TransferDirection,
+        cancel: @escaping @Sendable () async -> Void
+    ) async {
+        lock.withLock { recorded.append("began \(id) \(totalBytes)") }
+    }
+
+    func delivered(id: String, bytes: Int64) async {
+        lock.withLock { recorded.append("delivered \(id) \(bytes)") }
+    }
+
+    func ended(id: String, outcome: TransferOutcome, savedFile: URL?) async {
+        lock.withLock { recorded.append("ended \(id)") }
+    }
+}
+
 @Suite("Resume")
 struct FileResumeTests {
+    @Test
+    func macosReceiver_resumeRetained_reportsRowWithBoundaryProgress() async throws {
+        let rig = try Rig(size: 4 * chunkSize)
+        defer { rig.cleanUp() }
+        try await rig.severed(afterChunks: 2)
+        let recorder = ResumeRecorder()
+        let receiver = FileReceiver(
+            session: FakeTandemSession(), directories: rig.directories, sink: FileHandleSink(),
+            peer: "peer-a", now: { Date(timeIntervalSince1970: 0) }, progress: recorder
+        )
+
+        await receiver.resumeRetained()
+
+        #expect(recorder.events == ["began t1 \(4 * chunkSize)", "delivered t1 \(2 * chunkSize)"])
+    }
+
     @Test
     func macosResume_severedAt40MiB_resumeRequestFromOffset40MiB() async throws {
         let rig = try Rig(size: 64 * mebibyte)
@@ -282,5 +324,33 @@ struct FileResumeTests {
         #expect(await receiver.resumeRetained().isEmpty)
         #expect(await session.sent.isEmpty)
         #expect(FileManager.default.fileExists(atPath: rig.partURL.path))
+    }
+
+    @Test
+    func macosResume_onResumed_calledBeforeResumeRequestSent() async throws {
+        let rig = try Rig(size: 3 * chunkSize)
+        defer { rig.cleanUp() }
+        try await rig.severed(afterChunks: 1)
+        let session = FakeTandemSession()
+        let receiver = rig.receiver(session: session)
+        let sentWhenCalled = SentCountBox()
+
+        let resumed = await receiver.resumeRetained { id in
+            let sent = await session.sent.count
+            let staged = await receiver.hasTransfer(id: id)
+            await sentWhenCalled.record(id: id, sent: sent, staged: staged)
+        }
+
+        #expect(resumed == ["t1"])
+        #expect(await sentWhenCalled.entries == [SentCountBox.Entry(id: "t1", sent: 0, staged: true)])
+    }
+}
+
+private actor SentCountBox {
+    struct Entry: Equatable { let id: String; let sent: Int; let staged: Bool }
+    private(set) var entries: [Entry] = []
+
+    func record(id: String, sent: Int, staged: Bool) {
+        entries.append(Entry(id: id, sent: sent, staged: staged))
     }
 }

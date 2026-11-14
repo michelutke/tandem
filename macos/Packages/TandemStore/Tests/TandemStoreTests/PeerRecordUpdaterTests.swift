@@ -28,6 +28,24 @@ struct PeerRecordUpdaterTests {
     }
 
     @Test
+    func listener_trustedSessionReady_lastSeenUpdated() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let old = try Self.fingerprint(0x01)
+        let rotated = try Self.fingerprint(0x02)
+        let record = Self.makeRecord(fingerprint: old, capabilities: ["clipboard"])
+        try store.put(record)
+        try store.rotatePrimary(of: record, to: rotated, now: Date(timeIntervalSince1970: 50))
+        let updater = PeerRecordUpdater(trustStore: store, dateProvider: { Date(timeIntervalSince1970: 300) })
+
+        try updater.updateLastSeen(handshakeSpki: rotated)
+
+        let updated = try #require(try store.get(rotated))
+        #expect(updated.lastSeen == Date(timeIntervalSince1970: 300))
+        #expect(updated.capabilities == ["clipboard"])
+        #expect(updated.gracePin?.fingerprint == old)
+    }
+
+    @Test
     func peerRecordUpdater_readyKnownSpki_setsLastSeenAndCapabilities() throws {
         let store = TrustStore(keychainStore: InMemoryKeychainStore())
         let fingerprint = try Self.fingerprint(0x01)

@@ -46,6 +46,11 @@ public final class ClipboardSessionService: SessionService, Sendable {
         await stop(removed)
     }
 
+    public func releasePeer(_ peer: SpkiFingerprint) async {
+        let removed = attachments.withLock { $0.removeValue(forKey: peer) }
+        await stop(removed)
+    }
+
     private func stop(_ attachment: Attachment?) async {
         guard let attachment else { return }
         await attachment.writer.stop()

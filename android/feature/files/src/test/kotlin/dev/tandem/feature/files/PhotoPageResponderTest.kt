@@ -39,6 +39,20 @@ class PhotoPageResponderTest {
     }
 
     @Test
+    fun photoPageResponder_pagerThrowsRuntimeException_returnsPhotoError() {
+        shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_IMAGES)
+        val failing =
+            PhotoPageResponder(
+                MediaPermissionChecker(application, sdkInt = 34),
+                PhotoPager { _, _ -> error("query failed") },
+            )
+
+        val outcome = failing.respond(photoPage { limit = 10 })
+
+        assertTrue(outcome is PhotoPageOutcome.Failure)
+    }
+
+    @Test
     fun photoPageResponder_invalidCursor_returnsPhotoErrorNotPageResult() {
         shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_IMAGES)
 

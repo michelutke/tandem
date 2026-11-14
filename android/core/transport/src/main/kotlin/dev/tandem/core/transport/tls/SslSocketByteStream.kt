@@ -17,6 +17,12 @@ class SslSocketByteStream(
     override val input: InputStream = socket.inputStream
     override val output: OutputStream = socket.outputStream
 
+    /** DER `SubjectPublicKeyInfo` of the peer's leaf certificate from the completed handshake. */
+    fun peerPublicKeyDer(): ByteArray =
+        socket.session.peerCertificates
+            .first()
+            .publicKey.encoded
+
     /** Orderly close: a plain `socket.close()` triggers a TLS `close_notify` under JSSE. Idempotent. */
     override fun closeGracefully() {
         if (socket.isClosed) return

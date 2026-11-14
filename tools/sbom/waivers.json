@@ -23,5 +23,10 @@
     "id": "GHSA-2363-cqg2-863c",
     "reason": "Build-time jdom2 (ktlint tooling); not packaged in the release APK and no untrusted input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-10-02. Revisit when the Gradle plugin/tool bump ships a fixed version.",
     "expires": "2026-12-31"
+  },
+  {
+    "id": "GHSA-xxph-c9ww-hj94",
+    "reason": "Build-time guava 33.4.0-jre (AGP lint, detekt/ktlint and build-logic classpaths) and 33.6.0-jre (KSP, Hilt annotation processors, unit-test classpaths); not packaged in the release APK and no untrusted serialized input is processed. Verified absent from :app releaseRuntimeClasspath on 2026-11-13 (the app ships guava 33.7.2-android via a dependency constraint). Revisit when the Gradle plugin/tool bump ships a fixed version.",
+    "expires": "2026-12-31"
   }
 ]

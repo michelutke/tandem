@@ -2,6 +2,7 @@ package dev.tandem.feature.clipboard
 
 import com.google.protobuf.ByteString
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.clipboardText
 import java.security.MessageDigest
@@ -18,18 +19,28 @@ import java.security.MessageDigest
  * truncating it, and never sends a frame.
  */
 object ClipboardSender {
-    /** docs/protocol/SPEC.md #clipboard-channel "Size limit". */
-    const val MAX_TEXT_BYTES = 1_048_576
+    private const val ENVELOPE_OVERHEAD_BYTES = 1_024
+
+    /**
+     * docs/protocol/SPEC.md #clipboard-channel "Size limit" is 1 MiB (2^20) of UTF-8 text; this
+     * stricter sender cap reserves [ENVELOPE_OVERHEAD_BYTES] so the `Envelope` around the text
+     * (origin tag, hash, flags, seq, ack) always fits the 1 MiB frame limit.
+     */
+    const val MAX_TEXT_BYTES = 1_048_576 - ENVELOPE_OVERHEAD_BYTES
 
     /** UC-13: the message shown when [send] rejects text over [MAX_TEXT_BYTES]. */
     const val TOO_LARGE_TOAST = "Text too large to send (max 1 MiB)"
+
+    /** Shown when a user-initiated send finds no live session. */
+    const val NOT_CONNECTED_TOAST = "Not connected to your Mac."
 
     private const val ORIGIN_TAG = "android"
 
     /**
      * Sends [text] as a `ClipboardText` (originTag = "android") on [session]'s CLIPBOARD channel
      * if [text]'s UTF-8 byte length is at most [MAX_TEXT_BYTES]; returns `true`. Otherwise sends
-     * nothing, calls [onTooLarge], and returns `false`.
+     * nothing, calls [onTooLarge], and returns `false`. Also returns `false` if [session] closed
+     * before the frame could be sent.
      *
      * [onTooLarge] is a callback rather than a direct `Toast` call so this object stays
      * unit-testable (under Robolectric or plain JUnit) without a real UI `Context` -- a caller that
@@ -53,7 +64,7 @@ object ClipboardSender {
         }
 
         val contentHash = MessageDigest.getInstance("SHA-256").digest(utf8Bytes)
-        session.send(Channel.CHANNEL_CLIPBOARD) {
+        return session.sendOrDrop(Channel.CHANNEL_CLIPBOARD) {
             clipboardText =
                 clipboardText {
                     originTag = ORIGIN_TAG
@@ -62,6 +73,5 @@ object ClipboardSender {
                     this.sensitive = sensitive
                 }
         }
-        return true
     }
 }

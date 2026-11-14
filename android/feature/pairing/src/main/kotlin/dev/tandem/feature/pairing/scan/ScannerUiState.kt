@@ -7,4 +7,7 @@ sealed interface ScannerUiState {
 
     /** Camera preview is live, feeding decoded frames through [ScanResultFilter]. */
     data object Scanning : ScannerUiState
+
+    /** A frame was a QR that is not a usable Tandem code; the viewfinder turns red until Scan again. */
+    data object InvalidCode : ScannerUiState
 }

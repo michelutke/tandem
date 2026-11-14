@@ -18,7 +18,15 @@ class FakeAlarmPlayer(
     var startCount: Int = 0
         private set
 
+    /** Number of [restoreStaleVolume] calls so far. */
+    var staleRestoreCount: Int = 0
+        private set
+
     private var volumeBeforeStart = initialVolume
+
+    override fun restoreStaleVolume() {
+        staleRestoreCount++
+    }
 
     override fun start() {
         volumeBeforeStart = alarmVolume

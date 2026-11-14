@@ -3,7 +3,6 @@ package dev.tandem.core.protocol.handshake
 import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
-import dev.tandem.protocol.v1.VersionHello
 import dev.tandem.protocol.v1.versionHello
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -44,7 +43,7 @@ class VersionHandshake(
     suspend fun perform(): HandshakeOutcome =
         withContext(dispatcher) {
             sendOwnHello()
-            val outcome = outcomeFor(withTimeoutOrNull(HELLO_DEADLINE) { awaitPeerHello() })
+            val outcome = outcomeFor(withTimeoutOrNull(HELLO_DEADLINE) { awaitPeerFirstPayload() })
             complete(outcome)
             outcome
         }
@@ -60,24 +59,30 @@ class VersionHandshake(
         }
     }
 
-    private suspend fun awaitPeerHello(): VersionHello =
+    private suspend fun awaitPeerFirstPayload(): Envelope =
         multiplexer
             .inbound(Channel.CHANNEL_CONTROL)
-            .first { it.payload.payloadCase == Envelope.PayloadCase.VERSION_HELLO }
-            .payload.versionHello
+            .first()
+            .payload
 
-    private fun outcomeFor(peerHello: VersionHello?): HandshakeOutcome =
+    private fun outcomeFor(peerFirstPayload: Envelope?): HandshakeOutcome =
         when {
-            peerHello == null -> {
+            peerFirstPayload == null -> {
                 HandshakeOutcome.Failed(HandshakeFailure.Timeout)
             }
 
-            peerHello.major != PROTOCOL_MAJOR -> {
-                HandshakeOutcome.Failed(HandshakeFailure.VersionMismatch(peerHello.major, peerHello.minor))
+            peerFirstPayload.payloadCase != Envelope.PayloadCase.VERSION_HELLO -> {
+                HandshakeOutcome.Failed(HandshakeFailure.UnexpectedFirstPayload)
+            }
+
+            peerFirstPayload.versionHello.major != PROTOCOL_MAJOR -> {
+                val hello = peerFirstPayload.versionHello
+                HandshakeOutcome.Failed(HandshakeFailure.VersionMismatch(hello.major, hello.minor))
             }
 
             else -> {
-                HandshakeOutcome.Ready(NegotiatedSession(peerHello.minor, peerHello.capabilities, clock.instant()))
+                val hello = peerFirstPayload.versionHello
+                HandshakeOutcome.Ready(NegotiatedSession(hello.minor, hello.capabilities, clock.instant()))
             }
         }
 

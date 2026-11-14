@@ -4,8 +4,13 @@ import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
+import dev.tandem.core.transport.TandemSession
+import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.Envelope
+import dev.tandem.protocol.v1.EnvelopeKt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -15,6 +20,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.concurrent.Executors
 
 /**
  * UnpairAction tests (E14-12; `docs/planning/backlog/phase-1.yaml` E14-12's `tdd:` list).
@@ -40,6 +46,22 @@ class UnpairActionTest {
             assertEquals(listOf(fingerprint), trustRemover.deleted)
             assertTrue(session.sentFrames.any { it.payloadCase == Envelope.PayloadCase.REVOKE })
             assertTrue(session.state.value is ConnectionState.Disconnected)
+        }
+
+    @Test
+    fun unpairAction_readySessionWithSessionContext_sendAndCloseRunOnThatContext() =
+        runTest {
+            val threadNames = java.util.Collections.synchronizedList(mutableListOf<String>())
+            val session = ThreadRecordingSession(readySession(), threadNames)
+            val executor = Executors.newSingleThreadExecutor { Thread(it, "unpair-io") }
+            try {
+                UnpairAction(FakeTrustRemover(), PeerDataPurgeRegistry(), executor.asCoroutineDispatcher())
+                    .unpair(fingerprint, session)
+            } finally {
+                executor.shutdown()
+            }
+
+            assertEquals(listOf("sendFinal:unpair-io", "close:unpair-io"), threadNames.toList())
         }
 
     @Test
@@ -108,6 +130,23 @@ class UnpairActionTest {
             assertEquals(listOf(fingerprint), purger2.purged)
         }
 
+    @Test
+    fun unpairAction_callerCancelledAfterTrustDelete_sessionClosedAndPurged() =
+        runTest {
+            val session = readySession()
+            val purger = FakePurger()
+            val registry = PeerDataPurgeRegistry().apply { register(purger) }
+            val trustRemover = FakeTrustRemover()
+            val caller = launch { UnpairAction(trustRemover, registry).unpair(fingerprint, session) }
+            trustRemover.afterRemove = { caller.cancel() }
+
+            caller.join()
+
+            assertTrue(session.sentFrames.any { it.payloadCase == Envelope.PayloadCase.REVOKE })
+            assertTrue(session.state.value is ConnectionState.Disconnected)
+            assertEquals(listOf(fingerprint), purger.purged)
+        }
+
     private fun TestScope.readySession(): FakeTandemSession =
         FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
 
@@ -120,9 +159,11 @@ class UnpairActionTest {
 
     private class FakeTrustRemover : TrustRemover {
         val deleted = mutableListOf<SpkiFingerprint>()
+        var afterRemove: () -> Unit = {}
 
         override suspend fun remove(fingerprint: SpkiFingerprint) {
             deleted += fingerprint
+            afterRemove()
         }
     }
 
@@ -132,5 +173,23 @@ class UnpairActionTest {
         override suspend fun purgeAll(peerFingerprint: SpkiFingerprint) {
             purged += peerFingerprint
         }
+    }
+}
+
+private class ThreadRecordingSession(
+    private val delegate: FakeTandemSession,
+    private val names: MutableList<String>,
+) : TandemSession by delegate {
+    override suspend fun sendFinal(
+        channel: Channel,
+        payload: EnvelopeKt.Dsl.() -> Unit,
+    ) {
+        names += "sendFinal:${Thread.currentThread().name}"
+        delegate.sendFinal(channel, payload)
+    }
+
+    override fun close() {
+        names += "close:${Thread.currentThread().name}"
+        delegate.close()
     }
 }

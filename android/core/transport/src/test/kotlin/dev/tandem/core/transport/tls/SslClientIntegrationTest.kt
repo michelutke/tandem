@@ -10,15 +10,27 @@ import dev.tandem.core.transport.testserver.TestServerKeyManager
 import dev.tandem.core.transport.testserver.TestTlsServer
 import dev.tandem.core.transport.testserver.TestTlsServerConfig
 import dev.tandem.core.transport.testserver.clientHelloExtensionTypes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.net.InetAddress
+import java.net.ServerSocket
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLHandshakeException
+import kotlin.concurrent.thread
 
 /**
  * E12-04 tdd:
@@ -158,10 +170,117 @@ class SslClientIntegrationTest {
         }
     }
 
+    @Test
+    fun sslClientFactory_serverDripsHandshakeBytes_failsWithinTotalDeadline() {
+        val serverSocket = ServerSocket(0, 1, localhost)
+        val dripper =
+            thread(isDaemon = true) {
+                runCatching {
+                    serverSocket.accept().use { accepted ->
+                        accepted.getInputStream().read(ByteArray(CLIENT_HELLO_READ_BYTES))
+                        val header = byteArrayOf(0x16, 0x03, 0x03, 0x40, 0x00)
+                        val out = accepted.getOutputStream()
+                        repeat(DRIP_COUNT) { index ->
+                            out.write(if (index < header.size) header[index].toInt() else 0)
+                            out.flush()
+                            Thread.sleep(DRIP_INTERVAL_MILLIS)
+                        }
+                    }
+                }
+            }
+        val factory = clientFactory()
+        val socket = factory.createSocket()
+
+        val startedAt = System.nanoTime()
+        assertThrows(IOException::class.java) {
+            factory.connect(socket, localhost, serverSocket.localPort, handshakeTimeoutMillis = TOTAL_DEADLINE_MILLIS)
+        }
+        val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+
+        assertTrue(elapsedMillis < TOTAL_DEADLINE_MILLIS + DEADLINE_SLACK_MILLIS, "failed after $elapsedMillis ms")
+        assertTrue(socket.isClosed)
+        serverSocket.close()
+        dripper.interrupt()
+    }
+
+    @Test
+    fun sslClientFactory_dialCancelledWhileServerSilent_returnsPromptlyAndClosesSocket() {
+        val serverSocket = ServerSocket(0, 1, localhost)
+        val factory = clientFactory()
+        val socket = factory.createSocket()
+
+        val elapsedMillis =
+            runBlocking {
+                val dial =
+                    launch(Dispatchers.IO) {
+                        factory.connectCancellable(socket, localhost, serverSocket.localPort, Dispatchers.IO)
+                    }
+                delay(CANCEL_AFTER_MILLIS)
+                val cancelledAt = System.nanoTime()
+                dial.cancelAndJoin()
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cancelledAt)
+            }
+
+        assertTrue(elapsedMillis < CANCEL_RETURN_MILLIS, "cancel took $elapsedMillis ms")
+        assertTrue(socket.isClosed)
+        serverSocket.close()
+    }
+
+    @Test
+    fun sslClientFactory_watchdogFiresAsHandshakeCompletes_failsInsteadOfReturningClosedStream() {
+        val server =
+            TestTlsServer(TestServerKeyManager(TestIdentity("server")), AcceptAnyTrustManager(), TestTlsServerConfig())
+        val realScheduler = Executors.newSingleThreadScheduledExecutor()
+        val firingOnCancel =
+            object : ScheduledExecutorService by realScheduler {
+                override fun schedule(
+                    command: Runnable,
+                    delay: Long,
+                    unit: TimeUnit,
+                ): ScheduledFuture<*> {
+                    val pending = realScheduler.schedule(command, delay, unit)
+                    return object : ScheduledFuture<Any?> by (pending as ScheduledFuture<Any?>) {
+                        override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+                            pending.cancel(false)
+                            command.run()
+                            return false
+                        }
+                    }
+                }
+            }
+        try {
+            server.use {
+                server.acceptOnce()
+                val identity = TestIdentity("client")
+                val factory =
+                    SslClientFactory(
+                        identity.keyManager,
+                        AcceptAnyTrustManager(),
+                        ConscryptSessionTicketDisabler(),
+                        firingOnCancel,
+                    )
+                val socket = factory.createSocket()
+
+                assertThrows(IOException::class.java) { factory.connect(socket, localhost, server.port) }
+
+                assertTrue(socket.isClosed)
+            }
+        } finally {
+            realScheduler.shutdownNow()
+        }
+    }
+
     private fun clientFactory(identity: TestIdentity = TestIdentity("client")): SslClientFactory =
         SslClientFactory(identity.keyManager, AcceptAnyTrustManager(), ConscryptSessionTicketDisabler())
 
     private companion object {
         const val TIMEOUT_SECONDS = 5L
+        const val TOTAL_DEADLINE_MILLIS = 1_000
+        const val DEADLINE_SLACK_MILLIS = 800
+        const val CANCEL_AFTER_MILLIS = 300L
+        const val CANCEL_RETURN_MILLIS = 2_000L
+        const val DRIP_COUNT = 40
+        const val DRIP_INTERVAL_MILLIS = 250L
+        const val CLIENT_HELLO_READ_BYTES = 16
     }
 }

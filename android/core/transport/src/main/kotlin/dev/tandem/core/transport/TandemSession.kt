@@ -42,6 +42,22 @@ interface TandemSession {
     /** Frames this session has routed for [channel] — never anything routed for a different channel. */
     fun receive(channel: Channel): Flow<Envelope>
 
+    /**
+     * Sends one last frame and then closes this session. A real connection waits until the frame
+     * has been written and closes in an orderly way, so the peer receives it (e.g. `Revoke`); the
+     * session is closed even if the send fails.
+     */
+    suspend fun sendFinal(
+        channel: Channel,
+        payload: EnvelopeKt.Dsl.() -> Unit,
+    ) {
+        try {
+            send(channel, payload)
+        } finally {
+            close()
+        }
+    }
+
     /** Tears down this session: moves [state] to `Disconnected` and completes every [receive] flow. */
     fun close()
 }

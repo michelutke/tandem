@@ -9,6 +9,7 @@ import dev.tandem.protocol.v1.SmsSyncStatus
 import dev.tandem.protocol.v1.envelope
 import dev.tandem.protocol.v1.smsMessage
 import dev.tandem.protocol.v1.smsSyncRequest
+import dev.tandem.protocol.v1.smsThread
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+
+private const val LONG_BODY_BYTES = 9_000
+private const val FRAME_BYTE_LIMIT = 1_048_576 - 64
 
 /** SmsSyncSession tests (E50-13; `docs/planning/backlog/phase-5.yaml` E50-13's `tdd:` list). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,6 +44,63 @@ class SmsSyncSessionTest {
             assertFalse(pages[23].backfillComplete)
             assertTrue(pages.all { it.highWatermarkId == 5000L })
             assertEquals(SmsSyncStatus.SMS_SYNC_STATUS_OK, pages.first().status)
+        }
+
+    @Test
+    fun smsSyncSession_peerPageSizeIntMax_pagesClampedToDefaultSize() =
+        runTest {
+            val inner = FakeTandemSession()
+
+            syncSession(FakeSmsSource(messages(450)), inner).handle(request(pageSize = Int.MAX_VALUE))
+
+            val pages = inner.sentFrames.map { it.smsSyncResponse }
+            assertEquals(3, pages.size)
+            assertTrue(pages.all { it.messagesCount <= SmsSource.PAGE_SIZE })
+        }
+
+    @Test
+    fun smsSyncSession_peerPageSizeNegative_pagesUseDefaultSize() =
+        runTest {
+            val inner = FakeTandemSession()
+
+            syncSession(FakeSmsSource(messages(450)), inner).handle(request(pageSize = -1))
+
+            assertEquals(3, inner.sentFrames.size)
+        }
+
+    @Test
+    fun smsSyncSession_freshRequestWithLongBodies_everyFrameWithinByteBudgetAndNoMessageLost() =
+        runTest {
+            val inner = FakeTandemSession()
+            val longMessages = messages(300).map { it.toBuilder().setBody("x".repeat(LONG_BODY_BYTES)).build() }
+
+            syncSession(FakeSmsSource(longMessages), inner).handle(request())
+
+            val pages = inner.sentFrames.map { it.smsSyncResponse }
+            assertTrue(pages.all { it.serializedSize <= FRAME_BYTE_LIMIT })
+            assertEquals((1L..300L).toSet(), pages.flatMap { p -> p.messagesList.map { it.id } }.toSet())
+            assertTrue(pages.last().backfillComplete)
+            assertFalse(pages.dropLast(1).any { it.backfillComplete })
+        }
+
+    @Test
+    fun smsSyncSession_freshRequestWithLongThreadSnippets_everyFrameWithinByteBudgetAndNoThreadLost() =
+        runTest {
+            val inner = FakeTandemSession()
+            val threads =
+                (1..SmsSource.PAGE_SIZE).map {
+                    smsThread {
+                        threadId = it.toLong()
+                        snippet = "x".repeat(LONG_BODY_BYTES)
+                    }
+                }
+
+            syncSession(FakeSmsSource(messages(10), threads), inner).handle(request())
+
+            val pages = inner.sentFrames.map { it.smsSyncResponse }
+            assertTrue(pages.all { it.serializedSize <= FRAME_BYTE_LIMIT })
+            assertEquals(threads.size, pages.sumOf { it.threadsCount })
+            assertEquals((1L..10L).toSet(), pages.flatMap { p -> p.messagesList.map { it.id } }.toSet())
         }
 
     @Test

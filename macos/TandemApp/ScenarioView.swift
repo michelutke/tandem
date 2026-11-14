@@ -161,6 +161,13 @@ struct ScenarioView: View {
             ScenarioView.makeNowPlayingSeededView()
         case .mirrorDeclined:
             ScenarioView.makeMirrorDeclinedView()
+        case .popoverRinging, .popoverUpdateNeeded, .popoverUnpairedNotice, .pairingPaired, .trustErrorBanner,
+             .mirrorWaitingScreen, .mirrorDeclinedScreen, .mirrorToolbar:
+            ScenarioStateViews(scenario: scenario)
+        case .photosNoAccess:
+            ScenarioView.makePhotosNoAccessView()
+        case .photoGridSelection:
+            ScenarioView.makePhotoGridSelectionView()
 
         case .transferProgressSeeded:
             TransferProgressRow(viewModel: transferProgressViewModel)

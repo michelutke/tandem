@@ -48,4 +48,17 @@ struct PairedPeerStateTests {
 
         #expect(state.displayName == nil)
     }
+
+    @Test
+    func pairedPeerState_refresh_runsOnRefreshAfterPublishing() throws {
+        let store = TrustStore(keychainStore: InMemoryKeychainStore())
+        let state = PairedPeerState(trustStore: store)
+        var namesSeen: [String?] = []
+        state.onRefresh = { namesSeen.append(state.displayName) }
+
+        try store.put(try Self.record(name: "Pixel"))
+        state.refresh()
+
+        #expect(namesSeen == ["Pixel"])
+    }
 }

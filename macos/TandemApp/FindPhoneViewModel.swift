@@ -33,6 +33,11 @@ final class FindPhoneViewModel {
     private(set) var label = RingState.idle.label
 
     private var ringState = RingState.idle
+
+    /// `true` while a ring is believed active -- the popover then shows "Ringing." with only
+    /// "Stop ringing" (ui-spec §7.1).
+    var isRinging: Bool { ringState == .ringing }
+
     private var session: (any TandemSession)?
 
     /// "Phone not connected." after a selection with no session; cleared by the next one.

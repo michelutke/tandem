@@ -21,12 +21,17 @@ public struct PeerRecordUpdater: Sendable {
     /// and the peer's advertised capabilities. Throws if the keychain is locked or other I/O fails.
     /// Invariant 3: match by fingerprint only; never create or match by any other field.
     public func updateOnReady(handshakeSpki: SpkiFingerprint, capabilities: [String]) throws {
-        guard var record = try trustStore.get(handshakeSpki) else {
-            // Record does not exist; do nothing (never create)
-            return
+        let now = dateProvider()
+        try trustStore.updateRecord(pinnedBy: handshakeSpki) {
+            $0.lastSeen = now
+            $0.capabilities = capabilities
         }
-        record.lastSeen = dateProvider()
-        record.capabilities = capabilities
-        try trustStore.put(record)
+    }
+
+    /// Like ``updateOnReady(handshakeSpki:capabilities:)`` but leaves the stored capabilities as
+    /// they are: only `lastSeen` moves.
+    public func updateLastSeen(handshakeSpki: SpkiFingerprint) throws {
+        let now = dateProvider()
+        try trustStore.updateRecord(pinnedBy: handshakeSpki) { $0.lastSeen = now }
     }
 }

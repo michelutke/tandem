@@ -1,4 +1,6 @@
+import Foundation
 import Testing
+import TandemCrypto
 
 @testable import TandemApp
 @testable import TandemProtocol
@@ -153,5 +155,134 @@ struct ErrorBannerViewModelTests {
 
         #expect(await viewModel.closeCode == .versionMismatch)
         #expect(await viewModel.message == nil)
+    }
+
+    // MARK: - title, blocking and recovery
+
+    @Test(arguments: [
+        (CloseCode.pinMismatch, "Pixel 8" as String?, "Key changed."),
+        (.pinMismatch, nil, "Blocked."),
+        (.versionMismatch, "Pixel 8", "Update needed.")
+    ])
+    func errorBannerViewModel_failure_titleNamesTheState(code: CloseCode, peer: String?, title: String) async throws {
+        let session = FakeTandemSession()
+        let viewModel = await ErrorBannerViewModel(stateStream: session.state, peerName: peer)
+
+        await session.emit(.failed(code))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.title == title)
+        #expect(await viewModel.blocksSections)
+    }
+
+    @Test
+    func errorBannerViewModel_failedThenReady_bannerClearedAndSectionsUnblocked() async throws {
+        let session = FakeTandemSession()
+        let viewModel = await ErrorBannerViewModel(stateStream: session.state, peerName: "Pixel 8")
+
+        await session.emit(.failed(.pinMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        await session.emit(.ready)
+        attempts = 0
+        while await viewModel.message != nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.message == nil)
+        #expect(await viewModel.blocksSections == false)
+    }
+
+    // MARK: - banner follows the peer that caused it
+
+    @Test
+    func errorBannerViewModel_otherPhoneReachesReady_bannerOfFailedPhoneStays() async throws {
+        let relay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
+        let phoneA = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        let phoneB = try SpkiFingerprint(bytes: Data(repeating: 0x0B, count: SpkiFingerprint.byteCount))
+        let failing = FakeTandemSession()
+        let healthy = FakeTandemSession()
+
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        await relay.attach(healthy, peer: phoneB)
+        await healthy.emit(.ready)
+        for _ in 0..<500 { await Task.yield() }
+
+        #expect(await viewModel.closeCode == .versionMismatch)
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.ready)
+        attempts = 0
+        while await viewModel.closeCode != nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        #expect(await viewModel.closeCode == nil)
+    }
+
+    @Test
+    func errorBannerViewModel_failedPhoneUnpairedThenOtherPhoneReady_bannerClears() async throws {
+        let relay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
+        let phoneA = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        let phoneB = try SpkiFingerprint(bytes: Data(repeating: 0x0B, count: SpkiFingerprint.byteCount))
+        let failing = FakeTandemSession()
+        let healthy = FakeTandemSession()
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        await relay.forgetFailureIfUnpaired { $0.matches(phoneB) }
+        await relay.attach(healthy, peer: phoneB)
+        await healthy.emit(.ready)
+        attempts = 0
+        while await viewModel.closeCode != nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.closeCode == nil)
+    }
+
+    @Test
+    func errorBannerViewModel_failedPhoneStillPaired_otherPhoneReadyKeepsBanner() async throws {
+        let relay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
+        let phoneA = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        let phoneB = try SpkiFingerprint(bytes: Data(repeating: 0x0B, count: SpkiFingerprint.byteCount))
+        let failing = FakeTandemSession()
+        let healthy = FakeTandemSession()
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        await relay.forgetFailureIfUnpaired { _ in true }
+        await relay.attach(healthy, peer: phoneB)
+        await healthy.emit(.ready)
+        for _ in 0..<500 { await Task.yield() }
+
+        #expect(await viewModel.closeCode == .versionMismatch)
     }
 }

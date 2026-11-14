@@ -9,4 +9,13 @@
 public protocol ListenerControl: Sendable {
     func start() async throws
     func stop() async
+    /// ``stop()`` then ``start()`` as one step, so overlapping restarts never interleave.
+    func restart() async throws
+}
+
+public extension ListenerControl {
+    func restart() async throws {
+        await stop()
+        try await start()
+    }
 }

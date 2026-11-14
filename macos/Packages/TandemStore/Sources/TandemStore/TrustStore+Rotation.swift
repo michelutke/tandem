@@ -51,6 +51,19 @@ extension TrustStore {
         return held
     }
 
+    /// Applies `change` to the record whose primary or grace pin is `fingerprint`, under the same
+    /// lock as every rotation write so a concurrent `rotatePrimary` is never overwritten by a stale
+    /// copy. Does nothing, never creating a record, when none holds that pin.
+    public func updateRecord(pinnedBy fingerprint: SpkiFingerprint, _ change: (inout PeerRecord) -> Void) throws {
+        try Self.rotationWrites.withLock { _ in
+            guard var record = try list().first(where: {
+                $0.fingerprint.matches(fingerprint) || $0.gracePin?.fingerprint.matches(fingerprint) == true
+            }) else { return }
+            change(&record)
+            try replace(record)
+        }
+    }
+
     /// Pins `newFingerprint` as `record`'s primary and keeps the old primary as a grace pin
     /// expiring `gracePinLifetime` after `now`. One Keychain item update: the record is either
     /// entirely old or entirely new. Throws `recordChanged` if another rotation already replaced

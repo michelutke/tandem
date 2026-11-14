@@ -272,9 +272,8 @@ private final class ResumeGuard: @unchecked Sendable {
     }
 }
 
-/// `ControlSessionRegistering` spy (E12-12, finding #5): records every `register`/
-/// `removeIfCurrent` call it observes, so a test can assert on them without reaching into
-/// `ControlSessionRegistry`'s own private state.
+/// `ControlSessionRegistering` spy (E12-12, finding #5): records every `register` call it observes,
+/// so a test can assert on it without reaching into `ControlSessionRegistry`'s own private state.
 private final class SpyControlSessionRegistry: ControlSessionRegistering, @unchecked Sendable {
     struct Registration {
         let fingerprint: SpkiFingerprint
@@ -293,6 +292,7 @@ private final class SpyControlSessionRegistry: ControlSessionRegistering, @unche
     }
 
     func removeIfCurrent(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {}
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {}
 
     func waitForRegistration(timeout: TimeInterval) async -> Registration? {
         if let existing = existingRegistration() {

@@ -68,6 +68,8 @@ class TandemNotificationListenerService : NotificationListenerService() {
     internal var showSecretContent: () -> Boolean = { false }
 
     private val trackedNotifications = ConcurrentHashMap<String, StatusBarNotification>()
+    private val versionCodes = ConcurrentHashMap<String, Long>()
+    private val appLabels = ConcurrentHashMap<String, String>()
 
     override fun onListenerConnected() {
         LiveNotificationListener.listener = this
@@ -84,12 +86,16 @@ class TandemNotificationListenerService : NotificationListenerService() {
         }
         NotifyLog.event("notify posted")
         trackedNotifications[sbn.key] = sbn
-        val versionCode = appVersionCode(sbn.packageName)
-        val posted = NotificationMapper.toPosted(sbn, versionCode, appLabel(sbn.packageName), showSecretContent())
+        val versionCode = versionCodes.getOrPut(sbn.packageName) { appVersionCode(sbn.packageName) }
+        val label = appLabels.getOrPut(sbn.packageName) { appLabel(sbn.packageName) }
+        val posted = NotificationMapper.toPosted(sbn, versionCode, label, showSecretContent())
         eventSink.onNotificationPosted(posted)
-        appIcon(sbn.packageName)?.let { icon ->
-            iconSender?.onNotificationPosted(sbn.packageName, versionCode, icon, eventSink::onIconData)
-        }
+        iconSender?.onNotificationPosted(
+            sbn.packageName,
+            versionCode,
+            { appIcon(sbn.packageName) },
+            eventSink::onIconData,
+        )
     }
 
     override fun onNotificationRemoved(

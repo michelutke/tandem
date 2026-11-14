@@ -84,16 +84,18 @@ public actor FileReceiver {
 
     /// Sweeps staging after a reconnect: deletes `.part` files idle for over 24 h and, for each
     /// retained one bound to this peer, truncates to a 256 KiB boundary, re-hashes the prefix and
-    /// sends `FileResumeRequest`. Returns the ids a resume was requested for.
+    /// sends `FileResumeRequest`. Returns the ids a resume was requested for. `onResumed` runs for each
+    /// id once its transfer is staged and before its request is sent, so a reject for it can only
+    /// arrive after the caller has counted it.
     @discardableResult
-    public func resumeRetained() async -> [String] {
+    public func resumeRetained(onResumed: (@Sendable (String) async -> Void)? = nil) async -> [String] {
         let names = (try? fileManager.contentsOfDirectory(atPath: directories.staging.path)) ?? []
         var resumed: [String] = []
         for name in names.sorted() where name.hasSuffix(".part") {
             let partURL = directories.staging.appendingPathComponent(name)
             if isExpired(partURL) {
                 try? fileManager.removeItem(at: partURL)
-            } else if let id = await resume(partURL: partURL) {
+            } else if let id = await resume(partURL: partURL, onResumed: onResumed) {
                 resumed.append(id)
             }
         }
@@ -106,7 +108,7 @@ public actor FileReceiver {
         return now().timeIntervalSince(modified) > Self.partRetention
     }
 
-    private func resume(partURL: URL) async -> String? {
+    private func resume(partURL: URL, onResumed: (@Sendable (String) async -> Void)?) async -> String? {
         guard let stored = PartAttributes.read(from: partURL),
               stored.peer == peer,
               Self.isSafeId(stored.offer.id),
@@ -125,6 +127,14 @@ public actor FileReceiver {
             transfer.hasher = hasher
             transfer.written = boundary
             transfers[offer.id] = transfer
+            let id = offer.id
+            await onResumed?(id)
+            await progress?.began(
+                id: id, name: transfer.filename, totalBytes: Int64(offer.size), direction: .phoneToMac
+            ) { [weak self] in
+                await self?.cancel(id: id)
+            }
+            await progress?.delivered(id: id, bytes: Int64(boundary))
             var request = Tandem_V1_FileResumeRequest()
             request.id = offer.id
             request.fromOffset = boundary
@@ -193,6 +203,16 @@ public actor FileReceiver {
         }
     }
 
+    /// Ends every staged transfer as failed without deleting its `.part`, so the next session can resume it.
+    public func sessionEnded() async {
+        let ended = transfers
+        transfers = [:]
+        for (id, transfer) in ended {
+            try? transfer.handle.close()
+            await progress?.ended(id: id, outcome: .failed(reason: "disconnected"))
+        }
+    }
+
     public func handle(cancel: Tandem_V1_FileCancel) async {
         guard let transfer = transfers.removeValue(forKey: cancel.id) else { return }
         discard(transfer)
@@ -256,15 +276,17 @@ public actor FileReceiver {
         guard lhs.count == rhs.count else { return false }
         return zip(lhs, rhs).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
     }
+}
 
-    private static func isSafeId(_ id: String) -> Bool {
+private extension FileReceiver {
+    static func isSafeId(_ id: String) -> Bool {
         !id.isEmpty && id.utf8.count <= 64 && id.utf8.allSatisfy {
             ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x61 && $0 <= 0x7A)
                 || $0 == 0x2D || $0 == 0x5F
         }
     }
 
-    private static func collisionName(_ filename: String, attempt: Int) -> String {
+    static func collisionName(_ filename: String, attempt: Int) -> String {
         guard attempt > 0 else { return filename }
         let name = filename as NSString
         let pathExtension = name.pathExtension
@@ -273,7 +295,7 @@ public actor FileReceiver {
         return pathExtension.isEmpty ? suffixed : "\(suffixed).\(pathExtension)"
     }
 
-    private static func isOutOfSpace(_ error: Error) -> Bool {
+    static func isOutOfSpace(_ error: Error) -> Bool {
         let nsError = error as NSError
         return (nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC))
             || (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileWriteOutOfSpaceError)

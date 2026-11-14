@@ -15,12 +15,23 @@ class TrustStoreCommitterTest {
             val fingerprint = SpkiFingerprint(ByteArray(32) { it.toByte() })
             val pairedAt = Instant.ofEpochMilli(1_700_000_000_000)
 
-            TrustStoreCommitter { stored += it }.commit(fingerprint, "Study Mac", pairedAt)
+            TrustStoreCommitter(put = { stored += it }).commit(fingerprint, "Study Mac", pairedAt)
 
             val record = stored.single()
             assertEquals(fingerprint.base64Url, record.spkiSha256Base64Url)
             assertEquals("Study Mac", record.displayName)
             assertEquals(pairedAt.toEpochMilli(), record.pairedAtEpochMs)
             assertEquals(pairedAt.toEpochMilli(), record.lastSeenEpochMs)
+        }
+
+    @Test
+    fun trustStoreCommitter_commit_clearsRePairNoticeOnlyAfterRecordIsStored() =
+        runTest {
+            val events = mutableListOf<String>()
+            val committer = TrustStoreCommitter(put = { events += "put" }, onCommitted = { events += "committed" })
+
+            committer.commit(SpkiFingerprint(ByteArray(32)), "Study Mac", Instant.EPOCH)
+
+            assertEquals(listOf("put", "committed"), events)
         }
 }

@@ -35,8 +35,10 @@ module ConformanceRunner
         report_file: File.join(repo_root, 'tools', 'conformance', 'reports', 'android-report.json')
       },
       'macos' => {
-        chdir: File.join(repo_root, 'macos', 'Packages', 'TandemProtocol'),
-        command: %w[swift test --filter ConformanceRunnerTests],
+        # The aggregate macos/Package.swift, like macos/test-packages.sh: a per-package build of
+        # TandemProtocol fails to link on newer toolchains (duplicate symbols).
+        chdir: File.join(repo_root, 'macos'),
+        command: %w[swift test --only-use-versions-from-resolved-file --filter ConformanceRunnerTests],
         report_file: File.join(repo_root, 'tools', 'conformance', 'reports', 'macos-report.json')
       }
     }

@@ -8,6 +8,13 @@ import dev.tandem.core.protocol.connection.ConnectionFailure
  */
 object ConnectionErrorMapper {
     /**
+     * The notice shown after this phone's identity was reset: the Mac still pins the old key and
+     * pairing is refused while a trust record exists, so the user must unpair first.
+     */
+    fun identityResetMessage(macName: String?): String =
+        "This phone's security key was reset. Unpair ${macName ?: "your Mac"}, then pair again."
+
+    /**
      * Map a connection failure to an error message.
      *
      * @param failure The connection failure reason
@@ -23,12 +30,21 @@ object ConnectionErrorMapper {
                 "Connection timed out. Check your network and try again."
             }
 
+            ConnectionFailure.IdentityUnavailable -> {
+                "This phone's security key is unavailable. Restart the app, or unpair this Mac and pair again if " +
+                    "this persists."
+            }
+
+            ConnectionFailure.VersionMismatch -> {
+                "Version mismatch. Check for app updates."
+            }
+
+            ConnectionFailure.PeerRejectedCertificate -> {
+                "Connection failed. Please try again."
+            }
+
             is ConnectionFailure.HandshakeError -> {
                 when {
-                    failure.message.contains("VERSION_MISMATCH") -> {
-                        "Version mismatch. Check for app updates."
-                    }
-
                     failure.message.contains("REVOKED") && macName != null -> {
                         "This device is no longer paired with $macName."
                     }

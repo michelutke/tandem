@@ -29,5 +29,9 @@ final class HarnessNotificationLoopbackRegistry: ControlSessionRegistering, Send
     func removeIfCurrent(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
         await wrapped.removeIfCurrent(spkiFingerprint, session: session)
     }
+
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {
+        await wrapped.unregister(spkiFingerprint)
+    }
 }
 #endif

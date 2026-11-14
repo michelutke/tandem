@@ -14,3 +14,13 @@ final class WorkspaceURLOpener: URLOpener {
         NSWorkspace.shared.open(url)
     }
 }
+
+extension WorkspaceURLOpener {
+    private static let releasePage = URL(string: "https://github.com/michelutke/tandem/releases")
+
+    /// Opens the Tandem releases page in the default browser ("Check for update").
+    func openReleasePage() {
+        guard let url = Self.releasePage else { return }
+        open(url)
+    }
+}

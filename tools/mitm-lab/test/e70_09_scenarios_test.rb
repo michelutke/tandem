@@ -12,7 +12,7 @@ require_relative '../runner'
 class MitmLabE7009ScenariosTest < Minitest::Test
   DIR = File.expand_path('../e70-09-rotation/scenarios', __dir__)
   EXPECTED = {
-    'mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged' => 'closedWithCode(PROTOCOL_TIMEOUT)',
+    'mitmLabRotation_keyRotationBeforeHelloComplete_rejectedTrustStoreUnchanged' => 'closedWithCode(MALFORMED_FRAME)',
     'mitmLabRotation_keyRotationInPairingWindow_rejectedTrustStoreUnchanged' => 'closedWithCode(PAIRING_FAILED)',
     'mitmLabRotation_unpinnedPeerSendsKeyRotation_handshakeFailsNoPinAdded' => 'handshakeRejected',
     'mitmLabRotation_keyRotationReplayedOnNewSession_rejectedTrustStoreUnchanged' => 'closedWithCode(INVALID_SIGNATURE)',

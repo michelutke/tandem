@@ -25,6 +25,8 @@ import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.connection.PairedFingerprints
 import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.connection.PendingRotationSessionDialer
+import dev.tandem.app.connection.RePairNoticeStore
+import dev.tandem.app.connection.RevokedNoticeStore
 import dev.tandem.app.connection.SessionFeature
 import dev.tandem.app.connection.TlsManualPairingConnector
 import dev.tandem.app.connection.TlsPairingConnector
@@ -89,6 +91,7 @@ import dev.tandem.feature.messaging.ContentResolverSmsSource
 import dev.tandem.feature.messaging.ContextSendSmsPermission
 import dev.tandem.feature.messaging.SmsManagerSender
 import dev.tandem.feature.messaging.SubscriptionManagerSource
+import dev.tandem.feature.notifications.LiveNotificationEventSink
 import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
 import dev.tandem.feature.status.BatteryReceiverStatusSource
 import dev.tandem.feature.status.ConnectivityManagerNetworkTypeSource
@@ -111,6 +114,10 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 interface ConnectionEntryPoint {
     fun connectionOrchestrator(): ConnectionOrchestrator
+
+    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry
+
+    fun revokedNoticeStore(): RevokedNoticeStore
 }
 
 /**
@@ -128,14 +135,20 @@ object ConnectionModule {
         @ApplicationContext context: Context,
     ): TrustStore = (context as TandemApplication).trustStore
 
+    @Suppress("LongParameterList") // Hilt-injected graph nodes the pairing flow is composed from
     @Provides
     @Singleton
     fun pairingFlow(
+        @ApplicationContext context: Context,
         trustStore: TrustStore,
         activeIdentityAlias: ActiveIdentityAlias,
         identityBootstrap: IdentityBootstrap,
+        rePairNotice: RePairNoticeStore,
+        revokedNotice: RevokedNoticeStore,
+        pairingAddressStore: PairingAddressStore,
     ): PairingFlow {
         val clock = AppClock.system
+        val heartbeatDependencies = HeartbeatDependencies(SystemElapsedRealtimeSource, startedIdleSource(context))
         return PairingFlow(
             clock = clock,
             dispatcher = AppDispatchers.default,
@@ -146,8 +159,17 @@ object ConnectionModule {
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
                     identity = identityBootstrap,
+                    heartbeatDependencies = heartbeatDependencies,
                 ),
-            trustCommitter = TrustStoreCommitter(trustStore::put),
+            trustCommitter =
+                TrustStoreCommitter(
+                    put = trustStore::put,
+                    onCommitted = {
+                        rePairNotice.clear()
+                        revokedNotice.clear()
+                    },
+                ),
+            onPaired = pairingAddressStore::save,
             deviceInfoProvider = SystemDeviceInfoProvider,
             manualConnector =
                 TlsManualPairingConnector(
@@ -156,6 +178,7 @@ object ConnectionModule {
                     ioDispatcher = AppDispatchers.io,
                     sessionDispatcher = AppDispatchers.io,
                     identity = identityBootstrap,
+                    heartbeatDependencies = heartbeatDependencies,
                 ),
         )
     }
@@ -174,7 +197,8 @@ object ConnectionModule {
 
     @Provides
     @Singleton
-    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry = PeerDataPurgeRegistry()
+    fun peerDataPurgeRegistry(): PeerDataPurgeRegistry =
+        PeerDataPurgeRegistry().apply { register(PeerDataPurging { LiveNotificationEventSink.clear() }) }
 
     @Provides
     @Singleton
@@ -196,7 +220,7 @@ object ConnectionModule {
     fun unpairAction(
         trustStore: TrustStore,
         purgeRegistry: PeerDataPurgeRegistry,
-    ): UnpairAction = UnpairAction(TrustRemover { trustStore.unpair(it) }, purgeRegistry)
+    ): UnpairAction = UnpairAction(TrustRemover { trustStore.unpair(it) }, purgeRegistry, AppDispatchers.io)
 
     @Provides
     @Singleton
@@ -208,7 +232,6 @@ object ConnectionModule {
         val scope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
         return ConnectionStatusViewModel(
             connectionState = orchestratorConnectionState(sessionRegistry, orchestrator.failure, scope),
-            failedCycles = orchestrator.failedCycles,
             macName =
                 trustStore
                     .observeList()
@@ -253,6 +276,7 @@ object ConnectionModule {
                     )
                 },
                 onAuthenticated = { rotation.refreshFingerprint() },
+                wasPreviouslyPinned = knownPeerStore::hasEverPinned,
             )
         startRotationScheduler(context, clock, rotation)
         val bonjourSource =
@@ -285,12 +309,24 @@ object ConnectionModule {
             clock = clock,
             dispatcher = AppDispatchers.default,
             warn = { Log.w(TAG, it) },
-        )
+            lastWorkingStore = lastWorkingStore(context, purgeRegistry),
+            hasPairedPeer = { pairedFingerprints.load().isNotEmpty() },
+        ).also { orchestrator -> purgeRegistry.register(PeerDataPurging { orchestrator.resetLastWorking() }) }
     }
 
     private const val TAG = "ConnectionModule"
     private const val PAIRING_ADDRESSES_FILE_NAME = "pairing-addresses"
 }
+
+private const val LAST_WORKING_FILE_NAME = "last-working-address"
+
+private fun lastWorkingStore(
+    context: Context,
+    purgeRegistry: PeerDataPurgeRegistry,
+): PairingAddressStore =
+    PairingAddressStore(File(context.filesDir, LAST_WORKING_FILE_NAME)).also { store ->
+        purgeRegistry.register(PeerDataPurging { store.clear() })
+    }
 
 private fun startedIdleSource(context: Context) =
     PowerManagerDeviceIdleSource(context, context.getSystemService(PowerManager::class.java)).also { it.start() }

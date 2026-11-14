@@ -19,6 +19,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
     private let clock: any Clock<Duration>
     private let settings: AcceptSettings
     private let destination: any DestinationResolving
+    private let originalRejected: (@Sendable (String) -> Void)?
 
     private var pending: [String: Task<Void, Never>] = [:]
     private var active: Set<String> = []
@@ -30,7 +31,8 @@ public actor AcceptFlow: OriginalOfferExpecting {
         presenter: any AcceptPromptPresenter,
         clock: any Clock<Duration>,
         settings: AcceptSettings,
-        destination: any DestinationResolving
+        destination: any DestinationResolving,
+        originalRejected: (@Sendable (String) -> Void)? = nil
     ) {
         self.session = session
         self.freeSpace = freeSpace
@@ -38,6 +40,7 @@ public actor AcceptFlow: OriginalOfferExpecting {
         self.clock = clock
         self.settings = settings
         self.destination = destination
+        self.originalRejected = originalRejected
     }
 
     public init(
@@ -46,7 +49,8 @@ public actor AcceptFlow: OriginalOfferExpecting {
         presenter: any AcceptPromptPresenter,
         clock: any Clock<Duration>,
         settings: AcceptSettings,
-        destination: URL
+        destination: URL,
+        originalRejected: (@Sendable (String) -> Void)? = nil
     ) {
         self.init(
             session: session,
@@ -54,7 +58,8 @@ public actor AcceptFlow: OriginalOfferExpecting {
             presenter: presenter,
             clock: clock,
             settings: settings,
-            destination: StaticDestination(destination)
+            destination: StaticDestination(destination),
+            originalRejected: originalRejected
         )
     }
 
@@ -67,7 +72,9 @@ public actor AcceptFlow: OriginalOfferExpecting {
 
     public func handle(offer: Tandem_V1_FileOffer) async {
         FilesLog.event("offer received")
-        if let reason = rejectionReason(for: offer) {
+        let isExpectedOriginal = expectedOriginals.contains(offer.id)
+        if let reason = rejectionReason(for: offer, isExpectedOriginal: isExpectedOriginal) {
+            if expectedOriginals.remove(offer.id) != nil { originalRejected?(offer.id) }
             await sendReject(offer.id, reason)
             return
         }
@@ -107,19 +114,27 @@ public actor AcceptFlow: OriginalOfferExpecting {
         active.contains(id)
     }
 
+    /// Counts a transfer the receiver resumed from a retained `.part` towards the active-transfer cap.
+    public func transferResumed(id: String) {
+        active.insert(id)
+    }
+
     /// Frees the active-transfer slot taken by an accepted offer once its transfer finishes.
     public func transferEnded(id: String) {
         active.remove(id)
     }
 
-    private func rejectionReason(for offer: Tandem_V1_FileOffer) -> Tandem_V1_TransferReason? {
+    private func rejectionReason(
+        for offer: Tandem_V1_FileOffer,
+        isExpectedOriginal: Bool
+    ) -> Tandem_V1_TransferReason? {
         if offer.name.utf8.count > Self.maxNameBytes || offer.mime.utf8.count > Self.maxMimeBytes {
             return .invalidName
         }
         if offer.size > Self.maxSize {
             return .tooLarge
         }
-        if pending.count >= Self.maxPendingOffers || active.count >= Self.maxActiveTransfers {
+        if !isExpectedOriginal, pending.count >= Self.maxPendingOffers || active.count >= Self.maxActiveTransfers {
             return .busy
         }
         if destination.withAccess({ freeSpace.availableBytes(at: $0) }) < offer.size + Self.spaceReserve {

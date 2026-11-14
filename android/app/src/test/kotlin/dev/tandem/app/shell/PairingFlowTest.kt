@@ -191,6 +191,31 @@ class PairingFlowTest {
         }
 
     @Test
+    fun pairingFlow_qrPaired_addressesSavedAsReconnectCandidates() =
+        runTest {
+            val rig = Rig(this)
+            rig.reachAwaitingUserConfirm()
+            assertTrue(rig.savedHints.isEmpty())
+
+            rig.flow.confirmCodesMatch()
+            runCurrent()
+
+            assertEquals(listOf(listOf("192.168.1.1") to 8443), rig.savedHints)
+        }
+
+    @Test
+    fun pairingFlow_qrAttemptCancelledBeforeConfirm_noAddressesSaved() =
+        runTest {
+            val rig = Rig(this)
+            rig.reachAwaitingUserConfirm()
+
+            rig.flow.cancel()
+            runCurrent()
+
+            assertTrue(rig.savedHints.isEmpty())
+        }
+
+    @Test
     fun manualPairingStarter_unreachableMac_failsClosedWithoutCommit() =
         runTest {
             val commits = mutableListOf<SpkiFingerprint>()
@@ -222,6 +247,7 @@ class PairingFlowTest {
     ) {
         val session = FakeTandemSession().also { it.emitState(ConnectionState.Ready(Instant.EPOCH)) }
         val commits = mutableListOf<Commit>()
+        val savedHints = mutableListOf<Pair<List<String>, Int>>()
         private val testScope = scope
         val flow =
             PairingFlow(
@@ -237,6 +263,7 @@ class PairingFlowTest {
 
                         override fun model() = "Pixel 9"
                     },
+                onPaired = { addresses, port -> savedHints += addresses to port },
             )
 
         fun reachAwaitingAccept() {

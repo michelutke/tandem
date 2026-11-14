@@ -116,6 +116,23 @@ class CallDetectorTest {
         }
 
     @Test
+    fun callDetector_permissionGrantedAfterAttach_startsMirroringCalls() =
+        runTest {
+            val permissions = FakeCallPermissions(readPhoneState = false)
+            start(permissions)
+            assertEquals(0, gateway.collectorCount)
+
+            permissions.readPhoneState = true
+            advanceTimeBy(5_001)
+            runCurrent()
+            emit(PhoneCallState.Idle)
+            emit(PhoneCallState.Ringing, "079 123 45 67")
+
+            assertEquals(1, gateway.collectorCount)
+            assertEquals(1, events.size)
+        }
+
+    @Test
     fun callDetector_ringingChange_logLinesOmitIncomingNumber() =
         runTest {
             start()

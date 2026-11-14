@@ -14,6 +14,6 @@ final class MirrorQuickActionUITests: XCTestCase {
         let label = window.staticTexts["mirrorStatusLabel"]
         XCTAssertTrue(label.waitForExistence(timeout: 10), "mirrorStatusLabel never appeared")
         let value = label.value as? String ?? ""
-        XCTAssertEqual(value.isEmpty ? label.label : value, "Mirroring declined on phone")
+        XCTAssertEqual(value.isEmpty ? label.label : value, "Declined. Nothing was shared.")
     }
 }

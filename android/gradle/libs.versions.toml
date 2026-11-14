@@ -56,6 +56,10 @@ kover = "0.9.10"
 # declare RECEIVER_NOT_EXPORTED correctly on every minSdk 33+ device in one call. 1.18.0 matches
 # the version already resolved transitively elsewhere in this build (feature/pairing's lockfile).
 androidx-core = "1.18.0"
+# GHSA-xxph-c9ww-hj94 (Guava CompactHashMap/CompactHashSet deserialization allocation, fixed in
+# 33.7.2): androidx.media3 and CameraX resolve 33.3.1-android transitively, so the app and the
+# CameraX module constrain the Android flavor to this version. Constraint only, never a direct use.
+guava = "33.7.2-android"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -107,6 +111,7 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 zxingcpp-android = { group = "io.github.zxing-cpp", name = "android", version.ref = "zxingcpp" }
 kover-gradlePlugin = { group = "org.jetbrains.kotlinx", name = "kover-gradle-plugin", version.ref = "kover" }
 androidx-core = { group = "androidx.core", name = "core", version.ref = "androidx-core" }
+guava-android = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
 
 [plugins]

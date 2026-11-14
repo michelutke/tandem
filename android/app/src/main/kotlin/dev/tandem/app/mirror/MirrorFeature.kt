@@ -13,6 +13,7 @@ import dev.tandem.core.transport.media.MediaDialResult
 import dev.tandem.core.transport.media.MediaDialer
 import dev.tandem.core.transport.media.MediaStreamFactory
 import dev.tandem.core.transport.reconnect.CandidateAddress
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.feature.input.DropLog
 import dev.tandem.feature.input.IndicatorGateState
@@ -33,6 +34,7 @@ import dev.tandem.feature.mirror.MirrorSessionState
 import dev.tandem.feature.mirror.RotationPlanner
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.mirrorDeclined
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -101,13 +103,16 @@ class MirrorFeature(
         clock = clock,
     )
 
+    @Suppress("TooManyFunctions") // one mirror round: prompt, consent, capture, input and teardown steps
     private inner class MirrorRound(
         private val session: TandemSession,
         private val peer: SpkiFingerprint,
     ) {
         private val consent = MirrorConsent()
         private val ended = CompletableDeferred<Unit>()
-        private val target = inputTarget()
+
+        @Volatile
+        private var target = inputTarget()
         private val starter = MirrorSessionStarter(platform.consentLauncher)
 
         @Volatile
@@ -126,13 +131,13 @@ class MirrorFeature(
             coroutineScope {
                 val media = MediaConnectionLifecycle(session, mediaDialer(session, peer), this)
                 gate = target?.let { inputGate(it, consent, peer, media) }
-                val controller = promptController(this)
+                val controller = promptController(this, media)
                 MirrorPromptActionDispatcher.controller = controller
                 platform.setConsentListener { granted ->
                     controller.onConsentResult(granted)
                     if (!granted) consent.revoke()
                     if (granted && starter.state == MirrorSessionState.ConsentGranted) {
-                        launch { startMirror(this, media) }
+                        launch { startMirrorOrAbort(this, media) }
                     }
                 }
                 controller.start()
@@ -145,15 +150,29 @@ class MirrorFeature(
                 }
             }
 
-        private suspend fun promptController(scope: CoroutineScope) =
-            MirrorPromptController(
-                session = TicketlessSession(session),
-                presenter = presenter,
-                starter = starter,
-                peerName = peerName(peer),
-                scope = scope,
-                onUserStart = { consent.grantFromUserAction(mintSessionId(), peer.base64Url) },
-            )
+        private suspend fun promptController(
+            scope: CoroutineScope,
+            media: MediaConnectionLifecycle,
+        ) = MirrorPromptController(
+            session = TicketlessSession(session),
+            presenter = presenter,
+            starter = starter,
+            peerName = peerName(peer),
+            scope = scope,
+            onUserStart = {
+                refreshInputTarget(media)
+                consent.grantFromUserAction(mintSessionId(), peer.base64Url)
+            },
+        )
+
+        // The accessibility service is normally enabled after the session connected, so the target seen when
+        // the round was built can be stale by the time the user starts the mirror.
+        private fun refreshInputTarget(media: MediaConnectionLifecycle) {
+            val current = inputTarget()
+            if (current === target) return
+            target = current
+            gate = current?.let { inputGate(it, consent, peer, media) }
+        }
 
         private fun mintSessionId() = ByteString.copyFrom(ByteArray(SESSION_ID_BYTES).also(random::nextBytes))
 
@@ -166,6 +185,20 @@ class MirrorFeature(
             val display = platform.displaySize()
             val planned = RotationPlanner.plan(display.width, display.height)
             return Size(planned.width, planned.height)
+        }
+
+        @Suppress("TooGenericExceptionCaught")
+        private suspend fun startMirrorOrAbort(
+            scope: CoroutineScope,
+            media: MediaConnectionLifecycle,
+        ) {
+            try {
+                startMirror(scope, media)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: RuntimeException) {
+                abort(MirrorFailure.Unreachable)
+            }
         }
 
         private suspend fun startMirror(
@@ -210,7 +243,7 @@ class MirrorFeature(
             val mirror = MirrorSessionLifecycle(pipeline, session, StoppedIndicator(), scope)
             lifecycle = mirror
             mirrorStartedMillis = elapsedRealtime.elapsedRealtimeMillis()
-            target?.indicator?.show()
+            if (target?.indicator?.show() != true) platform.showFailure(MirrorFailure.InputUnavailable)
             mirror.start()
             scope.launch(ioDispatcher) {
                 MediaControlReader(stream.input, pipeline::onKeyframeRequest).run()
@@ -242,7 +275,7 @@ class MirrorFeature(
 
         private suspend fun declineQuietly() {
             try {
-                session.send(Channel.CHANNEL_CONTROL) { mirrorDeclined = mirrorDeclined { } }
+                session.sendOrDrop(Channel.CHANNEL_CONTROL) { mirrorDeclined = mirrorDeclined { } }
             } catch (_: MultiplexerClosedException) {
                 return
             } catch (_: IOException) {

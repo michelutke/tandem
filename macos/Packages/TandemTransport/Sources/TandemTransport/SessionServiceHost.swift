@@ -8,6 +8,13 @@ import TandemProtocol
 public protocol SessionService: Sendable {
     func attach(peer: SpkiFingerprint, session: any TandemSession) async
     func detach(peer: SpkiFingerprint) async
+    /// A session of `peer` ended while another peer's session is being served: drops the state
+    /// kept for `peer` without touching the session now served. Defaults to nothing.
+    func releasePeer(_ peer: SpkiFingerprint) async
+}
+
+public extension SessionService {
+    func releasePeer(_ peer: SpkiFingerprint) async {}
 }
 
 /// Attaches every ``SessionService`` exactly once to a registered session and detaches them when
@@ -29,11 +36,17 @@ public actor SessionServiceHost {
     }
 
     private let services: [any SessionService]
+    private let registry: ControlSessionRegistry?
     private let events: AsyncStream<Event>.Continuation
     private var attachments: [SpkiFingerprint: Attachment] = [:]
+    private var servicedPeer: SpkiFingerprint?
 
-    public init(services: [any SessionService]) {
+    /// `registry`, when given, is asked as each registration event is applied: a session that is
+    /// not the one registered for its peer (a handshake that failed before registering) is never
+    /// attached.
+    public init(services: [any SessionService], registry: ControlSessionRegistry? = nil) {
         self.services = services
+        self.registry = registry
         let (stream, continuation) = AsyncStream<Event>.makeStream(bufferingPolicy: .unbounded)
         events = continuation
         Task { [weak self] in
@@ -68,6 +81,7 @@ public actor SessionServiceHost {
     private func handle(_ event: Event) async {
         switch event {
         case .registered(let peer, let session):
+            if let registry, !(await registry.isRegistered(session, for: peer)) { return }
             await attach(peer: peer, session: session)
         case .ended(let peer, let session):
             guard let current = attachments[peer], current.session === session else { return }
@@ -83,16 +97,26 @@ public actor SessionServiceHost {
             await detachAll(peer: peer)
         }
         attachments[peer] = Attachment(session: session)
+        servicedPeer = peer
         for service in services {
             await service.attach(peer: peer, session: session)
         }
         await session.sealSetup()
     }
 
+    /// Every service holds one session at a time, so it is detached only while it still serves
+    /// `peer`: the end of a session that a later attach for another peer already displaced leaves
+    /// the current one running and only releases the state kept for `peer`.
     private func detachAll(peer: SpkiFingerprint) async {
         attachments[peer] = nil
+        let servesPeer = servicedPeer?.matches(peer) ?? true
+        if servesPeer { servicedPeer = nil }
         for service in services {
-            await service.detach(peer: peer)
+            if servesPeer {
+                await service.detach(peer: peer)
+            } else {
+                await service.releasePeer(peer)
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ import dev.tandem.core.protocol.FrameDecoder
 import dev.tandem.core.protocol.FrameEncoder
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
+import dev.tandem.core.protocol.FrameTooLargeException
 import dev.tandem.core.protocol.MalformedFrameReason
 import dev.tandem.core.protocol.flowcontrol.CreditCaps
 import dev.tandem.core.protocol.flowcontrol.CreditLedger
@@ -70,7 +71,8 @@ import kotlinx.coroutines.channels.Channel as KtChannel
  * application-level consumer has actually taken the corresponding frame out of the... buffer, not
  * merely once the frame has been decoded off the wire"), this side's cumulative consumption count
  * for that channel is checked against half its cap; crossing that threshold sends exactly one
- * `CreditGrant` restoring the peer's granted balance to the channel's cap, and re-arms the trigger.
+ * `CreditGrant` returning exactly the credits consumed since the last grant (so the peer's balance
+ * plus this side's unconsumed backlog never exceeds the channel's cap), and re-arms the trigger.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("TooManyFunctions") // one reader/writer/flow-control state machine, see above
@@ -86,7 +88,7 @@ class ChannelMultiplexer(
 
     private val inboundQueues: Map<Channel, KtChannel<InboundFrame>> =
         ROUTABLE_CHANNELS.associateWith { KtChannel(KtChannel.UNLIMITED) }
-    private val outboundQueues: Map<Channel, KtChannel<Envelope>> =
+    private val outboundQueues: Map<Channel, KtChannel<OutboundFrame>> =
         ROUTABLE_CHANNELS.associateWith { KtChannel(KtChannel.UNLIMITED) }
 
     private val flowControl = FlowControl()
@@ -141,13 +143,46 @@ class ChannelMultiplexer(
      * [writer]'s job, not this call's.
      *
      * @throws MultiplexerClosedException if [closeReason] has already completed.
+     * @throws FrameTooLargeException if the frame, with worst-case `seq`/`ack` fields, would exceed
+     *   [FrameEncoder.MAX_ENVELOPE_BYTES]; nothing is enqueued and no credit or `seq` is consumed.
      */
     suspend fun send(
         channel: Channel,
         payload: EnvelopeKt.Dsl.() -> Unit,
+    ) = enqueue(channel, payload, written = null)
+
+    /**
+     * Like [send], but suspends until [writer] has finished writing the frame to [sink], so a caller
+     * about to close the connection (e.g. `Revoke` before an unpair) knows the frame left this side.
+     *
+     * @throws MultiplexerClosedException if [closeReason] completes before the frame was written.
+     */
+    suspend fun sendAndAwaitWritten(
+        channel: Channel,
+        payload: EnvelopeKt.Dsl.() -> Unit,
+    ) {
+        val written = CompletableDeferred<Unit>()
+        enqueue(channel, payload, written)
+        select {
+            written.onAwait { }
+            closeResult.onAwait { throw MultiplexerClosedException(it) }
+        }
+    }
+
+    private suspend fun enqueue(
+        channel: Channel,
+        payload: EnvelopeKt.Dsl.() -> Unit,
+        written: CompletableDeferred<Unit>?,
     ) {
         require(channel in ROUTABLE_CHANNELS) { "cannot send on $channel" }
         throwIfClosed()
+        val unsequenced =
+            envelope {
+                payload()
+                this.channel = channel
+            }
+        val worstCaseSize = unsequenced.serializedSize + SEQ_ACK_MAX_FIELD_BYTES
+        if (worstCaseSize > FrameEncoder.MAX_ENVELOPE_BYTES) throw FrameTooLargeException(worstCaseSize)
         if (channel in FEATURE_CHANNELS) {
             flowControl.awaitSendCredit(channel)
         }
@@ -155,15 +190,13 @@ class ChannelMultiplexer(
             throwIfClosed()
             val seq = outgoingSeq.getValue(channel) + 1
             outgoingSeq[channel] = seq
-            val ack = incomingAck.getValue(channel)
             val frame =
-                envelope {
-                    payload()
-                    this.channel = channel
-                    this.seq = seq
-                    this.ack = ack
-                }
-            outboundQueues.getValue(channel).trySend(frame)
+                unsequenced
+                    .toBuilder()
+                    .setSeq(seq)
+                    .setAck(incomingAck.getValue(channel))
+                    .build()
+            outboundQueues.getValue(channel).trySend(OutboundFrame(frame, written))
         }
     }
 
@@ -327,14 +360,19 @@ class ChannelMultiplexer(
             failQueued()
         }
 
+        private suspend fun write(frame: OutboundFrame) {
+            sink.write(FrameEncoder.encodeFrame(frame.envelope))
+            mutableSent.tryEmit(Unit)
+            frame.written?.complete(Unit)
+        }
+
         /** Writes at most one frame per channel, starting at [startIndex]; `null` if nothing was queued. */
         private suspend fun drainOnePass(startIndex: Int): Int? {
             for (offset in ROUTABLE_CHANNELS.indices) {
                 val index = (startIndex + offset) % ROUTABLE_CHANNELS.size
                 val result = outboundQueues.getValue(ROUTABLE_CHANNELS[index]).tryReceive()
                 if (result.isSuccess) {
-                    sink.write(FrameEncoder.encodeFrame(result.getOrThrow()))
-                    mutableSent.tryEmit(Unit)
+                    write(result.getOrThrow())
                     return (index + 1) % ROUTABLE_CHANNELS.size
                 }
             }
@@ -352,8 +390,7 @@ class ChannelMultiplexer(
                     closeResult.onAwait { CLOSED_INDEX }
                     for (channel in ROUTABLE_CHANNELS) {
                         outboundQueues.getValue(channel).onReceive { frame ->
-                            sink.write(FrameEncoder.encodeFrame(frame))
-                            mutableSent.tryEmit(Unit)
+                            write(frame)
                             ROUTABLE_CHANNELS.indexOf(channel)
                         }
                     }
@@ -423,16 +460,27 @@ class ChannelMultiplexer(
                 credit.mutex.withLock {
                     credit.consumedSinceGrant += 1
                     if (credit.consumedSinceGrant >= credit.cap / 2) {
-                        val amount = credit.cap - credit.ledger.balance
-                        credit.ledger.applyGrant(amount)
+                        val amount = credit.consumedSinceGrant
+                        credit.ledger.applyGrant(amount.toLong())
                         credit.consumedSinceGrant = 0
                         amount
                     } else {
                         0
                     }
                 }
-            if (grantAmount > 0) {
-                sendCreditGrant(channel, grantAmount)
+            if (grantAmount > 0) sendGrantUnlessClosed(channel, grantAmount)
+        }
+
+        /** A grant for a frame consumed after close has no peer left to credit; the backlog still drains. */
+        @Suppress("SwallowedException")
+        private suspend fun sendGrantUnlessClosed(
+            channel: Channel,
+            amount: Int,
+        ) {
+            try {
+                sendCreditGrant(channel, amount)
+            } catch (_: MultiplexerClosedException) {
+                return
             }
         }
 
@@ -479,10 +527,11 @@ class ChannelMultiplexer(
                         CloseCode.MALFORMED_FRAME,
                         MalformedFrameReason.UNKNOWN_CHANNEL,
                     )
+            val amount = Integer.toUnsignedLong(grant.amount)
             val overflow =
-                grant.amount > 0 &&
+                amount > 0 &&
                     credit.mutex.withLock {
-                        when (credit.ledger.applyGrant(grant.amount)) {
+                        when (credit.ledger.applyGrant(amount)) {
                             is CreditLedger.GrantResult.Ok -> {
                                 val waiters = credit.waiters.toList()
                                 credit.waiters.clear()
@@ -545,6 +594,12 @@ class ChannelMultiplexer(
         var consumedSinceGrant = 0
     }
 
+    /** One queued outbound frame; [written] completes once [Writer] has handed it to [sink]. */
+    private class OutboundFrame(
+        val envelope: Envelope,
+        val written: CompletableDeferred<Unit>?,
+    )
+
     private companion object {
         val ROUTABLE_CHANNELS: List<Channel> =
             listOf(
@@ -564,6 +619,9 @@ class ChannelMultiplexer(
 
         /** [Writer.awaitAndWriteAny]'s sentinel return value for "[closeResult] completed first". */
         const val CLOSED_INDEX = -1
+
+        /** Two tagged 64-bit varint fields (`seq`, `ack`): 1 tag byte plus at most 10 value bytes each. */
+        const val SEQ_ACK_MAX_FIELD_BYTES = 22
 
         /** [sent]/[received]'s replay-less buffer: generous enough that a slow collector never blocks the hot path. */
         const val SIGNAL_BUFFER_CAPACITY = 64

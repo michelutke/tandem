@@ -5,6 +5,12 @@ import TandemProtocol
 public protocol FilesFrameStream: Sendable {
     /// The next payload to send on FILES, or `nil` once this stream has nothing more to send.
     func nextFrame() async -> Tandem_V1_Envelope.OneOf_Payload?
+    /// The frame returned by ``nextFrame()`` could not be sent (the session is gone).
+    func sendFailed() async
+}
+
+public extension FilesFrameStream {
+    func sendFailed() async {}
 }
 
 private struct SingleFrameStream: FilesFrameStream {
@@ -47,7 +53,10 @@ public actor FilesScheduler {
         while !queue.isEmpty {
             let stream = queue.removeFirst()
             guard let payload = await stream.nextFrame() else { continue }
-            guard (try? await session.send(.files, payload: payload)) != nil else { continue }
+            guard (try? await session.send(.files, payload: payload)) != nil else {
+                await stream.sendFailed()
+                continue
+            }
             if !(stream is SingleFrameStream) {
                 queue.append(stream)
             }

@@ -79,6 +79,21 @@ struct PhotoGridViewModelTests {
         #expect(await service.moreRequests == 1)
     }
 
+    @Test func photoGridVm_noAccess_showsNoAccessState() async {
+        let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<0, nextCursor: "", access: .none)])
+        let viewModel = await loadedViewModel(service: service)
+
+        #expect(viewModel.showsNoAccess)
+        #expect(!viewModel.showsLimitedAccessBanner)
+    }
+
+    @Test func photoGridVm_fullAccess_noNoAccessState() async {
+        let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<3, nextCursor: "")])
+        let viewModel = await loadedViewModel(service: service)
+
+        #expect(!viewModel.showsNoAccess)
+    }
+
     @Test func photoGridVm_fullAccess_noLimitedBanner() async {
         let service = FakePhotoService(pages: [FakePhotoService.page(ids: 0..<3, nextCursor: "")])
         let viewModel = await loadedViewModel(service: service)
@@ -168,5 +183,31 @@ struct PhotoGridViewModelDownloadTests {
         viewModel.originalTransferFinished(transferId: "xfer-1")
 
         #expect(viewModel.downloadStates["photo-3"] == .downloaded)
+    }
+
+    @Test func photoGrid_originalOfferRejected_stateFailedAndRetryAllowed() async {
+        let service = FakePhotoService()
+        let expecting = RecordingOfferExpecting()
+        let viewModel = makeViewModel(service: service, expecting: expecting)
+        await viewModel.download(id: "photo-3")
+
+        await viewModel.originalTransferFailed(transferId: "xfer-1")
+        #expect(viewModel.downloadStates["photo-3"] == .failed)
+        #expect(await expecting.forgotten == ["xfer-1"])
+
+        await viewModel.download(id: "photo-3")
+        #expect(await service.originalRequests.count == 2)
+        #expect(viewModel.downloadStates["photo-3"] == .downloading)
+    }
+
+    @Test func photoGrid_download_expectsOriginalOnAcceptFlow() async {
+        let expecting = RecordingOfferExpecting()
+        let active = ActivePhotoService()
+        active.attach(FakePhotoService(), offers: expecting)
+        let viewModel = PhotoGridViewModel(service: active, offerExpecting: active, makeTransferID: { "xfer-9" })
+
+        await viewModel.download(id: "photo-1")
+
+        #expect(await expecting.expected == ["xfer-9"])
     }
 }

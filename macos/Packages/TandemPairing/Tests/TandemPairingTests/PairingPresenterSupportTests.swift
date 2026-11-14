@@ -8,14 +8,19 @@ import TandemTransport
 
 @Suite("PairingPresenterSupport")
 struct PairingPresenterSupportTests {
-    @Test(arguments: [PairingWindowClosedReason.paired, .cancelled, .expired, .declined])
+    @Test(arguments: [PairingWindowClosedReason.cancelled, .declined])
     func autoClose_terminalReason_closesWindow(reason: PairingWindowClosedReason) {
         #expect(PairingWindowAutoClose.shouldClose(closedReason: reason))
     }
 
+    @Test(arguments: [PairingWindowClosedReason.paired, .expired, .attemptsExhausted])
+    func autoClose_reasonWithOwnScreen_keepsWindowOpen(reason: PairingWindowClosedReason) {
+        #expect(!PairingWindowAutoClose.shouldClose(closedReason: reason))
+    }
+
     @Test
-    func autoClose_attemptsExhausted_keepsWindowOpen() {
-        #expect(!PairingWindowAutoClose.shouldClose(closedReason: .attemptsExhausted))
+    func autoClose_expiredWhileConfirmationShowing_closesWindow() {
+        #expect(PairingWindowAutoClose.shouldClose(closedReason: .expired, showingConfirmation: true))
     }
 
     @Test

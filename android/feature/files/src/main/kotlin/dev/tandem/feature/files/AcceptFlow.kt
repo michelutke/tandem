@@ -4,6 +4,7 @@ import dev.tandem.core.protocol.DisplayStringKind
 import dev.tandem.core.protocol.DisplayStringSanitizer
 import dev.tandem.core.protocol.FilenameSanitizer
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.FileOffer
 import dev.tandem.protocol.v1.TransferReason
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 
 /** Receiver-side auto-accept setting (D-44): off by default; applies only to offers <= [autoAcceptMaxBytes]. */
@@ -42,6 +44,7 @@ data class AcceptSettings(
  * [dispatcher] MUST be single-threaded: all state is confined to it ([accept]/[decline] hop onto
  * it). Invariant 7: never logs names or sizes.
  */
+@Suppress("LongParameterList") // one seam per collaborator
 class AcceptFlow(
     private val session: TandemSession,
     private val freeSpace: FreeSpaceProvider,
@@ -49,6 +52,7 @@ class AcceptFlow(
     private val settings: () -> AcceptSettings,
     private val activeTransfers: () -> Int,
     dispatcher: CoroutineDispatcher,
+    private val reservedBytes: () -> Long = { 0L },
 ) {
     /** Called before `FileAccept` is sent, so the receiver is ready for the first chunk. */
     var onAccepted: (FileOffer) -> Unit = {}
@@ -56,8 +60,8 @@ class AcceptFlow(
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     // Offer id -> its 300 s timeout job. Only touched on the scope's dispatcher.
-    private val pending = mutableMapOf<String, Job>()
-    private val pendingOffers = mutableMapOf<String, FileOffer>()
+    private val pending = ConcurrentHashMap<String, Job>()
+    private val pendingOffers = ConcurrentHashMap<String, FileOffer>()
 
     init {
         session
@@ -81,6 +85,7 @@ class AcceptFlow(
     }
 
     fun close() {
+        pendingOffers.keys.forEach(prompter::cancel)
         scope.cancel()
     }
 
@@ -97,7 +102,7 @@ class AcceptFlow(
     private suspend fun acceptOffer(offer: FileOffer) {
         FilesLog.event("accept sent")
         onAccepted(offer)
-        session.send(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
+        session.sendOrDrop(Channel.CHANNEL_FILES) { fileAccept = fileAccept { id = offer.id } }
     }
 
     private fun rejectionFor(offer: FileOffer): TransferReason? {
@@ -115,7 +120,7 @@ class AcceptFlow(
                 TransferReason.TRANSFER_REASON_BUSY
             }
 
-            freeSpace.freeBytes() < offer.size + SPACE_RESERVE_BYTES -> {
+            freeSpace.freeBytes() - reservedBytes() < STAGED_COPIES * offer.size + SPACE_RESERVE_BYTES -> {
                 TransferReason.TRANSFER_REASON_INSUFFICIENT_SPACE
             }
 
@@ -159,7 +164,7 @@ class AcceptFlow(
         why: TransferReason,
     ) {
         FilesLog.event("reject sent", why)
-        session.send(Channel.CHANNEL_FILES) {
+        session.sendOrDrop(Channel.CHANNEL_FILES) {
             fileReject =
                 fileReject {
                     id = offerId
@@ -170,6 +175,7 @@ class AcceptFlow(
 
     private companion object {
         const val MAX_OFFER_BYTES = 1L shl 36
+        const val STAGED_COPIES = 2 // the .part file, then the published MediaStore copy
         const val SPACE_RESERVE_BYTES = 64L * 1024 * 1024
         const val MAX_PENDING_OFFERS = 4
         const val MAX_ACTIVE_TRANSFERS = 2

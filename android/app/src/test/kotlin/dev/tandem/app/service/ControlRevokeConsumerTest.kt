@@ -1,6 +1,7 @@
 package dev.tandem.app.service
 
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.FakeTandemSession
@@ -23,7 +24,11 @@ class ControlRevokeConsumerTest {
             val removed = mutableListOf<SpkiFingerprint>()
             session.emitIncoming(revokeEnvelope())
 
-            consumeControlRevoke(RegisteredSession(session, peer), TrustRemover { removed += it })
+            consumeControlRevoke(
+                RegisteredSession(session, peer),
+                TrustRemover { removed += it },
+                PeerDataPurgeRegistry(),
+            )
 
             assertEquals(listOf(peer), removed)
             assertTrue(session.state.value is ConnectionState.Disconnected)
@@ -36,7 +41,11 @@ class ControlRevokeConsumerTest {
             val removed = mutableListOf<SpkiFingerprint>()
             session.close()
 
-            consumeControlRevoke(RegisteredSession(session, peer), TrustRemover { removed += it })
+            consumeControlRevoke(
+                RegisteredSession(session, peer),
+                TrustRemover { removed += it },
+                PeerDataPurgeRegistry(),
+            )
 
             assertTrue(removed.isEmpty())
         }

@@ -138,4 +138,77 @@ struct ListenerStartupModelTests {
             #expect(reason.message.hasSuffix("."))
         }
     }
+
+    @Test func runtimeFailure_whileStarted_becomesFailedKeepingLifecycle() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+        model.start()
+
+        model.listenerFailed(.portUnavailable)
+
+        #expect(model.phase == .failed(.portUnavailable))
+        #expect(model.lifecycle == 7)
+    }
+
+    @Test func runtimeFailure_beforeAnyStart_ignored() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+
+        model.listenerFailed(.portUnavailable)
+
+        #expect(model.phase == .notStarted)
+    }
+
+    @Test func listenerStartupModel_failedThenAutomaticRestartSucceeds_phaseStarted() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+        model.start()
+        model.listenerFailed(.portUnavailable)
+
+        model.listenerRecovered()
+
+        #expect(model.phase == .started)
+    }
+
+    @Test func listenerRecovered_beforeAnyStart_ignored() {
+        let model = ListenerStartupModel<Int>(start: { .success(7) })
+
+        model.listenerRecovered()
+
+        #expect(model.phase == .notStarted)
+    }
+
+    @Test func restartAfterFailure_restartSucceeds_becomesStartedWithoutStartingAgain() async {
+        let script = Script([.success(7)])
+        var restarted: [Int] = []
+        let model = ListenerStartupModel<Int>(
+            start: { script.next() },
+            onStarted: { _ in },
+            restart: { restarted.append($0); return nil }
+        )
+        model.start()
+        model.listenerFailed(.portUnavailable)
+
+        await model.restartAfterFailure()
+
+        #expect(model.phase == .started)
+        #expect(restarted == [7])
+        #expect(script.calls == 1)
+    }
+
+    @Test func restartAfterFailure_restartFailsAgain_staysFailedWithNewReason() async {
+        let model = ListenerStartupModel<Int>(
+            start: { .success(7) }, onStarted: { _ in }, restart: { _ in .keychainAccess }
+        )
+        model.start()
+        model.listenerFailed(.portUnavailable)
+
+        await model.restartAfterFailure()
+
+        #expect(model.phase == .failed(.keychainAccess))
+    }
+
+    @Test func classify_identityNotReadyOnRestart_isIdentityUnavailable() {
+        #expect(
+            ListenerFailureReason.classify(listenerError: ProductionListenerControl.StartError.identityNotReady)
+                == .identityUnavailable
+        )
+    }
 }

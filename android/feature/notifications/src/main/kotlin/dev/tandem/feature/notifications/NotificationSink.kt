@@ -2,6 +2,7 @@ package dev.tandem.feature.notifications
 
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.core.transport.time.ElapsedRealtimeSource
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.IconData
@@ -92,7 +93,7 @@ class NotificationSink(
     override fun onIconData(icon: IconData) {
         scope.launch {
             if (session.state.value is ConnectionState.Ready) {
-                session.send(Channel.CHANNEL_NOTIFY) { iconData = icon }
+                session.sendOrDrop(Channel.CHANNEL_NOTIFY) { iconData = icon }
             }
         }
     }
@@ -101,7 +102,7 @@ class NotificationSink(
         scope.launch {
             val removed = bufferLock.withLock { buffer.removeAll { it.notification.key == dismiss.key } }
             if (!removed && session.state.value is ConnectionState.Ready) {
-                session.send(Channel.CHANNEL_NOTIFY) { notificationDismiss = dismiss }
+                session.sendOrDrop(Channel.CHANNEL_NOTIFY) { notificationDismiss = dismiss }
             }
         }
     }
@@ -127,7 +128,7 @@ class NotificationSink(
 
     private suspend fun sendPosted(notification: NotificationPosted) {
         NotifyLog.event("notify sent")
-        session.send(Channel.CHANNEL_NOTIFY) { notificationPosted = notification }
+        session.sendOrDrop(Channel.CHANNEL_NOTIFY) { notificationPosted = notification }
     }
 
     private data class BufferedPost(

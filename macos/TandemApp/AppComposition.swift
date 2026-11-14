@@ -46,6 +46,9 @@ enum AppComposition {
         /// forwarded across reconnects (and across a first pairing made after launch) by a
         /// ``ConnectionStateRelay``.
         let makeMenuBarStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
+        /// Like ``makeMenuBarStateStream``, but a Ready from one phone never clears another phone's
+        /// fail-closed state, so the trust banner follows the peer that caused it.
+        let makeBannerStateStream: (@Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>)?
         /// The paired peer's display name, republished on pairing commit and unpair.
         let pairedPeer: PairedPeerState
         /// Feature services attached to every registered session (E22-12).
@@ -60,30 +63,25 @@ enum AppComposition {
 
     /// Bootstraps the identity and, if it's ready, starts the listener and both lifecycle
     /// controllers.
-    static func startListener() -> Result<RetainedLifecycle, ListenerStartFailure> {
+    static func startListener(
+        onRuntimeFailure: @escaping @Sendable (ListenerFailureReason) -> Void,
+        onRuntimeRecovery: @escaping @Sendable () -> Void
+    ) -> Result<RetainedLifecycle, ListenerStartFailure> {
         let keychainStore = KeychainStoreFactory.make()
         let identityBootstrapper = makeIdentityBootstrapper(keychainStore)
 
         let core = makeCore(keychainStore: keychainStore, identityBootstrapper: identityBootstrapper)
-        identityBootstrapper.bootstrapIdentity()
-
-        if let failure = ListenerStartFailure(identityState: identityBootstrapper.identityState) {
-            return .failure(failure)
-        }
+        if let failure = bootstrapFailure(identityBootstrapper, core: core) { return .failure(failure) }
 
         let mirror = MirrorComposition()
         let sessionFeatures = makeSessionFeatures(core: core, mirror: mirror)
-        let menuBarWiring = makeMenuBarWiring(sessionRegistry: core.sessionRegistry)
+        let menuBarWiring = makeMenuBarWiring(
+            sessionRegistry: core.sessionRegistry, trustStore: core.trustStore, pairedPeer: core.pairedPeer
+        )
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
-            sessionRegistry: core.sessionRegistry,
-            trustStore: core.trustStore,
-            pairing: core.pairing,
-            chaining: ListenerChaining(
-                features: sessionFeatures,
-                onSessionRegistered: menuBarWiring.onSessionRegistered,
-                mediaConnectionHandler: mirror.acceptor
-            )
+            core: core,
+            chaining: makeChaining(features: sessionFeatures, menuBarWiring: menuBarWiring, mirror: mirror)
         )
         let started: ListenerController.StartedListener
         switch controller.startResult() {
@@ -91,8 +89,15 @@ enum AppComposition {
         case .failure(let failure): return .failure(failure)
         }
 
-        let controllers = makeLifecycleControllers(controller: controller, started: started, pairing: core.pairing)
-        core.listenerControl.set(controllers.listenerControl)
+        let controllers = makeLifecycleControllers(
+            controller: controller,
+            started: started,
+            hooks: makeListenerHooks(
+                pairing: core.pairing, identityBootstrapper: identityBootstrapper,
+                onFailure: onRuntimeFailure, onRecovery: onRuntimeRecovery
+            ),
+            controlBox: core.listenerControl
+        )
         core.rotation.startScheduler()
         return .success(
             RetainedLifecycle(
@@ -106,6 +111,7 @@ enum AppComposition {
                 trustStore: core.trustStore,
                 purgeRegistry: core.purgeRegistry,
                 makeMenuBarStateStream: menuBarWiring.makeStream,
+                makeBannerStateStream: menuBarWiring.makeBannerStream,
                 pairedPeer: core.pairedPeer,
                 sessionFeatures: sessionFeatures,
                 pairing: core.pairing,
@@ -115,6 +121,14 @@ enum AppComposition {
         )
     }
 
+    /// Bootstraps the identity and republishes the paired phone, which an identity reset may have
+    /// removed; the failure to start the listener on it, or `nil` when it is ready.
+    private static func bootstrapFailure(_ bootstrapper: IdentityBootstrapper, core: Core) -> ListenerStartFailure? {
+        bootstrapper.bootstrapIdentity()
+        Task { await core.pairedPeer.refresh() }
+        return ListenerStartFailure(identityState: bootstrapper.identityState)
+    }
+
     private static func makeIdentityBootstrapper(_ keychainStore: any KeychainStore) -> IdentityBootstrapper {
         IdentityBootstrapper(keychainStore: keychainStore, onIdentityReset: { IdentityResetNotice.markReset() })
     }
@@ -122,6 +136,7 @@ enum AppComposition {
     private static func makeSessionFeatures(core: Core, mirror: MirrorComposition) -> SessionFeatures {
         let features = SessionFeatures.make(
             purgeRegistry: core.purgeRegistry,
+            sessionRegistry: core.sessionRegistry,
             mirrorService: mirror.service,
             rotationService: core.rotation
         )
@@ -156,14 +171,21 @@ enum AppComposition {
         let trustStore = TrustStore(keychainStore: keychainStore)
         let sessionRegistry = ControlSessionRegistry()
         let pairedPeer = MainActor.assumeIsolated { PairedPeerState(trustStore: trustStore) }
+        let pinnedPeers: @Sendable () throws -> Set<SpkiFingerprint> = { try trustStore.pinnedPeers() }
+        let purgeRegistry = PeerDataPurgeRegistry(
+            trustedPeers: KeychainStoreFactory.usesHarnessKeychain ? nil : pinnedPeers
+        )
         let pairing = MacPairingComposition(
             identityBootstrapper: identityBootstrapper,
             trustStore: trustStore,
             sessionRegistry: sessionRegistry,
+            purgeRegistry: purgeRegistry,
+            onPeerUnpaired: { await pairedPeer.refresh() },
             onPeerPaired: {
                 Task { @MainActor in
                     pairedPeer.refresh()
                     IdentityResetNotice.shared.clear()
+                    PeerUnpairedNotice.shared.clear()
                 }
             }
         )
@@ -173,13 +195,15 @@ enum AppComposition {
             trustStore: trustStore,
             window: pairing.host,
             identityBootstrapper: identityBootstrapper,
-            listenerControl: listenerControl
+            listenerControl: listenerControl,
+            purgeRegistry: purgeRegistry,
+            pairedPeer: pairedPeer
         )
         rotation.resume()
         return Core(
             trustStore: trustStore,
             sessionRegistry: sessionRegistry,
-            purgeRegistry: PeerDataPurgeRegistry(),
+            purgeRegistry: purgeRegistry,
             pairing: pairing,
             pairedPeer: pairedPeer,
             rotation: rotation,
@@ -195,11 +219,10 @@ enum AppComposition {
 
     private static func makeController(
         identityBootstrapper: IdentityBootstrapper,
-        sessionRegistry: ControlSessionRegistry,
-        trustStore: TrustStore,
-        pairing: MacPairingComposition,
+        core: Core,
         chaining: ListenerChaining
     ) -> ListenerController {
+        let (sessionRegistry, trustStore, pairing) = (core.sessionRegistry, core.trustStore, core.pairing)
         let decisionCorrelator = PeerDecisionCorrelator()
         let verify = verifyBlock(
             trustStore: trustStore,
@@ -217,7 +240,12 @@ enum AppComposition {
                 onSessionRegistered: chaining.features.onSessionRegistered(chaining: chaining.onSessionRegistered),
                 onSessionEnded: chaining.features.onSessionEnded,
                 mediaConnectionHandler: chaining.mediaConnectionHandler,
-                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() })
+                rotation: RotationReceiverConfiguration(window: pairing.host, dateProvider: { Date() }),
+                purgeRegistry: core.purgeRegistry,
+                onPeerUnpaired: { [pairedPeer = core.pairedPeer] in
+                    await MainActor.run { PeerUnpairedNotice.shared.peerUnpaired(name: pairedPeer.displayName) }
+                    await pairedPeer.refresh()
+                }
             ),
             port: .any,
             verify: verify,
@@ -232,59 +260,37 @@ enum AppComposition {
     /// `onSessionRegistered` fires again each time a new `TandemSession` reaches Ready.
     private struct MenuBarWiring {
         let makeStream: @Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>
+        let makeBannerStream: @Sendable () -> AsyncStream<ConnectionStateMachine.ConnectionState>
         let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler
     }
 
-    private static func makeMenuBarWiring(sessionRegistry: ControlSessionRegistry) -> MenuBarWiring {
+    private static func makeMenuBarWiring(
+        sessionRegistry: ControlSessionRegistry,
+        trustStore: TrustStore,
+        pairedPeer: PairedPeerState
+    ) -> MenuBarWiring {
         let relay = ConnectionStateRelay()
+        let bannerRelay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        MainActor.assumeIsolated {
+            pairedPeer.onRefresh = {
+                Task {
+                    await bannerRelay.forgetFailureIfUnpaired { failed in
+                        guard let pinned = try? trustStore.pinnedPeers() else { return true }
+                        return pinned.contains { $0.matches(failed) }
+                    }
+                }
+            }
+        }
         return MenuBarWiring(
             makeStream: { relay.makeStream() },
+            makeBannerStream: { bannerRelay.makeStream() },
             onSessionRegistered: { fingerprint, session in
                 Task {
                     guard await sessionRegistry.shouldForwardState(of: session, for: fingerprint) else { return }
                     await relay.attach(session)
+                    await bannerRelay.attach(session, peer: fingerprint)
                 }
             }
-        )
-    }
-
-    /// Every ``RetainedLifecycle`` field that comes from the started listener itself (sleep/wake,
-    /// network-path-change) rather than from identity/trust-store setup -- split out purely to keep
-    /// ``startListener()`` under this repo's `function_body_length` lint budget.
-    private struct LifecycleControllers {
-        let listenerControl: ProductionListenerControl
-        let powerEvents: WorkspacePowerEvents
-        let pathSource: NWPathMonitorSource
-        let sleepWakeController: SleepWakeController
-        let pathChangeController: PathChangeController
-    }
-
-    private static func makeLifecycleControllers(
-        controller: ListenerController,
-        started: ListenerController.StartedListener,
-        pairing: MacPairingComposition
-    ) -> LifecycleControllers {
-        pairing.listenerStarted(started.listener)
-        let listenerControl = ProductionListenerControl(
-            listenerController: controller,
-            initiallyStarted: started,
-            onStarted: { pairing.listenerStarted($0.listener) }
-        )
-        let powerEvents = WorkspacePowerEvents(notificationCenter: NSWorkspace.shared.notificationCenter)
-        let sleepWakeController = SleepWakeController(powerEvents: powerEvents, listenerControl: listenerControl)
-        let pathSource = NWPathMonitorSource()
-        let pathChangeController = PathChangeController(pathSource: pathSource, listenerControl: listenerControl)
-        Task {
-            await sleepWakeController.start()
-            await pathChangeController.start()
-        }
-
-        return LifecycleControllers(
-            listenerControl: listenerControl,
-            powerEvents: powerEvents,
-            pathSource: pathSource,
-            sleepWakeController: sleepWakeController,
-            pathChangeController: pathChangeController
         )
     }
 
@@ -318,6 +324,20 @@ enum AppComposition {
                     Task { await pinMismatchBannerGate.recordRejection() }
                 }
             }
+        )
+    }
+}
+
+extension AppComposition {
+    private static func makeChaining(
+        features: SessionFeatures,
+        menuBarWiring: MenuBarWiring,
+        mirror: MirrorComposition
+    ) -> ListenerChaining {
+        ListenerChaining(
+            features: features,
+            onSessionRegistered: menuBarWiring.onSessionRegistered,
+            mediaConnectionHandler: mirror.acceptor
         )
     }
 }

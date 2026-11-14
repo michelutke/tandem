@@ -1,10 +1,12 @@
 package dev.tandem.feature.messaging
 
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.SmsMessage
 import dev.tandem.protocol.v1.SmsSyncRequest
 import dev.tandem.protocol.v1.SmsSyncStatus
+import dev.tandem.protocol.v1.SmsThread
 import dev.tandem.protocol.v1.smsSyncResponse
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -56,7 +58,7 @@ class SmsSyncSession(
             sync(request, token)
         } catch (_: SmsPermissionMissing) {
             log("sms sync: READ_SMS missing")
-            session.send(Channel.CHANNEL_SMS) {
+            session.sendOrDrop(Channel.CHANNEL_SMS) {
                 smsSyncResponse =
                     smsSyncResponse {
                         status = SmsSyncStatus.SMS_SYNC_STATUS_PERMISSION_REQUIRED
@@ -69,7 +71,7 @@ class SmsSyncSession(
         request: SmsSyncRequest,
         token: SyncToken,
     ) {
-        val pageSize = if (request.pageSize > 0) request.pageSize else SmsSource.PAGE_SIZE
+        val pageSize = if (request.pageSize in 1..SmsSource.PAGE_SIZE) request.pageSize else SmsSource.PAGE_SIZE
         val maxId = withContext(ioDispatcher) { source.maxId() }
         val fresh = request.sinceId == 0L && request.backfillBeforeId == 0L
         log("sms sync: start fresh=$fresh maxId=$maxId pageSize=$pageSize")
@@ -92,7 +94,9 @@ class SmsSyncSession(
         token: SyncToken,
     ) {
         while (!token.superseded) {
-            val rows = withContext(ioDispatcher) { source.newerThan(cursors.highWatermark, pageSize) }
+            val rows =
+                withContext(ioDispatcher) { source.newerThan(cursors.highWatermark, pageSize) }
+                    .takeWithinBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
             if (rows.isEmpty()) return
             cursors.highWatermark = rows.last().id
             pages.send(rows)
@@ -107,8 +111,8 @@ class SmsSyncSession(
     ) {
         while (!token.superseded && !cursors.backfillComplete) {
             val rows = withContext(ioDispatcher) { source.olderThan(cursors.backfillCursor, pageSize + 1) }
-            val page = rows.take(pageSize)
-            cursors.backfillComplete = rows.size <= pageSize
+            val page = rows.take(pageSize).takeWithinBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
+            cursors.backfillComplete = rows.size <= pageSize && page.size == rows.size
             if (page.isNotEmpty()) cursors.backfillCursor = page.last().id
             pages.send(page)
         }
@@ -123,27 +127,38 @@ class SmsSyncSession(
     private inner class PageSender(
         private val cursors: Cursors,
     ) {
+        private val initialCursors = Cursors(cursors.highWatermark, cursors.backfillCursor, cursors.backfillComplete)
         private var firstPage = true
         val sentAny get() = !firstPage
 
         suspend fun send(messages: List<SmsMessage>) {
             val threads = if (firstPage) withContext(ioDispatcher) { source.threads() } else emptyList()
             firstPage = false
-            session.send(Channel.CHANNEL_SMS) {
+            val threadChunks = threads.chunkedByBytes(PAGE_BYTE_BUDGET) { it.serializedSize }
+            threadChunks.dropLast(1).forEach { sendResponse(it, emptyList(), initialCursors) }
+            sendResponse(threadChunks.last(), messages, cursors)
+            log(
+                "sms sync: sent page messages=${messages.size} " +
+                    "high=${cursors.highWatermark} cursor=${cursors.backfillCursor}",
+            )
+        }
+
+        private suspend fun sendResponse(
+            threads: List<SmsThread>,
+            messages: List<SmsMessage>,
+            at: Cursors,
+        ) {
+            session.sendOrDrop(Channel.CHANNEL_SMS) {
                 smsSyncResponse =
                     smsSyncResponse {
                         status = SmsSyncStatus.SMS_SYNC_STATUS_OK
                         this.threads += threads
                         this.messages += messages
-                        highWatermarkId = cursors.highWatermark
-                        backfillCursorId = cursors.backfillCursor
-                        backfillComplete = cursors.backfillComplete
+                        highWatermarkId = at.highWatermark
+                        backfillCursorId = at.backfillCursor
+                        backfillComplete = at.backfillComplete
                     }
             }
-            log(
-                "sms sync: sent page messages=${messages.size} " +
-                    "high=${cursors.highWatermark} cursor=${cursors.backfillCursor}",
-            )
         }
     }
 

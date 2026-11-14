@@ -107,7 +107,9 @@ extension NWListenerFactory {
             session: session,
             sessionRegistry: sessionRegistry,
             trustStore: trustStore,
-            rotation: makeRotationReceiver(for: peer, session: session)
+            rotation: makeRotationReceiver(for: peer, session: session),
+            purgeRegistry: purgeRegistry,
+            onUnpaired: onPeerUnpaired
         )
     }
 
@@ -125,8 +127,15 @@ extension NWListenerFactory {
             return nil
         }
         await sessionRegistry.register(fingerprint, session: session)
+        recordLastSeen(of: fingerprint)
         onSessionRegistered?(fingerprint, session)
         return TrustedPeer(fingerprint: fingerprint, spkiDer: recorded.spkiDer, authenticatedByGrace: byGrace)
+    }
+
+    private func recordLastSeen(of fingerprint: SpkiFingerprint) {
+        guard let trustStore, let dateProvider = rotation?.dateProvider else { return }
+        try? PeerRecordUpdater(trustStore: trustStore, dateProvider: dateProvider)
+            .updateLastSeen(handshakeSpki: fingerprint)
     }
 
     /// A grace-authenticated session closing purges its grace pin (E70-05).

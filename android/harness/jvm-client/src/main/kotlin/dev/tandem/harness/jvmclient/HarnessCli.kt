@@ -451,7 +451,13 @@ private class HarnessCli(
             activeSession.receive(Channel.CHANNEL_CONTROL).collect { envelope ->
                 when (envelope.payloadCase) {
                     Envelope.PayloadCase.REVOKE -> {
-                        val handler = RevokeHandler(activeSession, peer) { fp -> locallyRevoked += hexOf(fp) }
+                        val handler =
+                            RevokeHandler(
+                                activeSession,
+                                peer,
+                                { fp -> locallyRevoked += hexOf(fp) },
+                                PeerDataPurgeRegistry(),
+                            )
                         if (handler.handleRevoke()) {
                             println("EVENT REVOKED ${hexOf(peer)}")
                         }

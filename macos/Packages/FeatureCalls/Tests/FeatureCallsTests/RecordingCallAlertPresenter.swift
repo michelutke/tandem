@@ -21,8 +21,15 @@ actor RecordingCallAlertPresenter: CallAlertPresenter {
         responsesContinuation = continuation
     }
 
-    func present(callId: String, title: String, body: String) async {
+    var delivers = true
+
+    func setDelivers(_ value: Bool) {
+        delivers = value
+    }
+
+    func present(callId: String, title: String, body: String) async -> Bool {
         presented.append(Presented(callId: callId, title: title, body: body))
+        return delivers
     }
 
     func remove(callId: String) async {

@@ -1,36 +1,75 @@
 package dev.tandem.feature.input
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import dev.tandem.core.designsystem.TandemColors
+import dev.tandem.core.designsystem.TandemSpacing
+import dev.tandem.core.designsystem.TandemType
+import dev.tandem.core.designsystem.components.HairlineRule
+import dev.tandem.core.designsystem.components.NumberedRow
+import dev.tandem.core.designsystem.components.PillButton
+import dev.tandem.core.designsystem.components.PillButtonVariant
+import dev.tandem.core.designsystem.components.TandemScaffold
 
-internal const val REMOTE_INPUT_TITLE = "Control."
-internal const val REMOTE_INPUT_EXPLANATION =
-    "Let your Mac tap and type. Tandem asks for Accessibility so your Mac can send touches and " +
-        "keys to this phone while you mirror. It stays off until you enable it, and only works " +
-        "during a mirror session you start."
-internal const val OPEN_ACCESSIBILITY_SETTINGS_LABEL = "Open Accessibility settings"
-internal const val REMOTE_INPUT_ENABLED_LABEL = "Remote control is enabled."
-
-/** E62-02: opt-in explanation for remote input; [accessibilityState] is the E62-02 seam. */
+/**
+ * Opt-in for remote input (ui-spec §7.2 "Remote control opt-in", E62-02): three facts, then Open
+ * Accessibility settings or View only. [accessibilityState] is the E62-02 seam; once the service is
+ * on the screen only confirms it. Input still only runs during a mirror session the user starts.
+ */
 @Composable
 fun RemoteInputSettingsScreen(
     accessibilityState: AccessibilityStateSource,
     onOpenAccessibilitySettings: () -> Unit,
+    onViewOnly: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Text(text = REMOTE_INPUT_TITLE)
-        Text(text = REMOTE_INPUT_EXPLANATION)
-        if (accessibilityState.isServiceEnabled()) {
-            Text(text = REMOTE_INPUT_ENABLED_LABEL)
-        } else {
-            Button(onClick = onOpenAccessibilitySettings) { Text(text = OPEN_ACCESSIBILITY_SETTINGS_LABEL) }
+    TandemScaffold(
+        title = stringResource(R.string.remote_control_title),
+        state = stringResource(R.string.remote_control_state),
+        modifier = modifier,
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            HairlineRule()
+            NumberedRow(index = 1, label = stringResource(R.string.remote_control_fact_accessibility))
+            HairlineRule()
+            NumberedRow(index = 2, label = stringResource(R.string.remote_control_fact_pill))
+            HairlineRule()
+            NumberedRow(index = 3, label = stringResource(R.string.remote_control_fact_off))
+            HairlineRule()
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .padding(horizontal = TandemSpacing.screenPadding)
+                        .padding(bottom = TandemSpacing.xxl),
+                verticalArrangement = Arrangement.spacedBy(TandemSpacing.md, Alignment.Bottom),
+            ) {
+                if (accessibilityState.isServiceEnabled()) {
+                    Text(
+                        text = stringResource(R.string.remote_control_enabled),
+                        style = TandemType.body,
+                        color = TandemColors.ink,
+                    )
+                } else {
+                    PillButton(
+                        text = stringResource(R.string.remote_control_open_accessibility),
+                        onClick = onOpenAccessibilitySettings,
+                    )
+                }
+                PillButton(
+                    text = stringResource(R.string.remote_control_view_only),
+                    onClick = onViewOnly,
+                    variant = PillButtonVariant.Secondary,
+                )
+            }
         }
     }
 }

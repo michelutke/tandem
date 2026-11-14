@@ -55,8 +55,10 @@ object NoPairingFlowControls : PairingFlowControls {
  * Production [PairingStarter] (E20-26): one [PairingStateMachine] per scanned invite. Trust is
  * committed only by that machine, after `PairAccepted` and the owner's "Codes match"
  * (invariants 1, 3, 5, 6); this class adds no trust decision of its own and never logs the secret
- * or the confirmation code.
+ * or the confirmation code. [onPaired] receives the dialed addresses once an attempt reaches
+ * [PairingState.Paired] (QR or manual), to store them as reconnect candidates.
  */
+@Suppress("LongParameterList") // injected seams of one pairing flow
 class PairingFlow(
     private val clock: Clock,
     dispatcher: CoroutineDispatcher,
@@ -64,6 +66,7 @@ class PairingFlow(
     private val trustCommitter: TrustCommitter,
     private val deviceInfoProvider: DeviceInfoProvider,
     private val manualConnector: ManualPairingConnector? = null,
+    private val onPaired: (addresses: List<String>, port: Int) -> Unit = { _, _ -> },
 ) : PairingStarter,
     PairingFlowControls {
     private val machineDispatcher = dispatcher
@@ -71,16 +74,19 @@ class PairingFlow(
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Idle)
     private var machine: PairingAttempt? = null
     private var forwarding: Job? = null
+    private var reconnectHint: Pair<List<String>, Int>? = null
 
     override val state: StateFlow<PairingState> = mutableState.asStateFlow()
 
     override fun start(invite: PairingInvite) {
+        reconnectHint = invite.addresses to invite.port
         run(PairingStateMachine(clock, machineDispatcher, connector, trustCommitter, invite, deviceInfoProvider))
     }
 
     /** No-op without a [manualConnector]; the manual machine commits trust only after the SAS is confirmed. */
     override fun startManual(address: ManualPairingAddress) {
         val manual = manualConnector ?: return
+        reconnectHint = listOf(address.host) to address.port
         val nonceSource = SecureRandomManualNonceSource()
         run(ManualPairingStateMachine(clock, machineDispatcher, manual, trustCommitter, address, nonceSource))
     }
@@ -88,7 +94,13 @@ class PairingFlow(
     private fun run(next: PairingAttempt) {
         discardMachine()
         machine = next
-        forwarding = scope.launch { next.state.collect { mutableState.value = it } }
+        forwarding =
+            scope.launch {
+                next.state.collect {
+                    mutableState.value = it
+                    if (it == PairingState.Paired) reconnectHint?.let { (addresses, port) -> onPaired(addresses, port) }
+                }
+            }
         next.start()
     }
 

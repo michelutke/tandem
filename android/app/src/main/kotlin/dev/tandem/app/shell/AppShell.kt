@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.FloatingToolbarExitDirection
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,13 +26,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.tandem.app.R
 import dev.tandem.app.activity.ActivityEntry
 import dev.tandem.app.activity.ActivityScreen
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.home.BlockedReason
+import dev.tandem.app.home.BlockedScreen
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.home.HomeScreen
 import dev.tandem.app.onboarding.OnboardingScreen
@@ -59,6 +66,7 @@ import dev.tandem.feature.notifications.PerAppFilterRow
 import dev.tandem.feature.notifications.PerAppNotificationFilterScreen
 import dev.tandem.feature.pairing.manual.ManualPairingEntryScreen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +74,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
-import java.time.LocalDate
 import java.util.Base64
 
 /** Everything [AppShell] reads or calls; built from the Hilt graph in production, fakes in tests. */
@@ -74,10 +81,10 @@ import java.util.Base64
 class AppShellDependencies(
     val peers: Flow<List<PeerRecord>>,
     val statusLine: Flow<String>,
+    val blocked: Flow<BlockedReason?> = flowOf(null),
     val ringState: StateFlow<HomeRingState>,
     val onboarding: OnboardingViewModel,
     val isBatteryRestricted: () -> Boolean,
-    val addressStore: PairingAddressStore,
     val pairingStarter: PairingStarter,
     val pairing: PairingFlowControls = NoPairingFlowControls,
     val unpair: suspend (SpkiFingerprint) -> Unit,
@@ -96,6 +103,8 @@ class AppShellDependencies(
     val featureStates: StateFlow<Map<SyncFeature, Boolean>> = ALL_FEATURES_ON,
     val onToggleFeature: suspend (SyncFeature, Boolean) -> Unit = { _, _ -> },
     val clock: Clock = AppClock.system,
+    val revokedBy: StateFlow<String?> = MutableStateFlow(null),
+    val onDismissRevoked: () -> Unit = {},
 )
 
 private val ALL_FEATURES_ON = MutableStateFlow(SyncFeature.entries.associateWith { true })
@@ -117,37 +126,51 @@ fun AppShell(
     val peers by dependencies.peers.collectAsState(initial = emptyList())
     val statusLine by dependencies.statusLine.collectAsState(initial = "")
     val ringState by dependencies.ringState.collectAsState()
+    val blocked by dependencies.blocked.collectAsState(initial = null)
     val pairingState by dependencies.pairing.state.collectAsState()
     val scope = rememberCoroutineScope()
     val peer = peers.firstOrNull()
-
-    LaunchedEffect(route, pairingState) {
-        if (route == ShellRoute.Home && pairingState == PairingState.Paired) dependencies.pairing.reset()
-    }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         val currentRoute = route
-        when (currentRoute) {
-            ShellRoute.Onboarding -> {
+        when {
+            pairingState == PairingState.Paired -> {
+                PairingScreen(
+                    state = pairingState,
+                    onCodesMatch = {},
+                    onCodesDontMatch = {},
+                    onScanAgain = {},
+                    modifier = insetsModifier,
+                    pairedMacName = peer?.displayName,
+                    onDone = dependencies.pairing::reset,
+                )
+            }
+
+            currentRoute == ShellRoute.Onboarding -> {
                 OnboardingOrPairing(pairingState, dependencies, insetsModifier)
             }
 
-            null -> {
+            currentRoute == null -> {
                 LoadingScreen(insetsModifier)
             }
 
             else -> {
-                TopLevelShell(
-                    route = currentRoute,
-                    navigator = navigator,
-                    dependencies = dependencies,
-                    statusLine = statusLine,
-                    ringState = ringState,
-                    snackbarHostState = snackbarHostState,
-                    peer = peer,
-                )
+                val reason = blocked
+                if (reason != null && peer != null) {
+                    BlockedRoute(reason, peer, navigator, dependencies, insetsModifier)
+                } else {
+                    TopLevelShell(
+                        route = checkNotNull(currentRoute),
+                        navigator = navigator,
+                        dependencies = dependencies,
+                        statusLine = statusLine,
+                        ringState = ringState,
+                        snackbarHostState = snackbarHostState,
+                        peer = peer,
+                    )
+                }
             }
         }
         SnackbarHost(
@@ -166,6 +189,7 @@ fun AppShell(
  * Home, Notifications, Activity and Settings behind one shared [TandemBottomBar], so the bar never
  * moves between screens; switching screens fades through.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 @Suppress("LongParameterList") // shell state the top-level routes read
 private fun TopLevelShell(
@@ -180,6 +204,7 @@ private fun TopLevelShell(
     var showSendSheet by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val transition = rememberScreenTransition()
+    val toolbarScroll = FloatingToolbarDefaults.exitAlwaysScrollBehavior(FloatingToolbarExitDirection.Bottom)
     Scaffold(
         containerColor = TandemColors.paper,
         bottomBar = {
@@ -187,13 +212,18 @@ private fun TopLevelShell(
                 selected = route.toolbarItem() ?: FloatingToolbarItem.Home,
                 onSelect = navigator::select,
                 onSend = { showSendSheet = true },
+                scrollBehavior = toolbarScroll,
             )
         },
     ) { innerPadding ->
         AnimatedContent(
             targetState = route,
             transitionSpec = { transition },
-            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
+            modifier =
+                Modifier
+                    .padding(innerPadding)
+                    .consumeWindowInsets(innerPadding)
+                    .nestedScroll(toolbarScroll),
             label = "TopLevelScreen",
         ) { target ->
             when {
@@ -222,6 +252,32 @@ private fun TopLevelShell(
     if (showSendSheet) {
         ShellSendSheet(dependencies, snackbarHostState, scope) { showSendSheet = false }
     }
+}
+
+@Composable
+private fun BlockedRoute(
+    reason: BlockedReason,
+    peer: PeerRecord,
+    navigator: AppShellNavigator,
+    dependencies: AppShellDependencies,
+    modifier: Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val unpair: () -> Unit = {
+        scope.launch {
+            withContext(NonCancellable) {
+                dependencies.unpair(peer.fingerprint())
+                navigator.resetToHome()
+            }
+        }
+    }
+    BlockedScreen(
+        reason = reason,
+        macName = peer.displayName,
+        onPairAgain = unpair,
+        onUnpair = unpair,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -266,8 +322,10 @@ private fun SettingsTab(
         keySection = dependencies.rotation?.let { rotation -> { RotationSection(rotation) } },
         onUnpair = {
             scope.launch {
-                dependencies.unpair(peer.fingerprint())
-                navigator.resetToHome()
+                withContext(NonCancellable) {
+                    dependencies.unpair(peer.fingerprint())
+                    navigator.resetToHome()
+                }
             }
         },
         modifier = modifier,
@@ -282,40 +340,9 @@ private fun ActivityTab(
     val entries by dependencies.activityEntries.collectAsState(initial = emptyList())
     ActivityScreen(
         entries = entries,
-        today = LocalDate.now(dependencies.clock),
+        now = dependencies.clock.instant(),
         modifier = modifier,
     )
-}
-
-@Composable
-private fun NotificationsTab(
-    dependencies: AppShellDependencies,
-    modifier: Modifier,
-) {
-    var rows by remember { mutableStateOf<List<PerAppFilterRow>?>(null) }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { rows = withContext(AppDispatchers.io) { dependencies.notificationRows() } }
-    val loaded = rows.orEmpty()
-    TandemScaffold(
-        title = "Notifications.",
-        state = if (rows == null) "Loading apps." else "${loaded.count { it.allowed }} of ${loaded.size} apps.",
-        modifier = modifier,
-    ) { padding ->
-        if (rows == null) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                TandemLoadingIndicator()
-            }
-        } else {
-            PerAppNotificationFilterScreen(
-                rows = loaded,
-                onToggle = { packageName, allowed ->
-                    rows = loaded.map { if (it.packageName == packageName) it.copy(allowed = allowed) else it }
-                    scope.launch { dependencies.onToggleNotificationApp(packageName, allowed) }
-                },
-                modifier = Modifier.padding(padding),
-            )
-        }
-    }
 }
 
 private fun PeerRecord.fingerprint(): SpkiFingerprint =
@@ -341,7 +368,9 @@ private fun OnboardingOrPairing(
     dependencies: AppShellDependencies,
     modifier: Modifier,
 ) {
+    val revokedBy by dependencies.revokedBy.collectAsState()
     var manualEntry by remember { mutableStateOf(false) }
+    val onboardingStep = rememberSaveable { mutableIntStateOf(0) }
     if (pairingState == PairingState.Idle && manualEntry) {
         ManualPairingEntryScreen(
             onSubmit = {
@@ -354,10 +383,13 @@ private fun OnboardingOrPairing(
     } else if (pairingState == PairingState.Idle) {
         OnboardingScreen(
             viewModel = dependencies.onboarding,
-            onScanAccepted = { onScanAccepted(it, dependencies.addressStore, dependencies.pairingStarter) },
+            onScanAccepted = { onScanAccepted(it, dependencies.pairingStarter) },
             onCancelScan = {},
-            modifier = modifier,
+            modifier = Modifier,
             onPairWithoutCamera = { manualEntry = true },
+            stepState = onboardingStep,
+            revokedBy = revokedBy?.ifBlank { stringResource(R.string.revoked_fallback_name) },
+            onDismissRevoked = dependencies.onDismissRevoked,
         )
     } else {
         PairingScreen(
@@ -365,7 +397,7 @@ private fun OnboardingOrPairing(
             onCodesMatch = dependencies.pairing::confirmCodesMatch,
             onCodesDontMatch = dependencies.pairing::cancel,
             onScanAgain = dependencies.pairing::reset,
-            modifier = modifier,
+            modifier = Modifier,
         )
     }
 }

@@ -5,6 +5,16 @@ import Observation
 public protocol FileTransferService: Sendable {
     var isConnected: Bool { get }
     func startOffer(for url: URL) async
+    /// Like ``startOffer(for:)``, and calls `onEnded` once that offer's transfer has ended. Returns
+    /// `false` when no offer was started (no live session), so the caller can offer the file again.
+    func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async -> Bool
+}
+
+public extension FileTransferService {
+    func startOffer(for url: URL, onEnded: @escaping @Sendable () -> Void) async -> Bool {
+        await startOffer(for: url)
+        return true
+    }
 }
 
 /// Feature-local seam over the Send File open panel.

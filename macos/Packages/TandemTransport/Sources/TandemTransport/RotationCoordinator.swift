@@ -43,22 +43,26 @@ public final class RotationCoordinator: Sendable {
     private let window: any PairingWindowState
     private let dateProvider: DateProvider
     private let onSwitched: @Sendable () -> Void
+    private let onPeersUnpaired: @Sendable ([SpkiFingerprint]) -> Void
     private let lock = Mutex<Void>(())
 
     /// `onSwitched` runs after the identity key swap so the owner can re-bootstrap the identity and
-    /// restart the listener on the new key.
+    /// restart the listener on the new key. `onPeersUnpaired` receives every fingerprint a phone that
+    /// `finish()` unpaired may have data keyed by, so the owner can purge it.
     public init(
         keychainStore: any KeychainStore,
         trustStore: TrustStore,
         window: any PairingWindowState,
         dateProvider: @escaping DateProvider,
-        onSwitched: @escaping @Sendable () -> Void = {}
+        onSwitched: @escaping @Sendable () -> Void = {},
+        onPeersUnpaired: @escaping @Sendable ([SpkiFingerprint]) -> Void = { _ in }
     ) {
         self.keychainStore = keychainStore
         self.trustStore = trustStore
         self.window = window
         self.dateProvider = dateProvider
         self.onSwitched = onSwitched
+        self.onPeersUnpaired = onPeersUnpaired
     }
 
     public func attempt() throws -> RotationAttempt? {
@@ -161,13 +165,15 @@ public final class RotationCoordinator: Sendable {
 
     /// Offered after 7 days with phones still pending: unpairs the pending phones, then switches.
     public func finish() throws {
+        var unpaired: [SpkiFingerprint] = []
+        defer { if !unpaired.isEmpty { onPeersUnpaired(unpaired) } }
         let switched = try lock.withLock { _ -> Bool in
             guard let attempt = try loadAttempt() else { throw RotationCoordinatorError.notInProgress }
             guard !attempt.committed else { return try switchIfComplete(attempt) }
             guard dateProvider() >= attempt.startedAt.addingTimeInterval(TrustStore.gracePinLifetime) else {
                 throw RotationCoordinatorError.finishNotYetAvailable
             }
-            try unpair(recordIds: Set(attempt.pendingRecordIds))
+            try unpair(recordIds: Set(attempt.pendingRecordIds), into: &unpaired)
             return try switchIfComplete(attempt)
         }
         if switched { onSwitched() }
@@ -199,9 +205,13 @@ public final class RotationCoordinator: Sendable {
         return true
     }
 
-    private func unpair(recordIds: Set<String>) throws {
+    /// Reports each unpaired phone's pins through `unpaired` as soon as its record is deleted, so
+    /// a later failure still leaves the caller the list to purge.
+    private func unpair(recordIds: Set<String>, into unpaired: inout [SpkiFingerprint]) throws {
         for record in try trustStore.list() where recordIds.contains(record.recordId.hexString) {
+            let pins = try trustStore.pinnedFingerprints(for: record.fingerprint)
             try trustStore.unpair(record.fingerprint)
+            unpaired.append(contentsOf: pins)
         }
     }
 

@@ -4,8 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException
 import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.protocol.FilenameSanitizer
-import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.TandemSession
+import dev.tandem.core.transport.sendOrDrop
 import dev.tandem.protocol.v1.Channel
 import dev.tandem.protocol.v1.EnvelopeKt
 import dev.tandem.protocol.v1.FileChunk
@@ -72,6 +72,9 @@ class FileReceiver(
     /** Number of accepted transfers still receiving; feeds AcceptFlow's `activeTransfers`. */
     val activeCount: Int get() = transfers.size
 
+    /** Bytes still to arrive over all accepted transfers; AcceptFlow reserves staging space for them. */
+    val remainingBytes: Long get() = transfers.values.sumOf { it.offer.size - it.received }
+
     init {
         session
             .receive(Channel.CHANNEL_FILES)
@@ -107,10 +110,16 @@ class FileReceiver(
         }
     }
 
-    /** Call after (re)connecting: sweeps expired `.part` files and requests resumption of the rest. */
+    /**
+     * Call after (re)connecting: sweeps expired `.part` files and requests resumption of the rest. A part
+     * of an offer accepted in this session is never touched: its meta may not be written yet.
+     */
     fun resumeRetained() {
         scope.launch {
-            val retained = withContext(ioDispatcher) { sweepExpired().mapNotNull(::loadRetained) }
+            val retained =
+                withContext(ioDispatcher) {
+                    sweepExpired().filterNot(transfers::containsKey).mapNotNull(::loadRetained)
+                }
             retained.filter { !transfers.containsKey(it.offer.id) }.forEach { resume(it) }
         }
     }
@@ -258,6 +267,8 @@ class FileReceiver(
                 }
             } catch (_: IOException) {
                 return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
+            } catch (_: RuntimeException) {
+                return fail(id, TransferReason.TRANSFER_REASON_IO_ERROR)
             }
         discard(id)
         FilesLog.event("transfer complete")
@@ -300,11 +311,7 @@ class FileReceiver(
     }
 
     private suspend fun send(payload: EnvelopeKt.Dsl.() -> Unit) {
-        try {
-            session.send(Channel.CHANNEL_FILES, payload)
-        } catch (_: MultiplexerClosedException) {
-            return
-        }
+        session.sendOrDrop(Channel.CHANNEL_FILES, payload)
     }
 
     private class Transfer(

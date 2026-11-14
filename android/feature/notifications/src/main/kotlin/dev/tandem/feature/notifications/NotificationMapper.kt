@@ -35,7 +35,7 @@ object NotificationMapper {
                 key = sbn.key
                 packageName = sbn.packageName
                 this.appVersionCode = appVersionCode
-                title = appName
+                title = appName.capped(MAX_TITLE_CHARS)
                 text = ""
                 this.visibility = visibility
             }
@@ -52,25 +52,40 @@ object NotificationMapper {
                     .getCharSequence(Notification.EXTRA_TITLE)
                     ?.toString()
                     .orEmpty()
-            val messages = messagingStyleMessages(sbn.notification)
+                    .capped(MAX_TITLE_CHARS)
+            val messages = messagingStyleMessages(sbn.notification).takeLast(MAX_SENDERS)
             // A MessagingStyle notification's own EXTRA_TEXT is an OS-generated single-line
             // summary (e.g. just the newest message), not one line per message -- the Mac
             // presenter (E30-07) pairs `text`'s lines with `messaging_style_senders`
             // positionally, so `text` must actually BE that newline-joined per-message list
             // whenever senders are present, never the plain summary.
-            text =
-                if (messages.isEmpty()) {
-                    sbn.notification.extras
-                        .getCharSequence(Notification.EXTRA_TEXT)
-                        ?.toString()
-                        .orEmpty()
-                } else {
-                    messages.joinToString("\n") { it.text }
-                }
-            messagingStyleSenders.addAll(messages.map { it.sender })
+            text = messageText(sbn.notification, messages).capped(MAX_TEXT_CHARS)
+            messagingStyleSenders.addAll(messages.map { it.sender.capped(MAX_SENDER_CHARS) })
             this.visibility = visibility
         }
     }
+
+    private fun messageText(
+        notification: Notification,
+        messages: List<MessagingStyleMessage>,
+    ): String =
+        if (messages.isEmpty()) {
+            notification.extras
+                .getCharSequence(Notification.EXTRA_TEXT)
+                ?.toString()
+                .orEmpty()
+        } else {
+            messages.joinToString("\n") { it.text }
+        }
+
+    private fun String.capped(maxChars: Int): String =
+        if (length <=
+            maxChars
+        ) {
+            this
+        } else {
+            substring(0, if (this[maxChars - 1].isHighSurrogate()) maxChars - 1 else maxChars)
+        }
 
     private fun Int.toProtoVisibility(): Visibility =
         when (this) {
@@ -85,6 +100,11 @@ object NotificationMapper {
             key = sbn.key
             origin = NotificationDismiss.Origin.ORIGIN_ANDROID
         }
+
+    private const val MAX_TITLE_CHARS = 256
+    private const val MAX_TEXT_CHARS = 4096
+    private const val MAX_SENDERS = 25
+    private const val MAX_SENDER_CHARS = 64
 
     private data class MessagingStyleMessage(
         val sender: String,

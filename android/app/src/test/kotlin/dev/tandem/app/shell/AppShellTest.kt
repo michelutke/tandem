@@ -14,12 +14,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.app.connection.PairingAddressStore
+import dev.tandem.app.R
+import dev.tandem.app.appString
+import dev.tandem.app.home.BlockedReason
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
 import dev.tandem.app.onboarding.RecordingPermissionRequester
-import dev.tandem.app.onboarding.WELCOME_STATE
 import dev.tandem.app.settings.AppPermission
 import dev.tandem.app.settings.RecordingPermissionGateway
 import dev.tandem.core.crypto.SpkiFingerprint
@@ -27,11 +28,12 @@ import dev.tandem.core.storage.trust.PeerRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
-import java.io.File
 import java.util.Base64
 
 // E20-25 tdd:
@@ -49,16 +51,29 @@ class AppShellTest {
     private val unpaired = mutableListOf<SpkiFingerprint>()
     private val permissionGateway = RecordingPermissionGateway()
 
+    private val blocked = MutableStateFlow<BlockedReason?>(null)
+
+    // Endless animations (loading indicator morph, ring pulse) keep Compose from ever being idle;
+    // "Remove animations" makes every Tandem animation instant or still, so the tests are deterministic.
+    @Before
+    fun removeAnimations() {
+        Settings.Global.putFloat(
+            RuntimeEnvironment.getApplication().contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            0f,
+        )
+    }
+
     private fun setShell() {
         val dependencies =
             AppShellDependencies(
                 peers = peers,
                 statusLine = flowOf("Linked to MacBook Pro."),
+                blocked = blocked,
                 ringState = MutableStateFlow(HomeRingState.Idle(itemsSyncedToday = 0, sevenDayAverage = 0)),
                 onboarding =
                     OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
                 isBatteryRestricted = { batteryRestricted },
-                addressStore = PairingAddressStore(File.createTempFile("addr", null)),
                 pairingStarter = PairingStarter {},
                 unpair = { fingerprint ->
                     unpaired += fingerprint
@@ -75,8 +90,43 @@ class AppShellTest {
     fun mainActivity_freshInstall_showsOnboarding() {
         setShell()
 
-        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
         composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
+    }
+
+    @Test
+    fun appShell_pinMismatchWhilePaired_showsBlockedInsteadOfHome() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.PinMismatch
+        setShell()
+
+        composeRule.onNodeWithText("The Mac's key changed.", substring = true).assertExists()
+        composeRule.onNodeWithText("Linked to MacBook Pro.").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Home").assertDoesNotExist()
+    }
+
+    @Test
+    fun appShell_blockedUnpairTapped_unpairsAndReturnsToOnboarding() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.PinMismatch
+        setShell()
+
+        composeRule.onNodeWithText("Unpair").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, unpaired.size)
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
+    }
+
+    @Test
+    fun appShell_blockedClears_showsHomeAgain() {
+        peers.value = listOf(PEER)
+        blocked.value = BlockedReason.UpdateNeeded
+        setShell()
+        blocked.value = null
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Linked to MacBook Pro.").assertExists()
     }
 
     @Test
@@ -92,7 +142,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         assertEquals(1, unpaired.size)
-        composeRule.onNodeWithText(WELCOME_STATE).assertExists()
+        composeRule.onNodeWithText(appString(R.string.welcome_state)).assertExists()
     }
 
     @Test
@@ -186,7 +236,7 @@ class AppShellTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Permissions.").assertIsDisplayed()
-        AppPermission.entries.forEach { composeRule.onNodeWithText(it.label).assertExists() }
+        AppPermission.entries.forEach { composeRule.onNodeWithText(appString(it.label)).assertExists() }
     }
 
     @Test

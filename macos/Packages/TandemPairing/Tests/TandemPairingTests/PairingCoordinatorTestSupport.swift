@@ -171,6 +171,10 @@ final class SpyControlSessionRegistry: ControlSessionRegistering, @unchecked Sen
         remove(spkiFingerprint)
     }
 
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async {
+        remove(spkiFingerprint)
+    }
+
     private func insert(_ spkiFingerprint: SpkiFingerprint) {
         lock.lock()
         fingerprints.insert(spkiFingerprint)

@@ -27,12 +27,14 @@ class ActivityScreenTest {
         composeRule.setContent {
             ActivityScreen(
                 entries = entries,
-                today = LocalDate.parse("2026-01-10"),
+                now = Instant.parse("2026-01-10T09:02:00Z"),
             )
         }
 
         composeRule.onNodeWithText("Last 7 days.").assertExists()
         composeRule.onNodeWithText("File received").assertExists()
+        composeRule.onNodeWithText("2 min").assertExists()
+        composeRule.onNodeWithText("Yesterday").assertExists()
         val columns = ActivityChartData.from(entries, LocalDate.parse("2026-01-10"))
         assert(columns.values.size == 7 && columns.labels.size == 7)
         assert(columns.values.last() == 1 && columns.values[5] == 1)

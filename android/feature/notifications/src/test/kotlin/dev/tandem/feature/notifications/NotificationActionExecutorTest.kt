@@ -156,6 +156,17 @@ class NotificationActionExecutorTest {
         assertEquals(NotificationActionResult.Status.STATUS_GONE, result.status)
     }
 
+    @Test
+    fun actionExecutor_actionWithoutPendingIntent_repliesFailed() {
+        val action = Notification.Action.Builder(null as Icon?, "Ack", null).build()
+        val sbn = statusBarNotification("key-null", action)
+        val executor = NotificationActionExecutor(context) { key -> if (key == "key-null") sbn else null }
+
+        val result = executor.execute(notificationAction { key = "key-null" })
+
+        assertEquals(NotificationActionResult.Status.STATUS_FAILED, result.status)
+    }
+
     private fun immutablePendingIntent(requestCode: Int): PendingIntent =
         PendingIntent.getBroadcast(
             context,

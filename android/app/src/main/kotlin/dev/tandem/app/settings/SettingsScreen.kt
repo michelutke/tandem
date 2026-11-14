@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,10 +17,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import dev.tandem.app.R
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.designsystem.components.HairlineRule
+import dev.tandem.core.designsystem.components.M3ESwitch
 import dev.tandem.core.designsystem.components.TandemDialog
 import dev.tandem.core.designsystem.components.TandemScaffold
 
@@ -45,8 +50,8 @@ fun SettingsScreen(
     var showAutoCaptureDialog by remember { mutableStateOf(false) }
 
     TandemScaffold(
-        title = "Settings.",
-        state = "Paired with ${state.macName}.",
+        title = stringResource(R.string.settings_title),
+        state = stringResource(R.string.settings_state, state.macName),
         modifier = modifier,
     ) { padding ->
         SettingsRows(
@@ -56,7 +61,7 @@ fun SettingsScreen(
             onRotateKey = onRotateKey,
             onOpenPermissions = onOpenPermissions,
             onOpenAccessibilitySettings = onOpenAccessibilitySettings,
-            onAutoCaptureClick = {
+            onAutoCaptureToggle = {
                 when {
                     !state.autoCapture -> showAutoCaptureDialog = true
                     !state.autoCaptureServiceOn -> onOpenAccessibilitySettings()
@@ -70,9 +75,10 @@ fun SettingsScreen(
 
     if (showAutoCaptureDialog) {
         TandemDialog(
-            title = "Send copies automatically?",
-            text = AUTO_CAPTURE_EXPLANATION,
-            confirmText = "Open Accessibility",
+            title = stringResource(R.string.settings_auto_capture_title),
+            text = stringResource(R.string.settings_auto_capture_explain),
+            confirmText = stringResource(R.string.settings_open_accessibility),
+            dismissText = stringResource(R.string.dialog_cancel),
             onConfirm = {
                 showAutoCaptureDialog = false
                 onAutoCaptureChange(true)
@@ -84,9 +90,10 @@ fun SettingsScreen(
 
     if (showUnpairDialog) {
         TandemDialog(
-            title = "Unpair ${state.macName}?",
-            text = "This phone and the Mac will forget each other.",
-            confirmText = "Unpair",
+            title = stringResource(R.string.settings_unpair_title, state.macName),
+            text = stringResource(R.string.settings_unpair_text),
+            confirmText = stringResource(R.string.settings_unpair),
+            dismissText = stringResource(R.string.dialog_cancel),
             onConfirm = {
                 showUnpairDialog = false
                 onUnpair()
@@ -105,72 +112,114 @@ private fun SettingsRows(
     onFixBattery: () -> Unit,
     onRotateKey: () -> Unit,
     onOpenPermissions: () -> Unit,
-    onAutoCaptureClick: () -> Unit,
+    onAutoCaptureToggle: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     keySection: (@Composable () -> Unit)?,
     onUnpairClick: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState())) {
-        SettingsRow(label = "Paired Mac", subtitle = state.macName, trailing = state.connectionLabel)
-        HairlineRule()
         SettingsRow(
-            label = "Battery",
-            subtitle = if (state.batteryRestricted) "Restricted" else "Unrestricted",
-            trailing = if (state.batteryRestricted) "Fix" else "OK",
-            onAction = if (state.batteryRestricted) onFixBattery else null,
-            isError = state.batteryRestricted,
+            label = stringResource(R.string.settings_paired_mac),
+            subtitle = state.macName,
+            trailing =
+                stringResource(
+                    if (state.connected) R.string.settings_connected else R.string.settings_not_connected,
+                ),
         )
+        HairlineRule()
+        BatteryRow(state = state, onFixBattery = onFixBattery)
         HairlineRule()
         if (keySection != null) {
             keySection()
         } else {
-            SettingsRow(label = "Key", subtitle = state.keyShortCode, trailing = "Rotate", onAction = onRotateKey)
+            SettingsRow(
+                label = stringResource(R.string.settings_key),
+                subtitle = state.keyShortCode,
+                trailing = stringResource(R.string.settings_key_rotate),
+                onAction = onRotateKey,
+                monoSubtitle = true,
+            )
         }
         HairlineRule()
-        SettingsRow(
-            label = "Clipboard",
-            subtitle = autoCaptureSubtitle(state),
-            trailing = if (state.autoCapture) "On" else "Off",
-            onAction = onAutoCaptureClick,
-        )
+        AutoCaptureRow(state = state, onToggle = onAutoCaptureToggle)
         HairlineRule()
         if (!state.autoCapture && state.autoCaptureServiceOn) {
             SettingsRow(
-                label = "Tandem clipboard access",
-                subtitle = AUTO_CAPTURE_REMOVE_ACCESS_HINT,
-                trailing = "Open",
+                label = stringResource(R.string.settings_clipboard_access),
+                subtitle = stringResource(R.string.settings_auto_capture_remove_access),
+                trailing = stringResource(R.string.settings_open),
                 onAction = onOpenAccessibilitySettings,
             )
             HairlineRule()
         }
         SettingsRow(
-            label = "Permissions",
-            subtitle = "What Tandem can use",
-            trailing = "Review",
+            label = stringResource(R.string.settings_permissions),
+            subtitle = stringResource(R.string.settings_permissions_detail),
+            trailing = stringResource(R.string.settings_permissions_review),
             onAction = onOpenPermissions,
         )
         HairlineRule()
-        SettingsRow(label = "Unpair", isError = true, onAction = onUnpairClick)
+        SettingsRow(label = stringResource(R.string.settings_unpair), isError = true, onAction = onUnpairClick)
         HairlineRule()
     }
 }
 
-internal const val AUTO_CAPTURE_LABEL = "Send copies to Mac automatically"
-internal const val AUTO_CAPTURE_REMOVE_ACCESS_HINT =
-    "Turn off Tandem clipboard in Accessibility settings to remove access."
-internal const val AUTO_CAPTURE_EXPLANATION =
-    "Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything " +
-        "on screen, not just the clipboard. Tandem only watches the system copy notice and reads " +
-        "nothing else. Turn on Tandem clipboard in the next screen. You can switch this off any time."
+@Composable
+private fun BatteryRow(
+    state: SettingsState,
+    onFixBattery: () -> Unit,
+) {
+    SettingsRow(
+        label = stringResource(R.string.settings_battery),
+        subtitle =
+            stringResource(
+                if (state.batteryRestricted) {
+                    R.string.settings_battery_restricted
+                } else {
+                    R.string.settings_battery_unrestricted
+                },
+            ),
+        trailing =
+            stringResource(
+                if (state.batteryRestricted) R.string.battery_restricted_fix else R.string.settings_battery_ok,
+            ),
+        onAction = if (state.batteryRestricted) onFixBattery else null,
+        isError = state.batteryRestricted,
+    )
+}
 
-private fun autoCaptureSubtitle(state: SettingsState): String =
-    if (state.autoCapture &&
-        !state.autoCaptureServiceOn
+@Composable
+private fun AutoCaptureRow(
+    state: SettingsState,
+    onToggle: () -> Unit,
+) {
+    val needsService = state.autoCapture && !state.autoCaptureServiceOn
+    val checked = state.autoCapture && state.autoCaptureServiceOn
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(value = checked, role = Role.Switch, onValueChange = { onToggle() })
+                .padding(horizontal = TandemSpacing.screenPadding, vertical = TandemSpacing.rowVerticalPadding),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        "Allow Tandem in Accessibility settings."
-    } else {
-        AUTO_CAPTURE_LABEL
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.settings_auto_capture_label),
+                style = TandemType.rowTitle,
+                color = TandemColors.ink,
+            )
+            if (needsService) {
+                Text(
+                    text = stringResource(R.string.settings_auto_capture_needs_service),
+                    style = TandemType.meta,
+                    color = TandemColors.ink,
+                )
+            }
+        }
+        M3ESwitch(checked = checked, onCheckedChange = null)
     }
+}
 
 @Composable
 @Suppress("LongParameterList") // row slots: label, subtitle, trailing text, action, error tint
@@ -181,6 +230,7 @@ private fun SettingsRow(
     trailing: String? = null,
     onAction: (() -> Unit)? = null,
     isError: Boolean = false,
+    monoSubtitle: Boolean = false,
 ) {
     val accent = if (isError) TandemColors.alert else TandemColors.ink
     Row(
@@ -196,8 +246,8 @@ private fun SettingsRow(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = TandemType.meta,
-                    color = if (isError) TandemColors.alert else TandemColors.ink2,
+                    style = if (monoSubtitle) TandemType.metaMono else TandemType.meta,
+                    color = if (isError) TandemColors.alert else TandemColors.ink,
                 )
             }
         }

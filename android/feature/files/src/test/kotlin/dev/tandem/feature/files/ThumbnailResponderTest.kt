@@ -39,6 +39,33 @@ class ThumbnailResponderTest {
     private fun decode(bytes: ByteArray): Bitmap = requireNotNull(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
 
     @Test
+    fun thumbnailResponder_loaderThrowsIOException_returnsFailureAndKeepsServing() =
+        runTest {
+            var calls = 0
+            val responder =
+                responder(
+                    ThumbnailLoader { _, _ ->
+                        if (calls++ == 0) throw java.io.IOException("corrupt image")
+                        Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
+                    },
+                )
+
+            val first = responder.respond(thumbRequest { id = "1" })
+            val second = responder.respond(thumbRequest { id = "2" })
+
+            assertTrue(first is ThumbOutcome.Failure)
+            assertTrue(second is ThumbOutcome.Thumb)
+        }
+
+    @Test
+    fun thumbnailResponder_loaderThrowsRuntimeException_returnsFailure() =
+        runTest {
+            val outcome = responder(ThumbnailLoader { _, _ -> error("bad row") }).respond(thumbRequest { id = "1" })
+
+            assertTrue(outcome is ThumbOutcome.Failure)
+        }
+
+    @Test
     fun thumbGeneration_maxPx256_longestEdgeAtMost256() =
         runTest {
             val outcome =

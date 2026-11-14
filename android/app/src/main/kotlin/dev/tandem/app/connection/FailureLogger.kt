@@ -16,15 +16,23 @@ object FailureLogger {
                 "Timeout"
             }
 
+            ConnectionFailure.IdentityUnavailable -> {
+                "IDENTITY_UNAVAILABLE"
+            }
+
+            ConnectionFailure.VersionMismatch -> {
+                "VERSION_MISMATCH"
+            }
+
+            ConnectionFailure.PeerRejectedCertificate -> {
+                "PEER_REJECTED_CERTIFICATE"
+            }
+
             is ConnectionFailure.HandshakeError -> {
                 // Extract reason category without exposing message content if it contains cert bytes
                 when {
                     failure.message.contains("PIN_MISMATCH") -> {
                         "PIN_MISMATCH"
-                    }
-
-                    failure.message.contains("VERSION_MISMATCH") -> {
-                        "VERSION_MISMATCH"
                     }
 
                     failure.message.contains("REVOKED") -> {

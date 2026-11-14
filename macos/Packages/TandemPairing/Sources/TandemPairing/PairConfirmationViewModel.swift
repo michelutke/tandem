@@ -40,10 +40,15 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     public static let defaultAction: PairConfirmationAction = .dontPair
     public static let escapeAction: PairConfirmationAction = .dontPair
 
-    /// "Pair {sanitized displayName}?" -- e.g. "Pair Pixel 8?".
-    public let title: String
-    /// "{sanitized model} · Make sure your phone shows {code grouped as XXX XXX}".
-    public let bodyText: String
+    /// "{sanitized displayName}." -- e.g. "Pixel 8.", line 1 of the title pair.
+    public let subject: String
+    /// Line 2 of the title pair (`docs/design/ui-spec.md` §10 `pair.confirm`).
+    public let stateText = "Same code on both?"
+    /// The confirmation code grouped as "XXX XXX", shown as the display numeral.
+    public let groupedCode: String
+    /// Sanitized phone name; the manual flow carries no `DeviceInfo`, so there it is a fixed
+    /// placeholder that ``pairedStateText`` never shows.
+    public let peerName: String
 
     private let window: PairingWindow
     private let token: PairingCandidateToken
@@ -60,11 +65,13 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private let lock = NSLock()
     private var hasResolved = false
     private var didFail = false
+    private var didCommit = false
+    private var didFailCommit = false
+    private var connectionClosed = false
 
     /// - Parameters:
     ///   - displayNameBytes: The phone's raw `DeviceInfo.display_name` UTF-8 bytes, untrusted and
     ///     sanitized here (`docs/protocol/SPEC.md` "Untrusted peer strings").
-    ///   - modelBytes: The phone's raw `DeviceInfo.model` UTF-8 bytes, sanitized the same way.
     ///   - confirmationCode: The 6-digit code, already computed by the caller from
     ///     `TandemCrypto.ConfirmationCode` over this candidate's stored `PairChallenge` (D-67) --
     ///     this type only formats it for display, it never derives it.
@@ -88,7 +95,6 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     ///     connection's now-trusted session (e.g. `ControlSessionRegistry`) promptly.
     public init(
         displayNameBytes: Data,
-        modelBytes: Data,
         confirmationCode: String,
         handshakeSpkiDer: Data,
         window: PairingWindow,
@@ -102,9 +108,9 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         acceptance: PairAcceptance = .qrCode
     ) {
         let sanitizedDisplayName = DisplayStringSanitizer.sanitize(displayNameBytes, kind: .name)
-        let sanitizedModel = DisplayStringSanitizer.sanitize(modelBytes, kind: .name)
-        self.title = "Pair \(sanitizedDisplayName)?"
-        self.bodyText = "\(sanitizedModel) · Make sure your phone shows \(Self.grouped(confirmationCode))"
+        self.subject = "\(sanitizedDisplayName)."
+        self.groupedCode = Self.grouped(confirmationCode)
+        self.peerName = sanitizedDisplayName
         self.sanitizedDisplayName = sanitizedDisplayName
         self.window = window
         self.token = token
@@ -116,6 +122,14 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         self.onResolved = onResolved
         self.onPaired = onPaired
         self.acceptance = acceptance
+    }
+
+    /// Line 2 of the "Paired." screen (`pair.paired`); a manual pairing has no phone name to show.
+    public var pairedStateText: String {
+        switch acceptance {
+        case .qrCode: "\(peerName) is ready."
+        case .manual: "Your phone is ready."
+        }
     }
 
     /// `true` once this dialog has resolved by any path (accept, deny, dismiss, or the connection
@@ -138,6 +152,31 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         return didFail
     }
 
+    /// `true` when ``pair()`` aborted because committing trust failed, after the window had already
+    /// closed as paired: the QR screen has nothing left to offer, so the presenter shows an error.
+    public var didFailToCommit: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didFailCommit
+    }
+
+    /// `true` only once ``pair()`` committed trust for this candidate. The sole proof of success:
+    /// ``isResolved`` is also set by a closed connection or a decline, neither of which paired.
+    public var didPair: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didCommit
+    }
+
+    /// `true` once this dialog resolved without pairing and without a decline that closes the whole
+    /// window: the candidate connection closed first, or ``pair()`` aborted. The presenter leaves the
+    /// confirm screen then, so Pair can never be clicked on a dead candidate.
+    public var endedWithoutPairing: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didFail || connectionClosed
+    }
+
     /// The owner clicked Pair. `docs/planning/decisions.md` D-73's "commits nothing on a
     /// connection that is no longer open" is enforced here, not merely documented: the window's own
     /// ``PairingWindow/ownerAccepted(_:)`` guard -- scoped to this candidate's token (E14-16 finding
@@ -155,12 +194,13 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
             return
         }
         guard commitTrust() else {
-            markFailed()
+            markFailed(commit: true)
             try? await sink.sendPairRejected(.pairingUnavailable)
             await sink.closePairingFailed()
             onResolved?()
             return
         }
+        markCommitted()
         await onPaired?()
         switch acceptance {
         case .qrCode: try? await sink.sendPairAccepted()
@@ -190,6 +230,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     /// never touches `window` again.
     public func connectionDidClose() {
         guard claimResolution() else { return }
+        markConnectionClosed()
         onResolved?()
     }
 
@@ -235,10 +276,23 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     }
 
     /// Records that ``pair()`` resolved by aborting rather than pairing, for ``didFailToPair``.
-    private func markFailed() {
+    private func markFailed(commit: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
         didFail = true
+        didFailCommit = commit
+    }
+
+    private func markCommitted() {
+        lock.lock()
+        defer { lock.unlock() }
+        didCommit = true
+    }
+
+    private func markConnectionClosed() {
+        lock.lock()
+        defer { lock.unlock() }
+        connectionClosed = true
     }
 
     /// Formats a 6-digit code as two groups of three (ui-spec §9: "never truncate"); returns

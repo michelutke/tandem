@@ -1,6 +1,8 @@
 package dev.tandem.app.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -8,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.R
+import dev.tandem.app.appString
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -97,8 +101,11 @@ class SettingsScreenTest {
     fun settingsTab_autoCaptureOffByDefault_showsOff() {
         setScreen()
 
-        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Off").assertIsDisplayed()
+        composeRule
+            .onNode(isToggleable())
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsOff()
     }
 
     @Test
@@ -107,9 +114,9 @@ class SettingsScreenTest {
         var accessibilityOpened = 0
         setScreen(onAutoCaptureChange = { changes += it }, onOpenAccessibilitySettings = { accessibilityOpened++ })
 
-        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().performClick()
+        composeRule.onNodeWithText(appString(R.string.settings_auto_capture_label)).performScrollTo().performClick()
         assertEquals(emptyList<Boolean>(), changes)
-        composeRule.onNodeWithText(AUTO_CAPTURE_EXPLANATION).assertIsDisplayed()
+        composeRule.onNodeWithText(appString(R.string.settings_auto_capture_explain)).assertIsDisplayed()
         composeRule.onNodeWithText("Open Accessibility").performClick()
 
         assertEquals(listOf(true), changes)
@@ -149,7 +156,11 @@ class SettingsScreenTest {
             onOpenAccessibilitySettings = { accessibilityOpened++ },
         )
 
-        composeRule.onNodeWithText(AUTO_CAPTURE_REMOVE_ACCESS_HINT).performScrollTo().performClick()
+        composeRule
+            .onNodeWithText(
+                appString(R.string.settings_auto_capture_remove_access),
+            ).performScrollTo()
+            .performClick()
 
         assertEquals(1, accessibilityOpened)
     }
@@ -158,7 +169,7 @@ class SettingsScreenTest {
     fun settingsTab_autoCaptureOffServiceOff_hidesRemoveAccessHint() {
         setScreen()
 
-        composeRule.onNodeWithText(AUTO_CAPTURE_REMOVE_ACCESS_HINT).assertDoesNotExist()
+        composeRule.onNodeWithText(appString(R.string.settings_auto_capture_remove_access)).assertDoesNotExist()
     }
 
     @Test
@@ -176,7 +187,7 @@ class SettingsScreenTest {
             onAutoCaptureChange = { changes += it },
         )
 
-        composeRule.onNodeWithText(AUTO_CAPTURE_LABEL).performScrollTo().performClick()
+        composeRule.onNodeWithText(appString(R.string.settings_auto_capture_label)).performScrollTo().performClick()
 
         assertEquals(listOf(false), changes)
     }

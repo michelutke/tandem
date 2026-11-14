@@ -2,6 +2,7 @@ package dev.tandem.app
 
 import android.app.Application
 import android.content.Intent
+import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
 import dev.tandem.app.activity.ActivityRecorder
 import dev.tandem.app.activity.ActivityStore
@@ -9,6 +10,11 @@ import dev.tandem.app.connection.IdentityBootstrap
 import dev.tandem.app.connection.KnownPeerStore
 import dev.tandem.app.di.AppClock
 import dev.tandem.app.di.AppDispatchers
+import dev.tandem.app.ring.RingHandler
+import dev.tandem.app.ring.RingNotification
+import dev.tandem.app.ring.SharedPreferencesRingFilterSwitchRecord
+import dev.tandem.app.ring.SystemAlarmPlayer
+import dev.tandem.app.ring.SystemNotificationPolicyAccess
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.app.service.TandemService
@@ -19,8 +25,13 @@ import dev.tandem.core.storage.settings.SettingsStore
 import dev.tandem.core.storage.settings.createSettingsDataStore
 import dev.tandem.core.storage.trust.TrustStore
 import dev.tandem.feature.clipboard.LiveClipboardAutoCapture
+import dev.tandem.feature.files.ShareStaging
 import dev.tandem.feature.notifications.LiveNotificationListener
 import dev.tandem.feature.notifications.PerAppNotificationFilter
+import dev.tandem.feature.notifications.SharedPreferencesFocusFilterRecord
+import dev.tandem.feature.notifications.SystemInterruptionFilterGateway
+import dev.tandem.feature.notifications.restoreRecordedFocusFilter
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
@@ -58,7 +69,11 @@ class TandemApplication : Application() {
         )
     }
 
-    private val appScope = CoroutineScope(SupervisorJob() + AppDispatchers.default)
+    private val appScope =
+        CoroutineScope(
+            SupervisorJob() + AppDispatchers.default +
+                CoroutineExceptionHandler { _, e -> Log.e(TAG, "App task failed: ${e.javaClass.name}") },
+        )
 
     val activityRecorder: ActivityRecorder by lazy { ActivityRecorder(activityStore, appScope, AppClock.system) }
 
@@ -83,6 +98,17 @@ class TandemApplication : Application() {
     @Inject
     lateinit var identityBootstrap: IdentityBootstrap
 
+    private fun restoreInterruptedPhoneState() {
+        SystemAlarmPlayer(this).restoreStaleVolume()
+        RingHandler(
+            SystemAlarmPlayer(this),
+            SystemNotificationPolicyAccess(this),
+            SharedPreferencesRingFilterSwitchRecord(this),
+        ).restoreStaleFilter()
+        RingNotification.cancel(this)
+        restoreRecordedFocusFilter(SharedPreferencesFocusFilterRecord(this), SystemInterruptionFilterGateway(this))
+    }
+
     override fun onCreate() {
         super.onCreate()
         LiveClipboardAutoCapture.isEnabled = { featureToggles.autoCapture.value }
@@ -95,6 +121,8 @@ class TandemApplication : Application() {
         LiveNotificationListener.filter = { sbn, ownPackage ->
             featureToggles.isEnabled(SyncFeature.Notifications) && notificationFilter.shouldForward(sbn, ownPackage)
         }
+        ShareStaging.inCache(cacheDir).sweep()
+        appScope.launch { restoreInterruptedPhoneState() }
         appScope.launch { runCatching { identityBootstrap.ensure() } }
         appScope.launch { serviceStarter.start() }
         appScope.launch {
@@ -106,6 +134,7 @@ class TandemApplication : Application() {
     }
 
     companion object {
+        private const val TAG = "TandemApplication"
         const val TRUST_STORE_FILE_NAME = "trust.db"
         const val KNOWN_PEERS_FILE_NAME = "known-peers"
         const val ACTIVITY_STORE_FILE_NAME = "activity.preferences_pb"

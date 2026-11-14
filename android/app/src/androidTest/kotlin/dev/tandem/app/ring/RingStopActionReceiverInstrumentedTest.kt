@@ -7,8 +7,11 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.tandem.app.di.AppDispatchers
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.core.transport.time.SystemElapsedRealtimeSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +48,8 @@ class RingStopActionReceiverInstrumentedTest {
                 ringHandler = RingHandler(SystemAlarmPlayer(context), SystemNotificationPolicyAccess(context)),
                 session = FakeTandemSession(),
                 elapsedRealtimeSource = SystemElapsedRealtimeSource,
+                ringNotifier = SystemRingNotifier(context),
+                scope = CoroutineScope(SupervisorJob() + AppDispatchers.default),
             )
         val receiver = RingStopActionReceiver()
         receiver.ringControllerProvider = { ringController }

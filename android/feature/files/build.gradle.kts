@@ -27,7 +27,6 @@ dependencies {
     implementation(project(":core:crypto"))
     // NotificationCompat for NotificationTransferPrompter.
     implementation(libs.androidx.core.ktx)
-    // TransferProgressRow (E40-12).
     implementation(project(":core:designsystem"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)

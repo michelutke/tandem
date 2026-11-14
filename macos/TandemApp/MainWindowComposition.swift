@@ -42,8 +42,9 @@ extension TandemMenuBarApp {
             pairedDevices: settingsPairedDevicesViewModel,
             rotation: settingsRotationViewModel,
             errorBanner: ErrorBannerViewModel(
-                stateStream: lifecycle.makeMenuBarStateStream?(),
-                peerName: lifecycle.pairedPeer.displayName
+                stateStream: lifecycle.makeBannerStateStream?(),
+                peerName: lifecycle.pairedPeer.displayName,
+                pairedPeer: lifecycle.pairedPeer
             )
         )
         _mainWindowServices = created

@@ -48,6 +48,9 @@ public actor VersionHandshake {
         /// No peer `VersionHello` arrived within ``helloDeadline`` of this handshake starting.
         /// Wire close code `PROTOCOL_TIMEOUT` (E01-22).
         case protocolTimeout
+        /// The first `CONTROL` payload was not `VersionHello` (SPEC.md "Exchange rule"). Wire close
+        /// code `MALFORMED_FRAME`.
+        case malformedFrame
     }
 
     /// Thrown by ``send(_:payload:)`` once ``session`` has resolved to
@@ -87,12 +90,11 @@ public actor VersionHandshake {
         let outcome = await withTaskGroup(of: RaceOutcome.self) { group in
             group.addTask {
                 var iterator = controlFrames.makeAsyncIterator()
-                while let frame = await iterator.next() {
-                    if case .versionHello(let peerHello)? = frame.payload {
-                        return .peerHello(peerHello)
-                    }
+                guard let frame = await iterator.next() else { return .deadlineElapsed }
+                if case .versionHello(let peerHello)? = frame.payload {
+                    return .peerHello(peerHello)
                 }
-                return .deadlineElapsed
+                return .nonHelloFrame
             }
             group.addTask {
                 try? await clock.sleep(for: Self.helloDeadline)
@@ -108,6 +110,8 @@ public actor VersionHandshake {
             resolve(.ready(peerCapabilities: peerHello.capabilities))
         case .peerHello:
             resolve(.failed(.versionMismatch))
+        case .nonHelloFrame:
+            resolve(.failed(.malformedFrame))
         case .deadlineElapsed:
             resolve(.failed(.protocolTimeout))
         }
@@ -160,6 +164,7 @@ public actor VersionHandshake {
     /// `major` before it knows whether a `.peerHello` leg is actually a success.
     private enum RaceOutcome: Sendable {
         case peerHello(Tandem_V1_VersionHello)
+        case nonHelloFrame
         case deadlineElapsed
     }
 }

@@ -62,6 +62,8 @@ final class PushClipboardViewModel {
                 statusMessage = "Not sent: protected item"
             case .notSentTooLarge:
                 statusMessage = ClipboardSender.tooLargeHint
+            case .notSentDisconnected:
+                statusMessage = "Phone not connected."
             case nil:
                 break
             }

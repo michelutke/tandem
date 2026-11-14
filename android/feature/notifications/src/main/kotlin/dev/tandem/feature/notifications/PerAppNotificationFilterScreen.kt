@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
@@ -37,14 +40,22 @@ fun PerAppNotificationFilterScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = TandemSpacing.screenPadding, vertical = TandemSpacing.rowVerticalPadding),
+                        .testTag("switch_${row.packageName}")
+                        .toggleable(
+                            value = row.allowed,
+                            role = Role.Switch,
+                            onValueChange = { checked -> onToggle(row.packageName, checked) },
+                        ).padding(
+                            horizontal = TandemSpacing.screenPadding,
+                            vertical = TandemSpacing.rowVerticalPadding,
+                        ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "%02d".format(index + 1),
                     style = TandemType.metaMono,
                     color = TandemColors.ink2,
-                    modifier = Modifier.width(INDEX_WIDTH),
+                    modifier = Modifier.width(INDEX_WIDTH).clearAndSetSemantics {},
                 )
                 Text(
                     text = row.label,
@@ -52,11 +63,7 @@ fun PerAppNotificationFilterScreen(
                     color = TandemColors.ink,
                     modifier = Modifier.weight(1f),
                 )
-                M3ESwitch(
-                    checked = row.allowed,
-                    onCheckedChange = { checked -> onToggle(row.packageName, checked) },
-                    modifier = Modifier.testTag("switch_${row.packageName}"),
-                )
+                M3ESwitch(checked = row.allowed, onCheckedChange = null)
             }
             HairlineRule()
         }

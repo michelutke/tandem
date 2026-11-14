@@ -15,7 +15,9 @@ public final class PairingWindowController: NSWindowController {
         )
         window.title = "Pair"
         window.sharingType = .none
-        window.contentViewController = NSHostingController(rootView: PairingView(viewModel: viewModel))
         self.init(window: window)
+        window.contentViewController = NSHostingController(
+            rootView: PairingView(viewModel: viewModel, onCancel: { [weak self] in self?.close() })
+        )
     }
 }

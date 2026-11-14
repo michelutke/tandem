@@ -21,10 +21,13 @@ struct NotificationDeniedHintView: View {
         if viewModel.isDenied {
             VStack(alignment: .leading, spacing: TandemSpacing.small) {
                 Text(NotificationPermissionViewModel.hintText)
+                    .tandemTextStyle(TandemTypography.body(size: 13))
+                    .foregroundStyle(TandemColor.ink2)
                     .accessibilityIdentifier("notificationsDeniedHintLabel")
-                Button(NotificationPermissionViewModel.openSettingsButtonTitle) {
+                PillButton(NotificationPermissionViewModel.openSettingsButtonTitle, kind: .secondary) {
                     viewModel.openSettingsTapped()
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .accessibilityIdentifier("openNotificationsSettingsButton")
             }
         }

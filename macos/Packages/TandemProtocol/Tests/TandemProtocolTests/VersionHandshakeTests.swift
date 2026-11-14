@@ -97,6 +97,24 @@ struct VersionHandshakeTests {
         #expect(session == .failed(.protocolTimeout))
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func hello_nonHelloControlFrameFirst_closesMalformedFrame() async throws {
+        let pair = InMemoryConnectionPair()
+        let multiplexer = ChannelMultiplexer(source: InMemoryFrameSource(pair.endA), sink: pair.endA.send)
+        await multiplexer.start()
+        let handshake = VersionHandshake(multiplexer: multiplexer, clock: ManualTestClock())
+
+        let runTask = Task { await handshake.run() }
+        var envelope = Tandem_V1_Envelope()
+        envelope.channel = .control
+        envelope.seq = 1
+        envelope.payload = .heartbeat(Tandem_V1_Heartbeat())
+        try await pair.endB.send(try FrameEncoder.encode(envelope))
+        await runTask.value
+
+        #expect(await handshake.session == .failed(.malformedFrame))
+    }
+
     private func sendPeerHello(
         major: UInt32, minor: UInt32, capabilities: UInt64, over end: InMemoryConnectionPair.End
     ) async throws {

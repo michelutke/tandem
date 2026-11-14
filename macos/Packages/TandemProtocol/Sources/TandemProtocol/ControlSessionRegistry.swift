@@ -6,11 +6,13 @@ import TandemCrypto
 public protocol ControlSessionRegistering: Sendable {
     func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async
     func removeIfCurrent(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async
+    func unregister(_ spkiFingerprint: SpkiFingerprint) async
 }
 
 /// Tracks one Ready control session per peer SPKI (invariant 3, E12-19). When a second connection
-/// for the same peer SPKI reaches Ready, the registry closes the previously-registered session with
-/// `limitExceeded` before registering the new one. Keyed strictly by SPKI fingerprint; no lookup
+/// for the same peer SPKI reaches Ready, the registry swaps the new session in first and then
+/// closes the previously-registered one with `limitExceeded`, so the close's suspension can never
+/// let a concurrent registration leave two live sessions. Keyed strictly by SPKI fingerprint; no lookup
 /// or registration path accepts an IP address, hostname, or device ID.
 public actor ControlSessionRegistry: ControlSessionRegistering {
     private var sessions: [SpkiFingerprint: any TandemSession] = [:]
@@ -18,12 +20,10 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
     public init() {}
 
     /// Registers `session` for the given `spkiFingerprint`. If a session already exists for this
-    /// fingerprint, closes it with `limitExceeded` before registering the new one.
+    /// fingerprint, it is replaced at once and then closed with `limitExceeded`.
     public func register(_ spkiFingerprint: SpkiFingerprint, session: any TandemSession) async {
-        if let oldSession = sessions[spkiFingerprint] {
-            await oldSession.close()
-        }
-        sessions[spkiFingerprint] = session
+        let oldSession = sessions.updateValue(session, forKey: spkiFingerprint)
+        await oldSession?.close()
     }
 
     /// Closes and removes the session for the given SPKI fingerprint, if one exists.
@@ -37,7 +37,7 @@ public actor ControlSessionRegistry: ControlSessionRegistering {
     /// -- `nil` otherwise. E14-26: lets a composition root (``AppComposition``'s Devices-screen
     /// unpair wiring) look up whether a peer has a live session to send `Revoke` on before
     /// deleting its trust record, without exposing this actor's private storage directly. Not part
-    /// of ``ControlSessionRegistering`` (every existing conformer/spy stays unaffected); callers
+    /// of ``ControlSessionRegistering``'s lookup surface (every existing conformer/spy stays unaffected); callers
     /// that need this hold the concrete actor, exactly like ``AppComposition`` already does for
     /// ``register(_:session:)``'s own construction site.
     public func session(for spkiFingerprint: SpkiFingerprint) -> (any TandemSession)? {

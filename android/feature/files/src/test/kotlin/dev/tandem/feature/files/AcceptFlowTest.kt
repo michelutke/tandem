@@ -1,5 +1,7 @@
 package dev.tandem.feature.files
 
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.testing.TestClock
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.protocol.v1.Channel
@@ -37,6 +39,31 @@ class AcceptFlowTest {
 
             assertEquals(listOf("a" to TransferReason.TRANSFER_REASON_INSUFFICIENT_SPACE), rejects())
             assertTrue(prompter.posted.isEmpty())
+        }
+
+    @Test
+    fun acceptFlow_twoOffersEachFitAloneButNotTogether_secondRejectedInsufficientSpace() =
+        runTest {
+            settings = AcceptSettings(autoAccept = true)
+            freeSpace.bytes = 2 * MIB + RESERVE
+            newFlow(reservedBytes = { 2 * MIB * session.sentFrames.count { it.hasFileAccept() } })
+
+            offer("a", size = MIB)
+            offer("b", size = MIB)
+
+            assertEquals(listOf("a"), session.sentFrames.filter { it.hasFileAccept() }.map { it.fileAccept.id })
+            assertEquals(listOf("b" to TransferReason.TRANSFER_REASON_INSUFFICIENT_SPACE), rejects())
+        }
+
+    @Test
+    fun acceptFlow_closeWithPendingOffer_cancelsPromptNotification() =
+        runTest {
+            val flow = newFlow()
+            offer("a", size = MIB)
+
+            flow.close()
+
+            assertEquals(listOf("a"), prompter.cancelled)
         }
 
     @Test
@@ -172,8 +199,41 @@ class AcceptFlowTest {
             assertEquals("passwd", prompter.posted.single().name)
         }
 
-    private fun TestScope.newFlow(): AcceptFlow =
-        AcceptFlow(session, freeSpace, prompter, { settings }, { active }, StandardTestDispatcher(testScheduler))
+    @Test
+    fun acceptFlow_offerDeliveredAfterMultiplexerClosed_noUncaughtException() =
+        runTest {
+            settings = AcceptSettings(autoAccept = true)
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            newFlow()
+
+            offer("a", size = MIB)
+            offer("b", size = MIB)
+
+            assertEquals(listOf("b"), session.sentFrames.map { it.fileAccept.id })
+        }
+
+    @Test
+    fun acceptFlow_rejectAfterMultiplexerClosed_noUncaughtException() =
+        runTest {
+            session.failNextSend(MultiplexerClosedException(MultiplexerClose.PeerClosed))
+            newFlow()
+
+            offer("a", size = (1L shl 36) + 1)
+            offer("b", size = (1L shl 36) + 1)
+
+            assertEquals(listOf("b" to TransferReason.TRANSFER_REASON_TOO_LARGE), rejects())
+        }
+
+    private fun TestScope.newFlow(reservedBytes: () -> Long = { 0L }): AcceptFlow =
+        AcceptFlow(
+            session,
+            freeSpace,
+            prompter,
+            { settings },
+            { active },
+            StandardTestDispatcher(testScheduler),
+            reservedBytes,
+        )
 
     private fun TestScope.offer(
         id: String,

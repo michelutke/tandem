@@ -36,9 +36,203 @@
     <string name="mirror_blocked_title">Blocked.</string>
     <string name="mirror_blocked_text">The Mac\'s key changed. Nothing was shared.</string>
     <string name="mirror_unreachable_title">Mirroring stopped.</string>
+    <string name="mirror_view_only_title">View only.</string>
+    <string name="mirror_view_only_text">To let your Mac tap and type, allow Tandem in Accessibility settings.</string>
     <string name="mirror_unreachable_text">Couldn\'t connect to your Mac. Nothing was shared.</string>
     <string name="clipboard_sent">Sent to Mac.</string>
+    <string name="clipboard_not_connected">Not connected to your Mac.</string>
     <string name="clipboard_empty">Nothing on the clipboard to send.</string>
     <string name="clipboard_too_large">Text too large to send (max 1 MiB).</string>
     <string name="clipboard_received">Received from Mac.</string>
+
+    <!-- Trust error, Blocked. (ui-spec 7.2, 8) -->
+    <string name="blocked_title">Blocked.</string>
+    <string name="blocked_pin_state">The Mac\'s key changed.</string>
+    <string name="blocked_pin_explanation">Tandem stopped the connection to protect your data. Pair again only if you reinstalled Tandem on the Mac.</string>
+    <string name="blocked_peer_fallback_name">The Mac</string>
+    <string name="blocked_revoked_state">%1$s removed this phone.</string>
+    <string name="blocked_revoked_explanation">Tandem stopped the connection. Pair again to link this phone with the Mac.</string>
+    <string name="blocked_update_state">Update needed.</string>
+    <string name="blocked_update_explanation">This phone and the Mac run versions of Tandem that cannot talk to each other. Update Tandem on both.</string>
+    <string name="blocked_pair_again">Pair again</string>
+    <string name="blocked_unpair">Unpair</string>
+
+    <!-- Home, battery restricted (ui-spec 10 battery.restricted) -->
+    <string name="battery_restricted_title">Battery restricted.</string>
+    <string name="battery_restricted_detail">Android may cut the link overnight.</string>
+    <string name="battery_restricted_fix">Fix</string>
+
+    <!-- Notifications (ui-spec 7.2 Access off, 10 notif.accessOff) -->
+    <string name="notifications_title">Notifications.</string>
+    <string name="notifications_access_off">Access off.</string>
+    <string name="notifications_access_off_explanation">Android turned off notification access for Tandem. Nothing is forwarded until you allow it again.</string>
+    <string name="notifications_allow_access">Allow access</string>
+
+    <!-- Scan, Mac unreachable (ui-spec 7.2, 10 scan.unreachable) -->
+    <string name="scan_unreachable_title">Can\'t reach the Mac.</string>
+    <string name="scan_unreachable_state">Same Wi-Fi?</string>
+    <string name="scan_unreachable_hint">Guest and office networks often block devices from seeing each other. Try your phone\'s hotspot.</string>
+    <string name="scan_try_again">Try again</string>
+    <!-- Dialogs (ui-spec 5.2) -->
+    <string name="dialog_cancel">Cancel</string>
+
+    <!-- Settings (ui-spec 7.2) -->
+    <string name="settings_title">Settings.</string>
+    <string name="settings_state">Paired with %1$s.</string>
+    <string name="settings_paired_mac">Paired Mac</string>
+    <string name="settings_connected">Connected</string>
+    <string name="settings_not_connected">Not connected</string>
+    <string name="settings_battery">Battery</string>
+    <string name="settings_battery_restricted">Restricted</string>
+    <string name="settings_battery_unrestricted">Unrestricted</string>
+    <string name="settings_battery_ok">OK</string>
+    <string name="settings_key">Key</string>
+    <string name="settings_key_rotate">Rotate</string>
+    <string name="settings_auto_capture_label">Send copies to Mac automatically</string>
+    <string name="settings_auto_capture_title">Send copies automatically?</string>
+    <string name="settings_auto_capture_explain">Tandem needs its Accessibility service to notice when you copy. Accessibility can see everything on screen, not just the clipboard. Tandem only watches the system copy notice and reads nothing else. Turn on Tandem clipboard in the next screen. You can switch this off any time.</string>
+    <string name="settings_auto_capture_remove_access">Turn off Tandem clipboard in Accessibility settings to remove access.</string>
+    <string name="settings_auto_capture_needs_service">Allow Tandem in Accessibility settings.</string>
+    <string name="settings_open_accessibility">Open Accessibility</string>
+    <string name="settings_clipboard_access">Tandem clipboard access</string>
+    <string name="settings_open">Open</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="settings_permissions_detail">What Tandem can use</string>
+    <string name="settings_permissions_review">Review</string>
+    <string name="settings_unpair">Unpair</string>
+    <string name="settings_unpair_title">Unpair %1$s?</string>
+    <string name="settings_unpair_text">This phone and the Mac will forget each other.</string>
+    <string name="settings_rotate_title">Rotate key?</string>
+    <string name="settings_rotate_text">This phone gets a new key and the Mac is told to trust it.</string>
+    <string name="settings_rotate_in_progress">Rotating key…</string>
+    <string name="settings_rotate_success">New key %1$s.</string>
+    <string name="settings_rotate_failed">%1$s Still using the current key.</string>
+    <string name="settings_rotate_ok">OK</string>
+    <!-- Home ring (ui-spec 6, 10 home.ring.*) -->
+    <string name="home_ring_idle">things synced today</string>
+    <string name="home_ring_sending">Sending to Mac</string>
+    <string name="home_ring_receiving">Receiving from Mac</string>
+    <string name="home_ring_sent">Sent.</string>
+    <string name="home_ring_received">Received.</string>
+    <string name="home_ring_mirroring">mirroring</string>
+    <string name="home_ring_ringing">ringing</string>
+    <string name="home_ring_reconnecting">next try · attempt %1$d</string>
+    <string name="home_title">Tandem.</string>
+    <string name="notifications_loading">Loading apps.</string>
+    <string name="notifications_apps_count">%1$d of %2$d apps.</string>
+
+    <!-- Onboarding (ui-spec 7.2) -->
+    <string name="welcome_title">Tandem.</string>
+    <string name="welcome_state">Your phone, on your Mac. Privately.</string>
+    <string name="welcome_footnote">No accounts. No cloud. Encrypted on your own network.</string>
+    <string name="welcome_get_started">Get started</string>
+    <string name="permissions_title">Permissions.</string>
+    <string name="permissions_state">Only what you use.</string>
+    <string name="permissions_allow">Allow</string>
+    <string name="permissions_granted">Granted</string>
+    <string name="permissions_skip">Skip</string>
+    <string name="permissions_continue">Continue</string>
+    <string name="permission_notifications_label">Notifications</string>
+    <string name="permission_notifications_reason">Show phone notifications on your Mac</string>
+    <string name="permission_battery_label">Battery</string>
+    <string name="permission_battery_reason">Stay connected in the background</string>
+    <string name="permission_camera_label">Camera</string>
+    <string name="permission_camera_reason">Scan the pairing code once</string>
+    <string name="permission_sms_label">SMS &amp; calls</string>
+    <string name="permission_sms_reason">Later, when you turn it on</string>
+    <string name="permission_local_network_label">Local network</string>
+    <string name="permission_local_network_reason">Find your Mac on this network</string>
+
+    <!-- Pairing (ui-spec 7.2, 10 pair.*) -->
+    <string name="pair_progress_title">Pairing.</string>
+    <string name="pair_progress_state">Connecting…</string>
+    <string name="pair_confirm_state">Same code on both?</string>
+    <string name="pair_codes_match">Codes match</string>
+    <string name="pair_codes_dont_match">They don\'t match</string>
+    <string name="pair_codes_differ">Codes differ</string>
+    <string name="pair_manual_mac_title">Your Mac.</string>
+    <string name="pair_manual_label">Manual pairing</string>
+    <string name="pair_manual_mismatch">If the codes differ, someone may be intercepting. Start pairing again on both devices.</string>
+    <string name="pair_paired_title">Paired.</string>
+    <string name="pair_paired_state">%1$s is ready.</string>
+    <string name="pair_paired_unknown_name">Your Mac</string>
+    <string name="pair_done">Done</string>
+    <string name="pair_scan_again">Scan again</string>
+
+    <!-- Incoming file, Mirror request, Find phone ringing (ui-spec 7.2) -->
+    <string name="incoming_title">From Mac.</string>
+    <string name="incoming_state">%1$s · %2$s</string>
+    <string name="incoming_save_to">Save to</string>
+    <string name="incoming_save_path" translatable="false">Download/Tandem</string>
+    <string name="incoming_accept">Accept</string>
+    <string name="incoming_decline">Decline</string>
+    <string name="mirror_request_title">Mirror.</string>
+    <string name="mirror_request_state">%1$s wants to see your screen.</string>
+    <string name="mirror_request_fact_1">Screen only, audio stays on the phone</string>
+    <string name="mirror_request_fact_2">Mac can tap and type while this is on</string>
+    <string name="mirror_request_fact_3">Ends when you tap Stop or lock the phone</string>
+    <string name="mirror_request_start">Start mirroring</string>
+    <string name="mirror_request_not_now">Not now</string>
+    <string name="ringing_title">Ringing.</string>
+    <string name="ringing_state">From %1$s.</string>
+    <string name="ringing_found_it">Found it</string>
+
+    <!-- Revoked by peer (ui-spec 8) -->
+    <string name="revoked_message">%1$s removed this phone.</string>
+    <string name="revoked_dismiss">Dismiss</string>
+    <string name="revoked_fallback_name">Your Mac</string>
+
+    <!-- Activity (ui-spec 7.2) -->
+    <string name="activity_title">Activity.</string>
+    <string name="activity_state">Last 7 days.</string>
+    <string name="activity_empty">Nothing synced yet.</string>
+    <string name="activity_event_file_received">File received</string>
+    <string name="activity_event_clipboard_from_mac">Clipboard from Mac</string>
+    <string name="activity_event_mirroring">Mirroring</string>
+    <string name="activity_event_find_phone">Find phone</string>
+    <string name="activity_event_phone_call">Phone call</string>
+    <string name="activity_now">Now</string>
+    <string name="activity_minutes_ago">%1$d min</string>
+    <string name="activity_hours_ago">%1$d h</string>
+    <string name="activity_yesterday">Yesterday</string>
+    <string name="activity_duration">%1$dm %2$ds</string>
+
+    <!-- Settings > Permissions (ui-spec 2 numbered rows) -->
+    <string name="app_permission_notifications_label">Notifications</string>
+    <string name="app_permission_notifications_reason">Show Tandem\'s own alerts.</string>
+    <string name="app_permission_notification_access_label">Notification access</string>
+    <string name="app_permission_notification_access_reason">Show your phone\'s notifications on your Mac.</string>
+    <string name="app_permission_sms_label">SMS</string>
+    <string name="app_permission_sms_reason">Read and send texts from your Mac.</string>
+    <string name="app_permission_contacts_label">Contacts</string>
+    <string name="app_permission_contacts_reason">Show names for texts and calls.</string>
+    <string name="app_permission_phone_label">Phone</string>
+    <string name="app_permission_phone_reason">Show calls on your Mac, and answer or place them from there.</string>
+    <string name="app_permission_caller_id_label">Caller ID</string>
+    <string name="app_permission_caller_id_reason">Show who is calling on your Mac. Tandem never blocks or changes calls.</string>
+    <string name="app_permission_camera_label">Camera</string>
+    <string name="app_permission_camera_reason">Scan the code on your Mac. Decoded on this phone.</string>
+    <string name="app_permission_local_network_label">Local network</string>
+    <string name="app_permission_local_network_reason">Find your Mac on this network.</string>
+    <string name="app_permission_battery_label">Battery</string>
+    <string name="app_permission_battery_reason">Stay connected while the app is in the background.</string>
+    <string name="app_permission_accessibility_label">Accessibility</string>
+    <string name="app_permission_accessibility_reason">Let your Mac tap and type while you mirror.</string>
+    <string name="permissions_settings_title">Permissions.</string>
+    <string name="permissions_settings_state">%1$d of %2$d allowed.</string>
+    <string name="permissions_settings_on">On</string>
+    <string name="permissions_settings_allow">Allow</string>
+
+    <!-- Pairing errors (ui-spec 10: pair.*, scan.*) -->
+    <string name="pair_error_not_paired">Not paired.</string>
+    <string name="pair_error_codes_differ">The codes didn\'t match.</string>
+    <string name="pair_error_declined_title">Declined.</string>
+    <string name="pair_error_declined_state">The Mac said no.</string>
+    <string name="pair_error_not_trusted">Not trusted.</string>
+    <string name="pair_error_pin_mismatch">This Mac\'s identity changed. Pair again.</string>
+    <string name="pair_error_identity">This phone\'s key couldn\'t be created.</string>
+    <string name="pair_error_expired_title">Code expired.</string>
+    <string name="pair_error_expired_state">Scan a new one.</string>
+    <string name="pair_error_incompatible_key">This Mac\'s key isn\'t supported.</string>
+    <string name="pair_error_protocol">The Mac didn\'t answer as expected. Start again.</string>
 </resources>

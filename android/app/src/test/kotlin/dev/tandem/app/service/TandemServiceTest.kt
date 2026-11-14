@@ -6,6 +6,8 @@ import dev.tandem.app.TandemApplication
 import dev.tandem.app.connection.ConnectionLoop
 import dev.tandem.app.connection.NoOpConnectionLoop
 import dev.tandem.core.crypto.SpkiFingerprint
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
+import dev.tandem.core.pairing.PeerDataPurging
 import dev.tandem.core.pairing.revoke.TrustRemover
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.storage.trust.PeerRecord
@@ -119,6 +121,7 @@ class TandemServiceTest {
             pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
             sessionRegistryFactory = { registry }
             trustRemoverFactory = { TrustRemover { removed += it } }
+            purgeRegistryFactory = { PeerDataPurgeRegistry() }
             connectionLoopFactory = { NoOpConnectionLoop }
             dispatcher = UnconfinedTestDispatcher()
         }
@@ -134,6 +137,35 @@ class TandemServiceTest {
 
         assertEquals(listOf(peer), removed)
         assertTrue(session.state.value is ConnectionState.Disconnected)
+    }
+
+    @Test
+    fun tandemService_revokeReceived_purgeRegistryInvoked() {
+        val peer = SpkiFingerprint(ByteArray(32) { 3 })
+        val session = FakeTandemSession().apply { emitState(ConnectionState.Ready(Instant.EPOCH)) }
+        val registry = SessionRegistry()
+        val purged = mutableListOf<SpkiFingerprint>()
+        val purgeRegistry = PeerDataPurgeRegistry().apply { register(PeerDataPurging { purged += it }) }
+        val controller = Robolectric.buildService(TandemService::class.java)
+        controller.get().apply {
+            pairedPeerRepositoryFactory = { FakePairedPeerRepository(MutableStateFlow(true)) }
+            sessionRegistryFactory = { registry }
+            trustRemoverFactory = { TrustRemover {} }
+            purgeRegistryFactory = { purgeRegistry }
+            connectionLoopFactory = { NoOpConnectionLoop }
+            dispatcher = UnconfinedTestDispatcher()
+        }
+        controller.create()
+        registry.register(session, peer)
+
+        session.emitIncoming(
+            envelope {
+                channel = Channel.CHANNEL_CONTROL
+                revoke = revoke {}
+            },
+        )
+
+        assertEquals(listOf(peer), purged)
     }
 
     @Test

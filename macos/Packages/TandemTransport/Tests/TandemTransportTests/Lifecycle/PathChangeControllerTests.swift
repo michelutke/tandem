@@ -70,4 +70,22 @@ struct PathChangeControllerTests {
     private func settle() async {
         for _ in 0..<10 { await Task.yield() }
     }
+
+    @Test
+    func pathChangeController_restartThrows_failureSurfaced() async {
+        let listenerControl = FakeListenerControl(startError: ListenerBindError.bindFailed)
+        let pathSource = FakeNetworkPathSource()
+        let failures = FailureLog()
+        let controller = PathChangeController(
+            pathSource: pathSource, listenerControl: listenerControl, onFailure: { failures.record($0) }
+        )
+        await controller.start()
+
+        pathSource.send(NetworkPathSnapshot(interfaces: ["en0"]))
+        await settle()
+        pathSource.send(NetworkPathSnapshot(interfaces: ["en0", "utun0"]))
+        await settle()
+
+        #expect(failures.errors.count == 1)
+    }
 }

@@ -71,12 +71,43 @@ enum UITestScenario: String {
     case nowPlayingSeeded
 
     /// A paired, connected peer that declined a Mirror request (E61-12): the status line under
-    /// "Mirror Phone" reads "Mirroring declined on phone".
+    /// "Mirror Phone" reads "Declined. Nothing was shared.".
     case mirrorDeclined
 
     /// One in-flight transfer already at 42% (E40-23): the row shows "42%" and a Cancel button
     /// that flips the row to "Cancelled" through the same cancel closure production wires to E40-20.
     case transferProgressSeeded
+
+    /// The popover while the phone rings (Find phone): "Ringing." and only "Stop ringing".
+    case popoverRinging
+
+    /// The popover after a protocol version mismatch: "Update needed." with "Check for update".
+    case popoverUpdateNeeded
+
+    /// The not-paired popover after the phone unpaired this Mac: "Pixel 8 unpaired this Mac."
+    case popoverUnpairedNotice
+
+    /// The pairing window's "Paired." screen with its Done row.
+    case pairingPaired
+
+    /// The main window's trust-error banner after a pin mismatch: "Pair again" and "Unpair".
+    case trustErrorBanner
+
+    /// Photos where the phone reports it shares no photos: "Pixel 8 hasn't shared photos."
+    case photosNoAccess
+
+    /// The mirror window's dark "Waiting." screen with Cancel.
+    case mirrorWaitingScreen
+
+    /// The mirror window's dark "Declined." screen with Close.
+    case mirrorDeclinedScreen
+
+    /// The glass toolbar under the mirror stream with an active input sender: Back, Home, Recents,
+    /// "Control on" and Stop.
+    case mirrorToolbar
+
+    /// The photo grid with two photos selected: "Download 2" and the "Loaded" footer.
+    case photoGridSelection
 
     static func fromLaunchArguments(_ arguments: [String] = CommandLine.arguments) -> UITestScenario? {
         guard let flagIndex = arguments.firstIndex(of: "-UITestScenario"),

@@ -29,4 +29,10 @@ dependencies {
     // zxing-cpp (E14-23 spike decision): QR decoding with zero Google/Firebase/telemetry
     // transitive dependencies.
     implementation(libs.zxingcpp.android)
+
+    constraints {
+        implementation(libs.guava.android) {
+            because("GHSA-xxph-c9ww-hj94: media3/CameraX resolve guava 33.3.1-android transitively")
+        }
+    }
 }

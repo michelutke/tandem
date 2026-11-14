@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.os.PersistableBundle
+import android.util.Log
 import dev.tandem.core.transport.TandemSession
 import dev.tandem.feature.clipboard.ClipboardLoopGuard
 import dev.tandem.protocol.v1.Channel
@@ -32,7 +33,17 @@ class ClipboardWriter(
 ) {
     suspend fun start(session: TandemSession) {
         session.receive(Channel.CHANNEL_CLIPBOARD).collect { envelope ->
-            write(envelope.clipboardText)
+            writeOrLog(envelope.clipboardText)
+        }
+    }
+
+    // setPrimaryClip crosses binder and throws on an oversized clip; one bad item must not end the receive loop.
+    @Suppress("TooGenericExceptionCaught")
+    private fun writeOrLog(clipboardText: ClipboardText) {
+        try {
+            write(clipboardText)
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "clipboard_write_failed ${error.javaClass.simpleName}")
         }
     }
 
@@ -51,5 +62,6 @@ class ClipboardWriter(
 
     private companion object {
         const val CLIP_LABEL = "Tandem"
+        const val TAG = "ClipboardWriter"
     }
 }

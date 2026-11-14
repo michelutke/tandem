@@ -25,6 +25,12 @@ class ChannelDispatcherTest {
     private fun TestScope.dispatcherOver(inbound: KtChannel<Envelope>): ChannelDispatcher =
         ChannelDispatcher(CoroutineScope(StandardTestDispatcher(testScheduler))) { inbound.receiveAsFlow() }
 
+    private fun TestScope.replayingDispatcherOver(inbound: KtChannel<Envelope>): ChannelDispatcher =
+        ChannelDispatcher(
+            CoroutineScope(StandardTestDispatcher(testScheduler)),
+            replayLast = { it.hasRotationChallenge() },
+        ) { inbound.receiveAsFlow() }
+
     private val revokeFrame =
         envelope {
             channel = Channel.CHANNEL_CONTROL
@@ -66,6 +72,42 @@ class ChannelDispatcherTest {
 
             assertEquals(revokeFrame, revoked.await())
             assertEquals(rotationFrame, rotated.await())
+        }
+
+    @Test
+    fun channelDispatcher_replayableFrameBeforeLateSubscriber_replayedToIt() =
+        runTest {
+            val inbound = KtChannel<Envelope>(KtChannel.UNLIMITED)
+            val dispatcher = replayingDispatcherOver(inbound)
+            val early = allOn(dispatcher)
+            inbound.trySend(rotationFrame)
+            advanceUntilIdle()
+
+            val late = allOn(dispatcher)
+            advanceUntilIdle()
+            inbound.close()
+            advanceUntilIdle()
+
+            assertEquals(listOf(rotationFrame), early.await())
+            assertEquals(listOf(rotationFrame), late.await())
+        }
+
+    @Test
+    fun channelDispatcher_nonReplayableFrameBeforeLateSubscriber_notReplayed() =
+        runTest {
+            val inbound = KtChannel<Envelope>(KtChannel.UNLIMITED)
+            val dispatcher = replayingDispatcherOver(inbound)
+            val early = allOn(dispatcher)
+            inbound.trySend(revokeFrame)
+            advanceUntilIdle()
+
+            val late = allOn(dispatcher)
+            advanceUntilIdle()
+            inbound.close()
+            advanceUntilIdle()
+
+            assertEquals(listOf(revokeFrame), early.await())
+            assertEquals(emptyList<Envelope>(), late.await())
         }
 
     @Test

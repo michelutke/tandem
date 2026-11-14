@@ -1,4 +1,5 @@
 import Testing
+import TandemTestSupport
 @testable import FeatureMirror
 @testable import TandemProtocol
 
@@ -22,6 +23,31 @@ struct MirrorRequestViewModelTests {
         }
         #expect(model.state == .waiting)
         #expect(model.statusText == "Accept on phone to start.")
+    }
+
+    @Test
+    func mirrorQuickAction_peerNameKnown_waitingStatusNamesThePhone() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession(), peerName: "Pixel 9")
+
+        model.request()
+
+        #expect(model.statusText == "Accept on Pixel 9 to start.")
+        #expect(model.waitingDetail == "Accept on Pixel 9 to start.")
+    }
+
+    @Test
+    func mirrorQuickAction_peerNameUpdated_waitingDetailFollows() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession())
+        model.peerName = "Galaxy S24"
+
+        #expect(model.waitingDetail == "Accept on Galaxy S24 to start.")
+    }
+
+    @Test
+    func mirrorQuickAction_noPeerName_waitingDetailSaysPhone() {
+        let model = MirrorRequestViewModel(session: FakeTandemSession())
+
+        #expect(model.waitingDetail == "Accept on phone to start.")
     }
 
     @Test
@@ -76,7 +102,7 @@ struct MirrorRequestViewModelTests {
 
         let declined = await waitUntilTrue { model.state == .declined }
         #expect(declined)
-        #expect(model.statusText == "Mirroring declined on phone")
+        #expect(model.statusText == "Declined. Nothing was shared.")
     }
 
     @Test
@@ -139,5 +165,33 @@ struct MirrorRequestViewModelTests {
         let sent = await waitUntilTrue { await second.sent.count == 1 }
         #expect(sent)
         #expect(await first.sent.isEmpty)
+    }
+
+    @Test
+    func mirrorRequest_mirrorWindowOpened_stateIdle() async {
+        let model = MirrorRequestViewModel(session: FakeTandemSession())
+        model.request()
+        #expect(model.state == .waiting)
+
+        model.resetRequest()
+
+        #expect(model.state == .idle)
+        #expect(model.statusText == nil)
+    }
+
+    @Test
+    func mirrorRequest_noResponseWithinTimeout_stateIdleAndRequestSendsAgain() async {
+        let session = FakeTandemSession()
+        let clock = ManualTestClock()
+        let model = MirrorRequestViewModel(session: session, clock: clock, timeout: .seconds(60))
+        model.request()
+        for _ in 0..<100 { await Task.yield() }
+
+        clock.advance(by: .seconds(60))
+        #expect(await waitUntilTrue { model.state == .idle })
+        model.request()
+
+        #expect(await waitUntilTrue { await session.sent.count == 2 })
+        #expect(model.state == .waiting)
     }
 }

@@ -47,13 +47,14 @@ class IconSender(
     fun onNotificationPosted(
         packageName: String,
         versionCode: Long,
-        icon: Drawable,
+        loadIcon: () -> Drawable?,
         onIconData: (IconData) -> Unit,
     ) {
         scope.launch {
             val sent = settingsStore.get(SENT_RECORDS_KEY).first()
             val record = recordKey(packageName, versionCode)
             if (record in sent) return@launch
+            val icon = loadIcon() ?: return@launch
             settingsStore.set(SENT_RECORDS_KEY, sent + record)
             onIconData(
                 iconData {
@@ -65,10 +66,15 @@ class IconSender(
         }
     }
 
-    private companion object {
-        val SENT_RECORDS_KEY = SettingsKey(stringSetPreferencesKey("icon_sent_records"), emptySet())
+    companion object {
+        private val SENT_RECORDS_KEY = SettingsKey(stringSetPreferencesKey("icon_sent_records"), emptySet())
 
-        fun recordKey(
+        /** Forgets every sent icon, so the next paired Mac (which starts with an empty cache) gets them again. */
+        suspend fun clearSentRecords(settingsStore: SettingsStore) {
+            settingsStore.set(SENT_RECORDS_KEY, emptySet())
+        }
+
+        private fun recordKey(
             packageName: String,
             versionCode: Long,
         ): String = "$packageName@$versionCode"

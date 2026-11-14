@@ -4,6 +4,7 @@ import dev.tandem.app.service.RegisteredSession
 import dev.tandem.app.service.SessionRegistry
 import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.protocol.connection.ConnectionState
+import dev.tandem.core.transport.TandemSession
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import dev.tandem.core.transport.reconnect.ConnectResult
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.time.Clock
+import kotlin.time.Duration
 
 /**
  * The production connect loop (E20-23, F-3.4): [ReconnectStrategy] walks candidate addresses,
@@ -37,10 +39,16 @@ import java.time.Clock
  * reconnect re-attaches exactly once. A network-available event ([NetworkReconnectTrigger]) or a
  * wake, Doze exit or app foregrounding ([WakeReconnectTrigger]) kicks the loop.
  *
+ * The address of the last registered session is persisted in [lastWorkingStore] and seeds
+ * [ReconnectStrategy] after a process restart; it is a dial hint only, never trust.
+ *
  * [failure] carries only sanitized categories (`PIN_MISMATCH`, `REVOKED`, `HANDSHAKE_FAILED`,
- * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session.
+ * handshake timeout) for a visible error (invariant 5); it clears on the next Ready session and on
+ * unpair ([clearFailure]). A dial that finishes after the last paired Mac was removed
+ * ([hasPairedPeer] false) is discarded: its session is closed and it sets no failure and saves no
+ * address.
  */
-@Suppress("LongParameterList") // composition seams: dialer, stores, sources, features, clock, dispatcher
+@Suppress("LongParameterList", "TooManyFunctions") // composition seams, lifecycle, failure surface
 class ConnectionOrchestrator(
     private val dialer: SessionDialer,
     private val registry: SessionRegistry,
@@ -54,6 +62,8 @@ class ConnectionOrchestrator(
     clock: Clock,
     dispatcher: CoroutineDispatcher,
     private val warn: (String) -> Unit = {},
+    private val lastWorkingStore: PairingAddressStore? = null,
+    private val hasPairedPeer: suspend () -> Boolean = { true },
 ) : ConnectionLoop {
     private val scope =
         CoroutineScope(SupervisorJob() + dispatcher)
@@ -67,6 +77,7 @@ class ConnectionOrchestrator(
             bonjourSource = bonjourSource,
             pairingAddressSource = pairingAddressSource,
             dispatcher = dispatcher,
+            initialLastWorking = lastWorkingStore?.addresses()?.firstOrNull(),
         )
     private val networkTrigger = NetworkReconnectTrigger(networkMonitor, strategy, clock, dispatcher)
     private val wakeTrigger = WakeReconnectTrigger(deviceIdleSource, strategy, clock, dispatcher, foreground)
@@ -74,6 +85,14 @@ class ConnectionOrchestrator(
     private val mutableFailure = MutableStateFlow<ConnectionFailure?>(null)
     val failure: StateFlow<ConnectionFailure?> = mutableFailure.asStateFlow()
     val failedCycles: StateFlow<Int> = strategy.failedCycles
+    val backoffWait: StateFlow<Duration?> = strategy.backoffWait
+
+    fun clearFailure() {
+        mutableFailure.value = null
+    }
+
+    /** Forgets the in-memory last-working address; called once the last paired Mac is gone. */
+    fun resetLastWorking() = strategy.resetLastWorking()
 
     override fun start() {
         synchronized(lock) { runJob = runJob?.takeIf { it.isActive } ?: Job(scope.coroutineContext[Job]) }
@@ -115,9 +134,24 @@ class ConnectionOrchestrator(
         } catch (
             @Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception,
         ) {
-            mutableFailure.value = HANDSHAKE_FAILURE
+            setHandshakeFailureWhilePaired()
             ConnectResult.Unreachable
         }
+
+    private suspend fun setFailureWhilePaired(failure: ConnectionFailure) {
+        if (hasPairedPeer()) mutableFailure.value = failure
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun setHandshakeFailureWhilePaired() {
+        try {
+            setFailureWhilePaired(HANDSHAKE_FAILURE)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return
+        }
+    }
 
     private suspend fun dialAndAdopt(candidate: CandidateAddress): ConnectResult =
         when (val result = dialer.dial(candidate)) {
@@ -126,12 +160,12 @@ class ConnectionOrchestrator(
             }
 
             is DialResult.PinMismatch -> {
-                mutableFailure.value = result.failure
+                setFailureWhilePaired(result.failure)
                 ConnectResult.PinMismatch
             }
 
             is DialResult.Unreachable -> {
-                result.failure?.let { mutableFailure.value = it }
+                result.failure?.let { setFailureWhilePaired(it) }
                 ConnectResult.Unreachable
             }
         }
@@ -158,24 +192,46 @@ class ConnectionOrchestrator(
             session.state.first {
                 it is ConnectionState.Ready || it is ConnectionState.Disconnected || it is ConnectionState.Failed
             }
-        if (settled !is ConnectionState.Ready) {
-            session.close()
-            (settled as? ConnectionState.Failed)?.let { mutableFailure.value = it.reason }
-            return ConnectResult.Unreachable
+        return when {
+            !hasPairedPeer() -> discardUnpaired(session)
+            settled !is ConnectionState.Ready -> failSettled(dialed, settled)
+            else -> registerReady(dialed)
         }
+    }
+
+    private fun discardUnpaired(session: TandemSession): ConnectResult {
+        session.close()
+        strategy.resetLastWorking()
+        return ConnectResult.Unreachable
+    }
+
+    private fun failSettled(
+        dialed: DialResult.Connected,
+        settled: ConnectionState,
+    ): ConnectResult {
+        dialed.session.close()
+        (settled as? ConnectionState.Failed)?.let {
+            mutableFailure.value =
+                ConnectionFailureClassifier.classifySettled(it.reason, knownPeerStore.hasEverPinned(dialed.peer))
+        }
+        return ConnectResult.Unreachable
+    }
+
+    private fun registerReady(dialed: DialResult.Connected): ConnectResult {
         recordKnownPeer(dialed)
         val registered = synchronized(lock) { registerIfRunning(dialed) }
-        if (!registered) session.close()
+        if (!registered) dialed.session.close()
         return if (registered) ConnectResult.Connected else ConnectResult.Unreachable
     }
 
     private fun recordKnownPeer(dialed: DialResult.Connected) {
         try {
             knownPeerStore.recordPinned(dialed.peer)
+            dialed.address?.let { lastWorkingStore?.save(listOf(it.host), it.port) }
         } catch (
             @Suppress("SwallowedException") e: IOException,
         ) {
-            warn("known-peer persistence failed: ${e.javaClass.simpleName}")
+            warn("peer persistence failed: ${e.javaClass.simpleName}")
         }
     }
 

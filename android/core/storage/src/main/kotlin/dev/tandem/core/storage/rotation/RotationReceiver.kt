@@ -17,12 +17,16 @@ import dev.tandem.protocol.v1.rotationAck
 import dev.tandem.protocol.v1.rotationChallenge
 import dev.tandem.protocol.v1.rotationReject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.security.SecureRandom
 import java.time.Clock
+import kotlinx.coroutines.channels.Channel as KtChannel
 
 /** Redacted `rotation_rejected` event (E70-04): the reason only, never key or signature bytes. */
 fun interface RotationEventLog {
@@ -52,19 +56,37 @@ class RotationReceiver(
 ) {
     private var challenge: ByteArray? = null
 
-    /** Suspends for the life of the session; returns when its CONTROL receive flow completes. */
+    /**
+     * Suspends for the life of the session; returns when its CONTROL receive flow completes. The
+     * CONTROL subscription is registered before the challenge goes out (the Mac answers it at once,
+     * and a frame delivered while other CONTROL consumers exist is never replayed), so a
+     * `KeyRotation` arriving during the storage steps below waits in the subscription (rendezvous, so a flood
+     * is paced by CONTROL's lane, not buffered), not lost.
+     */
     suspend fun run() {
         session.state.first { it is ConnectionState.Ready }
-        sendChallenge()
-        storageOrNull { pins.purgeExpiredPins(nowEpochMs()) }
-        val graceFingerprint = storageOrNull { applyHandshakePinRules() }
-        try {
-            session
-                .receive(Channel.CHANNEL_CONTROL)
-                .filter { it.hasKeyRotation() }
-                .collect { handle(it.keyRotation) }
-        } finally {
-            graceFingerprint?.let { withContext(NonCancellable) { storageOrNull { pins.clearGrace(it) } } }
+        coroutineScope {
+            val rotations = KtChannel<KeyRotation>()
+            val subscription =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        session
+                            .receive(Channel.CHANNEL_CONTROL)
+                            .filter { it.hasKeyRotation() }
+                            .collect { rotations.send(it.keyRotation) }
+                    } finally {
+                        rotations.close()
+                    }
+                }
+            sendChallenge()
+            storageOrNull { pins.purgeExpiredPins(nowEpochMs()) }
+            val graceFingerprint = storageOrNull { applyHandshakePinRules() }
+            try {
+                for (message in rotations) handle(message)
+            } finally {
+                subscription.cancel()
+                graceFingerprint?.let { withContext(NonCancellable) { storageOrNull { pins.clearGrace(it) } } }
+            }
         }
     }
 

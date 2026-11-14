@@ -127,4 +127,39 @@ import TandemCrypto
         )
         return try #require(rep.representation(using: .png, properties: [:]))
     }
+
+    @Test func iconCache_packageNameWithTraversal_writesInsideDirectoryOnly() async throws {
+        let (cache, directory) = try Self.makeCache()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let escapeTarget = directory.deletingLastPathComponent().appendingPathComponent("escaped-\(UUID().uuidString)")
+        let traversal = "../\(escapeTarget.lastPathComponent)"
+        let peer = try Self.fingerprint(0x01)
+        let pngBytes = try Self.validPNGBytes()
+
+        await cache.store(Self.icon(packageName: traversal, versionCode: 1, pngBytes: pngBytes), from: peer)
+
+        let url = await cache.iconURL(packageName: traversal, versionCode: 1)
+        #expect(url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL)
+        #expect(try Data(contentsOf: url) == pngBytes)
+        let escapedFile = directory.deletingLastPathComponent()
+            .appendingPathComponent("\(escapeTarget.lastPathComponent)_1.png")
+        #expect(!FileManager.default.fileExists(atPath: escapedFile.path))
+    }
+
+    @Test func iconCache_purgeAll_neverDeletesOutsideDirectory() async throws {
+        let (cache, directory) = try Self.makeCache()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let victim = directory.deletingLastPathComponent().appendingPathComponent("victim-\(UUID().uuidString)_1.png")
+        try Data("keep".utf8).write(to: victim)
+        defer { try? FileManager.default.removeItem(at: victim) }
+        let traversal = "../\(victim.lastPathComponent.dropLast("_1.png".count))"
+        let peer = try Self.fingerprint(0x01)
+        await cache.store(
+            Self.icon(packageName: String(traversal), versionCode: 1, pngBytes: try Self.validPNGBytes()), from: peer
+        )
+
+        try await cache.purgeAll(peer: peer)
+
+        #expect(FileManager.default.fileExists(atPath: victim.path))
+    }
 }

@@ -1,7 +1,9 @@
 package dev.tandem.app.connection
 
+import dev.tandem.core.crypto.SpkiFingerprint
 import dev.tandem.core.pairing.rotation.HandshakeResult
 import dev.tandem.core.pairing.rotation.PendingRotationHandshake
+import dev.tandem.core.protocol.connection.ConnectionFailure
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.transport.reconnect.CandidateAddress
 import kotlinx.coroutines.CancellationException
@@ -17,6 +19,7 @@ class PendingRotationSessionDialer(
     private val handshake: PendingRotationHandshake,
     private val dialerFor: (alias: String) -> SessionDialer,
     private val onAuthenticated: () -> Unit = {},
+    private val wasPreviouslyPinned: (SpkiFingerprint) -> Boolean = { false },
 ) : SessionDialer {
     override suspend fun dial(candidate: CandidateAddress): DialResult {
         var last: DialResult = DialResult.Unreachable(null)
@@ -36,7 +39,8 @@ class PendingRotationSessionDialer(
                     }
 
                     is DialResult.Unreachable -> {
-                        if (result.failure == null) HandshakeResult.NetworkError else HandshakeResult.Rejected
+                        val rejected = result.failure != null && result.failure != ConnectionFailure.IdentityUnavailable
+                        if (rejected) HandshakeResult.Rejected else HandshakeResult.NetworkError
                     }
                 }
             }
@@ -56,6 +60,10 @@ class PendingRotationSessionDialer(
             }
         if (settled is ConnectionState.Ready) return HandshakeResult.Accepted(authenticated = true) to dialed
         dialed.session.close()
-        return HandshakeResult.Rejected to DialResult.Unreachable((settled as? ConnectionState.Failed)?.reason)
+        val failure =
+            (settled as? ConnectionState.Failed)?.reason?.let {
+                ConnectionFailureClassifier.classifySettled(it, wasPreviouslyPinned(dialed.peer))
+            }
+        return HandshakeResult.Rejected to DialResult.Unreachable(failure)
     }
 }

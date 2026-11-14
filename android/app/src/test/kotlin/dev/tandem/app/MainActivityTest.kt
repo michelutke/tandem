@@ -1,7 +1,6 @@
 package dev.tandem.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.tandem.app.connection.PairingAddressStore
 import dev.tandem.app.home.HomeRingState
 import dev.tandem.app.onboarding.FakePermissionChecker
 import dev.tandem.app.onboarding.OnboardingViewModel
@@ -10,9 +9,12 @@ import dev.tandem.app.service.FakePairedPeerRepository
 import dev.tandem.app.service.ServiceStarter
 import dev.tandem.app.shell.AppShellDependencies
 import dev.tandem.app.shell.NoOpPairingStarter
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
+import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
 import dev.tandem.core.transport.FakeTandemSession
 import dev.tandem.feature.clipboard.ClipboardClip
 import dev.tandem.feature.clipboard.ClipboardReader
+import dev.tandem.feature.clipboard.ClipboardSender
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -22,7 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
-import java.io.File
+import org.robolectric.shadows.ShadowToast
 
 // E31-07 tdd:
 //   unit: foregroundCapture_windowFocusGainedWithTextClip_sendsClipboardText
@@ -140,8 +142,44 @@ class MainActivityTest {
         assertEquals(null, activity.actionBar)
     }
 
+    @Test
+    fun mainActivity_sendClipboardButtonNoSession_showsNotConnectedToast() {
+        val activity = buildAndCreate(null, RecordingClipboardReader(ClipboardClip("hello mac", sensitive = false)))
+
+        activity.onSendClipboardButtonTapped()
+
+        assertEquals("Not connected to your Mac.", ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun mainActivity_sendClipboardButtonSendDropped_showsNotConnectedToast() {
+        val session =
+            FakeTandemSession().apply {
+                failNextSend(
+                    MultiplexerClosedException(MultiplexerClose.PeerClosed),
+                )
+            }
+        val activity = buildAndCreate(session, RecordingClipboardReader(ClipboardClip("hello mac", sensitive = false)))
+
+        activity.onSendClipboardButtonTapped()
+
+        assertEquals("Not connected to your Mac.", ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun mainActivity_sendClipboardButtonTextTooLarge_showsTooLargeToastNotNotConnected() {
+        val tooLarge = "a".repeat(ClipboardSender.MAX_TEXT_BYTES + 1)
+        val activity =
+            buildAndCreate(FakeTandemSession(), RecordingClipboardReader(ClipboardClip(tooLarge, sensitive = false)))
+
+        activity.onSendClipboardButtonTapped()
+
+        assertEquals(1, ShadowToast.shownToastCount())
+        assertEquals("Text too large to send (max 1 MiB).", ShadowToast.getTextOfLatestToast())
+    }
+
     private fun buildAndCreate(
-        session: FakeTandemSession,
+        session: FakeTandemSession?,
         reader: ClipboardReader,
     ): MainActivity {
         val controller = Robolectric.buildActivity(MainActivity::class.java)
@@ -163,7 +201,6 @@ class MainActivityTest {
             onboarding =
                 OnboardingViewModel(RecordingPermissionRequester(), FakePermissionChecker()),
             isBatteryRestricted = { false },
-            addressStore = PairingAddressStore(File.createTempFile("addr", null)),
             pairingStarter = NoOpPairingStarter,
             unpair = {},
             onSendClipboard = {},

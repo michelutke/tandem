@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 sealed interface ThumbOutcome {
@@ -61,6 +62,10 @@ class ThumbnailResponder(
                 null
             } catch (_: SecurityException) {
                 return failure(request.id, PhotoErrorReason.PHOTO_ERROR_REASON_ACCESS_DENIED)
+            } catch (_: IOException) {
+                null
+            } catch (_: RuntimeException) {
+                null
             }
         return if (source == null) {
             failure(request.id, PhotoErrorReason.PHOTO_ERROR_REASON_NOT_FOUND)

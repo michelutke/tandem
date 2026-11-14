@@ -183,6 +183,21 @@ class FileReceiverTest {
         }
 
     @Test
+    fun fileReceiver_publishThrowsIllegalState_ioErrorCancelAndReceiverKeepsRunning() =
+        runTest {
+            val content = ByteArray(10)
+            publisher.failWith = IllegalStateException("insert rejected")
+            val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
+            receiver.expect(offer("a", "x.bin", content))
+            runCurrent()
+
+            chunks("a", content)
+            complete("a")
+
+            assertCancel(TransferReason.TRANSFER_REASON_IO_ERROR)
+        }
+
+    @Test
     fun androidReceiver_peerCancel_partDeletedNothingPublished() =
         runTest {
             val receiver = newReceiver(FileTransferStore(dir, Clock.systemUTC()))
@@ -323,7 +338,7 @@ class FileReceiverTest {
 
     private class RecordingPublisher : DownloadsPublisher {
         val published = mutableListOf<Published>()
-        var failWith: IOException? = null
+        var failWith: Exception? = null
 
         override fun publish(
             name: String,

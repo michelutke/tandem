@@ -7,17 +7,25 @@ import TandemTransport
 
 /// Late-bound handle on the running listener so a completed rotation can restart it on the new key.
 final class ListenerControlBox: Sendable {
-    private let control = Mutex<ProductionListenerControl?>(nil)
+    private struct Handle {
+        let control: ProductionListenerControl
+        let onFailure: @Sendable (any Error) -> Void
+    }
 
-    func set(_ listenerControl: ProductionListenerControl) {
-        control.withLock { $0 = listenerControl }
+    private let handle = Mutex<Handle?>(nil)
+
+    func set(_ listenerControl: ProductionListenerControl, onFailure: @escaping @Sendable (any Error) -> Void) {
+        handle.withLock { $0 = Handle(control: listenerControl, onFailure: onFailure) }
     }
 
     func restart() {
-        guard let listenerControl = control.withLock({ $0 }) else { return }
+        guard let handle = handle.withLock({ $0 }) else { return }
         Task {
-            await listenerControl.stop()
-            try? await listenerControl.start()
+            do {
+                try await handle.control.restart()
+            } catch {
+                handle.onFailure(error)
+            }
         }
     }
 }
@@ -29,12 +37,15 @@ enum MacRotationComposition {
     static let intervalDaysKey = "keyRotationIntervalDays"
     static let defaultIntervalDays = 365
 
+    // swiftlint:disable:next function_parameter_count
     static func make(
         keychainStore: any KeychainStore,
         trustStore: TrustStore,
         window: any PairingWindowState,
         identityBootstrapper: IdentityBootstrapper,
-        listenerControl: ListenerControlBox
+        listenerControl: ListenerControlBox,
+        purgeRegistry: PeerDataPurgeRegistry,
+        pairedPeer: PairedPeerState
     ) -> MacKeyRotation {
         let storedDays = UserDefaults.standard.integer(forKey: intervalDaysKey)
         let days = storedDays > 0 ? storedDays : defaultIntervalDays
@@ -48,6 +59,12 @@ enum MacRotationComposition {
             onSwitched: {
                 identityBootstrapper.bootstrapIdentity()
                 listenerControl.restart()
+            },
+            onPeersUnpaired: { peers in
+                Task {
+                    await purgeRegistry.purge(peers: peers)
+                    await pairedPeer.refresh()
+                }
             }
         )
     }

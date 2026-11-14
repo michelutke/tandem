@@ -5,6 +5,8 @@ import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.ColorDrawable
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -24,6 +26,20 @@ class IconEncoderTest {
         val bytes = IconEncoder.encode(drawable)
 
         assertArrayEquals(PNG_SIGNATURE, bytes.copyOfRange(0, PNG_SIGNATURE.size))
+    }
+
+    @Test
+    fun iconEncoder_complexIcon_pngUnder64KiB() {
+        val sizes = mutableListOf<Int>()
+
+        val bytes =
+            IconEncoder.encodeWithinLimit { size ->
+                sizes += size
+                ByteArray(if (size > 128) 100 * 1024 else 30 * 1024)
+            }
+
+        assertTrue(bytes.size <= IconEncoder.MAX_PNG_BYTES)
+        assertEquals(listOf(256, 192, 128), sizes)
     }
 
     private companion object {

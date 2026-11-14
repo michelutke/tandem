@@ -22,6 +22,7 @@ public struct CachingPhotoService: PhotoService {
     public func fetchThumbnail(id: String, maxPx: UInt32) async throws -> Data {
         if let cached = await cache.data(peer: peer, id: id, maxPx: maxPx) { return cached }
         let bytes = try await base.fetchThumbnail(id: id, maxPx: maxPx)
+        guard ThumbnailCache.isWithinDimensionCap(bytes) else { throw PhotoServiceError.failed(.unspecified) }
         await cache.store(bytes, peer: peer, id: id, maxPx: maxPx)
         return bytes
     }

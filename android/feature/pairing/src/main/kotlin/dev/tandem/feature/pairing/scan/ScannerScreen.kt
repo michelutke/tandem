@@ -8,10 +8,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,24 +30,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.tandem.core.designsystem.DarkSystemBars
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemRadii
+import dev.tandem.core.designsystem.TandemShapes
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
 import dev.tandem.core.pairing.qr.PairingInvite
 import dev.tandem.core.pairing.qr.ParseInviteResult
 import dev.tandem.core.pairing.qr.QrPayloadParser
+import dev.tandem.feature.pairing.R
+
+private const val TANDEM_SCHEME_PREFIX = "tandem://"
 
 /**
  * The Android "Scan" screen (`docs/design/screens/android-pairing-scan.png`, ui-spec.md §7.2):
- * dark surface, "Scan." / "The code on your Mac.", a rounded viewfinder and "Decoded on this
- * phone. Nothing is uploaded." With the camera permission denied it shows
+ * dark edge to edge surface, "Scan." / "The code on your Mac.", a rounded viewfinder and "Decoded on
+ * this phone. Nothing is uploaded." With the camera permission denied it shows
  * [ScannerUiState.CameraPermissionRequired] instead: a Grant button and no skip (UC-02).
  *
  * A frame that survives [ScanResultFilter] and then [QrPayloadParser] calls [onScanAccepted]
- * exactly once; the caller wires that to navigation to the pairing-progress screen. A parse
- * rejection (invalid/used code) is left to E14-17's error mapping — out of this screen's scope.
+ * exactly once. A QR that is not a Tandem code, or a Tandem code that fails to parse, shows
+ * [ScannerUiState.InvalidCode] ("Not a Tandem code." with a red viewfinder) until Scan again.
  *
  * [frameSource] is the CameraX-preview seam (E00-20): the default binds a real camera
  * ([CameraXFrameSource]); Compose `ui:` tests substitute a fake that never touches
@@ -69,124 +78,151 @@ fun ScannerScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             hasCameraPermission = granted
         }
-    val scanResultFilter = remember { ScanResultFilter() }
-    val uiState = if (hasCameraPermission) ScannerUiState.Scanning else ScannerUiState.CameraPermissionRequired
+    var scanResultFilter by remember { mutableStateOf(ScanResultFilter()) }
+    var invalidCode by remember { mutableStateOf(false) }
+    val uiState =
+        when {
+            !hasCameraPermission -> ScannerUiState.CameraPermissionRequired
+            invalidCode -> ScannerUiState.InvalidCode
+            else -> ScannerUiState.Scanning
+        }
 
+    DarkSystemBars()
     Surface(modifier = modifier.fillMaxSize(), color = TandemColors.paperDark) {
-        when (uiState) {
-            ScannerUiState.Scanning -> {
-                ScanningContent(
-                    frameSource = frameSource,
-                    onCancel = onCancel,
-                    onPairWithoutCamera = onPairWithoutCamera,
-                    onFrame = { result -> onFrame(result, scanResultFilter, onScanAccepted) },
-                )
-            }
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(TandemSpacing.screenPadding)) {
+            when (uiState) {
+                ScannerUiState.CameraPermissionRequired -> {
+                    CameraPermissionRequiredContent(
+                        onGrantCameraPermission = { requestCameraPermission.launch(Manifest.permission.CAMERA) },
+                        onPairWithoutCamera = onPairWithoutCamera,
+                    )
+                }
 
-            ScannerUiState.CameraPermissionRequired -> {
-                CameraPermissionRequiredContent(
-                    onGrantCameraPermission = { requestCameraPermission.launch(Manifest.permission.CAMERA) },
-                    onPairWithoutCamera = onPairWithoutCamera,
-                )
+                else -> {
+                    ScanningContent(
+                        invalid = uiState == ScannerUiState.InvalidCode,
+                        frameSource = frameSource,
+                        onCancel = onCancel,
+                        onScanAgain = {
+                            scanResultFilter = ScanResultFilter()
+                            invalidCode = false
+                        },
+                        onPairWithoutCamera = onPairWithoutCamera,
+                        onFrame = { result ->
+                            if (!invalidCode && onFrame(result, scanResultFilter, onScanAccepted)) invalidCode = true
+                        },
+                    )
+                }
             }
         }
     }
 }
 
-/** Accept-only pipeline (E14-10 acceptance): a rejected parse is silently left for E14-17. */
+/** Returns true when [result] is a QR that is not a usable Tandem code. */
 private fun onFrame(
     result: ScanResult,
     scanResultFilter: ScanResultFilter,
     onScanAccepted: (PairingInvite) -> Unit,
-) {
-    val outcome = scanResultFilter.apply(result)
-    if (outcome is ScanOutcome.Accept) {
-        val parsed = QrPayloadParser.parse(outcome.rawValue)
-        if (parsed is ParseInviteResult.Accepted) {
-            onScanAccepted(parsed.invite)
-        }
-    }
+): Boolean {
+    val notTandem = result.format == ScanFormat.QR_CODE && !result.rawValue.startsWith(TANDEM_SCHEME_PREFIX)
+    val outcome = if (notTandem) ScanOutcome.Ignore else scanResultFilter.apply(result)
+    val parsed = (outcome as? ScanOutcome.Accept)?.let { QrPayloadParser.parse(it.rawValue) }
+    if (parsed is ParseInviteResult.Accepted) onScanAccepted(parsed.invite)
+    return notTandem || parsed is ParseInviteResult.Rejected
 }
 
 @Composable
 private fun CameraPermissionRequiredContent(
     onGrantCameraPermission: () -> Unit,
     onPairWithoutCamera: (() -> Unit)?,
-    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(TandemSpacing.screenPadding),
+    Text(
+        text = stringResource(R.string.scan_camera_needed_title),
+        style = TandemType.titleEmphasis,
+        color = TandemColors.inkOnDark,
+    )
+    Text(
+        text = stringResource(R.string.scan_camera_needed_state),
+        style = TandemType.titleState,
+        color = TandemColors.inkOnDark,
+    )
+    // Deliberately no Skip/Cancel here: UC-02's "every permission screen has a skip path,
+    // except camera during scanning", so Grant is the only action.
+    Button(
+        onClick = onGrantCameraPermission,
+        modifier = Modifier.fillMaxWidth().padding(top = TandemSpacing.xxl),
+        shape = TandemShapes.button,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = TandemColors.inkOnDark,
+                contentColor = TandemColors.paperDark,
+            ),
     ) {
-        Text(text = "Camera needed.", style = TandemType.titleEmphasis, color = TandemColors.inkOnDark)
-        Text(text = "Scan the code on your Mac.", style = TandemType.titleState, color = TandemColors.inkOnDark)
-        // Deliberately no Skip/Cancel here: UC-02's "every permission screen has a skip path,
-        // except camera during scanning" — Grant is the only action.
-        Button(
-            onClick = onGrantCameraPermission,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = TandemSpacing.xxl),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = TandemColors.inkOnDark,
-                    contentColor = TandemColors.paperDark,
-                ),
-        ) {
-            Text(text = "Grant", style = TandemType.rowTitle)
-        }
-        PairWithoutCameraButton(onPairWithoutCamera)
+        Text(text = stringResource(R.string.scan_grant), style = TandemType.rowTitle)
     }
+    PairWithoutCameraButton(onPairWithoutCamera)
 }
 
 @Composable
-private fun ScanningContent(
+@Suppress("LongParameterList") // one slot per piece of the scan screen
+private fun ColumnScope.ScanningContent(
+    invalid: Boolean,
     frameSource: @Composable ((onResult: (ScanResult) -> Unit) -> Unit),
     onCancel: () -> Unit,
+    onScanAgain: () -> Unit,
     onPairWithoutCamera: (() -> Unit)?,
     onFrame: (ScanResult) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(TandemSpacing.screenPadding),
+    val titleRes = if (invalid) R.string.scan_invalid_title else R.string.scan_title
+    val stateRes = if (invalid) R.string.scan_invalid_state else R.string.scan_state
+    Text(text = stringResource(titleRes), style = TandemType.titleEmphasis, color = TandemColors.inkOnDark)
+    Text(
+        text = stringResource(stateRes),
+        style = TandemType.titleState,
+        color = if (invalid) TandemColors.alert else TandemColors.inkOnDark.copy(alpha = 0.7f),
+    )
+    Viewfinder(invalid = invalid, frameSource = frameSource, onFrame = onFrame)
+    Spacer(Modifier.weight(1f))
+    Text(
+        text = stringResource(if (invalid) R.string.scan_invalid_hint else R.string.scan_decoded_on_phone),
+        style = TandemType.meta,
+        color = TandemColors.inkOnDark.copy(alpha = 0.7f),
+        modifier = Modifier.fillMaxWidth().padding(bottom = TandemSpacing.md),
+    )
+    OutlinedButton(
+        onClick = if (invalid) onScanAgain else onCancel,
+        modifier = Modifier.fillMaxWidth(),
+        shape = TandemShapes.button,
+        border = BorderStroke(1.dp, TandemColors.inkOnDark.copy(alpha = 0.3f)),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = TandemColors.inkOnDark),
     ) {
-        Text(text = "Scan.", style = TandemType.titleEmphasis, color = TandemColors.inkOnDark)
-        Text(text = "The code on your Mac.", style = TandemType.titleState, color = TandemColors.inkOnDark)
-
-        Box(
-            modifier =
-                Modifier
-                    .padding(top = TandemSpacing.xxl)
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(TandemRadii.dialog))
-                    .border(
-                        border = BorderStroke(2.dp, TandemColors.inkOnDark),
-                        shape = RoundedCornerShape(TandemRadii.dialog),
-                    ),
-        ) {
-            frameSource(onFrame)
-        }
-
         Text(
-            text = "Decoded on this phone. Nothing is uploaded.",
-            style = TandemType.meta,
-            color = TandemColors.inkOnDark.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = TandemSpacing.xxl),
+            text = stringResource(if (invalid) R.string.scan_again else R.string.scan_cancel),
+            style = TandemType.rowTitle,
         )
+    }
+    PairWithoutCameraButton(onPairWithoutCamera)
+}
 
-        OutlinedButton(
-            onClick = onCancel,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = TandemSpacing.lg),
-            border = BorderStroke(1.dp, TandemColors.inkOnDark),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = TandemColors.inkOnDark),
-        ) {
-            Text(text = "Cancel", style = TandemType.rowTitle)
-        }
-        PairWithoutCameraButton(onPairWithoutCamera)
+@Composable
+private fun Viewfinder(
+    invalid: Boolean,
+    frameSource: @Composable ((onResult: (ScanResult) -> Unit) -> Unit),
+    onFrame: (ScanResult) -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .padding(top = TandemSpacing.xxl)
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(TandemRadii.dialog))
+                .border(
+                    border = BorderStroke(2.dp, if (invalid) TandemColors.alert else TandemColors.inkOnDark),
+                    shape = RoundedCornerShape(TandemRadii.dialog),
+                ),
+    ) {
+        frameSource(onFrame)
     }
 }
 
@@ -199,6 +235,6 @@ private fun PairWithoutCameraButton(onPairWithoutCamera: (() -> Unit)?) {
         modifier = Modifier.fillMaxWidth().padding(top = TandemSpacing.sm),
         colors = ButtonDefaults.textButtonColors(contentColor = TandemColors.inkOnDark),
     ) {
-        Text(text = "Pair without camera", style = TandemType.rowTitle)
+        Text(text = stringResource(R.string.scan_pair_without_camera), style = TandemType.rowTitle)
     }
 }

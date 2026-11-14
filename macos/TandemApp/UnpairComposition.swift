@@ -41,7 +41,9 @@ extension AppComposition {
     /// (``ControlSessionRegistry/session(for:)``, E14-26) and runs the real
     /// ``TandemStore/UnpairAction/unpair(peerSpkiFingerprint:session:dependencies:)`` -- deleting
     /// the trust record first regardless, then sending `Revoke`/closing/unregistering only if a
-    /// session was actually found.
+    /// session was actually found. A session is registered under the fingerprint it handshook
+    /// with, so after a key rotation it may sit under the record's grace pin or record id instead
+    /// of its current primary: every one of those is looked up.
     static func makeUnpairAction(
         trustStore: TrustStore,
         sessionRegistry: ControlSessionRegistry,
@@ -50,17 +52,20 @@ extension AppComposition {
         onUnpaired: @escaping @Sendable () async -> Void = {}
     ) -> @Sendable (SpkiFingerprint) async throws -> Void {
         { fingerprint in
-            let liveSession = await sessionRegistry.session(for: fingerprint)
-            await UnpairAction.unpair(
-                peerSpkiFingerprint: fingerprint,
-                session: liveSession.map { UnpairActionSessionAdapter(session: $0) },
-                dependencies: UnpairAction.Dependencies(
-                    trustStore: trustStore,
-                    registry: UnpairActionRegistryAdapter(registry: sessionRegistry, session: liveSession),
-                    purgeRegistry: purgeRegistry,
-                    clock: clock
+            let pins = (try? trustStore.pinnedFingerprints(for: fingerprint)) ?? [fingerprint]
+            for pin in pins {
+                let liveSession = await sessionRegistry.session(for: pin)
+                await UnpairAction.unpair(
+                    peerSpkiFingerprint: pin,
+                    session: liveSession.map { UnpairActionSessionAdapter(session: $0) },
+                    dependencies: UnpairAction.Dependencies(
+                        trustStore: trustStore,
+                        registry: UnpairActionRegistryAdapter(registry: sessionRegistry, session: liveSession),
+                        purgeRegistry: purgeRegistry,
+                        clock: clock
+                    )
                 )
-            )
+            }
             await onUnpaired()
         }
     }

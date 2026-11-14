@@ -47,6 +47,8 @@ struct RotationInitiatorTests {
 
     final class Harness: Sendable {
         let keychain = InMemoryKeychainStore()
+        private let unpaired = FingerprintLog()
+        var unpairedPeers: [SpkiFingerprint] { unpaired.values }
         let trustStore: TrustStore
         let clock = Clock()
         let window = StubWindow()
@@ -58,12 +60,14 @@ struct RotationInitiatorTests {
             trustStore = TrustStore(keychainStore: keychain)
             let clock = clock
             let switchCount = switchCount
+            let unpaired = unpaired
             coordinator = RotationCoordinator(
                 keychainStore: keychain,
                 trustStore: trustStore,
                 window: window,
                 dateProvider: { clock.now },
-                onSwitched: { switchCount.increment() }
+                onSwitched: { switchCount.increment() },
+                onPeersUnpaired: { peers in unpaired.append(peers) }
             )
             _ = try IdentityKeyProvider(keychainStore: keychain).getOrCreateIdentityKey()
         }
@@ -286,4 +290,25 @@ struct RotationInitiatorTests {
         #expect(!harness.hasPendingKey)
         #expect(try harness.coordinator.attempt() == nil)
     }
+
+    @Test
+    func rotationCoordinator_finish_unackedPhonePurged() async throws {
+        let harness = try Harness()
+        let acked = try Phone(), pending = try Phone()
+        try harness.pair(acked)
+        try harness.pair(pending)
+        try harness.coordinator.begin()
+        await Self.rotate(harness, acked).receivedAck()
+
+        harness.clock.advance(by: TrustStore.gracePinLifetime)
+        try harness.coordinator.finish()
+
+        #expect(harness.unpairedPeers.map(\.hexString) == [pending.fingerprint.hexString])
+    }
+}
+
+final class FingerprintLog: Sendable {
+    private let storage = Mutex<[SpkiFingerprint]>([])
+    var values: [SpkiFingerprint] { storage.withLock { $0 } }
+    func append(_ fingerprints: [SpkiFingerprint]) { storage.withLock { $0.append(contentsOf: fingerprints) } }
 }

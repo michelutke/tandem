@@ -244,11 +244,10 @@ Reference — E20-02 acceptance criteria:
 [android] Unrestricted battery onboarding and OEM guidance
 
 Reference — E20-04 acceptance criteria:
-- If the app is already ignoring battery optimizations, the battery screen is skipped
-- Tapping "Allow" launches ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS; tapping "Skip" advances without launching any intent
-- OEM guidance returns a dedicated entry for Samsung, Xiaomi, OnePlus and Huawei and the generic entry for any other manufacturer
-- The settings row "Battery optimization" reopens the same screen including the OEM section
-- Manual gate: following the Samsung and Xiaomi guidance on the matrix devices results in Tandem listed as Unrestricted in system battery settings
+- There is no dedicated battery screen any more: while Tandem is not exempt from battery optimization, Home shows the "Battery restricted." banner with a "Fix" action, and the Settings battery row shows the same state
+- Tapping "Fix" opens the system battery-optimization exemption dialog (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS); only if no activity handles it does it open the all-apps battery-optimization list
+- Once the exemption is granted the Home banner disappears and the Settings battery row no longer shows the restricted state
+- Manual gate: granting the exemption through the "Fix" banner on the matrix devices (including Samsung and Xiaomi) results in Tandem listed as Unrestricted in system battery settings
 
 **Preconditions:** _TBD_
 **Steps:** _TBD_

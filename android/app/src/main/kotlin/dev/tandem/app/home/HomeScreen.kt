@@ -7,16 +7,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import dev.tandem.app.R
 import dev.tandem.app.settings.SyncFeature
 import dev.tandem.core.designsystem.TandemColors
 import dev.tandem.core.designsystem.TandemSpacing
 import dev.tandem.core.designsystem.TandemType
+import dev.tandem.core.designsystem.components.Banner
 import dev.tandem.core.designsystem.components.DotRing
 import dev.tandem.core.designsystem.components.M3ESwitch
 import dev.tandem.core.designsystem.components.TandemScaffold
@@ -34,15 +40,23 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     featureStates: Map<SyncFeature, Boolean> = SyncFeature.entries.associateWith { true },
     onFeatureToggled: (SyncFeature, Boolean) -> Unit = { _, _ -> },
+    batteryRestricted: Boolean = false,
+    onFixBattery: () -> Unit = {},
 ) {
     val ring = ringState.toDotRingContent()
 
     TandemScaffold(
-        title = "Tandem.",
+        title = stringResource(R.string.home_title),
         state = statusLine,
         modifier = modifier,
     ) { padding ->
-        HomeContent(padding = padding, ring = ring, featureStates = featureStates, onFeatureToggled = onFeatureToggled)
+        HomeContent(
+            padding = padding,
+            ring = ring,
+            featureStates = featureStates,
+            onFeatureToggled = onFeatureToggled,
+            batteryBanner = if (batteryRestricted) onFixBattery else null,
+        )
     }
 }
 
@@ -52,17 +66,34 @@ private fun HomeContent(
     ring: DotRingContent,
     featureStates: Map<SyncFeature, Boolean>,
     onFeatureToggled: (SyncFeature, Boolean) -> Unit,
+    batteryBanner: (() -> Unit)?,
 ) {
     Column(
         modifier = Modifier.padding(padding).fillMaxWidth().verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         DotRing(
-            value = ring.value,
-            maxValue = ring.maxValue,
-            unit = ring.unit,
+            numeral = ring.numeral,
+            numeralUnit = ring.numeralUnit,
+            label = ring.labelArg?.let { stringResource(ring.labelRes, it) } ?: stringResource(ring.labelRes),
+            litFraction = ring.litFraction,
+            signalFraction = ring.signalFraction,
+            pulse = ring.pulse,
             modifier = Modifier.padding(TandemSpacing.lg),
         )
+        if (batteryBanner != null) {
+            Banner(
+                message = stringResource(R.string.battery_restricted_title),
+                detail = stringResource(R.string.battery_restricted_detail),
+                actionLabel = stringResource(R.string.battery_restricted_fix),
+                onAction = batteryBanner,
+                modifier =
+                    Modifier
+                        .padding(
+                            horizontal = TandemSpacing.screenPadding,
+                        ).padding(bottom = TandemSpacing.lg),
+            )
+        }
         SyncFeature.entries.forEachIndexed { index, feature ->
             FeatureSwitchRow(
                 index = index + 1,
@@ -85,6 +116,7 @@ private fun FeatureSwitchRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
                 .padding(horizontal = TandemSpacing.screenPadding, vertical = TandemSpacing.rowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -92,7 +124,7 @@ private fun FeatureSwitchRow(
             text = "%02d".format(index),
             style = TandemType.metaMono,
             color = TandemColors.ink2,
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(28.dp).clearAndSetSemantics {},
         )
         Text(
             text = label,
@@ -100,6 +132,6 @@ private fun FeatureSwitchRow(
             color = TandemColors.ink,
             modifier = Modifier.weight(1f),
         )
-        M3ESwitch(checked = checked, onCheckedChange = onCheckedChange)
+        M3ESwitch(checked = checked, onCheckedChange = null)
     }
 }

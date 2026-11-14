@@ -19,4 +19,10 @@ sealed class HandshakeFailure {
      * `PROTOCOL_TIMEOUT`).
      */
     data object Timeout : HandshakeFailure()
+
+    /**
+     * The first `CONTROL` payload the peer sent was not a `VersionHello` (SPEC.md Exchange rule: rejected
+     * as `UNKNOWN_PAYLOAD_TYPE`, closing with `MALFORMED_FRAME`).
+     */
+    data object UnexpectedFirstPayload : HandshakeFailure()
 }

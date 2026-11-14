@@ -1,5 +1,6 @@
 package dev.tandem.app.service
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,8 +14,10 @@ import dagger.hilt.android.EntryPointAccessors
 import dev.tandem.app.R
 import dev.tandem.app.TandemApplication
 import dev.tandem.app.connection.ConnectionLoop
+import dev.tandem.app.connection.NoticingTrustRemover
 import dev.tandem.app.di.AppDispatchers
 import dev.tandem.app.di.ConnectionEntryPoint
+import dev.tandem.core.pairing.PeerDataPurgeRegistry
 import dev.tandem.core.pairing.revoke.TrustRemover
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -62,12 +65,27 @@ class TandemService : Service() {
     }
     internal var trustRemoverFactory: (Context) -> TrustRemover = { context ->
         val trustStore = (context.applicationContext as TandemApplication).trustStore
-        TrustRemover { fingerprint -> trustStore.unpair(fingerprint) }
+        NoticingTrustRemover(
+            macName = { fingerprint ->
+                trustStore.list().firstOrNull { it.spkiSha256Base64Url == fingerprint.base64Url }?.displayName
+            },
+            notice =
+                EntryPointAccessors
+                    .fromApplication(context, ConnectionEntryPoint::class.java)
+                    .revokedNoticeStore(),
+            delegate = TrustRemover { fingerprint -> trustStore.unpair(fingerprint) },
+        )
+    }
+    internal var purgeRegistryFactory: (Context) -> PeerDataPurgeRegistry = { context ->
+        EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).peerDataPurgeRegistry()
     }
     internal var connectionLoopFactory: (Context) -> ConnectionLoop = { context ->
         EntryPointAccessors.fromApplication(context, ConnectionEntryPoint::class.java).connectionOrchestrator()
     }
     internal var dispatcher: CoroutineDispatcher = AppDispatchers.default
+    internal var startInForeground: () -> Unit = {
+        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+    }
 
     private var job: Job? = null
     private var connectionLoop: ConnectionLoop? = null
@@ -75,7 +93,13 @@ class TandemService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+        try {
+            startInForeground()
+        } catch (_: ForegroundServiceStartNotAllowedException) {
+            Log.w(TAG, "Foreground start not allowed; stopping until the app is opened")
+            stopSelf()
+            return
+        }
 
         val pairedPeerRepository = pairedPeerRepositoryFactory(applicationContext)
         val sessionRegistry = sessionRegistryFactory(applicationContext)
@@ -93,7 +117,9 @@ class TandemService : Service() {
         }
         scope.launch {
             sessionRegistry.current.collectLatest { registered ->
-                if (registered != null) consumeControlRevokeGuarded(registered, trustRemover)
+                if (registered != null) {
+                    consumeControlRevokeGuarded(registered, trustRemover, purgeRegistryFactory(applicationContext))
+                }
             }
         }
     }
@@ -108,9 +134,10 @@ class TandemService : Service() {
     private suspend fun consumeControlRevokeGuarded(
         registered: RegisteredSession,
         trustRemover: TrustRemover,
+        purgeRegistry: PeerDataPurgeRegistry,
     ) {
         try {
-            consumeControlRevoke(registered, trustRemover)
+            consumeControlRevoke(registered, trustRemover, purgeRegistry)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {

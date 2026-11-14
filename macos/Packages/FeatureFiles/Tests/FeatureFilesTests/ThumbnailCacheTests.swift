@@ -14,8 +14,10 @@ import TandemTestSupport
     ])
 
     private static func pngLike(size: Int, fill: UInt8 = 0x01) -> Data {
-        let padding = size - pngSignature.count - pngTrailer.count
-        return pngSignature + Data(repeating: fill, count: padding) + pngTrailer
+        let header = Data([0x00, 0x00, 0x00, 0x0D]) + Data("IHDR".utf8)
+            + Data([0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40, 0x08, 0x02, 0x00, 0x00, 0x00])
+        let padding = size - pngSignature.count - header.count - pngTrailer.count
+        return pngSignature + header + Data(repeating: fill, count: padding) + pngTrailer
     }
 
     private static func fingerprint(_ byte: UInt8) throws -> SpkiFingerprint {
@@ -210,5 +212,59 @@ import TandemTestSupport
         await harness.cache.store(Data("not a png".utf8), peer: peer, id: "a", maxPx: 256)
 
         #expect(harness.fileURLs().isEmpty)
+    }
+
+    @Test func thumbnailCache_jpegBytesWithoutIhdr_notWithinDimensionCap() {
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0]) + Data(repeating: 0x01, count: 64)
+
+        #expect(!ThumbnailCache.isWithinDimensionCap(jpeg))
+    }
+
+    @Test func thumbnailCache_nonPNGBytesCarryingIhdrAtOffset12_notWithinDimensionCap() {
+        let crafted = Data("II*\0".utf8) + Data(repeating: 0x00, count: 8) + Data("IHDR".utf8)
+            + Data([0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40]) + Data(repeating: 0x01, count: 16)
+
+        #expect(!ThumbnailCache.isWithinDimensionCap(crafted))
+    }
+
+    @Test func cachingPhotoService_jpegBytes_fetchThumbnailThrowsAndNothingCached() async throws {
+        let harness = try Harness()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0]) + Data(repeating: 0x01, count: 64)
+        let peer = try Self.fingerprint(0x01)
+        let caching = CachingPhotoService(
+            base: FakePhotoService(thumbnailBytes: jpeg), cache: harness.cache, peer: peer
+        )
+
+        await #expect(throws: PhotoServiceError.self) { try await caching.fetchThumbnail(id: "a", maxPx: 256) }
+
+        #expect(harness.fileURLs().isEmpty)
+    }
+
+    @Test func thumbnailCache_pngDeclaring20000px_notStored() async throws {
+        let harness = try Harness()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let peer = try Self.fingerprint(0x01)
+        let header = Data([0x00, 0x00, 0x00, 0x0D]) + Data("IHDR".utf8)
+            + Data([0x00, 0x00, 0x4E, 0x20, 0x00, 0x00, 0x4E, 0x20, 0x08, 0x02, 0x00, 0x00, 0x00])
+        let bomb = Self.pngSignature + header + Data(repeating: 0x01, count: 1024) + Self.pngTrailer
+
+        await harness.cache.store(bomb, peer: peer, id: "bomb", maxPx: 256)
+
+        #expect(await harness.cache.data(peer: peer, id: "bomb", maxPx: 256) == nil)
+        #expect(harness.fileURLs().isEmpty)
+    }
+
+    @Test func thumbnailCache_storedPeers_listsEveryPeerWithThumbnails() async throws {
+        let harness = try Harness()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let first = try Self.fingerprint(0x01)
+        let second = try Self.fingerprint(0x02)
+        await harness.cache.store(Self.pngLike(size: 10 * Self.kib), peer: first, id: "a", maxPx: 256)
+        await harness.cache.store(Self.pngLike(size: 10 * Self.kib), peer: second, id: "a", maxPx: 256)
+
+        let peers = try await harness.cache.storedPeers()
+
+        #expect(Set(peers) == [first, second])
     }
 }

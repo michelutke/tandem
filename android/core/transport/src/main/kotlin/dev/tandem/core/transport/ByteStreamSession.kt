@@ -1,14 +1,18 @@
 package dev.tandem.core.transport
 
+import dev.tandem.core.protocol.CloseCode
 import dev.tandem.core.protocol.FrameSink
 import dev.tandem.core.protocol.FrameSource
 import dev.tandem.core.protocol.connection.ConnectionEvent
 import dev.tandem.core.protocol.connection.ConnectionState
 import dev.tandem.core.protocol.connection.ConnectionStateMachine
+import dev.tandem.core.protocol.handshake.HandshakeFailure
 import dev.tandem.core.protocol.handshake.HandshakeOutcome
 import dev.tandem.core.protocol.handshake.VersionHandshake
 import dev.tandem.core.protocol.multiplex.ChannelMultiplexer
+import dev.tandem.core.protocol.multiplex.MultiplexerClose
 import dev.tandem.core.protocol.multiplex.MultiplexerClosedException
+import dev.tandem.core.transport.heartbeat.ControlFrameRateCap
 import dev.tandem.core.transport.heartbeat.DeadPeerDetector
 import dev.tandem.core.transport.heartbeat.DeviceIdleSource
 import dev.tandem.core.transport.heartbeat.HeartbeatResponder
@@ -38,8 +42,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * E20-15 liveness dependencies for [ByteStreamSession]: supplying this starts a [HeartbeatResponder],
@@ -71,6 +78,7 @@ class HeartbeatDependencies(
  * [ChannelMultiplexer.start] reader/writer loop and blocking [ByteStream] reads/writes
  * (via `runInterruptible`) run, mirroring `ChannelMultiplexerTest`'s own `sourceFor`/`sinkFor`.
  */
+@Suppress("TooManyFunctions") // one session lifecycle: handshake, heartbeat, close and send steps share state
 class ByteStreamSession(
     private val byteStream: ByteStream,
     clock: Clock,
@@ -93,37 +101,52 @@ class ByteStreamSession(
     private val handshake = VersionHandshake(multiplexer, clock, dispatcher)
 
     /**
+     * The hello exchange, started in `init` once [multiplexer] is running. The close watcher joins
+     * it before closing, so a peer close racing the exchange can neither cancel it mid-flight nor
+     * let a late hello complete a session that is already closed.
+     */
+    private val handshakeJob = scope.launch(start = CoroutineStart.LAZY) { performHandshake() }
+
+    /**
      * Sole collector of [multiplexer]'s inbound flows; each channel's source waits for
      * [VersionHandshake.awaitReady] first so the handshake's own CONTROL read is never raced.
      */
     private val inboundDispatcher =
-        ChannelDispatcher(scope) { channel ->
+        ChannelDispatcher(scope, replayLast = { it.hasRotationChallenge() }) { channel ->
             flow {
                 if (awaitReadyOrClosed()) emitAll(multiplexer.inbound(channel).map { it.payload })
             }
         }
 
     /**
-     * `true` once the handshake is Ready; `false` if [multiplexer] closes first, e.g. the peer hangs
-     * up before its hello so [VersionHandshake.perform] throws and Ready never arrives.
+     * `true` once the handshake is Ready; `false` if [multiplexer] closes and the hello exchange ends
+     * without Ready, e.g. the peer hangs up before its hello so [VersionHandshake.perform] throws.
+     * A burst of hello, frames and EOF still reports Ready, because the close is only acted on once
+     * the exchange has finished.
      */
     private suspend fun awaitReadyOrClosed(): Boolean =
         coroutineScope {
-            val ready = async { handshake.awaitReady() }
-            val closedFirst = async { multiplexer.closeReason.await() }
+            val ready = async(start = CoroutineStart.UNDISPATCHED) { handshake.awaitReady() }
+            val closedAfterHandshake =
+                async {
+                    multiplexer.closeReason.await()
+                    handshakeJob.join()
+                    state.value is ConnectionState.Ready
+                }
             val isReady =
                 select {
                     ready.onAwait { true }
-                    closedFirst.onAwait { false }
+                    closedAfterHandshake.onAwait { it }
                 }
             ready.cancel()
-            closedFirst.cancel()
+            closedAfterHandshake.cancel()
             isReady
         }
 
     private var heartbeatResponder: HeartbeatResponder? = null
     private var unsolicitedHeartbeatTimer: UnsolicitedHeartbeatTimer? = null
     private var deadPeerDetector: DeadPeerDetector? = null
+    private var controlFrameRateCap: ControlFrameRateCap? = null
 
     /**
      * Guards [performClose] so it runs at most once, whether triggered by [close] or by
@@ -143,8 +166,15 @@ class ByteStreamSession(
         connection.handle(ConnectionEvent.Connect)
         connection.handle(ConnectionEvent.SocketOpened)
         connection.handle(ConnectionEvent.HandshakeCompleted)
+        controlFrameRateCap = heartbeatDependencies?.let(::startControlFrameRateCap)
         scope.launch { multiplexer.start() }
-        scope.launch { performHandshake() }
+        handshakeJob.start()
+        scope.launch {
+            multiplexer.closeReason.await()
+            handshakeJob.join()
+            withTimeoutOrNull(PEER_CLOSE_DRAIN) { inboundDispatcher.awaitLaneCompleted(Channel.CHANNEL_CONTROL) }
+            performClose("connection closed")
+        }
         if (heartbeatDependencies != null) {
             heartbeatLifecycleJob = scope.launch { startHeartbeatLifecycle(heartbeatDependencies) }
         }
@@ -165,6 +195,10 @@ class ByteStreamSession(
      * either returns without constructing them or immediately stops the ones it just built (E20-15
      * verifier finding #2): a [close] that races this coroutine can never leave an orphaned trio
      * running against an already-dead session.
+     *
+     * The close watcher that tears this session down when [multiplexer] closes is started in
+     * `init`, independent of [heartbeatDependencies], so a peer close always reaches
+     * [ConnectionState.Disconnected].
      */
     private suspend fun startHeartbeatLifecycle(dependencies: HeartbeatDependencies) {
         state.first { it is ConnectionState.Ready }
@@ -221,11 +255,21 @@ class ByteStreamSession(
             deadPeerDetector?.close()
             return
         }
+    }
 
-        scope.launch {
-            multiplexer.closeReason.await()
-            performClose("connection closed")
-        }
+    /** Subscribes before [multiplexer] starts reading, so no frame of a flood predates the counter. */
+    private fun startControlFrameRateCap(dependencies: HeartbeatDependencies): ControlFrameRateCap =
+        ControlFrameRateCap(
+            received = multiplexer.received,
+            elapsedRealtimeSource = dependencies.elapsedRealtimeSource,
+            onExceeded = ::closeControlFrameCapExceeded,
+            dispatcher = dispatcher,
+        ).apply { start() }
+
+    /** D-61: a `CONTROL` flood fails the session visibly with `LIMIT_EXCEEDED` (no wire signal on the phone). */
+    private fun closeControlFrameCapExceeded() {
+        performClose("control frame cap exceeded")
+        connection.handle(ConnectionEvent.HandshakeError(CloseCode.LIMIT_EXCEEDED.name))
     }
 
     /**
@@ -251,15 +295,38 @@ class ByteStreamSession(
                 }
 
                 is HandshakeOutcome.Failed -> {
-                    connection.handle(ConnectionEvent.HandshakeError(outcome.reason.toString()))
+                    connection.handle(handshakeFailureEvent(outcome.reason))
                 }
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (e: Exception) {
-            connection.handle(ConnectionEvent.HandshakeError(e.message ?: e.toString()))
+            connection.handle(failureEventFor(e))
         }
     }
+
+    /**
+     * A failed hello exchange is [ConnectionEvent.PeerRejectedCertificate] only when the connection
+     * ended with a TLS alert rejecting this phone's client certificate; a reset, EOF or timeout is an
+     * ordinary [ConnectionEvent.HandshakeError].
+     */
+    private suspend fun failureEventFor(cause: Exception): ConnectionEvent {
+        val close =
+            (cause as? MultiplexerClosedException)?.close
+                ?: withTimeoutOrNull(CLOSE_REASON_WAIT) { multiplexer.closeReason.await() }
+        return if (close is MultiplexerClose.SourceFailed && ClientCertificateAlerts.isRejection(close.cause)) {
+            ConnectionEvent.PeerRejectedCertificate
+        } else {
+            ConnectionEvent.HandshakeError(cause.message ?: cause.toString())
+        }
+    }
+
+    private fun handshakeFailureEvent(reason: HandshakeFailure): ConnectionEvent =
+        when (reason) {
+            is HandshakeFailure.VersionMismatch -> ConnectionEvent.VersionMismatch
+            HandshakeFailure.Timeout -> ConnectionEvent.HelloTimeout
+            HandshakeFailure.UnexpectedFirstPayload -> ConnectionEvent.HandshakeError(CloseCode.MALFORMED_FRAME.name)
+        }
 
     override suspend fun send(
         channel: Channel,
@@ -269,29 +336,65 @@ class ByteStreamSession(
         multiplexer.send(channel, payload)
     }
 
+    override suspend fun sendFinal(
+        channel: Channel,
+        payload: EnvelopeKt.Dsl.() -> Unit,
+    ) {
+        try {
+            if (channel != Channel.CHANNEL_CONTROL) handshake.awaitReady()
+            multiplexer.sendAndAwaitWritten(channel, payload)
+        } finally {
+            performClose("closed locally", graceful = true)
+        }
+    }
+
     override fun receive(channel: Channel): Flow<Envelope> = inboundDispatcher.subscribe(channel)
 
     override fun close() = performClose("closed locally")
 
     /**
      * The actual close logic, idempotent via [closed]: runs at most once whether reached through a
-     * caller's [close] or through [startHeartbeatLifecycle]'s own watcher observing
+     * caller's [close] or through the watcher started in `init` observing
      * [ChannelMultiplexer.closeReason] complete on its own (a peer EOF, an IOException, or a seq/ack
      * violation -- E20-15 verifier finding #1). [heartbeatLifecycleJob] is cancelled here too, so a
      * session that never reaches [ConnectionState.Ready] before this runs cannot leak that coroutine
      * (E20-15 verifier finding #3).
      */
-    private fun performClose(reason: String) {
+    private fun performClose(
+        reason: String,
+        graceful: Boolean = false,
+    ) {
         if (!closed.compareAndSet(false, true)) return
         heartbeatLifecycleJob?.cancel()
         heartbeatResponder?.close()
         unsolicitedHeartbeatTimer?.close()
         deadPeerDetector?.close()
-        byteStream.closeAbruptly()
-        if (state.value is ConnectionState.Ready) markers.disconnected()
-        connection.handle(ConnectionEvent.SocketClosed(reason))
-        connection.close()
-        scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
-        scope.cancel()
+        controlFrameRateCap?.close()
+        try {
+            closeStream(graceful)
+        } finally {
+            if (state.value is ConnectionState.Ready) markers.disconnected()
+            connection.handle(ConnectionEvent.SocketClosed(reason))
+            connection.close()
+            scope.launch(start = CoroutineStart.UNDISPATCHED) { withContext(NonCancellable) { multiplexer.close() } }
+            scope.cancel()
+        }
+    }
+
+    @Suppress("SwallowedException") // a failing close leaves nothing to release; the teardown goes on
+    private fun closeStream(graceful: Boolean) {
+        try {
+            if (graceful) byteStream.closeGracefully() else byteStream.closeAbruptly()
+        } catch (_: IOException) {
+            return
+        }
+    }
+
+    private companion object {
+        /** How long a peer-closed session lets already-received CONTROL frames (`PairRejected`) reach subscribers. */
+        val PEER_CLOSE_DRAIN = 2.seconds
+
+        /** How long a failed hello exchange waits for the multiplexer to publish why the connection ended. */
+        val CLOSE_REASON_WAIT = 1.seconds
     }
 }

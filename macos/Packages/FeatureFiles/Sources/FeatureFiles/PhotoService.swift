@@ -17,3 +17,16 @@ public protocol OriginalOfferExpecting: Sendable {
     func expectOriginal(transferId: String) async
     func forgetOriginal(transferId: String) async
 }
+
+/// What happened to an original this Mac requested with `OriginalRequest`, so the photo grid's
+/// `.downloading` state always resolves.
+public enum OriginalTransferEvent: Sendable, Equatable {
+    case finished(transferId: String)
+    case failed(transferId: String)
+    case photoError(Tandem_V1_PhotoError)
+    case disconnected
+}
+
+public protocol OriginalTransferEventSource: Sendable {
+    func originalTransferEvents() -> AsyncStream<OriginalTransferEvent>
+}

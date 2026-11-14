@@ -1,5 +1,6 @@
 import Foundation
 import TandemCrypto
+import os
 
 /// Peer record CRUD keyed by ``SpkiFingerprint`` (E13-06). Persists to the Keychain as
 /// generic-password items, but only through ``KeychainStore`` (E10-16) -- never
@@ -61,10 +62,43 @@ public struct TrustStore: Sendable {
         return try list().first { $0.fingerprint.matches(fingerprint) }
     }
 
-    /// Every paired peer, for the paired-devices UI (E14-14).
+    /// Every fingerprint a peer's data or session may be keyed by: the primary pin, the grace pin
+    /// and the record id of the record that primary or grace pin `fingerprint` names (a session
+    /// and its stores are keyed by the fingerprint it handshook with, which a key rotation
+    /// changes). Just `fingerprint` when no record holds it.
+    public func pinnedFingerprints(for fingerprint: SpkiFingerprint) throws -> [SpkiFingerprint] {
+        let record = try list().first {
+            $0.fingerprint.matches(fingerprint) || $0.gracePin?.fingerprint.matches(fingerprint) == true
+        }
+        let all = [fingerprint, record?.fingerprint, record?.gracePin?.fingerprint, record?.recordId]
+        return all.compactMap { $0 }.reduce(into: []) { pins, pin in
+            if !pins.contains(where: { $0.matches(pin) }) { pins.append(pin) }
+        }
+    }
+
+    /// Every fingerprint any record's data may be keyed by (primary, grace and record id). Unlike
+    /// ``list()`` it throws on a record that cannot be decoded, so a caller that deletes data for
+    /// peers outside this set never does so while a pairing it cannot read still exists.
+    public func pinnedPeers() throws -> Set<SpkiFingerprint> {
+        try keychainStore.listGenericPasswords(service: Self.peerRecordService).reduce(into: []) { pins, item in
+            let record = try Self.decoder.decode(PeerRecord.self, from: item.data)
+            pins.formUnion([record.fingerprint, record.recordId])
+            if let grace = record.gracePin { pins.insert(grace.fingerprint) }
+        }
+    }
+
+    /// Every paired peer, for the paired-devices UI (E14-14). A record that cannot be decoded is
+    /// skipped and logged: that peer stays unauthenticated (fail closed) while the others keep
+    /// working.
     public func list() throws -> [PeerRecord] {
-        try keychainStore.listGenericPasswords(service: Self.peerRecordService)
-            .map { try Self.decoder.decode(PeerRecord.self, from: $0.data) }
+        try keychainStore.listGenericPasswords(service: Self.peerRecordService).compactMap { item in
+            do {
+                return try Self.decoder.decode(PeerRecord.self, from: item.data)
+            } catch {
+                Self.logger.error("undecodable peer record skipped")
+                return nil
+            }
+        }
     }
 
     /// Removes the record whose current primary pin or grace pin is `fingerprint`. Throws
@@ -132,6 +166,7 @@ public struct TrustStore: Sendable {
         try delete(fingerprint)
     }
 
+    private static let logger = Logger(subsystem: "dev.tandem.store", category: "trust")
     static let encoder = JSONEncoder()
     static let decoder = JSONDecoder()
 }

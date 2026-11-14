@@ -2,6 +2,7 @@ package dev.tandem.feature.files
 
 import android.content.ContentResolver
 import android.content.ContentValues
+import android.net.Uri
 import android.provider.MediaStore
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -27,6 +28,7 @@ fun interface DownloadsPublisher {
 class MediaStoreDownloadsPublisher(
     private val contentResolver: ContentResolver,
 ) : DownloadsPublisher {
+    @Suppress("TooGenericExceptionCaught") // any provider failure must delete the pending row
     override fun publish(
         name: String,
         mime: String,
@@ -39,9 +41,7 @@ class MediaStoreDownloadsPublisher(
                 put(MediaStore.Downloads.RELATIVE_PATH, RELATIVE_PATH)
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
-        val uri =
-            contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, pending)
-                ?: throw IOException("insert failed")
+        val uri = insertPending(pending)
         try {
             val output = contentResolver.openOutputStream(uri) ?: throw FileNotFoundException()
             output.use { content.copyTo(it) }
@@ -51,8 +51,19 @@ class MediaStoreDownloadsPublisher(
         } catch (e: IOException) {
             contentResolver.delete(uri, null, null)
             throw e
+        } catch (e: RuntimeException) {
+            contentResolver.delete(uri, null, null)
+            throw IOException("publish failed", e)
         }
     }
+
+    @Suppress("TooGenericExceptionCaught") // the provider documents several unchecked failures
+    private fun insertPending(values: ContentValues): Uri =
+        try {
+            contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        } catch (e: RuntimeException) {
+            throw IOException("insert failed", e)
+        } ?: throw IOException("insert failed")
 
     private companion object {
         const val RELATIVE_PATH = "Download/Tandem/"

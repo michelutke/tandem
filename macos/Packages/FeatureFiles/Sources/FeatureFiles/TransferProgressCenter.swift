@@ -223,3 +223,36 @@ public struct TransferProgressListView: View {
         }
     }
 }
+
+/// Forwards every call to `base` and reports each ended transfer's id and outcome to `onEnded`.
+public struct EndForwardingProgress: TransferProgressReporting {
+    private let base: (any TransferProgressReporting)?
+    private let onEnded: @Sendable (String, TransferOutcome) -> Void
+
+    public init(
+        base: (any TransferProgressReporting)?,
+        onEnded: @escaping @Sendable (String, TransferOutcome) -> Void
+    ) {
+        self.base = base
+        self.onEnded = onEnded
+    }
+
+    public func began(
+        id: String,
+        name: String,
+        totalBytes: Int64,
+        direction: TransferDirection,
+        cancel: @escaping @Sendable () async -> Void
+    ) async {
+        await base?.began(id: id, name: name, totalBytes: totalBytes, direction: direction, cancel: cancel)
+    }
+
+    public func delivered(id: String, bytes: Int64) async {
+        await base?.delivered(id: id, bytes: bytes)
+    }
+
+    public func ended(id: String, outcome: TransferOutcome, savedFile: URL?) async {
+        await base?.ended(id: id, outcome: outcome, savedFile: savedFile)
+        onEnded(id, outcome)
+    }
+}

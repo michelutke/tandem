@@ -101,4 +101,19 @@ import TandemCrypto
         let removed = await presenter.removedIdentifierBatches
         #expect(removed == [["k-5"]])
     }
+
+    @Test func notificationsRouting_acceptPromptDismiss_noNotificationDismissSent() async {
+        let session = FakeTandemSession()
+        let sync = NotificationDismissSync(presenter: RecordingNotificationPresenter(), session: session)
+
+        await sync.handle(
+            NotificationResponseEvent(
+                requestIdentifier: "tandem.accept.offer-1",
+                actionIdentifier: UNNotificationDismissActionIdentifier,
+                userText: nil
+            )
+        )
+
+        #expect(await session.sent.isEmpty)
+    }
 }

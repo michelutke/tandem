@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
@@ -109,16 +110,19 @@ class AndroidMirrorPlatform(
                 NotificationManager.IMPORTANCE_HIGH,
             ),
         )
-        notificationManager.notify(
-            FAILURE_NOTIFICATION_ID,
+        val notification =
             Notification
                 .Builder(context, FAILURE_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(context.getString(failureTitle(failure)))
                 .setContentText(context.getString(failureText(failure)))
                 .setAutoCancel(true)
-                .build(),
-        )
+        if (failure ==
+            MirrorFailure.InputUnavailable
+        ) {
+            notification.setContentIntent(RemoteControlOptInActivity.pendingIntent(context))
+        }
+        notificationManager.notify(FAILURE_NOTIFICATION_ID, notification.build())
     }
 
     // SPEC §5: only a pin mismatch may be presented as a key problem; anything else is a generic
@@ -127,12 +131,14 @@ class AndroidMirrorPlatform(
         when (failure) {
             MirrorFailure.PinMismatch -> R.string.mirror_blocked_title
             MirrorFailure.Unreachable -> R.string.mirror_unreachable_title
+            MirrorFailure.InputUnavailable -> R.string.mirror_view_only_title
         }
 
     private fun failureText(failure: MirrorFailure): Int =
         when (failure) {
             MirrorFailure.PinMismatch -> R.string.mirror_blocked_text
             MirrorFailure.Unreachable -> R.string.mirror_unreachable_text
+            MirrorFailure.InputUnavailable -> R.string.mirror_view_only_text
         }
 
     private companion object {

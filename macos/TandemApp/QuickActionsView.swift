@@ -19,7 +19,7 @@ struct QuickActionsView: View {
     /// when a push doesn't send.
     let pushClipboardViewModel: PushClipboardViewModel
 
-    /// Drives the waiting/"Mirroring declined on phone" status shown under "Mirror Phone"
+    /// Drives the waiting/"Declined. Nothing was shared." status shown under "Mirror Phone"
     /// (E61-12).
     var mirrorRequestViewModel: MirrorRequestViewModel?
 

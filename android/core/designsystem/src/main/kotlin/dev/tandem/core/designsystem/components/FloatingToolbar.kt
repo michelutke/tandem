@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingToolbarDefaults
+import androidx.compose.material3.FloatingToolbarScrollBehavior
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -30,16 +31,19 @@ import dev.tandem.core.designsystem.tandemAnimateDpAsState
 /**
  * The M3E floating toolbar (ui-spec.md §5.2, §4 motion #03): the platform
  * `HorizontalFloatingToolbar`, `ink` container, icon items, the selected item on a wider white
- * pill. When [fab] is given the toolbar renders it beside the pill. Motion comes from the theme's
+ * pill. When [fab] is given the toolbar renders it beside the pill. With a [scrollBehavior] the
+ * toolbar hides on scroll down and returns on scroll up (motion #03). Motion comes from the theme's
  * expressive motion scheme.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
+@Suppress("LongParameterList") // toolbar slots plus the optional scroll behavior and FAB
 fun FloatingToolbar(
     items: List<FloatingToolbarItem>,
     selected: FloatingToolbarItem,
     onSelect: (FloatingToolbarItem) -> Unit,
     modifier: Modifier = Modifier,
+    scrollBehavior: FloatingToolbarScrollBehavior? = null,
     fab: (@Composable () -> Unit)? = null,
 ) {
     val colors =
@@ -51,13 +55,19 @@ fun FloatingToolbar(
         items.forEach { item -> ToolbarItem(item = item, selected = item == selected, onSelect = onSelect) }
     }
     if (fab == null) {
-        HorizontalFloatingToolbar(expanded = true, modifier = modifier, colors = colors) { toolbarItems() }
+        HorizontalFloatingToolbar(
+            expanded = true,
+            modifier = modifier,
+            colors = colors,
+            scrollBehavior = scrollBehavior,
+        ) { toolbarItems() }
     } else {
         HorizontalFloatingToolbar(
             expanded = true,
             floatingActionButton = fab,
             modifier = modifier,
             colors = colors,
+            scrollBehavior = scrollBehavior,
         ) { toolbarItems() }
     }
 }
@@ -100,6 +110,7 @@ fun TandemBottomBar(
     onSelect: (FloatingToolbarItem) -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
+    scrollBehavior: FloatingToolbarScrollBehavior? = null,
 ) {
     Box(
         modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(TandemSpacing.lg),
@@ -109,6 +120,7 @@ fun TandemBottomBar(
             items = FloatingToolbarItem.entries,
             selected = selected,
             onSelect = onSelect,
+            scrollBehavior = scrollBehavior,
             fab = {
                 CookieFab(onClick = onSend) {
                     Icon(imageVector = TandemIcons.send, contentDescription = SEND_LABEL)
