@@ -37,12 +37,16 @@ actor ConnectionStateRelay {
 
     /// Starts forwarding `session`'s own ``TandemSession/state`` to every stream, replacing whatever
     /// this relay was previously forwarding from (an earlier, now-closed session for the same peer).
-    func attach(_ session: any TandemSession, peer: SpkiFingerprint? = nil) {
+    ///
+    /// ``TandemSession/state`` has a single consumer, so a second relay following the same session is
+    /// passed as `downstream` and fed from here; attaching both would split the states between them.
+    func attach(_ session: any TandemSession, peer: SpkiFingerprint? = nil, downstream: ConnectionStateRelay? = nil) {
         forwardTask?.cancel()
         let sessionState = session.state
         forwardTask = Task {
             for await state in sessionState {
                 self.forward(state, from: peer)
+                await downstream?.forward(state, from: peer)
             }
         }
     }
@@ -55,7 +59,7 @@ actor ConnectionStateRelay {
         subscribers.resetLatest()
     }
 
-    private func forward(_ state: ConnectionStateMachine.ConnectionState, from peer: SpkiFingerprint?) {
+    func forward(_ state: ConnectionStateMachine.ConnectionState, from peer: SpkiFingerprint?) {
         if isolatesFailuresByPeer {
             if case .failed = state {
                 failedPeer = peer
