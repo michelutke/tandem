@@ -73,6 +73,21 @@ class RemoteInputIndicatorInstrumentedTest {
         shell("cmd statusbar collapse")
     }
 
+    // The mirror session shows and hides the indicator from a worker thread, never the main thread.
+    @Test
+    fun remoteInputIndicator_shownAndHiddenOffMainThread_overlayAttachesAndDetaches() {
+        indicator.hide()
+        Thread.sleep(SETTLE_MS)
+
+        assertTrue(indicator.show())
+        Thread.sleep(SETTLE_MS)
+        assertTrue(indicator.isShowing())
+
+        indicator.hide()
+        Thread.sleep(SETTLE_MS)
+        assertEquals(false, indicator.isShowing())
+    }
+
     @Test
     @RequiresDevice
     fun remoteInputIndicator_otherAppOverlayShown_accessibilityOverlayStaysTopmost() {
