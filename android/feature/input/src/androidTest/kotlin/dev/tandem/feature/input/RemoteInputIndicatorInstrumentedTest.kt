@@ -46,7 +46,7 @@ class RemoteInputIndicatorInstrumentedTest {
 
     @After
     fun hideIndicatorAndDisableService() {
-        instrumentation.runOnMainSync { indicator.hide() }
+        if (::indicator.isInitialized) instrumentation.runOnMainSync { indicator.hide() }
         shell("settings put secure enabled_accessibility_services \"\"")
         shell("settings put secure accessibility_enabled 0")
         awaitServiceUnbound()
