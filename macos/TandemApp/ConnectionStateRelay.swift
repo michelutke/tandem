@@ -47,6 +47,14 @@ actor ConnectionStateRelay {
         }
     }
 
+    /// Drops the remembered failure, and the replayed latest state, once the peer that caused it is
+    /// no longer paired, so another phone's next Ready is no longer held back by a revoked one.
+    func forgetFailureIfUnpaired(isPaired: @Sendable (SpkiFingerprint) -> Bool) {
+        guard let failedPeer, !isPaired(failedPeer) else { return }
+        self.failedPeer = nil
+        subscribers.resetLatest()
+    }
+
     private func forward(_ state: ConnectionStateMachine.ConnectionState, from peer: SpkiFingerprint?) {
         if isolatesFailuresByPeer {
             if case .failed = state {
@@ -81,6 +89,12 @@ final class Subscribers: @unchecked Sendable {
         continuations[id] = continuation
         continuation.onTermination = { [weak self] _ in self?.remove(id) }
         return stream
+    }
+
+    func resetLatest() {
+        lock.lock()
+        defer { lock.unlock() }
+        latest = nil
     }
 
     func yield(_ state: ConnectionStateMachine.ConnectionState) {

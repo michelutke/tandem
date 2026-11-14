@@ -66,6 +66,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     private var hasResolved = false
     private var didFail = false
     private var didCommit = false
+    private var didFailCommit = false
     private var connectionClosed = false
 
     /// - Parameters:
@@ -151,6 +152,14 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
         return didFail
     }
 
+    /// `true` when ``pair()`` aborted because committing trust failed, after the window had already
+    /// closed as paired: the QR screen has nothing left to offer, so the presenter shows an error.
+    public var didFailToCommit: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return didFailCommit
+    }
+
     /// `true` only once ``pair()`` committed trust for this candidate. The sole proof of success:
     /// ``isResolved`` is also set by a closed connection or a decline, neither of which paired.
     public var didPair: Bool {
@@ -185,7 +194,7 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
             return
         }
         guard commitTrust() else {
-            markFailed()
+            markFailed(commit: true)
             try? await sink.sendPairRejected(.pairingUnavailable)
             await sink.closePairingFailed()
             onResolved?()
@@ -267,10 +276,11 @@ public final class PairConfirmationViewModel: @unchecked Sendable {
     }
 
     /// Records that ``pair()`` resolved by aborting rather than pairing, for ``didFailToPair``.
-    private func markFailed() {
+    private func markFailed(commit: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
         didFail = true
+        didFailCommit = commit
     }
 
     private func markCommitted() {

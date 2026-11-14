@@ -133,10 +133,7 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
             Task { await pending.ownerDidDismiss() }
         }
         guard let coordinator = try? (manual ? composition.host.openManual() : composition.host.open()) else {
-            _ = GlassDialog.runModal(
-                title: "Pairing unavailable.",
-                actions: [GlassDialogAction("OK", kind: .primary, isSafeDefault: true)]
-            )
+            showPairingUnavailable()
             return
         }
         let controller = PairingWindowController(viewModel: coordinator.viewModel)
@@ -149,6 +146,13 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
         NSApp.activate()
         controller.showWindow(nil)
         watchWindow()
+    }
+
+    private func showPairingUnavailable() {
+        _ = GlassDialog.runModal(
+            title: "Pairing unavailable.",
+            actions: [GlassDialogAction("OK", kind: .primary, isSafeDefault: true)]
+        )
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -186,6 +190,11 @@ final class MacPairingPresenter: NSObject, NSWindowDelegate {
         guard let pending = pendingConfirmation, pending.endedWithoutPairing,
               let viewModel = composition.host.coordinator?.viewModel else { return }
         pendingConfirmation = nil
+        if pending.didFailToCommit {
+            windowController?.close()
+            showPairingUnavailable()
+            return
+        }
         windowController?.window?.contentViewController = NSHostingController(
             rootView: PairingView(viewModel: viewModel, onCancel: { [weak self] in self?.windowController?.close() })
         )

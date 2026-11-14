@@ -160,12 +160,13 @@ public actor ThumbnailCache: PeerDataPurging {
         url.resolvingSymlinksInPath().path
     }
 
-    /// False when there is no PNG IHDR, or it declares a width or height of 0 or above 512 px
+    /// False when there is no PNG signature and IHDR, or it declares a width or height of 0 or above 512 px
     /// (decode-bomb guard).
     static func isWithinDimensionCap(_ bytes: Data) -> Bool {
         let ihdrRange = 12..<16
         let sizeRange = 16..<24
-        guard bytes.count >= sizeRange.upperBound, bytes[ihdrRange] == Data("IHDR".utf8) else { return false }
+        guard bytes.count >= sizeRange.upperBound, bytes.starts(with: pngSignature),
+              bytes[ihdrRange] == Data("IHDR".utf8) else { return false }
         let header = Data(bytes[sizeRange])
         let width = header.prefix(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
         let height = header.suffix(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }

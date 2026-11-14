@@ -71,7 +71,7 @@ private final class GlassDialogPanel: NSPanel {
 /// ``close()`` withdraws it without calling ``onChoose``.
 @MainActor
 public final class GlassDialogHandle {
-    private let panel: GlassDialogPanel
+    let panel: NSPanel
     private var onChoose: ((Int?) -> Void)?
 
     fileprivate init(panel: GlassDialogPanel, onChoose: @escaping (Int?) -> Void) {
@@ -88,7 +88,8 @@ public final class GlassDialogHandle {
 
     func show() {
         panel.center()
-        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
+        panel.makeKey()
     }
 
     public func close() {
@@ -134,14 +135,16 @@ public enum GlassDialog {
         actions: [GlassDialogAction],
         onChoose: @escaping (Int?) -> Void
     ) -> GlassDialogHandle {
-        var handle: GlassDialogHandle?
+        weak var handle: GlassDialogHandle?
         let view = GlassDialogView(title: title, message: message, actions: actions) { index in
             handle?.choose(index)
         }
         let panel = GlassDialogPanel(contentViewController: NSHostingController(rootView: view))
         panel.styleMask = [.titled, .fullSizeContentView]
         panel.isReleasedWhenClosed = false
-        panel.level = .floating
+        panel.level = .statusBar
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         let created = GlassDialogHandle(panel: panel, onChoose: onChoose)
         handle = created
         panel.onCancel = { [weak created] in created?.choose(nil) }

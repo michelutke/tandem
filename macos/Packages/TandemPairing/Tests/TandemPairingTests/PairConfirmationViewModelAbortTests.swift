@@ -121,6 +121,7 @@ struct PairConfirmationViewModelAbortTests {
         #expect(try trustStore.list().isEmpty)
         #expect(window.closedReason == .expired)
         #expect(viewModel.didFailToPair)
+        #expect(!viewModel.didFailToCommit)
     }
 
     @Test
@@ -144,5 +145,6 @@ struct PairConfirmationViewModelAbortTests {
         #expect(sink.calls == [.pairRejected(.pairingUnavailable), .closePairingFailed])
         #expect(try trustStore.list().isEmpty)
         #expect(viewModel.didFailToPair)
+        #expect(viewModel.didFailToCommit)
     }
 }

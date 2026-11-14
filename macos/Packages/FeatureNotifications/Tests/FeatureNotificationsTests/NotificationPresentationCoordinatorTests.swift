@@ -145,6 +145,30 @@ import TandemCrypto
         #expect(await presenter.removedIdentifierBatches == [["kept-2"]])
     }
 
+    @Test func notificationPresentation_readerLocalPrefixedActionResult_dropped() async throws {
+        let presenter = RecordingNotificationPresenter()
+        let coordinator = NotificationPresentationCoordinator(presenter: presenter)
+        let session = FakeTandemSession()
+        let handler = NotificationActionHandler(presenter: presenter, session: session)
+        var local = Tandem_V1_NotificationActionResult()
+        local.key = "tandem.call.call-1"
+        local.status = .gone
+        var normal = Tandem_V1_NotificationActionResult()
+        normal.key = "kept-3"
+        normal.status = .gone
+
+        let readerTask = startNotificationPresentationReader(
+            peer: try Self.fingerprint(0x04), session: session, coordinator: coordinator, actionHandler: handler
+        )
+        await session.inject(InboundFrame(channel: .notify, seq: 1, ack: 0, payload: .notificationActionResult(local)))
+        await session.inject(InboundFrame(channel: .notify, seq: 2, ack: 0, payload: .notificationActionResult(normal)))
+        await session.close()
+        await readerTask.value
+
+        #expect(await presenter.removedIdentifierBatches == [["kept-3"]])
+        #expect(await presenter.addedIdentifiers == ["kept-3"])
+    }
+
     @Test func coordinator_dismissedNotification_identifierRemovedFromPeerIndex() async throws {
         let presenter = RecordingNotificationPresenter()
         let coordinator = NotificationPresentationCoordinator(presenter: presenter)

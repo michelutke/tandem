@@ -75,7 +75,9 @@ enum AppComposition {
 
         let mirror = MirrorComposition()
         let sessionFeatures = makeSessionFeatures(core: core, mirror: mirror)
-        let menuBarWiring = makeMenuBarWiring(sessionRegistry: core.sessionRegistry)
+        let menuBarWiring = makeMenuBarWiring(
+            sessionRegistry: core.sessionRegistry, trustStore: core.trustStore, pairedPeer: core.pairedPeer
+        )
         let controller = makeController(
             identityBootstrapper: identityBootstrapper,
             core: core,
@@ -262,9 +264,23 @@ enum AppComposition {
         let onSessionRegistered: NWListenerFactory.SessionRegisteredHandler
     }
 
-    private static func makeMenuBarWiring(sessionRegistry: ControlSessionRegistry) -> MenuBarWiring {
+    private static func makeMenuBarWiring(
+        sessionRegistry: ControlSessionRegistry,
+        trustStore: TrustStore,
+        pairedPeer: PairedPeerState
+    ) -> MenuBarWiring {
         let relay = ConnectionStateRelay()
         let bannerRelay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        MainActor.assumeIsolated {
+            pairedPeer.onRefresh = {
+                Task {
+                    await bannerRelay.forgetFailureIfUnpaired { failed in
+                        guard let pinned = try? trustStore.pinnedPeers() else { return true }
+                        return pinned.contains { $0.matches(failed) }
+                    }
+                }
+            }
+        }
         return MenuBarWiring(
             makeStream: { relay.makeStream() },
             makeBannerStream: { bannerRelay.makeStream() },

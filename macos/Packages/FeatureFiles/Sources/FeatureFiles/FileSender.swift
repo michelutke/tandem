@@ -83,10 +83,10 @@ public actor FileSender: FilesFrameStream {
         offer.sha256 = digest
         state = .offered
         FilesLog.event("offer sent")
-        try? await session.send(.files, payload: .fileOffer(offer))
         await progress?.began(id: id, name: name, totalBytes: Int64(size), direction: .macToPhone) { [weak self] in
             await self?.cancel()
         }
+        try? await session.send(.files, payload: .fileOffer(offer))
     }
 
     public func handle(accept: Tandem_V1_FileAccept) async {
@@ -132,6 +132,7 @@ public actor FileSender: FilesFrameStream {
 
     public func handle(cancel: Tandem_V1_FileCancel) async {
         guard cancel.id == id, [.offered, .sending, .completing, .completed].contains(state) else { return }
+        guard state != .completed || graceTask != nil else { return }
         graceTask?.cancel()
         graceTask = nil
         state = .cancelled(cancel.reason)
@@ -183,6 +184,7 @@ public actor FileSender: FilesFrameStream {
     /// The session ended while this transfer was still in flight.
     public func disconnected() async {
         if state == .completed {
+            graceTask?.cancel()
             await finishCompletion()
             return
         }
@@ -198,9 +200,8 @@ public actor FileSender: FilesFrameStream {
     }
 
     private func finishCompletion() async {
-        guard let task = graceTask else { return }
+        guard graceTask != nil else { return }
         graceTask = nil
-        task.cancel()
         await progress?.ended(id: id, outcome: .completed)
     }
 

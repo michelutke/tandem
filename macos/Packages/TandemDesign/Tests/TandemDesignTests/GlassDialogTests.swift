@@ -40,6 +40,24 @@ import Testing
 
         #expect(calls.values.isEmpty)
     }
+
+    @Test func makeHandle_panel_staysVisibleWhenAppDeactivatesAndFloatsLikeBanner() {
+        let panel = makeHandle(LockedCalls()).panel
+
+        #expect(panel.hidesOnDeactivate == false)
+        #expect(panel.level == .statusBar)
+        #expect(panel.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .transient])
+    }
+
+    @Test func makeHandle_handleReleased_panelIsDeallocated() {
+        weak var weakPanel: NSPanel?
+        autoreleasepool {
+            let handle = makeHandle(LockedCalls())
+            weakPanel = handle.panel
+        }
+
+        #expect(weakPanel == nil)
+    }
 }
 
 @MainActor

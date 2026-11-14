@@ -233,4 +233,56 @@ struct ErrorBannerViewModelTests {
         }
         #expect(await viewModel.closeCode == nil)
     }
+
+    @Test
+    func errorBannerViewModel_failedPhoneUnpairedThenOtherPhoneReady_bannerClears() async throws {
+        let relay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
+        let phoneA = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        let phoneB = try SpkiFingerprint(bytes: Data(repeating: 0x0B, count: SpkiFingerprint.byteCount))
+        let failing = FakeTandemSession()
+        let healthy = FakeTandemSession()
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        await relay.forgetFailureIfUnpaired { $0.matches(phoneB) }
+        await relay.attach(healthy, peer: phoneB)
+        await healthy.emit(.ready)
+        attempts = 0
+        while await viewModel.closeCode != nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        #expect(await viewModel.closeCode == nil)
+    }
+
+    @Test
+    func errorBannerViewModel_failedPhoneStillPaired_otherPhoneReadyKeepsBanner() async throws {
+        let relay = ConnectionStateRelay(isolatesFailuresByPeer: true)
+        let viewModel = await ErrorBannerViewModel(stateStream: relay.makeStream(), peerName: "Pixel 8")
+        let phoneA = try SpkiFingerprint(bytes: Data(repeating: 0x0A, count: SpkiFingerprint.byteCount))
+        let phoneB = try SpkiFingerprint(bytes: Data(repeating: 0x0B, count: SpkiFingerprint.byteCount))
+        let failing = FakeTandemSession()
+        let healthy = FakeTandemSession()
+        await relay.attach(failing, peer: phoneA)
+        await failing.emit(.failed(.versionMismatch))
+        var attempts = 0
+        while await viewModel.message == nil, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+
+        await relay.forgetFailureIfUnpaired { _ in true }
+        await relay.attach(healthy, peer: phoneB)
+        await healthy.emit(.ready)
+        for _ in 0..<500 { await Task.yield() }
+
+        #expect(await viewModel.closeCode == .versionMismatch)
+    }
 }

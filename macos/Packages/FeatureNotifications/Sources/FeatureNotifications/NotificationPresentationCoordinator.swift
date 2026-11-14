@@ -122,6 +122,7 @@ public func startNotificationPresentationReader(
                 await coordinator.forget(identifier: dismiss.key, from: peer)
                 await dismissSync?.handle(dismiss)
             case .notificationActionResult(let result):
+                guard !result.key.hasPrefix(localNotificationIdentifierPrefix) else { continue }
                 await actionHandler?.handle(result)
             default:
                 continue

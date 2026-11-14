@@ -220,6 +220,13 @@ import TandemTestSupport
         #expect(!ThumbnailCache.isWithinDimensionCap(jpeg))
     }
 
+    @Test func thumbnailCache_nonPNGBytesCarryingIhdrAtOffset12_notWithinDimensionCap() {
+        let crafted = Data("II*\0".utf8) + Data(repeating: 0x00, count: 8) + Data("IHDR".utf8)
+            + Data([0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40]) + Data(repeating: 0x01, count: 16)
+
+        #expect(!ThumbnailCache.isWithinDimensionCap(crafted))
+    }
+
     @Test func cachingPhotoService_jpegBytes_fetchThumbnailThrowsAndNothingCached() async throws {
         let harness = try Harness()
         defer { try? FileManager.default.removeItem(at: harness.directory) }
