@@ -6731,6 +6731,20 @@
     },
     {
       "type": "library",
+      "bom-ref": "pkg:maven/com.google.guava/guava-parent@33.7.2-android",
+      "name": "com.google.guava:guava-parent",
+      "version": "33.7.2-android",
+      "purl": "pkg:maven/com.google.guava/guava-parent@33.7.2-android",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "bom-ref": "pkg:maven/com.google.guava/listenablefuture@1.0",
       "name": "com.google.guava:listenablefuture",
       "version": "1.0",

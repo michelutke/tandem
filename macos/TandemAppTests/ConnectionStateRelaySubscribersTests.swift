@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import TandemCrypto
-import TandemProtocol
+@testable import TandemProtocol
 
 @testable import TandemApp
 
