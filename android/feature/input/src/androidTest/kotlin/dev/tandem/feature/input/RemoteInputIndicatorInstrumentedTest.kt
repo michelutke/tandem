@@ -15,6 +15,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.FileInputStream
+import java.io.InterruptedIOException
 
 // E62-06 tdd:
 //   instrumented: remoteInputIndicator_remoteSwipeOverNotification_indicatorStillPosted
@@ -134,7 +135,17 @@ class RemoteInputIndicatorInstrumentedTest {
         check(CapturingAccessibilityService.instance == null) { "accessibility service still bound" }
     }
 
+    // On the CI api33 emulator the instrumentation thread can arrive here with its interrupt flag
+    // set, which fails the blocking read; clear it and run the command once more.
     private fun shell(command: String): String =
+        try {
+            runShell(command)
+        } catch (_: InterruptedIOException) {
+            Thread.interrupted()
+            runShell(command)
+        }
+
+    private fun runShell(command: String): String =
         FileInputStream(
             instrumentation
                 .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
